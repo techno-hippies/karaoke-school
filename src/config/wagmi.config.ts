@@ -1,0 +1,47 @@
+import { http, createConfig, createStorage } from 'wagmi'
+import { baseSepolia, mainnet } from 'wagmi/chains'
+import { 
+  connectorsForWallets,
+} from '@rainbow-me/rainbowkit'
+import {
+  metaMaskWallet,
+  walletConnectWallet,
+  coinbaseWallet,
+  rainbowWallet,
+} from '@rainbow-me/rainbowkit/wallets'
+
+// WalletConnect project ID - you should replace this with your own
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID'
+
+// Configure wallet groups
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Wallets',
+      wallets: [
+        metaMaskWallet,
+        walletConnectWallet,
+        coinbaseWallet,
+        rainbowWallet,
+      ],
+    },
+  ],
+  {
+    appName: 'Karaoke School',
+    projectId,
+  }
+)
+
+// Create config for wagmi
+export const wagmiConfig = createConfig({
+  chains: [baseSepolia, mainnet], // Include mainnet for ENS resolution
+  connectors,
+  storage: createStorage({ storage: localStorage }),
+  transports: {
+    [baseSepolia.id]: http(),
+    [mainnet.id]: http(), // Add mainnet transport for ENS
+  },
+})
+
+// Export chains for use in components
+export { baseSepolia, mainnet }

@@ -1,0 +1,38 @@
+{
+  "name": "@tiktok-views/sdk",
+  "version": "1.0.0",
+  "description": "SDK for decentralized view tracking with LIT Protocol and on-chain verification",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@lit-protocol/lit-node-client": "^3.0.0",
+    "ethers": "^6.0.0",
+    "siwe": "^2.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "view-tracking",
+    "lit-protocol",
+    "blockchain",
+    "livepeer",
+    "decentralized"
+  ],
+  "author": "",
+  "license": "MIT"
+}
