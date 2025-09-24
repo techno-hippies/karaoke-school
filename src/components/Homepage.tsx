@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useConnect, useConnectors, useAccount, useDisconnect } from 'wagmi';
+import React from 'react';
 import { VerticalFeed } from './feed/VerticalFeed';
 
 const Homepage: React.FC = () => {

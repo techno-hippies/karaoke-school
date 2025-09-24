@@ -18,6 +18,9 @@ const meta: Meta<typeof ProfilePageView> = {
   component: ProfilePageView,
   parameters: {
     layout: 'fullscreen',
+    viewport: {
+      defaultViewport: 'desktop',
+    },
   },
   argTypes: {
     onDesktopTabChange: { action: 'desktopTabChange' },

@@ -62,8 +62,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
     <div className="p-4 border-t border-neutral-800">
       <div className="flex items-start space-x-3">
         {showAvatar && (
-          <div className="w-8 h-8 bg-neutral-700 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white">You</span>
+          <div className="w-8 h-8 bg-blue-600 rounded-full flex-shrink-0">
           </div>
         )}
         <div className="flex-1 relative">

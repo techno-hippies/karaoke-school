@@ -66,8 +66,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     <div className="w-full bg-black text-white pb-6">
       {/* Desktop Header */}
       <div className="max-md:hidden px-6 py-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-8">
+        <div className="flex gap-8">
             {/* Avatar */}
             <div className="flex-shrink-0">
               {/* Always use the original avatar for now */}
@@ -178,7 +177,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               </div>
             </div>
           </div>
-        </div>
       </div>
 
       {/* Mobile Header */}

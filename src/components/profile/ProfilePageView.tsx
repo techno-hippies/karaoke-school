@@ -157,8 +157,21 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
           />
 
           {/* Video Grid */}
-          <div className="px-1 md:px-4 mt-4">
-            <div className="grid grid-cols-3 gap-1">
+          <div className="px-1 md:px-6 mt-4">
+            <div
+              className="grid gap-2 md:gap-3 max-w-7xl"
+              style={{
+                gridTemplateColumns: 'repeat(3, 1fr)',
+              }}
+              data-grid="mobile-3-desktop-6"
+            >
+              <style>{`
+                @media (min-width: 768px) {
+                  [data-grid="mobile-3-desktop-6"] {
+                    grid-template-columns: repeat(6, 1fr) !important;
+                  }
+                }
+              `}</style>
               {videos.map((video) => (
                 <VideoThumbnail
                   key={video.id}

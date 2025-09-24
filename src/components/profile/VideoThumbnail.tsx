@@ -93,7 +93,7 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
 
   return (
     <div
-      className="relative aspect-[9/16] bg-[#161823] overflow-hidden cursor-pointer group"
+      className="relative aspect-[9/16] bg-[#161823] overflow-hidden cursor-pointer group rounded-md"
       onClick={onClick}
     >
       {/* Generated or Static Thumbnail */}
@@ -134,13 +134,6 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
         </div>
       </div>
 
-      {/* Play Count */}
-      <div className="absolute bottom-1 left-1 flex items-center gap-1 text-white">
-        <Play className="w-3 h-3 fill-white" />
-        <span className="text-xs font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-          {formatPlayCount(playCount)}
-        </span>
-      </div>
     </div>
   );
 };

@@ -21,6 +21,12 @@ const config: StorybookConfig = {
     const tailwindcss = await import('@tailwindcss/vite');
     config.plugins = config.plugins || [];
     config.plugins.push(tailwindcss.default());
+
+    // Ensure proper React configuration
+    config.resolve = config.resolve || {};
+    config.resolve.alias = config.resolve.alias || {};
+    config.resolve.dedupe = ['react', 'react-dom'];
+
     return config;
   }
 };

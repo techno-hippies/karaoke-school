@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, X, ChevronUp, ChevronDown, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
-import { Comment, type CommentData } from './Comment';
+import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
 import Hls from 'hls.js';
 
@@ -52,7 +52,8 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
 }) => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false); // Start unmuted since user intentionally clicked video
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
 
@@ -79,6 +80,16 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
     }
   };
 
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(e => console.log('Play failed:', e));
+      }
+    }
+  };
+
   // Touch event handlers for swipe navigation
   const handleTouchStart = (e: React.TouchEvent) => {
     touchEnd.current = null;
@@ -101,8 +112,14 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
     const xDiff = touchStart.current.x - touchEnd.current.x;
     const yDiff = touchStart.current.y - touchEnd.current.y;
 
-    // Check if vertical swipe is more significant than horizontal
-    if (Math.abs(yDiff) > Math.abs(xDiff)) {
+    // Check if this is a tap (small movement) vs swipe
+    const isClick = Math.abs(xDiff) < 10 && Math.abs(yDiff) < 10;
+
+    if (isClick) {
+      // Tap detected - toggle play/pause
+      togglePlayPause();
+    } else if (Math.abs(yDiff) > Math.abs(xDiff)) {
+      // Check if vertical swipe is more significant than horizontal
       if (yDiff > 50 && onNavigateNext) {
         // Swipe up = next video
         onNavigateNext();
@@ -188,11 +205,12 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
 
         {/* Video Container - 9:16 aspect ratio, centered */}
         <div
-          className="relative bg-neutral-900"
+          className="relative bg-neutral-900 rounded-lg overflow-hidden cursor-pointer"
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onClick={togglePlayPause}
         >
           {videoUrl ? (
             <video
@@ -202,6 +220,9 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
               muted={isMuted}
               playsInline
               poster={thumbnailUrl}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
             />
           ) : thumbnailUrl ? (
             <img
@@ -212,6 +233,15 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
           ) : (
             <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
               <span className="text-white/50">No media available</span>
+            </div>
+          )}
+
+          {/* Play/Pause Overlay - only show when paused */}
+          {videoUrl && !isPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200">
+              <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
+                <Play className="w-10 h-10 text-white fill-white ml-1" />
+              </div>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
@@ -42,7 +42,12 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Touch handling for swipe navigation
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const touchEnd = useRef<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   
   // Determine the profile identifier and route to navigate to
@@ -76,6 +81,48 @@ export const VideoPost: React.FC<VideoPostProps> = ({
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
     }
+  };
+
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(e => console.log('Play failed:', e));
+      }
+    }
+  };
+
+  // Touch event handlers for play/pause detection
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchEnd.current = null;
+    touchStart.current = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEnd.current = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart.current || !touchEnd.current) return;
+
+    const xDiff = touchStart.current.x - touchEnd.current.x;
+    const yDiff = touchStart.current.y - touchEnd.current.y;
+
+    // Check if this is a tap (small movement) vs swipe
+    const isClick = Math.abs(xDiff) < 10 && Math.abs(yDiff) < 10;
+
+    if (isClick) {
+      // Tap detected - toggle play/pause
+      togglePlayPause();
+    }
+    // Note: Feed doesn't need swipe navigation like VideoDetail
   };
   
   // Setup HLS.js for HLS streaming
@@ -149,7 +196,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   return (
     <div className="relative h-screen w-full bg-black snap-start flex items-center justify-center">
       {/* Video/Thumbnail Background - mobile: full screen, desktop: 9:16 centered */}
-      <div className="relative w-full h-full md:w-[56vh] md:h-[90vh] md:max-w-[500px] md:max-h-[900px] bg-neutral-900 md:rounded-lg overflow-hidden">
+      <div
+        className="relative w-full h-full md:w-[56vh] md:h-[90vh] md:max-w-[500px] md:max-h-[900px] bg-neutral-900 md:rounded-lg overflow-hidden cursor-pointer"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={togglePlayPause}
+      >
         {videoUrl ? (
           <video
             ref={videoRef}
@@ -158,6 +211,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             muted={isMuted}
             playsInline
             poster={thumbnailUrl}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
           />
         ) : thumbnailUrl ? (
           <img 
@@ -166,12 +222,24 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             className="w-full h-full object-cover"
           />
         ) : null}
-        
+
+        {/* Play/Pause Overlay - only show when paused */}
+        {videoUrl && !isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200">
+            <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
+              <Play className="w-10 h-10 text-white fill-white ml-1" />
+            </div>
+          </div>
+        )}
+
         {/* Mute/Unmute button - top left of video */}
         {videoUrl && (
           <button
-            onClick={toggleMute}
-            className="absolute top-4 left-4 p-2"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering play/pause
+              toggleMute();
+            }}
+            className="absolute top-4 left-4 p-2 z-10"
           >
             {isMuted ? (
               <VolumeX className="w-6 h-6 text-white drop-shadow-lg" />
