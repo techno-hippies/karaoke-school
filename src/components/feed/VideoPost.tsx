@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus, Play } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
-import Hls from 'hls.js';
+import { useVideoPlayer } from '../../hooks/useVideoPlayer';
+import { useProfileNavigation } from '../../hooks/useProfileNavigation';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
 
 interface VideoPostProps {
   videoUrl?: string;
@@ -30,177 +31,45 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   shares,
   musicTitle = 'Original Sound',
   creatorHandle,
-  creatorId,
-  pkpPublicKey
+  creatorId
 }) => {
-
-  // Log props received by VideoPost
-  React.useEffect(() => {
-    // Only log when needed for debugging
-    // console.log(`[VideoPost] Component props for @${username}:`, { username, creatorHandle, creatorId });
-  }, [videoUrl, username, description]);
+  // State
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Touch handling for swipe navigation
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const touchEnd = useRef<{ x: number; y: number } | null>(null);
-  const navigate = useNavigate();
-  
-  // Determine the profile identifier and route to navigate to
-  // Priority: creatorId (handle) > creatorHandle > username
-  const getProfileRoute = () => {
-    const profileId = creatorId || creatorHandle || username;
-    const cleanId = profileId.replace('@', '');
+  // Custom hooks
+  const {
+    videoRef,
+    isPlaying,
+    isMuted,
+    togglePlayPause,
+    toggleMute
+  } = useVideoPlayer(videoUrl, {
+    startMuted: true,
+    autoplay: false,
+    username
+  });
 
-    // Check if this is a Lens handle
-    if (cleanId.startsWith('lens/') || cleanId.includes('lens/')) {
-      const lensUsername = cleanId.replace('lens/', '');
-      console.log('[Profile] Building Lens profile route:', {
-        profileId,
-        cleanId,
-        lensUsername,
-        finalRoute: `/profile/lens/${lensUsername}`
-      });
-      return `/profile/lens/${lensUsername}`;
-    } else {
-      console.log('[Profile] Building regular profile route:', {
-        profileId,
-        cleanId,
-        finalRoute: `/profile/${cleanId}`
-      });
-      return `/profile/${cleanId}`;
-    }
-  };
-  
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
-  };
+  const { navigateToProfile } = useProfileNavigation();
 
-  const togglePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play().catch(e => console.log('Play failed:', e));
-      }
-    }
-  };
-
-  // Touch event handlers for play/pause detection
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchEnd.current = null;
-    touchStart.current = {
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    };
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEnd.current = {
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    };
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart.current || !touchEnd.current) return;
-
-    const xDiff = touchStart.current.x - touchEnd.current.x;
-    const yDiff = touchStart.current.y - touchEnd.current.y;
-
-    // Check if this is a tap (small movement) vs swipe
-    const isClick = Math.abs(xDiff) < 10 && Math.abs(yDiff) < 10;
-
-    if (isClick) {
-      // Tap detected - toggle play/pause
-      togglePlayPause();
-    }
+  const touchGestures = useTouchGestures({
+    onTap: togglePlayPause,
     // Note: Feed doesn't need swipe navigation like VideoDetail
-  };
+  });
   
-  // Setup HLS.js for HLS streaming
+  // Log props received by VideoPost for debugging
   React.useEffect(() => {
-    if (videoUrl && videoRef.current) {
-      const video = videoRef.current;
-
-      // console.log(`[VideoPost] Loading video for @${username}:`, videoUrl);
-
-      // Check if it's an HLS stream
-      if (videoUrl.endsWith('.m3u8')) {
-        // console.log(`[VideoPost] HLS stream detected for @${username}`);
-
-        if (Hls.isSupported()) {
-          // console.log(`[VideoPost] HLS.js supported, creating player for @${username}`);
-
-          const hls = new Hls({
-            debug: false, // Disable verbose debug logs
-            enableWorker: true,
-            lowLatencyMode: true,
-          });
-
-          hls.loadSource(videoUrl);
-          hls.attachMedia(video);
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            // console.log(`[VideoPost] HLS manifest parsed for @${username}, starting playback`);
-            video.play().catch(e => console.log('Autoplay failed:', e));
-          });
-
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error(`[VideoPost] HLS error for @${username}:`, data);
-            if (data.fatal) {
-              console.error(`[VideoPost] HLS fatal error for @${username}:`, data);
-            }
-          });
-
-          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-            // console.log(`[VideoPost] HLS media attached for @${username}`);
-          });
-
-          return () => {
-            // console.log(`[VideoPost] Destroying HLS player for @${username}`);
-            hls.destroy();
-          };
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari)
-          console.log(`[VideoPost] Using native HLS support for @${username}`);
-          video.src = videoUrl;
-          video.play().catch(e => console.log('Autoplay failed:', e));
-        } else {
-          console.warn(`[VideoPost] HLS not supported for @${username}`);
-        }
-      } else {
-        // Regular video URL (MP4, etc)
-        console.log(`[VideoPost] Regular video URL for @${username}`);
-        video.src = videoUrl;
-        video.play().catch(e => console.log('Autoplay failed:', e));
-      }
-    } else {
-      console.log(`[VideoPost] No video URL provided for @${username}`);
-    }
-  }, [videoUrl, username]);
-  
-  const formatCount = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
-  };
+    // console.log(`[VideoPost] Component props for @${username}:`, { username, creatorHandle, creatorId });
+  }, [videoUrl, username, description]);
 
   return (
     <div className="relative h-screen w-full bg-black snap-start flex items-center justify-center">
       {/* Video/Thumbnail Background - mobile: full screen, desktop: 9:16 centered */}
       <div
         className="relative w-full h-full md:w-[56vh] md:h-[90vh] md:max-w-[500px] md:max-h-[900px] bg-neutral-900 md:rounded-lg overflow-hidden cursor-pointer"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={touchGestures.handleTouchStart}
+        onTouchMove={touchGestures.handleTouchMove}
+        onTouchEnd={touchGestures.handleTouchEnd}
         onClick={togglePlayPause}
       >
         {videoUrl ? (
@@ -211,9 +80,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             muted={isMuted}
             playsInline
             poster={thumbnailUrl}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
+            onPlay={() => {}} // Handled by useVideoPlayer hook
+            onPause={() => {}} // Handled by useVideoPlayer hook
+            onEnded={() => {}} // Handled by useVideoPlayer hook
           />
         ) : thumbnailUrl ? (
           <img 
@@ -255,9 +124,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             className="text-white font-semibold text-base drop-shadow-lg cursor-pointer hover:underline"
             onClick={(e) => {
               e.stopPropagation();
-              const profileRoute = getProfileRoute();
-              console.log(`[Profile] Username clicked - navigating to: ${profileRoute}`);
-              navigate(profileRoute);
+              navigateToProfile(username, creatorHandle, creatorId);
             }}
           >
             @{username}
@@ -279,9 +146,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const profileRoute = getProfileRoute();
-                console.log(`[Profile] Mobile avatar clicked - navigating to: ${profileRoute}`);
-                navigate(profileRoute);
+                navigateToProfile(username, creatorHandle, creatorId);
               }}
               className="w-12 h-12 rounded-full bg-neutral-300 overflow-hidden cursor-pointer"
             >
@@ -329,9 +194,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             className="text-white font-semibold mb-2 cursor-pointer active:underline"
             onClick={(e) => {
               e.stopPropagation();
-              const profileRoute = getProfileRoute();
-              console.log(`[Profile] Mobile username clicked - navigating to: ${profileRoute}`);
-              navigate(profileRoute);
+              navigateToProfile(username, creatorHandle, creatorId);
             }}
           >
             @{username}
@@ -351,14 +214,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const profileRoute = getProfileRoute();
-              console.log(`[Profile] Avatar clicked - navigating to: ${profileRoute}`);
-              try {
-                navigate(profileRoute);
-                console.log(`[Profile] Navigation successful`);
-              } catch (error) {
-                console.error(`[Profile] Navigation failed:`, error);
-              }
+              navigateToProfile(username, creatorHandle, creatorId);
             }}
             className="w-12 h-12 rounded-full bg-neutral-300 overflow-hidden cursor-pointer"
           >
