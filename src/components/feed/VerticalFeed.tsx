@@ -67,13 +67,10 @@ export const VerticalFeed: React.FC = () => {
   const pkpMappingsQuery = usePKPLensMapping();
   const pkpFeedQuery = usePKPLensFeed();
   
-  // Fallback to general Lens feed if no PKP mappings
-  const fallbackQuery = useSubgraphFeed();
-  
-  // Use PKP feed if available, otherwise use fallback
-  const blockchainFeed = pkpFeedQuery.data || fallbackQuery.data;
-  const isLoading = pkpFeedQuery.isLoading || fallbackQuery.isLoading;
-  const error = pkpFeedQuery.error || fallbackQuery.error;
+  // Use ONLY PKP feed - no fallback to general feed ever
+  const blockchainFeed = pkpFeedQuery.data;
+  const isLoading = pkpFeedQuery.isLoading;
+  const error = pkpFeedQuery.error;
   
   // Debug app accounts
   // React.useEffect(() => {

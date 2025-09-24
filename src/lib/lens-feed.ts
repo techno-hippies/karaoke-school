@@ -12,7 +12,7 @@ const PKP_REGISTRY_ADDRESS = import.meta.env.VITE_PKP_REGISTRY_ADDRESS || "0x...
  */
 export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> {
   try {
-    // console.log('[getFeedItems] Fetching posts with limit:', limit);
+    console.log('[getFeedItems] GENERAL FEED - Fetching posts with limit:', limit);
     
     // For now, get latest posts from all accounts
     // In production, you'd filter by your PKP accounts
@@ -244,10 +244,13 @@ export async function getLensUserPosts(lensUsername: string, limit: number = 50)
  */
 export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number = 50): Promise<LensFeedItem[]> {
   try {
-    // console.log('[getPKPAccountsPosts] Fetching posts for PKP addresses:', pkpAddresses);
+    console.log('[getPKPAccountsPosts] Fetching posts for PKP addresses:', pkpAddresses);
 
-    // Get general posts from Lens
+    // Get posts from our specific app
     const result = await fetchPosts(lensClient, {
+      filter: {
+        apps: [evmAddress('0x9484206D9beA9830F27361a2F5868522a8B8Ad22')]
+      },
       pageSize: "FIFTY"
     });
 
@@ -257,7 +260,12 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
     }
 
     const posts = result.value.items;
-    // console.log('[getPKPAccountsPosts] Fetched posts, filtering for PKP addresses');
+    console.log('[getPKPAccountsPosts] Fetched posts from app filter:', posts.length, 'posts');
+    console.log('[getPKPAccountsPosts] First few posts:', posts.slice(0, 3).map(p => ({
+      id: p.id,
+      author: p.author?.username?.value || p.author?.address,
+      app: p.app?.address
+    })));
 
     // Filter posts to only include ones from our test PKP addresses
     // Focus on the specific test addresses from the pipeline test
@@ -268,51 +276,37 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
       ...pkpAddresses // Include the original PKP addresses too
     ];
 
+    console.log(`[getPKPAccountsPosts] Test addresses we're filtering for:`, testAddresses);
+
+    // Since we already filtered by app in the fetchPosts call, we should only get posts from our app
+    // Let's be more strict and only show posts from the actual PKP addresses we care about
     const pkpPosts = posts.filter(post => {
       if (!post || !post.author) return false;
 
-      // Check if the post author's address matches any test address
+      console.log(`[getPKPAccountsPosts] Checking post ${post.id}: author=${post.author.address}, username=${post.author.username?.value}, app=${post.app?.address}`);
+
+      // Only include posts from the exact test addresses (be strict)
       const addressMatch = testAddresses.includes(post.author.address);
 
-      // Also check if any PKP accounts have usernames that match
-      const usernameMatch = post.author.username?.value && testAddresses.some(addr =>
-        addr.toLowerCase().includes(post.author.username?.value?.toLowerCase() || '')
-      );
+      if (addressMatch) {
+        console.log(`[getPKPAccountsPosts] ✅ KEEPING post ${post.id} from ${post.author.username?.value || post.author.address}`);
+      } else {
+        console.log(`[getPKPAccountsPosts] ❌ REJECTING post ${post.id} from ${post.author.username?.value || post.author.address} - not in test addresses`);
+      }
 
-      // Special check for @addisonre content, the new post ID, or posts with video metadata
-      const hasVideoContent = post.metadata?.__typename === 'VideoMetadata' ||
-                             post.metadata?.content?.includes('addisonre') ||
-                             post.metadata?.tags?.includes('addisonre');
-
-      // Check for the specific successful post ID
-      const isNewPost = post.id === '0xdd1e459318f85f05ea2199696d6da896b2dcb0aba904108fe19d6b4e2711b393';
-
-      // Check for lens/addisonre1218 username
-      const isAddisonAccount = post.author.username?.value === 'lens/addisonre1218';
-
-      // Log full metadata for addisonre1218 posts
-      // if (isAddisonAccount) {
-      //   console.log(`[getPKPAccountsPosts] FOUND ADDISON POST! Full structure:`, post);
-      //   console.log(`[getPKPAccountsPosts] Post metadata:`, post.metadata);
-      //   console.log(`[getPKPAccountsPosts] Metadata attachments:`, post.metadata?.attachments);
-      //   console.log(`[getPKPAccountsPosts] Metadata attributes:`, post.metadata?.attributes);
-      //   console.log(`[getPKPAccountsPosts] Metadata video:`, post.metadata?.video);
-      // }
-
-      // console.log(`[getPKPAccountsPosts] Checking post ${post.id}: author=${post.author.address}, username=${post.author.username?.value}, addressMatch=${addressMatch}, usernameMatch=${usernameMatch}, hasVideo=${hasVideoContent}, isNewPost=${isNewPost}, isAddisonAccount=${isAddisonAccount}`);
-
-      return addressMatch || usernameMatch || hasVideoContent || isNewPost || isAddisonAccount;
+      return addressMatch;
     });
 
     // console.log(`[getPKPAccountsPosts] Found ${pkpPosts.length} posts from PKP accounts out of ${posts.length} total`);
 
-    // If no PKP posts found, return a sample of all posts for development purposes
-    // This ensures the feed doesn't appear broken while PKP accounts are being set up
-    const postsToReturn = pkpPosts.length > 0 ? pkpPosts : posts.slice(0, 10);
-
+    // Only return PKP posts - no fallback to random posts
     if (pkpPosts.length === 0) {
-      console.log('[getPKPAccountsPosts] No PKP posts found, showing sample posts for development');
+      console.log('[getPKPAccountsPosts] No PKP posts found, returning empty array');
+      return [];
     }
+
+    console.log(`[getPKPAccountsPosts] Found ${pkpPosts.length} posts from PKP accounts out of ${posts.length} total`);
+    const postsToReturn = pkpPosts;
 
     return postsToReturn
       .filter(post => post && post.id) // More lenient filter

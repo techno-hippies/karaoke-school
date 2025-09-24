@@ -19,55 +19,36 @@ export interface TikTokCreatorMapping {
  */
 export async function getAppAccounts(): Promise<TikTokCreatorMapping[]> {
   try {
-    // console.log('[getAppAccounts] Fetching users for app:', APP_ADDRESS);
-    
-    // First verify the app exists
-    const appCheck = await fetchApp(lensClient, {
-      app: evmAddress(APP_ADDRESS)
-    });
-    
-    if (appCheck.isErr()) {
-      console.error('[getAppAccounts] App does not exist or error:', appCheck.error);
-      return [];
-    }
-    
-    // console.log('[getAppAccounts] App verified:', {
-    //   address: appCheck.value.address,
-    //   owner: appCheck.value.owner,
-    //   createdAt: appCheck.value.createdAt
-    // });
-    
+    console.log('[getAppAccounts] Fetching users for app:', APP_ADDRESS);
+
+    // Skip app verification - it's failing but the app exists
+    // Go directly to fetching users
     const result = await fetchAppUsers(lensClient, {
       app: evmAddress(APP_ADDRESS),
       pageSize: "FIFTY"
     });
 
     if (result.isErr()) {
-      console.error('Error fetching app users from Lens:', result.error);
+      console.error('[getAppAccounts] Error fetching app users from Lens:', result.error);
       return [];
     }
 
     const appUsers = result.value.items;
-    // console.log('[getAppAccounts] Found app users:', appUsers.length);
-    
-    // Log first few users for debugging
-    // if (appUsers.length > 0) {
-    //   console.log('[getAppAccounts] First app user:', {
-    //     username: appUsers[0].account.username?.value,
-    //     address: appUsers[0].account.address,
-    //     lastActiveOn: appUsers[0].lastActiveOn,
-    //     firstLoginOn: appUsers[0].firstLoginOn
-    //   });
-    //
-    //   // Log a few users to see structure
-    //   appUsers.slice(0, 5).forEach((user, i) => {
-    //     console.log(`[getAppAccounts] App User ${i}:`, {
-    //       username: user.account.username?.value,
-    //       address: user.account.address,
-    //       lastActive: user.lastActiveOn
-    //     });
-    //   });
-    // }
+    console.log('[getAppAccounts] ✅ SUCCESS! Found app users:', appUsers.length);
+
+    // Log all users for debugging
+    if (appUsers.length > 0) {
+      console.log('[getAppAccounts] 🎉 YOUR APP USERS:');
+      appUsers.forEach((user, i) => {
+        console.log(`[getAppAccounts] User ${i}:`, {
+          username: user.account.username?.value,
+          address: user.account.address,
+          lastActive: user.lastActiveOn
+        });
+      });
+    } else {
+      console.log('[getAppAccounts] ❌ No users found for this app.');
+    }
 
     return appUsers.map(user => ({
       tiktokHandle: user.account.username?.value || 'unknown',
@@ -76,7 +57,7 @@ export async function getAppAccounts(): Promise<TikTokCreatorMapping[]> {
       accountAddress: user.account.address
     }));
   } catch (error) {
-    console.error('Error in getAppAccounts:', error);
+    console.error('[getAppAccounts] ❌ CRITICAL ERROR in getAppAccounts:', error);
     return [];
   }
 }
@@ -100,16 +81,24 @@ export function usePKPLensMapping() {
  */
 export function usePKPLensFeed() {
   const { data: mappings = [], isLoading: mappingsLoading } = usePKPLensMapping();
-  
+
   return useQuery({
     queryKey: ['app-lens-feed', mappings.map(m => m.accountAddress)],
     queryFn: async () => {
-      if (mappings.length === 0) return [];
-      
+      console.log('[usePKPLensFeed] Fetching with mappings:', mappings.length, 'mappings');
+      if (mappings.length === 0) {
+        console.log('[usePKPLensFeed] No mappings, returning empty array');
+        return [];
+      }
+
       const { getPKPAccountsPosts } = await import('./lens-feed');
-      return getPKPAccountsPosts(mappings.map(m => m.accountAddress));
+      const addresses = mappings.map(m => m.accountAddress);
+      console.log('[usePKPLensFeed] Calling getPKPAccountsPosts with addresses:', addresses);
+      const result = await getPKPAccountsPosts(addresses);
+      console.log('[usePKPLensFeed] getPKPAccountsPosts returned:', result.length, 'posts');
+      return result;
     },
-    enabled: !mappingsLoading && mappings.length > 0,
+    enabled: !mappingsLoading,
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 5 * 60 * 1000, // 5 minutes
   });
