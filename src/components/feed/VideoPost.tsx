@@ -234,13 +234,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           />
 
           <ActionButton 
-            icon={MessageCircle} 
+            icon={ChatCircle} 
             count={comments} 
             onClick={() => setCommentsOpen(true)}
           />
 
           <ActionButton
-            icon={Share2}
+            icon={ShareNetwork}
             count={shares}
             onClick={() => setShareOpen(true)}
           />
@@ -321,14 +321,14 @@ export const VideoPost: React.FC<VideoPostProps> = ({
 
         {/* Comment Button */}
         <ActionButton 
-          icon={MessageCircle} 
+          icon={ChatCircle} 
           count={comments} 
           onClick={() => setCommentsOpen(true)}
         />
 
         {/* Share Button */}
         <ActionButton
-          icon={Share2}
+          icon={ShareNetwork}
           count={shares}
           onClick={() => setShareOpen(true)}
         />
