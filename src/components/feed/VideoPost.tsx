@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, Plus, Play, Check } from '@phosphor-icons/react';
+import { Heart, Chat, Share, MusicNote, SpeakerHigh, SpeakerX, Plus, Play, Check } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
@@ -234,13 +234,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           />
 
           <ActionButton 
-            icon={ChatCircle} 
+            icon={Chat} 
             count={comments} 
             onClick={() => setCommentsOpen(true)}
           />
 
           <ActionButton
-            icon={ShareNetwork}
+            icon={Share}
             count={shares}
             onClick={() => setShareOpen(true)}
           />
@@ -321,14 +321,14 @@ export const VideoPost: React.FC<VideoPostProps> = ({
 
         {/* Comment Button */}
         <ActionButton 
-          icon={ChatCircle} 
+          icon={Chat} 
           count={comments} 
           onClick={() => setCommentsOpen(true)}
         />
 
         {/* Share Button */}
         <ActionButton
-          icon={ShareNetwork}
+          icon={Share}
           count={shares}
           onClick={() => setShareOpen(true)}
         />

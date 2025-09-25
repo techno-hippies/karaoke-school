@@ -70,7 +70,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
         ) : (
           <Icon
             className={`w-6 h-6 transition-colors ${getIconColor()}`}
-            fill={isHeartButton && isActive ? 'currentColor' : 'none'}
+            weight={isHeartButton && isActive ? 'fill' : 'regular'}
           />
         )}
       </div>
