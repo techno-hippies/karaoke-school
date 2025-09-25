@@ -3,20 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ProfilePageView } from './ProfilePageView';
 import { VideoDetail } from '../feed/VideoDetail';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { 
-  useProfileDetails, 
-  useProfileStats,
-  listOpAddListRecord,
-  listOpRemoveListRecord,
-  formatListOpsTransaction,
-  coreEfpContracts,
-  ListRecordContracts
+import {
+  useProfileDetails,
+  useProfileStats
 } from 'ethereum-identity-kit';
-import { useAccount, useEnsAddress, useWriteContract, useReadContract, useDisconnect } from 'wagmi';
-import { baseSepolia } from 'viem/chains';
+import { useAccount, useEnsAddress, useDisconnect } from 'wagmi';
 import { useProfileVideos, getCreatorHandle } from '../../hooks/useProfileVideos';
 import { useLensProfileVideos } from '../../hooks/useLensProfileVideos';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
+import { useLensFollows } from '../../hooks/useLensFollows';
 
 interface Video {
   id: string;
@@ -25,8 +20,8 @@ interface Video {
   videoUrl?: string;
 }
 
-// We'll use the EFP contracts from ethereum-identity-kit
-// The SDK handles the correct contract addresses per chain
+// For Lens profiles, we use native Lens follow protocol
+// For regular profiles, we use ethereum-identity-kit for ENS/profile data
 
 export const ProfilePage: React.FC = () => {
   const { addressOrEns, username } = useParams<{ addressOrEns?: string; username?: string }>();
@@ -34,6 +29,7 @@ export const ProfilePage: React.FC = () => {
   // Determine if this is a Lens profile and construct the identifier
   const isLensProfile = !!username; // If username param exists, we're on the /profile/lens/:username route
   const profileIdentifier = isLensProfile ? username : addressOrEns;
+
 
   // console.log('[ProfilePage] Rendering profile:', {
   //   isLensProfile,
@@ -55,12 +51,8 @@ export const ProfilePage: React.FC = () => {
     isOwnProfile
   } = useDisplayAuth();
   const { openConnectModal } = useConnectModal();
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
-  
-  // For follow transactions
-  const { writeContractAsync } = useWriteContract();
   
   const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'following' | 'profile'>('profile');
   const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('profile');
@@ -95,43 +87,22 @@ export const ProfilePage: React.FC = () => {
   });
   
   // Use resolved address: from ENS resolution, from ens.records, or if already an address
-  // For Lens profiles, we'll use the identifier as-is for now (could fetch Lens account address later)
+  // For Lens profiles, we'll get the account address from their posts/profile data
   const profileAddress = isLensProfile
-    ? undefined // Lens profiles don't have traditional addresses for EFP following
+    ? undefined // Lens profiles use account addresses from their profile data
     : (ensResolvedAddress ||
        ens?.records?.['eth'] ||
        ens?.address ||
        (profileIdentifier?.startsWith('0x') ? profileIdentifier : undefined) ||
        (profileIdentifier === 'vitalik.eth' ? '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' : undefined));
   
-  // Initialize follow state from localStorage (immediate, no flicker)
-  const getInitialFollowState = () => {
-    if (typeof window === 'undefined') return false;
-    if (connectedAddress && profileAddress) {
-      const followKey = `follow:${connectedAddress.toLowerCase()}:${profileAddress.toLowerCase()}`;
-      return localStorage.getItem(followKey) === 'true';
-    }
-    return false;
-  };
+  // Get Lens account address from their posts (if available)
+  const [lensAccountAddress, setLensAccountAddress] = useState<string | undefined>(undefined);
   
-  const [isFollowing, setIsFollowing] = useState(getInitialFollowState);
-  
-  // Query on-chain follow state for accuracy
-  const { data: listOps } = useReadContract({
-    address: '0x63B4e2Bb1E9b9D02AEF3Dc473c5B4b590219FA5e', // Base Sepolia ListRecords
-    abi: [
-      {
-        inputs: [{ name: 'slot', type: 'uint256' }],
-        name: 'getAllListOps',
-        outputs: [{ name: '', type: 'bytes[]' }],
-        stateMutability: 'view',
-        type: 'function'
-      }
-    ] as const,
-    functionName: 'getAllListOps',
-    args: [0n], // Slot 0 for primary list
-    enabled: !!connectedAddress && !!profileAddress,
-    chainId: baseSepolia.id,
+  // Use Lens follows for Lens profiles
+  const lensFollowHook = useLensFollows({
+    targetAccountAddress: lensAccountAddress,
+    initialFollowState: false
   });
   
   // Fetch follower/following stats - needs an address, not ENS name
@@ -153,6 +124,26 @@ export const ProfilePage: React.FC = () => {
   // Combine video data and loading states
   const allVideos = isLensProfile ? lensVideos : blockchainVideos;
   const videosLoading = isLensProfile ? lensVideosLoading : regularVideosLoading;
+
+  // Extract Lens account address from profile lookup
+  React.useEffect(() => {
+    if (isLensProfile && profileIdentifier) {
+      // For now, we'll use a known mapping, but this should be fetched from Lens API
+      const knownMappings: Record<string, string> = {
+        'addisonre1218': '0xfbc6e6F734253fe36aFF3FC96BB13B4968B71E08',
+        'theevaelfie_t1': '0xf1a92Ec7cbb29b41942F0d9D4eEeABFEdC22ef9d',
+        'bellapoarch_t1': '0xA40347E56F3d400800545e08B5305bE9ccA601e5',
+      };
+
+      const accountAddress = knownMappings[profileIdentifier];
+      if (accountAddress) {
+        setLensAccountAddress(accountAddress);
+        console.log(`[ProfilePage] Set Lens account address for ${profileIdentifier}:`, accountAddress);
+      } else {
+        console.log(`[ProfilePage] No account address mapping found for ${profileIdentifier}`);
+      }
+    }
+  }, [isLensProfile, profileIdentifier]);
 
   // Get creator handle for display
   const creatorHandle = getCreatorHandle(profileIdentifier);
@@ -280,110 +271,25 @@ export const ProfilePage: React.FC = () => {
 
   const handleConnectWallet = async () => {
     // This is called when follow button is clicked
-    
-    if (isAuthenticated && profileAddress) {
-      if (connectedWalletAddress) {
-        // We have a connected wallet, execute follow
-        setIsFollowLoading(true);
-        try {
-          // Toggle follow state
-          const followOp = isFollowing 
-            ? listOpRemoveListRecord(profileAddress)  // Unfollow
-            : listOpAddListRecord(profileAddress);     // Follow
-          
-          // Use Base Sepolia testnet
-          const chainId = 84532; // Base Sepolia
-          // Base Sepolia EFP contracts (from official docs)
-          const listRecordsAddress = '0x63B4e2Bb1E9b9D02AEF3Dc473c5B4b590219FA5e' as `0x${string}`;
-          
-          // Encode the follow operation properly
-          // EFP operations are encoded as: version (1 byte) + opcode (1 byte) + data (address)
-          const version = '01'; // version 1
-          const opcode = isFollowing ? '02' : '01'; // opcode 2 for remove, 1 for add
-          const addressWithoutPrefix = profileAddress.slice(2); // remove 0x
-          const encodedOp = `0x${version}${opcode}${addressWithoutPrefix}` as `0x${string}`;
-          
-          // Execute the transaction directly to the ListRecords contract
-          const hash = await writeContractAsync({
-            address: listRecordsAddress,
-            abi: [
-              {
-                inputs: [
-                  { name: 'slot', type: 'uint256' },
-                  { name: 'op', type: 'bytes' }
-                ],
-                name: 'applyListOp',
-                outputs: [],
-                stateMutability: 'nonpayable',
-                type: 'function'
-              }
-            ],
-            functionName: 'applyListOp',
-            args: [0n, encodedOp], // slot 0 for primary list, properly encoded op
-            chain: baseSepolia // Use Base Sepolia testnet
-          });
-          
-          console.log(`[ProfilePage] ${isFollowing ? 'Unfollow' : 'Follow'} transaction sent:`, hash);
-          
-          // Update state optimistically
-          setIsFollowing(!isFollowing);
-        } catch (error) {
-          console.error('[ProfilePage] Follow transaction failed:', error);
-        } finally {
-          setIsFollowLoading(false);
-        }
+
+    if (isLensProfile) {
+      // For Lens profiles, use Lens follow protocol
+      if (lensFollowHook.canFollow) {
+        await lensFollowHook.toggleFollow();
       } else {
         // Need wallet connection - show modal
         openConnectModal?.();
       }
     } else {
-      // Not authenticated, show auth modal
+      // For non-Lens profiles, just show connect modal for now
+      // Could implement EFP follows later if needed
       openConnectModal?.();
     }
   };
   
-  
-  // Process on-chain ops to check follow state
-  useEffect(() => {
-    if (listOps && listOps.length > 0 && profileAddress) {
-      // Parse ops to check if following
-      // Each op is encoded as: version (1 byte) + opcode (1 byte) + data (address)
-      let isCurrentlyFollowing = false;
-      
-      for (const op of listOps) {
-        if (typeof op === 'string' && op.startsWith('0x')) {
-          const opcode = op.slice(4, 6); // Skip 0x and version byte, get opcode
-          const targetAddress = '0x' + op.slice(6); // Rest is the address
-          
-          if (targetAddress.toLowerCase() === profileAddress.toLowerCase()) {
-            if (opcode === '01') {
-              // Follow op
-              isCurrentlyFollowing = true;
-            } else if (opcode === '02') {
-              // Unfollow op (later in list, overrides follow)
-              isCurrentlyFollowing = false;
-            }
-          }
-        }
-      }
-      
-      setIsFollowing(isCurrentlyFollowing);
-      
-      // Update localStorage for offline fallback
-      if (connectedAddress && profileAddress) {
-        const followKey = `follow:${connectedAddress.toLowerCase()}:${profileAddress.toLowerCase()}`;
-        localStorage.setItem(followKey, isCurrentlyFollowing.toString());
-      }
-    }
-  }, [listOps, profileAddress, connectedAddress]);
-  
-  // Store follow state after transaction (optimistic update)
-  useEffect(() => {
-    if (connectedAddress && profileAddress && !isFollowLoading) {
-      const followKey = `follow:${connectedAddress.toLowerCase()}:${profileAddress.toLowerCase()}`;
-      localStorage.setItem(followKey, isFollowing.toString());
-    }
-  }, [isFollowing, isFollowLoading, connectedAddress, profileAddress]);
+  // Get follow state and loading status
+  const isFollowing = isLensProfile ? lensFollowHook.isFollowing : false;
+  const isFollowLoading = isLensProfile ? lensFollowHook.isLoading : false;
 
   return (
     <>

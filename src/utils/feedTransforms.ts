@@ -18,9 +18,10 @@ export function transformLensToFeedItem(item: LensFeedItem): FeedItem {
     data: {
       ...item.data,
       // Ensure we have the correct data structure for VideoPost
+      username: item.creatorHandle.replace('lens/', ''), // Remove lens/ prefix for display
       creatorHandle: item.creatorHandle,
-      creatorId: item.creatorHandle,
-      pkpPublicKey: item.video?.creator?.id,
+      creatorId: item.creatorHandle, // Already has lens/ prefix from the data
+      creatorAccountAddress: item.video?.creator?.id, // Keep account address for follows
       lensPostId: item.id,
       userHasLiked: userHasLiked, // Use actual reaction status from Lens
     }

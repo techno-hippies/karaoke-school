@@ -14,7 +14,7 @@ export interface FeedItem {
     shares: number;
     creatorHandle?: string;
     creatorId?: string;
-    pkpPublicKey?: string;
+    creatorAccountAddress?: string;
     thumbnailUrl?: string;
     thumbnailSourceUrl?: string;
     playCount?: number;

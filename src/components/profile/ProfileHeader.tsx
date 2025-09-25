@@ -154,7 +154,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                       isLoading={isFollowLoading}
                       loadingText={isFollowing ? "Unfollowing..." : "Following..."}
                     >
-                      {isFollowing ? "Following" : "Follow"}
+                      {isFollowing ? "Unfollow" : "Follow"}
                     </Button>
                     <Button
                       onClick={onMessageClick}
@@ -237,7 +237,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 isLoading={isFollowLoading}
                 loadingText={isFollowing ? "Unfollowing..." : "Following..."}
               >
-                {isFollowing ? "Following" : "Follow"}
+                {isFollowing ? "Unfollow" : "Follow"}
               </Button>
               <Button
                 onClick={onMessageClick}

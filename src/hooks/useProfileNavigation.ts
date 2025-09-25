@@ -19,7 +19,8 @@ export const useProfileNavigation = (): UseProfileNavigationReturn => {
 
     // Check if this is a Lens handle
     if (cleanId.startsWith('lens/') || cleanId.includes('lens/')) {
-      const lensUsername = cleanId.replace('lens/', '');
+      // Extract the username after 'lens/'
+      const lensUsername = cleanId.replace(/^lens\//, '');
       console.log('[useProfileNavigation] Building Lens profile route:', {
         profileId,
         cleanId,

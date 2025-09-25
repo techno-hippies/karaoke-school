@@ -233,10 +233,8 @@ export function useLensComments({
       setComments(prev => [newComment, ...prev]);
       setCommentCount(prev => prev + 1);
 
-      // Refresh comments after a delay to get the real comment from Lens
-      setTimeout(() => {
-        refreshComments();
-      }, 2000);
+      // Note: We rely on optimistic update only. The real comment will appear
+      // when refreshComments() is called next time (e.g., when reopening comments)
 
       return true;
     } catch (error) {

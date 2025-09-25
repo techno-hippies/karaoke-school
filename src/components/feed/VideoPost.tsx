@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus, Play } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus, Play, Check } from 'lucide-react';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
@@ -7,6 +7,7 @@ import { useVideoPlayer } from '../../hooks/useVideoPlayer';
 import { useProfileNavigation } from '../../hooks/useProfileNavigation';
 import { useTouchGestures } from '../../hooks/useTouchGestures';
 import { useLensReactions } from '../../hooks/useLensReactions';
+import { useLensFollows } from '../../hooks/useLensFollows';
 
 interface VideoPostProps {
   videoUrl?: string;
@@ -19,7 +20,7 @@ interface VideoPostProps {
   musicTitle?: string;
   creatorHandle?: string;
   creatorId?: string;
-  pkpPublicKey?: string;
+  creatorAccountAddress?: string;
   lensPostId?: string;
   userHasLiked?: boolean;
 }
@@ -35,6 +36,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   musicTitle = 'Original Sound',
   creatorHandle,
   creatorId,
+  creatorAccountAddress,
   lensPostId,
   userHasLiked
 }) => {
@@ -74,15 +76,31 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     initialLikeCount: likes,
     userHasLiked
   });
+
+  // Lens follows integration - use the account address for following
+  const targetAccountAddress = creatorAccountAddress;
+
+  const {
+    isFollowing,
+    isLoading: isFollowLoading,
+    canFollow,
+    toggleFollow
+  } = useLensFollows({
+    targetAccountAddress,
+    initialFollowState: false
+  });
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
     console.log(`[VideoPost] 💗 Props for @${username}:`, {
       lensPostId: lensPostId?.slice(-8),
       userHasLiked,
-      username
+      username,
+      targetAccountAddress,
+      canFollow,
+      isFollowing
     });
-  }, [lensPostId, userHasLiked, username]);
+  }, [lensPostId, userHasLiked, username, targetAccountAddress, canFollow, isFollowing]);
 
   return (
     <div className="relative h-screen w-full bg-black snap-start flex items-center justify-center">
@@ -178,15 +196,30 @@ export const VideoPost: React.FC<VideoPostProps> = ({
                 className="w-full h-full object-cover"
               />
             </button>
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation();
-                console.log(`[Follow] Following user: @${username}`);
-                // TODO: Implement follow functionality
+                if (canFollow) {
+                  console.log(`[Follow] ${isFollowing ? 'Unfollowing' : 'Following'} user: @${username}`);
+                  toggleFollow();
+                } else {
+                  console.log(`[Follow] Cannot follow @${username} - missing auth or account address`);
+                }
               }}
-              className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-[#FE2C55] hover:bg-[#FF0F3F] rounded-full flex items-center justify-center cursor-pointer transition-colors"
+              disabled={!canFollow || isFollowLoading}
+              className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                isFollowing
+                  ? 'bg-neutral-800 hover:bg-neutral-700'
+                  : 'bg-[#FE2C55] hover:bg-[#FF0F3F]'
+              } ${(!canFollow || isFollowLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <Plus className="w-4 h-4 text-white" />
+              {isFollowLoading ? (
+                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+              ) : isFollowing ? (
+                <Check className="w-4 h-4 text-red-500" />
+              ) : (
+                <Plus className="w-4 h-4 text-white" />
+              )}
             </button>
           </div>
 
@@ -249,15 +282,30 @@ export const VideoPost: React.FC<VideoPostProps> = ({
               className="w-full h-full object-cover"
             />
           </button>
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
-              console.log(`[Follow] Following user: @${username}`);
-              // TODO: Implement follow functionality
+              if (canFollow) {
+                console.log(`[Follow] ${isFollowing ? 'Unfollowing' : 'Following'} user: @${username}`);
+                toggleFollow();
+              } else {
+                console.log(`[Follow] Cannot follow @${username} - missing auth or account address`);
+              }
             }}
-            className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-[#FE2C55] hover:bg-[#FE2C55]/80 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+            disabled={!canFollow || isFollowLoading}
+            className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ${
+              isFollowing
+                ? 'bg-neutral-800 hover:bg-neutral-700'
+                : 'bg-[#FE2C55] hover:bg-[#FE2C55]/80'
+            } ${(!canFollow || isFollowLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            <Plus className="w-4 h-4 text-white" />
+            {isFollowLoading ? (
+              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+            ) : isFollowing ? (
+              <Check className="w-4 h-4 text-red-500" />
+            ) : (
+              <Plus className="w-4 h-4 text-white" />
+            )}
           </button>
         </div>
 
