@@ -370,8 +370,10 @@ export const ProfilePage: React.FC = () => {
       setIsFollowing(isCurrentlyFollowing);
       
       // Update localStorage for offline fallback
-      const followKey = `follow:${connectedAddress.toLowerCase()}:${profileAddress.toLowerCase()}`;
-      localStorage.setItem(followKey, isCurrentlyFollowing.toString());
+      if (connectedAddress && profileAddress) {
+        const followKey = `follow:${connectedAddress.toLowerCase()}:${profileAddress.toLowerCase()}`;
+        localStorage.setItem(followKey, isCurrentlyFollowing.toString());
+      }
     }
   }, [listOps, profileAddress, connectedAddress]);
   
