@@ -52,11 +52,9 @@ export const ProfilePage: React.FC = () => {
     isAuthenticated,
     hasInitialized,
     connectedWalletAddress,
-    pkpInfo,
     isOwnProfile
   } = useDisplayAuth();
   const { openConnectModal } = useConnectModal();
-  const [pendingFollowAction, setPendingFollowAction] = useState<string | null>(null);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
@@ -67,20 +65,19 @@ export const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'following' | 'profile'>('profile');
   const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('profile');
   
-  // Get final connected address (PKP Viem account takes precedence for transactions)
-  const finalConnectedAddress = pkpViemAccount?.address || connectedAddress;
+  // Get final connected address from wallet
+  const finalConnectedAddress = connectedAddress;
 
-  // Debug logging for authentication state differences
+  // Debug logging for authentication state
   React.useEffect(() => {
     console.log('[ProfilePage] Authentication state:', {
       isAuthenticated,
       hasInitialized,
       connectedWalletAddress,
-      pkpInfo: pkpInfo ? 'present' : 'null',
       displayAddress,
       displayConnected
     });
-  }, [isAuthenticated, hasInitialized, connectedWalletAddress, pkpInfo, displayAddress, displayConnected]);
+  }, [isAuthenticated, hasInitialized, connectedWalletAddress, displayAddress, displayConnected]);
   
   // Check if viewing own profile using shared logic
   const isOwn = isOwnProfile(profileIdentifier);
@@ -285,8 +282,8 @@ export const ProfilePage: React.FC = () => {
     // This is called when follow button is clicked
     
     if (isAuthenticated && profileAddress) {
-      if (pkpViemAccount) {
-        // We have a fresh PKP Viem account, execute follow
+      if (connectedWalletAddress) {
+        // We have a connected wallet, execute follow
         setIsFollowLoading(true);
         try {
           // Toggle follow state
@@ -323,7 +320,6 @@ export const ProfilePage: React.FC = () => {
             ],
             functionName: 'applyListOp',
             args: [0n, encodedOp], // slot 0 for primary list, properly encoded op
-            account: pkpViemAccount,
             chain: baseSepolia // Use Base Sepolia testnet
           });
           
@@ -337,10 +333,8 @@ export const ProfilePage: React.FC = () => {
           setIsFollowLoading(false);
         }
       } else {
-        // Need fresh auth to get PKP Viem account - show modal
-        setPendingFollowAction(profileAddress);
+        // Need wallet connection - show modal
         openConnectModal?.();
-        // After auth completes, the effect below will execute the follow
       }
     } else {
       // Not authenticated, show auth modal
@@ -348,14 +342,6 @@ export const ProfilePage: React.FC = () => {
     }
   };
   
-  // Execute pending follow after getting fresh PKP Viem account
-  useEffect(() => {
-    if (pendingFollowAction && pkpViemAccount) {
-      setPendingFollowAction(null);
-      // Trigger the follow
-      handleConnectWallet();
-    }
-  }, [pkpViemAccount, pendingFollowAction]);
   
   // Process on-chain ops to check follow state
   useEffect(() => {
