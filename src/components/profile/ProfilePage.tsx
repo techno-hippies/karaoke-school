@@ -428,12 +428,14 @@ export const ProfilePage: React.FC = () => {
           thumbnailUrl={selectedVideo.thumbnailUrl}
           username={displayUsername}
           description={profileData.bio || 'Check out this video!'}
-          likes={Math.floor(Math.random() * 10000)} // Placeholder
-          comments={Math.floor(Math.random() * 1000)} // Placeholder
-          shares={Math.floor(Math.random() * 500)} // Placeholder
+          likes={(selectedVideo as any).likes || 0} // Use real likes from Lens data
+          comments={(selectedVideo as any).comments || 0} // Use real comments from Lens data
+          shares={(selectedVideo as any).shares || 0} // Use real shares from Lens data
           musicTitle="Original Sound"
           creatorHandle={profileData.displayName}
           creatorId={isLensProfile ? `lens/${profileIdentifier}` : undefined}
+          lensPostId={isLensProfile ? selectedVideo.id : undefined} // Pass Lens post ID for reactions
+          userHasLiked={false} // TODO: Get from Lens operations when available
           onClose={() => setSelectedVideo(null)}
           currentVideoIndex={currentVideoIndex}
           totalVideos={allVideos?.length || 0}

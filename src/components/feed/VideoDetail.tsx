@@ -6,6 +6,7 @@ import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
+import { useLensReactions } from '../../hooks/useLensReactions';
 import Hls from 'hls.js';
 
 interface VideoDetailProps {
@@ -20,6 +21,8 @@ interface VideoDetailProps {
   creatorHandle?: string;
   creatorId?: string;
   pkpPublicKey?: string;
+  lensPostId?: string;
+  userHasLiked?: boolean;
   onClose?: () => void;
   // Navigation props
   currentVideoIndex?: number;
@@ -44,6 +47,8 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   creatorHandle,
   creatorId,
   pkpPublicKey,
+  lensPostId,
+  userHasLiked,
   onClose,
   currentVideoIndex,
   totalVideos,
@@ -52,6 +57,19 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
 }) => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  // Lens reactions integration
+  const {
+    isLiked,
+    likeCount,
+    isLoading: isLikeLoading,
+    toggleLike,
+    canLike
+  } = useLensReactions({
+    postId: lensPostId || '',
+    initialLikeCount: likes,
+    userHasLiked
+  });
   const [isMuted, setIsMuted] = useState(false); // Start unmuted since user intentionally clicked video
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -322,7 +340,14 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
         <div className="p-4 border-b border-neutral-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <ActionButton icon={Heart} count={likes} />
+              <ActionButton
+                icon={Heart}
+                count={likeCount}
+                onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+                isActive={isLiked}
+                isLoading={isLikeLoading}
+                disabled={lensPostId ? !canLike : false}
+              />
               <ActionButton icon={MessageCircle} count={comments} />
               <ActionButton icon={Share2} count={shares} onClick={() => setShareOpen(true)} />
             </div>
