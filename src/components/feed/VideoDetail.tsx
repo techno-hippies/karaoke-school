@@ -348,7 +348,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
                 isLoading={isLikeLoading}
                 disabled={lensPostId ? !canLike : false}
               />
-              <ActionButton icon={MessageCircle} count={comments} />
+              <ActionButton icon={MessageCircle} count={comments} onClick={() => setCommentsOpen(true)} />
               <ActionButton icon={Share2} count={shares} onClick={() => setShareOpen(true)} />
             </div>
           </div>
@@ -387,7 +387,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
       <CommentsSheet
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
-        postId={username}
+        postId={lensPostId || username}
       />
       <ShareSheet
         open={shareOpen}
