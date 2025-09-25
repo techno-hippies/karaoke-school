@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ProfilePageView } from './ProfilePageView';
 import { VideoDetail } from '../feed/VideoDetail';
-import { useLitAuth } from '../../providers/LitAuthProvider';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { 
   useProfileDetails, 
@@ -13,7 +12,7 @@ import {
   coreEfpContracts,
   ListRecordContracts
 } from 'ethereum-identity-kit';
-import { useAccount, useEnsAddress, useWriteContract, useReadContract } from 'wagmi';
+import { useAccount, useEnsAddress, useWriteContract, useReadContract, useDisconnect } from 'wagmi';
 import { baseSepolia } from 'viem/chains';
 import { useProfileVideos, getCreatorHandle } from '../../hooks/useProfileVideos';
 import { useLensProfileVideos } from '../../hooks/useLensProfileVideos';
@@ -43,7 +42,7 @@ export const ProfilePage: React.FC = () => {
   //   username
   // });
   const navigate = useNavigate();
-  const { pkpViemAccount, signOut, authenticateWithWebAuthn } = useLitAuth();
+  const { disconnect } = useDisconnect();
 
   // Shared authentication logic
   const {
@@ -416,7 +415,7 @@ export const ProfilePage: React.FC = () => {
         onEditProfile={handleEditProfile}
         onShareProfile={handleShareProfile}
         onVideoClick={handleVideoClick}
-        onDisconnect={signOut}
+        onDisconnect={() => disconnect()}
         onConnectWallet={handleConnectWallet}
       />
       

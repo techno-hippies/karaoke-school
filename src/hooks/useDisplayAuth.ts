@@ -1,5 +1,4 @@
 import { useAccount, useWalletClient } from 'wagmi';
-import { useLitAuth } from '../providers/LitAuthProvider';
 import { useEffect } from 'react';
 import { createLensSessionWithWallet, isLensAuthenticated, resumeLensSession } from '../lib/lens/sessionClient';
 
@@ -11,9 +10,6 @@ export function useDisplayAuth() {
   // Wallet integration
   const { address: connectedWalletAddress, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-
-  // Lit Protocol v8 auth
-  const { isAuthenticated, pkpInfo, hasInitialized } = useLitAuth();
 
   // Try to resume existing session or create new one when wallet connects
   useEffect(() => {
@@ -52,22 +48,20 @@ export function useDisplayAuth() {
     }
   }, [connectedWalletAddress, walletClient]);
 
-  // Get connected address from either PKP Viem account, PKP info, or wallet
-  const connectedAddress = pkpInfo?.ethAddress || connectedWalletAddress;
+  // Get connected address from wallet
+  const connectedAddress = connectedWalletAddress;
 
-  // Display username logic - show wallet address or PKP status
-  const displayAddress = connectedWalletAddress || pkpInfo?.ethAddress ||
-    (pkpInfo?.pkpPublicKey ? 'PKP Connected' : undefined);
+  // Display username logic - show wallet address
+  const displayAddress = connectedWalletAddress;
 
-  // Show connected if either wallet or PKP is connected
-  const displayConnected = !!connectedWalletAddress || isAuthenticated;
+  // Show connected if wallet is connected
+  const displayConnected = !!connectedWalletAddress;
 
   return {
     // Raw authentication state
-    isAuthenticated,
-    hasInitialized,
+    isAuthenticated: isConnected,
+    hasInitialized: true,
     connectedWalletAddress,
-    pkpInfo,
     isConnected,
 
     // Computed display values

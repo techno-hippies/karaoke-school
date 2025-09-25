@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { PostReactionType, postId } from "@lens-protocol/client";
 import { addReaction, undoReaction } from "@lens-protocol/client/actions";
-import { createLensSession, createLensSessionWithWallet, getLensSession, isLensAuthenticated, refreshLensSession } from '../lib/lens/sessionClient';
-import { useLitAuth } from '../providers/LitAuthProvider';
+import { createLensSessionWithWallet, getLensSession, isLensAuthenticated, refreshLensSession } from '../lib/lens/sessionClient';
 import { useAccount, useWalletClient } from 'wagmi';
 
 interface UseLensReactionsProps {
@@ -40,23 +39,18 @@ export function useLensReactions({
     setLikeCount(initialLikeCount);
   }, [initialLikeCount, postIdString]);
 
-  // Get PKP authentication from LitAuth provider
-  const { isAuthenticated: isPkpAuthenticated, pkpViemAccount, pkpInfo } = useLitAuth();
-
   // Get wallet connection from RainbowKit/wagmi
   const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
   const sessionClient = getLensSession();
 
-  // Allow liking if either PKP is authenticated OR wallet is connected
-  const canLike = (isPkpAuthenticated && !!pkpInfo?.ethAddress) || (isWalletConnected && !!walletAddress);
+  // Allow liking if wallet is connected
+  const canLike = isWalletConnected && !!walletAddress;
 
   // Enhanced debug logging
   React.useEffect(() => {
     console.log('[useLensReactions] State:', {
-      isPkpAuthenticated,
-      pkpAddress: pkpInfo?.ethAddress,
       isWalletConnected,
       walletAddress,
       hasWalletClient: !!walletClient,
@@ -64,12 +58,11 @@ export function useLensReactions({
       hasSessionClient: !!sessionClient,
       postId: postIdString
     });
-  }, [isPkpAuthenticated, pkpInfo?.ethAddress, isWalletConnected, walletAddress, walletClient, canLike, sessionClient, postIdString]);
+  }, [isWalletConnected, walletAddress, walletClient, canLike, sessionClient, postIdString]);
 
   const toggleLike = useCallback(async () => {
     if (!canLike) {
-      console.warn('[useLensReactions] Cannot like: No authentication (PKP or wallet)');
-      console.warn('[useLensReactions] PKP authenticated:', isPkpAuthenticated);
+      console.warn('[useLensReactions] Cannot like: No wallet authentication');
       console.warn('[useLensReactions] Wallet connected:', isWalletConnected);
       // TODO: Show login modal or prompt
       return;
@@ -81,24 +74,10 @@ export function useLensReactions({
     let currentSessionClient = sessionClient;
     let authMethod = 'existing';
 
-    // Try PKP session first (if available)
-    if (!currentSessionClient && pkpViemAccount && pkpInfo?.ethAddress) {
-      console.log('[useLensReactions] Creating new Lens session with PKP...');
-      authMethod = 'PKP';
-      const lensAccountAddress = pkpInfo?.lensAccountAddress;
-      currentSessionClient = await createLensSession(pkpViemAccount, pkpInfo.ethAddress, lensAccountAddress);
-      if (!currentSessionClient) {
-        console.error('[useLensReactions] Failed to create PKP Lens session');
-      }
-    }
-
-    // Try regular wallet session if PKP session failed or not available
+    // Try regular wallet session if no existing session
     if (!currentSessionClient && walletClient && walletAddress) {
       console.log('[useLensReactions] Creating new Lens session with wallet (AccountOwner pattern)...');
       authMethod = 'wallet';
-
-      // Only clear cached session if we're sure we need to re-authenticate
-      // Don't clear on every attempt to avoid creating duplicate accounts
 
       currentSessionClient = await createLensSessionWithWallet(walletClient, walletAddress);
       if (!currentSessionClient) {
@@ -182,7 +161,7 @@ export function useLensReactions({
     } finally {
       setIsLoading(false);
     }
-  }, [postIdString, isLiked, likeCount, isLoading, canLike, sessionClient, pkpViemAccount, pkpInfo?.ethAddress, walletClient, walletAddress]);
+  }, [postIdString, isLiked, likeCount, isLoading, canLike, sessionClient, walletClient, walletAddress]);
 
   return {
     isLiked,

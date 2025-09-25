@@ -1,0 +1,280 @@
+import React, { useState, useCallback } from 'react';
+import { postId, uri } from "@lens-protocol/client";
+import { post, fetchPostReferences } from "@lens-protocol/client/actions";
+import { PostReferenceType } from '@lens-protocol/client';
+import { textOnly } from '@lens-protocol/metadata';
+import { getLensSession } from '../lib/lens/sessionClient';
+import { lensClient } from '../lib/lens/client';
+import { useAccount, useWalletClient } from 'wagmi';
+
+interface LensComment {
+  id: string;
+  content: string;
+  author: {
+    username: string;
+    address: string;
+    avatar?: string;
+  };
+  createdAt: string;
+  likes: number;
+  replies: LensComment[];
+}
+
+interface UseLensCommentsProps {
+  postId: string;
+  initialCommentCount?: number;
+}
+
+interface UseLensCommentsReturn {
+  comments: LensComment[];
+  commentCount: number;
+  canComment: boolean;
+  isLoading: boolean;
+  isSubmitting: boolean;
+  submitComment: (content: string) => Promise<boolean>;
+  refreshComments: () => Promise<void>;
+}
+
+export function useLensComments({
+  postId: postIdString,
+  initialCommentCount = 0,
+}: UseLensCommentsProps): UseLensCommentsReturn {
+  const [comments, setComments] = useState<LensComment[]>([]);
+  const [commentCount, setCommentCount] = useState(initialCommentCount);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [canComment, setCanComment] = useState(false); // Start as false, will be updated when we check permissions
+
+  // Get wallet connection from RainbowKit/wagmi
+  const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+
+  const sessionClient = getLensSession();
+
+  // Allow commenting if wallet is connected AND we have a session
+  const hasAuth = isWalletConnected && !!walletAddress;
+  const hasSession = !!sessionClient;
+
+  // Enhanced debug logging
+  React.useEffect(() => {
+    console.log('[useLensComments] State:', {
+      isWalletConnected,
+      walletAddress,
+      hasWalletClient: !!walletClient,
+      hasAuth,
+      hasSession,
+      hasSessionClient: !!sessionClient,
+      postId: postIdString,
+      commentCount
+    });
+  }, [isWalletConnected, walletAddress, walletClient, hasAuth, hasSession, sessionClient, postIdString, commentCount]);
+
+  // Check comment permissions
+  React.useEffect(() => {
+    const updateCanComment = () => {
+      // Can comment if we have both authentication and a session AND a valid post ID
+      const hasValidPostId = postIdString && postIdString.trim() !== '';
+      const canCommentNow = hasAuth && hasSession && hasValidPostId;
+      setCanComment(canCommentNow);
+
+      console.log('[useLensComments] 🔑 Comment permissions:', {
+        hasAuth,
+        hasSession,
+        hasPostId: !!postIdString,
+        hasValidPostId,
+        canComment: canCommentNow
+      });
+    };
+
+    updateCanComment();
+  }, [hasAuth, hasSession, postIdString]);
+
+  // Refresh comments from Lens
+  const refreshComments = useCallback(async () => {
+    if (!postIdString || postIdString.trim() === '') {
+      console.log('[useLensComments] No valid post ID provided, skipping comment fetch');
+      setComments([]);
+      setCommentCount(0);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log(`[useLensComments] Fetching comments for post: ${postIdString}`);
+
+      // Use authenticated session client if available for better user data
+      const clientToUse = sessionClient || lensClient;
+
+      // Fetch comments using fetchPostReferences with CommentOn type
+      const result = await fetchPostReferences(clientToUse, {
+        referencedPost: postId(postIdString),
+        referenceTypes: [PostReferenceType.CommentOn],
+      });
+
+      if (result.isErr()) {
+        console.error('[useLensComments] Error fetching comments from Lens:', result.error);
+        setComments([]);
+        setCommentCount(0);
+        return;
+      }
+
+      const commentPosts = result.value.items;
+      console.log(`[useLensComments] Found ${commentPosts.length} comment posts for ${postIdString}`);
+
+      // Transform Lens comment posts to our comment format
+      const transformedComments: LensComment[] = commentPosts.map(commentPost => {
+        const author = commentPost.author || commentPost.by || {};
+        const username = author.username?.value || author.handle?.value || author.address || 'Unknown User';
+        const address = author.address || 'unknown';
+
+        // Extract content from metadata
+        const content = extractCommentContent(commentPost.metadata) || 'No content';
+
+        return {
+          id: commentPost.id,
+          content: content,
+          author: {
+            username: username.startsWith('lens/') ? username : `lens/${username}`,
+            address: address,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`
+          },
+          createdAt: commentPost.timestamp || commentPost.createdAt || new Date().toISOString(),
+          likes: commentPost.stats?.likes || 0,
+          replies: [] // TODO: Implement nested replies if needed
+        };
+      });
+
+      // Sort by creation date (newest first)
+      const sortedComments = transformedComments.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setComments(sortedComments);
+      setCommentCount(sortedComments.length);
+
+      console.log(`[useLensComments] ✅ Loaded ${sortedComments.length} comments`);
+    } catch (error) {
+      console.error('[useLensComments] Error fetching comments:', error);
+      setComments([]);
+      setCommentCount(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [postIdString, sessionClient]);
+
+  // Load comments on mount
+  React.useEffect(() => {
+    if (postIdString) {
+      refreshComments();
+    }
+  }, [postIdString, refreshComments]);
+
+  // Submit a new comment
+  const submitComment = useCallback(async (content: string): Promise<boolean> => {
+    if (!hasAuth || !hasSession || !sessionClient || !postIdString) {
+      console.warn('[useLensComments] Cannot comment: Missing auth, session, or post ID', {
+        hasAuth,
+        hasSession,
+        hasSessionClient: !!sessionClient,
+        hasPostId: !!postIdString
+      });
+      return false;
+    }
+
+    if (!content.trim()) {
+      console.warn('[useLensComments] Cannot comment: Empty content');
+      return false;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log(`[useLensComments] Submitting comment: "${content.slice(0, 50)}..."`);
+
+      // Create proper TextOnlyMetadata using the textOnly helper
+      const commentMetadata = textOnly({
+        content: content.trim(),
+      });
+
+      console.log('[useLensComments] Created comment metadata:', commentMetadata);
+
+      // For now, use a data URI (in production, would use storageClient.uploadAsJson)
+      const metadataJson = JSON.stringify(commentMetadata);
+      const metadataUri = `data:application/json;base64,${btoa(metadataJson)}`;
+
+      // Create the comment post
+      const result = await post(sessionClient, {
+        contentUri: uri(metadataUri),
+        commentOn: {
+          post: postId(postIdString)
+        }
+      });
+
+      if (result.isErr()) {
+        console.error('[useLensComments] Comment creation failed:', result.error);
+        return false;
+      }
+
+      console.log('[useLensComments] ✅ Comment created successfully!');
+
+      // Add optimistic comment to UI
+      const newComment: LensComment = {
+        id: `temp-${Date.now()}`,
+        content: content,
+        author: {
+          username: walletAddress || 'You',
+          address: walletAddress || '0x...',
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${walletAddress}`
+        },
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        replies: []
+      };
+
+      setComments(prev => [newComment, ...prev]);
+      setCommentCount(prev => prev + 1);
+
+      // Refresh comments after a delay to get the real comment from Lens
+      setTimeout(() => {
+        refreshComments();
+      }, 2000);
+
+      return true;
+    } catch (error) {
+      console.error('[useLensComments] Error submitting comment:', error);
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [postIdString, hasAuth, hasSession, sessionClient, walletAddress, refreshComments]);
+
+  return {
+    comments,
+    commentCount,
+    canComment,
+    isLoading,
+    isSubmitting,
+    submitComment,
+    refreshComments
+  };
+}
+
+/**
+ * Extract content text from Lens comment metadata
+ */
+function extractCommentContent(metadata: any): string {
+  if (metadata?.content) {
+    return metadata.content;
+  }
+
+  // Check for TextOnlyMetadata
+  if (metadata?.__typename === 'TextOnlyMetadata' && metadata.content) {
+    return metadata.content;
+  }
+
+  // Check for other metadata types that might contain content
+  if (metadata?.description) {
+    return metadata.description;
+  }
+
+  return '';
+}

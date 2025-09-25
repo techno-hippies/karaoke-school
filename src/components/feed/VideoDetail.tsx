@@ -387,7 +387,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
       <CommentsSheet
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
-        postId={lensPostId || username}
+        postId={lensPostId || ''} // Only pass valid Lens post IDs, empty string if none
       />
       <ShareSheet
         open={shareOpen}

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@joyid/rainbowkit": "2.0.10",
+    "@lens-protocol/metadata": "2.1.0",
     "@lens-protocol/react": "0.0.0-canary-20250820102520",
     "@lit-protocol/auth": "8.0.0-beta.15",
     "@lit-protocol/lit-client": "8.0.0-beta.15",

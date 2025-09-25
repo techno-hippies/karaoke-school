@@ -5,7 +5,6 @@ import { VerticalFeedView } from './VerticalFeedView';
 import { FeedXState } from './FeedXState';
 import { useSubgraphFeed } from '../../hooks/useSubgraphFeed';
 import { usePKPLensFeed, usePKPLensMapping } from '../../lib/pkp-lens-mapping';
-import { useLitAuth } from '../../providers/LitAuthProvider';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useFeedCoordinator } from '../../hooks/useFeedCoordinator';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
@@ -35,29 +34,21 @@ export const VerticalFeed: React.FC = () => {
     displayAddress,
     displayConnected,
     connectedAddress,
-    pkpInfo,
-    isAuthenticated: litAuthenticated
+    isAuthenticated
   } = useDisplayAuth();
-
-  // Additional Lit auth methods
-  const {
-    signUpWithWebAuthn,
-    connectWallet: connectLitWallet
-  } = useLitAuth();
 
   // Shared navigation logic
   const navigation = useAppNavigation();
   
-  // Debug logging for authentication state differences
+  // Debug logging for authentication state
   useEffect(() => {
     console.log('[VerticalFeed] Authentication state:', {
-      isAuthenticated: litAuthenticated,
-      hasInitialized: true, // VerticalFeed doesn't track this directly
-      pkpInfo: pkpInfo ? 'present' : 'null',
+      isAuthenticated,
+      hasInitialized: true,
       displayAddress,
       displayConnected
     });
-  }, [litAuthenticated, pkpInfo, displayAddress, displayConnected]);
+  }, [isAuthenticated, displayAddress, displayConnected]);
   
   // Remove the auto-close effect entirely - let the modal handle it
   

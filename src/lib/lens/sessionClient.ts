@@ -12,63 +12,6 @@ let sessionClient: SessionClient | null = null;
 // Testnet app address from Lens documentation
 const LENS_TESTNET_APP = "0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7";
 
-/**
- * Create and authenticate a session client using PKP signing
- * Requires LitAuthProvider context for PKP access
- */
-export async function createLensSession(
-  pkpViemAccount: any,
-  pkpEthAddress: string,
-  lensAccountAddress?: string
-): Promise<SessionClient | null> {
-  try {
-    console.log('[LensSession] Creating authenticated session client with PKP...');
-    console.log('[LensSession] PKP address:', pkpEthAddress);
-    console.log('[LensSession] Lens account address:', lensAccountAddress);
-
-    // Use Account Manager pattern: PKP acts as manager for a Lens account owned by main wallet
-    if (lensAccountAddress) {
-      const authenticated = await lensClient.login({
-        accountManager: {
-          app: LENS_TESTNET_APP,
-          account: lensAccountAddress, // Account owned by main wallet
-          manager: pkpEthAddress,      // PKP is the manager
-        },
-        signMessage: signMessageWith(pkpViemAccount), // Use Lens SDK wrapper
-      });
-
-      if (authenticated.isErr()) {
-        console.error('[LensSession] Account Manager login failed:', authenticated.error);
-        return null;
-      }
-
-      sessionClient = authenticated.value;
-      console.log('[LensSession] Successfully created Account Manager session client');
-      return sessionClient;
-    } else {
-      // Fallback: Try onboarding user for initial account creation
-      const authenticated = await lensClient.login({
-        onboardingUser: {
-          app: LENS_TESTNET_APP,
-          wallet: pkpEthAddress,
-        },
-        signMessage: signMessageWith(pkpViemAccount), // Use Lens SDK wrapper
-      });
-
-      if (authenticated.isErr()) {
-        console.error('[LensSession] Onboarding user login failed:', authenticated.error);
-        return null;
-      }
-
-      sessionClient = authenticated.value;
-      console.log('[LensSession] Successfully created onboarding user session client');
-      return sessionClient;
-    }
-  } catch (error) {
-    console.error('[LensSession] Failed to create session:', error);
-    return null;
-  }
-}
 
 /**
  * Get the current session client
