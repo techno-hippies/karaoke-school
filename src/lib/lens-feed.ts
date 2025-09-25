@@ -73,9 +73,9 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
             videoUrl: extractVideoUrl(post.metadata) || '/test_video/sample.mp4', // Fallback video
             username: username,
             description: extractContent(post.metadata) || 'Sample post content',
-            likes: post.stats?.likes || Math.floor(Math.random() * 10000),
-            comments: post.stats?.comments || Math.floor(Math.random() * 1000),
-            shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0) || Math.floor(Math.random() * 500),
+            likes: post.stats?.upvotes || 0,
+            comments: post.stats?.comments || 0,
+            shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
           },
           video: {
             id: post.id,
@@ -219,7 +219,7 @@ export async function getLensUserPosts(lensUsername: string, limit: number = 50)
             videoUrl: extractedVideoUrl || '', // No fallback for profile videos
             username: username,
             description: extractContent(post.metadata) || '',
-            likes: post.stats?.likes || 0,
+            likes: post.stats?.upvotes || 0,
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0) || 0,
           },
@@ -358,9 +358,9 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
             videoUrl: extractedVideoUrl || '/test_video/sample.mp4', // Fallback video
             username: username,
             description: extractContent(post.metadata) || 'Sample post content',
-            likes: post.stats?.likes || Math.floor(Math.random() * 10000),
-            comments: post.stats?.comments || Math.floor(Math.random() * 1000),
-            shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0) || Math.floor(Math.random() * 500),
+            likes: post.stats?.upvotes || 0,
+            comments: post.stats?.comments || 0,
+            shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
             userHasLiked: hasUpvoted, // Add user reaction state
           },
           video: {

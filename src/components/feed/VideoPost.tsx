@@ -239,9 +239,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             onClick={() => setCommentsOpen(true)}
           />
 
-          <ActionButton 
-            icon={Share2} 
-            count={shares} 
+          <ActionButton
+            icon={Share2}
+            count={shares}
             onClick={() => setShareOpen(true)}
           />
         </div>
@@ -327,9 +327,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         />
 
         {/* Share Button */}
-        <ActionButton 
-          icon={Share2} 
-          count={shares} 
+        <ActionButton
+          icon={Share2}
+          count={shares}
           onClick={() => setShareOpen(true)}
         />
       </div>
