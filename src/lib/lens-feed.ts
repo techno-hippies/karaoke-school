@@ -2,6 +2,7 @@ import { lensClient } from "./lens/client";
 import { fetchPosts } from "@lens-protocol/client/actions";
 import { evmAddress } from "@lens-protocol/client";
 import type { LensFeedItem } from "../types/feed";
+import { getLensSession } from "./lens/sessionClient";
 
 // Get PKP registry contract address from environment or config
 const PKP_REGISTRY_ADDRESS = import.meta.env.VITE_PKP_REGISTRY_ADDRESS || "0x..."; // Replace with your actual contract address
@@ -246,8 +247,14 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
   try {
     console.log('[getPKPAccountsPosts] Fetching posts for PKP addresses:', pkpAddresses);
 
+    // Use authenticated session client if available to get user reaction states
+    const sessionClient = getLensSession();
+    const clientToUse = sessionClient || lensClient;
+
+    console.log(`[getPKPAccountsPosts] Using ${sessionClient ? 'authenticated SessionClient' : 'basic lensClient'} for post fetching`);
+
     // Get posts from our specific app
-    const result = await fetchPosts(lensClient, {
+    const result = await fetchPosts(clientToUse, {
       filter: {
         apps: [evmAddress('0x9484206D9beA9830F27361a2F5868522a8B8Ad22')]
       },
@@ -264,8 +271,17 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
     console.log('[getPKPAccountsPosts] First few posts:', posts.slice(0, 3).map(p => ({
       id: p.id,
       author: p.author?.username?.value || p.author?.address,
-      app: p.app?.address
+      app: p.app?.address,
+      operations: p.operations // Add operations to debug output
     })));
+
+    // Debug: Log operations for authenticated user if available
+    if (sessionClient && posts.length > 0) {
+      console.log('[getPKPAccountsPosts] 🔍 Operations available for authenticated user:');
+      posts.slice(0, 3).forEach((post, i) => {
+        console.log(`[getPKPAccountsPosts] Post ${i} operations:`, post.operations);
+      });
+    }
 
     // Filter posts to only include ones from our test PKP addresses
     // Focus on the specific test addresses from the pipeline test
@@ -322,15 +338,17 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
 
         const extractedVideoUrl = extractVideoUrl(post.metadata);
 
-        // console.log(`[getPKPAccountsPosts] Transforming post ${index}:`, {
-        //   id: post.id,
-        //   username,
-        //   address,
-        //   timestamp: timestampMs,
-        //   content: post.metadata?.content,
-        //   extractedVideoUrl: extractedVideoUrl,
-        //   metadataType: post.metadata?.__typename
-        // });
+        // Extract user reaction state from operations if available (SessionClient only)
+        const hasUpvoted = post.operations?.hasUpvoted || false;
+
+        console.log(`[getPKPAccountsPosts] ✨ Transforming post ${index} for ${username}:`, {
+          id: post.id,
+          hasUpvoted: hasUpvoted,
+          operations: post.operations ? 'present' : 'missing',
+          operationsDetail: post.operations,
+          likes: post.stats?.likes,
+          reactions: post.stats?.reactions
+        });
 
         const transformedData = {
           id: post.id,
@@ -343,6 +361,7 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
             likes: post.stats?.likes || Math.floor(Math.random() * 10000),
             comments: post.stats?.comments || Math.floor(Math.random() * 1000),
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0) || Math.floor(Math.random() * 500),
+            userHasLiked: hasUpvoted, // Add user reaction state
           },
           video: {
             id: post.id,

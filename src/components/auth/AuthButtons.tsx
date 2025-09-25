@@ -1,8 +1,9 @@
 import React from 'react'
 import { useLitAuth } from '../../providers/LitAuthProvider'
-import { useAccount, useConnect } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Button } from '../ui/button'
-import { Fingerprint, Wallet, LogOut, Loader2, Shield, UserPlus } from 'lucide-react'
+import { Fingerprint, LogOut, Loader2, Shield, UserPlus } from 'lucide-react'
 
 export const AuthButtons: React.FC = () => {
   const { 
@@ -18,7 +19,6 @@ export const AuthButtons: React.FC = () => {
   } = useLitAuth()
   
   const { address: walletAddress } = useAccount()
-  const { connect, connectors } = useConnect()
 
   const handleWebAuthnSignUp = async () => {
     await signUpWithWebAuthn()
@@ -29,12 +29,7 @@ export const AuthButtons: React.FC = () => {
   }
 
   const handleWalletConnect = async () => {
-    if (!walletAddress) {
-      const connector = connectors[0]
-      if (connector) {
-        connect({ connector })
-      }
-    } else {
+    if (walletAddress) {
       await connectWallet()
     }
   }
@@ -125,20 +120,57 @@ export const AuthButtons: React.FC = () => {
           Sign In with Device
         </Button>
 
-        <Button
-          onClick={handleWalletConnect}
-          disabled={isLoading}
-          variant="outline"
-          className="w-full"
-          size="lg"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Wallet className="w-4 h-4 mr-2" />
-          )}
-          {!walletAddress ? 'Connect Wallet' : 'Sign In with Wallet'}
-        </Button>
+        <ConnectButton.Custom>
+          {({
+            account,
+            chain,
+            openConnectModal,
+            openAccountModal,
+            authenticationStatus,
+            mounted,
+          }) => {
+            // Show loading state if not mounted
+            if (!mounted) {
+              return (
+                <Button disabled variant="outline" className="w-full" size="lg">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Loading...
+                </Button>
+              );
+            }
+
+            // Show connect button if no account connected
+            if (!account) {
+              return (
+                <Button
+                  onClick={openConnectModal}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  Connect Wallet
+                </Button>
+              );
+            }
+
+            // Show sign in button if wallet connected but not authenticated with PKP
+            return (
+              <Button
+                onClick={handleWalletConnect}
+                disabled={isLoading}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                Sign In with Wallet
+              </Button>
+            );
+          }}
+        </ConnectButton.Custom>
       </div>
 
       {/* Wallet status */}

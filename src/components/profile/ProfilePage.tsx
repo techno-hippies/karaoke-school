@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ProfilePageView } from './ProfilePageView';
 import { VideoDetail } from '../feed/VideoDetail';
 import { useLitAuth } from '../../providers/LitAuthProvider';
-import { LitAuthModal } from '../auth/LitAuthModal';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { 
   useProfileDetails, 
   useProfileStats,
@@ -56,7 +56,7 @@ export const ProfilePage: React.FC = () => {
     pkpInfo,
     isOwnProfile
   } = useDisplayAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { openConnectModal } = useConnectModal();
   const [pendingFollowAction, setPendingFollowAction] = useState<string | null>(null);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -340,12 +340,12 @@ export const ProfilePage: React.FC = () => {
       } else {
         // Need fresh auth to get PKP Viem account - show modal
         setPendingFollowAction(profileAddress);
-        setShowAuthModal(true);
+        openConnectModal?.();
         // After auth completes, the effect below will execute the follow
       }
     } else {
       // Not authenticated, show auth modal
-      setShowAuthModal(true);
+      openConnectModal?.();
     }
   };
   
@@ -353,7 +353,6 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (pendingFollowAction && pkpViemAccount) {
       setPendingFollowAction(null);
-      setShowAuthModal(false);
       // Trigger the follow
       handleConnectWallet();
     }
@@ -421,11 +420,6 @@ export const ProfilePage: React.FC = () => {
         onConnectWallet={handleConnectWallet}
       />
       
-      {/* Lit Auth Modal */}
-      <LitAuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
 
       {/* Video Detail Modal */}
       {selectedVideo && (

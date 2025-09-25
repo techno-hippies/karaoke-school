@@ -9,7 +9,7 @@ import {
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { wagmiConfig } from '../config/wagmi.config'
 import 'ethereum-identity-kit/css'
-import '@rainbow-me/rainbowkit/styles.css'
+import '../styles/rainbowkit-overrides.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

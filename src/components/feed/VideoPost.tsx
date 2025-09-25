@@ -6,6 +6,7 @@ import { ShareSheet } from './ShareSheet';
 import { useVideoPlayer } from '../../hooks/useVideoPlayer';
 import { useProfileNavigation } from '../../hooks/useProfileNavigation';
 import { useTouchGestures } from '../../hooks/useTouchGestures';
+import { useLensReactions } from '../../hooks/useLensReactions';
 
 interface VideoPostProps {
   videoUrl?: string;
@@ -19,6 +20,8 @@ interface VideoPostProps {
   creatorHandle?: string;
   creatorId?: string;
   pkpPublicKey?: string;
+  lensPostId?: string;
+  userHasLiked?: boolean;
 }
 
 export const VideoPost: React.FC<VideoPostProps> = ({
@@ -31,7 +34,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   shares,
   musicTitle = 'Original Sound',
   creatorHandle,
-  creatorId
+  creatorId,
+  lensPostId,
+  userHasLiked
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -56,11 +61,28 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     onTap: togglePlayPause,
     // Note: Feed doesn't need swipe navigation like VideoDetail
   });
+
+  // Lens reactions integration
+  const {
+    isLiked,
+    likeCount,
+    isLoading: isLikeLoading,
+    toggleLike,
+    canLike
+  } = useLensReactions({
+    postId: lensPostId || '',
+    initialLikeCount: likes,
+    userHasLiked
+  });
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
-    // console.log(`[VideoPost] Component props for @${username}:`, { username, creatorHandle, creatorId });
-  }, [videoUrl, username, description]);
+    console.log(`[VideoPost] 💗 Props for @${username}:`, {
+      lensPostId: lensPostId?.slice(-8),
+      userHasLiked,
+      username
+    });
+  }, [lensPostId, userHasLiked, username]);
 
   return (
     <div className="relative h-screen w-full bg-black snap-start flex items-center justify-center">
@@ -169,10 +191,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           </div>
 
           {/* Like Button */}
-          <ActionButton 
-            icon={Heart} 
-            count={likes} 
-            onClick={() => console.log('[Like] Liked video')}
+          <ActionButton
+            icon={Heart}
+            count={likeCount}
+            onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+            isActive={isLiked}
+            isLoading={isLikeLoading}
+            disabled={lensPostId ? !canLike : false}
           />
 
           <ActionButton 
@@ -237,10 +262,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         </div>
 
         {/* Like Button */}
-        <ActionButton 
-          icon={Heart} 
-          count={likes} 
-          onClick={() => console.log('[Like] Liked video')}
+        <ActionButton
+          icon={Heart}
+          count={likeCount}
+          onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+          isActive={isLiked}
+          isLoading={isLikeLoading}
+          disabled={lensPostId ? !canLike : false}
         />
 
         {/* Comment Button */}

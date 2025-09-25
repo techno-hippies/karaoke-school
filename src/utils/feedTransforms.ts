@@ -7,7 +7,11 @@ import type { FeedItem, LensFeedItem } from '../types/feed';
 /**
  * Transform LensFeedItem (from Lens Protocol v3) to FeedItem format
  */
-export function transformLensToFeedItem(item: LensFeedItem, index?: number): FeedItem {
+export function transformLensToFeedItem(item: LensFeedItem): FeedItem {
+  const userHasLiked = item.data.userHasLiked || false;
+
+  console.log(`[transformLensToFeedItem] 🔄 Converting ${item.creatorHandle} post ${item.id.slice(-8)} - userHasLiked: ${userHasLiked}`);
+
   return {
     id: item.id,
     type: 'video' as const,
@@ -17,6 +21,8 @@ export function transformLensToFeedItem(item: LensFeedItem, index?: number): Fee
       creatorHandle: item.creatorHandle,
       creatorId: item.creatorHandle,
       pkpPublicKey: item.video?.creator?.id,
+      lensPostId: item.id,
+      userHasLiked: userHasLiked, // Use actual reaction status from Lens
     }
   };
 }
@@ -110,7 +116,7 @@ export function transformLensFeed(
 
   const feedItems = items
     .filter(item => item && item.id) // Only valid items
-    .map((item, index) => transformLensToFeedItem(item, index));
+    .map((item) => transformLensToFeedItem(item));
 
   return limit ? feedItems.slice(0, limit) : feedItems;
 }

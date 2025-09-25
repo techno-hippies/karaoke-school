@@ -1,7 +1,8 @@
 import { lensClient } from "./lens/client";
 import { fetchAppUsers, fetchApp } from "@lens-protocol/client/actions";
 import { evmAddress } from "@lens-protocol/client";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 // Your testnet app address 
 const APP_ADDRESS = '0x9484206D9beA9830F27361a2F5868522a8B8Ad22'; // Testnet app
@@ -81,11 +82,24 @@ export function usePKPLensMapping() {
  */
 export function usePKPLensFeed() {
   const { data: mappings = [], isLoading: mappingsLoading } = usePKPLensMapping();
+  const queryClient = useQueryClient();
+
+  // Listen for lens session creation and refetch feed
+  useEffect(() => {
+    const handleLensSessionCreated = () => {
+      console.log('[usePKPLensFeed] 🔄 Lens session created, refetching feed with authenticated client...');
+      queryClient.invalidateQueries({ queryKey: ['app-lens-feed'] });
+    };
+
+    window.addEventListener('lens-session-created', handleLensSessionCreated);
+    return () => window.removeEventListener('lens-session-created', handleLensSessionCreated);
+  }, [queryClient]);
 
   return useQuery({
     queryKey: ['app-lens-feed', mappings.map(m => m.accountAddress)],
     queryFn: async () => {
       console.log('[usePKPLensFeed] Fetching with mappings:', mappings.length, 'mappings');
+
       if (mappings.length === 0) {
         console.log('[usePKPLensFeed] No mappings, returning empty array');
         return [];

@@ -104,14 +104,14 @@ export const useVideoPlayer = (
         hlsRef.current = null;
       }
 
-      console.log(`[useVideoPlayer] Loading video for @${username}:`, videoUrl);
+      // console.log(`[useVideoPlayer] Loading video for @${username}:`, videoUrl);
 
       // Check if it's an HLS stream
       if (videoUrl.endsWith('.m3u8')) {
-        console.log(`[useVideoPlayer] HLS stream detected for @${username}`);
+        // console.log(`[useVideoPlayer] HLS stream detected for @${username}`);
 
         if (Hls.isSupported()) {
-          console.log(`[useVideoPlayer] HLS.js supported, creating player for @${username}`);
+          // console.log(`[useVideoPlayer] HLS.js supported, creating player for @${username}`);
 
           const hls = new Hls({
             debug: false, // Disable verbose debug logs
@@ -125,7 +125,7 @@ export const useVideoPlayer = (
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            console.log(`[useVideoPlayer] HLS manifest parsed for @${username}`);
+            // console.log(`[useVideoPlayer] HLS manifest parsed for @${username}`);
             setIsReady(true);
             if (autoplay) {
               video.play().catch(e => console.log('Autoplay failed:', e));
@@ -140,12 +140,12 @@ export const useVideoPlayer = (
           });
 
           hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-            console.log(`[useVideoPlayer] HLS media attached for @${username}`);
+            // console.log(`[useVideoPlayer] HLS media attached for @${username}`);
           });
 
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           // Native HLS support (Safari)
-          console.log(`[useVideoPlayer] Using native HLS support for @${username}`);
+          // console.log(`[useVideoPlayer] Using native HLS support for @${username}`);
           video.src = videoUrl;
           setIsReady(true);
           if (autoplay) {
@@ -156,7 +156,7 @@ export const useVideoPlayer = (
         }
       } else {
         // Regular video URL (MP4, etc)
-        console.log(`[useVideoPlayer] Regular video URL for @${username}`);
+        // console.log(`[useVideoPlayer] Regular video URL for @${username}`);
         video.src = videoUrl;
         setIsReady(true);
         if (autoplay) {
@@ -180,13 +180,13 @@ export const useVideoPlayer = (
         video.removeEventListener('ended', handleEnded);
 
         if (hlsRef.current) {
-          console.log(`[useVideoPlayer] Destroying HLS player for @${username}`);
+          // console.log(`[useVideoPlayer] Destroying HLS player for @${username}`);
           hlsRef.current.destroy();
           hlsRef.current = null;
         }
       };
     } else {
-      console.log(`[useVideoPlayer] No video URL provided for @${username}`);
+      // console.log(`[useVideoPlayer] No video URL provided for @${username}`);
     }
   }, [videoUrl, username, autoplay]);
 

@@ -6,7 +6,7 @@ import { FeedXState } from './FeedXState';
 import { useSubgraphFeed } from '../../hooks/useSubgraphFeed';
 import { usePKPLensFeed, usePKPLensMapping } from '../../lib/pkp-lens-mapping';
 import { useLitAuth } from '../../providers/LitAuthProvider';
-import { LitAuthModal } from '../auth/LitAuthModal';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useFeedCoordinator } from '../../hooks/useFeedCoordinator';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
 import type { FeedItem } from '../../types/feed';
@@ -25,7 +25,7 @@ export const VerticalFeed: React.FC = () => {
   const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('home');
   const [tiktokLinked, setTiktokLinked] = useState(false);
   const [videosMinted, setVideosMinted] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { openConnectModal } = useConnectModal();
   
   // Wallet integration
   const { disconnect } = useDisconnect();
@@ -93,8 +93,8 @@ export const VerticalFeed: React.FC = () => {
 
   const handleOnboardingAction = (type: string) => {
     if (type === 'connect' || type === 'wallet') {
-      // Show Lit auth modal
-      setShowAuthModal(true);
+      // Show RainbowKit connect modal
+      openConnectModal?.();
     }
     
     if (type === 'tiktok') {
@@ -129,8 +129,8 @@ export const VerticalFeed: React.FC = () => {
         // Navigate to connected wallet's profile or PKP address
         navigate(`/profile/${connectedAddress}`);
       } else {
-        // Show Lit auth modal if not connected
-        setShowAuthModal(true);
+        // Show RainbowKit connect modal if not connected
+        openConnectModal?.();
       }
     } else {
       setActiveTab(tab);
@@ -148,8 +148,8 @@ export const VerticalFeed: React.FC = () => {
         // Navigate to connected wallet's profile or PKP address
         navigate(`/profile/${connectedAddress}`);
       } else {
-        // Show Lit auth modal if not connected
-        setShowAuthModal(true);
+        // Show RainbowKit connect modal if not connected
+        openConnectModal?.();
       }
     } else {
       setMobileTab(tab);
@@ -193,15 +193,6 @@ export const VerticalFeed: React.FC = () => {
         onOnboardingAction={handleOnboardingAction}
         // Pass coordinator functions for video state management
         feedCoordinator={feedCoordinator}
-      />
-      
-      {/* Lit Auth Modal */}
-      <LitAuthModal 
-        isOpen={showAuthModal}
-        onClose={() => {
-          setShowAuthModal(false);
-          // If auth successful, the state will be updated via context
-        }}
       />
     </>
   );

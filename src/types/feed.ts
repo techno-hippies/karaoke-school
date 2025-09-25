@@ -19,6 +19,8 @@ export interface FeedItem {
     thumbnailSourceUrl?: string;
     playCount?: number;
     musicTitle?: string;
+    lensPostId?: string;
+    userHasLiked?: boolean;
     // Quiz-specific fields
     showQuizAfter?: number;
     question?: string;
@@ -40,6 +42,7 @@ export interface LensFeedItem {
     likes: number;
     comments: number;
     shares: number;
+    userHasLiked?: boolean; // Add reaction state
   };
   video: {
     id: string;

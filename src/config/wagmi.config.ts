@@ -9,9 +9,16 @@ import {
   coinbaseWallet,
   rainbowWallet,
 } from '@rainbow-me/rainbowkit/wallets'
+import { createJoyIdWallet } from '@joyid/rainbowkit'
 
 // WalletConnect project ID - you should replace this with your own
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID'
+
+// JoyID configuration
+const joyidWallet = createJoyIdWallet({
+  // JoyID app URL - using testnet for development
+  joyidAppURL: 'https://testnet.joyid.dev',
+})
 
 // Configure wallet groups
 const connectors = connectorsForWallets(
@@ -19,6 +26,7 @@ const connectors = connectorsForWallets(
     {
       groupName: 'Wallets',
       wallets: [
+        joyidWallet,
         metaMaskWallet,
         walletConnectWallet,
         coinbaseWallet,

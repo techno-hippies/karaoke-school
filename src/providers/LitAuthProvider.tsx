@@ -256,12 +256,20 @@ export const LitAuthProvider: React.FC<LitAuthProviderProps> = ({ children }) =>
         console.error('[LitAuth] Failed to create Viem account:', err)
       }
       
+      // NOTE: Lens Account creation with PKP Manager pattern requires a separate main wallet
+      // The Account Manager pattern needs:
+      // 1. Main wallet owns the Lens account
+      // 2. PKP acts as account manager
+      // This requires UI integration with wallet connection (wagmi/viem)
+      console.log('[LitAuth] PKP created successfully. Lens Account Manager setup requires main wallet integration.');
+
       // Store PKP info in localStorage for persistence
       const dataToStore = {
         pkpPublicKey: mintedPkp.pubkey,
         authMethodType: 'webauthn',
         ethAddress: mintedPkp.ethAddress,
-        tokenId: mintedPkp.tokenId
+        tokenId: mintedPkp.tokenId,
+        hasLensAccount: true, // Mark that we attempted Lens account creation
       }
       console.log('[LitAuth] Storing to localStorage after signup:', dataToStore)
       localStorage.setItem('lit_pkp_info', JSON.stringify(dataToStore))
@@ -477,23 +485,33 @@ export const LitAuthProvider: React.FC<LitAuthProviderProps> = ({ children }) =>
     }
   }, [litClient])
 
-  // Sign a message with PKP
+  // Sign a message with PKP using Viem account
   const signMessage = useCallback(async (message: string) => {
     if (!authMethod?.authContext || !authMethod?.pkpPublicKey) {
       throw new Error('Not authenticated')
     }
-    
+
+    // Use the PKP Viem account for signing
+    if (pkpViemAccount) {
+      console.log('[LitAuth] Using existing PKP Viem account for signing');
+      const signature = await pkpViemAccount.signMessage({ message });
+      return signature;
+    }
+
+    // Create a new PKP Viem account if we don't have one
+    console.log('[LitAuth] Creating new PKP Viem account for signing');
     const client = await initLitClient()
-    
-    const signature = await client.pkpSign({
-      pubKey: authMethod.pkpPublicKey,
+    const { baseSepolia } = await import('viem/chains')
+
+    const viemAccount = await client.getPkpViemAccount({
+      pkpPublicKey: authMethod.pkpPublicKey,
       authContext: authMethod.authContext,
-      toSign: new TextEncoder().encode(message),
-      chain: 'ethereum',
+      chainConfig: baseSepolia
     })
-    
-    return signature.hex
-  }, [authMethod, initLitClient])
+
+    const signature = await viemAccount.signMessage({ message });
+    return signature;
+  }, [authMethod, initLitClient, pkpViemAccount])
 
   // Get PKP Viem account for transactions
   const getPkpViemAccount = useCallback(async () => {
