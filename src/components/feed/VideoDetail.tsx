@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, X, ChevronUp, ChevronDown, Play } from 'lucide-react';
+import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, X, CaretUp, CaretDown, Play } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
@@ -258,7 +258,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
           {videoUrl && !isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200">
               <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
-                <Play className="w-10 h-10 text-white fill-white ml-1" />
+                <Play className="w-10 h-10 text-white ml-1" weight="fill" />
               </div>
             </div>
           )}
@@ -269,14 +269,14 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
           <div className="absolute top-1/2 right-4 transform -translate-y-1/2 z-10 flex flex-col items-center space-y-4">
             <div className="opacity-90">
               <ActionButton
-                icon={ChevronUp}
+                icon={CaretUp}
                 onClick={onNavigatePrevious}
                 className={currentVideoIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}
               />
             </div>
             <div className="opacity-90">
               <ActionButton
-                icon={ChevronDown}
+                icon={CaretDown}
                 onClick={onNavigateNext}
                 className={currentVideoIndex === (totalVideos - 1) ? 'opacity-50 cursor-not-allowed' : ''}
               />
@@ -288,7 +288,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
         {videoUrl && (
           <div className="absolute bottom-4 right-4 z-10">
             <ActionButton
-              icon={isMuted ? VolumeX : Volume2}
+              icon={isMuted ? SpeakerX : SpeakerHigh}
               onClick={toggleMute}
             />
           </div>
@@ -331,7 +331,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
         <div className="p-4 border-b border-neutral-800">
           <p className="text-white leading-relaxed mb-3">{description}</p>
           <div className="flex items-center text-neutral-400">
-            <Music className="w-4 h-4 mr-2" />
+            <MusicNote className="w-4 h-4 mr-2" />
             <span>{musicTitle}</span>
           </div>
         </div>
@@ -348,8 +348,8 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
                 isLoading={isLikeLoading}
                 disabled={lensPostId ? !canLike : false}
               />
-              <ActionButton icon={MessageCircle} count={comments} onClick={() => setCommentsOpen(true)} />
-              <ActionButton icon={Share2} count={shares} onClick={() => setShareOpen(true)} />
+              <ActionButton icon={ChatCircle} count={comments} onClick={() => setCommentsOpen(true)} />
+              <ActionButton icon={ShareNetwork} count={shares} onClick={() => setShareOpen(true)} />
             </div>
           </div>
 

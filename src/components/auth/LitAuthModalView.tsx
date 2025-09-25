@@ -1,7 +1,7 @@
 import React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
-import { Fingerprint, Wallet, Loader2 } from 'lucide-react'
+import { Fingerprint, Wallet, CircleNotch } from '@phosphor-icons/react'
 
 interface LitAuthModalViewProps {
   isOpen: boolean
@@ -55,7 +55,7 @@ export const LitAuthModalView: React.FC<LitAuthModalViewProps> = ({
             size="lg"
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <CircleNotch className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Fingerprint className="w-4 h-4 mr-2" />
             )}
@@ -70,7 +70,7 @@ export const LitAuthModalView: React.FC<LitAuthModalViewProps> = ({
             size="lg"
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <CircleNotch className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Wallet className="w-4 h-4 mr-2" />
             )}

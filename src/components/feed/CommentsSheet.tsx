@@ -8,7 +8,7 @@ import {
 import { Comment, type CommentData } from './Comment';
 import { CommentInput } from './CommentInput';
 import { useLensComments } from '../../hooks/useLensComments';
-import { Loader2 } from 'lucide-react';
+import { CircleNotch } from '@phosphor-icons/react';
 
 interface CommentsSheetProps {
   open: boolean;
@@ -68,7 +68,7 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
         <div className="flex-1 overflow-y-auto py-4 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+              <CircleNotch className="w-6 h-6 animate-spin text-gray-400" />
               <span className="ml-2 text-gray-400">Loading comments...</span>
             </div>
           ) : comments.length > 0 ? (

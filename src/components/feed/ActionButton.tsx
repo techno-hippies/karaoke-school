@@ -1,10 +1,10 @@
 import React from 'react';
-import type { LucideIcon } from 'lucide-react';
-import { Heart } from 'lucide-react';
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
+import { Heart } from '@phosphor-icons/react';
 import { formatCount } from '../../lib/utils';
 
 interface ActionButtonProps {
-  icon: LucideIcon;
+  icon: PhosphorIcon;
   count?: number;
   onClick?: () => void;
   className?: string;

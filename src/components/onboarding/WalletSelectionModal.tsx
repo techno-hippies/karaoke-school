@@ -1,4 +1,4 @@
-import { Wallet, Chrome, Smartphone } from "lucide-react"
+import { Wallet, GoogleChromeLogo, DeviceMobile } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -47,7 +47,7 @@ export function WalletSelectionModal({
               className="w-full p-4 bg-neutral-800/50 hover:bg-neutral-800 rounded-lg flex items-center gap-3 transition-colors cursor-pointer"
             >
               <div className="w-10 h-10 bg-neutral-700 rounded-lg flex items-center justify-center">
-                <Chrome className="h-5 w-5 text-neutral-300" />
+                <GoogleChromeLogo className="h-5 w-5 text-neutral-300" />
               </div>
               <div className="text-left flex-1">
                 <div className="text-neutral-100 font-medium">Browser Wallet</div>
@@ -62,7 +62,7 @@ export function WalletSelectionModal({
               className="w-full p-4 bg-neutral-800/50 hover:bg-neutral-800 rounded-lg flex items-center gap-3 transition-colors cursor-pointer"
             >
               <div className="w-10 h-10 bg-neutral-700 rounded-lg flex items-center justify-center">
-                <Smartphone className="h-5 w-5 text-neutral-300" />
+                <DeviceMobile className="h-5 w-5 text-neutral-300" />
               </div>
               <div className="text-left flex-1">
                 <div className="text-neutral-100 font-medium">WalletConnect</div>

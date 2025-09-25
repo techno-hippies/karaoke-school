@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play } from '@phosphor-icons/react';
 
 interface VideoThumbnailProps {
   thumbnailUrl: string;
@@ -130,7 +130,7 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
       {/* Hover Overlay - Desktop only */}
       <div className="hidden md:flex absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 items-center justify-center">
         <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-          <Play className="w-8 h-8 text-white fill-white ml-1" />
+          <Play className="w-8 h-8 text-white ml-1" weight="fill" />
         </div>
       </div>
 

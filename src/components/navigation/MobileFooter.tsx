@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Plus, User } from 'lucide-react';
+import { House, Plus, User } from '@phosphor-icons/react';
 
 interface MobileFooterProps {
   activeTab: 'home' | 'post' | 'profile';
@@ -16,7 +16,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
             activeTab === 'home' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'
           }`}
         >
-          <Home className="w-6 h-6" />
+          <House className="w-6 h-6" />
           <span className="text-xs mt-1">Home</span>
         </button>
 

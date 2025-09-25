@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Compass, Users, User } from 'lucide-react';
+import { House, MagnifyingGlass, Users, User } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
 
 interface DesktopSidebarProps {
@@ -39,7 +39,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
             }`}
           >
-            <Home className="w-6 h-6 flex-shrink-0" />
+            <House className="w-6 h-6 flex-shrink-0" />
             <span className="text-lg">For You</span>
           </button>
 
@@ -51,7 +51,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
             }`}
           >
-            <Compass className="w-6 h-6 flex-shrink-0" />
+            <MagnifyingGlass className="w-6 h-6 flex-shrink-0" />
             <span className="text-lg">Discover</span>
           </button>
 

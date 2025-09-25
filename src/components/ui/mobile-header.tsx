@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X } from '@phosphor-icons/react'
 import { useNavigationHistory } from '../../hooks/useNavigationHistory'
 
 interface MobileHeaderProps {

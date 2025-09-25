@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send } from 'lucide-react';
+import { PaperPlaneRight } from '@phosphor-icons/react';
 
 interface CommentInputProps {
   onSubmit?: (comment: string) => void;
@@ -79,7 +79,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
             disabled={!comment.trim()}
             className="absolute bottom-2 right-2 p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Send className="w-4 h-4" />
+            <PaperPlaneRight className="w-4 h-4" />
           </button>
         </div>
       </div>

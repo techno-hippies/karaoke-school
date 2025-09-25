@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Share, Music, Volume2, VolumeX } from 'lucide-react';
+import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX } from '@phosphor-icons/react';
 import { useSelector } from '@xstate/react';
 import type { ActorRefFrom } from 'xstate';
 import { videoMachine } from '../../machines/videoMachine';
@@ -176,7 +176,7 @@ export function VideoPostXState({
             className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm rounded-full p-3 hover:bg-black/70 transition-colors z-10"
             onClick={handleMuteToggle}
           >
-            {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
+            {isMuted ? <SpeakerX className="w-6 h-6 text-white" /> : <SpeakerHigh className="w-6 h-6 text-white" />}
           </button>
         )}
         
@@ -202,7 +202,7 @@ export function VideoPostXState({
             <h3 className="font-semibold mb-2">@{context.username}</h3>
             <p className="text-sm">{context.description}</p>
             <div className="flex items-center mt-2 text-sm">
-              <Music className="w-4 h-4 mr-2" />
+              <MusicNote className="w-4 h-4 mr-2" />
               <span>Original Audio</span>
             </div>
           </div>
@@ -215,21 +215,21 @@ export function VideoPostXState({
             onClick={handleLike}
           >
             <div className={`${context.hasLiked ? 'bg-red-500/80' : 'bg-white/10'} backdrop-blur-sm rounded-full p-3 transition-colors`}>
-              <Heart className={`w-6 h-6 ${context.hasLiked ? 'text-white fill-white' : 'text-white'}`} />
+              <Heart className={`w-6 h-6 text-white`} weight={context.hasLiked ? 'fill' : 'regular'} />
             </div>
             <span className="text-white text-xs mt-1">{formatCount(context.likes)}</span>
           </button>
           
           <button className="flex flex-col items-center">
             <div className="bg-white/10 backdrop-blur-sm rounded-full p-3">
-              <MessageCircle className="w-6 h-6 text-white" />
+              <ChatCircle className="w-6 h-6 text-white" />
             </div>
             <span className="text-white text-xs mt-1">{formatCount(context.comments)}</span>
           </button>
           
           <button className="flex flex-col items-center">
             <div className="bg-white/10 backdrop-blur-sm rounded-full p-3">
-              <Share className="w-6 h-6 text-white" />
+              <ShareNetwork className="w-6 h-6 text-white" />
             </div>
             <span className="text-white text-xs mt-1">{formatCount(context.shares)}</span>
           </button>

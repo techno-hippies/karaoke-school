@@ -3,7 +3,7 @@ import { ProfileHeader } from './ProfileHeader';
 import { VideoThumbnail } from './VideoThumbnail';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
 import { MobileFooter } from '../navigation/MobileFooter';
-import { ArrowLeft, LogOut } from 'lucide-react';
+import { ArrowLeft, SignOut } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
 import { FollowButton, ProfileStats } from 'ethereum-identity-kit';
 
@@ -98,7 +98,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 onClick={onDisconnect}
                 className="p-2 hover:bg-neutral-800 rounded-full cursor-pointer"
               >
-                <LogOut className="h-5 w-5 text-neutral-400" />
+                <SignOut className="h-5 w-5 text-neutral-400" />
               </button>
             </div>
           )}
@@ -130,7 +130,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
                 onClick={onDisconnect}
                 className="p-2 hover:bg-neutral-800 rounded-full cursor-pointer"
               >
-                <LogOut className="h-5 w-5 text-neutral-400" />
+                <SignOut className="h-5 w-5 text-neutral-400" />
               </button>
             ) : (
               <div className="w-9" /> // Right spacer when no logout button

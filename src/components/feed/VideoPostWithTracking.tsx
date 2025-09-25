@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Heart, MessageCircle, Share, Music, Volume2, VolumeX, Plus } from 'lucide-react';
+import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, Plus } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { useAccount } from 'wagmi';
 import Hls from 'hls.js';
@@ -427,7 +427,7 @@ export function VideoPostWithTracking({
               toggleMute();
             }}
           >
-            {isMuted ? <VolumeX className="w-6 h-6 text-white" /> : <Volume2 className="w-6 h-6 text-white" />}
+            {isMuted ? <SpeakerX className="w-6 h-6 text-white" /> : <SpeakerHigh className="w-6 h-6 text-white" />}
           </button>
         )}
 
@@ -461,7 +461,7 @@ export function VideoPostWithTracking({
             </h3>
             <p className="text-sm">{description}</p>
             <div className="flex items-center mt-2 text-sm">
-              <Music className="w-4 h-4 mr-2" />
+              <MusicNote className="w-4 h-4 mr-2" />
               <span>{audioTitle}</span>
             </div>
           </div>
@@ -503,13 +503,13 @@ export function VideoPostWithTracking({
           />
 
           <ActionButton 
-            icon={MessageCircle} 
+            icon={ChatCircle} 
             count={comments} 
             onClick={() => console.log('[Comment] Opening comments')}
           />
 
           <ActionButton 
-            icon={Share} 
+            icon={ShareNetwork} 
             count={shares} 
             onClick={() => console.log('[Share] Sharing video')}
           />

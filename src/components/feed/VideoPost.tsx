@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Share2, Music, Volume2, VolumeX, Plus, Play, Check } from 'lucide-react';
+import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, Plus, Play, Check } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
@@ -136,7 +136,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         {videoUrl && !isPlaying && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200">
             <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
-              <Play className="w-10 h-10 text-white fill-white ml-1" />
+              <Play className="w-10 h-10 text-white fill-white ml-1" weight="fill" />
             </div>
           </div>
         )}
@@ -151,9 +151,9 @@ export const VideoPost: React.FC<VideoPostProps> = ({
             className="absolute top-4 left-4 p-2 z-10"
           >
             {isMuted ? (
-              <VolumeX className="w-6 h-6 text-white drop-shadow-lg" />
+              <SpeakerX className="w-6 h-6 text-white drop-shadow-lg" />
             ) : (
-              <Volume2 className="w-6 h-6 text-white drop-shadow-lg" />
+              <SpeakerHigh className="w-6 h-6 text-white drop-shadow-lg" />
             )}
           </button>
         )}
@@ -171,7 +171,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           </h3>
           <p className="text-white text-sm drop-shadow-lg line-clamp-2">{description}</p>
           <div className="flex items-center gap-2 mt-1">
-            <Music className="w-4 h-4 text-white drop-shadow-lg" />
+            <MusicNote className="w-4 h-4 text-white drop-shadow-lg" />
             <span className="text-white text-sm drop-shadow-lg">{musicTitle}</span>
           </div>
         </div>
@@ -259,7 +259,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           </h3>
           <p className="text-white text-sm mb-3">{description}</p>
           <div className="flex items-center gap-2">
-            <Music className="w-4 h-4 text-white" />
+            <MusicNote className="w-4 h-4 text-white" />
             <span className="text-white text-sm">{musicTitle}</span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Share2, Music, Plus } from 'lucide-react';
+import { Heart, ChatCircle, ShareNetwork, MusicNote, Plus } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { MultipleChoiceExercise } from '../exercises/MultipleChoiceExercise';
 import type { MultipleChoiceOption } from '../exercises/MultipleChoiceExercise';
@@ -214,13 +214,13 @@ export const VideoQuizPost: React.FC<VideoQuizPostProps> = ({
             />
 
             <ActionButton 
-              icon={MessageCircle} 
+              icon={ChatCircle} 
               count={comments} 
               onClick={() => console.log('[Comment] Opening comments')}
             />
 
             <ActionButton 
-              icon={Share2} 
+              icon={ShareNetwork} 
               count={shares} 
               onClick={() => console.log('[Share] Sharing video')}
             />
@@ -231,7 +231,7 @@ export const VideoQuizPost: React.FC<VideoQuizPostProps> = ({
             <h3 className="text-white font-semibold mb-2">@{username}</h3>
             <p className="text-white text-sm mb-3">{description}</p>
             <div className="flex items-center gap-2">
-              <Music className="w-4 h-4 text-white" />
+              <MusicNote className="w-4 h-4 text-white" />
               <span className="text-white text-sm">{musicTitle}</span>
             </div>
           </div>

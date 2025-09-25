@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
 import { ShareSheet } from '../components/feed/ShareSheet';
 import { Button } from '../components/ui/button';
-import { Share2 } from 'lucide-react';
+import { ShareNetwork } from '@phosphor-icons/react';
 
 const meta: Meta<typeof ShareSheet> = {
   title: 'Feed/ShareSheet',
@@ -34,7 +34,7 @@ const ShareSheetWrapper = ({
         onClick={() => setOpen(true)}
         className="bg-neutral-800 hover:bg-neutral-700 text-white flex items-center gap-2"
       >
-        <Share2 className="w-4 h-4" />
+        <ShareNetwork className="w-4 h-4" />
         Share Video
       </Button>
       <ShareSheet 

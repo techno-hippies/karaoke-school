@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart } from 'lucide-react';
+import { Heart } from '@phosphor-icons/react';
 
 export interface CommentData {
   id: string;

@@ -35,7 +35,6 @@
     "clsx": "^2.1.1",
     "ethereum-identity-kit": "0.2.55",
     "hls.js": "^1.6.12",
-    "lucide-react": "0.542.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
