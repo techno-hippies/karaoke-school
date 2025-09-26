@@ -20,8 +20,8 @@ import { useAppNavigation } from '../../hooks/useAppNavigation';
  * Uses wagmi hooks and passes data to VerticalFeedView
  */
 export const VerticalFeed: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'following' | 'profile'>('home');
-  const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'profile'>('home');
+  const [mobileTab, setMobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home');
   const [tiktokLinked, setTiktokLinked] = useState(false);
   const [videosMinted, setVideosMinted] = useState(false);
   const { openConnectModal } = useConnectModal();
@@ -113,39 +113,25 @@ export const VerticalFeed: React.FC = () => {
   // Use XState for video playback coordination only
   const feedCoordinator = useFeedCoordinator(filteredFeed);
 
-  // Handle desktop tab changes
-  const handleDesktopTabChange = (tab: 'home' | 'discover' | 'following' | 'profile') => {
-    if (tab === 'profile') {
-      if (connectedAddress) {
-        // Navigate to connected wallet's profile or PKP address
-        navigate(`/profile/${connectedAddress}`);
-      } else {
-        // Show RainbowKit connect modal if not connected
-        openConnectModal?.();
-      }
-    } else {
-      setActiveTab(tab);
-    }
+  // Handle desktop tab changes using the navigation hook
+  const handleDesktopTabChange = (tab: 'home' | 'study' | 'profile') => {
+    navigation.handleDesktopTabChange(
+      tab,
+      activeTab,
+      setActiveTab,
+      () => openConnectModal?.()
+    );
   };
 
-  // Handle mobile tab changes
-  const handleMobileTabChange = (tab: 'home' | 'post' | 'profile') => {
-    if (tab === 'post') {
-      console.log('Create post');
-      return;
-    }
-    if (tab === 'profile') {
-      if (connectedAddress) {
-        // Navigate to connected wallet's profile or PKP address
-        navigate(`/profile/${connectedAddress}`);
-      } else {
-        // Show RainbowKit connect modal if not connected
-        openConnectModal?.();
-      }
-    } else {
-      setMobileTab(tab);
-      setActiveTab(tab as any);
-    }
+  // Handle mobile tab changes using the navigation hook
+  const handleMobileTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
+    navigation.handleMobileTabChange(
+      tab,
+      setMobileTab,
+      setActiveTab,
+      () => openConnectModal?.(),
+      handleCreatePost
+    );
   };
 
   const handleCreatePost = () => {

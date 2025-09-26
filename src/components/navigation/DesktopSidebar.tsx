@@ -1,10 +1,10 @@
 import React from 'react';
-import { House, MagnifyingGlass, Users, User } from '@phosphor-icons/react';
+import { House, GraduationCap, User } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'discover' | 'following' | 'profile';
-  onTabChange: (tab: 'home' | 'discover' | 'following' | 'profile') => void;
+  activeTab: 'home' | 'study' | 'profile';
+  onTabChange: (tab: 'home' | 'study' | 'profile') => void;
   onCreatePost: () => void;
   isConnected?: boolean;
   walletAddress?: string;
@@ -22,11 +22,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onConnectWallet
 }) => {
   return (
-    <div className="max-md:hidden fixed left-0 top-0 h-full w-64 bg-black border-r border-neutral-800 z-50">
+    <div className="max-md:hidden fixed left-0 top-0 h-full w-64 bg-neutral-900 border-r border-neutral-800 z-50">
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="p-6 px-8">
-          <h1 className="text-white font-bold text-2xl">TikTok</h1>
+          <h1 className="text-white font-bold text-2xl">KSchool</h1>
         </div>
 
         {/* Navigation */}
@@ -44,27 +44,15 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </button>
 
           <button
-            onClick={() => onTabChange('discover')}
+            onClick={() => onTabChange('study')}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'discover' 
-                ? 'bg-neutral-900 text-white' 
+              activeTab === 'study'
+                ? 'bg-neutral-900 text-white'
                 : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
             }`}
           >
-            <MagnifyingGlass className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Discover</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('following')}
-            className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'following' 
-                ? 'bg-neutral-900 text-white' 
-                : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
-            }`}
-          >
-            <Users className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Following</span>
+            <GraduationCap className="w-6 h-6 flex-shrink-0" />
+            <span className="text-lg">Study</span>
           </button>
 
           <button

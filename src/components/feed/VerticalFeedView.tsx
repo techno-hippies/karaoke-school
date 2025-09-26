@@ -4,6 +4,7 @@ import { VideoQuizPost } from './VideoQuizPost';
 import { MobileFooter } from '../navigation/MobileFooter';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
 import { Button } from '../ui/button';
+import { FeedSkeleton } from './FeedSkeleton';
 
 interface FeedItem {
   id: string;
@@ -13,13 +14,13 @@ interface FeedItem {
 
 interface VerticalFeedViewProps {
   feedItems: FeedItem[];
-  activeTab: 'home' | 'discover' | 'following' | 'profile';
-  mobileTab: 'home' | 'post' | 'profile';
+  activeTab: 'home' | 'study' | 'profile';
+  mobileTab: 'home' | 'study' | 'post' | 'inbox' | 'profile';
   isConnected: boolean;
   walletAddress?: string;
-  
-  onDesktopTabChange: (tab: 'home' | 'discover' | 'following' | 'profile') => void;
-  onMobileTabChange: (tab: 'home' | 'post' | 'profile') => void;
+
+  onDesktopTabChange: (tab: 'home' | 'study' | 'profile') => void;
+  onMobileTabChange: (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => void;
   onCreatePost: () => void;
   onDisconnect: () => void;
   onOnboardingAction: (type: string) => void;
@@ -54,55 +55,11 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  if (activeTab === 'discover') {
-    return (
-      <div className="h-screen bg-black flex">
-        <DesktopSidebar 
-          activeTab={activeTab}
-          onTabChange={onDesktopTabChange}
-          onCreatePost={onCreatePost}
-          isConnected={isConnected}
-          walletAddress={walletAddress}
-          onDisconnect={onDisconnect}
-          onConnectWallet={() => onOnboardingAction('connect')}
-        />
-        <div className="flex-1 flex items-center justify-center text-white md:ml-20 lg:ml-64">
-          <div className="text-center">
-            <h2 className="text-2xl mb-4">Discover</h2>
-            <p className="text-neutral-400">Explore trending content</p>
-          </div>
-        </div>
-        <MobileFooter activeTab={mobileTab} onTabChange={onMobileTabChange} />
-      </div>
-    );
-  }
-
-  if (activeTab === 'following') {
-    return (
-      <div className="h-screen bg-black flex">
-        <DesktopSidebar 
-          activeTab={activeTab}
-          onTabChange={onDesktopTabChange}
-          onCreatePost={onCreatePost}
-          isConnected={isConnected}
-          walletAddress={walletAddress}
-          onDisconnect={onDisconnect}
-          onConnectWallet={() => onOnboardingAction('connect')}
-        />
-        <div className="flex-1 flex items-center justify-center text-white md:ml-20 lg:ml-64">
-          <div className="text-center">
-            <h2 className="text-2xl mb-4">Following</h2>
-            <p className="text-neutral-400">Content from creators you follow</p>
-          </div>
-        </div>
-        <MobileFooter activeTab={mobileTab} onTabChange={onMobileTabChange} />
-      </div>
-    );
-  }
+  // Learn tab is now handled by the router - this component only shows the main feed
 
   // Main feed view
   return (
-    <div className="h-screen bg-black flex">
+    <div className="h-screen bg-neutral-900 flex">
       {/* Desktop Sidebar */}
       <DesktopSidebar 
         activeTab={activeTab as any}
@@ -163,9 +120,7 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
           return null;
         })
         ) : (
-          <div className="flex items-center justify-center h-full text-white">
-            <p>Loading...</p>
-          </div>
+          <FeedSkeleton count={3} />
         )}
       </div>
       

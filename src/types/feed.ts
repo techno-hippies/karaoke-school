@@ -21,6 +21,10 @@ export interface FeedItem {
     musicTitle?: string;
     lensPostId?: string;
     userHasLiked?: boolean;
+    // Story Protocol fields
+    storyProtocolIpId?: string;
+    storyProtocolMetadataUri?: string;
+    storyProtocolLyricsHash?: string;
     // Quiz-specific fields
     showQuizAfter?: number;
     question?: string;

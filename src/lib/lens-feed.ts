@@ -3,6 +3,7 @@ import { fetchPosts } from "@lens-protocol/client/actions";
 import { evmAddress } from "@lens-protocol/client";
 import type { LensFeedItem } from "../types/feed";
 import { getLensSession } from "./lens/sessionClient";
+import { fetchStoryProtocolAssetData } from './story-protocol';
 
 // Get PKP registry contract address from environment or config
 const PKP_REGISTRY_ADDRESS = import.meta.env.VITE_PKP_REGISTRY_ADDRESS || "0x..."; // Replace with your actual contract address
@@ -48,6 +49,13 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
     return posts
       .filter(post => post && post.id) // More lenient filter - just need an ID
       .map((post, index) => {
+        // Log full post structure to see Story Protocol data
+        if (index === 0) {
+          console.log('[getFeedItems] STORY PROTOCOL DEBUG - Full post structure:', JSON.stringify(post, null, 2));
+          console.log('[getFeedItems] STORY PROTOCOL DEBUG - Post metadata:', post.metadata);
+          console.log('[getFeedItems] STORY PROTOCOL DEBUG - Post metadata attributes:', post.metadata?.attributes);
+        }
+
         // Handle different possible post structures - Lens uses 'author' not 'by'
         const author = post.author || post.by || {};
         const username = author.username?.value || author.handle?.value || author.address || `user_${index}`;
@@ -65,6 +73,31 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
         //   content: post.metadata?.content
         // });
 
+        // Extract Story Protocol metadata
+        const storyProtocolIpId = extractStoryProtocolIpId(post.metadata);
+        const storyProtocolMetadataUri = extractStoryProtocolMetadataUri(post.metadata);
+
+        if (storyProtocolIpId) {
+          console.log('[getFeedItems] STORY PROTOCOL FOUND - ipID:', storyProtocolIpId, 'for post:', post.id);
+
+          // Fetch Story Protocol metadata and audio/lyrics asynchronously (don't block feed loading)
+          fetchStoryProtocolAssetData(storyProtocolIpId)
+            .then(storyData => {
+              console.log('[getFeedItems] STORY PROTOCOL - Fetched data:', storyData);
+
+              if (storyData.metadata?.mediaUrl) {
+                console.log('[getFeedItems] STORY PROTOCOL - Audio URL found:', storyData.metadata.mediaUrl);
+              }
+
+              if (storyData.lyrics) {
+                console.log('[getFeedItems] STORY PROTOCOL - Lyrics found:', storyData.lyrics.substring(0, 100) + '...');
+              }
+            })
+            .catch(error => {
+              console.error('[getFeedItems] STORY PROTOCOL - Error fetching data:', error);
+            });
+        }
+
         return {
           id: post.id,
           creatorHandle: username,
@@ -76,6 +109,8 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
             likes: post.stats?.upvotes || 0,
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
+            storyProtocolIpId,
+            storyProtocolMetadataUri,
           },
           video: {
             id: post.id,
@@ -327,6 +362,13 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
     return postsToReturn
       .filter(post => post && post.id) // More lenient filter
       .map((post, index) => {
+        // Log full post structure to see Story Protocol data (PKP version)
+        if (index === 0) {
+          console.log('[getPKPAccountsPosts] STORY PROTOCOL DEBUG - Full post structure:', JSON.stringify(post, null, 2));
+          console.log('[getPKPAccountsPosts] STORY PROTOCOL DEBUG - Post metadata:', post.metadata);
+          console.log('[getPKPAccountsPosts] STORY PROTOCOL DEBUG - Post metadata attributes:', post.metadata?.attributes);
+        }
+
         // Handle different possible post structures - Lens uses 'author' not 'by'
         const author = post.author || post.by || {};
         const username = author.username?.value || author.handle?.value || author.address || `user_${index}`;
@@ -337,6 +379,36 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
         const timestampMs = postTimestamp ? new Date(postTimestamp).getTime().toString() : Date.now().toString();
 
         const extractedVideoUrl = extractVideoUrl(post.metadata);
+
+        // Extract Story Protocol metadata
+        const storyProtocolIpId = extractStoryProtocolIpId(post.metadata);
+        const storyProtocolMetadataUri = extractStoryProtocolMetadataUri(post.metadata);
+        const storyProtocolLyricsHash = extractStoryProtocolLyricsHash(post.metadata);
+
+        if (storyProtocolIpId) {
+          console.log('[getPKPAccountsPosts] STORY PROTOCOL FOUND - ipID:', storyProtocolIpId, 'for post:', post.id);
+          console.log('[getPKPAccountsPosts] STORY PROTOCOL - All metadata attributes:', post.metadata?.attributes);
+          if (storyProtocolLyricsHash) {
+            console.log('[getPKPAccountsPosts] STORY PROTOCOL - LYRICS HASH:', storyProtocolLyricsHash);
+          }
+
+          // Fetch Story Protocol metadata and audio/lyrics asynchronously (don't block feed loading)
+          fetchStoryProtocolAssetData(storyProtocolIpId)
+            .then(storyData => {
+              console.log('[getPKPAccountsPosts] STORY PROTOCOL - Fetched data:', storyData);
+
+              if (storyData.metadata?.mediaUrl) {
+                console.log('[getPKPAccountsPosts] STORY PROTOCOL - Audio URL found:', storyData.metadata.mediaUrl);
+              }
+
+              if (storyData.lyrics) {
+                console.log('[getPKPAccountsPosts] STORY PROTOCOL - Lyrics found:', storyData.lyrics.substring(0, 100) + '...');
+              }
+            })
+            .catch(error => {
+              console.error('[getPKPAccountsPosts] STORY PROTOCOL - Error fetching data:', error);
+            });
+        }
 
         // Extract user reaction state from operations if available (SessionClient only)
         const hasUpvoted = post.operations?.hasUpvoted || false;
@@ -362,6 +434,9 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
             userHasLiked: hasUpvoted, // Add user reaction state
+            storyProtocolIpId,
+            storyProtocolMetadataUri,
+            storyProtocolLyricsHash,
           },
           video: {
             id: post.id,
@@ -380,4 +455,67 @@ export async function getPKPAccountsPosts(pkpAddresses: string[], limit: number 
     console.error('Error in getPKPAccountsPosts:', error);
     return [];
   }
+}
+
+/**
+ * Extract Story Protocol IP ID from Lens post metadata
+ */
+function extractStoryProtocolIpId(metadata: any): string | undefined {
+  // Check for Story Protocol ipID in metadata attributes
+  if (metadata?.attributes) {
+    for (const attr of metadata.attributes) {
+      if (attr.key === 'Story_IP_ID' || attr.key === 'storyProtocolIpId' || attr.key === 'ipID' || attr.key === 'ipId') {
+        return attr.value;
+      }
+    }
+  }
+
+  // Check direct metadata properties
+  if (metadata?.storyProtocolIpId || metadata?.ipID || metadata?.ipId || metadata?.Story_IP_ID) {
+    return metadata.storyProtocolIpId || metadata.ipID || metadata.ipId || metadata.Story_IP_ID;
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract Story Protocol metadata URI from Lens post metadata
+ */
+function extractStoryProtocolMetadataUri(metadata: any): string | undefined {
+  // Check for Story Protocol metadata URI in attributes
+  if (metadata?.attributes) {
+    for (const attr of metadata.attributes) {
+      if (attr.key === 'storyProtocolMetadataUri' || attr.key === 'metadataUri') {
+        return attr.value;
+      }
+    }
+  }
+
+  // Check direct metadata properties
+  if (metadata?.storyProtocolMetadataUri || metadata?.metadataUri) {
+    return metadata.storyProtocolMetadataUri || metadata.metadataUri;
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract Story Protocol lyrics IPFS hash from Lens post metadata
+ */
+function extractStoryProtocolLyricsHash(metadata: any): string | undefined {
+  // Check for Story Protocol lyrics hash in attributes
+  if (metadata?.attributes) {
+    for (const attr of metadata.attributes) {
+      if (attr.key === 'Story_Lyrics_Hash' || attr.key === 'lyricsHash' || attr.key === 'lyrics_hash') {
+        return attr.value;
+      }
+    }
+  }
+
+  // Check direct metadata properties
+  if (metadata?.lyricsHash || metadata?.lyrics_hash || metadata?.Story_Lyrics_Hash) {
+    return metadata.lyricsHash || metadata.lyrics_hash || metadata.Story_Lyrics_Hash;
+  }
+
+  return undefined;
 }

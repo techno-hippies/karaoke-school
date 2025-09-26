@@ -23,7 +23,7 @@ export default mobileMeta;
 
 export const MobileDefault: StoryObj<typeof MobileFooter> = {
   render: () => {
-    const [activeTab, setActiveTab] = useState<'home' | 'post' | 'profile'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home');
     return (
       <div className="relative h-screen bg-black">
         <div className="flex flex-col items-center justify-center h-full text-white">
@@ -51,6 +51,30 @@ export const MobileHomeActive: StoryObj<typeof MobileFooter> = {
   ),
 };
 
+export const MobileStudyActive: StoryObj<typeof MobileFooter> = {
+  args: {
+    activeTab: 'study',
+    onTabChange: (tab) => console.log('Tab changed to:', tab),
+  },
+  render: (args) => (
+    <div className="relative h-screen bg-black">
+      <MobileFooter {...args} />
+    </div>
+  ),
+};
+
+export const MobileInboxActive: StoryObj<typeof MobileFooter> = {
+  args: {
+    activeTab: 'inbox',
+    onTabChange: (tab) => console.log('Tab changed to:', tab),
+  },
+  render: (args) => (
+    <div className="relative h-screen bg-black">
+      <MobileFooter {...args} />
+    </div>
+  ),
+};
+
 export const MobileProfileActive: StoryObj<typeof MobileFooter> = {
   args: {
     activeTab: 'profile',
@@ -66,7 +90,7 @@ export const MobileProfileActive: StoryObj<typeof MobileFooter> = {
 // DesktopSidebar Stories
 export const DesktopSidebarDefault: StoryObj<typeof DesktopSidebar> = {
   render: () => {
-    const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'following' | 'profile'>('home');
+    const [activeTab, setActiveTab] = useState<'home' | 'study' | 'profile'>('home');
     return (
       <div className="h-screen bg-black flex">
         <DesktopSidebar
@@ -112,7 +136,7 @@ export const DesktopSidebarCollapsed: StoryObj<typeof DesktopSidebar> = {
 
 export const DesktopSidebarExpanded: StoryObj<typeof DesktopSidebar> = {
   args: {
-    activeTab: 'discover',
+    activeTab: 'study',
     onTabChange: (tab) => console.log('Tab changed to:', tab),
     onCreatePost: () => console.log('Create post clicked'),
   },
