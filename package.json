@@ -46,6 +46,7 @@
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.37.5",
     "wagmi": "^2.16.9",
+    "wavesurfer.js": "^7.10.3",
     "xstate": "^5.21.0"
   },
   "devDependencies": {

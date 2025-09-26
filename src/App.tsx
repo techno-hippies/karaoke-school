@@ -5,6 +5,7 @@ import Homepage from './components/Homepage'
 import { EditProfilePage } from './components/profile/EditProfilePage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { ClaimAccountPage } from './components/profile/ClaimAccountPage'
+import { LearnPage } from './components/LearnPage'
 import { TikTokTest } from './components/TikTokTest'
 import './index.css'
 
@@ -20,6 +21,7 @@ function App() {
               <Route path="/profile" element={<Navigate to="/profile/karaokeschool" replace />} />
               <Route path="/edit-profile" element={<EditProfilePage />} />
               <Route path="/claim/:username" element={<ClaimAccountPage />} />
+              <Route path="/study" element={<LearnPage />} />
               <Route path="/test" element={<TikTokTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

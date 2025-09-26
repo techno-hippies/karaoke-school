@@ -27,7 +27,8 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   const getIconColor = () => {
     if (isHeartButton && isActive) return 'text-red-500';
     if (disabled) return 'text-gray-500';
-    return 'text-white';
+    if (isHeartButton) return 'text-white'; // Heart button when not active stays white
+    return 'text-neutral-300'; // Comment and share buttons use lighter neutral
   };
 
   const getBackgroundColor = () => {
@@ -70,7 +71,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
         ) : (
           <Icon
             className={`w-6 h-6 transition-colors ${getIconColor()}`}
-            weight={isHeartButton && isActive ? 'fill' : 'regular'}
+            weight="fill"
           />
         )}
       </div>

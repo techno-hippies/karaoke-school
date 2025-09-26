@@ -48,13 +48,15 @@ export function useAppNavigation() {
    * Handle desktop tab navigation with auth checks
    */
   const handleDesktopTabChange = (
-    tab: 'home' | 'discover' | 'following' | 'profile',
+    tab: 'home' | 'study' | 'profile',
     activeTab: string,
     setActiveTab: (tab: any) => void,
     onShowAuthModal?: () => void
   ) => {
     if (tab === 'home') {
       navigate('/');
+    } else if (tab === 'study') {
+      navigate('/study');
     } else if (tab === 'profile') {
       navigateToOwnProfile(onShowAuthModal);
     } else {
@@ -66,7 +68,7 @@ export function useAppNavigation() {
    * Handle mobile tab navigation with auth checks
    */
   const handleMobileTabChange = (
-    tab: 'home' | 'post' | 'profile',
+    tab: 'home' | 'study' | 'post' | 'inbox' | 'profile',
     setMobileTab: (tab: any) => void,
     setActiveTab: (tab: any) => void,
     onShowAuthModal?: () => void,
@@ -74,12 +76,17 @@ export function useAppNavigation() {
   ) => {
     if (tab === 'home') {
       navigate('/');
+    } else if (tab === 'study') {
+      navigate('/study');
     } else if (tab === 'post') {
       if (onCreatePost) {
         onCreatePost();
       } else {
         console.log('Create post');
       }
+      return;
+    } else if (tab === 'inbox') {
+      console.log('Inbox functionality not implemented yet');
       return;
     } else if (tab === 'profile') {
       navigateToOwnProfile(onShowAuthModal);
