@@ -6,6 +6,8 @@ import { EditProfilePage } from './components/profile/EditProfilePage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { ClaimAccountPage } from './components/profile/ClaimAccountPage'
 import { LearnPage } from './components/LearnPage'
+import { SongPickerPage } from './components/create/SongPickerPage';
+import { SegmentPickerPage } from './components/create/SegmentPickerPage';
 import { TikTokTest } from './components/TikTokTest'
 import './index.css'
 
@@ -22,6 +24,8 @@ function App() {
               <Route path="/edit-profile" element={<EditProfilePage />} />
               <Route path="/claim/:username" element={<ClaimAccountPage />} />
               <Route path="/study" element={<LearnPage />} />
+              <Route path="/create/song-picker" element={<SongPickerPage />} />
+              <Route path="/create/segment-picker/:songId" element={<SegmentPickerPage />} />
               <Route path="/test" element={<TikTokTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

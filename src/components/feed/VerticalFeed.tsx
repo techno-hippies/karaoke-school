@@ -125,6 +125,7 @@ export const VerticalFeed: React.FC = () => {
 
   // Handle mobile tab changes using the navigation hook
   const handleMobileTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
+    console.log('[VerticalFeed] Mobile tab change:', tab);
     navigation.handleMobileTabChange(
       tab,
       setMobileTab,
