@@ -1,15 +1,10 @@
 import React from 'react';
-import { Play, Check } from '@phosphor-icons/react';
+import { Play, Check, CaretRight } from '@phosphor-icons/react';
 import { Button } from './button';
+import type { Song } from '../../types/song';
 
-export interface Song {
-  id: string;
-  title: string;
-  artist: string;
-  duration: number; // in seconds
-  thumbnailUrl?: string;
-  audioUrl?: string;
-}
+// Re-export for backward compatibility
+export type { Song } from '../../types/song';
 
 interface SongListItemProps {
   song: Song;
@@ -114,13 +109,12 @@ export const SongListItem: React.FC<SongListItemProps> = ({
 
       {/* Select button - shows when showSelectButton is true */}
       {showSelectButton && (
-        <Button
+        <button
           onClick={handleSelectClick}
-          className="bg-[#FE2C55] hover:bg-[#FF0F3F] text-white flex-shrink-0 self-center"
-          size="sm"
+          className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-white transition-colors cursor-pointer flex-shrink-0"
         >
-          Select
-        </Button>
+          <CaretRight className="w-5 h-5" />
+        </button>
       )}
 
       {/* Playing indicator */}

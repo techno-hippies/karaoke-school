@@ -69,6 +69,12 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
   useEffect(() => {
     if (!waveformRef.current || typeof window === 'undefined') return;
 
+    // Clear any existing instance
+    if (wavesurferRef.current) {
+      wavesurferRef.current.destroy();
+      wavesurferRef.current = null;
+    }
+
     const loadWaveSurfer = async () => {
       // Dynamic import to avoid SSR issues
       const WaveSurfer = (await import('wavesurfer.js')).default;

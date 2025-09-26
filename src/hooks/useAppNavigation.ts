@@ -48,7 +48,7 @@ export function useAppNavigation() {
    * Handle desktop tab navigation with auth checks
    */
   const handleDesktopTabChange = (
-    tab: 'home' | 'study' | 'profile',
+    tab: 'home' | 'study' | 'post' | 'profile',
     activeTab: string,
     setActiveTab: (tab: any) => void,
     onShowAuthModal?: () => void
@@ -57,6 +57,9 @@ export function useAppNavigation() {
       navigate('/');
     } else if (tab === 'study') {
       navigate('/study');
+    } else if (tab === 'post') {
+      // Navigate to song picker to start karaoke creation flow
+      navigate('/create/song-picker');
     } else if (tab === 'profile') {
       navigateToOwnProfile(onShowAuthModal);
     } else {
@@ -79,11 +82,9 @@ export function useAppNavigation() {
     } else if (tab === 'study') {
       navigate('/study');
     } else if (tab === 'post') {
-      if (onCreatePost) {
-        onCreatePost();
-      } else {
-        console.log('Create post');
-      }
+      // Navigate to song picker to start karaoke creation flow
+      console.log('[useAppNavigation] Navigating to song picker');
+      navigate('/create/song-picker');
       return;
     } else if (tab === 'inbox') {
       console.log('Inbox functionality not implemented yet');

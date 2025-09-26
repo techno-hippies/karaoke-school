@@ -1,10 +1,10 @@
 import React from 'react';
-import { House, GraduationCap, User } from '@phosphor-icons/react';
+import { House, GraduationCap, User, PlusCircle } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'study' | 'profile';
-  onTabChange: (tab: 'home' | 'study' | 'profile') => void;
+  activeTab: 'home' | 'study' | 'post' | 'profile';
+  onTabChange: (tab: 'home' | 'study' | 'post' | 'profile') => void;
   onCreatePost: () => void;
   isConnected?: boolean;
   walletAddress?: string;
@@ -56,10 +56,22 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </button>
 
           <button
+            onClick={() => onTabChange('post')}
+            className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-colors cursor-pointer ${
+              activeTab === 'post'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
+            }`}
+          >
+            <PlusCircle className="w-6 h-6 flex-shrink-0" />
+            <span className="text-lg">Create</span>
+          </button>
+
+          <button
             onClick={() => onTabChange('profile')}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-lg transition-colors cursor-pointer ${
-              activeTab === 'profile' 
-                ? 'bg-neutral-900 text-white' 
+              activeTab === 'profile'
+                ? 'bg-neutral-900 text-white'
                 : 'text-neutral-400 hover:bg-neutral-900/50 hover:text-white'
             }`}
           >
