@@ -202,7 +202,18 @@ export async function createKaraokePost(
  */
 export function canCreatePosts(): boolean {
   const sessionClient = getLensSession();
-  return isLensAuthenticated() && !!sessionClient?.account;
+  const hasAuth = isLensAuthenticated();
+  const hasAccount = !!sessionClient?.account;
+
+  console.log('[canCreatePosts] Debug:', {
+    hasAuth,
+    hasAccount,
+    sessionClient: !!sessionClient,
+    accountAddress: sessionClient?.account?.address,
+    accountUsername: sessionClient?.account?.username?.value
+  });
+
+  return hasAuth && hasAccount;
 }
 
 /**
