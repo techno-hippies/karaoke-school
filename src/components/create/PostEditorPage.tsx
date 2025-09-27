@@ -61,6 +61,20 @@ export const PostEditorPage: React.FC = () => {
     navigate('/');
   };
 
+  const handleLensPost = (result: { postId: string; metadataUri: string; videoUri: string }) => {
+    console.log('[PostEditorPage] Lens post created successfully:', result);
+
+    // TODO: Show success message and navigate to feed or post view
+    // For now, navigate back to home
+    navigate('/', {
+      state: {
+        success: true,
+        message: 'Karaoke video posted to Lens Protocol!',
+        postId: result.postId
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div className="relative w-full h-screen bg-neutral-900 overflow-hidden">
@@ -77,8 +91,11 @@ export const PostEditorPage: React.FC = () => {
       videoThumbnail={state?.videoThumbnail}
       segment={state?.segment}
       audioUrl={song?.audioUrl}
+      songId={songId}
+      songTitle={song?.title}
       onBack={handleBack}
       onPost={handlePost}
+      onLensPost={handleLensPost}
     />
   );
 };
