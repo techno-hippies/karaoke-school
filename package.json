@@ -19,6 +19,8 @@
     "@ffmpeg/ffmpeg": "0.12.15",
     "@ffmpeg/util": "0.12.2",
     "@joyid/rainbowkit": "2.0.10",
+    "@lens-chain/sdk": "^1.0.3",
+    "@lens-chain/storage-client": "^1.0.6",
     "@lens-protocol/metadata": "2.1.0",
     "@lens-protocol/react": "0.0.0-canary-20250820102520",
     "@lit-protocol/auth": "8.0.0-beta.15",
