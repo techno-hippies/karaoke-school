@@ -75,8 +75,10 @@ export const SegmentPickerPage: React.FC = () => {
 
   const handleNext = (segment: SelectedSegment) => {
     console.log('[SegmentPickerPage] Segment selected:', segment);
-    // TODO: Navigate to camera recorder with selected segment
-    // For now, just log the selection
+    // Navigate to camera recorder with selected segment
+    navigate(`/create/camera-recorder/${songId}`, {
+      state: { segment }
+    });
   };
 
   if (loading) {
