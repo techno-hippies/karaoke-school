@@ -16,6 +16,8 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "0.12.15",
+    "@ffmpeg/util": "0.12.2",
     "@joyid/rainbowkit": "2.0.10",
     "@lens-protocol/metadata": "2.1.0",
     "@lens-protocol/react": "0.0.0-canary-20250820102520",
@@ -35,6 +37,7 @@
     "clsx": "^2.1.1",
     "ethereum-identity-kit": "0.2.55",
     "hls.js": "^1.6.12",
+    "mediabunny": "1.21.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",

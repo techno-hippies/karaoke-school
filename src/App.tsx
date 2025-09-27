@@ -8,6 +8,8 @@ import { ClaimAccountPage } from './components/profile/ClaimAccountPage'
 import { LearnPage } from './components/LearnPage'
 import { SongPickerPage } from './components/create/SongPickerPage';
 import { SegmentPickerPage } from './components/create/SegmentPickerPage';
+import { CameraRecorderPage } from './components/create/CameraRecorderPage';
+import { PostEditorPage } from './components/create/PostEditorPage';
 import { TikTokTest } from './components/TikTokTest'
 import './index.css'
 
@@ -26,6 +28,8 @@ function App() {
               <Route path="/study" element={<LearnPage />} />
               <Route path="/create/song-picker" element={<SongPickerPage />} />
               <Route path="/create/segment-picker/:songId" element={<SegmentPickerPage />} />
+              <Route path="/create/camera-recorder/:songId" element={<CameraRecorderPage />} />
+              <Route path="/create/post-editor/:songId" element={<PostEditorPage />} />
               <Route path="/test" element={<TikTokTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
