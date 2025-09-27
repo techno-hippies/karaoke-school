@@ -86,6 +86,16 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   const canPostToLens = canCreatePosts() && isWalletConnected && walletClient && videoBlob && segment;
   const lensAccountInfo = getLensAccountInfo();
 
+  console.log('[PostEditor] Debug state:', {
+    canCreatePosts: canCreatePosts(),
+    isWalletConnected,
+    hasWalletClient: !!walletClient,
+    hasVideoBlob: !!videoBlob,
+    hasSegment: !!segment,
+    canPostToLens,
+    lensAccountInfo
+  });
+
   const handlePost = () => {
     onPost?.(caption);
   };
@@ -293,21 +303,13 @@ export const PostEditor: React.FC<PostEditorProps> = ({
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-neutral-900">
         <div className="space-y-3">
           {/* Lens Post Button (Primary) */}
-          {canPostToLens ? (
-            <button
-              onClick={handleLensPost}
-              disabled={isPosting || !caption.trim()}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-neutral-600 disabled:cursor-not-allowed transition-all text-white font-semibold text-lg rounded-lg"
-            >
-              {isPosting ? 'Posting to Lens...' : '🌿 Post to Lens Protocol'}
-            </button>
-          ) : (
-            <div className="w-full py-4 bg-neutral-700 text-neutral-400 font-semibold text-lg rounded-lg text-center">
-              {!isWalletConnected ? '💳 Connect Wallet to Post to Lens' :
-               !canCreatePosts() ? '🌿 Create Lens Account to Post' :
-               '⚠️ Missing Video or Segment Data'}
-            </div>
-          )}
+          <button
+            onClick={handleLensPost}
+            disabled={isPosting || !caption.trim() || !canPostToLens}
+            className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-neutral-600 disabled:cursor-not-allowed transition-all text-white font-semibold text-lg rounded-lg"
+          >
+            {isPosting ? 'Posting to Lens...' : '🌿 Post to Lens Protocol'}
+          </button>
 
           {/* Fallback Post Button */}
           {onPost && (

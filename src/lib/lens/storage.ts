@@ -1,5 +1,5 @@
 import { chains } from "@lens-chain/sdk/viem";
-import { immutable, lensAccount, type StorageClient } from "@lens-chain/storage-client";
+import { immutable, lensAccountOnly, StorageClient } from "@lens-chain/storage-client";
 import { getLensSession } from "./sessionClient";
 
 // Storage client singleton
@@ -10,9 +10,8 @@ let storageClient: StorageClient | null = null;
  */
 export function getStorageClient(): StorageClient {
   if (!storageClient) {
-    // Import dynamically to avoid SSR issues
-    const { createStorageClient } = require("@lens-chain/storage-client");
-    storageClient = createStorageClient();
+    // Create storage client as shown in documentation
+    storageClient = StorageClient.create();
   }
   return storageClient;
 }
@@ -28,10 +27,10 @@ export function getACLConfig() {
     console.log('[Storage] Using Lens Account ACL for authenticated user:', sessionClient.account.address);
 
     // Use Lens Account ACL - allows the authenticated account to edit/delete
-    return lensAccount({
-      chain_id: chains.testnet.id, // Use testnet for now
-      lens_account: sessionClient.account.address
-    });
+    return lensAccountOnly(
+      sessionClient.account.address, // Lens Account Address
+      chains.testnet.id, // Use testnet for now
+    );
   } else {
     console.log('[Storage] Using immutable ACL for unauthenticated user');
 
