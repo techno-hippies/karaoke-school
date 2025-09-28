@@ -1,9 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { useMachine } from '@xstate/react';
 import { VideoPost } from './VideoPost';
 import { VideoQuizPost } from './VideoQuizPost';
 import { MobileFooter } from '../navigation/MobileFooter';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
 import { FeedSkeleton } from './FeedSkeleton';
+import { useVideoFeedManager } from '../../hooks/feed/useVideoFeedManager';
+import { feedCoordinatorMachine } from '../../machines/feedCoordinatorMachine';
 
 interface FeedItem {
   id: string;
@@ -58,9 +61,33 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
   onCreatePost,
   onDisconnect,
   onOnboardingAction,
-  feedCoordinator,
+  feedCoordinator: _feedCoordinator,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize feed coordinator machine
+  const [coordinatorState, coordinatorSend] = useMachine(feedCoordinatorMachine);
+
+  // Initialize video feed manager with Intersection Observer
+  const { activeVideoId, registerVideo, unregisterVideo, setContainerRef } = useVideoFeedManager({
+    threshold: 0.5, // Lower threshold for more sensitive detection
+    autoplay: true
+  });
+
+  // Connect scroll container to feed manager
+  useEffect(() => {
+    setContainerRef(scrollContainerRef.current);
+  }, [setContainerRef]);
+
+
+  // Sync active video changes with coordinator machine
+  useEffect(() => {
+    if (activeVideoId) {
+      coordinatorSend({ type: 'VIDEO_BECAME_ACTIVE', videoId: activeVideoId });
+    } else {
+      coordinatorSend({ type: 'VIDEO_BECAME_INACTIVE', videoId: coordinatorState.context.activeVideoId || '' });
+    }
+  }, [activeVideoId, coordinatorSend, coordinatorState.context.activeVideoId]);
 
   // Learn tab is now handled by the router - this component only shows the main feed
 
@@ -94,20 +121,32 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
             // console.log(`[VerticalFeedView] Rendering item:`, item);
 
             if (item.type === 'video') {
-            // Use standard VideoPost for all videos (tracking disabled for now)
+            // Use standard VideoPost for all videos with new coordinator
             const Component = VideoPost;
 
-            // console.log(`[VerticalFeedView] Rendering VideoPost with data:`, item.data);
+            // Create simple coordinator interface
+            const videoCoordinator = {
+              isActive: activeVideoId === item.id,
+              onPlay: () => coordinatorSend({ type: 'VIDEO_PLAYED', videoId: item.id }),
+              onPause: () => coordinatorSend({ type: 'VIDEO_PAUSED', videoId: item.id }),
+              onEnded: () => coordinatorSend({ type: 'VIDEO_ENDED', videoId: item.id }),
+              registerVideo: (element: HTMLElement | null) => {
+                coordinatorSend({ type: 'REGISTER_VIDEO', videoId: item.id, element });
+                registerVideo(item.id, element);
+              },
+              unregisterVideo: () => {
+                coordinatorSend({ type: 'UNREGISTER_VIDEO', videoId: item.id });
+                unregisterVideo(item.id);
+              }
+            };
 
             return (
               <Component
                 key={item.id}
                 {...item.data}
-                // Pass coordinator if available
-                isActive={feedCoordinator?.isVideoActive(item.id) || false}
-                onPlay={feedCoordinator ? () => feedCoordinator.handleVideoPlay(item.id) : undefined}
-                onPause={feedCoordinator ? () => feedCoordinator.handleVideoPause(item.id) : undefined}
-                registerRef={feedCoordinator ? (el: HTMLVideoElement | null) => feedCoordinator.registerVideo(item.id, el) : undefined}
+                // Pass video ID and coordinator interface
+                videoId={item.id}
+                feedCoordinator={videoCoordinator}
               />
             );
           }
