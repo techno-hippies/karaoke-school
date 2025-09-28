@@ -10,7 +10,7 @@ import type { FeedItem, LensFeedItem } from '../types/feed';
 export function transformLensToFeedItem(item: LensFeedItem): FeedItem {
   const userHasLiked = item.data.userHasLiked || false;
 
-  console.log(`[transformLensToFeedItem] 🔄 Converting ${item.creatorHandle} post ${item.id.slice(-8)} - userHasLiked: ${userHasLiked}`);
+//   console.log(`[transformLensToFeedItem] 🔄 Converting ${item.creatorHandle} post ${item.id.slice(-8)} - userHasLiked: ${userHasLiked}`);
 
   return {
     id: item.id,

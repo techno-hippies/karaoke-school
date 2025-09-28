@@ -83,30 +83,39 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     }
   }, []); // Only run on mount/unmount
 
+  // Track previous active state to detect when video becomes active for the first time
+  const prevActiveRef = React.useRef(feedCoordinator?.isActive || false);
+
   // Handle coordinator-driven play/pause - only if not manually controlled
   React.useEffect(() => {
     if (!feedCoordinator || !videoRef.current || isManuallyControlled) return;
 
+    const wasActive = prevActiveRef.current;
+    const isNowActive = feedCoordinator.isActive;
+    prevActiveRef.current = isNowActive;
+
     console.log(`[VideoPost ${username}] Coordinator state:`, {
-      isActive: feedCoordinator.isActive,
+      isActive: isNowActive,
+      wasActive,
       isPlaying,
       videoId,
       isManuallyControlled
     });
 
-    if (feedCoordinator.isActive && !isPlaying) {
-      // Video became active, try to autoplay and unmute
-      console.log(`[VideoPost ${username}] Attempting autoplay with unmute`);
+    // Only autoplay when video BECOMES active (not when it's already active and paused manually)
+    if (isNowActive && !wasActive) {
+      // Video became active for the first time, try to autoplay and unmute
+      console.log(`[VideoPost ${username}] Video became active - attempting autoplay with unmute`);
       if (isMuted) {
         setMuted(false);
       }
       videoRef.current.play().catch(e => console.log(`[VideoPost ${username}] Autoplay failed:`, e));
-    } else if (!feedCoordinator.isActive && isPlaying) {
+    } else if (!isNowActive && isPlaying) {
       // Video became inactive, pause
       console.log(`[VideoPost ${username}] Pausing inactive video`);
       videoRef.current.pause();
     }
-  }, [feedCoordinator?.isActive, isPlaying, videoRef, username, videoId, isManuallyControlled, isMuted]);
+  }, [feedCoordinator?.isActive, videoRef, username, videoId, isManuallyControlled, isMuted, setMuted]);
 
   // Notify coordinator of video events
   React.useEffect(() => {
@@ -132,11 +141,14 @@ export const VideoPost: React.FC<VideoPostProps> = ({
 
   // Enhanced toggle function that sets manual control flag
   const handleTogglePlayPause = () => {
-    console.log(`[VideoPost ${username}] Manual play/pause triggered`);
+    console.log(`[VideoPost ${username}] Manual play/pause triggered - setting manual control`);
     setIsManuallyControlled(true);
     togglePlayPause();
-    // Reset manual control after a delay to allow autoplay on scroll
-    setTimeout(() => setIsManuallyControlled(false), 2000);
+    // Reset manual control after a longer delay to allow autoplay on scroll
+    setTimeout(() => {
+      console.log(`[VideoPost ${username}] Resetting manual control flag`);
+      setIsManuallyControlled(false);
+    }, 5000); // Increased to 5 seconds
   };
 
   const touchGestures = useTouchGestures({

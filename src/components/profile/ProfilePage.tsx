@@ -6,7 +6,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useEnsAddress, useDisconnect } from 'wagmi';
 import { useProfileVideos, getCreatorHandle } from '../../hooks/media/useProfileVideos';
 import { useLensProfileVideos } from '../../hooks/lens/useLensProfileVideos';
-import { useDisplayAuth } from '../../hooks/lens/useDisplayAuth';
+import { useLensAuth } from '../../hooks/lens/useLensAuth';
 import { useLensFollows } from '../../hooks/lens/useLensFollows';
 
 interface Video {
@@ -43,12 +43,10 @@ export const ProfilePage: React.FC = () => {
   const {
     displayAddress,
     displayConnected,
-    connectedAddress,
-    isAuthenticated,
-    hasInitialized,
     connectedWalletAddress,
+    isAuthenticated,
     isOwnProfile
-  } = useDisplayAuth();
+  } = useLensAuth();
   const { openConnectModal } = useConnectModal();
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
@@ -63,12 +61,11 @@ export const ProfilePage: React.FC = () => {
   React.useEffect(() => {
     console.log('[ProfilePage] Authentication state:', {
       isAuthenticated,
-      hasInitialized,
       connectedWalletAddress,
       displayAddress,
       displayConnected
     });
-  }, [isAuthenticated, hasInitialized, connectedWalletAddress, displayAddress, displayConnected]);
+  }, [isAuthenticated, connectedWalletAddress, displayAddress, displayConnected]);
   
   // Check if viewing own profile using shared logic
   const isOwn = isOwnProfile(profileIdentifier);
@@ -155,7 +152,7 @@ export const ProfilePage: React.FC = () => {
     followers: statsResult?.followers || statsResult?.data?.followers || 0,
     isVerified: false, // This would come from your verification system
     isOwnProfile: isOwn,
-    connectedAddress: connectedAddress, // Pass connected address for follow button
+    connectedAddress: connectedWalletAddress, // Pass connected address for follow button
     // Use real videos only - no placeholders
     videos: allVideos && allVideos.length > 0
       ? allVideos.map(v => ({
@@ -176,7 +173,7 @@ export const ProfilePage: React.FC = () => {
     statsResult?.data?.followers,
     statsResult?.data?.following,
     isOwn,
-    connectedAddress,
+    connectedWalletAddress,
     allVideos,
     videosLoading
   ]);
@@ -186,13 +183,13 @@ export const ProfilePage: React.FC = () => {
       navigate('/');
     } else if (tab === 'profile') {
       // Navigate to connected user's profile if clicking from another user's profile
-      if (connectedAddress && !isOwn) {
-        navigate(`/profile/${connectedAddress}`);
+      if (connectedWalletAddress && !isOwn) {
+        navigate(`/profile/${connectedWalletAddress}`);
       }
     } else {
       setActiveTab(tab);
     }
-  }, [navigate, connectedAddress, isOwn]);
+  }, [navigate, connectedWalletAddress, isOwn]);
 
   const handleMobileTabChange = useCallback((tab: 'home' | 'post' | 'profile') => {
     if (tab === 'home') {
@@ -278,7 +275,7 @@ export const ProfilePage: React.FC = () => {
         mobileTab={mobileTab}
         isConnected={displayConnected}
         walletAddress={displayAddress}
-        connectedAddress={connectedAddress}
+        connectedAddress={connectedWalletAddress}
         profileAddress={profileAddress}  // Pass resolved address, not ENS
         isFollowing={isFollowing}
         isFollowLoading={isFollowLoading}

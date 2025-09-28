@@ -4,7 +4,7 @@ import { VerticalFeedView } from './VerticalFeedView';
 import { useQuery } from '@tanstack/react-query';
 import { getAppFeedItems } from '../../lib/feed';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useDisplayAuth } from '../../hooks/lens/useDisplayAuth';
+import { useLensAuth } from '../../hooks/lens/useLensAuth';
 import type { FeedItem } from '../../types/feed';
 import {
   transformLensFeed
@@ -23,12 +23,12 @@ export const VerticalFeed: React.FC = () => {
   // Wallet integration
   const { disconnect } = useDisconnect();
 
-  // Shared authentication logic
+  // Shared authentication logic using proper Lens SDK
   const {
     displayAddress,
     displayConnected,
     isAuthenticated
-  } = useDisplayAuth();
+  } = useLensAuth();
 
   // Shared navigation logic
   const navigation = useAppNavigation();
@@ -81,12 +81,12 @@ export const VerticalFeed: React.FC = () => {
     
     if (type === 'tiktok') {
       // This would trigger Camp modal for TikTok linking
-      setTiktokLinked(true);
+      console.log('[Onboarding] TikTok linking requested');
     }
-    
+
     if (type === 'mint') {
       // This would trigger minting process
-      setVideosMinted(true);
+      console.log('[Onboarding] Video minting requested');
     }
   };
 

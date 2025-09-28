@@ -18,24 +18,53 @@ export function useDisplayAuth() {
       const needsSession = !isLensAuthenticated() || !sessionClient?.account;
 
       if (needsSession) {
-        console.log('[useDisplayAuth] 🔄 Wallet connected, checking for existing Lens session...', {
-          isAuthenticated: isLensAuthenticated(),
-          hasAccount: !!sessionClient?.account,
-          needsSession
-        });
+        // First check if we have stored credentials and if they match current wallet
+        const storedCredentials = localStorage.getItem('lens.testnet.credentials');
 
-        // First try to resume existing session from localStorage
+        if (storedCredentials) {
+          try {
+            const credentials = JSON.parse(storedCredentials);
+            const accessToken = credentials.data.accessToken;
+            const payload = JSON.parse(atob(accessToken.split('.')[1]));
+            const storedWalletAddress = payload.act?.sub; // This is the wallet that signed
+
+            // If stored wallet doesn't match current wallet, clear the session
+            if (storedWalletAddress && storedWalletAddress.toLowerCase() !== connectedWalletAddress.toLowerCase()) {
+              console.log('[useDisplayAuth] 🧹 Wallet mismatch, clearing old session and creating new one');
+              localStorage.removeItem('lens.testnet.credentials');
+              // Directly create new session since wallet doesn't match
+              createLensSessionWithWallet(walletClient, connectedWalletAddress)
+                .then((session) => {
+                  if (session) {
+                    console.log('[useDisplayAuth] ✅ Created new Lens session for current wallet');
+                    window.dispatchEvent(new CustomEvent('lens-session-created'));
+                  }
+                })
+                .catch((error) => {
+                  console.error('[useDisplayAuth] Error creating new wallet session:', error);
+                });
+              return;
+            }
+          } catch (error) {
+            console.warn('[useDisplayAuth] Error parsing stored credentials, clearing:', error);
+            localStorage.removeItem('lens.testnet.credentials');
+          }
+        }
+
+        console.log('[useDisplayAuth] 🔄 Wallet connected, checking for existing Lens session...');
+
+        // Try to resume existing session from localStorage
         resumeLensSession()
           .then((resumedSession) => {
             if (resumedSession) {
               console.log('[useDisplayAuth] ✅ Resumed existing Lens session from localStorage - no signing required!');
               // Trigger a refetch of the feed data since we now have authentication
               window.dispatchEvent(new CustomEvent('lens-session-created'));
+              return resumedSession;
             } else {
-              console.log('[useDisplayAuth] 🔄 No existing session found, creating new Lens session...');
+              console.log('[useDisplayAuth] 🔄 No existing session found or invalid session cleared, creating new Lens session...');
               return createLensSessionWithWallet(walletClient, connectedWalletAddress);
             }
-            return resumedSession;
           })
           .then((session) => {
             if (session && session !== 'resumed') { // Check if this is the createSession result

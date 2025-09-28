@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { WalletProvider } from './providers/WalletProvider'
+import { LensProvider } from './providers/LensProvider'
 import Homepage from './components/Homepage'
 import { EditProfilePage } from './components/profile/EditProfilePage'
 import { ProfilePage } from './components/profile/ProfilePage'
@@ -15,7 +16,8 @@ import './index.css'
 function App() {
   return (
     <WalletProvider>
-      <HashRouter>
+      <LensProvider>
+        <HashRouter>
             <Routes>
               <Route path="/" element={<Homepage />} />
               <Route path="/profile/lens/:username" element={<ProfilePage />} />
@@ -31,7 +33,8 @@ function App() {
               <Route path="/test" element={<TikTokTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </HashRouter>
+        </HashRouter>
+      </LensProvider>
     </WalletProvider>
   )
 }
