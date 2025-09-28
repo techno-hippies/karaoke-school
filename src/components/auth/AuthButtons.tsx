@@ -45,10 +45,8 @@ export const AuthButtons: React.FC = () => {
         <ConnectButton.Custom>
           {({
             account,
-            chain,
             openConnectModal,
             openAccountModal,
-            authenticationStatus,
             mounted,
           }) => {
             // Show loading state if not mounted

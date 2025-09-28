@@ -1,8 +1,8 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import { PageLayout, ModalPageLayout, SettingsPageLayout } from '../components/layout/PageLayout';
 import { Button } from '../components/ui/button';
-import { Gear, Bell, User } from '@phosphor-icons/react';
+import { Gear, Bell } from '@phosphor-icons/react';
 
 const meta: Meta<typeof PageLayout> = {
   title: 'Layout/PageLayout',

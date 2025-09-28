@@ -2,8 +2,11 @@ import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/m
 import { post } from "@lens-protocol/client/actions";
 import { uri } from "@lens-protocol/client";
 import { getLensSession, createLensSessionWithWallet, isLensAuthenticated } from "./sessionClient";
-import { uploadKaraokePost, waitForPropagation } from "./storage";
+import { /* uploadKaraokePost, */ uploadVideoToGrove, uploadMetadataToGrove, waitForPropagation } from "./storage";
 import type { WalletClient } from "viem";
+
+// Your Custom Feed address
+export const KARAOKE_FEED_ADDRESS = '0x01426d97B8d2e021cd5CF57cbbB2851bb355942D';
 
 export interface KaraokePostData {
   videoBlob: Blob;
@@ -13,7 +16,7 @@ export interface KaraokePostData {
   segment: {
     start: number;
     end: number;
-    lyrics: any[];
+    lyrics: Array<{ text: string; timestamp: number }>;
   };
 }
 
@@ -66,22 +69,35 @@ export async function createKaraokePost(
       message: 'Authentication successful'
     });
 
-    // Step 2: Determine video duration and MIME type
-    const segmentDuration = Math.round((postData.segment.end - postData.segment.start) * 1000); // Convert to milliseconds
-    const mimeType = postData.videoBlob.type || 'video/webm';
-    const videoMimeType = mimeType.includes('mp4') ? MediaVideoMimeType.MP4 : MediaVideoMimeType.WEBM;
-
-    // Step 3: Create video metadata
+    // Step 2: Upload video to Grove first
     onProgress?.({
       stage: 'uploading_video',
       progress: 0.1,
-      message: 'Preparing video metadata...'
+      message: 'Uploading video to storage...'
     });
+
+    const videoResult = await uploadVideoToGrove(postData.videoBlob);
+    onProgress?.({
+      stage: 'uploading_video',
+      progress: 1.0,
+      message: 'Video uploaded successfully'
+    });
+
+    // Step 3: Create video metadata with real video URI
+    onProgress?.({
+      stage: 'uploading_metadata',
+      progress: 0.1,
+      message: 'Creating video metadata...'
+    });
+
+    const segmentDuration = Math.round((postData.segment.end - postData.segment.start) * 1000);
+    const mimeType = postData.videoBlob.type || 'video/webm';
+    const videoMimeType = mimeType.includes('mp4') ? MediaVideoMimeType.MP4 : MediaVideoMimeType.WEBM;
 
     const videoMetadata = video({
       title: `Karaoke: ${postData.songTitle || 'Song Performance'}`,
       video: {
-        item: '', // Will be filled by uploadKaraokePost
+        item: videoResult.uri, // Use the real video URI from Grove
         type: videoMimeType,
         duration: segmentDuration,
         altTag: `Karaoke performance of ${postData.songTitle || 'a song'}`,
@@ -91,50 +107,58 @@ export async function createKaraokePost(
       attributes: [
         {
           key: 'app_type',
-          value: 'karaoke'
+          value: 'karaoke',
+          type: 'String'
         },
         {
           key: 'karaoke_song_id',
-          value: postData.songId
+          value: postData.songId,
+          type: 'String'
+        },
+        {
+          key: 'video_gateway_url',
+          value: videoResult.gatewayUrl,
+          type: 'String'
         },
         {
           key: 'karaoke_segment_start',
-          value: postData.segment.start.toString()
+          value: postData.segment.start.toString(),
+          type: 'String'
         },
         {
           key: 'karaoke_segment_end',
-          value: postData.segment.end.toString()
+          value: postData.segment.end.toString(),
+          type: 'String'
         },
         {
           key: 'karaoke_duration',
-          value: segmentDuration.toString()
+          value: segmentDuration.toString(),
+          type: 'String'
         },
         ...(postData.songTitle ? [{
           key: 'karaoke_song_title',
-          value: postData.songTitle
+          value: postData.songTitle,
+          type: 'String'
         }] : [])
       ]
     });
 
-    console.log('[KaraokePost] Created video metadata:', videoMetadata);
+    console.log('[KaraokePost] Created video metadata with video URI:', videoMetadata);
 
-    // Step 4: Upload video and metadata to Grove
-    const uploadResult = await uploadKaraokePost(
-      postData.videoBlob,
-      videoMetadata,
-      (stage, progress) => {
-        const stageMessages = {
-          video: 'Uploading video to storage...',
-          metadata: 'Uploading metadata to storage...'
-        };
+    // Step 4: Upload metadata to Grove
+    const metadataResult = await uploadMetadataToGrove(videoMetadata);
+    onProgress?.({
+      stage: 'uploading_metadata',
+      progress: 1.0,
+      message: 'Metadata uploaded successfully'
+    });
 
-        onProgress?.({
-          stage: stage === 'video' ? 'uploading_video' : 'uploading_metadata',
-          progress: progress,
-          message: stageMessages[stage]
-        });
-      }
-    );
+    const uploadResult = {
+      metadataUri: metadataResult.uri,
+      videoUri: videoResult.uri,
+      metadataGatewayUrl: metadataResult.gatewayUrl,
+      videoGatewayUrl: videoResult.gatewayUrl
+    };
 
     // Step 5: Wait for content propagation (optional but recommended)
     onProgress?.({
@@ -163,15 +187,34 @@ export async function createKaraokePost(
       throw new Error(`Failed to create Lens post: ${postResult.error?.message || 'Unknown error'}`);
     }
 
+    const postResultData = postResult.value;
+    console.log('[KaraokePost] 🎉 Post creation successful!');
+    console.log('[KaraokePost] 📝 Post details:', {
+      author: sessionClient.account?.address,
+      hasAccount: !!sessionClient.account,
+      appId: sessionClient.account?.app || 'NOT_TAGGED',
+      metadataUri: uploadResult.metadataUri,
+      expectedInFeedQuery: `apps: ["${sessionClient.account?.app || 'MISSING_APP_ID'}"]`
+    });
+    console.log('[KaraokePost] 📱 To verify post appears in feed, check if it matches app filter');
+
+    if (!sessionClient.account) {
+      console.error('[KaraokePost] ⚠️ WARNING: sessionClient.account is undefined! Post may not appear in feed.');
+      console.error('[KaraokePost] 💡 Solution: Fix account switching in resumeLensSession()');
+      console.error('[KaraokePost] 🔍 Debug: Run console.log(getLensSession().account) to verify');
+      console.error('[KaraokePost] 🛠️ Fix: Clear localStorage and reconnect wallet');
+    }
+    console.log('[KaraokePost] Raw post result:', postResultData);
+
     onProgress?.({
       stage: 'creating_post',
       progress: 0.9,
       message: 'Post created, finalizing...'
     });
 
-    // Note: We can't easily get the post ID from the result in this SDK version
-    // The post creation is async and the ID is generated on-chain
-    const postId = 'pending'; // Placeholder - in production you'd track the transaction
+    // Extract transaction hash and post ID from result
+    const txHash = postResultData.hash || postResultData.txHash || 'unknown';
+    const postId = postResultData.id || txHash;
 
     onProgress?.({
       stage: 'completed',
@@ -203,17 +246,11 @@ export async function createKaraokePost(
 export function canCreatePosts(): boolean {
   const sessionClient = getLensSession();
   const hasAuth = isLensAuthenticated();
-  const hasAccount = !!sessionClient?.account;
+  const hasSession = !!sessionClient;
 
-  console.log('[canCreatePosts] Debug:', {
-    hasAuth,
-    hasAccount,
-    sessionClient: !!sessionClient,
-    accountAddress: sessionClient?.account?.address,
-    accountUsername: sessionClient?.account?.username?.value
-  });
-
-  return hasAuth && hasAccount;
+  // Posts can be created as long as we have a session client
+  // Account attachment is optional - posts will still be created
+  return hasAuth && hasSession;
 }
 
 /**

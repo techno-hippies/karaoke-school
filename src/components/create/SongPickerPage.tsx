@@ -91,9 +91,10 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
 
   // Stop audio when component unmounts
   useEffect(() => {
+    const audio = audioRef.current;
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
+      if (audio) {
+        audio.pause();
       }
     };
   }, []);
@@ -143,7 +144,7 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
         ) : (
           <div className="px-4 pb-4">
             <div className="space-y-2">
-              {songs.map((song, index) => (
+              {songs.map((song) => (
                 <SongListItem
                   key={song.id}
                   song={song}

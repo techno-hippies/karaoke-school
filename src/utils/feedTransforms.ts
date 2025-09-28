@@ -90,7 +90,7 @@ export function selectProfileDataSource<T>(
 export interface DataSourceResult<T> {
   data: T | undefined;
   isLoading: boolean;
-  error: any;
+  error: Error | null | undefined;
 }
 
 export function combineDataSources<T>(

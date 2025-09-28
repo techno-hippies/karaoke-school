@@ -48,7 +48,7 @@ export async function getAvailableSongs(): Promise<SongMetadata[]> {
 /**
  * Calculate song duration from line timestamps
  */
-function calculateSongDuration(lineTimestamps: any[]): number {
+function calculateSongDuration(lineTimestamps: Array<{ end?: number }>): number {
   if (!lineTimestamps || lineTimestamps.length === 0) {
     return 0;
   }

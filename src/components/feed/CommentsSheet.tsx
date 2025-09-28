@@ -29,8 +29,7 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
     canComment,
     isLoading,
     isSubmitting,
-    submitComment,
-    refreshComments
+    submitComment
   } = useLensComments({
     postId: postId || '',
     initialCommentCount: 0

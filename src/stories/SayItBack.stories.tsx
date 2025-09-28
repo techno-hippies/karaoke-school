@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SayItBack } from '../components/exercises/SayItBack'
 
 const meta: Meta<typeof SayItBack> = {

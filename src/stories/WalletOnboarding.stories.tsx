@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { WalletOnboardingModal } from '@/components/onboarding/WalletOnboardingModal'
 import { useState } from 'react'
 

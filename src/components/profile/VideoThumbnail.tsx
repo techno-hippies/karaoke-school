@@ -12,8 +12,8 @@ interface VideoThumbnailProps {
 export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   thumbnailUrl,
   thumbnailSourceUrl,
-  playCount,
-  videoUrl,
+  // playCount,
+  // videoUrl,
   onClick,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -22,15 +22,15 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Format play count with K/M suffixes
-  const formatPlayCount = (count: number): string => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`;
-    }
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
-    }
-    return count.toString();
-  };
+  // const formatPlayCount = (count: number): string => {
+  //   if (count >= 1000000) {
+  //     return `${(count / 1000000).toFixed(1)}M`;
+  //   }
+  //   if (count >= 1000) {
+  //     return `${(count / 1000).toFixed(1)}K`;
+  //   }
+  //   return count.toString();
+  // };
 
   // Generate thumbnail from low-res MP4
   useEffect(() => {
@@ -73,7 +73,7 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
         video.removeEventListener('seeked', onSeeked);
       };
 
-      const onError = (error: any) => {
+      const onError = (error: Event) => {
         console.error('[VideoThumbnail] Video load error:', error);
         setIsGenerating(false);
       };

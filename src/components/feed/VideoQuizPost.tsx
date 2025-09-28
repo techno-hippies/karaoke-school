@@ -45,11 +45,6 @@ export const VideoQuizPost: React.FC<VideoQuizPostProps> = ({
   const [hasAnswered, setHasAnswered] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const formatCount = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
-  };
 
   const formatMegapot = (amount: number) => {
     return amount.toLocaleString('en-US');

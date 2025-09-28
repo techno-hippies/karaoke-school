@@ -1,22 +1,30 @@
 import { lensClient } from './client';
 import { signMessageWith } from '@lens-protocol/client/viem';
-import { fetchAccountsAvailable, createAccountWithUsername, canCreateUsername, fetchAccount } from '@lens-protocol/client/actions';
+import { fetchAccountsAvailable, createAccount, fetchAccount } from '@lens-protocol/client/actions';
 import { handleOperationWith } from '@lens-protocol/client/viem';
-import { nonNullable } from '@lens-protocol/client';
+import { uri } from '@lens-protocol/client';
 import type { SessionClient } from "@lens-protocol/client";
 import type { WalletClient } from 'viem';
 
 // Session client for authenticated Lens actions
 let sessionClient: SessionClient | null = null;
 
-// Testnet app address from Lens documentation
-const LENS_TESTNET_APP = "0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7";
+// Testnet app address (should match CLAUDE.md)
+const LENS_TESTNET_APP = "0x9484206D9beA9830F27361a2F5868522a8B8Ad22";
 
 
 /**
  * Get the current session client
  */
 export function getLensSession(): SessionClient | null {
+  const stackTrace = new Error().stack?.split('\n')[2]?.trim();
+  console.log('[getLensSession] 🔍 Current session state:', {
+    hasSessionClient: !!sessionClient,
+    hasAccount: !!sessionClient?.account,
+    accountAddress: sessionClient?.account?.address,
+    accountApp: sessionClient?.account?.app,
+    calledFrom: stackTrace
+  });
   return sessionClient;
 }
 
@@ -33,17 +41,112 @@ export function isLensAuthenticated(): boolean {
  */
 export async function resumeLensSession(): Promise<SessionClient | null> {
   try {
-    console.log('[resumeLensSession] Attempting to resume session from localStorage...');
-
+    console.log('[resumeLensSession] 🔄 Starting session resume...');
     const resumed = await lensClient.resumeSession();
 
     if (resumed.isErr()) {
-      console.log('[resumeLensSession] No existing session found:', resumed.error);
+      console.log('[resumeLensSession] ❌ Resume failed:', resumed.error);
       return null;
     }
 
+    // CRITICAL: This is where sessionClient gets overwritten from resumeSession
+    const oldSessionClient = sessionClient;
     sessionClient = resumed.value;
-    console.log('[resumeLensSession] ✅ Successfully resumed session from localStorage!');
+    console.log('[resumeLensSession] 🔄 SessionClient OVERWRITTEN from resumeSession():', {
+      hadPreviousSession: !!oldSessionClient,
+      previousHadAccount: !!oldSessionClient?.account,
+      newHasSessionClient: !!sessionClient,
+      newHasAccount: !!sessionClient?.account,
+      newAccountAddress: sessionClient?.account?.address
+    });
+
+    console.log('[resumeLensSession] 🔍 Session resumed with account:', {
+      hasAccount: !!sessionClient.account,
+      accountAddress: sessionClient.account?.address,
+      accountApp: sessionClient.account?.app,
+      accountUsername: sessionClient.account?.username?.value
+    });
+
+    // Check if we need to switch to an account (Lens V3 requirement)
+    if (!sessionClient.account || !sessionClient.account.address || !sessionClient.account.app) {
+      console.log('[resumeLensSession] Account missing or incomplete, attempting to switch account...');
+
+      try {
+        // Get the account address from the stored credentials
+        const stored = localStorage.getItem('lens.testnet.credentials');
+        let payload = null;
+        let walletAddress = null;
+
+        if (stored) {
+          const credentials = JSON.parse(stored);
+          const accessToken = credentials.data.accessToken;
+          payload = JSON.parse(atob(accessToken.split('.')[1]));
+          walletAddress = payload.act?.sub;
+
+          // For ACCOUNT_OWNER role, use sub (account address); act.sub is the wallet
+          const accountAddress = payload.sub || payload.act?.sub;
+          console.log('[resumeLensSession] 🔍 JWT Debug:', {
+            role: payload['tag:lens.dev,2024:role'],
+            accountAddress: payload.sub,
+            walletAddress: payload.act?.sub,
+            usingAddress: accountAddress
+          });
+
+          if (accountAddress && accountAddress.startsWith('0x')) {
+            const switchResult = await sessionClient.switchAccount({ account: accountAddress });
+            if (switchResult.isErr()) {
+              console.error('[resumeLensSession] switchAccount failed:', switchResult.error);
+              console.error('[resumeLensSession] 💡 This likely means the connected wallet does not own this Lens account');
+              console.error('[resumeLensSession] 🔧 Solution: Connect with the wallet that owns account:', accountAddress);
+              console.error('[resumeLensSession] 📝 Current wallet:', walletAddress, '| Target account:', accountAddress);
+              return sessionClient; // Return existing session even if switch fails
+            }
+
+            // CRITICAL: switchAccount returns a NEW SessionClient instance
+            sessionClient = switchResult.value;
+            console.log('[resumeLensSession] ✅ Account switch completed, verifying...', {
+              accountAddress,
+              sessionHasAccount: !!sessionClient.account,
+              sessionAccountAddress: sessionClient.account?.address,
+              sessionAccountApp: sessionClient.account?.app
+            });
+            return sessionClient;
+          }
+        }
+
+        // Fallback: Use fetchAccountsAvailable to get accounts for the wallet
+        if (walletAddress) {
+          console.log('[resumeLensSession] JWT parse failed, falling back to fetchAccountsAvailable...');
+          const accountsResult = await fetchAccountsAvailable(sessionClient, {
+            managedBy: walletAddress,
+            includeOwned: true
+          });
+
+          if (accountsResult.isOk() && accountsResult.value.items.length > 0) {
+            const firstAccount = accountsResult.value.items[0].account.address;
+            console.log('[resumeLensSession] Fetched account:', firstAccount);
+
+            const switchResult = await sessionClient.switchAccount({ account: firstAccount });
+            if (switchResult.isErr()) {
+              console.error('[resumeLensSession] switchAccount (fallback) failed:', switchResult.error);
+            } else {
+              // CRITICAL: Use the NEW SessionClient instance returned by switchAccount
+              sessionClient = switchResult.value;
+              console.log('[resumeLensSession] ✅ Switched to fetched account:', firstAccount, {
+                sessionHasAccount: !!sessionClient.account,
+                sessionAccountAddress: sessionClient.account?.address
+              });
+            }
+          } else {
+            console.error('[resumeLensSession] No accounts found for wallet:', walletAddress);
+          }
+        }
+      } catch (switchError) {
+        console.warn('[resumeLensSession] Failed to switch account:', switchError);
+        // Continue anyway - session is still valid for posting
+      }
+    }
+
     return sessionClient;
   } catch (error) {
     console.error('[resumeLensSession] Error resuming session:', error);
@@ -61,11 +164,7 @@ export async function createLensSessionWithWallet(
   walletAddress: string
 ): Promise<SessionClient | null> {
   try {
-    console.log('[LensSession] Creating authenticated session client with regular wallet...');
-    console.log('[LensSession] Wallet address:', walletAddress);
-
     // Step 1: Check if wallet has existing Lens accounts
-    console.log('[LensSession] Checking for existing accounts...');
     const accountsResult = await fetchAccountsAvailable(lensClient, {
       managedBy: walletAddress,
       includeOwned: true
@@ -73,41 +172,33 @@ export async function createLensSessionWithWallet(
 
     if (accountsResult.isErr()) {
       console.error('[LensSession] Failed to fetch accounts:', accountsResult.error);
-      console.log('[LensSession] Proceeding with onboarding flow...');
     }
 
     const accounts = accountsResult.isOk() ? accountsResult.value.items : [];
-    console.log(`[LensSession] Found ${accounts.length} account(s) for wallet ${walletAddress}`);
-    if (accounts.length > 0) {
-      console.log('[LensSession] Available accounts:', accounts);
-      console.log(`[LensSession] Found ${accounts.length} existing account(s):`, accounts);
 
+    if (accounts.length > 0) {
       // Try AccountOwner pattern with existing account
       const firstAccount = accounts[0];
-      const accountAddress = firstAccount.account.address; // Extract address from nested account object
-      console.log(`[LensSession] Using existing account: ${accountAddress}`);
+      const accountAddress = firstAccount.account.address;
 
       const authenticated = await lensClient.login({
         accountOwner: {
           app: LENS_TESTNET_APP,
-          account: accountAddress, // Use existing account address
-          owner: walletAddress,         // Wallet is the owner
+          account: accountAddress,
+          owner: walletAddress,
         },
         signMessage: signMessageWith(walletClient),
       });
 
       if (authenticated.isErr()) {
-        console.error('[LensSession] AccountOwner login failed even with existing account:', authenticated.error);
+        console.error('[LensSession] AccountOwner login failed:', authenticated.error);
         return null;
       }
 
       sessionClient = authenticated.value;
-      console.log('[LensSession] Successfully authenticated as AccountOwner with existing account');
       return sessionClient;
 
     } else {
-      console.log('[LensSession] No existing accounts found. Starting onboarding flow...');
-
       // Step 2: Authenticate as onboarding user for account creation
       const onboardingAuth = await lensClient.login({
         onboardingUser: {
@@ -122,142 +213,64 @@ export async function createLensSessionWithWallet(
         return null;
       }
 
-      console.log('[LensSession] Authenticated as onboarding user. Creating Lens account...');
-
-      // Step 3: Create a Lens account automatically
       const onboardingSession = onboardingAuth.value;
 
-      // Generate a simple username based on wallet address
-      // Lens requirements: min 5 chars, start with letter/number, only a-z, 0-9, -, _
-      const shortAddress = walletAddress.slice(-6).toLowerCase().replace(/[^a-z0-9]/g, ''); // Clean non-alphanumeric
-      // Add random 4-digit suffix for uniqueness during testing
-      const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      const username = `user${shortAddress}${randomSuffix}`; // Will be at least 'user' + 6 chars + 4 = 14 chars total
-
-      console.log(`[LensSession] Attempting to create username: lens/${username}`);
-
-      // Check if username is available
-      const usernameCheck = await canCreateUsername(onboardingSession, {
-        localName: username,
-      });
-
-      if (usernameCheck.isErr()) {
-        console.error('[LensSession] Username check failed:', usernameCheck.error);
-        console.warn('[LensSession] ⚠️ Account creation failed - falling back to onboarding user');
-        sessionClient = onboardingSession;
-        return sessionClient;
-      }
-
-      const canCreateResult = usernameCheck.value;
-
-      if (canCreateResult.__typename !== 'NamespaceOperationValidationPassed') {
-        console.error(`[LensSession] Username lens/${username} not available:`, canCreateResult.__typename);
-
-        // Log detailed validation failure reasons
-        if (canCreateResult.__typename === 'NamespaceOperationValidationFailed') {
-          console.error('[LensSession] Validation failed:', canCreateResult.reason);
-          if (canCreateResult.unsatisfiedRules?.required) {
-            console.error('[LensSession] Failed rules:');
-            canCreateResult.unsatisfiedRules.required.forEach((rule: any) => {
-              console.error(`- Rule: ${rule.type}, Reason: ${rule.reason}, Message: ${rule.message}`);
-            });
-          }
-        } else if (canCreateResult.__typename === 'UsernameTaken') {
-          console.error('[LensSession] Username is already taken');
-        } else if (canCreateResult.__typename === 'NamespaceOperationValidationUnknown') {
-          console.error('[LensSession] Unknown validation rules - extra checks required:', canCreateResult.extraChecksRequired);
-        }
-
-        console.warn('[LensSession] ⚠️ Username unavailable - falling back to onboarding user');
-        sessionClient = onboardingSession;
-        return sessionClient;
-      }
-
-      console.log(`[LensSession] ✅ Username lens/${username} is available`);
-
-      // Create the account with username
-      // Create simple metadata for the account
+      // Step 3: Create simple metadata for the account
+      const shortAddress = walletAddress.slice(-8);
       const metadata = {
-        name: `User ${username}`,
-        bio: `Auto-generated Lens account for ${username}`,
-        picture: "https://avatar.vercel.sh/" + username, // Generate a simple avatar
+        name: `User ${shortAddress}`,
+        bio: `Account for ${walletAddress}`,
+        picture: `https://avatar.vercel.sh/${walletAddress}`,
         attributes: []
       };
 
-      // For now, use a simple data URI for metadata (could be uploaded to IPFS/Arweave later)
       const metadataJson = JSON.stringify(metadata);
       const metadataUri = `data:application/json;base64,${btoa(metadataJson)}`;
 
-      // Step 1: Create account operation
-      const createResult = await createAccountWithUsername(onboardingSession, {
-        username: {
-          localName: username,
-        },
-        metadataUri: metadataUri,
+      // Step 4: Create account
+      const createResult = await createAccount(onboardingSession, {
+        metadataUri: uri(metadataUri),
       });
 
       if (createResult.isErr()) {
-        console.error('[LensSession] Account creation operation failed:', createResult.error);
-        console.warn('[LensSession] ⚠️ Account creation failed - falling back to onboarding user');
-        sessionClient = onboardingSession;
-        return sessionClient;
+        console.error('[LensSession] Account creation failed:', createResult.error);
+        return null;
       }
 
-      console.log('[LensSession] Account creation operation successful, submitting transaction...');
-
-      // Step 2: Handle operation with wallet client
+      // Step 5: Handle operation with wallet client
       const operationResult = await handleOperationWith(walletClient)(createResult.value);
 
       if (operationResult.isErr()) {
         console.error('[LensSession] Transaction submission failed:', operationResult.error);
-        console.warn('[LensSession] ⚠️ Transaction submission failed - falling back to onboarding user');
-        sessionClient = onboardingSession;
-        return sessionClient;
+        return null;
       }
 
-      console.log('[LensSession] Transaction submitted successfully');
-
-      // For account creation, we don't need to wait for confirmation explicitly
-      // The operation result contains enough info to proceed
       const txHash = operationResult.value;
-      console.log(`[LensSession] 🎉 Account creation transaction: ${txHash}`);
 
-      // Skip transaction indexing wait for now - just continue with account fetching
-      console.log('[LensSession] Skipping transaction indexing wait, proceeding with account fetching...');
-
-      console.log(`[LensSession] 🎉 Successfully created Lens account: lens/${username}`);
-      console.log('[LensSession] Fetching new account using txHash:', txHash);
-
-      // Poll fetchAccount until available (handle indexing delay)
+      // Step 6: Fetch the new account
       let newAccount = null;
-      const maxAttempts = 10;
-      const delayMs = 3000; // 3 seconds between polls
+      const maxAttempts = 8;
+      const delayMs = 2000;
+
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const fetchResult = await fetchAccount(onboardingSession, { txHash });
-        if (fetchResult.isErr()) {
-          console.error(`[LensSession] Fetch account error on attempt ${attempt}:`, fetchResult.error);
-        } else if (fetchResult.value) {
+        if (fetchResult.isOk() && fetchResult.value) {
           newAccount = fetchResult.value;
-          console.log('[LensSession] Fetched new account:', newAccount);
           break;
-        } else {
-          console.log(`[LensSession] Account not indexed yet (attempt ${attempt}/${maxAttempts}) - waiting...`);
+        }
+
+        if (attempt < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
 
       if (!newAccount) {
-        console.error('[LensSession] Failed to fetch new account after polling');
-        console.warn('[LensSession] ⚠️ Falling back to onboarding user');
-        sessionClient = onboardingSession;
-        return sessionClient;
+        console.error('[LensSession] Failed to fetch new account');
+        return null;
       }
 
+      // Step 7: Switch to AccountOwner with the new account
       const accountAddress = newAccount.address;
-      console.log(`[LensSession] New account address: ${accountAddress}`);
-
-      // Step 4: Switch to AccountOwner authentication with the new account
-      console.log('[LensSession] Switching to AccountOwner authentication...');
 
       const ownerAuth = await lensClient.login({
         accountOwner: {
@@ -269,13 +282,10 @@ export async function createLensSessionWithWallet(
       });
 
       if (ownerAuth.isErr()) {
-        console.error('[LensSession] Failed to authenticate as AccountOwner after creation:', ownerAuth.error);
-        console.warn('[LensSession] ⚠️ Using onboarding session instead');
-        sessionClient = onboardingSession;
-        return sessionClient;
+        console.error('[LensSession] AccountOwner login failed:', ownerAuth.error);
+        return null;
       }
 
-      console.log('[LensSession] ✅ Successfully authenticated as AccountOwner - reactions enabled!');
       sessionClient = ownerAuth.value;
       return sessionClient;
     }
@@ -298,6 +308,5 @@ export function clearLensSession(): void {
  * Useful when we want to re-authenticate with new permissions
  */
 export function refreshLensSession(): void {
-  console.log('[LensSession] Clearing cached session to force re-authentication');
   sessionClient = null;
 }

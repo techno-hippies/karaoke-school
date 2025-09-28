@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { PostReactionType, postId } from "@lens-protocol/client";
 import { addReaction, undoReaction } from "@lens-protocol/client/actions";
-import { createLensSessionWithWallet, getLensSession, isLensAuthenticated, refreshLensSession } from '../lib/lens/sessionClient';
+import { createLensSessionWithWallet, getLensSession } from '../lib/lens/sessionClient';
 import { useAccount, useWalletClient } from 'wagmi';
 
 interface UseLensReactionsProps {
@@ -29,15 +29,13 @@ export function useLensReactions({
 
   // Sync state when userHasLiked prop changes (e.g., after auth or feed refetch)
   React.useEffect(() => {
-    console.log(`[useLensReactions] ${postIdString.slice(-8)} - Updating isLiked state: ${isLiked} → ${userHasLiked}`);
     setIsLiked(userHasLiked);
-  }, [userHasLiked, postIdString]);
+  }, [userHasLiked]);
 
   // Sync state when initialLikeCount prop changes
   React.useEffect(() => {
-    console.log(`[useLensReactions] ${postIdString.slice(-8)} - Updating likeCount state: ${likeCount} → ${initialLikeCount}`);
     setLikeCount(initialLikeCount);
-  }, [initialLikeCount, postIdString]);
+  }, [initialLikeCount]);
 
   // Get wallet connection from RainbowKit/wagmi
   const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
@@ -48,36 +46,18 @@ export function useLensReactions({
   // Allow liking if wallet is connected
   const canLike = isWalletConnected && !!walletAddress;
 
-  // Enhanced debug logging
-  React.useEffect(() => {
-    console.log('[useLensReactions] State:', {
-      isWalletConnected,
-      walletAddress,
-      hasWalletClient: !!walletClient,
-      canLike,
-      hasSessionClient: !!sessionClient,
-      postId: postIdString
-    });
-  }, [isWalletConnected, walletAddress, walletClient, canLike, sessionClient, postIdString]);
 
   const toggleLike = useCallback(async () => {
     if (!canLike) {
-      console.warn('[useLensReactions] Cannot like: No wallet authentication');
-      console.warn('[useLensReactions] Wallet connected:', isWalletConnected);
       // TODO: Show login modal or prompt
       return;
     }
 
-    console.log('[useLensReactions] Starting like toggle process...');
-
     // Get or create session client
     let currentSessionClient = sessionClient;
-    let authMethod = 'existing';
 
     // Try regular wallet session if no existing session
     if (!currentSessionClient && walletClient && walletAddress) {
-      console.log('[useLensReactions] Creating new Lens session with wallet (AccountOwner pattern)...');
-      authMethod = 'wallet';
 
       currentSessionClient = await createLensSessionWithWallet(walletClient, walletAddress);
       if (!currentSessionClient) {
@@ -87,14 +67,10 @@ export function useLensReactions({
     }
 
     if (!currentSessionClient) {
-      console.warn('[useLensReactions] No session client available');
       return;
     }
 
-    console.log(`[useLensReactions] Using session client authenticated via: ${authMethod}`);
-
     if (isLoading) {
-      console.log('[useLensReactions] Already processing like action');
       return;
     }
 
@@ -148,7 +124,6 @@ export function useLensReactions({
         return;
       }
 
-      console.log(`[useLensReactions] Successfully ${newIsLiked ? 'liked' : 'unliked'} post ${postIdString}`);
 
     } catch (error) {
       console.error('[useLensReactions] Reaction error:', error);

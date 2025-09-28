@@ -85,7 +85,7 @@ export async function uploadVideoToGrove(videoBlob: Blob): Promise<{
  * Upload JSON metadata to Grove storage
  * Used for Lens post metadata
  */
-export async function uploadMetadataToGrove(metadata: any): Promise<{
+export async function uploadMetadataToGrove(metadata: Record<string, unknown>): Promise<{
   uri: string;
   gatewayUrl: string;
   storageKey: string;
@@ -121,7 +121,7 @@ export async function uploadMetadataToGrove(metadata: any): Promise<{
  */
 export async function uploadKaraokePost(
   videoBlob: Blob,
-  metadata: any,
+  metadata: Record<string, unknown>,
   onProgress?: (stage: 'video' | 'metadata', progress: number) => void
 ): Promise<{
   metadataUri: string;
@@ -177,7 +177,7 @@ export async function waitForPropagation(storageKey: string): Promise<void> {
   try {
     console.log('[Storage] Waiting for content propagation:', storageKey);
 
-    const storage = getStorageClient();
+    // const storage = getStorageClient();
 
     // Poll the status endpoint until content is propagated
     let attempts = 0;

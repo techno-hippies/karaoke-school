@@ -12,13 +12,11 @@ interface DesktopSidebarProps {
   onConnectWallet?: () => void;
 }
 
-export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ 
-  activeTab, 
+export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
+  activeTab,
   onTabChange,
-  onCreatePost,
   isConnected,
   walletAddress,
-  onDisconnect,
   onConnectWallet
 }) => {
   return (

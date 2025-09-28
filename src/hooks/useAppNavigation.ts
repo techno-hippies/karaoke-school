@@ -50,7 +50,7 @@ export function useAppNavigation() {
   const handleDesktopTabChange = (
     tab: 'home' | 'study' | 'post' | 'profile',
     activeTab: string,
-    setActiveTab: (tab: any) => void,
+    setActiveTab: (tab: string) => void,
     onShowAuthModal?: () => void
   ) => {
     if (tab === 'home') {
@@ -72,10 +72,10 @@ export function useAppNavigation() {
    */
   const handleMobileTabChange = (
     tab: 'home' | 'study' | 'post' | 'inbox' | 'profile',
-    setMobileTab: (tab: any) => void,
-    setActiveTab: (tab: any) => void,
-    onShowAuthModal?: () => void,
-    onCreatePost?: () => void
+    setMobileTab: (tab: string) => void,
+    setActiveTab: (tab: string) => void,
+    onShowAuthModal?: () => void
+    // onCreatePost?: () => void
   ) => {
     if (tab === 'home') {
       navigate('/');
@@ -93,7 +93,7 @@ export function useAppNavigation() {
       navigateToOwnProfile(onShowAuthModal);
     } else {
       setMobileTab(tab);
-      setActiveTab(tab as any);
+      setActiveTab(tab);
     }
   };
 

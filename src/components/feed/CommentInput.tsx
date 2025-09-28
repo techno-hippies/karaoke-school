@@ -6,13 +6,15 @@ interface CommentInputProps {
   placeholder?: string;
   showAvatar?: boolean;
   variant?: 'compact' | 'expanded';
+  disabled?: boolean;
 }
 
 export const CommentInput: React.FC<CommentInputProps> = ({
   onSubmit,
   placeholder = 'Add a comment...',
   showAvatar = true,
-  variant = 'compact'
+  variant = 'compact',
+  disabled = false
 }) => {
   const [comment, setComment] = useState('');
 
@@ -39,14 +41,15 @@ export const CommentInput: React.FC<CommentInputProps> = ({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-neutral-700 bg-neutral-900 text-white rounded-lg resize-none focus:outline-none focus:border-neutral-500 placeholder:text-neutral-400"
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-neutral-700 bg-neutral-900 text-white rounded-lg resize-none focus:outline-none focus:border-neutral-500 placeholder:text-neutral-400 disabled:opacity-50 disabled:cursor-not-allowed"
             rows={3}
             onKeyPress={handleKeyPress}
           />
           <div className="flex justify-end">
             <button
               onClick={handleSubmit}
-              disabled={!comment.trim()}
+              disabled={disabled || !comment.trim()}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
               Post
@@ -70,13 +73,14 @@ export const CommentInput: React.FC<CommentInputProps> = ({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2 pr-12 border border-neutral-700 bg-neutral-900 text-white rounded-lg resize-none focus:outline-none focus:border-neutral-500 placeholder:text-neutral-400"
+            disabled={disabled}
+            className="w-full px-3 py-2 pr-12 border border-neutral-700 bg-neutral-900 text-white rounded-lg resize-none focus:outline-none focus:border-neutral-500 placeholder:text-neutral-400 disabled:opacity-50 disabled:cursor-not-allowed"
             rows={2}
             onKeyPress={handleKeyPress}
           />
           <button
             onClick={handleSubmit}
-            disabled={!comment.trim()}
+            disabled={disabled || !comment.trim()}
             className="absolute bottom-2 right-2 p-1.5 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <PaperPlaneRight className="w-4 h-4" />

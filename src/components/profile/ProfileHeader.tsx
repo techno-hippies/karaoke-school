@@ -1,7 +1,6 @@
 import React from 'react';
-import { Gear, Key, DotsThree, Link, SealCheck } from '@phosphor-icons/react';
+import { DotsThree, Link, SealCheck } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
-import { FollowButton } from 'ethereum-identity-kit';
 
 interface ProfileHeaderProps {
   username: string;
@@ -17,13 +16,9 @@ interface ProfileHeaderProps {
   isUnclaimed?: boolean;
   isVerified?: boolean;
   claimableAmount?: number;
-  connectedAddress?: string; // For EIK follow button
-  profileAddress?: string; // Address of profile being viewed
   onFollowClick?: () => void;
   onMessageClick?: () => void;
   onEditClick?: () => void;
-  onSettingsClick?: () => void;
-  onClaimClick?: () => void;
   onMoreClick?: () => void;
 }
 
@@ -41,13 +36,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   isUnclaimed = false,
   isVerified = false,
   claimableAmount = 0,
-  connectedAddress,
-  profileAddress,
   onFollowClick,
   onMessageClick,
   onEditClick,
-  onSettingsClick,
-  onClaimClick,
   onMoreClick,
 }) => {
   // Format numbers with K/M suffixes

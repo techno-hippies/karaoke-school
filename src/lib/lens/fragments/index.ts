@@ -4,7 +4,9 @@ import { AccountFragment, AccountMetadataFragment } from "./accounts";
 import { PostMetadataFragment, PostFragment } from "./posts";
 
 declare module "@lens-protocol/client" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   export interface Account extends FragmentOf<typeof AccountFragment> {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   export interface AccountMetadata extends FragmentOf<typeof AccountMetadataFragment> {}
   export type PostMetadata = FragmentOf<typeof PostMetadataFragment>;
   export type Post = FragmentOf<typeof PostFragment>;

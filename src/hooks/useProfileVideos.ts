@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { getFeedItems } from '../lib/lens-feed';
-import { getLivepeerUrl } from '../lib/livepeer-mappings';
 import { getCreatorInfo } from '../lib/creator-mappings';
 
 interface ProfileVideo {
@@ -50,23 +49,41 @@ export function useProfileVideos(addressOrEns: string | undefined) {
         
         // 2. Fetch all feed items (this is inefficient but works for V1)
         const allFeedItems = await getFeedItems(100); // Get more to ensure we find them
+
+        // If this is a wallet address, also check PKP posts which might include user's own posts
+        let pkpItems = [];
+        if (addressOrEns.startsWith('0x')) {
+          console.log(`[useProfileVideos] Checking PKP posts for wallet: ${addressOrEns}`);
+          const { getPKPAccountsPosts } = await import('../lib/lens-feed');
+          pkpItems = await getPKPAccountsPosts([addressOrEns], 50);
+          console.log(`[useProfileVideos] Found ${pkpItems.length} PKP posts for wallet ${addressOrEns}`);
+        }
         
-        if (!allFeedItems || allFeedItems.length === 0) {
+        // Combine regular feed items with PKP items
+        const combinedItems = [...allFeedItems, ...pkpItems];
+
+        if (!combinedItems || combinedItems.length === 0) {
           console.log('[useProfileVideos] No feed items found');
           return [];
         }
-        
+
         // Debug: Log unique creators in the feed
-        const uniqueCreators = [...new Set(allFeedItems.map(item => item.creatorHandle))];
+        const uniqueCreators = [...new Set(combinedItems.map(item => item.creatorHandle))];
         console.log('[useProfileVideos] Creators in feed:', uniqueCreators);
-        
+
         // 3. Filter for this creator's videos
-        const creatorVideos = allFeedItems.filter(item => {
-          // Check multiple possible matches
+        const creatorVideos = combinedItems.filter(item => {
+          // If searching by wallet address, match directly by wallet address
+          if (addressOrEns.startsWith('0x')) {
+            const creatorAddress = item.video?.creator?.id;
+            return creatorAddress?.toLowerCase() === addressOrEns.toLowerCase();
+          }
+
+          // Otherwise, match by handle
           const itemHandle = item.creatorHandle?.replace('@', '').toLowerCase();
-          const searchHandle = creatorHandle.replace('@', '').toLowerCase();
+          const searchHandle = creatorHandle?.replace('@', '').toLowerCase();
           const itemId = item.video?.creator?.id?.replace('@', '').toLowerCase();
-          
+
           // Match by handle or creator ID
           return itemHandle === searchHandle || itemId === searchHandle;
         });
@@ -75,8 +92,8 @@ export function useProfileVideos(addressOrEns: string | undefined) {
         
         // 4. Transform to profile video format
         return creatorVideos.map((item, index) => {
-          const videoUrl = getLivepeerUrl(item.video.uploadTxId);
-          
+          const videoUrl = item.data.videoUrl || '/test_video/sample.mp4';
+
           return {
             id: item.video.id || `video-${index}`,
             thumbnailUrl: videoUrl, // Use video URL as thumbnail (poster frame)

@@ -1,6 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, CaretLeft, ArrowRight } from '@phosphor-icons/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Play, Pause, CaretLeft } from '@phosphor-icons/react';
 import { generateSegmentRecommendations } from '../../lib/segment-recommendations';
+
+interface WaveSurferRegion {
+  start: number;
+  end: number;
+  remove: () => void;
+}
 
 interface LineTimestamp {
   lineIndex: number;
@@ -11,12 +17,12 @@ interface LineTimestamp {
   wordCount: number;
 }
 
-interface RecommendedSegment {
-  start: number;
-  end: number;
-  reason: string;
-  title: string;
-}
+// interface RecommendedSegment {
+//   start: number;
+//   end: number;
+//   reason: string;
+//   title: string;
+// }
 
 interface SongWithTimestamps {
   title: string;
@@ -52,18 +58,36 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
   className = ''
 }) => {
   const waveformRef = useRef<HTMLDivElement>(null);
-  const wavesurferRef = useRef<any>(null);
+  const wavesurferRef = useRef<unknown>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<SelectedSegment | null>(null);
-  const [currentRegion, setCurrentRegion] = useState<any>(null);
+  // const [currentRegion, // setCurrentRegion] = useState<WaveSurferRegion | null>(null);
 
   // Get lyrics for a time range
-  const getLyricsForTimeRange = (start: number, end: number): LineTimestamp[] => {
+  const getLyricsForTimeRange = useCallback((start: number, end: number): LineTimestamp[] => {
     return song.lineTimestamps.filter(line => {
       // Include lines that overlap with the selected time range
       return (line.start <= end && line.end >= start);
     });
-  };
+  }, [song.lineTimestamps]);
+
+  const updateSelectedSegment = useCallback((region: WaveSurferRegion) => {
+    if (!region) return;
+
+    const start = region.start;
+    const end = region.end;
+
+    // Always update lyrics even if duration is outside limits
+    // This gives immediate feedback to the user
+    const lyrics = getLyricsForTimeRange(start, end);
+    setSelectedSegment({ start, end, lyrics });
+
+    // Optional: Log duration warnings without blocking the update
+    const duration = end - start;
+    if (duration > maxSegmentLength || duration < minSegmentLength) {
+      console.log(`Segment duration ${duration.toFixed(1)}s is outside recommended range (${minSegmentLength}-${maxSegmentLength}s)`);
+    }
+  }, [maxSegmentLength, minSegmentLength, getLyricsForTimeRange]);
 
   // Initialize WaveSurfer
   useEffect(() => {
@@ -124,28 +148,28 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
           drag: true
         });
 
-        setCurrentRegion(region);
+        // setCurrentRegion(region);
         updateSelectedSegment(region);
       });
 
       // Handle region updates
-      regions.on('region-updated', (region: any) => {
-        setCurrentRegion(region);
+      regions.on('region-updated', (region: WaveSurferRegion) => {
+        // setCurrentRegion(region);
         updateSelectedSegment(region);
       });
 
-      regions.on('region-created', (region: any) => {
+      regions.on('region-created', (region: WaveSurferRegion) => {
         // Remove previous regions to allow only one selection
-        regions.getRegions().forEach((r: any) => {
+        regions.getRegions().forEach((r: WaveSurferRegion) => {
           if (r !== region) r.remove();
         });
-        setCurrentRegion(region);
+        // setCurrentRegion(region);
         updateSelectedSegment(region);
       });
 
       // Handle region click/drag updates
-      regions.on('region-click', (region: any) => {
-        setCurrentRegion(region);
+      regions.on('region-click', (region: WaveSurferRegion) => {
+        // setCurrentRegion(region);
         updateSelectedSegment(region);
       });
 
@@ -162,25 +186,7 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
         wavesurferRef.current.destroy();
       }
     };
-  }, [song.audioUrl]);
-
-  const updateSelectedSegment = (region: any) => {
-    if (!region) return;
-
-    const start = region.start;
-    const end = region.end;
-
-    // Always update lyrics even if duration is outside limits
-    // This gives immediate feedback to the user
-    const lyrics = getLyricsForTimeRange(start, end);
-    setSelectedSegment({ start, end, lyrics });
-
-    // Optional: Log duration warnings without blocking the update
-    const duration = end - start;
-    if (duration > maxSegmentLength || duration < minSegmentLength) {
-      console.log(`Segment duration ${duration.toFixed(1)}s is outside recommended range (${minSegmentLength}-${maxSegmentLength}s)`);
-    }
-  };
+  }, [song.audioUrl]); // Only recreate WaveSurfer when audio URL changes
 
   const togglePlayPause = () => {
     if (wavesurferRef.current && selectedSegment) {
@@ -235,7 +241,7 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
           <div className="flex-1 overflow-hidden mb-6 p-4">
             {selectedSegment.lyrics.length > 0 ? (
               <div className="space-y-3 h-full overflow-y-auto">
-                {selectedSegment.lyrics.map((line, index) => (
+                {selectedSegment.lyrics.map((line) => (
                   <div key={line.lineIndex} className="text-center">
                     <p className="text-white text-lg font-medium leading-relaxed">
                       {line.originalText}

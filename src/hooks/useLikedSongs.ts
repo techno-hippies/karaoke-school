@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 
 interface LikedSong {
   postId: string;
-  storyProtocolIpId: string;
   username: string;
   description: string;
   timestamp: string;
-  storyProtocolMetadataUri?: string;
-  storyProtocolLyricsHash?: string;
 }
 
 export function useLikedSongs() {

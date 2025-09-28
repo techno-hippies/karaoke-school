@@ -1,14 +1,8 @@
 import React, { ReactNode } from 'react'
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { 
-  TransactionProvider, 
-  TransactionModal,
-  TranslationProvider 
-} from 'ethereum-identity-kit'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { wagmiConfig } from '../config/wagmi.config'
-import 'ethereum-identity-kit/css'
 import '../styles/rainbowkit-overrides.css'
 
 const queryClient = new QueryClient({
@@ -38,12 +32,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           modalSize="compact"
           locale="zh-CN"  // Set to Mandarin Chinese
         >
-          <TranslationProvider>
-            <TransactionProvider>
-              {children}
-              <TransactionModal />
-            </TransactionProvider>
-          </TranslationProvider>
+          {children}
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

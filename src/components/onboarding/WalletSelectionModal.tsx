@@ -1,5 +1,4 @@
-import { Wallet, GoogleChromeLogo, DeviceMobile } from "@phosphor-icons/react"
-import { Button } from "@/components/ui/button"
+import { GoogleChromeLogo, DeviceMobile } from "@phosphor-icons/react"
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,7 @@ export function WalletSelectionModal({
   const { connect } = useConnect()
   const connectors = useConnectors()
 
-  const handleConnect = (connector: any) => {
+  const handleConnect = (connector: { id: string; name: string; type: string }) => {
     connect({ connector })
     onOpenChange(false)
   }
