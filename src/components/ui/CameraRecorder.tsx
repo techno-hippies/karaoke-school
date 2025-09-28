@@ -79,12 +79,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       if (audioRef.current && cameraStream && cameraStream.audioContext && cameraStream.destination) {
         console.log('[CameraRecorder] Connecting background music to recording stream');
 
-        // Create audio source from the background music element (only if not already created)
-        let bgMusicSource = cameraStream.bgMusicSource;
-        if (!bgMusicSource) {
-          bgMusicSource = cameraStream.audioContext.createMediaElementSource(audioRef.current);
-          cameraStream.bgMusicSource = bgMusicSource;
-        }
+        // Create audio source from the background music element
+        const bgMusicSource = cameraStream.audioContext.createMediaElementSource(audioRef.current);
 
         // Create gain for background music
         const bgGain = cameraStream.audioContext.createGain();
@@ -96,7 +92,8 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         bgGain.connect(cameraStream.destination); // For recording
         bgGain.connect(cameraStream.audioContext.destination); // For speakers (playback)
 
-        // Store reference for cleanup
+        // Store references for cleanup
+        cameraStream.bgMusicSource = bgMusicSource;
         cameraStream.bgGain = bgGain;
 
         // Start audio from segment start
@@ -139,7 +136,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         cameraStream.bgGain = null;
       }
     }
-  }, [isRecording, audioUrl, segment, onStop, mediaRecorder, cameraStream]);
+  }, [isRecording, audioUrl, segment, onStop, mediaRecorder]);
 
   // Handle MediaRecorder stop event and create video blob
   useEffect(() => {
