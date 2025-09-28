@@ -1,6 +1,6 @@
 import React from 'react'
 import { ArrowLeft, X } from '@phosphor-icons/react'
-import { useNavigationHistory } from '../../hooks/useNavigationHistory'
+import { useNavigationHistory } from '../../hooks/navigation/useNavigationHistory'
 
 interface MobileHeaderProps {
   title: string

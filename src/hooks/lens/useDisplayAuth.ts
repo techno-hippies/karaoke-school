@@ -1,6 +1,6 @@
 import { useAccount, useWalletClient } from 'wagmi';
 import { useEffect } from 'react';
-import { createLensSessionWithWallet, isLensAuthenticated, resumeLensSession, getLensSession } from '../lib/lens/session';
+import { createLensSessionWithWallet, isLensAuthenticated, resumeLensSession, getLensSession } from '../../lib/lens/session';
 
 /**
  * Shared hook for consistent authentication display logic

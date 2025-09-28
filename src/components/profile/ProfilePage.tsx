@@ -4,10 +4,10 @@ import { ProfilePageView } from './ProfilePageView';
 import { VideoDetail } from '../feed/VideoDetail';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useEnsAddress, useDisconnect } from 'wagmi';
-import { useProfileVideos, getCreatorHandle } from '../../hooks/useProfileVideos';
-import { useLensProfileVideos } from '../../hooks/useLensProfileVideos';
-import { useDisplayAuth } from '../../hooks/useDisplayAuth';
-import { useLensFollows } from '../../hooks/useLensFollows';
+import { useProfileVideos, getCreatorHandle } from '../../hooks/media/useProfileVideos';
+import { useLensProfileVideos } from '../../hooks/lens/useLensProfileVideos';
+import { useDisplayAuth } from '../../hooks/lens/useDisplayAuth';
+import { useLensFollows } from '../../hooks/lens/useLensFollows';
 
 interface Video {
   id: string;

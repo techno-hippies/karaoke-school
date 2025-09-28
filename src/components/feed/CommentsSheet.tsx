@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/sheet';
 import { Comment, type CommentData } from './Comment';
 import { CommentInput } from './CommentInput';
-import { useLensComments } from '../../hooks/useLensComments';
+import { useLensComments } from '../../hooks/lens/useLensComments';
 import { CircleNotch } from '@phosphor-icons/react';
 
 interface CommentsSheetProps {
