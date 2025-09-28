@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useDisplayAuth } from './useDisplayAuth';
+import { useDisplayAuth } from '../lens/useDisplayAuth';
 
 /**
  * Shared navigation logic for the app

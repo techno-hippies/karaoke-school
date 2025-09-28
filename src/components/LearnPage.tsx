@@ -4,9 +4,9 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { StudyStats } from './exercises/StudyStats'
 import { DesktopSidebar } from './navigation/DesktopSidebar'
 import { MobileFooter } from './navigation/MobileFooter'
-import { useDisplayAuth } from '../hooks/useDisplayAuth'
-import { useAppNavigation } from '../hooks/useAppNavigation'
-import { useLikedSongs } from '../hooks/useLikedSongs'
+import { useDisplayAuth } from '../hooks/lens/useDisplayAuth'
+import { useAppNavigation } from '../hooks/navigation/useAppNavigation'
+import { useLikedSongs } from '../hooks/media/useLikedSongs'
 
 export const LearnPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'profile'>('study')

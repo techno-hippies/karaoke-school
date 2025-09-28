@@ -3,11 +3,11 @@ import { Heart, ChatCircle, ShareFat, MusicNote, SpeakerHigh, SpeakerX, Plus, Pl
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
-import { useVideoPlayer } from '../../hooks/useVideoPlayer';
-import { useProfileNavigation } from '../../hooks/useProfileNavigation';
-import { useTouchGestures } from '../../hooks/useTouchGestures';
-import { useLensReactions } from '../../hooks/useLensReactions';
-import { useLensFollows } from '../../hooks/useLensFollows';
+import { useVideoPlayer } from '../../hooks/media/useVideoPlayer';
+import { useProfileNavigation } from '../../hooks/navigation/useProfileNavigation';
+import { useTouchGestures } from '../../hooks/ui/useTouchGestures';
+import { useLensReactions } from '../../hooks/lens/useLensReactions';
+import { useLensFollows } from '../../hooks/lens/useLensFollows';
 
 interface VideoPostProps {
   videoUrl?: string;

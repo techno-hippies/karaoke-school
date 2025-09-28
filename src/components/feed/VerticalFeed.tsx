@@ -4,12 +4,12 @@ import { VerticalFeedView } from './VerticalFeedView';
 import { useQuery } from '@tanstack/react-query';
 import { getAppFeedItems } from '../../lib/feed';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useDisplayAuth } from '../../hooks/useDisplayAuth';
+import { useDisplayAuth } from '../../hooks/lens/useDisplayAuth';
 import type { FeedItem } from '../../types/feed';
 import {
   transformLensFeed
 } from '../../utils/feedTransforms';
-import { useAppNavigation } from '../../hooks/useAppNavigation';
+import { useAppNavigation } from '../../hooks/navigation/useAppNavigation';
 
 /**
  * Container component with business logic

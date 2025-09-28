@@ -6,7 +6,7 @@ import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
-import { useLensReactions } from '../../hooks/useLensReactions';
+import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import Hls from 'hls.js';
 
 interface VideoDetailProps {
