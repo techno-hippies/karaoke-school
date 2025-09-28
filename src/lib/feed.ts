@@ -2,7 +2,7 @@ import { lensClient } from "./lens/client";
 import { fetchPosts, fetchAccountsAvailable } from "@lens-protocol/client/actions";
 import { evmAddress } from "@lens-protocol/client";
 import type { LensFeedItem } from "../types/feed";
-import { getLensSession } from "./lens/sessionClient";
+import { getLensSession } from "./lens/session";
 import { getStorageClient } from "./lens/storage";
 
 // Lens app configuration
