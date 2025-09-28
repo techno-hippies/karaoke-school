@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { PostEditor } from '../ui/PostEditor';
-import { getSongById } from '../../lib/song-directory';
+import { getSongById } from '../../lib/songs/directory';
 
 interface LocationState {
   segment?: {

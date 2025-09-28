@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, CaretLeft } from '@phosphor-icons/react';
-import { generateSegmentRecommendations } from '../../lib/segment-recommendations';
+import { generateSegmentRecommendations } from '../../lib/songs/recommendations';
 
 interface WaveSurferRegion {
   start: number;

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { getFeedItems } from '../lib/lens-feed';
-import { getCreatorInfo } from '../lib/creator-mappings';
+import { getFeedItems } from '../lib/feed';
+import { getCreatorInfo } from '../lib/creators';
 
 interface ProfileVideo {
   id: string;
@@ -122,4 +122,4 @@ export function useProfileVideos(addressOrEns: string | undefined) {
  * Get creator handle from address/ENS
  * Re-export from creator-mappings to avoid import errors
  */
-export { getCreatorHandle } from '../lib/creator-mappings';
+export { getCreatorHandle } from '../lib/creators';

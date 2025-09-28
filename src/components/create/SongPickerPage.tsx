@@ -3,7 +3,7 @@ import { CaretLeft } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { SongListItem } from '../ui/SongListItem';
 import type { Song } from '../../types/song';
-import { getAvailableSongs } from '../../lib/song-directory';
+import { getAvailableSongs } from '../../lib/songs/directory';
 
 interface SongPickerPageProps {
   onBack?: () => void;

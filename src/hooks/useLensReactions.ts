@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { PostReactionType, postId } from "@lens-protocol/client";
 import { addReaction, undoReaction } from "@lens-protocol/client/actions";
-import { createLensSessionWithWallet, getLensSession } from '../lib/lens/sessionClient';
+import { createLensSessionWithWallet, getLensSession } from '../lib/lens/session';
 import { useAccount, useWalletClient } from 'wagmi';
 
 interface UseLensReactionsProps {
