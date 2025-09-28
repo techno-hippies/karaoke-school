@@ -54,7 +54,7 @@ export function useProfileVideos(addressOrEns: string | undefined) {
         let pkpItems = [];
         if (addressOrEns.startsWith('0x')) {
           console.log(`[useProfileVideos] Checking PKP posts for wallet: ${addressOrEns}`);
-          const { getPKPAccountsPosts } = await import('../lib/lens-feed');
+          const { getPKPAccountsPosts } = await import('../lib/feed');
           pkpItems = await getPKPAccountsPosts([addressOrEns], 50);
           console.log(`[useProfileVideos] Found ${pkpItems.length} PKP posts for wallet ${addressOrEns}`);
         }
