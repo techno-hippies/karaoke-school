@@ -55,6 +55,11 @@ export const useVideoPlayer = (
       if (isPlaying) {
         videoRef.current.pause();
       } else {
+        // Auto-unmute on first play for better UX
+        if (isMuted) {
+          videoRef.current.muted = false;
+          setIsMuted(false);
+        }
         videoRef.current.play().catch(e => console.log('Play failed:', e));
       }
     }

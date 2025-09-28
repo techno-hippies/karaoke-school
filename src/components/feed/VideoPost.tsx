@@ -9,6 +9,15 @@ import { useTouchGestures } from '../../hooks/ui/useTouchGestures';
 import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import { useLensFollows } from '../../hooks/lens/useLensFollows';
 
+interface VideoPostFeedCoordinator {
+  isActive: boolean;
+  onPlay: () => void;
+  onPause: () => void;
+  onEnded: () => void;
+  registerVideo: (element: HTMLElement | null) => void;
+  unregisterVideo: () => void;
+}
+
 interface VideoPostProps {
   videoUrl?: string;
   thumbnailUrl?: string;
@@ -23,6 +32,8 @@ interface VideoPostProps {
   creatorAccountAddress?: string;
   lensPostId?: string;
   userHasLiked?: boolean;
+  videoId?: string;
+  feedCoordinator?: VideoPostFeedCoordinator;
 }
 
 export const VideoPost: React.FC<VideoPostProps> = ({
@@ -38,11 +49,14 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   creatorId,
   creatorAccountAddress,
   lensPostId,
-  userHasLiked
+  userHasLiked,
+  videoId,
+  feedCoordinator
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [isManuallyControlled, setIsManuallyControlled] = useState(false);
 
   // Custom hooks
   const {
@@ -50,17 +64,83 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     isPlaying,
     isMuted,
     togglePlayPause,
-    toggleMute
+    toggleMute,
+    setMuted
   } = useVideoPlayer(videoUrl, {
     startMuted: true,
-    autoplay: false,
+    autoplay: feedCoordinator?.isActive || false,
     username
   });
 
+  // Register video with coordinator on mount only
+  React.useEffect(() => {
+    if (feedCoordinator && videoId) {
+      const videoContainer = document.querySelector(`[data-video-id="${videoId}"]`) as HTMLElement;
+      if (videoContainer) {
+        feedCoordinator.registerVideo(videoContainer);
+        return () => feedCoordinator.unregisterVideo();
+      }
+    }
+  }, []); // Only run on mount/unmount
+
+  // Handle coordinator-driven play/pause - only if not manually controlled
+  React.useEffect(() => {
+    if (!feedCoordinator || !videoRef.current || isManuallyControlled) return;
+
+    console.log(`[VideoPost ${username}] Coordinator state:`, {
+      isActive: feedCoordinator.isActive,
+      isPlaying,
+      videoId,
+      isManuallyControlled
+    });
+
+    if (feedCoordinator.isActive && !isPlaying) {
+      // Video became active, try to autoplay and unmute
+      console.log(`[VideoPost ${username}] Attempting autoplay with unmute`);
+      if (isMuted) {
+        setMuted(false);
+      }
+      videoRef.current.play().catch(e => console.log(`[VideoPost ${username}] Autoplay failed:`, e));
+    } else if (!feedCoordinator.isActive && isPlaying) {
+      // Video became inactive, pause
+      console.log(`[VideoPost ${username}] Pausing inactive video`);
+      videoRef.current.pause();
+    }
+  }, [feedCoordinator?.isActive, isPlaying, videoRef, username, videoId, isManuallyControlled, isMuted]);
+
+  // Notify coordinator of video events
+  React.useEffect(() => {
+    if (!feedCoordinator || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const handlePlay = () => feedCoordinator.onPlay();
+    const handlePause = () => feedCoordinator.onPause();
+    const handleEnded = () => feedCoordinator.onEnded();
+
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('ended', handleEnded);
+
+    return () => {
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('ended', handleEnded);
+    };
+  }, [feedCoordinator, videoRef]);
+
   const { navigateToProfile } = useProfileNavigation();
 
+  // Enhanced toggle function that sets manual control flag
+  const handleTogglePlayPause = () => {
+    console.log(`[VideoPost ${username}] Manual play/pause triggered`);
+    setIsManuallyControlled(true);
+    togglePlayPause();
+    // Reset manual control after a delay to allow autoplay on scroll
+    setTimeout(() => setIsManuallyControlled(false), 2000);
+  };
+
   const touchGestures = useTouchGestures({
-    onTap: togglePlayPause,
+    onTap: handleTogglePlayPause,
     // Note: Feed doesn't need swipe navigation like VideoDetail
   });
 
@@ -92,25 +172,28 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
-    console.log(`[VideoPost] 💗 Props for @${username}:`, {
-      lensPostId: lensPostId?.slice(-8),
-      userHasLiked,
-      username,
-      targetAccountAddress,
-      canFollow,
-      isFollowing
-    });
+    // console.log(`[VideoPost] Props for @${username}:`, {
+    //   lensPostId: lensPostId?.slice(-8),
+    //   userHasLiked,
+    //   username,
+    //   targetAccountAddress,
+    //   canFollow,
+    //   isFollowing
+    // });
   }, [lensPostId, userHasLiked, username, targetAccountAddress, canFollow, isFollowing]);
 
   return (
-    <div className="relative h-screen w-full bg-black snap-start flex items-center justify-center">
+    <div
+      className="relative h-screen w-full bg-black snap-start flex items-center justify-center"
+      data-video-id={videoId || `${username}-${Date.now()}`}
+    >
       {/* Video/Thumbnail Background - mobile: full screen, desktop: 9:16 centered */}
       <div
         className="relative w-full h-full md:w-[56vh] md:h-[90vh] md:max-w-[500px] md:max-h-[900px] bg-neutral-900 md:rounded-lg overflow-hidden cursor-pointer"
         onTouchStart={touchGestures.handleTouchStart}
         onTouchMove={touchGestures.handleTouchMove}
         onTouchEnd={touchGestures.handleTouchEnd}
-        onClick={togglePlayPause}
+        onClick={handleTogglePlayPause}
       >
         {videoUrl ? (
           <video
