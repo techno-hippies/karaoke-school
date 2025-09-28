@@ -34,7 +34,8 @@ export async function createKaraokePost(
   postData: KaraokePostData,
   walletClient?: WalletClient,
   walletAddress?: string,
-  onProgress?: (progress: PostProgress) => void
+  onProgress?: (progress: PostProgress) => void,
+  sessionClientFromReact?: any // Accept session client from React context
 ): Promise<{ postId: string; metadataUri: string; videoUri: string }> {
   try {
     // Step 1: Authentication

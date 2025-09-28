@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CaretLeft, Play } from '@phosphor-icons/react';
-import { createKaraokePost, canCreatePosts, getLensAccountInfo, type PostProgress } from '../../lib/lens/posting';
+import { getLensAccountInfo, type PostProgress } from '../../lib/lens/posting';
 import { useAccount, useWalletClient } from 'wagmi';
+import { useLensAuth } from '../../hooks/lens/useLensAuth';
+import { post } from '@lens-protocol/client/actions';
+import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/metadata";
+import { uri } from "@lens-protocol/client";
+import { uploadVideoToGrove, uploadMetadataToGrove } from '../../lib/lens/storage';
 
 interface SelectedSegment {
   start: number;
@@ -47,6 +52,9 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
 
+  // Get Lens authentication state
+  const { isAuthenticated, sessionClient, authenticatedUser } = useLensAuth();
+
   // Debug logging
   console.log('[PostEditor] Props:', {
     videoThumbnail: !!videoThumbnail,
@@ -82,12 +90,138 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     }
   };
 
-  // Check if user can post to Lens
-  const canPostToLens = canCreatePosts() && isWalletConnected && walletClient && videoBlob && segment;
-  const lensAccountInfo = getLensAccountInfo();
+  // Check if user can post to Lens using new authentication system
+  const canPostToLens = isAuthenticated && sessionClient && authenticatedUser && isWalletConnected && walletClient && videoBlob && segment;
+
+  // Get account info from the authenticated user
+  const lensAccountInfo = authenticatedUser ? {
+    address: authenticatedUser.address,
+    username: undefined // Add username lookup if needed
+  } : null;
+
+  // Function to create karaoke post using the session client from React context
+  const createKaraokePostWithSessionClient = async (postData: {
+    videoBlob: Blob;
+    caption: string;
+    songId: string;
+    songTitle?: string;
+    segment: SelectedSegment;
+  }) => {
+    if (!sessionClient) {
+      throw new Error('No authenticated session client available');
+    }
+
+    console.log('[PostEditor] Creating karaoke post with session client from React context...');
+
+    // Step 1: Upload video to Grove
+    setPostProgress({
+      stage: 'uploading_video',
+      progress: 0.1,
+      message: 'Uploading video to storage...'
+    });
+
+    const videoResult = await uploadVideoToGrove(postData.videoBlob);
+
+    setPostProgress({
+      stage: 'uploading_video',
+      progress: 1.0,
+      message: 'Video uploaded successfully'
+    });
+
+    // Step 2: Create video metadata
+    setPostProgress({
+      stage: 'uploading_metadata',
+      progress: 0.1,
+      message: 'Creating video metadata...'
+    });
+
+    const segmentDuration = Math.round((postData.segment.end - postData.segment.start) * 1000);
+    const mimeType = postData.videoBlob.type || 'video/webm';
+    const videoMimeType = mimeType.includes('mp4') ? MediaVideoMimeType.MP4 : MediaVideoMimeType.WEBM;
+
+    const videoMetadata = video({
+      title: `Karaoke: ${postData.songTitle || 'Song Performance'}`,
+      video: {
+        item: videoResult.uri,
+        type: videoMimeType,
+        duration: segmentDuration,
+        altTag: `Karaoke performance of ${postData.songTitle || 'a song'}`,
+        license: MetadataLicenseType.CCO,
+      },
+      content: postData.caption || `🎤 Karaoke performance! ${postData.songTitle ? `Singing "${postData.songTitle}"` : ''}`,
+      attributes: [
+        {
+          key: 'app_type',
+          value: 'karaoke',
+          type: 'String'
+        },
+        {
+          key: 'karaoke_song_id',
+          value: postData.songId,
+          type: 'String'
+        },
+        {
+          key: 'video_gateway_url',
+          value: videoResult.gatewayUrl,
+          type: 'String'
+        },
+        ...(postData.songTitle ? [{
+          key: 'karaoke_song_title',
+          value: postData.songTitle,
+          type: 'String'
+        }] : [])
+      ]
+    });
+
+    // Step 3: Upload metadata to Grove
+    const metadataResult = await uploadMetadataToGrove(videoMetadata);
+
+    setPostProgress({
+      stage: 'uploading_metadata',
+      progress: 1.0,
+      message: 'Metadata uploaded successfully'
+    });
+
+    // Step 4: Create Lens post using the authenticated session client from React context
+    setPostProgress({
+      stage: 'creating_post',
+      progress: 0.1,
+      message: 'Creating Lens post...'
+    });
+
+    console.log('[PostEditor] Using sessionClient from React context:', {
+      hasSessionClient: !!sessionClient,
+      authenticatedUser: authenticatedUser
+    });
+
+    const postResult = await post(sessionClient, {
+      contentUri: uri(metadataResult.uri)
+    });
+
+    if (postResult.isErr()) {
+      throw new Error(`Failed to create Lens post: ${postResult.error?.message || 'Unknown error'}`);
+    }
+
+    setPostProgress({
+      stage: 'completed',
+      progress: 1.0,
+      message: 'Karaoke post created successfully!'
+    });
+
+    const postResultData = postResult.value;
+    const postId = postResultData.hash || postResultData.txHash || 'unknown';
+
+    return {
+      postId,
+      metadataUri: metadataResult.uri,
+      videoUri: videoResult.uri
+    };
+  };
 
   console.log('[PostEditor] Debug state:', {
-    canCreatePosts: canCreatePosts(),
+    isAuthenticated,
+    hasSessionClient: !!sessionClient,
+    hasAuthenticatedUser: !!authenticatedUser,
     isWalletConnected,
     hasWalletClient: !!walletClient,
     hasVideoBlob: !!videoBlob,
@@ -97,55 +231,33 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   });
 
   const handlePost = async () => {
-    if (canPostToLens && videoBlob && segment && songId && walletClient && walletAddress) {
-      // Post to Lens
-      await handleLensPost();
-    } else {
-      // Fallback to local posting
-      onPost?.(caption);
-    }
-  };
+    if (canPostToLens && videoBlob && segment && songId) {
+      // Post to Lens using the session client from React context
+      setIsPosting(true);
+      try {
+        console.log('[PostEditor] Starting Lens post creation...');
 
-  const handleLensPost = async () => {
-    if (!canPostToLens || !videoBlob || !segment || !songId) {
-      console.warn('[PostEditor] Cannot post to Lens: missing requirements');
-      return;
-    }
-
-    if (!walletClient || !walletAddress) {
-      console.warn('[PostEditor] Cannot post to Lens: no wallet connection');
-      return;
-    }
-
-    setIsPosting(true);
-    try {
-      console.log('[PostEditor] Starting Lens post creation...');
-
-      const result = await createKaraokePost(
-        {
+        const result = await createKaraokePostWithSessionClient({
           videoBlob,
           caption: caption.trim() || `🎤 Karaoke performance! ${songTitle ? `Singing "${songTitle}"` : ''}`,
           songId,
           songTitle,
           segment
-        },
-        walletClient,
-        walletAddress,
-        (progress) => {
-          console.log('[PostEditor] Post progress:', progress);
-          setPostProgress(progress);
-        }
-      );
+        });
 
-      console.log('[PostEditor] Lens post created successfully:', result);
-      onLensPost?.(result);
+        console.log('[PostEditor] Lens post created successfully:', result);
+        onLensPost?.(result);
 
-    } catch (error) {
-      console.error('[PostEditor] Lens post creation failed:', error);
-      // TODO: Show error toast to user
-    } finally {
-      setIsPosting(false);
-      setPostProgress(null);
+      } catch (error) {
+        console.error('[PostEditor] Lens post creation failed:', error);
+        // TODO: Show error toast to user
+      } finally {
+        setIsPosting(false);
+        setPostProgress(null);
+      }
+    } else {
+      // Fallback to local posting
+      onPost?.(caption);
     }
   };
 

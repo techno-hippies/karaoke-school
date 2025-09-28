@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useDisplayAuth } from '../lens/useDisplayAuth';
+import { useLensAuth } from '../lens/useLensAuth';
 
 /**
  * Shared navigation logic for the app
@@ -7,14 +7,14 @@ import { useDisplayAuth } from '../lens/useDisplayAuth';
  */
 export function useAppNavigation() {
   const navigate = useNavigate();
-  const { connectedAddress } = useDisplayAuth();
+  const { connectedWalletAddress } = useLensAuth();
 
   /**
    * Navigate to user's own profile if authenticated, otherwise show auth modal
    */
   const navigateToOwnProfile = (onShowAuthModal?: () => void) => {
-    if (connectedAddress) {
-      navigate(`/profile/${connectedAddress}`);
+    if (connectedWalletAddress) {
+      navigate(`/profile/${connectedWalletAddress}`);
     } else if (onShowAuthModal) {
       onShowAuthModal();
     }

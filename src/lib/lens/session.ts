@@ -18,13 +18,7 @@ const LENS_TESTNET_APP = "0x9484206D9beA9830F27361a2F5868522a8B8Ad22";
  */
 export function getLensSession(): SessionClient | null {
   const stackTrace = new Error().stack?.split('\n')[2]?.trim();
-  console.log('[getLensSession] 🔍 Current session state:', {
-    hasSessionClient: !!sessionClient,
-    hasAccount: !!sessionClient?.account,
-    accountAddress: sessionClient?.account?.address,
-    accountApp: sessionClient?.account?.app,
-    calledFrom: stackTrace
-  });
+  // Debug logging disabled for cleaner output
   return sessionClient;
 }
 
@@ -41,7 +35,7 @@ export function isLensAuthenticated(): boolean {
  */
 export async function resumeLensSession(): Promise<SessionClient | null> {
   try {
-    console.log('[resumeLensSession] 🔄 Starting session resume...');
+    // console.log('[resumeLensSession] Starting session resume...');
     const resumed = await lensClient.resumeSession();
 
     if (resumed.isErr()) {
@@ -52,24 +46,13 @@ export async function resumeLensSession(): Promise<SessionClient | null> {
     // CRITICAL: This is where sessionClient gets overwritten from resumeSession
     const oldSessionClient = sessionClient;
     sessionClient = resumed.value;
-    console.log('[resumeLensSession] 🔄 SessionClient OVERWRITTEN from resumeSession():', {
-      hadPreviousSession: !!oldSessionClient,
-      previousHadAccount: !!oldSessionClient?.account,
-      newHasSessionClient: !!sessionClient,
-      newHasAccount: !!sessionClient?.account,
-      newAccountAddress: sessionClient?.account?.address
-    });
+    // console.log('[resumeLensSession] SessionClient updated from resumeSession');
 
-    console.log('[resumeLensSession] 🔍 Session resumed with account:', {
-      hasAccount: !!sessionClient.account,
-      accountAddress: sessionClient.account?.address,
-      accountApp: sessionClient.account?.app,
-      accountUsername: sessionClient.account?.username?.value
-    });
+    // console.log('[resumeLensSession] Session resumed with account');
 
     // Check if we need to switch to an account (Lens V3 requirement)
     if (!sessionClient.account || !sessionClient.account.address || !sessionClient.account.app) {
-      console.log('[resumeLensSession] Account missing or incomplete, attempting to switch account...');
+      // console.log('[resumeLensSession] Account missing, attempting to switch account...');
 
       try {
         // Get the account address from the stored credentials
@@ -85,12 +68,7 @@ export async function resumeLensSession(): Promise<SessionClient | null> {
 
           // For ACCOUNT_OWNER role, use sub (account address); act.sub is the wallet
           const accountAddress = payload.sub || payload.act?.sub;
-          console.log('[resumeLensSession] 🔍 JWT Debug:', {
-            role: payload['tag:lens.dev,2024:role'],
-            accountAddress: payload.sub,
-            walletAddress: payload.act?.sub,
-            usingAddress: accountAddress
-          });
+          // console.log('[resumeLensSession] JWT Debug:', { role: payload['tag:lens.dev,2024:role'], accountAddress: payload.sub });
 
           if (accountAddress && accountAddress.startsWith('0x')) {
             const switchResult = await sessionClient.switchAccount({ account: accountAddress });
@@ -99,7 +77,12 @@ export async function resumeLensSession(): Promise<SessionClient | null> {
               console.error('[resumeLensSession] 💡 This likely means the connected wallet does not own this Lens account');
               console.error('[resumeLensSession] 🔧 Solution: Connect with the wallet that owns account:', accountAddress);
               console.error('[resumeLensSession] 📝 Current wallet:', walletAddress, '| Target account:', accountAddress);
-              return sessionClient; // Return existing session even if switch fails
+
+              // Clear the invalid session to force re-authentication with current wallet
+              console.error('[resumeLensSession] 🧹 Clearing invalid session to force re-authentication');
+              localStorage.removeItem('lens.testnet.credentials');
+              sessionClient = null;
+              return null;
             }
 
             // CRITICAL: switchAccount returns a NEW SessionClient instance

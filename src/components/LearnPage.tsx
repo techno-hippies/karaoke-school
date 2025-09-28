@@ -4,7 +4,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { StudyStats } from './exercises/StudyStats'
 import { DesktopSidebar } from './navigation/DesktopSidebar'
 import { MobileFooter } from './navigation/MobileFooter'
-import { useDisplayAuth } from '../hooks/lens/useDisplayAuth'
+import { useLensAuth } from '../hooks/lens/useLensAuth'
 import { useAppNavigation } from '../hooks/navigation/useAppNavigation'
 import { useLikedSongs } from '../hooks/media/useLikedSongs'
 
@@ -21,7 +21,7 @@ export const LearnPage: React.FC = () => {
   const {
     displayAddress,
     displayConnected
-  } = useDisplayAuth()
+  } = useLensAuth()
 
   // Shared navigation logic
   const navigation = useAppNavigation()

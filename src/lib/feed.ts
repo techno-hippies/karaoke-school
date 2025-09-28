@@ -19,11 +19,7 @@ export async function getFeedItems(): Promise<LensFeedItem[]> {
 
     // Try to get wallet address for debugging
     const walletAddress = sessionClient?.account?.address;
-    console.log('[getFeedItems] 🔍 Debugging wallet vs app posts:', {
-      hasSessionClient: !!sessionClient,
-      walletAddress,
-      appFilter: LENS_TESTNET_APP
-    });
+    // console.log('[getFeedItems] Debugging wallet vs app posts');
 
     const result = await fetchPosts(clientToUse, {
       filter: {
@@ -39,22 +35,22 @@ export async function getFeedItems(): Promise<LensFeedItem[]> {
 
     const posts = result.value.items;
 
-    console.log(`[getFeedItems] 📊 Retrieved ${posts.length} posts from app ${LENS_TESTNET_APP}`);
+//     console.log(`[getFeedItems] 📊 Retrieved ${posts.length} posts from app ${LENS_TESTNET_APP}`);
     if (posts.length > 0) {
-      console.log('[getFeedItems] 📝 Recent posts by author:', posts.slice(0, 3).map(p => ({
-        id: p.id,
-        author: p.author?.address,
-        username: p.author?.username?.value,
-        timestamp: p.timestamp
-      })));
+      // console.log('[getFeedItems] Recent posts by author:', posts.slice(0, 3).map(p => ({
+      //   id: p.id,
+      //   author: p.author?.address,
+      //   username: p.author?.username?.value,
+      //   timestamp: p.timestamp
+      // })));
 
       // Check if the latest post from this session appears
       const currentWallet = '0xfe8374d7b392151dec051a9424bfa447700d6bb0';
       const postsFromCurrentWallet = posts.filter(p =>
         p.author?.address?.toLowerCase() === currentWallet.toLowerCase()
       );
-      console.log('[getFeedItems] 🎯 Posts from current wallet:', postsFromCurrentWallet.length,
-        postsFromCurrentWallet.map(p => ({ id: p.id, timestamp: p.timestamp })));
+      // console.log('[getFeedItems] Posts from current wallet:', postsFromCurrentWallet.length,
+      //   postsFromCurrentWallet.map(p => ({ id: p.id, timestamp: p.timestamp })));
     }
 
     // Transform Lens posts to legacy subgraph format
@@ -75,11 +71,11 @@ export async function getFeedItems(): Promise<LensFeedItem[]> {
 
 
         const extractedVideoUrl = extractVideoUrl(post.metadata);
-        console.log('[getFeedItems] 🎬 Video URL extraction:', {
-          postId: post.id,
-          extractedUrl: extractedVideoUrl,
-          metadata: post.metadata
-        });
+        // console.log('[getFeedItems] Video URL extraction:', {
+        //   postId: post.id,
+        //   extractedUrl: extractedVideoUrl,
+        //   metadata: post.metadata
+        // });
 
         return {
           id: post.id,
@@ -118,14 +114,14 @@ function resolveLensUri(uri: string): string {
       // Use Grove storage client's resolve method
       const storageClient = getStorageClient();
       const resolvedUrl = storageClient.resolve(uri);
-      console.log('[resolveLensUri] 🌳 Grove storage client resolved:', { original: uri, resolved: resolvedUrl });
+//       console.log('[resolveLensUri] 🌳 Grove storage client resolved:', { original: uri, resolved: resolvedUrl });
       return resolvedUrl;
     } catch (error) {
       console.warn('[resolveLensUri] Storage client resolve failed, using manual conversion:', error);
       // Fallback to manual conversion
       const hash = uri.replace('lens://', '');
       const groveUrl = `https://api.grove.storage/${hash}`;
-      console.log('[resolveLensUri] 🌳 Manual Grove gateway conversion:', { original: uri, resolved: groveUrl });
+//       console.log('[resolveLensUri] 🌳 Manual Grove gateway conversion:', { original: uri, resolved: groveUrl });
       return groveUrl;
     }
   }
@@ -136,20 +132,20 @@ function resolveLensUri(uri: string): string {
  * Extract video URL from Lens post metadata
  */
 function extractVideoUrl(metadata: unknown): string {
-  console.log('[extractVideoUrl] 🔍 Full metadata structure:', metadata);
+//   console.log('[extractVideoUrl] 🔍 Full metadata structure:', metadata);
 
   // Check for VideoMetadata with video.item (new structure)
   if (metadata && typeof metadata === 'object' && '__typename' in metadata && metadata.__typename === 'VideoMetadata' && 'video' in metadata) {
     const video = (metadata as { video?: { item?: string; uri?: string } }).video;
-    console.log('[extractVideoUrl] 📹 Found VideoMetadata.video:', video);
+//     console.log('[extractVideoUrl] 📹 Found VideoMetadata.video:', video);
     if (video?.item) {
       const resolvedUrl = resolveLensUri(video.item);
-      console.log('[extractVideoUrl] ✅ Using video.item:', { original: video.item, resolved: resolvedUrl });
+//       console.log('[extractVideoUrl] ✅ Using video.item:', { original: video.item, resolved: resolvedUrl });
       return resolvedUrl;
     }
     if (video?.uri) {
       const resolvedUrl = resolveLensUri(video.uri);
-      console.log('[extractVideoUrl] ✅ Using video.uri:', { original: video.uri, resolved: resolvedUrl });
+//       console.log('[extractVideoUrl] ✅ Using video.uri:', { original: video.uri, resolved: resolvedUrl });
       return resolvedUrl;
     }
   }
@@ -175,11 +171,11 @@ function extractVideoUrl(metadata: unknown): string {
   if (metadata?.attributes) {
     for (const attr of metadata.attributes) {
       if (attr.key === 'video_gateway_url') {
-        console.log('[extractVideoUrl] ✅ Found gateway URL in attributes:', attr.value);
+//         console.log('[extractVideoUrl] ✅ Found gateway URL in attributes:', attr.value);
         return attr.value;
       }
       if (attr.key === 'videoUrl' || attr.key === 'video_url') {
-        console.log('[extractVideoUrl] ✅ Found video URL in attributes:', attr.value);
+//         console.log('[extractVideoUrl] ✅ Found video URL in attributes:', attr.value);
         return attr.value;
       }
     }
