@@ -3,7 +3,7 @@ import { postId, uri } from "@lens-protocol/client";
 import { post, fetchPostReferences } from "@lens-protocol/client/actions";
 import { PostReferenceType } from '@lens-protocol/client';
 import { textOnly } from '@lens-protocol/metadata';
-import { getLensSession } from '../lib/lens/sessionClient';
+import { getLensSession } from '../lib/lens/session';
 import { lensClient } from '../lib/lens/client';
 import { useAccount } from 'wagmi';
 

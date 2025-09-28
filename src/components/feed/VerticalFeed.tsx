@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDisconnect } from 'wagmi';
 import { VerticalFeedView } from './VerticalFeedView';
 import { useQuery } from '@tanstack/react-query';
-import { getAppFeedItems } from '../../lib/lens-feed';
+import { getAppFeedItems } from '../../lib/feed';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
 import type { FeedItem } from '../../types/feed';

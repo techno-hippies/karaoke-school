@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { evmAddress } from "@lens-protocol/client";
 import { follow, unfollow, fetchAccount } from "@lens-protocol/client/actions";
-import { createLensSessionWithWallet, getLensSession } from '../lib/lens/sessionClient';
+import { createLensSessionWithWallet, getLensSession } from '../lib/lens/session';
 // import { lensClient } from '../lib/lens/client';
 import { useAccount, useWalletClient } from 'wagmi';
 

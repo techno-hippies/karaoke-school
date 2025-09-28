@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { SegmentPicker } from '../ui/SegmentPicker';
-import { getSongById } from '../../lib/song-directory';
+import { getSongById } from '../../lib/songs/directory';
 
 interface LineTimestamp {
   lineIndex: number;

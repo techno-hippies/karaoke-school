@@ -1,6 +1,6 @@
 import { chains } from "@lens-chain/sdk/viem";
 import { immutable, lensAccountOnly, StorageClient } from "@lens-chain/storage-client";
-import { getLensSession } from "./sessionClient";
+import { getLensSession } from "./session";
 
 // Storage client singleton
 let storageClient: StorageClient | null = null;

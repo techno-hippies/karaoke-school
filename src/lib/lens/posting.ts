@@ -1,7 +1,7 @@
 import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/metadata";
 import { post } from "@lens-protocol/client/actions";
 import { uri } from "@lens-protocol/client";
-import { getLensSession, createLensSessionWithWallet, isLensAuthenticated } from "./sessionClient";
+import { getLensSession, createLensSessionWithWallet, isLensAuthenticated } from "./session";
 import { /* uploadKaraokePost, */ uploadVideoToGrove, uploadMetadataToGrove, waitForPropagation } from "./storage";
 import type { WalletClient } from "viem";
 

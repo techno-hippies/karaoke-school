@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getFeedItems, getPKPAccountsPosts } from '../lib/lens-feed';
+import { getFeedItems, getPKPAccountsPosts } from '../lib/feed';
 // import type { LensFeedItem } from '../types/feed';
 
 /**

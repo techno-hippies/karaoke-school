@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getLensUserPosts } from '../lib/lens-feed';
+import { getLensUserPosts } from '../lib/feed';
 
 interface LensProfileVideo {
   id: string;
