@@ -4,8 +4,7 @@ import { VideoThumbnail } from './VideoThumbnail';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
 import { MobileFooter } from '../navigation/MobileFooter';
 import { ArrowLeft, SignOut } from '@phosphor-icons/react';
-import { Button } from '../ui/button';
-import { FollowButton, ProfileStats } from 'ethereum-identity-kit';
+// import { Button } from '../ui/button';
 
 interface Video {
   id: string;

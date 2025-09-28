@@ -1,13 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ProfilePageView } from './ProfilePageView';
 import { VideoDetail } from '../feed/VideoDetail';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import {
-  useProfileDetails,
-  useProfileStats
-} from 'ethereum-identity-kit';
-import { useAccount, useEnsAddress, useDisconnect } from 'wagmi';
+import { useEnsAddress, useDisconnect } from 'wagmi';
 import { useProfileVideos, getCreatorHandle } from '../../hooks/useProfileVideos';
 import { useLensProfileVideos } from '../../hooks/useLensProfileVideos';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
@@ -18,6 +14,9 @@ interface Video {
   thumbnailUrl: string;
   playCount: number;
   videoUrl?: string;
+  likes?: number;
+  comments?: number;
+  shares?: number;
 }
 
 // For Lens profiles, we use native Lens follow protocol
@@ -58,7 +57,7 @@ export const ProfilePage: React.FC = () => {
   const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('profile');
   
   // Get final connected address from wallet
-  const finalConnectedAddress = connectedAddress;
+  // const finalConnectedAddress = connectedAddress;
 
   // Debug logging for authentication state
   React.useEffect(() => {
@@ -74,11 +73,6 @@ export const ProfilePage: React.FC = () => {
   // Check if viewing own profile using shared logic
   const isOwn = isOwnProfile(profileIdentifier);
   
-  // Fetch profile data from ethereum-identity-kit (only for non-Lens profiles)
-  const { ens, detailsLoading } = useProfileDetails({
-    addressOrName: isLensProfile ? '' : (profileIdentifier || ''),
-    enabled: !isLensProfile && !!profileIdentifier,
-  });
 
   // Resolve ENS name to address if needed (only for non-Lens profiles)
   const { data: ensResolvedAddress } = useEnsAddress({
@@ -86,13 +80,11 @@ export const ProfilePage: React.FC = () => {
     chainId: 1, // mainnet
   });
   
-  // Use resolved address: from ENS resolution, from ens.records, or if already an address
+  // Use resolved address: from ENS resolution or if already an address
   // For Lens profiles, we'll get the account address from their posts/profile data
   const profileAddress = isLensProfile
     ? undefined // Lens profiles use account addresses from their profile data
     : (ensResolvedAddress ||
-       ens?.records?.['eth'] ||
-       ens?.address ||
        (profileIdentifier?.startsWith('0x') ? profileIdentifier : undefined) ||
        (profileIdentifier === 'vitalik.eth' ? '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' : undefined));
   
@@ -105,13 +97,8 @@ export const ProfilePage: React.FC = () => {
     initialFollowState: false
   });
   
-  // Fetch follower/following stats - needs an address, not ENS name
-  // Try calling it differently - maybe the API changed
-  const statsResult = profileAddress ? useProfileStats(profileAddress) : { followers: undefined, following: undefined };
-  
-  // Extract stats with better error handling
-  const stats = statsResult?.stats;
-  const statsLoading = statsResult?.isLoading;
+  // For now, we'll use placeholder stats since we're not using ethereum-identity-kit
+  const statsResult = { followers: 0, following: 0 };
   
   // Fetch real videos - use appropriate hook based on profile type
   const { data: blockchainVideos, isLoading: regularVideosLoading } = useProfileVideos(
@@ -151,22 +138,18 @@ export const ProfilePage: React.FC = () => {
   // Display username logic - handle Lens profiles differently
   const displayUsername = isLensProfile
     ? profileIdentifier // For Lens profiles, show the username directly
-    : (creatorHandle || ens?.name || (profileIdentifier?.startsWith('0x')
+    : (creatorHandle || (profileIdentifier?.startsWith('0x')
         ? `${profileIdentifier.slice(0, 6)}...${profileIdentifier.slice(-4)}`
         : profileIdentifier || 'karaokeschool'));
   
   // Use real profile data from ethereum-identity-kit and fallback to defaults
   const profileData = useMemo(() => ({
     username: displayUsername,
-    displayName: isLensProfile
-      ? displayUsername // For Lens, use the username as display name
-      : (ens?.displayName || displayUsername), // Use ENS display name or username
-    avatarUrl: isLensProfile
-      ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileIdentifier}` // Use avataaars for Lens profiles
-      : (ens?.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${profileIdentifier}`),
+    displayName: displayUsername, // Use username as display name
+    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileIdentifier}`, // Use avataaars for all profiles
     bio: isLensProfile
       ? `Lens Protocol creator: @${profileIdentifier}` // Default bio for Lens profiles
-      : (ens?.records?.description || ens?.bio || ''), // ENS description field is the bio
+      : '', // Empty bio for non-Lens profiles
     // Check different possible locations for stats
     following: statsResult?.following || statsResult?.data?.following || 0,
     followers: statsResult?.followers || statsResult?.data?.followers || 0,
@@ -188,15 +171,11 @@ export const ProfilePage: React.FC = () => {
     displayUsername,
     isLensProfile,
     profileIdentifier,
-    ens?.displayName,
-    ens?.avatar,
-    ens?.records?.description,
-    ens?.bio,
     statsResult?.following,
-    statsResult?.data?.following,
     statsResult?.followers,
     statsResult?.data?.followers,
-    isOwnProfile,
+    statsResult?.data?.following,
+    isOwn,
     connectedAddress,
     allVideos,
     videosLoading
@@ -213,7 +192,7 @@ export const ProfilePage: React.FC = () => {
     } else {
       setActiveTab(tab);
     }
-  }, [navigate, connectedWalletAddress, isOwnProfile]);
+  }, [navigate, connectedAddress, isOwn]);
 
   const handleMobileTabChange = useCallback((tab: 'home' | 'post' | 'profile') => {
     if (tab === 'home') {
@@ -321,9 +300,9 @@ export const ProfilePage: React.FC = () => {
           thumbnailUrl={selectedVideo.thumbnailUrl}
           username={displayUsername}
           description={profileData.bio || 'Check out this video!'}
-          likes={(selectedVideo as any).likes || 0} // Use real likes from Lens data
-          comments={(selectedVideo as any).comments || 0} // Use real comments from Lens data
-          shares={(selectedVideo as any).shares || 0} // Use real shares from Lens data
+          likes={selectedVideo.likes || 0} // Use real likes from Lens data
+          comments={selectedVideo.comments || 0} // Use real comments from Lens data
+          shares={selectedVideo.shares || 0} // Use real shares from Lens data
           musicTitle="Original Sound"
           creatorHandle={profileData.displayName}
           creatorId={isLensProfile ? `lens/${profileIdentifier}` : undefined}

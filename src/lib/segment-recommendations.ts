@@ -81,7 +81,7 @@ export class SegmentRecommendationEngine {
     });
 
     // Find groups with multiple occurrences (likely chorus/repeated sections)
-    textGroups.forEach((group, text) => {
+    textGroups.forEach((group) => {
       if (group.length >= 2) {
         // For each occurrence, try to build a segment around it
         group.forEach((centerLine, index) => {
@@ -197,7 +197,7 @@ export class SegmentRecommendationEngine {
     // Try to build optimal segment around this line
     let start = centerLine.start;
     let end = centerLine.end;
-    let includedLines = [centerLine];
+    const includedLines = [centerLine];
 
     // Expand backwards
     for (let i = centerIndex - 1; i >= 0; i--) {
@@ -236,6 +236,9 @@ export class SegmentRecommendationEngine {
   }
 
   private normalizeText(text: string): string {
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
     return text.toLowerCase()
       .replace(/[^\w\s]/g, '') // Remove punctuation
       .replace(/\s+/g, ' ')    // Normalize whitespace

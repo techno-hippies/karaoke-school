@@ -3,10 +3,19 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CameraRecorder } from '../ui/CameraRecorder';
 import { getSongById } from '../../lib/song-directory';
 
+interface LineTimestamp {
+  lineIndex: number;
+  originalText: string;
+  translatedText: string;
+  start: number;
+  end: number;
+  wordCount: number;
+}
+
 interface SelectedSegment {
   start: number;
   end: number;
-  lyrics: any[];
+  lyrics: LineTimestamp[];
 }
 
 interface LocationState {
@@ -19,7 +28,22 @@ export const CameraRecorderPage: React.FC = () => {
   const location = useLocation();
   const state = location.state as LocationState;
 
-  const [song, setSong] = useState<any>(null);
+  const [song, setSong] = useState<{
+    id: string;
+    title: string;
+    artist: string;
+    audioUrl: string;
+    segments: Array<{
+      start: number;
+      end: number;
+      lyrics: Array<{
+        start: number;
+        end: number;
+        text: string;
+      }>;
+    }>;
+    [key: string]: unknown;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -53,7 +77,19 @@ export const CameraRecorderPage: React.FC = () => {
           return;
         }
 
-        setSong(songData);
+        setSong({
+          ...songData,
+          audioUrl: songData.audioUrl || '',
+          segments: songData.lineTimestamps ? [{
+            start: 0,
+            end: songData.duration || 0,
+            lyrics: songData.lineTimestamps.map(lt => ({
+              start: lt.start,
+              end: lt.end,
+              text: lt.text
+            }))
+          }] : []
+        });
         console.log('[CameraRecorderPage] Song loaded:', songData);
       } catch (error) {
         console.error('Failed to load song:', error);

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { PostEditor } from '../components/ui/PostEditor';
 
 const meta: Meta<typeof PostEditor> = {

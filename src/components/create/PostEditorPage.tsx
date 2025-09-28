@@ -4,9 +4,24 @@ import { PostEditor } from '../ui/PostEditor';
 import { getSongById } from '../../lib/song-directory';
 
 interface LocationState {
-  segment?: any;
+  segment?: {
+    start: number;
+    end: number;
+    lyrics: Array<{
+      start: number;
+      end: number;
+      text: string;
+    }>;
+    [key: string]: unknown;
+  };
   videoBlob?: Blob;
   videoThumbnail?: string;
+}
+
+interface PostEditorSegment {
+  start: number;
+  end: number;
+  lyrics: Array<{ text: string; timestamp: number }>;
 }
 
 export const PostEditorPage: React.FC = () => {
@@ -14,7 +29,13 @@ export const PostEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState;
-  const [song, setSong] = useState<any>(null);
+  const [song, setSong] = useState<{
+    id: string;
+    title: string;
+    artist: string;
+    audioUrl: string;
+    [key: string]: unknown;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load song data to get audioUrl
@@ -28,7 +49,10 @@ export const PostEditorPage: React.FC = () => {
       try {
         console.log('[PostEditorPage] Loading song:', songId);
         const songData = await getSongById(songId);
-        setSong(songData);
+        setSong(songData ? {
+          ...songData,
+          audioUrl: songData.audioUrl || ''
+        } : null);
         console.log('[PostEditorPage] Song loaded:', songData);
       } catch (error) {
         console.error('[PostEditorPage] Failed to load song:', error);
@@ -85,11 +109,20 @@ export const PostEditorPage: React.FC = () => {
     );
   }
 
+  const convertedSegment: PostEditorSegment | undefined = state?.segment ? {
+    start: state.segment.start,
+    end: state.segment.end,
+    lyrics: state.segment.lyrics.map(lyric => ({
+      text: lyric.text,
+      timestamp: lyric.start
+    }))
+  } : undefined;
+
   return (
     <PostEditor
       videoBlob={state?.videoBlob}
       videoThumbnail={state?.videoThumbnail}
-      segment={state?.segment}
+      segment={convertedSegment}
       audioUrl={song?.audioUrl}
       songId={songId}
       songTitle={song?.title}

@@ -1,4 +1,3 @@
-import React from 'react'
 import { cn } from '@/lib/utils'
 
 // Mock TTS Button component for now
@@ -31,7 +30,7 @@ const TTSButton = ({ text, size = 'md' }: { text: string; size?: 'sm' | 'md' | '
 
 // Mock translation function for now
 const useTranslation = () => {
-  const t = (key: string, fallback: string) => fallback
+  const t = (_key: string, fallback: string) => fallback
   return { t }
 }
 
@@ -48,9 +47,7 @@ export function SayItBack({
   expectedText,
   transcript,
   score,
-  attempts,
-  isCompleted,
-  onComplete
+  attempts
 }: SayItBackProps) {
   const { t } = useTranslation()
 

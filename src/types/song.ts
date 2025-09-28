@@ -8,6 +8,11 @@ export interface Song {
 }
 
 export interface SongMetadata extends Song {
-  lineTimestamps: any[];
+  lineTimestamps: Array<{
+    start: number;
+    end: number;
+    text: string;
+    [key: string]: unknown;
+  }>;
   totalLines: number;
 }

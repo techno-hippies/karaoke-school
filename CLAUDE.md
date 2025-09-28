@@ -57,15 +57,15 @@ npm run build-storybook
 - **Routing**: React Router DOM with hash routing for IPFS compatibility
 - **State Management**: XState state machines for complex flows
 - **Blockchain**: Wagmi + Viem for Ethereum interaction
-- **Authentication**: LIT Protocol PKP + SIWE integration
+- **Authentication**: SIWE (Sign-In with Ethereum) integration
 
 ### Key Features
 This is a decentralized video platform with blockchain-verified view tracking:
 
-1. **View Tracking SDK**: Blockchain-verified view tracking using LIT Protocol PKPs and smart contracts
+1. **View Tracking SDK**: Blockchain-verified view tracking using smart contracts
 2. **Lens Protocol Integration**: Social features and profile management via Lens v3
 3. **Wallet Integration**: Multi-wallet support via RainbowKit and Reown AppKit
-4. **Video Processing**: Livepeer integration for video streaming and thumbnails
+4. **Video Processing**: Direct video streaming with Grove storage integration
 5. **IPFS Deployment**: Static site optimized for IPFS hosting
 
 ### Directory Structure
@@ -79,9 +79,9 @@ This is a decentralized video platform with blockchain-verified view tracking:
 
 **Blockchain Integration (`src/lib/`)**
 - `lens-feed.ts` - Lens Protocol API integration and content fetching
-- `pkp-lens-mapping.ts` - Maps PKP wallets to Lens profiles
+- `lens-profile-mapping.ts` - Maps wallets to Lens profiles
 - `tiktok-api.ts` - Legacy TikTok API integration (deprecated)
-- `livepeer-thumbnails.ts` - Video thumbnail generation
+- `grove-storage.ts` - Grove storage integration for video hosting
 - `creator-mappings.ts` - Creator profile mappings
 
 **Components (`src/components/`)**
@@ -92,19 +92,17 @@ This is a decentralized video platform with blockchain-verified view tracking:
 
 **Providers (`src/providers/`)**
 - `WalletProvider.tsx` - Wallet connection and configuration
-- `LitAuthProvider.tsx` - LIT Protocol authentication setup
 
 **SDK (`src/sdk/`)**
 - Self-contained view tracking SDK with React hooks
 - Can be extracted and used in other applications
-- Handles LIT Protocol integration and smart contract interaction
+- Handles smart contract interaction
 
 ### Configuration
 
 **Environment Variables**
 ```env
 ELEVENLABS_API_KEY=          # Voice generation (encrypted with dotenvx)
-LIT_NETWORK=datil-dev        # LIT Protocol network
 BASE_RPC_URL=                # Base network RPC endpoint
 ```
 
@@ -128,12 +126,11 @@ BASE_RPC_URL=                # Base network RPC endpoint
 
 **Blockchain Integration**
 - Wagmi hooks for Ethereum interaction
-- LIT Protocol for decentralized authentication
+- Wallet-based authentication via Wagmi
 - Smart contract ABIs in `src/abi/`
 
 ### Key Dependencies
 - `@lens-protocol/client` - Lens Protocol v3 integration
-- `@lit-protocol/*` - Decentralized authentication and PKP management
 - `@reown/appkit` + `@rainbow-me/rainbowkit` - Multi-wallet support
 - `xstate` - State machine management
 - `viem` + `wagmi` - Ethereum interaction

@@ -31,12 +31,12 @@ export const CREATOR_MAPPINGS: Record<string, CreatorMapping> = {
   
   // ============= Ethereum Addresses =============
   
-  // Example addresses (replace with your actual seeded creator addresses)
-  '0x0c6433789d14050af47198b2751f6689731ca79c': {
-    handle: '@khaby.lame',
-    displayName: 'Khaby Lame',
-    verified: false
-  },
+  // Your wallet address - no TikTok mapping since you post as Lens account
+  // '0x0c6433789d14050af47198b2751f6689731ca79c': {
+  //   handle: '@khaby.lame',
+  //   displayName: 'Khaby Lame',
+  //   verified: false
+  // },
   
   // ============= Direct TikTok Handles =============
   // These are the creators you've actually seeded based on your scripts

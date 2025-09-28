@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface MultipleChoiceOption {
@@ -26,7 +26,6 @@ export const MultipleChoiceExercise = ({
   isProcessing = false,
   hasAnswered = false,
   selectedAnswerId = null,
-  explanation
 }: MultipleChoiceExerciseProps) => {
   // Use props if provided, otherwise use internal state
   const [selectedId, setSelectedId] = useState<string | null>(selectedAnswerId)

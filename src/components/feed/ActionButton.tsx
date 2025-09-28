@@ -43,7 +43,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 
   return (
     <button
-      onClick={(e) => {
+      onClick={() => {
         console.log('[ActionButton] Click detected - disabled:', disabled, 'isLoading:', isLoading, 'onClick available:', !!onClick);
         if (onClick) onClick();
       }}

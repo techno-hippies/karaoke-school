@@ -5,7 +5,7 @@ import { PostReferenceType } from '@lens-protocol/client';
 import { textOnly } from '@lens-protocol/metadata';
 import { getLensSession } from '../lib/lens/sessionClient';
 import { lensClient } from '../lib/lens/client';
-import { useAccount, useWalletClient } from 'wagmi';
+import { useAccount } from 'wagmi';
 
 interface LensComment {
   id: string;
@@ -47,7 +47,6 @@ export function useLensComments({
 
   // Get wallet connection from RainbowKit/wagmi
   const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
 
   const sessionClient = getLensSession();
 
@@ -55,19 +54,6 @@ export function useLensComments({
   const hasAuth = isWalletConnected && !!walletAddress;
   const hasSession = !!sessionClient;
 
-  // Enhanced debug logging
-  React.useEffect(() => {
-    console.log('[useLensComments] State:', {
-      isWalletConnected,
-      walletAddress,
-      hasWalletClient: !!walletClient,
-      hasAuth,
-      hasSession,
-      hasSessionClient: !!sessionClient,
-      postId: postIdString,
-      commentCount
-    });
-  }, [isWalletConnected, walletAddress, walletClient, hasAuth, hasSession, sessionClient, postIdString, commentCount]);
 
   // Check comment permissions
   React.useEffect(() => {
@@ -77,13 +63,6 @@ export function useLensComments({
       const canCommentNow = hasAuth && hasSession && hasValidPostId;
       setCanComment(canCommentNow);
 
-      console.log('[useLensComments] 🔑 Comment permissions:', {
-        hasAuth,
-        hasSession,
-        hasPostId: !!postIdString,
-        hasValidPostId,
-        canComment: canCommentNow
-      });
     };
 
     updateCanComment();
@@ -92,7 +71,6 @@ export function useLensComments({
   // Refresh comments from Lens
   const refreshComments = useCallback(async () => {
     if (!postIdString || postIdString.trim() === '') {
-      console.log('[useLensComments] No valid post ID provided, skipping comment fetch');
       setComments([]);
       setCommentCount(0);
       return;
@@ -100,8 +78,6 @@ export function useLensComments({
 
     setIsLoading(true);
     try {
-      console.log(`[useLensComments] Fetching comments for post: ${postIdString}`);
-
       // Use authenticated session client if available for better user data
       const clientToUse = sessionClient || lensClient;
 
@@ -119,7 +95,6 @@ export function useLensComments({
       }
 
       const commentPosts = result.value.items;
-      console.log(`[useLensComments] Found ${commentPosts.length} comment posts for ${postIdString}`);
 
       // Transform Lens comment posts to our comment format
       const transformedComments: LensComment[] = commentPosts.map(commentPost => {
@@ -151,8 +126,6 @@ export function useLensComments({
 
       setComments(sortedComments);
       setCommentCount(sortedComments.length);
-
-      console.log(`[useLensComments] ✅ Loaded ${sortedComments.length} comments`);
     } catch (error) {
       console.error('[useLensComments] Error fetching comments:', error);
       setComments([]);
@@ -188,14 +161,12 @@ export function useLensComments({
 
     setIsSubmitting(true);
     try {
-      console.log(`[useLensComments] Submitting comment: "${content.slice(0, 50)}..."`);
 
       // Create proper TextOnlyMetadata using the textOnly helper
       const commentMetadata = textOnly({
         content: content.trim(),
       });
 
-      console.log('[useLensComments] Created comment metadata:', commentMetadata);
 
       // For now, use a data URI (in production, would use storageClient.uploadAsJson)
       const metadataJson = JSON.stringify(commentMetadata);
@@ -213,8 +184,6 @@ export function useLensComments({
         console.error('[useLensComments] Comment creation failed:', result.error);
         return false;
       }
-
-      console.log('[useLensComments] ✅ Comment created successfully!');
 
       // Add optimistic comment to UI
       const newComment: LensComment = {
@@ -243,7 +212,7 @@ export function useLensComments({
     } finally {
       setIsSubmitting(false);
     }
-  }, [postIdString, hasAuth, hasSession, sessionClient, walletAddress, refreshComments]);
+  }, [postIdString, hasAuth, hasSession, sessionClient, walletAddress]);
 
   return {
     comments,
@@ -259,19 +228,19 @@ export function useLensComments({
 /**
  * Extract content text from Lens comment metadata
  */
-function extractCommentContent(metadata: any): string {
-  if (metadata?.content) {
-    return metadata.content;
+function extractCommentContent(metadata: unknown): string {
+  if (metadata && typeof metadata === 'object' && 'content' in metadata) {
+    return (metadata as { content: string }).content;
   }
 
   // Check for TextOnlyMetadata
-  if (metadata?.__typename === 'TextOnlyMetadata' && metadata.content) {
-    return metadata.content;
+  if (metadata && typeof metadata === 'object' && '__typename' in metadata && metadata.__typename === 'TextOnlyMetadata' && 'content' in metadata) {
+    return (metadata as { content: string }).content;
   }
 
   // Check for other metadata types that might contain content
-  if (metadata?.description) {
-    return metadata.description;
+  if (metadata && typeof metadata === 'object' && 'description' in metadata) {
+    return (metadata as { description: string }).description;
   }
 
   return '';

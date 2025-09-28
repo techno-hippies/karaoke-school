@@ -46,7 +46,6 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   musicTitle = 'Original Sound',
   creatorHandle,
   creatorId,
-  pkpPublicKey,
   lensPostId,
   userHasLiked,
   onClose,
@@ -168,7 +167,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
             video.play().catch(e => console.log('Autoplay failed:', e));
           });
 
-          hls.on(Hls.Events.ERROR, (event, data) => {
+          hls.on(Hls.Events.ERROR, (_, data) => {
             console.error(`[VideoDetail] HLS error for @${username}:`, data);
           });
 
@@ -204,11 +203,6 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onNavigatePrevious, onNavigateNext, onClose]);
 
-  const formatCount = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
-  };
 
   return (
     <div className="fixed inset-0 bg-neutral-900 z-50 flex">

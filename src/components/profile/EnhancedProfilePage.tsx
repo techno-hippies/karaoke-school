@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEnsAddress, useEnsName, useEnsAvatar, useAccount, useConnect, useConnectors } from 'wagmi'
 import { isAddress } from 'viem'
 import { mainnet } from 'wagmi/chains'
-import { useProfileDetails, FollowButton } from 'ethereum-identity-kit'
 import { ProfileHeader } from './ProfileHeader'
 import { VideoThumbnail } from './VideoThumbnail'
 import { DesktopSidebar } from '../navigation/DesktopSidebar'
@@ -68,11 +67,9 @@ export const EnhancedProfilePage: React.FC = () => {
   // Final address to use
   const address = isValidAddress ? addressOrEns : resolvedAddress
 
-  // Use ethereum-identity-kit for profile details - only if we have an address
-  const { ens, detailsLoading } = useProfileDetails({
-    addressOrName: address || '',
-    enabled: !!address,
-  })
+  // Placeholder for profile details - ethereum-identity-kit removed
+  const ens = null;
+  const detailsLoading = false;
 
   // Mock video data - in production this would come from your API/blockchain
   const [videos] = useState<Video[]>([
@@ -342,15 +339,6 @@ export const EnhancedProfilePage: React.FC = () => {
             onMoreClick={handleShare}
           />
 
-          {/* Custom Follow Button from ethereum-identity-kit - only show if not own profile */}
-          {!profileData.isOwnProfile && (
-            <div className="px-4 mb-4">
-              <FollowButton 
-                address={address as `0x${string}`}
-                className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg"
-              />
-            </div>
-          )}
 
           {/* Social Links */}
           {profileData.socialLinks && (

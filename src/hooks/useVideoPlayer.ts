@@ -156,7 +156,7 @@ export const useVideoPlayer = (
         }
       } else {
         // Regular video URL (MP4, etc)
-        // console.log(`[useVideoPlayer] Regular video URL for @${username}`);
+        // console.log(`[useVideoPlayer] Setting regular video URL for @${username}`);
         video.src = videoUrl;
         setIsReady(true);
         if (autoplay) {
@@ -168,16 +168,36 @@ export const useVideoPlayer = (
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
       const handleEnded = () => setIsPlaying(false);
+      const handleError = (e: Event) => {
+        const target = e.target as HTMLVideoElement;
+        console.error(`[useVideoPlayer] ❌ Video error for @${username}:`, {
+          error: target.error,
+          videoUrl,
+          readyState: target.readyState,
+          networkState: target.networkState
+        });
+      };
+      const handleLoadStart = () => {}; // console.log(`[useVideoPlayer] Load start for @${username}`);
+      const handleLoadedData = () => {}; // console.log(`[useVideoPlayer] Loaded data for @${username}`);
+      const handleCanPlay = () => {}; // console.log(`[useVideoPlayer] Can play for @${username}`);
 
       video.addEventListener('play', handlePlay);
       video.addEventListener('pause', handlePause);
       video.addEventListener('ended', handleEnded);
+      video.addEventListener('error', handleError);
+      video.addEventListener('loadstart', handleLoadStart);
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('canplay', handleCanPlay);
 
       // Cleanup function
       return () => {
         video.removeEventListener('play', handlePlay);
         video.removeEventListener('pause', handlePause);
         video.removeEventListener('ended', handleEnded);
+        video.removeEventListener('error', handleError);
+        video.removeEventListener('loadstart', handleLoadStart);
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('canplay', handleCanPlay);
 
         if (hlsRef.current) {
           // console.log(`[useVideoPlayer] Destroying HLS player for @${username}`);

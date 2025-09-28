@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { CaretLeft, Play, Pause } from '@phosphor-icons/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { CaretLeft, Play } from '@phosphor-icons/react';
 import { createKaraokePost, canCreatePosts, getLensAccountInfo, type PostProgress } from '../../lib/lens/posting';
 import { useAccount, useWalletClient } from 'wagmi';
 
 interface SelectedSegment {
   start: number;
   end: number;
-  lyrics: any[];
+  lyrics: Array<{ text: string; timestamp: number }>;
 }
 
 interface PostEditorProps {
@@ -96,8 +96,14 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     lensAccountInfo
   });
 
-  const handlePost = () => {
-    onPost?.(caption);
+  const handlePost = async () => {
+    if (canPostToLens && videoBlob && segment && songId && walletClient && walletAddress) {
+      // Post to Lens
+      await handleLensPost();
+    } else {
+      // Fallback to local posting
+      onPost?.(caption);
+    }
   };
 
   const handleLensPost = async () => {
@@ -299,29 +305,15 @@ export const PostEditor: React.FC<PostEditorProps> = ({
         </div>
       </div>
 
-      {/* Post Buttons */}
+      {/* Post Button */}
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-neutral-900">
-        <div className="space-y-3">
-          {/* Lens Post Button (Primary) */}
-          <button
-            onClick={handleLensPost}
-            disabled={isPosting || !caption.trim() || !canPostToLens}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:bg-neutral-600 disabled:cursor-not-allowed transition-all text-white font-semibold text-lg rounded-lg"
-          >
-            {isPosting ? 'Posting to Lens...' : '🌿 Post to Lens Protocol'}
-          </button>
-
-          {/* Fallback Post Button */}
-          {onPost && (
-            <button
-              onClick={handlePost}
-              disabled={!caption.trim() || isPosting}
-              className="w-full py-3 bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800 disabled:cursor-not-allowed transition-colors text-white font-medium text-base rounded-lg"
-            >
-              📱 Post Locally
-            </button>
-          )}
-        </div>
+        <button
+          onClick={handlePost}
+          disabled={isPosting || !caption.trim()}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-600 disabled:cursor-not-allowed transition-colors text-white font-semibold text-lg rounded-lg"
+        >
+          {isPosting ? 'Posting...' : 'Post'}
+        </button>
       </div>
     </div>
   );

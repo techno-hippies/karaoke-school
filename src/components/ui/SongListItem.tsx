@@ -1,6 +1,6 @@
 import React from 'react';
-import { Play, Check, CaretRight } from '@phosphor-icons/react';
-import { Button } from './button';
+import { Play, CaretRight } from '@phosphor-icons/react';
+// import { Button } from './button';
 import type { Song } from '../../types/song';
 
 // Re-export for backward compatibility

@@ -9,7 +9,7 @@ import { useAppNavigation } from '../hooks/useAppNavigation'
 import { useLikedSongs } from '../hooks/useLikedSongs'
 
 export const LearnPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'profile'>('study')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'profile'>('study')
   const [mobileTab, setMobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('study')
   const { disconnect } = useDisconnect()
   const { openConnectModal } = useConnectModal()
@@ -32,11 +32,11 @@ export const LearnPage: React.FC = () => {
   }
 
   // Handle desktop tab changes using the navigation hook
-  const handleDesktopTabChange = (tab: 'home' | 'study' | 'profile') => {
+  const handleDesktopTabChange = (tab: 'home' | 'study' | 'post' | 'profile') => {
     navigation.handleDesktopTabChange(
       tab,
       activeTab,
-      setActiveTab,
+      (newTab: string) => setActiveTab(newTab as 'home' | 'study' | 'post' | 'profile'),
       () => openConnectModal?.()
     )
   }
@@ -45,10 +45,9 @@ export const LearnPage: React.FC = () => {
   const handleMobileTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
     navigation.handleMobileTabChange(
       tab,
-      setMobileTab,
-      setActiveTab,
-      () => openConnectModal?.(),
-      () => console.log('Create post')
+      (newTab: string) => setMobileTab(newTab as 'home' | 'study' | 'post' | 'inbox' | 'profile'),
+      (newTab: string) => setActiveTab(newTab as 'home' | 'study' | 'post' | 'profile'),
+      () => openConnectModal?.()
     )
   }
 
@@ -80,7 +79,7 @@ export const LearnPage: React.FC = () => {
             {/* Liked Songs section */}
             <div className="bg-neutral-800 rounded-xl p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Liked Songs with Story Protocol</h2>
+                <h2 className="text-xl font-bold text-white">Liked Songs</h2>
                 {likedSongs.length > 0 && (
                   <button
                     onClick={clearAllLikedSongs}
@@ -93,7 +92,7 @@ export const LearnPage: React.FC = () => {
 
               {likedSongs.length === 0 ? (
                 <p className="text-gray-400 text-center py-8">
-                  No liked songs yet. Like posts with Story Protocol music to see them here!
+                  No liked songs yet. Like posts to see them here!
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -107,9 +106,6 @@ export const LearnPage: React.FC = () => {
                           </div>
                           <p className="text-gray-300 text-sm mb-2 line-clamp-2">{song.description}</p>
                           <div className="flex flex-col gap-1 text-xs">
-                            <div className="text-purple-400 font-mono">
-                              Story IP ID: {song.storyProtocolIpId}
-                            </div>
                             <div className="text-gray-500">
                               Liked: {new Date(song.timestamp).toLocaleDateString()}
                             </div>

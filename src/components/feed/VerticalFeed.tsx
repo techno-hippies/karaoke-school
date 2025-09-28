@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
-import { useNavigate } from 'react-router-dom';
+import { useDisconnect } from 'wagmi';
 import { VerticalFeedView } from './VerticalFeedView';
-import { FeedXState } from './FeedXState';
-import { useSubgraphFeed } from '../../hooks/useSubgraphFeed';
-import { usePKPLensFeed, usePKPLensMapping } from '../../lib/pkp-lens-mapping';
+import { useQuery } from '@tanstack/react-query';
+import { getAppFeedItems } from '../../lib/lens-feed';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import { useFeedCoordinator } from '../../hooks/useFeedCoordinator';
 import { useDisplayAuth } from '../../hooks/useDisplayAuth';
 import type { FeedItem } from '../../types/feed';
 import {
-  transformLensFeed,
-  createSampleQuiz
+  transformLensFeed
 } from '../../utils/feedTransforms';
 import { useAppNavigation } from '../../hooks/useAppNavigation';
 
@@ -22,8 +18,6 @@ import { useAppNavigation } from '../../hooks/useAppNavigation';
 export const VerticalFeed: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'profile'>('home');
   const [mobileTab, setMobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home');
-  const [tiktokLinked, setTiktokLinked] = useState(false);
-  const [videosMinted, setVideosMinted] = useState(false);
   const { openConnectModal } = useConnectModal();
   
   // Wallet integration
@@ -33,7 +27,6 @@ export const VerticalFeed: React.FC = () => {
   const {
     displayAddress,
     displayConnected,
-    connectedAddress,
     isAuthenticated
   } = useDisplayAuth();
 
@@ -52,16 +45,16 @@ export const VerticalFeed: React.FC = () => {
   
   // Remove the auto-close effect entirely - let the modal handle it
   
-  const navigate = useNavigate();
 
-  // Fetch PKP mappings and their Lens posts
-  const pkpMappingsQuery = usePKPLensMapping();
-  const pkpFeedQuery = usePKPLensFeed();
-  
-  // Use ONLY PKP feed - no fallback to general feed ever
-  const blockchainFeed = pkpFeedQuery.data;
-  const isLoading = pkpFeedQuery.isLoading;
-  const error = pkpFeedQuery.error;
+  // Fetch app feed items directly using appId filter
+  const appFeedQuery = useQuery({
+    queryKey: ['app-feed'],
+    queryFn: getAppFeedItems,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchInterval: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const blockchainFeed = appFeedQuery.data;
   
   // Debug app accounts
   // React.useEffect(() => {
@@ -73,8 +66,6 @@ export const VerticalFeed: React.FC = () => {
   //   }
   // }, [pkpMappingsQuery.data]);
 
-  // Keep one sample quiz for demo purposes
-  const sampleQuiz = createSampleQuiz();
 
 
   // Get feed from Lens Protocol and transform to FeedItem format - LIMITED TO 3 FOR DEBUGGING
@@ -110,8 +101,6 @@ export const VerticalFeed: React.FC = () => {
   //   }
   // }, [filteredFeed]);
 
-  // Use XState for video playback coordination only
-  const feedCoordinator = useFeedCoordinator(filteredFeed);
 
   // Handle desktop tab changes using the navigation hook
   const handleDesktopTabChange = (tab: 'home' | 'study' | 'profile') => {
@@ -139,15 +128,7 @@ export const VerticalFeed: React.FC = () => {
     console.log('Create post clicked');
   };
 
-  // Feature flag to switch between old and new implementation
-  const USE_XSTATE = false; // Set to false to use old implementation with full UI
-
-  // Use XState implementation if flag is enabled
-  if (USE_XSTATE) {
-    return <FeedXState />;
-  }
-
-  // Use the view component for rendering with XState coordination
+  // Use the view component for rendering
   // Authentication display values come from useDisplayAuth hook
 
   // console.log('[VerticalFeed] Display state:', {
@@ -169,8 +150,6 @@ export const VerticalFeed: React.FC = () => {
         onCreatePost={handleCreatePost}
         onDisconnect={() => disconnect()}
         onOnboardingAction={handleOnboardingAction}
-        // Pass coordinator functions for video state management
-        feedCoordinator={feedCoordinator}
       />
     </>
   );

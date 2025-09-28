@@ -3,11 +3,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { SegmentPicker } from '../ui/SegmentPicker';
 import { getSongById } from '../../lib/song-directory';
 
+interface LineTimestamp {
+  lineIndex: number;
+  originalText: string;
+  translatedText: string;
+  start: number;
+  end: number;
+  wordCount: number;
+}
+
 interface SongWithTimestamps {
   title: string;
   artist: string;
   audioUrl: string;
-  lineTimestamps: any[];
+  lineTimestamps: LineTimestamp[];
   totalLines: number;
   exportedAt: string;
   format: string;
@@ -16,7 +25,7 @@ interface SongWithTimestamps {
 interface SelectedSegment {
   start: number;
   end: number;
-  lyrics: any[];
+  lyrics: LineTimestamp[];
 }
 
 export const SegmentPickerPage: React.FC = () => {
@@ -38,7 +47,7 @@ export const SegmentPickerPage: React.FC = () => {
         setLoading(true);
         console.log('[SegmentPickerPage] Loading song:', songId);
 
-        const songData = await getSongById(songId);
+        const songData = await getSongById(songId!);
         if (!songData) {
           setError('Song not found');
           setLoading(false);
@@ -49,8 +58,15 @@ export const SegmentPickerPage: React.FC = () => {
         const songWithTimestamps: SongWithTimestamps = {
           title: songData.title,
           artist: songData.artist,
-          audioUrl: songData.audioUrl,
-          lineTimestamps: songData.lineTimestamps,
+          audioUrl: songData.audioUrl || '',
+          lineTimestamps: songData.lineTimestamps.map((lt, index) => ({
+            lineIndex: index,
+            originalText: lt.originalText || lt.text || '',
+            translatedText: lt.translatedText || lt.text || '',
+            start: lt.start,
+            end: lt.end,
+            wordCount: (lt.originalText || lt.text || '').split(' ').length
+          })),
           totalLines: songData.totalLines,
           exportedAt: new Date().toISOString(),
           format: 'v1'

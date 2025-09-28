@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SongListItem, type Song } from '../components/ui/SongListItem';
 
 const meta: Meta<typeof SongListItem> = {
@@ -148,7 +148,7 @@ export const SongList: Story = {
     layout: 'fullscreen',
   },
   decorators: [
-    (Story) => (
+    () => (
       <div className="min-h-screen w-full bg-neutral-900 p-4">
         <div className="w-full max-w-sm mx-auto bg-neutral-800 rounded-lg overflow-hidden">
           <div className="p-4 border-b border-neutral-700">

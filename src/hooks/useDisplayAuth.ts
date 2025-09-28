@@ -1,6 +1,6 @@
 import { useAccount, useWalletClient } from 'wagmi';
 import { useEffect } from 'react';
-import { createLensSessionWithWallet, isLensAuthenticated, resumeLensSession } from '../lib/lens/sessionClient';
+import { createLensSessionWithWallet, isLensAuthenticated, resumeLensSession, getLensSession } from '../lib/lens/sessionClient';
 
 /**
  * Shared hook for consistent authentication display logic
@@ -14,8 +14,15 @@ export function useDisplayAuth() {
   // Try to resume existing session or create new one when wallet connects
   useEffect(() => {
     if (connectedWalletAddress && walletClient) {
-      if (!isLensAuthenticated()) {
-        console.log('[useDisplayAuth] 🔄 Wallet connected, checking for existing Lens session...');
+      const sessionClient = getLensSession();
+      const needsSession = !isLensAuthenticated() || !sessionClient?.account;
+
+      if (needsSession) {
+        console.log('[useDisplayAuth] 🔄 Wallet connected, checking for existing Lens session...', {
+          isAuthenticated: isLensAuthenticated(),
+          hasAccount: !!sessionClient?.account,
+          needsSession
+        });
 
         // First try to resume existing session from localStorage
         resumeLensSession()

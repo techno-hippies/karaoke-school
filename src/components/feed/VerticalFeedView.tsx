@@ -3,13 +3,20 @@ import { VideoPost } from './VideoPost';
 import { VideoQuizPost } from './VideoQuizPost';
 import { MobileFooter } from '../navigation/MobileFooter';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
-import { Button } from '../ui/button';
 import { FeedSkeleton } from './FeedSkeleton';
 
 interface FeedItem {
   id: string;
   type: 'video' | 'quiz';
-  data: any;
+  data: {
+    videoUrl: string;
+    username: string;
+    description: string;
+    likes: number;
+    comments: number;
+    shares: number;
+    [key: string]: unknown;
+  };
 }
 
 interface VerticalFeedViewProps {
@@ -62,7 +69,7 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
     <div className="h-screen bg-neutral-900 flex">
       {/* Desktop Sidebar */}
       <DesktopSidebar 
-        activeTab={activeTab as any}
+        activeTab={activeTab as 'home' | 'study' | 'profile'}
         onTabChange={onDesktopTabChange}
         onCreatePost={onCreatePost}
         isConnected={isConnected}
@@ -100,7 +107,7 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
                 isActive={feedCoordinator?.isVideoActive(item.id) || false}
                 onPlay={feedCoordinator ? () => feedCoordinator.handleVideoPlay(item.id) : undefined}
                 onPause={feedCoordinator ? () => feedCoordinator.handleVideoPause(item.id) : undefined}
-                registerRef={feedCoordinator ? (el) => feedCoordinator.registerVideo(item.id, el) : undefined}
+                registerRef={feedCoordinator ? (el: HTMLVideoElement | null) => feedCoordinator.registerVideo(item.id, el) : undefined}
               />
             );
           }

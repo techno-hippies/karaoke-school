@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getFeedItems, getPKPAccountsPosts } from '../lib/lens-feed';
-import type { LensFeedItem } from '../types/feed';
+// import type { LensFeedItem } from '../types/feed';
 
 /**
  * Hook to fetch feed items from Lens Protocol

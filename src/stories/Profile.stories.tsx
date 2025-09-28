@@ -1,9 +1,7 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
-import { VideoThumbnail } from '../components/profile/VideoThumbnail';
 import { ProfilePageView } from '../components/profile/ProfilePageView';
-import { ClaimAccountPost } from '../components/profile/ClaimAccountPost';
 import { ClaimAccountPage } from '../components/profile/ClaimAccountPage';
 
 // Sample video data
@@ -114,13 +112,6 @@ export const UnclaimedProfile: Story = {
 };
 
 // Individual component stories
-const headerMeta: Meta<typeof ProfileHeader> = {
-  title: 'Profile/ProfileHeader',
-  component: ProfileHeader,
-  parameters: {
-    layout: 'fullscreen',
-  },
-};
 
 export const HeaderOwnProfile: StoryObj<typeof ProfileHeader> = {
   args: {
