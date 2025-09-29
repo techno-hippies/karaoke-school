@@ -8,6 +8,12 @@ interface WaveSurferRegion {
   remove: () => void;
 }
 
+interface WordTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
 interface LineTimestamp {
   lineIndex: number;
   originalText: string;
@@ -15,6 +21,7 @@ interface LineTimestamp {
   start: number;
   end: number;
   wordCount: number;
+  words?: WordTimestamp[];
 }
 
 // interface RecommendedSegment {
@@ -61,14 +68,36 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
   const wavesurferRef = useRef<unknown>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSegment, setSelectedSegment] = useState<SelectedSegment | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
   // const [currentRegion, // setCurrentRegion] = useState<WaveSurferRegion | null>(null);
 
-  // Get lyrics for a time range
+  // Get lyrics for a time range - now filters at word level for precision
   const getLyricsForTimeRange = useCallback((start: number, end: number): LineTimestamp[] => {
-    return song.lineTimestamps.filter(line => {
-      // Include lines that overlap with the selected time range
-      return (line.start <= end && line.end >= start);
+    const filteredLines: LineTimestamp[] = [];
+
+    song.lineTimestamps.forEach(line => {
+      if (line.words && line.words.length > 0) {
+        // Filter words that fall within the selected time range
+        const wordsInRange = line.words.filter(word =>
+          word.start >= start && word.end <= end
+        );
+
+        // Only include line if it has words in the selected range
+        if (wordsInRange.length > 0) {
+          filteredLines.push({
+            ...line,
+            words: wordsInRange // Only include words within the range
+          });
+        }
+      } else {
+        // Fallback: include line if it overlaps with the range
+        if (line.start <= end && line.end >= start) {
+          filteredLines.push(line);
+        }
+      }
     });
+
+    return filteredLines;
   }, [song.lineTimestamps]);
 
   const updateSelectedSegment = useCallback((region: WaveSurferRegion) => {
@@ -123,6 +152,11 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
       // Handle play/pause
       wavesurferRef.current.on('play', () => setIsPlaying(true));
       wavesurferRef.current.on('pause', () => setIsPlaying(false));
+
+      // Track audio time for word highlighting
+      wavesurferRef.current.on('timeupdate', (time) => {
+        setCurrentTime(time);
+      });
 
       // Add recommended segment as default
       wavesurferRef.current.on('ready', () => {
@@ -236,16 +270,33 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
       {/* Main content area */}
       <div className="absolute top-16 left-0 right-0 bottom-20 px-4 flex flex-col">
 
-        {/* Selected lyrics display */}
+        {/* Selected lyrics display with word highlighting */}
         {selectedSegment && (
           <div className="flex-1 overflow-hidden mb-6 p-4">
             {selectedSegment.lyrics.length > 0 ? (
               <div className="space-y-3 h-full overflow-y-auto">
                 {selectedSegment.lyrics.map((line) => (
-                  <div key={line.lineIndex} className="text-center">
-                    <p className="text-white text-lg font-medium leading-relaxed">
-                      {line.originalText}
-                    </p>
+                  <div key={line.lineIndex} className="text-left">
+                    <div className="text-lg font-medium leading-relaxed flex flex-wrap">
+                      {line.words && line.words.length > 0 ? (
+                        // Show individual words with timing-based highlighting
+                        line.words.map((word, wordIndex) => {
+                          const isActive = currentTime >= word.start && currentTime <= word.end;
+
+                          return (
+                            <span
+                              key={wordIndex}
+                              className={`mr-1 ${isActive ? 'text-[#FE2C55]' : 'text-white'}`}
+                            >
+                              {word.text}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        // Fallback to original text if no word data
+                        <span className="text-white">{line.originalText}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

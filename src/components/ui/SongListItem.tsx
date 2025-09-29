@@ -64,12 +64,24 @@ export const SongListItem: React.FC<SongListItemProps> = ({
             src={song.thumbnailUrl}
             alt={`${song.title} by ${song.artist}`}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              console.error(`Failed to load thumbnail for ${song.title}:`, song.thumbnailUrl);
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+            onLoad={() => {
+              console.log(`Successfully loaded thumbnail for ${song.title}:`, song.thumbnailUrl);
+            }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-neutral-600 to-neutral-800 flex items-center justify-center">
             <div className="w-6 h-6 rounded-full bg-neutral-500" />
           </div>
         )}
+
+        {/* Fallback background when image fails to load */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-neutral-600 to-neutral-800 flex items-center justify-center -z-10">
+          <div className="w-6 h-6 rounded-full bg-neutral-500" />
+        </div>
 
         {/* Play/Pause button - always visible like TikTok */}
         <button
