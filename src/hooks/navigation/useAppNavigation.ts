@@ -7,13 +7,18 @@ import { useLensAuth } from '../lens/useLensAuth';
  */
 export function useAppNavigation() {
   const navigate = useNavigate();
-  const { connectedWalletAddress } = useLensAuth();
+  const { connectedWalletAddress, authenticatedUser } = useLensAuth();
 
   /**
    * Navigate to user's own profile if authenticated, otherwise show auth modal
    */
   const navigateToOwnProfile = (onShowAuthModal?: () => void) => {
-    if (connectedWalletAddress) {
+    // Use the Lens account address instead of wallet address
+    const lensAccountAddress = authenticatedUser?.address;
+
+    if (lensAccountAddress) {
+      navigate(`/profile/${lensAccountAddress}`);
+    } else if (connectedWalletAddress) {
       navigate(`/profile/${connectedWalletAddress}`);
     } else if (onShowAuthModal) {
       onShowAuthModal();

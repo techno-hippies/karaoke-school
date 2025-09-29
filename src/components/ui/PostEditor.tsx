@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CaretLeft, Play } from '@phosphor-icons/react';
-import { getLensAccountInfo, type PostProgress } from '../../lib/lens/posting';
 import { useAccount, useWalletClient } from 'wagmi';
+
+// Remove old posting system import - now using unified auth
+export interface PostProgress {
+  stage: 'authenticating' | 'uploading_video' | 'uploading_metadata' | 'creating_post' | 'completed';
+  progress: number; // 0-1
+  message: string;
+}
 import { useLensAuth } from '../../hooks/lens/useLensAuth';
 import { post } from '@lens-protocol/client/actions';
 import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/metadata";
@@ -53,7 +59,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   const { data: walletClient } = useWalletClient();
 
   // Get Lens authentication state
-  const { isAuthenticated, sessionClient, authenticatedUser } = useLensAuth();
+  const { isAuthenticated, sessionClient, authenticatedUser, canPost, authState, handleLogin } = useLensAuth();
 
   // Debug logging
   console.log('[PostEditor] Props:', {
@@ -90,8 +96,8 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     }
   };
 
-  // Check if user can post to Lens using new authentication system
-  const canPostToLens = isAuthenticated && sessionClient && authenticatedUser && isWalletConnected && walletClient && videoBlob && segment;
+  // Check if user can post to Lens using unified authentication system
+  const canPostToLens = canPost && sessionClient && isWalletConnected && walletClient && videoBlob && segment;
 
   // Get account info from the authenticated user
   const lensAccountInfo = authenticatedUser ? {
@@ -120,7 +126,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
       message: 'Uploading video to storage...'
     });
 
-    const videoResult = await uploadVideoToGrove(postData.videoBlob);
+    const videoResult = await uploadVideoToGrove(postData.videoBlob, sessionClient);
 
     setPostProgress({
       stage: 'uploading_video',
@@ -174,7 +180,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     });
 
     // Step 3: Upload metadata to Grove
-    const metadataResult = await uploadMetadataToGrove(videoMetadata);
+    const metadataResult = await uploadMetadataToGrove(videoMetadata, sessionClient);
 
     setPostProgress({
       stage: 'uploading_metadata',
@@ -220,8 +226,11 @@ export const PostEditor: React.FC<PostEditorProps> = ({
 
   console.log('[PostEditor] Debug state:', {
     isAuthenticated,
+    canPost,
+    authState,
     hasSessionClient: !!sessionClient,
     hasAuthenticatedUser: !!authenticatedUser,
+    userRole: authenticatedUser?.role,
     isWalletConnected,
     hasWalletClient: !!walletClient,
     hasVideoBlob: !!videoBlob,
@@ -369,8 +378,36 @@ export const PostEditor: React.FC<PostEditorProps> = ({
 
 
 
+        {/* Authentication Status */}
+        {authState === 'needs-account' && (
+          <div className="mb-4 p-3 bg-yellow-900 bg-opacity-30 rounded-lg border border-yellow-700">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+              <span className="text-yellow-400 text-sm font-medium">Lens Account Required</span>
+            </div>
+            <p className="text-yellow-300 text-sm mt-1">
+              You need to create a Lens account to post videos.
+            </p>
+            <button
+              onClick={handleLogin}
+              className="mt-2 px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors"
+            >
+              Create Lens Account
+            </button>
+          </div>
+        )}
+
+        {authState === 'checking' && (
+          <div className="mb-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg border border-blue-700">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-blue-400 text-sm font-medium">Setting up Lens authentication...</span>
+            </div>
+          </div>
+        )}
+
         {/* Lens Account Info */}
-        {lensAccountInfo && (
+        {lensAccountInfo && canPost && (
           <div className="mb-4 p-3 bg-neutral-800 rounded-lg border border-neutral-700">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
@@ -378,6 +415,18 @@ export const PostEditor: React.FC<PostEditorProps> = ({
             </div>
             <p className="text-neutral-300 text-sm mt-1">
               {lensAccountInfo.username || `${lensAccountInfo.address.slice(0, 6)}...${lensAccountInfo.address.slice(-4)}`}
+            </p>
+          </div>
+        )}
+
+        {lensAccountInfo && !canPost && authenticatedUser?.role === 'ONBOARDING_USER' && (
+          <div className="mb-4 p-3 bg-orange-900 bg-opacity-30 rounded-lg border border-orange-700">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+              <span className="text-orange-400 text-sm font-medium">Account Setup Required</span>
+            </div>
+            <p className="text-orange-300 text-sm mt-1">
+              Your Lens account is being set up. Please try again in a moment.
             </p>
           </div>
         )}
