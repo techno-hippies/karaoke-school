@@ -7,12 +7,25 @@ export interface Song {
   audioUrl?: string;
 }
 
+export interface WordTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
+export interface LineTimestamp {
+  start: number;
+  end: number;
+  text: string;
+  originalText?: string;
+  translatedText?: string;
+  lineIndex?: number;
+  wordCount?: number;
+  words?: WordTimestamp[];
+  [key: string]: unknown;
+}
+
 export interface SongMetadata extends Song {
-  lineTimestamps: Array<{
-    start: number;
-    end: number;
-    text: string;
-    [key: string]: unknown;
-  }>;
+  lineTimestamps: LineTimestamp[];
   totalLines: number;
 }

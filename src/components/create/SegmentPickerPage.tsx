@@ -3,6 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { SegmentPicker } from '../ui/SegmentPicker';
 import { getSongById } from '../../lib/songs/directory';
 
+interface WordTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
 interface LineTimestamp {
   lineIndex: number;
   originalText: string;
@@ -10,6 +16,7 @@ interface LineTimestamp {
   start: number;
   end: number;
   wordCount: number;
+  words?: WordTimestamp[];
 }
 
 interface SongWithTimestamps {
@@ -59,18 +66,32 @@ export const SegmentPickerPage: React.FC = () => {
           title: songData.title,
           artist: songData.artist,
           audioUrl: songData.audioUrl || '',
-          lineTimestamps: songData.lineTimestamps.map((lt, index) => ({
-            lineIndex: index,
-            originalText: lt.originalText || lt.text || '',
-            translatedText: lt.translatedText || lt.text || '',
-            start: lt.start,
-            end: lt.end,
-            wordCount: (lt.originalText || lt.text || '').split(' ').length
-          })),
+          lineTimestamps: songData.lineTimestamps
+            .filter(lt => {
+              // Filter out structure tags like (Pre-Chorus), [Verse], etc.
+              const text = lt.originalText || lt.text || '';
+              return !text.match(/^\s*[\(\[].*[\)\]]\s*$/);
+            })
+            .map((lt, index) => ({
+              lineIndex: index,
+              originalText: lt.originalText || lt.text || '',
+              translatedText: lt.translatedText || lt.text || '',
+              start: lt.start,
+              end: lt.end,
+              wordCount: (lt.originalText || lt.text || '').split(' ').length,
+              words: lt.words || [] // Include word-level data
+            })),
           totalLines: songData.totalLines,
           exportedAt: new Date().toISOString(),
           format: 'v1'
         };
+
+        console.log('[SegmentPickerPage] Processed song data:', {
+          title: songWithTimestamps.title,
+          lineCount: songWithTimestamps.lineTimestamps.length,
+          firstLineHasWords: songWithTimestamps.lineTimestamps[0]?.words?.length > 0,
+          firstLineWords: songWithTimestamps.lineTimestamps[0]?.words?.slice(0, 3)
+        });
 
         setSong(songWithTimestamps);
         console.log('[SegmentPickerPage] Song loaded:', songWithTimestamps);
