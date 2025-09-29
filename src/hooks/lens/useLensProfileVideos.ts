@@ -21,10 +21,13 @@ export function useLensProfileVideos(lensUsername: string | undefined) {
   return useQuery({
     queryKey: ['lens-profile-videos', lensUsername],
     queryFn: async (): Promise<LensProfileVideo[]> => {
-      if (!lensUsername) return [];
+      if (!lensUsername) {
+        console.log('[useLensProfileVideos] No username provided');
+        return [];
+      }
 
       try {
-        // console.log(`[useLensProfileVideos] Fetching videos for: ${lensUsername}`);
+        console.log(`[useLensProfileVideos] Fetching videos for: ${lensUsername}`);
 
         // Get posts from this specific Lens user
         const userPosts = await getLensUserPosts(lensUsername);

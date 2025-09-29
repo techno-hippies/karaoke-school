@@ -2,7 +2,6 @@ import { lensClient } from "./lens/client";
 import { fetchPosts, fetchAccountsAvailable } from "@lens-protocol/client/actions";
 import { evmAddress } from "@lens-protocol/client";
 import type { LensFeedItem } from "../types/feed";
-import { getLensSession } from "./lens/session";
 import { getStorageClient } from "./lens/storage";
 
 // Lens app configuration
@@ -12,13 +11,13 @@ const LENS_TESTNET_APP = '0x9484206D9beA9830F27361a2F5868522a8B8Ad22';
  * Fetch feed items from Lens Protocol using appId filter
  * This gets all posts for the app, removing PKP dependencies
  */
-export async function getFeedItems(): Promise<LensFeedItem[]> {
+export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> {
+  console.log('🎵 [getFeedItems] Starting feed fetch with limit:', limit);
   try {
-    const sessionClient = getLensSession();
-    const clientToUse = sessionClient || lensClient;
+    const clientToUse = lensClient;
 
-    // Try to get wallet address for debugging
-    const walletAddress = sessionClient?.account?.address;
+    // Try to get wallet address for debugging - now handled by React SDK
+    const walletAddress = null; // Not needed for public feed queries
     // console.log('[getFeedItems] Debugging wallet vs app posts');
 
     const result = await fetchPosts(clientToUse, {
@@ -71,11 +70,14 @@ export async function getFeedItems(): Promise<LensFeedItem[]> {
 
 
         const extractedVideoUrl = extractVideoUrl(post.metadata);
-        // console.log('[getFeedItems] Video URL extraction:', {
-        //   postId: post.id,
-        //   extractedUrl: extractedVideoUrl,
-        //   metadata: post.metadata
-        // });
+        const karaokeData = extractKaraokeData(post.metadata);
+        console.log('[getFeedItems] Processing post:', {
+          postId: post.id,
+          extractedUrl: extractedVideoUrl,
+          karaokeData,
+          hasKaraokeData: Object.keys(karaokeData).length > 0,
+          metadataAttributes: post.metadata?.attributes || 'no attributes'
+        });
 
         return {
           id: post.id,
@@ -88,6 +90,8 @@ export async function getFeedItems(): Promise<LensFeedItem[]> {
             likes: post.stats?.upvotes || 0,
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
+            // Include karaoke lyrics data
+            ...karaokeData,
           },
           video: {
             id: post.id,
@@ -195,37 +199,92 @@ function extractContent(metadata: unknown): string {
 }
 
 /**
+ * Extract karaoke lyrics metadata from Lens post
+ */
+function extractKaraokeData(metadata: unknown): {
+  lyricsUrl?: string;
+  lyricsFormat?: string;
+  segmentStart?: number;
+  segmentEnd?: number;
+  songTitle?: string;
+} {
+  const result: {
+    lyricsUrl?: string;
+    lyricsFormat?: string;
+    segmentStart?: number;
+    segmentEnd?: number;
+    songTitle?: string;
+  } = {};
+
+  if (metadata && typeof metadata === 'object' && 'attributes' in metadata && Array.isArray(metadata.attributes)) {
+    for (const attr of metadata.attributes) {
+      if (attr && typeof attr === 'object' && 'key' in attr && 'value' in attr) {
+        switch (attr.key) {
+          case 'karaoke_lyrics_url':
+            result.lyricsUrl = attr.value as string;
+            break;
+          case 'karaoke_lyrics_format':
+            result.lyricsFormat = attr.value as string;
+            break;
+          case 'karaoke_segment_start':
+            result.segmentStart = parseFloat(attr.value as string);
+            break;
+          case 'karaoke_segment_end':
+            result.segmentEnd = parseFloat(attr.value as string);
+            break;
+          case 'karaoke_song_title':
+            result.songTitle = attr.value as string;
+            break;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Get posts from a specific user (by wallet address or Lens account)
  * Used for profile pages to show videos from a specific creator
  */
 export async function getLensUserPosts(addressOrUsername: string): Promise<LensFeedItem[]> {
   try {
-    const sessionClient = getLensSession();
-    const clientToUse = sessionClient || lensClient;
+    console.log('[getLensUserPosts] Fetching posts for:', addressOrUsername);
+    // Use lensClient directly since getLensSession is disabled
+    const clientToUse = lensClient;
 
     let authorAddresses: string[] = [];
 
-    // If input looks like a wallet address, fetch associated Lens accounts
+    // If input looks like a hex address, it could be either a wallet address or Lens account address
     if (addressOrUsername.startsWith('0x') && addressOrUsername.length === 42) {
-      const accountsResult = await fetchAccountsAvailable(clientToUse, {
-        managedBy: evmAddress(addressOrUsername),
-        includeOwned: true
-      });
+      // First try to use it directly as a Lens account address
+      authorAddresses = [addressOrUsername];
 
-      if (accountsResult.isOk()) {
-        authorAddresses = accountsResult.value.items.map(item => item.account.address);
-        if (authorAddresses.length === 0) {
-          // No Lens accounts found for this wallet
-          return [];
+      // Also try to fetch Lens accounts managed by this address (in case it's a wallet address)
+      try {
+        const accountsResult = await fetchAccountsAvailable(clientToUse, {
+          managedBy: evmAddress(addressOrUsername),
+          includeOwned: true
+        });
+
+        if (accountsResult.isOk() && accountsResult.value.items.length > 0) {
+          const managedAddresses = accountsResult.value.items.map(item => item.account.address);
+          // Add managed addresses to the list (avoiding duplicates)
+          managedAddresses.forEach(addr => {
+            if (!authorAddresses.includes(addr)) {
+              authorAddresses.push(addr);
+            }
+          });
         }
-      } else {
-        // Fallback: use the wallet address directly
-        authorAddresses = [addressOrUsername];
+      } catch (error) {
+        console.warn('[getLensUserPosts] Failed to fetch managed accounts:', error);
       }
     } else {
-      // Assume it's a Lens account address
+      // Assume it's a Lens account address or username
       authorAddresses = [addressOrUsername];
     }
+
+    console.log('[getLensUserPosts] Using author addresses:', authorAddresses);
 
     const result = await fetchPosts(clientToUse, {
       filter: {
@@ -241,6 +300,7 @@ export async function getLensUserPosts(addressOrUsername: string): Promise<LensF
     }
 
     const userPosts = result.value.items;
+    console.log('[getLensUserPosts] Found posts:', userPosts.length);
 
 
     return userPosts
@@ -252,6 +312,7 @@ export async function getLensUserPosts(addressOrUsername: string): Promise<LensF
         const postTimestamp = post.timestamp || post.createdAt;
         const timestampMs = postTimestamp ? new Date(postTimestamp).getTime().toString() : Date.now().toString();
         const extractedVideoUrl = extractVideoUrl(post.metadata);
+        const karaokeData = extractKaraokeData(post.metadata);
         const hasUpvoted = post.operations?.hasUpvoted || false;
 
         return {
@@ -266,6 +327,8 @@ export async function getLensUserPosts(addressOrUsername: string): Promise<LensF
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0) || 0,
             userHasLiked: hasUpvoted,
+            // Include karaoke lyrics data
+            ...karaokeData,
           },
           video: {
             id: post.id,

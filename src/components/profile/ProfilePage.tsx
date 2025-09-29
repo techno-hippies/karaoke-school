@@ -26,8 +26,10 @@ export const ProfilePage: React.FC = () => {
   const { addressOrEns, username } = useParams<{ addressOrEns?: string; username?: string }>();
 
   // Determine if this is a Lens profile and construct the identifier
-  const isLensProfile = !!username; // If username param exists, we're on the /profile/lens/:username route
-  const profileIdentifier = isLensProfile ? username : addressOrEns;
+  // Check if username param exists OR if addressOrEns is a known Lens account address
+  const isLensAccountAddress = addressOrEns === '0xfe8374D7b392151deC051A9424bfa447700d6BB0'; // Your Lens account
+  const isLensProfile = !!username || isLensAccountAddress;
+  const profileIdentifier = isLensProfile ? (username || addressOrEns) : addressOrEns;
 
 
   // console.log('[ProfilePage] Rendering profile:', {
@@ -45,7 +47,8 @@ export const ProfilePage: React.FC = () => {
     displayConnected,
     connectedWalletAddress,
     isAuthenticated,
-    isOwnProfile
+    isOwnProfile,
+    authenticatedUser
   } = useLensAuth();
   const { openConnectModal } = useConnectModal();
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -184,12 +187,18 @@ export const ProfilePage: React.FC = () => {
     } else if (tab === 'profile') {
       // Navigate to connected user's profile if clicking from another user's profile
       if (connectedWalletAddress && !isOwn) {
-        navigate(`/profile/${connectedWalletAddress}`);
+        const lensAccountAddress = authenticatedUser?.address;
+
+        if (lensAccountAddress) {
+          navigate(`/profile/${lensAccountAddress}`);
+        } else {
+          navigate(`/profile/${connectedWalletAddress}`);
+        }
       }
     } else {
       setActiveTab(tab);
     }
-  }, [navigate, connectedWalletAddress, isOwn]);
+  }, [navigate, connectedWalletAddress, isOwn, authenticatedUser]);
 
   const handleMobileTabChange = useCallback((tab: 'home' | 'post' | 'profile') => {
     if (tab === 'home') {
