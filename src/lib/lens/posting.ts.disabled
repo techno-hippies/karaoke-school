@@ -38,6 +38,15 @@ export async function createKaraokePost(
   sessionClientFromReact?: any // Accept session client from React context
 ): Promise<{ postId: string; metadataUri: string; videoUri: string }> {
   try {
+    console.log('[KaraokePost] Function called with postData:', {
+      hasVideoBlob: !!postData.videoBlob,
+      caption: postData.caption,
+      songId: postData.songId,
+      songTitle: postData.songTitle,
+      segment: postData.segment,
+      segmentStart: postData.segment?.start,
+      segmentEnd: postData.segment?.end
+    });
     // Step 1: Authentication
     onProgress?.({
       stage: 'authenticating',
@@ -136,6 +145,16 @@ export async function createKaraokePost(
           value: segmentDuration.toString(),
           type: 'String'
         },
+        {
+          key: 'karaoke_lyrics_url',
+          value: `/songs/${postData.songId}/karaoke-line-timestamps.json`,
+          type: 'String'
+        },
+        {
+          key: 'karaoke_lyrics_format',
+          value: 'karaoke-line-timestamps',
+          type: 'String'
+        },
         ...(postData.songTitle ? [{
           key: 'karaoke_song_title',
           value: postData.songTitle,
@@ -144,6 +163,12 @@ export async function createKaraokePost(
       ]
     });
 
+    console.log('[KaraokePost] Debug segment data:', {
+      postDataSegment: postData.segment,
+      segmentStart: postData.segment?.start,
+      segmentEnd: postData.segment?.end,
+      hasSegmentData: !!postData.segment
+    });
     console.log('[KaraokePost] Created video metadata with video URI:', videoMetadata);
 
     // Step 4: Upload metadata to Grove

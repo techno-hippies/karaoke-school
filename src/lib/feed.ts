@@ -79,6 +79,17 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
           metadataAttributes: post.metadata?.attributes || 'no attributes'
         });
 
+        // Detailed karaoke extraction logging
+        if (Object.keys(karaokeData).length > 0) {
+          console.log('[getFeedItems] 🎤 KARAOKE POST FOUND:', {
+            postId: post.id,
+            karaokeData,
+            willShowKaraoke: !!karaokeData.lyricsUrl
+          });
+        } else {
+          console.log('[getFeedItems] No karaoke data in post:', post.id);
+        }
+
         return {
           id: post.id,
           creatorHandle: username,
@@ -112,7 +123,7 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
  * Convert lens:// URI to Grove gateway URL for video playback
  * Uses Grove storage client's resolve method for proper URL resolution
  */
-function resolveLensUri(uri: string): string {
+export function resolveLensUri(uri: string): string {
   if (uri.startsWith('lens://')) {
     try {
       // Use Grove storage client's resolve method

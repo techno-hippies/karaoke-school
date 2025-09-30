@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, ChatCircle, ShareFat, MusicNote, SpeakerHigh, SpeakerX, Plus, Play, Check } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
@@ -8,6 +8,146 @@ import { useProfileNavigation } from '../../hooks/navigation/useProfileNavigatio
 import { useTouchGestures } from '../../hooks/ui/useTouchGestures';
 import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import { useLensFollows } from '../../hooks/lens/useLensFollows';
+import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
+import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
+
+// Helper function to abbreviate wallet addresses
+const abbreviateAddress = (address: string): string => {
+  if (!address || address.length < 10) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
+// Types for lyrics data
+interface WordTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
+interface LineTimestamp {
+  lineIndex: number;
+  originalText: string;
+  translatedText?: string;
+  start: number;
+  end: number;
+  wordCount: number;
+  words?: WordTimestamp[];
+}
+
+interface LyricsData {
+  lineTimestamps?: LineTimestamp[];  // Legacy format
+  lines?: LineTimestamp[];           // Grove Storage format
+  totalLines?: number;
+  exportedAt?: string;
+  format?: string;
+}
+
+interface KaraokeOverlayProps {
+  lyricsUrl: string;
+  segmentStart?: number;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isPlaying: boolean;
+}
+
+// Karaoke Overlay Component
+const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
+  lyricsUrl,
+  segmentStart,
+  videoRef,
+  isPlaying
+}) => {
+  const [lyricsData, setLyricsData] = useState<LyricsData | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Load lyrics data
+  useEffect(() => {
+    console.log('[KaraokeOverlay] Component mounted with:', { lyricsUrl, segmentStart });
+    if (lyricsUrl) {
+      console.log('[KaraokeOverlay] Loading lyrics from:', lyricsUrl);
+      fetch(lyricsUrl)
+        .then(response => response.json())
+        .then((data: LyricsData) => {
+          console.log('[KaraokeOverlay] Lyrics loaded:', data);
+          setLyricsData(data);
+        })
+        .catch(error => {
+          console.error('[KaraokeOverlay] Failed to load lyrics:', error);
+        });
+    } else {
+      console.log('[KaraokeOverlay] No lyricsUrl provided - overlay will not render');
+    }
+  }, [lyricsUrl]);
+
+  // Track video current time
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isPlaying) return;
+
+    const updateTime = () => {
+      setCurrentTime(video.currentTime);
+    };
+
+    video.addEventListener('timeupdate', updateTime);
+    return () => video.removeEventListener('timeupdate', updateTime);
+  }, [videoRef, isPlaying]);
+
+  // Find current line to display
+  const getCurrentLine = (): LineTimestamp | null => {
+    if (!lyricsData || !segmentStart) return null;
+
+    // Calculate the actual time in the song based on video position and segment start
+    const songTime = segmentStart + currentTime;
+
+    // Handle both formats: Grove Storage uses 'lines', legacy uses 'lineTimestamps'
+    const lines = (lyricsData as any).lines || lyricsData.lineTimestamps || [];
+
+    // Find the line that should be displayed at this time
+    return lines.find((line: any) =>
+      songTime >= line.start && songTime <= line.end
+    ) || null;
+  };
+
+  const currentLine = getCurrentLine();
+
+  // Get current words for karaoke highlighting
+  const getCurrentWords = (): WordTimestamp[] => {
+    if (!currentLine?.words || currentLine.words.length === 0) return [];
+    return currentLine.words;
+  };
+
+  // Don't show overlay if no current line
+  if (!currentLine) return null;
+
+  const currentWords = getCurrentWords();
+  const songTime = segmentStart ? segmentStart + currentTime : currentTime;
+
+  return (
+    <div className="absolute top-4 left-4 right-4 text-center pointer-events-none z-10">
+      <div className="bg-black/80 text-white px-4 py-3 rounded-lg backdrop-blur-sm shadow-lg">
+        {currentWords.length > 0 ? (
+          // Use karaoke word highlighting if word data is available
+          <div className="text-lg font-semibold leading-tight mb-1">
+            <TikTokKaraokeRenderer
+              words={useKaraokeWords(currentWords, songTime)}
+              className="flex flex-wrap justify-center"
+            />
+          </div>
+        ) : (
+          // Fallback to line-level display
+          <div className="text-lg font-semibold leading-tight mb-1">
+            {currentLine.originalText}
+          </div>
+        )}
+
+        {currentLine.translatedText && (
+          <div className="text-sm opacity-80 leading-tight">
+            {currentLine.translatedText}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface VideoPostFeedCoordinator {
   isActive: boolean;
@@ -34,6 +174,12 @@ interface VideoPostProps {
   userHasLiked?: boolean;
   videoId?: string;
   feedCoordinator?: VideoPostFeedCoordinator;
+  // Karaoke props
+  lyricsUrl?: string;
+  lyricsFormat?: string;
+  segmentStart?: number;
+  segmentEnd?: number;
+  songTitle?: string; // Song title for karaoke posts
 }
 
 export const VideoPost: React.FC<VideoPostProps> = ({
@@ -51,12 +197,22 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   lensPostId,
   userHasLiked,
   videoId,
-  feedCoordinator
+  feedCoordinator,
+  // Karaoke props
+  lyricsUrl,
+  lyricsFormat,
+  segmentStart,
+  segmentEnd,
+  songTitle
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [isManuallyControlled, setIsManuallyControlled] = useState(false);
+
+  // Get display values
+  const displayUsername = abbreviateAddress(username);
+  const displayMusicTitle = songTitle || musicTitle;
 
   // Custom hooks
   const {
@@ -184,15 +340,21 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
-    // console.log(`[VideoPost] Props for @${username}:`, {
-    //   lensPostId: lensPostId?.slice(-8),
-    //   userHasLiked,
-    //   username,
-    //   targetAccountAddress,
-    //   canFollow,
-    //   isFollowing
-    // });
-  }, [lensPostId, userHasLiked, username, targetAccountAddress, canFollow, isFollowing]);
+    console.log(`[VideoPost] Props for @${username}:`, {
+      lensPostId: lensPostId?.slice(-8),
+      userHasLiked,
+      username,
+      targetAccountAddress,
+      canFollow,
+      isFollowing,
+      // Karaoke debug info
+      lyricsUrl,
+      lyricsFormat,
+      segmentStart,
+      segmentEnd,
+      hasKaraokeData: !!lyricsUrl
+    });
+  }, [lensPostId, userHasLiked, username, targetAccountAddress, canFollow, isFollowing, lyricsUrl, lyricsFormat, segmentStart, segmentEnd]);
 
   return (
     <div
@@ -236,6 +398,17 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           </div>
         )}
 
+        {/* Karaoke Lyrics Overlay */}
+        {lyricsUrl && (
+          <KaraokeOverlay
+            lyricsUrl={lyricsUrl}
+            segmentStart={segmentStart}
+            videoRef={videoRef}
+            isPlaying={isPlaying}
+          />
+        )}
+
+
         {/* Mute/Unmute button - top left of video */}
         {videoUrl && (
           <button
@@ -262,12 +435,12 @@ export const VideoPost: React.FC<VideoPostProps> = ({
               navigateToProfile(username, creatorHandle, creatorId);
             }}
           >
-            @{username}
+            @{displayUsername}
           </h3>
           <p className="text-white text-sm drop-shadow-lg line-clamp-2">{description}</p>
           <div className="flex items-center gap-2 mt-1">
             <MusicNote className="w-4 h-4 text-white drop-shadow-lg" />
-            <span className="text-white text-sm drop-shadow-lg">{musicTitle}</span>
+            <span className="text-white text-sm drop-shadow-lg">{displayMusicTitle}</span>
           </div>
         </div>
       </div>
@@ -350,12 +523,12 @@ export const VideoPost: React.FC<VideoPostProps> = ({
               navigateToProfile(username, creatorHandle, creatorId);
             }}
           >
-            @{username}
+            @{displayUsername}
           </h3>
           <p className="text-white text-sm mb-3">{description}</p>
           <div className="flex items-center gap-2">
             <MusicNote className="w-4 h-4 text-white" />
-            <span className="text-white text-sm">{musicTitle}</span>
+            <span className="text-white text-sm">{displayMusicTitle}</span>
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import Homepage from './components/Homepage'
 import { EditProfilePage } from './components/profile/EditProfilePage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { ClaimAccountPage } from './components/profile/ClaimAccountPage'
+import { VideoPage } from './components/video/VideoPage'
 import { LearnPage } from './components/LearnPage'
 import { SongPickerPage } from './components/create/SongPickerPage';
 import { SegmentPickerPage } from './components/create/SegmentPickerPage';
@@ -20,6 +21,8 @@ function App() {
         <HashRouter>
             <Routes>
               <Route path="/" element={<Homepage />} />
+              <Route path="/profile/lens/:username/video/:videoId" element={<VideoPage />} />
+              <Route path="/profile/:addressOrEns/video/:videoId" element={<VideoPage />} />
               <Route path="/profile/lens/:username" element={<ProfilePage />} />
               <Route path="/profile/:addressOrEns" element={<ProfilePage />} />
               <Route path="/profile" element={<Navigate to="/profile/karaokeschool" replace />} />

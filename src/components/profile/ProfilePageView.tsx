@@ -77,7 +77,7 @@ export const ProfilePageView: React.FC<ProfilePageViewProps> = ({
     <div className="h-screen bg-black flex">
       
       {/* Desktop Sidebar */}
-      <DesktopSidebar 
+      <DesktopSidebar
         activeTab={activeTab}
         onTabChange={onDesktopTabChange}
         onCreatePost={() => console.log('Create post')}

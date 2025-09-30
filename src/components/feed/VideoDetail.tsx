@@ -6,6 +6,7 @@ import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
+import { VideoPost } from './VideoPost';
 import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import Hls from 'hls.js';
 
@@ -147,6 +148,25 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
     }
   };
 
+  // Auto-play video when component mounts (like main feed)
+  React.useEffect(() => {
+    if (videoRef.current && videoUrl) {
+      const video = videoRef.current;
+      // Start muted for mobile compatibility
+      video.muted = true;
+      setIsMuted(true);
+
+      // Attempt autoplay after a short delay
+      const timer = setTimeout(() => {
+        video.play().catch(e => {
+          console.log('[VideoDetail] Autoplay failed:', e);
+        });
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [videoUrl]);
+
   // HLS.js setup
   React.useEffect(() => {
     if (videoUrl && videoRef.current) {
@@ -204,10 +224,44 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   }, [onNavigatePrevious, onNavigateNext, onClose]);
 
 
+  console.log('[VideoDetail] Rendering with props:', { videoUrl, username, description });
+
+  // Mobile: Use exact same structure as homepage feed
+  if (window.innerWidth < 768) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black">
+        <VideoPost
+          videoUrl={videoUrl}
+          thumbnailUrl={thumbnailUrl}
+          username={username}
+          description={description}
+          likes={likes}
+          comments={comments}
+          shares={shares}
+          musicTitle={musicTitle}
+          creatorHandle={creatorHandle}
+          creatorId={creatorId}
+          lensPostId={lensPostId}
+          userHasLiked={userHasLiked}
+        />
+        {/* Close button overlay - top right to avoid VideoPost mute button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-[100] w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop: Original layout with sidebar
   return (
     <div className="fixed inset-0 bg-neutral-900 z-50 flex">
-      {/* Video Area - Left Side - Full Height */}
-      <div className="flex-1 relative bg-neutral-900 flex items-center justify-center">
+        {/* Video Area - Left Side - Full Height */}
+        <div className="flex-1 relative bg-neutral-900 flex items-center justify-center">
         {/* Close button - Top Left */}
         {onClose && (
           <div className="absolute top-4 left-4 z-10">
@@ -287,6 +341,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
             />
           </div>
         )}
+
       </div>
 
       {/* Right Sidebar - Fixed Width */}
@@ -377,11 +432,11 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
         </div>
       </div>
 
-      {/* Sheets for mobile compatibility */}
+      {/* Desktop-only Sheets */}
       <CommentsSheet
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
-        postId={lensPostId || ''} // Only pass valid Lens post IDs, empty string if none
+        postId={lensPostId || ''}
       />
       <ShareSheet
         open={shareOpen}

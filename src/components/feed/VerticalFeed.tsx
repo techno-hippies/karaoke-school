@@ -23,11 +23,14 @@ export const VerticalFeed: React.FC = () => {
   // Wallet integration
   const { disconnect } = useDisconnect();
 
-  // Shared authentication logic using proper Lens SDK
+  // Unified authentication logic using proper Lens SDK
   const {
     displayAddress,
     displayConnected,
-    isAuthenticated
+    isAuthenticated,
+    canPost,
+    authState,
+    isLoading
   } = useLensAuth();
 
   // Shared navigation logic
@@ -37,11 +40,13 @@ export const VerticalFeed: React.FC = () => {
   useEffect(() => {
     console.log('[VerticalFeed] Authentication state:', {
       isAuthenticated,
-      hasInitialized: true,
+      canPost,
+      authState,
       displayAddress,
-      displayConnected
+      displayConnected,
+      isLoading
     });
-  }, [isAuthenticated, displayAddress, displayConnected]);
+  }, [isAuthenticated, canPost, authState, displayAddress, displayConnected, isLoading]);
   
   // Remove the auto-close effect entirely - let the modal handle it
   
