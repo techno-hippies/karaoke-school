@@ -1,0 +1,22 @@
+{
+  "ciphertext": "lU5uriSwjxZ+1GED0oJAUAPZ99us/Wybw+QgQsDpNXX8BFj5wdRt5x4vMibRWLsPXOqd21xptAVd1ovI8oNToQB0Aw0rWkQj7Bj6SXWIXbXIATwf6S7N/ELYCKTn5dkUu2tw+mYJtkIuzjgnBNec89FNZtLVnPHX+wdXfF/D+clZADfW4bE4KQpuZhGsP8wpLN78oVLUvKiILH3U1hQFGMmM5QXKjlXmHNuvQ5kD7mNHfPdce+9rCKaFj2f8m8AFOcTOajhxFlYsyajyqTr+EbEkDW0Wfcrkvtpek7m3IjOZF9pxUrvmxWcknKLdD2+hVcdn0pu1yh1eB9LeIr6q1Z9S1pWwOfWtokfCco1TpJa2l3zS/gfa40lGAg==",
+  "dataToEncryptHash": "95b37f62e9d20d0e2791336f4da3a2a2f175fd7e71b8c3dbe3140401e532da9b",
+  "accessControlConditions": [
+    {
+      "contractAddress": "",
+      "standardContractType": "",
+      "chain": "ethereum",
+      "method": "",
+      "parameters": [
+        ":currentActionIpfsId"
+      ],
+      "returnValueTest": {
+        "comparator": "=",
+        "value": "QmV5zj59N3z7dgqGDHkftL9FjTKa9qxTm3APYbsoq132DW"
+      }
+    }
+  ],
+  "encryptedAt": "2025-08-09T13:31:15.154Z",
+  "litActionFile": "stt/free.js",
+  "cid": "QmV5zj59N3z7dgqGDHkftL9FjTKa9qxTm3APYbsoq132DW"
+}
