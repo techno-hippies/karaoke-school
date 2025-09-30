@@ -4,6 +4,8 @@ import {
   Lightning,
   CaretLeft
 } from '@phosphor-icons/react';
+import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
+import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 
 interface LineTimestamp {
   lineIndex: number;
@@ -59,6 +61,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [cameraStream, setCameraStream] = useState<ExtendedMediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // front camera by default
@@ -67,7 +70,16 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
 
   // Auto-play audio and start lyrics when recording starts
   useEffect(() => {
+    console.log('[CameraRecorder] Recording state changed:', {
+      isRecording,
+      hasAudioUrl: !!audioUrl,
+      hasSegment: !!segment,
+      audioUrl,
+      segmentTiming: segment ? `${segment.start}s - ${segment.end}s` : 'none'
+    });
+
     if (isRecording && audioUrl && segment) {
+      console.log('[CameraRecorder] Starting audio playback and mixing setup');
       // Start recording with BOTH microphone and background music
       if (mediaRecorder && mediaRecorder.state === 'inactive') {
         setRecordedChunks([]); // Clear previous recording
@@ -79,27 +91,40 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       if (audioRef.current && cameraStream && cameraStream.audioContext && cameraStream.destination) {
         console.log('[CameraRecorder] Connecting background music to recording stream');
 
-        // Create audio source from the background music element
-        const bgMusicSource = cameraStream.audioContext.createMediaElementSource(audioRef.current);
+        try {
+          // Create audio source from the background music element
+          const bgMusicSource = cameraStream.audioContext.createMediaElementSource(audioRef.current);
 
-        // Create gain for background music
-        const bgGain = cameraStream.audioContext.createGain();
-        bgGain.gain.value = 0.6; // Lower volume so voice can be heard over it
+          // Create gain for background music
+          const bgGain = cameraStream.audioContext.createGain();
+          bgGain.gain.value = 0.6; // Lower volume so voice can be heard over it
 
-        // Connect to BOTH the recording destination AND the speakers
-        // This allows you to hear the music while it's also being recorded
-        bgMusicSource.connect(bgGain);
-        bgGain.connect(cameraStream.destination); // For recording
-        bgGain.connect(cameraStream.audioContext.destination); // For speakers (playback)
+          // Connect to BOTH the recording destination AND the speakers
+          // This allows you to hear the music while it's also being recorded
+          bgMusicSource.connect(bgGain);
+          bgGain.connect(cameraStream.destination); // For recording
+          bgGain.connect(cameraStream.audioContext.destination); // For speakers (playback)
 
-        // Store references for cleanup
-        cameraStream.bgMusicSource = bgMusicSource;
-        cameraStream.bgGain = bgGain;
+          // Store references for cleanup
+          cameraStream.bgMusicSource = bgMusicSource;
+          cameraStream.bgGain = bgGain;
 
-        // Start audio from segment start
-        audioRef.current.currentTime = segment.start;
-        audioRef.current.play();
-        console.log('[CameraRecorder] Background music connected to both recording and speakers');
+          // Start audio from segment start
+          audioRef.current.currentTime = segment.start;
+          audioRef.current.play();
+          console.log('[CameraRecorder] Background music connected to both recording and speakers');
+
+        } catch (error) {
+          console.warn('[CameraRecorder] Failed to connect audio element (already connected):', error);
+
+          // Fallback: just play the audio without Web Audio API mixing
+          // This ensures audio still plays even if recording doesn't capture it
+          if (audioRef.current) {
+            audioRef.current.currentTime = segment.start;
+            audioRef.current.play();
+            console.log('[CameraRecorder] Playing audio without Web Audio mixing (fallback)');
+          }
+        }
       }
       setRecordingStartTime(Date.now());
       setCurrentLyricIndex(0);
@@ -134,6 +159,12 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         cameraStream.bgGain?.disconnect();
         cameraStream.bgMusicSource = null;
         cameraStream.bgGain = null;
+      }
+
+      // Pause and reset audio element to allow reconnection
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
     }
   }, [isRecording, audioUrl, segment, onStop, mediaRecorder]);
@@ -331,6 +362,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     const interval = setInterval(() => {
       if (audioRef.current) {
         const currentTime = audioRef.current.currentTime;
+        setCurrentAudioTime(currentTime);
 
         // Find which lyric should be showing based on current audio time
         const activeIndex = segment.lyrics.findIndex(lyric =>
@@ -376,6 +408,22 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     return [current, next].filter(Boolean);
   };
 
+  // Get all words from current segment for karaoke highlighting
+  const getCurrentWords = () => {
+    if (!segment?.lyrics) return [];
+
+    // Extract all words from all lines in the segment
+    const allWords: Array<{ text: string; start: number; end: number }> = [];
+
+    segment.lyrics.forEach(line => {
+      if (line.words && line.words.length > 0) {
+        allWords.push(...line.words);
+      }
+    });
+
+    return allWords;
+  };
+
   return (
     <div className={`relative w-full h-screen bg-black overflow-hidden ${className}`}>
       {/* Safe area spacer */}
@@ -413,23 +461,17 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         <CaretLeft className="w-6 h-6 text-white" />
       </button>
 
-      {/* Rolling lyrics display - positioned near top for eye contact */}
+      {/* Karaoke lyrics display with word-level highlighting */}
       {segment?.lyrics && (
         <div className="absolute top-20 left-4 right-4 z-20">
           <div className="text-center">
             <div className="bg-black bg-opacity-40 backdrop-blur-sm rounded-lg px-4 py-3 mx-4">
               <div className="space-y-3">
-                {getCurrentLyrics().length > 0 ? (
-                  getCurrentLyrics().map((lyric, index) => (
-                    <p
-                      key={lyric.lineIndex}
-                      className={`text-white text-xl font-medium leading-tight transition-all duration-300 ${
-                        index === 0 ? 'opacity-100 scale-100' : 'opacity-70 scale-95'
-                      }`}
-                    >
-                      {lyric.originalText}
-                    </p>
-                  ))
+                {getCurrentWords().length > 0 ? (
+                  <TikTokKaraokeRenderer
+                    words={useKaraokeWords(getCurrentWords(), currentAudioTime)}
+                    className="text-xl font-medium leading-tight flex flex-wrap justify-center"
+                  />
                 ) : (
                   <p className="text-white text-xl font-medium leading-tight">
                     🎤 Ready to sing!
@@ -448,6 +490,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
           ref={audioRef}
           src={audioUrl}
           preload="auto"
+          crossOrigin="anonymous"
         />
       )}
 

@@ -21,6 +21,11 @@ export interface FeedItem {
     musicTitle?: string;
     lensPostId?: string;
     userHasLiked?: boolean;
+    // Karaoke-specific fields
+    lyricsUrl?: string;
+    lyricsFormat?: string;
+    segmentStart?: number;
+    segmentEnd?: number;
     // Quiz-specific fields
     showQuizAfter?: number;
     question?: string;
@@ -43,6 +48,12 @@ export interface LensFeedItem {
     comments: number;
     shares: number;
     userHasLiked?: boolean; // Add reaction state
+    // Karaoke-specific fields
+    lyricsUrl?: string;
+    lyricsFormat?: string;
+    segmentStart?: number;
+    segmentEnd?: number;
+    songTitle?: string;
   };
   video: {
     id: string;

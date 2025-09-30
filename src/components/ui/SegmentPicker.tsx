@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, CaretLeft } from '@phosphor-icons/react';
 import { generateSegmentRecommendations } from '../../lib/songs/recommendations';
+import { useKaraokeWords, groupWordsByLines } from '../../hooks/karaoke/useKaraokeWords';
+import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 
 interface WaveSurferRegion {
   start: number;
@@ -277,26 +279,29 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
               <div className="space-y-3 h-full overflow-y-auto">
                 {selectedSegment.lyrics.map((line) => (
                   <div key={line.lineIndex} className="text-left">
-                    <div className="text-lg font-medium leading-relaxed flex flex-wrap">
-                      {line.words && line.words.length > 0 ? (
-                        // Show individual words with timing-based highlighting
-                        line.words.map((word, wordIndex) => {
+                    {line.words && line.words.length > 0 ? (
+                      // Use new karaoke renderer for word-level highlighting
+                      <TikTokKaraokeRenderer
+                        words={line.words.map(word => {
                           const isActive = currentTime >= word.start && currentTime <= word.end;
-
-                          return (
-                            <span
-                              key={wordIndex}
-                              className={`mr-1 ${isActive ? 'text-[#FE2C55]' : 'text-white'}`}
-                            >
-                              {word.text}
-                            </span>
-                          );
-                        })
-                      ) : (
-                        // Fallback to original text if no word data
-                        <span className="text-white">{line.originalText}</span>
-                      )}
-                    </div>
+                          const isPast = currentTime > word.end;
+                          const isFuture = currentTime < word.start;
+                          return {
+                            ...word,
+                            state: isActive ? 'active' : isPast ? 'past' : 'future',
+                            isActive,
+                            isPast,
+                            isFuture
+                          };
+                        })}
+                        className="text-lg font-medium leading-relaxed flex flex-wrap"
+                      />
+                    ) : (
+                      // Fallback to original text if no word data
+                      <div className="text-lg font-medium leading-relaxed text-white">
+                        {line.originalText}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

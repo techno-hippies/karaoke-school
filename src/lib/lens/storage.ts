@@ -1,6 +1,6 @@
 import { chains } from "@lens-chain/sdk/viem";
 import { immutable, lensAccountOnly, StorageClient } from "@lens-chain/storage-client";
-import { getLensSession } from "./session";
+import type { SessionClient } from "@lens-protocol/client";
 
 // Storage client singleton
 let storageClient: StorageClient | null = null;
@@ -20,9 +20,7 @@ export function getStorageClient(): StorageClient {
  * Get the appropriate ACL configuration based on authentication state
  * Uses Lens Account ACL if authenticated, otherwise immutable
  */
-export function getACLConfig() {
-  const sessionClient = getLensSession();
-
+export function getACLConfig(sessionClient?: SessionClient) {
   if (sessionClient && sessionClient.account) {
     console.log('[Storage] Using Lens Account ACL for authenticated user:', sessionClient.account.address);
 
@@ -43,7 +41,7 @@ export function getACLConfig() {
  * Upload a video file to Grove storage
  * Returns the storage URI that can be used in Lens posts
  */
-export async function uploadVideoToGrove(videoBlob: Blob): Promise<{
+export async function uploadVideoToGrove(videoBlob: Blob, sessionClient?: SessionClient): Promise<{
   uri: string;
   gatewayUrl: string;
   storageKey: string;
@@ -55,7 +53,7 @@ export async function uploadVideoToGrove(videoBlob: Blob): Promise<{
     });
 
     const storage = getStorageClient();
-    const acl = getACLConfig();
+    const acl = getACLConfig(sessionClient);
 
     // Convert blob to File for upload
     const videoFile = new File([videoBlob], 'karaoke-video.webm', {
@@ -85,7 +83,7 @@ export async function uploadVideoToGrove(videoBlob: Blob): Promise<{
  * Upload JSON metadata to Grove storage
  * Used for Lens post metadata
  */
-export async function uploadMetadataToGrove(metadata: Record<string, unknown>): Promise<{
+export async function uploadMetadataToGrove(metadata: Record<string, unknown>, sessionClient?: SessionClient): Promise<{
   uri: string;
   gatewayUrl: string;
   storageKey: string;
@@ -94,7 +92,7 @@ export async function uploadMetadataToGrove(metadata: Record<string, unknown>): 
     console.log('[Storage] Uploading metadata to Grove:', metadata);
 
     const storage = getStorageClient();
-    const acl = getACLConfig();
+    const acl = getACLConfig(sessionClient);
 
     const response = await storage.uploadAsJson(metadata, { acl });
 

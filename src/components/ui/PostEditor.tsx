@@ -171,6 +171,26 @@ export const PostEditor: React.FC<PostEditorProps> = ({
           value: videoResult.gatewayUrl,
           type: 'String'
         },
+        {
+          key: 'karaoke_lyrics_url',
+          value: `/songs/${postData.songId}/karaoke-line-timestamps.json`,
+          type: 'String'
+        },
+        {
+          key: 'karaoke_segment_start',
+          value: postData.segment.start.toString(),
+          type: 'String'
+        },
+        {
+          key: 'karaoke_segment_end',
+          value: postData.segment.end.toString(),
+          type: 'String'
+        },
+        {
+          key: 'karaoke_lyrics_format',
+          value: 'word-timestamps',
+          type: 'String'
+        },
         ...(postData.songTitle ? [{
           key: 'karaoke_song_title',
           value: postData.songTitle,

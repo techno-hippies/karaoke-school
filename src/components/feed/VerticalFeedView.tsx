@@ -18,6 +18,11 @@ interface FeedItem {
     likes: number;
     comments: number;
     shares: number;
+    // Karaoke fields
+    lyricsUrl?: string;
+    lyricsFormat?: string;
+    segmentStart?: number;
+    segmentEnd?: number;
     [key: string]: unknown;
   };
 }

@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ProfilePageView } from './ProfilePageView';
-import { VideoDetail } from '../feed/VideoDetail';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useEnsAddress, useDisconnect } from 'wagmi';
 import { useProfileVideos, getCreatorHandle } from '../../hooks/media/useProfileVideos';
@@ -51,8 +50,6 @@ export const ProfilePage: React.FC = () => {
     authenticatedUser
   } = useLensAuth();
   const { openConnectModal } = useConnectModal();
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
   
   const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'following' | 'profile'>('profile');
   const [mobileTab, setMobileTab] = useState<'home' | 'post' | 'profile'>('profile');
@@ -135,9 +132,11 @@ export const ProfilePage: React.FC = () => {
   // Get creator handle for display
   const creatorHandle = getCreatorHandle(profileIdentifier);
 
-  // Display username logic - handle Lens profiles differently
+  // Display username logic - abbreviate long addresses for both Lens and regular profiles
   const displayUsername = isLensProfile
-    ? profileIdentifier // For Lens profiles, show the username directly
+    ? (profileIdentifier?.startsWith('0x') && profileIdentifier.length === 42
+        ? `${profileIdentifier.slice(0, 6)}...${profileIdentifier.slice(-4)}`
+        : profileIdentifier) // For Lens usernames, show directly
     : (creatorHandle || (profileIdentifier?.startsWith('0x')
         ? `${profileIdentifier.slice(0, 6)}...${profileIdentifier.slice(-4)}`
         : profileIdentifier || 'karaokeschool'));
@@ -148,7 +147,7 @@ export const ProfilePage: React.FC = () => {
     displayName: displayUsername, // Use username as display name
     avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${profileIdentifier}`, // Use avataaars for all profiles
     bio: isLensProfile
-      ? `Lens Protocol creator: @${profileIdentifier}` // Default bio for Lens profiles
+      ? '👋' // Simple waving emoji for Lens profiles
       : '', // Empty bio for non-Lens profiles
     // Check different possible locations for stats
     following: statsResult?.following || statsResult?.data?.following || 0,
@@ -211,24 +210,23 @@ export const ProfilePage: React.FC = () => {
   }, [navigate]);
 
   const handleVideoClick = useCallback((video: Video) => {
-    const index = allVideos?.findIndex(v => v.id === video.id) ?? 0;
-    setCurrentVideoIndex(index);
-    setSelectedVideo(video);
-  }, [allVideos]);
+    console.log('[ProfilePage] Video clicked:', video);
+    console.log('[ProfilePage] Navigating to video URL');
 
-  const handleNavigatePrevious = useCallback(() => {
-    if (!allVideos || currentVideoIndex <= 0) return;
-    const newIndex = currentVideoIndex - 1;
-    setCurrentVideoIndex(newIndex);
-    setSelectedVideo(allVideos[newIndex]);
-  }, [allVideos, currentVideoIndex]);
+    // Navigate to individual video URL instead of modal
+    if (isLensProfile) {
+      if (username) {
+        // True lens username case
+        navigate(`/profile/lens/${username}/video/${video.id}`);
+      } else {
+        // Lens account address case - use addressOrEns route
+        navigate(`/profile/${profileIdentifier}/video/${video.id}`);
+      }
+    } else {
+      navigate(`/profile/${profileIdentifier}/video/${video.id}`);
+    }
+  }, [isLensProfile, username, profileIdentifier, navigate]);
 
-  const handleNavigateNext = useCallback(() => {
-    if (!allVideos || currentVideoIndex >= allVideos.length - 1) return;
-    const newIndex = currentVideoIndex + 1;
-    setCurrentVideoIndex(newIndex);
-    setSelectedVideo(allVideos[newIndex]);
-  }, [allVideos, currentVideoIndex]);
 
   const handleEditProfile = useCallback(() => {
     navigate('/edit-profile');
@@ -299,28 +297,6 @@ export const ProfilePage: React.FC = () => {
       />
       
 
-      {/* Video Detail Modal */}
-      {selectedVideo && (
-        <VideoDetail
-          videoUrl={selectedVideo.videoUrl}
-          thumbnailUrl={selectedVideo.thumbnailUrl}
-          username={displayUsername}
-          description={profileData.bio || 'Check out this video!'}
-          likes={selectedVideo.likes || 0} // Use real likes from Lens data
-          comments={selectedVideo.comments || 0} // Use real comments from Lens data
-          shares={selectedVideo.shares || 0} // Use real shares from Lens data
-          musicTitle="Original Sound"
-          creatorHandle={profileData.displayName}
-          creatorId={isLensProfile ? `lens/${profileIdentifier}` : undefined}
-          lensPostId={isLensProfile ? selectedVideo.id : undefined} // Pass Lens post ID for reactions
-          userHasLiked={false} // TODO: Get from Lens operations when available
-          onClose={() => setSelectedVideo(null)}
-          currentVideoIndex={currentVideoIndex}
-          totalVideos={allVideos?.length || 0}
-          onNavigatePrevious={handleNavigatePrevious}
-          onNavigateNext={handleNavigateNext}
-        />
-      )}
     </>
   );
 };
