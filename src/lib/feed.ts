@@ -1,6 +1,6 @@
 import { lensClient } from "./lens/client";
 import { fetchPosts, fetchAccountsAvailable } from "@lens-protocol/client/actions";
-import { evmAddress } from "@lens-protocol/client";
+import { evmAddress, type PublicClient } from "@lens-protocol/client";
 import type { LensFeedItem } from "../types/feed";
 import { getStorageClient } from "./lens/storage";
 
@@ -11,10 +11,12 @@ const LENS_TESTNET_APP = '0x9484206D9beA9830F27361a2F5868522a8B8Ad22';
  * Fetch feed items from Lens Protocol using appId filter
  * This gets all posts for the app, removing PKP dependencies
  */
-export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> {
+export async function getFeedItems(limit: number = 50, sessionClient?: PublicClient): Promise<LensFeedItem[]> {
   console.log('🎵 [getFeedItems] Starting feed fetch with limit:', limit);
   try {
-    const clientToUse = lensClient;
+    // Use authenticated session client if available for personal interaction state
+    const clientToUse = sessionClient || lensClient;
+    console.log('[getFeedItems] Using client:', sessionClient ? 'authenticated session' : 'public');
 
     // Try to get wallet address for debugging - now handled by React SDK
     const walletAddress = null; // Not needed for public feed queries
@@ -54,7 +56,21 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
 
     // Transform Lens posts to legacy subgraph format
     return posts
-      .filter(post => post && post.id) // More lenient filter - just need an ID
+      .filter(post => {
+        // Filter out invalid posts
+        if (!post || !post.id) return false;
+
+        // Filter out comments - posts that have commentOn field are comments on other posts
+        if (post.commentOn) {
+          console.log('[getFeedItems] Filtering out comment post:', post.id, 'commenting on:', post.commentOn.id);
+          return false;
+        }
+
+        // Filter out quotes and reposts if desired (optional)
+        // if (post.quoteOf || post.repostOf) return false;
+
+        return true;
+      })
       .map((post, index) => {
 
         // Handle different possible post structures - Lens uses 'author' not 'by'
@@ -71,11 +87,14 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
 
         const extractedVideoUrl = extractVideoUrl(post.metadata);
         const karaokeData = extractKaraokeData(post.metadata);
+        const hasUpvoted = post.operations?.hasUpvoted || false;
         console.log('[getFeedItems] Processing post:', {
           postId: post.id,
           extractedUrl: extractedVideoUrl,
           karaokeData,
           hasKaraokeData: Object.keys(karaokeData).length > 0,
+          hasUpvoted,
+          operations: post.operations,
           metadataAttributes: post.metadata?.attributes || 'no attributes',
           fullMetadata: post.metadata
         });
@@ -102,6 +121,7 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
             likes: post.stats?.upvotes || 0,
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
+            userHasLiked: hasUpvoted,
             // Include karaoke lyrics data (both legacy and new embedded format)
             ...karaokeData,
           },
@@ -385,7 +405,7 @@ export async function getLensUserPosts(addressOrUsername: string): Promise<LensF
  * Get app feed items (replaces PKP-based approach)
  * This is now the main function for getting all app posts
  */
-export async function getAppFeedItems(): Promise<LensFeedItem[]> {
-  return getFeedItems();
+export async function getAppFeedItems(sessionClient?: PublicClient): Promise<LensFeedItem[]> {
+  return getFeedItems(50, sessionClient);
 }
 
