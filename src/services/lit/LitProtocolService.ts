@@ -72,6 +72,10 @@ class LitProtocolService {
     try {
       console.log('[Lit] Creating EOA authContext (no PKP needed for STT)...')
 
+      // Get correct domain (must match the site's actual domain)
+      const domain = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+      console.log('[Lit] Using domain:', domain)
+
       // Create EOA auth context (for execute-only, no signing)
       this.authContext = await authManager.createEoaAuthContext({
         authConfig: {
@@ -79,8 +83,8 @@ class LitProtocolService {
             ['lit-action-execution', '*']
           ],
           expiration: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // 24 hours
-          statement: 'Execute Speech-to-Text Lit Action for Say It Back exercises',
-          domain: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+          statement: 'Sign in to use speech recognition',
+          domain: domain
         },
         config: {
           account: walletClient
