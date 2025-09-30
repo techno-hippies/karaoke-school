@@ -44,6 +44,8 @@
     "siwe": "2.3.2",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "tinybase": "6.6.1",
+    "ts-fsrs": "5.2.3",
     "viem": "^2.37.5",
     "wagmi": "^2.16.9",
     "wavesurfer.js": "^7.10.3",

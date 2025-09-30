@@ -2,11 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { PostReactionType, postId } from "@lens-protocol/client";
 import { addReaction, undoReaction } from "@lens-protocol/client/actions";
 import { useLensAuth } from './useLensAuth';
+import { fsrsService } from '../../services/FSRSService';
+import type { EmbeddedKaraokeSegment } from '../../types/feed';
 
 interface UseLensReactionsProps {
   postId: string;
   initialLikeCount?: number;
   userHasLiked?: boolean;
+  karaokeSegment?: EmbeddedKaraokeSegment;
 }
 
 interface UseLensReactionsReturn {
@@ -21,7 +24,8 @@ export function useLensReactions(
   postIdString: string,
   initialLikeCount: number = 0,
   userHasLiked: boolean = false,
-  onRefreshFeed?: () => void
+  onRefreshFeed?: () => void,
+  karaokeSegment?: EmbeddedKaraokeSegment
 ): UseLensReactionsReturn {
   const [isLiked, setIsLiked] = useState(userHasLiked);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
@@ -102,6 +106,17 @@ export function useLensReactions(
       }
 
       console.log('[useLensReactions] ✅ Reaction successful');
+
+      // Create FSRS cards if this is a like (not unlike) and karaoke data exists
+      if (newIsLiked && karaokeSegment) {
+        try {
+          const cardsCreated = fsrsService.createCardsFromLike(postIdString, karaokeSegment);
+          console.log(`[useLensReactions] ✅ Created ${cardsCreated} FSRS cards for study`);
+        } catch (error) {
+          console.error('[useLensReactions] ❌ Failed to create FSRS cards:', error);
+          // Don't revert like - card creation failure shouldn't affect social action
+        }
+      }
 
       // Refresh feed after successful action
       if (onRefreshFeed) {

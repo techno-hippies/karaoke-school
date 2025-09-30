@@ -357,7 +357,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     isLoading: isLikeLoading,
     toggleLike,
     canLike
-  } = useLensReactions(lensPostId || '', likes, userHasLiked, onRefreshFeed);
+  } = useLensReactions(lensPostId || '', likes, userHasLiked, onRefreshFeed, karaokeSegment);
 
   // Lens follows integration - use the account address for following
   const targetAccountAddress = creatorAccountAddress;
