@@ -131,9 +131,15 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
     }
 
     const loadWaveSurfer = async () => {
-      // Dynamic import to avoid SSR issues
-      const WaveSurfer = (await import('wavesurfer.js')).default;
-      const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.js')).default;
+      try {
+        console.log('[SegmentPicker] Starting WaveSurfer initialization...');
+        console.log('[SegmentPicker] Audio URL:', song.audioUrl);
+
+        // Dynamic import to avoid SSR issues
+        const WaveSurfer = (await import('wavesurfer.js')).default;
+        const RegionsPlugin = (await import('wavesurfer.js/dist/plugins/regions.js')).default;
+
+        console.log('[SegmentPicker] WaveSurfer modules loaded successfully');
 
       const regions = RegionsPlugin.create();
 
@@ -149,6 +155,7 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
       });
 
       // Load audio
+      console.log('[SegmentPicker] Loading audio from:', song.audioUrl);
       wavesurferRef.current.load(song.audioUrl);
 
       // Handle play/pause
@@ -213,6 +220,9 @@ export const SegmentPicker: React.FC<SegmentPickerProps> = ({
       regions.enableDragSelection({
         color: 'rgba(99, 102, 241, 0.2)'
       });
+    } catch (error) {
+        console.error('[SegmentPicker] Failed to initialize WaveSurfer:', error);
+      }
     };
 
     loadWaveSurfer();

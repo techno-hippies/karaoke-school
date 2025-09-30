@@ -1,10 +1,24 @@
 import { useState, useEffect } from 'react';
+import { generateCardsFromVideo, type ExerciseCard } from '../../services/FSRSCardGenerator';
+import type { EmbeddedKaraokeSegment } from '../../types/feed';
 
 interface LikedSong {
   postId: string;
   username: string;
   description: string;
   timestamp: string;
+
+  // Enhanced karaoke metadata for FSRS card generation
+  songId?: string;
+  songTitle?: string;
+  lyricsUrl?: string;
+  segmentStart?: number;
+  segmentEnd?: number;
+  karaokeSegment?: EmbeddedKaraokeSegment; // Embedded karaoke data
+
+  // Generated exercise cards cache
+  exerciseCards?: ExerciseCard[];
+  cardsGenerated?: boolean;
 }
 
 export function useLikedSongs() {
@@ -31,7 +45,7 @@ export function useLikedSongs() {
     }
   }, [likedSongs]);
 
-  const addLikedSong = (song: LikedSong) => {
+  const addLikedSong = async (song: LikedSong) => {
     setLikedSongs(prev => {
       // Avoid duplicates
       if (prev.some(s => s.postId === song.postId)) {
@@ -40,6 +54,38 @@ export function useLikedSongs() {
       console.log('[useLikedSongs] Adding liked song:', song);
       return [...prev, song];
     });
+
+    // Generate FSRS cards in background if karaoke data is available
+    if (song.karaokeSegment || (song.songId && song.segmentStart !== undefined)) {
+      try {
+        console.log('[useLikedSongs] Generating FSRS cards for liked song:', song.postId);
+        const exerciseCards = await generateCardsFromVideo(song);
+
+        if (exerciseCards.length > 0) {
+          console.log(`[useLikedSongs] Generated ${exerciseCards.length} exercise cards`);
+
+          // Update the song with generated cards
+          setLikedSongs(current =>
+            current.map(s =>
+              s.postId === song.postId
+                ? { ...s, exerciseCards, cardsGenerated: true }
+                : s
+            )
+          );
+        }
+      } catch (error) {
+        console.error('[useLikedSongs] Failed to generate exercise cards:', error);
+
+        // Mark as attempted but failed
+        setLikedSongs(current =>
+          current.map(s =>
+            s.postId === song.postId
+              ? { ...s, cardsGenerated: false }
+              : s
+          )
+        );
+      }
+    }
   };
 
   const removeLikedSong = (postId: string) => {
