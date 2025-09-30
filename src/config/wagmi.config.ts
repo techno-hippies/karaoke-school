@@ -1,5 +1,6 @@
 import { http, createConfig, createStorage } from 'wagmi'
 import { baseSepolia, mainnet } from 'wagmi/chains'
+import { defineChain } from 'viem'
 import { 
   connectorsForWallets,
 } from '@rainbow-me/rainbowkit'
@@ -10,6 +11,29 @@ import {
   rainbowWallet,
 } from '@rainbow-me/rainbowkit/wallets'
 import { createJoyIdWallet } from '@joyid/rainbowkit'
+
+// Define Lens Chain Testnet
+export const lensChainTestnet = defineChain({
+  id: 37111,
+  name: 'Lens Chain Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'GRASS',
+    symbol: 'GRASS',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.testnet.lens.xyz'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Lens Chain Explorer',
+      url: 'https://block-explorer.testnet.lens.xyz',
+    },
+  },
+  testnet: true,
+})
 
 // WalletConnect project ID - you should replace this with your own
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID'
@@ -42,10 +66,11 @@ const connectors = connectorsForWallets(
 
 // Create config for wagmi
 export const wagmiConfig = createConfig({
-  chains: [baseSepolia, mainnet], // Include mainnet for ENS resolution
+  chains: [lensChainTestnet, baseSepolia, mainnet], // Lens Chain Testnet primary, others for ENS
   connectors,
   storage: createStorage({ storage: localStorage }),
   transports: {
+    [lensChainTestnet.id]: http(),
     [baseSepolia.id]: http(),
     [mainnet.id]: http(), // Add mainnet transport for ENS
   },
