@@ -14,12 +14,14 @@ interface CommentsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   postId: string;
+  onRefreshFeed?: () => void;
 }
 
 export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   open,
   onOpenChange,
   postId,
+  onRefreshFeed,
 }) => {
 
   // Use Lens comments hook
@@ -32,7 +34,8 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
     submitComment
   } = useLensComments({
     postId: postId || '',
-    initialCommentCount: 0
+    initialCommentCount: 0,
+    onRefreshFeed
   });
 
   // Transform Lens comments to match existing Comment component interface

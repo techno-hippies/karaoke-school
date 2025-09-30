@@ -208,6 +208,7 @@ interface VideoPostProps {
   userHasLiked?: boolean;
   videoId?: string;
   feedCoordinator?: VideoPostFeedCoordinator;
+  onRefreshFeed?: () => void;
   // Karaoke props
   lyricsUrl?: string;
   lyricsFormat?: string;
@@ -233,6 +234,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   userHasLiked,
   videoId,
   feedCoordinator,
+  onRefreshFeed,
   // Karaoke props
   lyricsUrl,
   lyricsFormat,
@@ -355,7 +357,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     isLoading: isLikeLoading,
     toggleLike,
     canLike
-  } = useLensReactions(lensPostId || '');
+  } = useLensReactions(lensPostId || '', likes, userHasLiked, onRefreshFeed);
 
   // Lens follows integration - use the account address for following
   const targetAccountAddress = creatorAccountAddress;
@@ -637,6 +639,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
         postId={lensPostId || ''} // Only pass valid Lens post IDs, empty string if none
+        onRefreshFeed={onRefreshFeed}
       />
       <ShareSheet
         open={shareOpen}

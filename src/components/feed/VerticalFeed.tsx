@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDisconnect } from 'wagmi';
 import { VerticalFeedView } from './VerticalFeedView';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAppFeedItems } from '../../lib/feed';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useLensAuth } from '../../hooks/lens/useLensAuth';
@@ -30,12 +30,16 @@ export const VerticalFeed: React.FC = () => {
     isAuthenticated,
     canPost,
     authState,
-    isLoading
+    isLoading,
+    sessionClient
   } = useLensAuth();
 
   // Shared navigation logic
   const navigation = useAppNavigation();
-  
+
+  // Query client for invalidating feed data
+  const queryClient = useQueryClient();
+
   // Debug logging for authentication state
   useEffect(() => {
     console.log('[VerticalFeed] Authentication state:', {
@@ -53,8 +57,8 @@ export const VerticalFeed: React.FC = () => {
 
   // Fetch app feed items directly using appId filter
   const appFeedQuery = useQuery({
-    queryKey: ['app-feed'],
-    queryFn: getAppFeedItems,
+    queryKey: ['app-feed', sessionClient ? 'authenticated' : 'public'],
+    queryFn: () => getAppFeedItems(sessionClient),
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 5 * 60 * 1000, // 5 minutes
   });
@@ -77,6 +81,12 @@ export const VerticalFeed: React.FC = () => {
   const getFilteredFeed = (): FeedItem[] => {
     return transformLensFeed(blockchainFeed, 3);
   };
+
+  // Function to refresh feed data after actions
+  const refreshFeed = React.useCallback(() => {
+    console.log('[VerticalFeed] Refreshing feed after user action');
+    queryClient.invalidateQueries({ queryKey: ['app-feed'] });
+  }, [queryClient]);
 
   const handleOnboardingAction = (type: string) => {
     if (type === 'connect' || type === 'wallet') {
@@ -155,6 +165,7 @@ export const VerticalFeed: React.FC = () => {
         onCreatePost={handleCreatePost}
         onDisconnect={() => disconnect()}
         onOnboardingAction={handleOnboardingAction}
+        onRefreshFeed={refreshFeed}
       />
     </>
   );

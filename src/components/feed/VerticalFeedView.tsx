@@ -39,6 +39,7 @@ interface VerticalFeedViewProps {
   onCreatePost: () => void;
   onDisconnect: () => void;
   onOnboardingAction: (type: string) => void;
+  onRefreshFeed: () => void;
   
   // Optional coordinator for XState integration
   feedCoordinator?: {
@@ -66,6 +67,7 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
   onCreatePost,
   onDisconnect,
   onOnboardingAction,
+  onRefreshFeed,
   feedCoordinator: _feedCoordinator,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -152,6 +154,7 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
                 // Pass video ID and coordinator interface
                 videoId={item.id}
                 feedCoordinator={videoCoordinator}
+                onRefreshFeed={onRefreshFeed}
               />
             );
           }
