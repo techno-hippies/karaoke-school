@@ -103,6 +103,12 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
     return () => video.removeEventListener('timeupdate', updateTime);
   }, [videoRef, isPlaying]);
 
+  // Check if text is a structural marker like (Pre-Chorus), [Verse], etc.
+  const isStructuralMarker = (text: string): boolean => {
+    if (!text) return true;
+    return /^\s*[\(\[].*[\)\]]\s*$/.test(text) || text.trim().length === 0;
+  };
+
   // Find current line to display
   const getCurrentLine = (): LineTimestamp | null => {
     if (!lyricsData) return null;
@@ -121,10 +127,14 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
     // Handle both formats: Grove Storage uses 'lines', legacy uses 'lineTimestamps'
     const lines = (lyricsData as any).lines || lyricsData.lineTimestamps || [];
 
-    // Find the line that should be displayed at this time
-    return lines.find((line: any) =>
-      timeToUse >= line.start && timeToUse <= line.end
-    ) || null;
+    // Find the line that should be displayed at this time (filter out structural markers)
+    return lines.find((line: any) => {
+      const text = line.originalText || line.text || '';
+      const isInTimeRange = timeToUse >= line.start && timeToUse <= line.end;
+      const isValidLyric = !isStructuralMarker(text);
+
+      return isInTimeRange && isValidLyric;
+    }) || null;
   };
 
   const currentLine = getCurrentLine();
@@ -135,12 +145,15 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
     return currentLine.words;
   };
 
-  // Don't show overlay if no current line
-  if (!currentLine) return null;
-
   const currentWords = getCurrentWords();
   // Use appropriate timing for word highlighting
   const songTime = karaokeSegment ? currentTime : (segmentStart ? segmentStart + currentTime : currentTime);
+
+  // ALWAYS call useKaraokeWords hook (fixes React Hooks Rule violation)
+  const processedWords = useKaraokeWords(currentWords, songTime);
+
+  // Don't show overlay if no current line
+  if (!currentLine) return null;
 
   return (
     <div className="absolute top-4 left-4 right-4 text-center pointer-events-none z-10">
@@ -149,7 +162,7 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
           // Use karaoke word highlighting if word data is available
           <div className="text-lg font-semibold leading-tight mb-1">
             <TikTokKaraokeRenderer
-              words={useKaraokeWords(currentWords, songTime)}
+              words={processedWords}
               className="flex flex-wrap justify-center"
             />
           </div>
