@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, X, CaretUp, CaretDown, Play } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
@@ -8,7 +8,141 @@ import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
 import { VideoPost } from './VideoPost';
 import { useLensReactions } from '../../hooks/lens/useLensReactions';
+import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
+import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 import Hls from 'hls.js';
+
+// Types for lyrics data (same as VideoPost)
+interface WordTimestamp {
+  text: string;
+  start: number;
+  end: number;
+}
+
+interface LineTimestamp {
+  lineIndex: number;
+  originalText: string;
+  translatedText?: string;
+  start: number;
+  end: number;
+  wordCount: number;
+  words?: WordTimestamp[];
+}
+
+interface LyricsData {
+  lineTimestamps?: LineTimestamp[];  // Legacy format
+  lines?: LineTimestamp[];           // Grove Storage format
+  totalLines?: number;
+  exportedAt?: string;
+  format?: string;
+}
+
+interface KaraokeOverlayProps {
+  lyricsUrl: string;
+  segmentStart?: number;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  isPlaying: boolean;
+}
+
+// Karaoke Overlay Component (same as VideoPost)
+const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
+  lyricsUrl,
+  segmentStart,
+  videoRef,
+  isPlaying
+}) => {
+  const [lyricsData, setLyricsData] = useState<LyricsData | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Load lyrics data
+  useEffect(() => {
+    console.log('[VideoDetail KaraokeOverlay] Component mounted with:', { lyricsUrl, segmentStart });
+    if (lyricsUrl) {
+      console.log('[VideoDetail KaraokeOverlay] Loading lyrics from:', lyricsUrl);
+      fetch(lyricsUrl)
+        .then(response => response.json())
+        .then((data: LyricsData) => {
+          console.log('[VideoDetail KaraokeOverlay] Lyrics loaded:', data);
+          setLyricsData(data);
+        })
+        .catch(error => {
+          console.error('[VideoDetail KaraokeOverlay] Failed to load lyrics:', error);
+        });
+    } else {
+      console.log('[VideoDetail KaraokeOverlay] No lyricsUrl provided - overlay will not render');
+    }
+  }, [lyricsUrl]);
+
+  // Track video current time
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isPlaying) return;
+
+    const updateTime = () => {
+      setCurrentTime(video.currentTime);
+    };
+
+    video.addEventListener('timeupdate', updateTime);
+    return () => video.removeEventListener('timeupdate', updateTime);
+  }, [videoRef, isPlaying]);
+
+  // Find current line to display
+  const getCurrentLine = (): LineTimestamp | null => {
+    if (!lyricsData || !segmentStart) return null;
+
+    // Calculate the actual time in the song based on video position and segment start
+    const songTime = segmentStart + currentTime;
+
+    // Handle both formats: Grove Storage uses 'lines', legacy uses 'lineTimestamps'
+    const lines = (lyricsData as any).lines || lyricsData.lineTimestamps || [];
+
+    // Find the line that should be displayed at this time
+    return lines.find((line: any) =>
+      songTime >= line.start && songTime <= line.end
+    ) || null;
+  };
+
+  const currentLine = getCurrentLine();
+
+  // Get current words for karaoke highlighting
+  const getCurrentWords = (): WordTimestamp[] => {
+    if (!currentLine?.words || currentLine.words.length === 0) return [];
+    return currentLine.words;
+  };
+
+  // Don't show overlay if no current line
+  if (!currentLine) return null;
+
+  const currentWords = getCurrentWords();
+  const songTime = segmentStart ? segmentStart + currentTime : currentTime;
+
+  return (
+    <div className="absolute top-4 left-4 right-4 text-center pointer-events-none z-10">
+      <div className="bg-black/80 text-white px-4 py-3 rounded-lg backdrop-blur-sm shadow-lg">
+        {currentWords.length > 0 ? (
+          // Use karaoke word highlighting if word data is available
+          <div className="text-lg font-semibold leading-tight mb-1">
+            <TikTokKaraokeRenderer
+              words={useKaraokeWords(currentWords, songTime)}
+              className="flex flex-wrap justify-center"
+            />
+          </div>
+        ) : (
+          // Fallback to line-level display
+          <div className="text-lg font-semibold leading-tight mb-1">
+            {currentLine.originalText}
+          </div>
+        )}
+
+        {currentLine.translatedText && (
+          <div className="text-sm opacity-80 leading-tight">
+            {currentLine.translatedText}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface VideoDetailProps {
   videoUrl?: string;
@@ -30,6 +164,12 @@ interface VideoDetailProps {
   totalVideos?: number;
   onNavigatePrevious?: () => void;
   onNavigateNext?: () => void;
+  // Karaoke props
+  lyricsUrl?: string;
+  lyricsFormat?: string;
+  segmentStart?: number;
+  segmentEnd?: number;
+  songTitle?: string;
 }
 
 /**
@@ -53,7 +193,13 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   currentVideoIndex,
   totalVideos,
   onNavigatePrevious,
-  onNavigateNext
+  onNavigateNext,
+  // Karaoke props
+  lyricsUrl,
+  lyricsFormat,
+  segmentStart,
+  segmentEnd,
+  songTitle
 }) => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -65,11 +211,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
     isLoading: isLikeLoading,
     toggleLike,
     canLike
-  } = useLensReactions({
-    postId: lensPostId || '',
-    initialLikeCount: likes,
-    userHasLiked
-  });
+  } = useLensReactions(lensPostId || '');
   const [isMuted, setIsMuted] = useState(false); // Start unmuted since user intentionally clicked video
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -238,11 +380,16 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
           likes={likes}
           comments={comments}
           shares={shares}
-          musicTitle={musicTitle}
+          musicTitle={songTitle || musicTitle}
           creatorHandle={creatorHandle}
           creatorId={creatorId}
           lensPostId={lensPostId}
           userHasLiked={userHasLiked}
+          lyricsUrl={lyricsUrl}
+          lyricsFormat={lyricsFormat}
+          segmentStart={segmentStart}
+          segmentEnd={segmentEnd}
+          songTitle={songTitle}
         />
         {/* Close button overlay - top right to avoid VideoPost mute button */}
         {onClose && (
@@ -309,6 +456,16 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
                 <Play className="w-10 h-10 text-white ml-1" weight="fill" />
               </div>
             </div>
+          )}
+
+          {/* Karaoke Lyrics Overlay */}
+          {lyricsUrl && videoRef.current && (
+            <KaraokeOverlay
+              lyricsUrl={lyricsUrl}
+              segmentStart={segmentStart}
+              videoRef={videoRef as React.RefObject<HTMLVideoElement>}
+              isPlaying={isPlaying}
+            />
           )}
         </div>
 

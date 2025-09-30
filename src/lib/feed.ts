@@ -76,7 +76,8 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
           extractedUrl: extractedVideoUrl,
           karaokeData,
           hasKaraokeData: Object.keys(karaokeData).length > 0,
-          metadataAttributes: post.metadata?.attributes || 'no attributes'
+          metadataAttributes: post.metadata?.attributes || 'no attributes',
+          fullMetadata: post.metadata
         });
 
         // Detailed karaoke extraction logging
@@ -101,7 +102,7 @@ export async function getFeedItems(limit: number = 50): Promise<LensFeedItem[]> 
             likes: post.stats?.upvotes || 0,
             comments: post.stats?.comments || 0,
             shares: (post.stats?.reposts || 0) + (post.stats?.quotes || 0),
-            // Include karaoke lyrics data
+            // Include karaoke lyrics data (both legacy and new embedded format)
             ...karaokeData,
           },
           video: {
@@ -211,6 +212,7 @@ function extractContent(metadata: unknown): string {
 
 /**
  * Extract karaoke lyrics metadata from Lens post
+ * Now supports both embedded segment data and legacy separate fields
  */
 function extractKaraokeData(metadata: unknown): {
   lyricsUrl?: string;
@@ -218,6 +220,7 @@ function extractKaraokeData(metadata: unknown): {
   segmentStart?: number;
   segmentEnd?: number;
   songTitle?: string;
+  karaokeSegment?: any; // Embedded segment data
 } {
   const result: {
     lyricsUrl?: string;
@@ -225,14 +228,36 @@ function extractKaraokeData(metadata: unknown): {
     segmentStart?: number;
     segmentEnd?: number;
     songTitle?: string;
+    karaokeSegment?: any;
   } = {};
 
   if (metadata && typeof metadata === 'object' && 'attributes' in metadata && Array.isArray(metadata.attributes)) {
     for (const attr of metadata.attributes) {
       if (attr && typeof attr === 'object' && 'key' in attr && 'value' in attr) {
         switch (attr.key) {
+          case 'karaoke_segment_data':
+            // New embedded format - parse the JSON data
+            try {
+              result.karaokeSegment = JSON.parse(attr.value as string);
+              console.log('[extractKaraokeData] 🎤 Found embedded karaoke segment:', result.karaokeSegment);
+
+              // Also populate legacy fields for backward compatibility
+              result.songTitle = result.karaokeSegment.songTitle;
+              result.segmentStart = 0; // Always 0 for embedded data (video-relative timing)
+              result.segmentEnd = result.karaokeSegment.videoEnd;
+              result.lyricsFormat = 'embedded-segment';
+            } catch (error) {
+              console.error('[extractKaraokeData] Failed to parse embedded karaoke segment:', error);
+            }
+            break;
+
+          // Legacy format support
           case 'karaoke_lyrics_url':
-            result.lyricsUrl = attr.value as string;
+            // Handle both lens:// URIs and local paths
+            const lyricsUrl = attr.value as string;
+            result.lyricsUrl = lyricsUrl.startsWith('lens://')
+              ? resolveLensUri(lyricsUrl)
+              : lyricsUrl;
             break;
           case 'karaoke_lyrics_format':
             result.lyricsFormat = attr.value as string;

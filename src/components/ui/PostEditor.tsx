@@ -13,6 +13,8 @@ import { post } from '@lens-protocol/client/actions';
 import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/metadata";
 import { uri } from "@lens-protocol/client";
 import { uploadVideoToGrove, uploadMetadataToGrove } from '../../lib/lens/storage';
+import { getRegistrySongById } from '../../lib/songs/grove-registry';
+import type { EmbeddedKaraokeSegment, LineTimestamp, WordTimestamp } from '../../types/feed';
 
 interface SelectedSegment {
   start: number;
@@ -52,6 +54,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [postProgress, setPostProgress] = useState<PostProgress | null>(null);
+  const [songData, setSongData] = useState<any>(null); // Store Grove registry song data
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Get wallet connection for Lens posting
@@ -68,8 +71,79 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     videoBlobSize: videoBlob?.size,
     videoBlobType: videoBlob?.type,
     segment: !!segment,
-    audioUrl: !!audioUrl
+    audioUrl: !!audioUrl,
+    songId
   });
+
+  // Fetch song data from Grove registry
+  useEffect(() => {
+    if (songId) {
+      console.log('[PostEditor] Fetching song data for:', songId);
+      getRegistrySongById(songId)
+        .then(song => {
+          console.log('[PostEditor] Song data loaded:', song);
+          setSongData(song);
+        })
+        .catch(error => {
+          console.error('[PostEditor] Failed to load song data:', error);
+        });
+    }
+  }, [songId]);
+
+  // Helper function to extract segment lyrics from full song data
+  const extractSegmentLyrics = async (songId: string, segmentStart: number, segmentEnd: number): Promise<LineTimestamp[]> => {
+    try {
+      console.log('[PostEditor] Extracting segment lyrics for:', { songId, segmentStart, segmentEnd });
+
+      if (!songData?.timestampsUri) {
+        console.warn('[PostEditor] No timestampsUri in song data');
+        return [];
+      }
+
+      // Fetch full song lyrics from Grove Storage
+      const response = await fetch(songData.timestampsUri.replace('lens://', 'https://api.grove.storage/'));
+      const fullLyricsData = await response.json();
+
+      console.log('[PostEditor] Full lyrics data loaded:', fullLyricsData);
+
+      // Handle both Grove Storage format ('lines') and legacy format ('lineTimestamps')
+      const fullLines = fullLyricsData.lines || fullLyricsData.lineTimestamps || [];
+
+      // Filter lines that appear within the segment
+      const segmentLines: LineTimestamp[] = [];
+
+      for (const line of fullLines) {
+        // Check if line overlaps with segment
+        const lineStart = line.start;
+        const lineEnd = line.end;
+
+        if (lineEnd >= segmentStart && lineStart <= segmentEnd) {
+          // Line appears in segment, adjust timing to be video-relative
+          const adjustedLine: LineTimestamp = {
+            lineIndex: line.lineIndex,
+            originalText: line.originalText,
+            translatedText: line.translatedText,
+            start: Math.max(0, lineStart - segmentStart), // Video-relative time
+            end: Math.min(segmentEnd - segmentStart, lineEnd - segmentStart), // Video-relative time
+            wordCount: line.wordCount,
+            words: line.words ? line.words.map((word: any) => ({
+              text: word.text,
+              start: Math.max(0, word.start - segmentStart), // Video-relative time
+              end: Math.min(segmentEnd - segmentStart, word.end - segmentStart) // Video-relative time
+            })).filter((word: WordTimestamp) => word.start < segmentEnd - segmentStart) : undefined
+          };
+
+          segmentLines.push(adjustedLine);
+        }
+      }
+
+      console.log('[PostEditor] Extracted segment lines:', segmentLines);
+      return segmentLines;
+    } catch (error) {
+      console.error('[PostEditor] Failed to extract segment lyrics:', error);
+      return [];
+    }
+  };
 
   // Create video URL when videoBlob changes
   useEffect(() => {
@@ -145,6 +219,22 @@ export const PostEditor: React.FC<PostEditorProps> = ({
     const mimeType = postData.videoBlob.type || 'video/webm';
     const videoMimeType = mimeType.includes('mp4') ? MediaVideoMimeType.MP4 : MediaVideoMimeType.WEBM;
 
+    // Extract segment lyrics and create embedded data
+    const segmentLines = await extractSegmentLyrics(postData.songId, postData.segment.start, postData.segment.end);
+
+    const embeddedKaraokeSegment: EmbeddedKaraokeSegment = {
+      songId: postData.songId,
+      songTitle: postData.songTitle || songData?.title || 'Unknown Song',
+      artist: songData?.artist,
+      segmentStart: postData.segment.start,
+      segmentEnd: postData.segment.end,
+      videoStart: 0,
+      videoEnd: segmentDuration / 1000, // Convert to seconds
+      lines: segmentLines,
+      fullSongTimestampsUri: songData?.timestampsUri,
+      audioUri: songData?.audioUri
+    };
+
     const videoMetadata = video({
       title: `Karaoke: ${postData.songTitle || 'Song Performance'}`,
       video: {
@@ -162,41 +252,24 @@ export const PostEditor: React.FC<PostEditorProps> = ({
           type: 'String'
         },
         {
-          key: 'karaoke_song_id',
-          value: postData.songId,
-          type: 'String'
-        },
-        {
           key: 'video_gateway_url',
           value: videoResult.gatewayUrl,
           type: 'String'
         },
         {
-          key: 'karaoke_lyrics_url',
-          value: `/songs/${postData.songId}/karaoke-line-timestamps.json`,
+          key: 'karaoke_segment_data',
+          value: JSON.stringify(embeddedKaraokeSegment),
           type: 'String'
-        },
-        {
-          key: 'karaoke_segment_start',
-          value: postData.segment.start.toString(),
-          type: 'String'
-        },
-        {
-          key: 'karaoke_segment_end',
-          value: postData.segment.end.toString(),
-          type: 'String'
-        },
-        {
-          key: 'karaoke_lyrics_format',
-          value: 'word-timestamps',
-          type: 'String'
-        },
-        ...(postData.songTitle ? [{
-          key: 'karaoke_song_title',
-          value: postData.songTitle,
-          type: 'String'
-        }] : [])
+        }
       ]
+    });
+
+    console.log('[PostEditor] Creating video metadata with embedded karaoke segment:', {
+      songId: postData.songId,
+      songData,
+      embeddedKaraokeSegment,
+      segmentLinesCount: segmentLines.length,
+      attributes: videoMetadata.attributes
     });
 
     // Step 3: Upload metadata to Grove
