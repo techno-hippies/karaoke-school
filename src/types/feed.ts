@@ -36,6 +36,42 @@ export interface FeedItem {
 }
 
 // Lens Protocol v3 feed item interface
+// Embedded karaoke segment data structure
+export interface WordTimestamp {
+  text: string;
+  start: number; // Relative to video start (0-based)
+  end: number;   // Relative to video start
+}
+
+export interface LineTimestamp {
+  lineIndex: number;
+  originalText: string;
+  translatedText?: string;
+  start: number; // Relative to video start (0-based)
+  end: number;   // Relative to video start
+  wordCount: number;
+  words?: WordTimestamp[];
+}
+
+export interface EmbeddedKaraokeSegment {
+  songId: string;
+  songTitle: string;
+  artist?: string;
+
+  // Timing info
+  segmentStart: number; // Absolute time in full song
+  segmentEnd: number;   // Absolute time in full song
+  videoStart: number;   // Always 0 (video starts at segment start)
+  videoEnd: number;     // Video duration
+
+  // Embedded data (main usage)
+  lines: LineTimestamp[]; // Only lines that appear in this segment
+
+  // Reference data (future flexibility)
+  fullSongTimestampsUri?: string; // lens:// URI to full song lyrics
+  audioUri?: string;              // lens:// URI to full song audio
+}
+
 export interface LensFeedItem {
   id: string;
   creatorHandle: string;
@@ -48,12 +84,14 @@ export interface LensFeedItem {
     comments: number;
     shares: number;
     userHasLiked?: boolean; // Add reaction state
-    // Karaoke-specific fields
+    // Legacy karaoke fields (for backward compatibility)
     lyricsUrl?: string;
     lyricsFormat?: string;
     segmentStart?: number;
     segmentEnd?: number;
     songTitle?: string;
+    // New embedded karaoke data
+    karaokeSegment?: EmbeddedKaraokeSegment;
   };
   video: {
     id: string;

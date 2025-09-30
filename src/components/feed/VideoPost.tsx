@@ -43,10 +43,11 @@ interface LyricsData {
 }
 
 interface KaraokeOverlayProps {
-  lyricsUrl: string;
+  lyricsUrl?: string;
   segmentStart?: number;
   videoRef: React.RefObject<HTMLVideoElement>;
   isPlaying: boolean;
+  karaokeSegment?: any; // Embedded segment data
 }
 
 // Karaoke Overlay Component
@@ -54,29 +55,40 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
   lyricsUrl,
   segmentStart,
   videoRef,
-  isPlaying
+  isPlaying,
+  karaokeSegment
 }) => {
   const [lyricsData, setLyricsData] = useState<LyricsData | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Load lyrics data
+  // Load lyrics data (prioritize embedded segment data)
   useEffect(() => {
-    console.log('[KaraokeOverlay] Component mounted with:', { lyricsUrl, segmentStart });
-    if (lyricsUrl) {
-      console.log('[KaraokeOverlay] Loading lyrics from:', lyricsUrl);
+    console.log('[KaraokeOverlay] Component mounted with:', { lyricsUrl, segmentStart, karaokeSegment });
+
+    if (karaokeSegment) {
+      // Use embedded segment data - no network call needed!
+      console.log('[KaraokeOverlay] Using embedded karaoke segment data:', karaokeSegment);
+      const embeddedLyricsData: LyricsData = {
+        lines: karaokeSegment.lines,
+        format: 'embedded-segment'
+      };
+      setLyricsData(embeddedLyricsData);
+    } else if (lyricsUrl) {
+      // Fallback to legacy URL-based loading
+      console.log('[KaraokeOverlay] Loading legacy lyrics from:', lyricsUrl);
       fetch(lyricsUrl)
         .then(response => response.json())
         .then((data: LyricsData) => {
-          console.log('[KaraokeOverlay] Lyrics loaded:', data);
+          console.log('[KaraokeOverlay] Legacy lyrics loaded:', data);
           setLyricsData(data);
         })
         .catch(error => {
-          console.error('[KaraokeOverlay] Failed to load lyrics:', error);
+          console.error('[KaraokeOverlay] Failed to load legacy lyrics:', error);
         });
     } else {
-      console.log('[KaraokeOverlay] No lyricsUrl provided - overlay will not render');
+      console.log('[KaraokeOverlay] No lyrics data provided - overlay will not render');
     }
-  }, [lyricsUrl]);
+  }, [lyricsUrl, karaokeSegment]);
 
   // Track video current time
   useEffect(() => {
@@ -93,17 +105,25 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
 
   // Find current line to display
   const getCurrentLine = (): LineTimestamp | null => {
-    if (!lyricsData || !segmentStart) return null;
+    if (!lyricsData) return null;
 
-    // Calculate the actual time in the song based on video position and segment start
-    const songTime = segmentStart + currentTime;
+    let timeToUse: number;
+    if (karaokeSegment) {
+      // Embedded data uses video-relative timing (no offset needed)
+      timeToUse = currentTime;
+    } else if (segmentStart !== undefined) {
+      // Legacy data uses song-relative timing (needs offset)
+      timeToUse = segmentStart + currentTime;
+    } else {
+      return null;
+    }
 
     // Handle both formats: Grove Storage uses 'lines', legacy uses 'lineTimestamps'
     const lines = (lyricsData as any).lines || lyricsData.lineTimestamps || [];
 
     // Find the line that should be displayed at this time
     return lines.find((line: any) =>
-      songTime >= line.start && songTime <= line.end
+      timeToUse >= line.start && timeToUse <= line.end
     ) || null;
   };
 
@@ -119,7 +139,8 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
   if (!currentLine) return null;
 
   const currentWords = getCurrentWords();
-  const songTime = segmentStart ? segmentStart + currentTime : currentTime;
+  // Use appropriate timing for word highlighting
+  const songTime = karaokeSegment ? currentTime : (segmentStart ? segmentStart + currentTime : currentTime);
 
   return (
     <div className="absolute top-4 left-4 right-4 text-center pointer-events-none z-10">
@@ -180,6 +201,7 @@ interface VideoPostProps {
   segmentStart?: number;
   segmentEnd?: number;
   songTitle?: string; // Song title for karaoke posts
+  karaokeSegment?: any; // Embedded karaoke segment data
 }
 
 export const VideoPost: React.FC<VideoPostProps> = ({
@@ -203,7 +225,8 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   lyricsFormat,
   segmentStart,
   segmentEnd,
-  songTitle
+  songTitle,
+  karaokeSegment
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -319,11 +342,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     isLoading: isLikeLoading,
     toggleLike,
     canLike
-  } = useLensReactions({
-    postId: lensPostId || '',
-    initialLikeCount: likes,
-    userHasLiked
-  });
+  } = useLensReactions(lensPostId || '');
 
   // Lens follows integration - use the account address for following
   const targetAccountAddress = creatorAccountAddress;
@@ -333,10 +352,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     isLoading: isFollowLoading,
     canFollow,
     toggleFollow
-  } = useLensFollows({
-    targetAccountAddress,
-    initialFollowState: false
-  });
+  } = useLensFollows(targetAccountAddress || '');
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
@@ -399,12 +415,13 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         )}
 
         {/* Karaoke Lyrics Overlay */}
-        {lyricsUrl && (
+        {(lyricsUrl || karaokeSegment) && (
           <KaraokeOverlay
             lyricsUrl={lyricsUrl}
             segmentStart={segmentStart}
             videoRef={videoRef}
             isPlaying={isPlaying}
+            karaokeSegment={karaokeSegment}
           />
         )}
 

@@ -147,6 +147,17 @@ export const VideoPage: React.FC<VideoPageProps> = () => {
     ? `${video.creatorHandle.slice(0, 6)}...${video.creatorHandle.slice(-4)}`
     : video.creatorHandle;
 
+  // Debug log karaoke data
+  console.log('[VideoPage] Video karaoke data:', {
+    videoId: video.id,
+    lyricsUrl: video.data.lyricsUrl,
+    lyricsFormat: video.data.lyricsFormat,
+    segmentStart: video.data.segmentStart,
+    segmentEnd: video.data.segmentEnd,
+    songTitle: video.data.songTitle,
+    hasKaraokeData: !!video.data.lyricsUrl
+  });
+
   return (
     <VideoDetail
       videoUrl={video.data.videoUrl}
@@ -156,7 +167,7 @@ export const VideoPage: React.FC<VideoPageProps> = () => {
       likes={video.data.likes}
       comments={video.data.comments}
       shares={video.data.shares}
-      musicTitle="Original Sound"
+      musicTitle={video.data.songTitle || "Original Sound"}
       creatorHandle={video.creatorHandle}
       creatorId={username ? `lens/${username}` : addressOrEns}
       lensPostId={video.id}
@@ -166,6 +177,12 @@ export const VideoPage: React.FC<VideoPageProps> = () => {
       totalVideos={allVideos.length}
       onNavigatePrevious={handleNavigatePrevious}
       onNavigateNext={handleNavigateNext}
+      // Karaoke props from video.data
+      lyricsUrl={video.data.lyricsUrl}
+      lyricsFormat={video.data.lyricsFormat}
+      segmentStart={video.data.segmentStart}
+      segmentEnd={video.data.segmentEnd}
+      songTitle={video.data.songTitle}
     />
   );
 };
