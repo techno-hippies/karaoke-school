@@ -381,7 +381,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
       lensPostId: lensPostId?.slice(-8),
       userHasLiked,
       username,
-      targetAccountAddress,
+      creatorAccountAddress,
       canFollow,
       isFollowing,
       // Karaoke debug info
@@ -391,7 +391,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
       segmentEnd,
       hasKaraokeData: !!lyricsUrl
     });
-  }, [lensPostId, userHasLiked, username, targetAccountAddress, canFollow, isFollowing, lyricsUrl, lyricsFormat, segmentStart, segmentEnd]);
+  }, [lensPostId, userHasLiked, username, creatorAccountAddress, canFollow, isFollowing, lyricsUrl, lyricsFormat, segmentStart, segmentEnd]);
 
   return (
     <div

@@ -1,5 +1,6 @@
 import React from 'react';
-import { VideoPost, VideoPostProps } from './VideoPost';
+import { VideoPost } from './VideoPost';
+import type { VideoPostProps } from './VideoPost';
 import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import { useLensFollows } from '../../hooks/lens/useLensFollows';
 
