@@ -6,7 +6,7 @@ import { CommentsSheet } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
-import { VideoPost } from './VideoPost';
+import { VideoPostContainer } from './VideoPostContainer';
 import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
 import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 import Hls from 'hls.js';
@@ -377,7 +377,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   if (window.innerWidth < 768) {
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <VideoPost
+        <VideoPostContainer
           videoUrl={videoUrl}
           thumbnailUrl={thumbnailUrl}
           username={username}
