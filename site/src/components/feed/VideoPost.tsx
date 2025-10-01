@@ -181,7 +181,7 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
   );
 };
 
-interface VideoPostFeedCoordinator {
+export interface VideoPostFeedCoordinator {
   isActive: boolean;
   onPlay: () => void;
   onPause: () => void;
