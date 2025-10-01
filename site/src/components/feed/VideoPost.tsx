@@ -6,8 +6,6 @@ import { ShareSheet } from './ShareSheet';
 import { useVideoPlayer } from '../../hooks/media/useVideoPlayer';
 import { useProfileNavigation } from '../../hooks/navigation/useProfileNavigation';
 import { useTouchGestures } from '../../hooks/ui/useTouchGestures';
-import { useLensReactions } from '../../hooks/lens/useLensReactions';
-import { useLensFollows } from '../../hooks/lens/useLensFollows';
 import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
 import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 
@@ -192,7 +190,7 @@ interface VideoPostFeedCoordinator {
   unregisterVideo: () => void;
 }
 
-interface VideoPostProps {
+export interface VideoPostProps {
   videoUrl?: string;
   thumbnailUrl?: string;
   username: string;
@@ -216,8 +214,22 @@ interface VideoPostProps {
   segmentEnd?: number;
   songTitle?: string; // Song title for karaoke posts
   karaokeSegment?: any; // Embedded karaoke segment data
+  // Computed state from container (or directly provided for Storybook)
+  isLiked?: boolean;
+  likeCount?: number;
+  canLike?: boolean;
+  isLikeLoading?: boolean;
+  onLike?: () => void;
+  isFollowing?: boolean;
+  canFollow?: boolean;
+  isFollowLoading?: boolean;
+  onFollow?: () => void;
 }
 
+/**
+ * PRESENTATIONAL COMPONENT - No business logic, only UI rendering
+ * For integration with Lens Protocol, use VideoPostContainer instead
+ */
 export const VideoPost: React.FC<VideoPostProps> = ({
   videoUrl,
   thumbnailUrl,
@@ -241,7 +253,17 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   segmentStart,
   segmentEnd,
   songTitle,
-  karaokeSegment
+  karaokeSegment,
+  // Computed state (provided by container or directly in Storybook)
+  isLiked = false,
+  likeCount = likes,
+  canLike = false,
+  isLikeLoading = false,
+  onLike = () => console.log('[VideoPost] Like clicked (no handler provided)'),
+  isFollowing = false,
+  canFollow = false,
+  isFollowLoading = false,
+  onFollow = () => console.log('[VideoPost] Follow clicked (no handler provided)')
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -350,24 +372,8 @@ export const VideoPost: React.FC<VideoPostProps> = ({
     // Note: Feed doesn't need swipe navigation like VideoDetail
   });
 
-  // Lens reactions integration
-  const {
-    isLiked,
-    likeCount,
-    isLoading: isLikeLoading,
-    toggleLike,
-    canLike
-  } = useLensReactions(lensPostId || '', likes, userHasLiked, onRefreshFeed, karaokeSegment);
-
-  // Lens follows integration - use the account address for following
-  const targetAccountAddress = creatorAccountAddress;
-
-  const {
-    isFollowing,
-    isLoading: isFollowLoading,
-    canFollow,
-    toggleFollow
-  } = useLensFollows(targetAccountAddress || '');
+  // Lens integration moved to VideoPostContainer
+  // These values are now provided as props (either from container or directly for Storybook)
   
   // Log props received by VideoPost for debugging
   React.useEffect(() => {
@@ -501,7 +507,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
                 e.stopPropagation();
                 if (canFollow) {
                   console.log(`[Follow] ${isFollowing ? 'Unfollowing' : 'Following'} user: @${username}`);
-                  toggleFollow();
+                  onFollow();
                 } else {
                   console.log(`[Follow] Cannot follow @${username} - missing auth or account address`);
                 }
@@ -527,7 +533,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
           <ActionButton
             icon={Heart}
             count={likeCount}
-            onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+            onClick={onLike}
             isActive={isLiked}
             isLoading={isLikeLoading}
             disabled={lensPostId ? !canLike : false}
@@ -587,7 +593,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
               e.stopPropagation();
               if (canFollow) {
                 console.log(`[Follow] ${isFollowing ? 'Unfollowing' : 'Following'} user: @${username}`);
-                toggleFollow();
+                onFollow();
               } else {
                 console.log(`[Follow] Cannot follow @${username} - missing auth or account address`);
               }
@@ -613,7 +619,7 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         <ActionButton
           icon={Heart}
           count={likeCount}
-          onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+          onClick={onLike}
           isActive={isLiked}
           isLoading={isLikeLoading}
           disabled={lensPostId ? !canLike : false}

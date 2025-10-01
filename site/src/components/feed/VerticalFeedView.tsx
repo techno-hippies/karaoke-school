@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useMachine } from '@xstate/react';
-import { VideoPost } from './VideoPost';
+import { VideoPostContainer } from './VideoPostContainer';
 import { VideoQuizPost } from './VideoQuizPost';
 import { MobileFooter } from '../navigation/MobileFooter';
 import { DesktopSidebar } from '../navigation/DesktopSidebar';
@@ -128,8 +128,8 @@ export const VerticalFeedView: React.FC<VerticalFeedViewProps> = ({
             // console.log(`[VerticalFeedView] Rendering item:`, item);
 
             if (item.type === 'video') {
-            // Use standard VideoPost for all videos with new coordinator
-            const Component = VideoPost;
+            // Use VideoPostContainer for all videos with new coordinator
+            const Component = VideoPostContainer;
 
             // Create simple coordinator interface
             const videoCoordinator = {
