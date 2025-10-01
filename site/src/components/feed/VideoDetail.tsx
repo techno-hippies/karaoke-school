@@ -7,7 +7,6 @@ import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
 import { VideoPost } from './VideoPost';
-import { useLensReactions } from '../../hooks/lens/useLensReactions';
 import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
 import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 import Hls from 'hls.js';
@@ -144,7 +143,7 @@ const KaraokeOverlay: React.FC<KaraokeOverlayProps> = ({
   );
 };
 
-interface VideoDetailProps {
+export interface VideoDetailProps {
   videoUrl?: string;
   thumbnailUrl?: string;
   username: string;
@@ -170,11 +169,20 @@ interface VideoDetailProps {
   segmentStart?: number;
   segmentEnd?: number;
   songTitle?: string;
+  // Computed state from container (or directly provided for Storybook)
+  isLiked?: boolean;
+  likeCount?: number;
+  canLike?: boolean;
+  isLikeLoading?: boolean;
+  onLike?: () => void;
 }
 
 /**
  * TikTok-style desktop detail view with video on left, sidebar on right
  * Fullscreen experience for detailed video viewing
+ *
+ * PRESENTATIONAL COMPONENT - No business logic, only UI rendering
+ * For integration with Lens Protocol, use VideoDetailContainer instead
  */
 export const VideoDetail: React.FC<VideoDetailProps> = ({
   videoUrl,
@@ -199,19 +207,16 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   lyricsFormat,
   segmentStart,
   segmentEnd,
-  songTitle
+  songTitle,
+  // Computed state (provided by container or directly in Storybook)
+  isLiked = false,
+  likeCount = likes,
+  canLike = false,
+  isLikeLoading = false,
+  onLike = () => console.log('[VideoDetail] Like clicked (no handler provided)')
 }) => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-
-  // Lens reactions integration
-  const {
-    isLiked,
-    likeCount,
-    isLoading: isLikeLoading,
-    toggleLike,
-    canLike
-  } = useLensReactions(lensPostId || '');
   const [isMuted, setIsMuted] = useState(false); // Start unmuted since user intentionally clicked video
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -549,10 +554,10 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
               <ActionButton
                 icon={Heart}
                 count={likeCount}
-                onClick={lensPostId ? toggleLike : () => console.log('[Like] No lens post ID')}
+                onClick={onLike}
                 isActive={isLiked}
                 isLoading={isLikeLoading}
-                disabled={lensPostId ? !canLike : false}
+                disabled={!canLike}
               />
               <ActionButton icon={ChatCircle} count={comments} onClick={() => setCommentsOpen(true)} />
               <ActionButton icon={ShareNetwork} count={shares} onClick={() => setShareOpen(true)} />

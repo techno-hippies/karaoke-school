@@ -17,3 +17,7 @@ lib/
 
 # Node (if any)
 node_modules/
+
+# PKP credentials (sensitive!)
+output/
+scripts/output/
