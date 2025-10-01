@@ -1,0 +1,28 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.23"
+via_ir = true
+optimizer = true
+optimizer_runs = 1
+evm_version = "shanghai"
+
+# zkSync profile for Lens Chain deployment
+[profile.zksync]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.19"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+evm_version = "shanghai"
+zksolc = true
+
+# Lens Chain configuration
+[rpc_endpoints]
+lens-mainnet = "https://rpc.lens.xyz"
+lens-testnet = "https://rpc.testnet.lens.xyz"
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

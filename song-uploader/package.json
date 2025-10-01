@@ -1,0 +1,29 @@
+{
+  "name": "song-uploader",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Upload songs to Grove storage and manage song registry",
+  "scripts": {
+    "upload": "bun run src/upload.ts",
+    "add-song": "bun run src/upload.ts --add",
+    "sync": "bun run src/upload.ts --sync",
+    "create-registry": "bun run src/upload.ts --init",
+    "process": "bun run src/upload.ts --process",
+    "clips": "bun run src/upload-clips.ts --clips",
+    "validate": "bun run src/commands/validate.ts",
+    "elevenlabs": "bun run src/commands/process-elevenlabs.ts",
+    "slice": "bun run src/commands/slice.ts",
+    "upload-clips": "bun run src/commands/upload.ts"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "latest",
+    "@lens-chain/sdk": "latest",
+    "@lens-chain/storage-client": "latest",
+    "syllable": "^5.0.1",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
