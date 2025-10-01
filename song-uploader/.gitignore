@@ -1,0 +1,33 @@
+# Environment files with secrets
+.env
+.env.keys
+
+# Dependencies
+node_modules/
+
+# Generated output
+output/
+temp/
+
+# Song data (can be large)
+songs/
+
+# Build artifacts
+contract/zkout/
+contract/cache/
+contract/broadcast/
+contract/out/
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
