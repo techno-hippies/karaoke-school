@@ -9,15 +9,8 @@ import {KaraokeScoreboardV1} from "../src/KaraokeScoreboardV1.sol";
  * @notice Deployment script for KaraokeScoreboardV1 contract
  * @dev Use with zkSync foundry for Lens Chain deployment
  *
- * Usage:
- *   FOUNDRY_PROFILE=zksync forge script script/DeployKaraokeScoreboardV1.s.sol:DeployKaraokeScoreboardV1 \
- *     --rpc-url https://rpc.testnet.lens.xyz \
- *     --private-key $PRIVATE_KEY \
- *     --broadcast \
- *     --zksync
- *
- * Or using forge create directly:
- *   FOUNDRY_PROFILE=zksync forge create \
+ * Usage (IMPORTANT: Must use bash -c to properly handle FOUNDRY_PROFILE):
+ *   bash -c 'FOUNDRY_PROFILE=zksync forge create \
  *     --rpc-url https://rpc.testnet.lens.xyz \
  *     --private-key $PRIVATE_KEY \
  *     --constructor-args "0xYourPKPAddress" \
@@ -25,7 +18,14 @@ import {KaraokeScoreboardV1} from "../src/KaraokeScoreboardV1.sol";
  *     --zksync \
  *     --gas-limit 10000000 \
  *     --gas-price 300000000 \
- *     --broadcast
+ *     --broadcast'
+ *
+ * Or using forge script:
+ *   bash -c 'FOUNDRY_PROFILE=zksync forge script script/DeployKaraokeScoreboardV1.s.sol:DeployKaraokeScoreboardV1 \
+ *     --rpc-url https://rpc.testnet.lens.xyz \
+ *     --private-key $PRIVATE_KEY \
+ *     --broadcast \
+ *     --zksync'
  */
 contract DeployKaraokeScoreboardV1 is Script {
     function run() external returns (KaraokeScoreboardV1) {

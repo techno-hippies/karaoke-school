@@ -1,0 +1,20 @@
+{
+  "name": "karaoke-contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Smart contracts and PKP management for karaoke game",
+  "scripts": {
+    "mint-pkp": "DOTENV_PRIVATE_KEY='a75a20fca4d452c7827a662f9ee0857c5147efce6a19149b7f0276b3fbc110d7' npx dotenvx run -- bun run scripts/mint-pkp.ts",
+    "fund-pkp": "DOTENV_PRIVATE_KEY='a75a20fca4d452c7827a662f9ee0857c5147efce6a19149b7f0276b3fbc110d7' npx dotenvx run -- bun run scripts/fund-pkp.ts"
+  },
+  "dependencies": {
+    "@lit-protocol/lit-client": "^8.0.0",
+    "@lit-protocol/networks": "^8.0.0",
+    "@lit-protocol/auth": "^8.0.0",
+    "viem": "^2.21.54",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  }
+}

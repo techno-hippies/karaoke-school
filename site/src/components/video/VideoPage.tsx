@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { VideoDetail } from '../feed/VideoDetail';
+import { VideoDetailContainer } from '../feed/VideoDetailContainer';
 import { getLensUserPosts } from '../../lib/feed';
 import type { LensFeedItem } from '../../types/feed';
 
@@ -159,7 +159,7 @@ export const VideoPage: React.FC<VideoPageProps> = () => {
   });
 
   return (
-    <VideoDetail
+    <VideoDetailContainer
       videoUrl={video.data.videoUrl}
       thumbnailUrl={video.data.videoUrl} // Use video URL as thumbnail
       username={displayUsername}

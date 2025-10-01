@@ -22,7 +22,9 @@ const KEY_ENV_MAPPING = {
   db_auth_token: 'DB_AUTH_TOKEN',
   db_endpoint_url: 'DB_ENDPOINT_URL',
   genius_api_key: 'GENIUS_API_KEY',
-  openrouter_api_key: 'OPENROUTER_API_KEY'
+  openrouter_api_key: 'OPENROUTER_API_KEY',
+  clip_registry_address: 'CLIP_REGISTRY_ADDRESS',
+  contract_address: 'CONTRACT_ADDRESS'
 };
 
 async function encryptForCID(keyValue, cid) {
