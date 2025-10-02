@@ -15,6 +15,30 @@ const meta: Meta<typeof VideoDetail> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+// Mock comments data
+const mockComments = [
+  {
+    id: '1',
+    content: 'This is amazing! Love it 🎤',
+    author: {
+      username: 'musiclover',
+      avatar: 'https://i.pravatar.cc/150?img=1'
+    },
+    likes: 24,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    content: 'Great performance!',
+    author: {
+      username: 'karaokefan',
+      avatar: 'https://i.pravatar.cc/150?img=2'
+    },
+    likes: 15,
+    createdAt: new Date().toISOString()
+  }
+];
+
 /**
  * Default view with static image, unauthenticated state
  */
@@ -34,6 +58,13 @@ export const Default: Story = {
     likeCount: 39,
     canLike: false,
     onLike: () => console.log('Like clicked - not authenticated'),
+    // Comments
+    commentsData: mockComments,
+    commentCount: mockComments.length,
+    canComment: false,
+    isCommentsLoading: false,
+    isCommentSubmitting: false,
+    onSubmitComment: async () => { console.log('Comment submit (unauthenticated)'); return false; }
   },
 };
 
@@ -61,6 +92,13 @@ export const AuthenticatedNotLiked: Story = {
     likeCount: 89000,
     canLike: true,
     onLike: () => console.log('Like clicked - will add like'),
+    // Comments
+    commentsData: mockComments,
+    commentCount: mockComments.length,
+    canComment: true,
+    isCommentsLoading: false,
+    isCommentSubmitting: false,
+    onSubmitComment: async (content) => { console.log('Comment submitted:', content); return true; }
   },
 };
 
@@ -84,6 +122,13 @@ export const AuthenticatedLiked: Story = {
     likeCount: 89001,
     canLike: true,
     onLike: () => console.log('Like clicked - will unlike'),
+    // Comments
+    commentsData: mockComments,
+    commentCount: mockComments.length,
+    canComment: true,
+    isCommentsLoading: false,
+    isCommentSubmitting: false,
+    onSubmitComment: async (content) => { console.log('Comment submitted:', content); return true; }
   },
 };
 

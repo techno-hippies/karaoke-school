@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CaretLeft, Play } from '@phosphor-icons/react';
-import { useAccount, useWalletClient } from 'wagmi';
 
 // Remove old posting system import - now using unified auth
 export interface PostProgress {
@@ -8,7 +7,6 @@ export interface PostProgress {
   progress: number; // 0-1
   message: string;
 }
-import { useLensAuth } from '../../hooks/lens/useLensAuth';
 import { post } from '@lens-protocol/client/actions';
 import { video, MediaVideoMimeType, MetadataLicenseType } from "@lens-protocol/metadata";
 import { uri } from "@lens-protocol/client";
@@ -34,6 +32,16 @@ interface PostEditorProps {
   onLensPost?: (result: { postId: string; metadataUri: string; videoUri: string }) => void;
   maxCaptionLength?: number;
   className?: string;
+  // Dependency injection for Storybook compatibility
+  walletAddress?: string;
+  isWalletConnected?: boolean;
+  walletClient?: any;
+  sessionClient?: any;
+  isAuthenticated?: boolean;
+  authenticatedUser?: any;
+  canPost?: boolean;
+  authState?: string;
+  onLogin?: () => void;
 }
 
 export const PostEditor: React.FC<PostEditorProps> = ({
@@ -47,7 +55,17 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   onPost,
   onLensPost,
   maxCaptionLength = 1000,
-  className = ''
+  className = '',
+  // Injected dependencies (for Storybook or testing)
+  walletAddress: injectedWalletAddress,
+  isWalletConnected: injectedIsWalletConnected,
+  walletClient: injectedWalletClient,
+  sessionClient: injectedSessionClient,
+  isAuthenticated: injectedIsAuthenticated = false,
+  authenticatedUser: injectedAuthenticatedUser,
+  canPost: injectedCanPost = false,
+  authState: injectedAuthState = 'unauthenticated',
+  onLogin: injectedOnLogin,
 }) => {
   const [caption, setCaption] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,12 +75,16 @@ export const PostEditor: React.FC<PostEditorProps> = ({
   const [songData, setSongData] = useState<any>(null); // Store Grove registry song data
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Get wallet connection for Lens posting
-  const { address: walletAddress, isConnected: isWalletConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-
-  // Get Lens authentication state
-  const { isAuthenticated, sessionClient, authenticatedUser, canPost, authState, handleLogin } = useLensAuth();
+  // Use injected values (for Storybook) or default empty values
+  const walletAddress = injectedWalletAddress;
+  const isWalletConnected = injectedIsWalletConnected || false;
+  const walletClient = injectedWalletClient;
+  const sessionClient = injectedSessionClient;
+  const isAuthenticated = injectedIsAuthenticated;
+  const authenticatedUser = injectedAuthenticatedUser;
+  const canPost = injectedCanPost;
+  const authState = injectedAuthState;
+  const handleLogin = injectedOnLogin || (() => console.log('[PostEditor] Login clicked (no handler)'));
 
   // Debug logging
   console.log('[PostEditor] Props:', {

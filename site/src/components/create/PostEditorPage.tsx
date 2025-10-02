@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { PostEditor } from '../ui/PostEditor';
+import { PostEditorContainer } from '../ui/PostEditorContainer';
 import { getSongById, getClipById } from '../../lib/songs/directory';
 
 interface LocationState {
@@ -134,7 +134,7 @@ export const PostEditorPage: React.FC = () => {
   } : undefined;
 
   return (
-    <PostEditor
+    <PostEditorContainer
       videoBlob={state?.videoBlob}
       videoThumbnail={state?.videoThumbnail}
       segment={convertedSegment}

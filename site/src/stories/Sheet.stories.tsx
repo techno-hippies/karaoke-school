@@ -125,17 +125,44 @@ export const FromTop: Story = {
   ),
 };
 
+// Mock comments for demo
+const mockComments = [
+  {
+    id: '1',
+    content: 'Great performance! 🎤',
+    author: { username: 'user1', avatar: 'https://i.pravatar.cc/150?img=1' },
+    likes: 12,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    content: 'Love this song!',
+    author: { username: 'user2', avatar: 'https://i.pravatar.cc/150?img=2' },
+    likes: 8,
+    createdAt: new Date().toISOString()
+  }
+];
+
 // Comments Sheet Story
 const CommentsSheetDemo = () => {
   const [open, setOpen] = useState(false);
-  
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>Open Comments</Button>
-      <CommentsSheet 
+      <CommentsSheet
         open={open}
         onOpenChange={setOpen}
         postId="demo-post"
+        comments={mockComments}
+        commentCount={mockComments.length}
+        canComment={true}
+        isLoading={false}
+        isSubmitting={false}
+        onSubmitComment={async (content) => {
+          console.log('Comment submitted:', content);
+          return true;
+        }}
       />
     </>
   );
@@ -182,28 +209,37 @@ export const Share: Story = {
 const CombinedDemo = () => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  
+
   return (
     <div className="flex gap-4">
-      <Button 
-        variant="outline" 
+      <Button
+        variant="outline"
         onClick={() => setCommentsOpen(true)}
       >
         💬 Comments
       </Button>
-      <Button 
-        variant="outline" 
+      <Button
+        variant="outline"
         onClick={() => setShareOpen(true)}
       >
         📤 Share
       </Button>
-      
-      <CommentsSheet 
+
+      <CommentsSheet
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
         postId="demo-post"
+        comments={mockComments}
+        commentCount={mockComments.length}
+        canComment={true}
+        isLoading={false}
+        isSubmitting={false}
+        onSubmitComment={async (content) => {
+          console.log('Comment submitted:', content);
+          return true;
+        }}
       />
-      <ShareSheet 
+      <ShareSheet
         open={shareOpen}
         onOpenChange={setShareOpen}
         postUrl="https://karaokeschool.com/@demo"
