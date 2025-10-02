@@ -7,14 +7,31 @@ import {
 } from '@/components/ui/sheet';
 import { Comment, type CommentData } from './Comment';
 import { CommentInput } from './CommentInput';
-import { useLensComments } from '../../hooks/lens/useLensComments';
 import { CircleNotch } from '@phosphor-icons/react';
 
-interface CommentsSheetProps {
+interface LensComment {
+  id: string;
+  content: string;
+  author: {
+    username: string;
+    avatar: string;
+  };
+  likes: number;
+  createdAt: string;
+}
+
+export interface CommentsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   postId: string;
   onRefreshFeed?: () => void;
+  // Dependency injection for Storybook compatibility
+  comments?: LensComment[];
+  commentCount?: number;
+  canComment?: boolean;
+  isLoading?: boolean;
+  isSubmitting?: boolean;
+  onSubmitComment?: (content: string) => Promise<boolean>;
 }
 
 export const CommentsSheet: React.FC<CommentsSheetProps> = ({
@@ -22,20 +39,24 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   onOpenChange,
   postId,
   onRefreshFeed,
+  // Injected dependencies (for Storybook or testing)
+  comments: injectedComments = [],
+  commentCount: injectedCommentCount = 0,
+  canComment: injectedCanComment = false,
+  isLoading: injectedIsLoading = false,
+  isSubmitting: injectedIsSubmitting = false,
+  onSubmitComment: injectedOnSubmitComment,
 }) => {
 
-  // Use Lens comments hook
-  const {
-    comments: lensComments,
-    commentCount,
-    canComment,
-    isLoading,
-    isSubmitting,
-    submitComment
-  } = useLensComments({
-    postId: postId || '',
-    initialCommentCount: 0,
-    onRefreshFeed
+  // Use injected values (for Storybook) or default empty values
+  const lensComments = injectedComments;
+  const commentCount = injectedCommentCount;
+  const canComment = injectedCanComment;
+  const isLoading = injectedIsLoading;
+  const isSubmitting = injectedIsSubmitting;
+  const submitComment = injectedOnSubmitComment || (async () => {
+    console.log('[CommentsSheet] Submit comment (no handler provided)');
+    return false;
   });
 
   // Transform Lens comments to match existing Comment component interface

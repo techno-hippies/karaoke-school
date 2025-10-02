@@ -3,10 +3,11 @@ import { Heart, ChatCircle, ShareNetwork, MusicNote, SpeakerHigh, SpeakerX, X, C
 import { useNavigate } from 'react-router-dom';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
+import type { CommentsSheetProps } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { Comment } from './Comment';
 import { CommentInput } from './CommentInput';
-import { VideoPostContainer } from './VideoPostContainer';
+import { VideoPost } from './VideoPost';
 import { useKaraokeWords } from '../../hooks/karaoke/useKaraokeWords';
 import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 import Hls from 'hls.js';
@@ -175,6 +176,13 @@ export interface VideoDetailProps {
   canLike?: boolean;
   isLikeLoading?: boolean;
   onLike?: () => void;
+  // Comments data from container (or directly provided for Storybook)
+  commentsData?: CommentsSheetProps['comments'];
+  commentCount?: number;
+  canComment?: boolean;
+  isCommentsLoading?: boolean;
+  isCommentSubmitting?: boolean;
+  onSubmitComment?: (content: string) => Promise<boolean>;
 }
 
 /**
@@ -213,7 +221,14 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   likeCount = likes,
   canLike = false,
   isLikeLoading = false,
-  onLike = () => console.log('[VideoDetail] Like clicked (no handler provided)')
+  onLike = () => console.log('[VideoDetail] Like clicked (no handler provided)'),
+  // Comments data (provided by container or directly in Storybook)
+  commentsData = [],
+  commentCount: injectedCommentCount,
+  canComment = false,
+  isCommentsLoading = false,
+  isCommentSubmitting = false,
+  onSubmitComment = async () => { console.log('[VideoDetail] Comment submit (no handler)'); return false; }
 }) => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -377,7 +392,7 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
   if (window.innerWidth < 768) {
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <VideoPostContainer
+        <VideoPost
           videoUrl={videoUrl}
           thumbnailUrl={thumbnailUrl}
           username={username}
@@ -395,6 +410,19 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
           segmentStart={segmentStart}
           segmentEnd={segmentEnd}
           songTitle={songTitle}
+          // Pass through computed state from container
+          isLiked={isLiked}
+          likeCount={likeCount}
+          canLike={canLike}
+          isLikeLoading={isLikeLoading}
+          onLike={onLike}
+          // Pass through comments data from container
+          commentsData={commentsData}
+          commentCount={injectedCommentCount || comments}
+          canComment={canComment}
+          isCommentsLoading={isCommentsLoading}
+          isCommentSubmitting={isCommentSubmitting}
+          onSubmitComment={onSubmitComment}
         />
         {/* Close button overlay - top right to avoid VideoPost mute button */}
         {onClose && (
@@ -599,6 +627,12 @@ export const VideoDetail: React.FC<VideoDetailProps> = ({
         open={commentsOpen}
         onOpenChange={setCommentsOpen}
         postId={lensPostId || ''}
+        comments={commentsData}
+        commentCount={injectedCommentCount || comments}
+        canComment={canComment}
+        isLoading={isCommentsLoading}
+        isSubmitting={isCommentSubmitting}
+        onSubmitComment={onSubmitComment}
       />
       <ShareSheet
         open={shareOpen}

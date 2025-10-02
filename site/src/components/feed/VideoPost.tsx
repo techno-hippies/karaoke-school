@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Heart, ChatCircle, ShareFat, MusicNote, SpeakerHigh, SpeakerX, Plus, Play, Check } from '@phosphor-icons/react';
 import { ActionButton } from './ActionButton';
 import { CommentsSheet } from './CommentsSheet';
+import type { CommentsSheetProps } from './CommentsSheet';
 import { ShareSheet } from './ShareSheet';
 import { useVideoPlayer } from '../../hooks/media/useVideoPlayer';
 import { useProfileNavigation } from '../../hooks/navigation/useProfileNavigation';
@@ -224,6 +225,13 @@ export interface VideoPostProps {
   canFollow?: boolean;
   isFollowLoading?: boolean;
   onFollow?: () => void;
+  // Comments data from container (or directly provided for Storybook)
+  commentsData?: CommentsSheetProps['comments'];
+  commentCount?: number;
+  canComment?: boolean;
+  isCommentsLoading?: boolean;
+  isCommentSubmitting?: boolean;
+  onSubmitComment?: (content: string) => Promise<boolean>;
 }
 
 /**
@@ -263,7 +271,14 @@ export const VideoPost: React.FC<VideoPostProps> = ({
   isFollowing = false,
   canFollow = false,
   isFollowLoading = false,
-  onFollow = () => console.log('[VideoPost] Follow clicked (no handler provided)')
+  onFollow = () => console.log('[VideoPost] Follow clicked (no handler provided)'),
+  // Comments data (provided by container or directly in Storybook)
+  commentsData = [],
+  commentCount: injectedCommentCount,
+  canComment = false,
+  isCommentsLoading = false,
+  isCommentSubmitting = false,
+  onSubmitComment = async () => { console.log('[VideoPost] Comment submit (no handler)'); return false; }
 }) => {
   // State
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -646,6 +661,12 @@ export const VideoPost: React.FC<VideoPostProps> = ({
         onOpenChange={setCommentsOpen}
         postId={lensPostId || ''} // Only pass valid Lens post IDs, empty string if none
         onRefreshFeed={onRefreshFeed}
+        comments={commentsData}
+        commentCount={injectedCommentCount || comments}
+        canComment={canComment}
+        isLoading={isCommentsLoading}
+        isSubmitting={isCommentSubmitting}
+        onSubmitComment={onSubmitComment}
       />
       <ShareSheet
         open={shareOpen}
