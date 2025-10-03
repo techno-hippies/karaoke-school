@@ -162,7 +162,10 @@ LeaderboardEntry[10] memory leaderboard = scoreboard.getTopTrackScorers(
 
 | Contract | Address | Deployed | Status |
 |----------|---------|----------|--------|
-| KaraokeScoreboardV4 | `TBD` | `TBD` | Not deployed |
+| KaraokeScoreboardV4 | `0x8301E4bbe0C244870a4BC44ccF0241A908293d36` | `2025-10-03` | ✅ Deployed |
+
+**Transaction:** `0x6c8b2b3e5c8ffa3194eb5e43d25b8fe4c2ff2cffc89fc975692dddd08e1a69d0`
+**Explorer:** https://explorer.testnet.lens.xyz/address/0x8301E4bbe0C244870a4BC44ccF0241A908293d36
 
 ---
 
