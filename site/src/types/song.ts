@@ -2,13 +2,14 @@ import type { GeniusSong } from './genius';
 
 /**
  * Content Source Enumeration
- * Identifies where content originates from
+ * Identifies how content is loaded and practiced
+ *
+ * Note: Native songs may have Genius IDs as metadata, but if they're practiced
+ * with audio/timestamps from the contract, they're "Native" source.
  */
 export enum ContentSource {
-  Native = 0,    // Songs from SongRegistryV4 contract
-  Genius = 1,    // Songs from Genius.com API
-  Soundcloud = 2,
-  Spotify = 3
+  Native = 0,    // Songs from SongRegistryV4 (audio + word-level timestamps)
+  Genius = 1,    // Songs from Genius.com API (lyrics only, no audio)
 }
 
 /**
