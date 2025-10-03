@@ -1,14 +1,19 @@
 /**
  * Lit Protocol Search Service
  *
- * Handles Genius API search via Lit Actions (v8)
+ * Handles Genius API interactions via Lit Actions (v8)
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
 import { nagaDev } from '@lit-protocol/networks';
-import { createAuthManager, storagePlugins, WalletClientAuthenticator } from '@lit-protocol/auth';
+import { createAuthManager, storagePlugins } from '@lit-protocol/auth';
 import { getLitAction } from '../config/lit-actions';
 import type { WalletClient } from 'wagmi';
+import type {
+  GeniusSearchResponse,
+  GeniusSongResponse,
+  GeniusReferentsResponse,
+} from '../types/genius';
 
 // Create Auth Manager with localStorage persistence (v8 pattern)
 const authManager = createAuthManager({
@@ -17,29 +22,6 @@ const authManager = createAuthManager({
     networkName: 'naga-dev'
   })
 });
-
-export interface GeniusSearchResult {
-  genius_id: number;
-  title: string;
-  title_with_featured: string;
-  artist: string;
-  artist_id?: number;
-  genius_slug: string;
-  url: string;
-  artwork_thumbnail: string | null;
-  lyrics_state: string;
-  _score?: number;
-}
-
-export interface SearchResponse {
-  success: boolean;
-  results: GeniusSearchResult[];
-  count: number;
-  keyUsed?: number;
-  version?: string;
-  analytics?: string;
-  error?: string;
-}
 
 export class LitSearchService {
   private litClient: any = null;
@@ -127,7 +109,7 @@ export class LitSearchService {
       userAddress?: string;
       sessionId?: string;
     }
-  ): Promise<SearchResponse> {
+  ): Promise<GeniusSearchResponse> {
     try {
       await this.init();
 
@@ -177,7 +159,7 @@ export class LitSearchService {
         throw new Error('No response from Lit Action');
       }
 
-      const result: SearchResponse = JSON.parse(response.response as string);
+      const result: GeniusSearchResponse = JSON.parse(response.response as string);
       console.log('[LitSearchService] Parsed result:', result);
 
       if (!result.success) {
@@ -191,6 +173,142 @@ export class LitSearchService {
         success: false,
         results: [],
         count: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get song metadata from Genius via Lit Action
+   */
+  async getSongMetadata(
+    songId: string,
+    walletClient: WalletClient,
+    options?: {
+      userAddress?: string;
+      sessionId?: string;
+    }
+  ): Promise<GeniusSongResponse> {
+    try {
+      await this.init();
+
+      if (!this.litClient) {
+        throw new Error('Lit Client not initialized');
+      }
+
+      const authContext = await this.createAuthContext(walletClient);
+
+      const songAction = getLitAction('search', 'song');
+      if (!songAction) {
+        throw new Error('Song action not found in config');
+      }
+
+      console.log('[LitSearchService] Fetching song metadata for ID:', songId);
+      console.log('[LitSearchService] Using Lit Action CID:', songAction.cid);
+
+      const jsParams = {
+        songId,
+        userAddress: options?.userAddress || 'anonymous',
+        sessionId: options?.sessionId || crypto.randomUUID(),
+        language: navigator.language || 'en-US',
+        userAgent: navigator.userAgent,
+      };
+
+      const response = await this.litClient.executeJs({
+        ipfsId: songAction.cid,
+        authContext: authContext,
+        jsParams,
+      });
+
+      if (!response.response) {
+        throw new Error('No response from Lit Action');
+      }
+
+      const result: GeniusSongResponse = JSON.parse(response.response as string);
+      console.log('[LitSearchService] Song metadata:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch song');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[LitSearchService] Get song failed:', error);
+      return {
+        success: false,
+        song: null,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get referents (annotated lyric segments) for a song via Lit Action
+   */
+  async getReferents(
+    songId: string,
+    walletClient: WalletClient,
+    options?: {
+      page?: number;
+      perPage?: number;
+      userAddress?: string;
+      sessionId?: string;
+    }
+  ): Promise<GeniusReferentsResponse> {
+    try {
+      await this.init();
+
+      if (!this.litClient) {
+        throw new Error('Lit Client not initialized');
+      }
+
+      const authContext = await this.createAuthContext(walletClient);
+
+      const referentsAction = getLitAction('search', 'referents');
+      if (!referentsAction) {
+        throw new Error('Referents action not found in config');
+      }
+
+      console.log('[LitSearchService] Fetching referents for song ID:', songId);
+      console.log('[LitSearchService] Using Lit Action CID:', referentsAction.cid);
+
+      const jsParams = {
+        songId,
+        page: options?.page || 1,
+        perPage: options?.perPage || 20,
+        userAddress: options?.userAddress || 'anonymous',
+        sessionId: options?.sessionId || crypto.randomUUID(),
+        language: navigator.language || 'en-US',
+        userAgent: navigator.userAgent,
+      };
+
+      const response = await this.litClient.executeJs({
+        ipfsId: referentsAction.cid,
+        authContext: authContext,
+        jsParams,
+      });
+
+      if (!response.response) {
+        throw new Error('No response from Lit Action');
+      }
+
+      const result: GeniusReferentsResponse = JSON.parse(response.response as string);
+      console.log('[LitSearchService] Referents:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch referents');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[LitSearchService] Get referents failed:', error);
+      return {
+        success: false,
+        songId,
+        page: options?.page || 1,
+        count: 0,
+        referents: [],
+        next_page: null,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }

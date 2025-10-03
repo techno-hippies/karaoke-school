@@ -4,7 +4,12 @@
  * Functions to convert between different content sources and unified types
  */
 
-import type { GeniusSong, GeniusReferent } from '../types/genius';
+import type {
+  GeniusSearchResult,
+  GeniusSongMetadata,
+  GeniusReferent,
+  GeniusExternalLinks,
+} from '../types/genius';
 import type {
   Song,
   Segment,
@@ -14,19 +19,51 @@ import type {
 } from '../types/song';
 import { ContentSource as CS } from '../types/song';
 
+// ============================================================================
+// Genius Search → Song Conversion
+// ============================================================================
+
 /**
  * Convert Genius search result to unified Song interface
  */
-export function convertGeniusToSong(geniusResult: GeniusSong): Song {
+export function convertGeniusSearchToSong(searchResult: GeniusSearchResult): Song {
   return {
-    id: geniusResult.genius_id.toString(),
+    id: searchResult.genius_id.toString(),
     source: CS.Genius,
-    title: geniusResult.title_with_featured || geniusResult.title,
-    artist: geniusResult.artist,
-    thumbnailUrl: geniusResult.artwork_thumbnail || undefined,
-    _geniusData: geniusResult,
+    title: searchResult.title_with_featured || searchResult.title,
+    artist: searchResult.artist,
+    thumbnailUrl: searchResult.artwork_thumbnail || undefined,
+    _geniusData: searchResult,
   };
 }
+
+/**
+ * Convert Genius song metadata to unified Song interface
+ */
+export function convertGeniusSongToSong(songMetadata: GeniusSongMetadata): Song {
+  return {
+    id: songMetadata.id.toString(),
+    source: CS.Genius,
+    title: songMetadata.title,
+    artist: songMetadata.artist,
+    thumbnailUrl: songMetadata.song_art_image_url || songMetadata.header_image_url,
+    _geniusData: {
+      genius_id: songMetadata.id,
+      title: songMetadata.title,
+      title_with_featured: songMetadata.title,
+      artist: songMetadata.artist,
+      artist_id: songMetadata.artist_id,
+      genius_slug: songMetadata.path.replace(/^\//, ''),
+      url: songMetadata.url,
+      artwork_thumbnail: songMetadata.song_art_image_url,
+      lyrics_state: 'complete', // Assume complete if we have metadata
+    },
+  };
+}
+
+// ============================================================================
+// Genius Referents → Segments Conversion
+// ============================================================================
 
 /**
  * Convert Genius referents to unified Segment array
@@ -36,39 +73,50 @@ export function convertReferentsToSegments(
   songTitle: string,
   artist: string
 ): Segment[] {
-  return referents.map((referent, index) => {
-    // Split fragment into lines
-    const lines = referent.fragment
-      .split('\n')
-      .filter(line => line.trim().length > 0)
-      .map(text => ({
-        text: text.trim(),
-        originalText: text.trim(),
-      }));
+  return referents
+    .filter(ref => ref.fragment && ref.fragment.length > 0)
+    .map((referent, index) => {
+      // Split fragment into lines
+      const lines = referent.fragment
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(text => ({
+          text: text.trim(),
+          originalText: text.trim(),
+        }));
 
-    const lyrics: UntimestampedLyrics = {
-      type: 'untimestamped',
-      lines,
-    };
+      const lyrics: UntimestampedLyrics = {
+        type: 'untimestamped',
+        lines,
+      };
 
-    // Calculate line range for title
-    const lineStart = index * lines.length + 1;
-    const lineEnd = lineStart + lines.length - 1;
+      // Calculate line range for title
+      const lineStart = index + 1;
+      const lineCount = lines.length;
+      const lineEnd = lineStart + lineCount - 1;
 
-    return {
-      id: `referent-${referent.id}`,
-      source: CS.Genius,
-      title: lines.length === 1
-        ? `Line ${lineStart}`
-        : `Lines ${lineStart}-${lineEnd}`,
-      artist,
-      sectionType: 'Referent',
-      sectionIndex: index,
-      lyrics,
-      annotations: referent.annotations,
-      characterRange: referent.range,
-    };
-  });
+      return {
+        id: `referent-${referent.id}`,
+        source: CS.Genius,
+        title: lineCount === 1
+          ? `Line ${lineStart}`
+          : `Lines ${lineStart}-${lineEnd}`,
+        artist,
+        sectionType: 'Referent',
+        sectionIndex: index,
+        lyrics,
+        // Genius-specific fields
+        annotations: referent.annotation ? [
+          {
+            id: referent.annotation_id || 0,
+            body: referent.annotation,
+            votes_total: referent.votes_total,
+            verified: referent.verified,
+          }
+        ] : [],
+        characterRange: referent.range || undefined,
+      };
+    });
 }
 
 /**
@@ -86,9 +134,13 @@ export function convertReferentToSegmentMetadata(
   return {
     ...segment,
     totalLines: lyrics.lines.length,
-    languages: ['en'], // Genius defaults to English, can be extended
+    languages: ['en'], // Genius defaults to English
   };
 }
+
+// ============================================================================
+// ID Generation
+// ============================================================================
 
 /**
  * Generate human-readable song ID from title and artist
@@ -113,25 +165,84 @@ export function generateSegmentId(
   return `${sectionType.toLowerCase()}-${sectionIndex + 1}`;
 }
 
+// ============================================================================
+// External Links
+// ============================================================================
+
 /**
- * Format external link for Genius song
+ * Format external links for Genius song (from search result)
  */
-export function getGeniusExternalLinks(geniusSong: GeniusSong) {
+export function getGeniusExternalLinks(geniusData: GeniusSearchResult): GeniusExternalLinks {
   return {
     songLinks: [
       {
         label: 'View on Genius',
-        url: geniusSong.url,
+        url: geniusData.url,
       },
     ],
     lyricsLinks: [
       {
         label: 'Full Lyrics & Annotations',
-        url: geniusSong.url,
+        url: geniusData.url,
       },
     ],
   };
 }
+
+/**
+ * Format external links for Genius song (from full metadata)
+ */
+export function getGeniusExternalLinksFromMetadata(
+  songMetadata: GeniusSongMetadata
+): GeniusExternalLinks {
+  const songLinks: Array<{ label: string; url: string }> = [
+    {
+      label: 'View on Genius',
+      url: songMetadata.url,
+    },
+  ];
+
+  const lyricsLinks: Array<{ label: string; url: string }> = [
+    {
+      label: 'Full Lyrics & Annotations',
+      url: songMetadata.url,
+    },
+  ];
+
+  // Add media links
+  if (songMetadata.youtube_url) {
+    songLinks.push({ label: 'YouTube', url: songMetadata.youtube_url });
+  }
+  if (songMetadata.spotify_uuid) {
+    songLinks.push({
+      label: 'Spotify',
+      url: `https://open.spotify.com/track/${songMetadata.spotify_uuid}`,
+    });
+  }
+  if (songMetadata.soundcloud_url) {
+    songLinks.push({ label: 'SoundCloud', url: songMetadata.soundcloud_url });
+  }
+  if (songMetadata.apple_music_id) {
+    songLinks.push({
+      label: 'Apple Music',
+      url: `https://music.apple.com/us/song/${songMetadata.apple_music_id}`,
+    });
+  }
+
+  // Add additional media links from media array
+  songMetadata.media.forEach(media => {
+    if (media.url && !songLinks.some(link => link.url === media.url)) {
+      const label = media.provider.charAt(0).toUpperCase() + media.provider.slice(1);
+      songLinks.push({ label, url: media.url });
+    }
+  });
+
+  return { songLinks, lyricsLinks };
+}
+
+// ============================================================================
+// Content Source Utilities
+// ============================================================================
 
 /**
  * Get display name for content source
@@ -188,4 +299,11 @@ export function sourceHasTimestamps(source: ContentSource): boolean {
  */
 export function sourceHasMultipleModes(source: ContentSource): boolean {
   return source === CS.Native; // Only native has Practice/Perform/Lip Sync
+}
+
+/**
+ * Check if source requires authentication
+ */
+export function sourceRequiresAuth(source: ContentSource): boolean {
+  return source === CS.Spotify; // Spotify requires OAuth
 }
