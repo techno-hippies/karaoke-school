@@ -1,0 +1,22 @@
+{
+  "ciphertext": "p4w9CK8M/JNU0A1KOyHQJaFmRHRHwrUd0XWHhZgqwpWSldwTSbtBNxeAkG/aRWesgr6mMfa0seJiLqTTcti7neUmKUmbcMI7SbXTlmCON3dBoCzKz/8j8g2jKSUNFlCzIzEKvXu4wr4njV6aZhiIEM28ZdZfkjaowZqPlhcR60IMDqWUmtsnfdmyo+0L652j78EC",
+  "dataToEncryptHash": "743c2e02d14241fa6344335f78a5dfb1622426f9f54f7ae5cd693a34e1e45733",
+  "accessControlConditions": [
+    {
+      "contractAddress": "",
+      "standardContractType": "",
+      "chain": "ethereum",
+      "method": "",
+      "parameters": [
+        ":currentActionIpfsId"
+      ],
+      "returnValueTest": {
+        "comparator": "=",
+        "value": "QmS1ZUdhinpLmu6fw7GMzu7ktBk3EXwrjK6oJgvtnfm38B"
+      }
+    }
+  ],
+  "encryptedAt": "2025-08-09T06:55:34.070Z",
+  "litActionFile": "search/free.js",
+  "cid": "QmS1ZUdhinpLmu6fw7GMzu7ktBk3EXwrjK6oJgvtnfm38B"
+}

@@ -165,3 +165,14 @@ export interface ClipUploadResult {
   metadataUri: string;
   thumbnailUri?: string;
 }
+
+// Full song upload types
+export interface FullSongUploadResult {
+  songId: string;
+  folderUri: string;
+  audioUri: string;
+  metadataUri: string;
+  coverUri?: string;
+  thumbnailUri?: string;
+  musicVideoUri?: string;  // Optional: Link to music video on Grove
+}

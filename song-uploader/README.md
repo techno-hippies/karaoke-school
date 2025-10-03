@@ -44,8 +44,11 @@ songs/
     ├── Ethel Waters - Down Home Blues (Vocals).mp3     # Optional: Isolated vocals (better ElevenLabs accuracy)
     ├── Ethel Waters - Down Home Blues (Instrumental).mp3  # Optional: Backing track for karaoke practice
     ├── lyrics.txt                                       # Required: Lyrics with section markers
-    ├── thumbnail.jpg                                    # Optional: Cover art
+    ├── song-cover.png                                   # Required: Album/song cover (high-res)
+    ├── song-cover-thumb.png                            # Auto-generated: 300x300 thumbnail
+    ├── music-video-uri.txt                             # Optional: Grove URI for music video
     ├── karaoke-alignment.json                          # Auto-generated: ElevenLabs cache
+    ├── full-song-metadata.json                         # Auto-generated: Complete song karaoke data
     ├── translations/                                    # Optional: Translation files
     │   ├── cn.txt                                      # Chinese translation
     │   └── vi.txt                                      # Vietnamese translation
@@ -106,7 +109,19 @@ bun run validate --all
 - ✅ Proper capitalization
 - ✅ Translation alignment (sections match across all languages)
 
-### Step 2: Generate Word-Level Timestamps
+### Step 2: Generate Thumbnails
+```bash
+bun run generate-thumbnails --song "Artist - Song Title"
+bun run generate-thumbnails --all
+bun run generate-thumbnails --force --all  # Regenerate existing
+```
+
+**Process:**
+- Reads `song-cover.png` (high-res cover image)
+- Generates `song-cover-thumb.png` (300x300, optimized for feed views)
+- Skips if thumbnail already exists (unless --force)
+
+### Step 3: Generate Word-Level Timestamps
 ```bash
 bun run elevenlabs --song "Artist - Song Title"
 bun run elevenlabs --all
@@ -118,7 +133,24 @@ bun run elevenlabs --all
 - Caches results in `karaoke-alignment.json`
 - Skips songs with existing alignment files
 
-### Step 3: Slice Into Clips
+### Step 4: Generate Full-Song Metadata
+```bash
+bun run generate-full-metadata --song "Artist - Song Title"
+bun run generate-full-metadata --all
+bun run generate-full-metadata --force --all  # Regenerate existing
+```
+
+**Process:**
+- Reads `karaoke-alignment.json` (ElevenLabs word timestamps)
+- Reads `lyrics.txt` with section markers
+- Reads all `translations/*.txt` files
+- Generates `full-song-metadata.json` with:
+  - Word-level AND line-level timestamps for entire song
+  - Section markers for navigation
+  - Multilingual translations
+  - Full karaoke-ready format
+
+### Step 5: Slice Into Clips
 ```bash
 bun run slice --song "Artist - Song Title"
 bun run slice --all
@@ -137,7 +169,7 @@ bun run slice --all
 - `chorus.mp3`, `chorus-instrumental.mp3`, `chorus.json`
 - `chorus-2.mp3`, `chorus-2-instrumental.mp3`, `chorus-2.json`
 
-### Step 4: Upload to Grove + Contract
+### Step 6: Upload Clips to Grove + Contract
 ```bash
 bun run upload-clips --song "Artist - Song Title"
 bun run upload-clips --all
@@ -149,6 +181,23 @@ bun run upload-clips --dry-run --song "Artist - Song Title"  # Test first
 - Registers in ClipRegistry contract
 - Checks for duplicates before uploading
 - Returns Grove URIs for each resource
+
+### Step 7: Upload Full Songs to Grove
+```bash
+bun run upload-full-songs --song "Artist - Song Title"
+bun run upload-full-songs --all
+bun run upload-full-songs --dry-run --song "Artist - Song Title"  # Test first
+```
+
+**Process:**
+- Uploads full song package to Grove:
+  - Complete audio file (full song, not clips)
+  - `full-song-metadata.json` (word + line timestamps for entire song)
+  - `song-cover.png` (high-res cover image)
+  - `song-cover-thumb.png` (300x300 thumbnail)
+  - `music-video-uri.txt` (if present - links to music video on Grove)
+- Returns Grove URIs for all assets
+- **TODO:** Store URIs in song registry/contract
 
 ## Clip Metadata Structure
 
