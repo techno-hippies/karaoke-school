@@ -74,11 +74,3 @@ export const OnlyDue: Story = {
     dueCount: 15,
   },
 }
-
-export const ActiveStudy: Story = {
-  args: {
-    newCount: 3,
-    learningCount: 18,
-    dueCount: 7,
-  },
-}

@@ -1,4 +1,3 @@
-import { Book, Clock, Fire } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 export interface StudyStatsProps {
@@ -19,43 +18,45 @@ export function StudyStats({
   className,
 }: StudyStatsProps) {
   return (
-    <div className={cn('flex items-center gap-4 md:gap-6', className)}>
-      {/* New Cards */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/20">
-          <Book size={20} weight="duotone" className="text-blue-400" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg md:text-xl font-semibold text-foreground">
+    <div className={cn('w-full', className)}>
+      {/* Stats row */}
+      <div className="bg-neutral-900/30 rounded-lg border border-neutral-800/50 flex relative">
+        <div className="flex-1 p-3 md:p-4 text-center">
+          <div className="text-xl md:text-2xl font-bold text-neutral-300">
             {newCount}
-          </span>
-          <span className="text-xs text-muted-foreground">New</span>
+          </div>
+          <div className="text-neutral-500 text-xs md:text-sm font-medium mt-1">
+            New
+          </div>
         </div>
-      </div>
 
-      {/* Learning Cards */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500/20">
-          <Clock size={20} weight="duotone" className="text-yellow-400" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg md:text-xl font-semibold text-foreground">
+        {/* First divider */}
+        <div className="absolute left-1/3 top-1/2 -translate-y-1/2 w-px h-1/2 bg-neutral-800/50" />
+
+        <div className="flex-1 p-3 md:p-4 text-center">
+          <div className="text-xl md:text-2xl font-bold text-neutral-300">
             {learningCount}
-          </span>
-          <span className="text-xs text-muted-foreground">Learning</span>
+          </div>
+          <div className="text-neutral-500 text-xs md:text-sm font-medium mt-1">
+            Learning
+          </div>
         </div>
-      </div>
 
-      {/* Due Cards */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20">
-          <Fire size={20} weight="duotone" className="text-green-400" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg md:text-xl font-semibold text-foreground">
+        {/* Second divider */}
+        <div className="absolute left-2/3 top-1/2 -translate-y-1/2 w-px h-1/2 bg-neutral-800/50" />
+
+        <div className="flex-1 p-3 md:p-4 text-center">
+          <div
+            className={cn(
+              'text-xl md:text-2xl font-bold',
+              dueCount > 0 ? 'text-red-400' : 'text-neutral-400'
+            )}
+          >
             {dueCount}
-          </span>
-          <span className="text-xs text-muted-foreground">Due</span>
+          </div>
+          <div className="text-neutral-500 text-xs md:text-sm font-medium mt-1">
+            Due
+          </div>
         </div>
       </div>
     </div>

@@ -46,11 +46,22 @@ export const Default: Story = {
   },
 }
 
+export const WithPlayButton: Story = {
+  args: {
+    title: 'Heat of the Night',
+    artist: 'Scarlett X',
+    artworkUrl: 'https://placebear.com/400/400',
+    showPlayButton: true,
+    onPlayClick: () => console.log('Play clicked'),
+    onClick: () => console.log('Song clicked'),
+  },
+}
+
 export const WithArtwork: Story = {
   args: {
     title: 'Blinding Lights',
     artist: 'The Weeknd',
-    artworkUrl: 'https://placehold.co/400x400/6366f1/ffffff?text=BL',
+    artworkUrl: 'https://placebear.com/g/400/400',
     onClick: () => console.log('Song clicked'),
   },
 }
@@ -68,7 +79,7 @@ export const WithArtworkAndDue: Story = {
   args: {
     title: 'Blinding Lights',
     artist: 'The Weeknd',
-    artworkUrl: 'https://placehold.co/400x400/6366f1/ffffff?text=BL',
+    artworkUrl: 'https://placebear.com/401/401',
     dueCount: 12,
     onClick: () => console.log('Song clicked'),
   },
@@ -78,7 +89,7 @@ export const HighDueCount: Story = {
   args: {
     title: 'Shape of You',
     artist: 'Ed Sheeran',
-    artworkUrl: 'https://placehold.co/400x400/ec4899/ffffff?text=SY',
+    artworkUrl: 'https://placebear.com/402/402',
     dueCount: 99,
     onClick: () => console.log('Song clicked'),
   },
@@ -105,14 +116,14 @@ export const SongList: Story = {
       <SongListItem
         title="Blinding Lights"
         artist="The Weeknd"
-        artworkUrl="https://placehold.co/400x400/6366f1/ffffff?text=BL"
+        artworkUrl="https://placebear.com/403/403"
         dueCount={12}
         onClick={() => console.log('Song 2 clicked')}
       />
       <SongListItem
         title="Shape of You"
         artist="Ed Sheeran"
-        artworkUrl="https://placehold.co/400x400/ec4899/ffffff?text=SY"
+        artworkUrl="https://placebear.com/g/404/404"
         onClick={() => console.log('Song 3 clicked')}
       />
       <SongListItem
@@ -124,7 +135,7 @@ export const SongList: Story = {
       <SongListItem
         title="Someone Like You"
         artist="Adele"
-        artworkUrl="https://placehold.co/400x400/8b5cf6/ffffff?text=SL"
+        artworkUrl="https://placebear.com/405/405"
         dueCount={3}
         onClick={() => console.log('Song 5 clicked')}
       />
