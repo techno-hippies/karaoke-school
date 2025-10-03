@@ -11,6 +11,7 @@ interface SongListItemProps {
   isSelected?: boolean;
   isPlaying?: boolean;
   showSelectButton?: boolean;
+  showThumbnail?: boolean;
   onClick?: (song: Song) => void;
   onPlay?: (song: Song) => void;
   onSelect?: (song: Song) => void;
@@ -28,6 +29,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
   isSelected = false,
   isPlaying = false,
   showSelectButton = false,
+  showThumbnail = true,
   onClick,
   onPlay,
   onSelect,
@@ -58,6 +60,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
       `}
     >
       {/* Thumbnail */}
+      {showThumbnail && (
       <div className="relative w-20 h-20 rounded-md overflow-hidden bg-neutral-700 flex-shrink-0">
         {song.thumbnailUrl ? (
           <img
@@ -100,6 +103,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
           </div>
         </button>
       </div>
+      )}
 
       {/* Song info */}
       <div className="flex-1 min-w-0">
@@ -109,13 +113,8 @@ export const SongListItem: React.FC<SongListItemProps> = ({
         </h4>
 
         {/* Artist name - smaller text, tight spacing */}
-        <p className="text-neutral-400 text-base truncate leading-tight">
+        <p className="text-neutral-400 text-base truncate leading-tight mt-1">
           {song.artist}
-        </p>
-
-        {/* Duration */}
-        <p className="text-neutral-400 text-base mt-1">
-          {formatDuration(song.duration)}
         </p>
       </div>
 

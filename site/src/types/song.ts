@@ -5,6 +5,7 @@ export interface Song {
   duration: number; // in seconds
   thumbnailUrl?: string;
   audioUrl?: string;
+  _registryData?: any; // Internal: stores RegistrySong data from contract
 }
 
 export interface WordTimestamp {

@@ -34,7 +34,7 @@
 // ============================================================
 
 const CLIP_REGISTRY_ADDRESS = '0x59fCAe6753041C7b2E2ad443e4F2342Af46b81bf';
-const SCOREBOARD_CONTRACT_ADDRESS = '0x8D14f835fdA7b5349f6f1b1963EBA54FD058CF6A';
+const SCOREBOARD_CONTRACT_ADDRESS = '0xD4A9c232982Bb25299E9F62128617DAC5099B059'; // V2 with top-10 leaderboard
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC_URL = 'https://rpc.testnet.lens.xyz';
 

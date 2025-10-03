@@ -8,7 +8,9 @@ import { ClaimAccountPage } from './components/profile/ClaimAccountPage'
 import { VideoPage } from './components/video/VideoPage'
 import { LearnPage } from './components/LearnPage'
 import { SongPickerPage } from './components/create/SongPickerPage';
-import { SegmentPickerPage } from './components/create/SegmentPickerPage';
+import { ClipPickerPageRoute } from './components/create/ClipPickerPageRoute';
+import { LyricsPageRoute } from './components/create/LyricsPageRoute';
+import { ModeSelectorPage } from './components/create/ModeSelectorPage';
 import { CameraRecorderPage } from './components/create/CameraRecorderPage';
 import { PostEditorPage } from './components/create/PostEditorPage';
 import { TikTokTest } from './components/TikTokTest'
@@ -30,9 +32,11 @@ function App() {
               <Route path="/claim/:username" element={<ClaimAccountPage username="" claimableAmount={0} onBack={() => {}} onClaim={() => {}} />} />
               <Route path="/study" element={<LearnPage />} />
               <Route path="/create/song-picker" element={<SongPickerPage />} />
-              <Route path="/create/segment-picker/:songId" element={<SegmentPickerPage />} />
-              <Route path="/create/camera-recorder/:songId" element={<CameraRecorderPage />} />
-              <Route path="/create/post-editor/:songId" element={<PostEditorPage />} />
+              <Route path="/create/clip-picker" element={<ClipPickerPageRoute />} />
+              <Route path="/create/lyrics" element={<LyricsPageRoute />} />
+              <Route path="/create/mode-selector" element={<ModeSelectorPage />} />
+              <Route path="/create/camera-recorder/:clipId" element={<CameraRecorderPage />} />
+              <Route path="/create/post-editor" element={<PostEditorPage />} />
               <Route path="/test" element={<TikTokTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -132,9 +132,9 @@ async function main() {
     // 5. Load ONLY Voxstral key encryption (v3 simplification)
     const voxstralEncrypted = await loadVoxstralKey();
 
-    // 6. Use v3 IPFS CID
+    // 6. Use v3 IPFS CID (updated for V2 scoreboard)
     console.log('\\n📦 Using Lit Action v3 from IPFS...');
-    const IPFS_CID = 'QmZmPnp5tGFnLstWEL3wTsAyUQSeBSwqPuPgAZuTN3swjJ';
+    const IPFS_CID = 'QmS3Q7pcRXvb12pB2e681YMq1BWqyGY5MUdzT8sFEs4rzs';
     console.log('✅ CID:', IPFS_CID);
 
     // 7. Prepare jsParams (SIMPLIFIED - no contract address encryption!)
@@ -161,7 +161,7 @@ async function main() {
     console.log('   Clip ID:', TEST_CLIP_ID);
     console.log('   User:', TEST_USER_ADDRESS);
     console.log('   ClipRegistry:', CLIP_REGISTRY_ADDRESS, '(hardcoded in v3)');
-    console.log('   Scoreboard:', SCOREBOARD_CONTRACT_ADDRESS, '(hardcoded in v3)');
+    console.log('   Scoreboard:', '0xD4A9c232982Bb25299E9F62128617DAC5099B059', '(V2 with top-10 leaderboard)');
     console.log('   Audio size:', audioDataBase64.length, 'chars');
     console.log('   Encrypted params: Voxstral API key ONLY\\n');
 

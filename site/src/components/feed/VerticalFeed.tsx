@@ -134,13 +134,13 @@ export const VerticalFeed: React.FC = () => {
       tab,
       setMobileTab,
       setActiveTab,
-      () => openConnectModal?.(),
-      handleCreatePost
+      () => openConnectModal?.()
     );
   };
 
   const handleCreatePost = () => {
-    console.log('Create post clicked');
+    console.log('[VerticalFeed] Create post - navigating to song picker');
+    navigation.navigate('/create/song-picker');
   };
 
   // Use the view component for rendering

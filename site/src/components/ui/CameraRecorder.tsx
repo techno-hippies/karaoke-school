@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  CameraRotate,
-  Lightning,
-  CaretLeft
-} from '@phosphor-icons/react';
+import { CaretLeft } from '@phosphor-icons/react';
 import { useKaraokeWords, type ProcessedWord } from '../../hooks/karaoke/useKaraokeWords';
 import { TikTokKaraokeRenderer } from '../karaoke/KaraokeWordsRenderer';
 
@@ -34,13 +30,12 @@ interface CameraRecorderProps {
   isRecording?: boolean;
   segment?: SelectedSegment;
   audioUrl?: string;
+  recordingMode?: 'cover' | 'lipsync';
+  videoEnabled?: boolean;
   onRecord?: () => void;
   onStop?: () => void;
-  onFlipCamera?: () => void;
-  onFlash?: () => void;
   onBack?: () => void;
   onRecordingComplete?: (videoBlob: Blob) => void;
-  showFlash?: boolean; // Optional flash control
   className?: string;
 }
 
@@ -48,13 +43,12 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
   isRecording = false,
   segment,
   audioUrl,
+  recordingMode = 'cover',
+  videoEnabled = true,
   onRecord,
   onStop,
-  onFlipCamera,
-  onFlash,
   onBack,
   onRecordingComplete,
-  showFlash = false,
   className = ''
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -64,7 +58,6 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [cameraStream, setCameraStream] = useState<ExtendedMediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // front camera by default
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
 
@@ -211,12 +204,12 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         setCameraError(null);
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: facingMode,
+          video: videoEnabled ? {
+            facingMode: 'user',
             width: { ideal: 1080 },
             height: { ideal: 1920 }
-          },
-          audio: true // Include microphone audio
+          } : false,
+          audio: recordingMode !== 'lipsync' // No mic for lip sync mode
         });
 
         console.log('[CameraRecorder] Camera access granted');
@@ -251,18 +244,28 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
           extendedStream.micGain = micGain;
           setCameraStream(extendedStream);
 
-          // Create combined stream with video + mixed audio
-          const combinedStream = new MediaStream([
-            ...stream.getVideoTracks(),
+          // Create combined stream with video (if enabled) + mixed audio
+          const combinedTracks = [
+            ...(videoEnabled ? stream.getVideoTracks() : []),
             ...destination.stream.getAudioTracks()
-          ]);
+          ];
+          const combinedStream = new MediaStream(combinedTracks);
 
-          // Use simpler codec for better reliability
-          let mimeType = 'video/webm;codecs=vp8,opus';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/webm';
+          // Use appropriate codec based on whether video is enabled
+          let mimeType: string;
+          if (videoEnabled) {
+            mimeType = 'video/webm;codecs=vp8,opus';
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-              mimeType = 'video/mp4';
+              mimeType = 'video/webm';
+              if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/mp4';
+              }
+            }
+          } else {
+            // Audio-only for practice mode
+            mimeType = 'audio/webm;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+              mimeType = 'audio/webm';
             }
           }
 
@@ -299,20 +302,21 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       }
     };
 
+    // Always initialize (audio-only for practice, video+audio for perform, video-only for lipsync)
     initializeCamera();
 
     // Cleanup camera stream on unmount
     return () => {
       if (cameraStream) {
-        console.log('[CameraRecorder] Cleaning up camera stream');
+        console.log('[CameraRecorder] Cleaning up camera/audio stream');
         cameraStream.getTracks().forEach(track => {
           track.stop();
-          console.log('[CameraRecorder] Stopped camera track:', track.kind);
+          console.log('[CameraRecorder] Stopped track:', track.kind);
         });
         setCameraStream(null);
       }
     };
-  }, [facingMode]); // Only re-initialize when facing mode changes
+  }, [videoEnabled, recordingMode]); // Re-initialize when video or mode changes
 
   // Additional cleanup on component unmount (backup safety)
   useEffect(() => {
@@ -391,11 +395,6 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     }
   };
 
-  const handleFlipCamera = () => {
-    // Toggle between front and back camera
-    setFacingMode(current => current === 'user' ? 'environment' : 'user');
-    onFlipCamera?.();
-  };
 
   // Get current 2-3 lines to display
   const getCurrentLyrics = () => {
@@ -428,6 +427,10 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
     return visibleWords;
   };
 
+  // Call hook at top level (not inside conditional render)
+  const currentWords = getCurrentWords();
+  const processedWords = useKaraokeWords(currentWords, currentAudioTime);
+
   return (
     <div className={`relative w-full h-screen bg-black overflow-hidden ${className}`}>
       {/* Safe area spacer */}
@@ -435,7 +438,10 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
 
       {/* Camera preview area */}
       <div className="absolute inset-0 bg-black">
-        {cameraError ? (
+        {!videoEnabled ? (
+          // Audio-only mode - just show black background, lyrics will be displayed below
+          <div className="w-full h-full bg-black" />
+        ) : cameraError ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center p-4">
               <div className="text-red-400 text-lg mb-4">Camera Error</div>
@@ -452,7 +458,7 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
             playsInline
             muted
             className="w-full h-full object-cover"
-            style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+            style={{ transform: 'scaleX(-1)' }}
           />
         )}
       </div>
@@ -468,8 +474,6 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
       {/* Karaoke lyrics display with word-level highlighting */}
       {segment?.lyrics && (() => {
         const currentLines = getCurrentLyrics();
-        const currentWords = getCurrentWords();
-        const processedWords = useKaraokeWords(currentWords, currentAudioTime);
 
         // Group processed words by line
         const wordsByLine: ProcessedWord[][] = [];
@@ -520,37 +524,6 @@ export const CameraRecorder: React.FC<CameraRecorderProps> = ({
         />
       )}
 
-      {/* Top right controls - responsive design */}
-      <div
-        className="absolute right-4 z-20 flex flex-col gap-4"
-        style={{ top: '280px' }}
-      >
-        {/* Flip camera - mobile only */}
-        {onFlipCamera && (
-          <div className="flex flex-col items-center gap-0.5 md:hidden">
-            <button
-              onClick={handleFlipCamera}
-              className="w-12 h-12 flex items-center justify-center hover:bg-neutral-800 transition-colors cursor-pointer rounded-full"
-            >
-              <CameraRotate className="w-6 h-6 text-white" />
-            </button>
-            <span className="text-white text-xs font-medium drop-shadow-lg">Flip</span>
-          </div>
-        )}
-
-        {/* Flash - only if showFlash is true */}
-        {showFlash && onFlash && (
-          <div className="flex flex-col items-center gap-0.5">
-            <button
-              onClick={onFlash}
-              className="w-12 h-12 flex items-center justify-center hover:bg-neutral-800 transition-colors cursor-pointer rounded-full"
-            >
-              <Lightning className="w-6 h-6 text-white" />
-            </button>
-            <span className="text-white text-xs font-medium drop-shadow-lg">Flash</span>
-          </div>
-        )}
-      </div>
 
       {/* Bottom controls */}
       <div

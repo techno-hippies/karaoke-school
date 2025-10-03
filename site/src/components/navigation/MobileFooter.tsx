@@ -1,5 +1,5 @@
 import React from 'react';
-import { House, PlusCircle, User, GraduationCap, ChatCenteredText } from '@phosphor-icons/react';
+import { House, MusicNotes, User, GraduationCap, ChatCenteredText } from '@phosphor-icons/react';
 
 interface MobileFooterProps {
   activeTab: 'home' | 'study' | 'post' | 'inbox' | 'profile';
@@ -35,9 +35,11 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
 
         <button
           onClick={() => onTabChange('post')}
-          className="flex flex-col items-center justify-center flex-1 h-full text-neutral-500 hover:text-neutral-400 transition-colors cursor-pointer"
+          className="flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer"
         >
-          <PlusCircle className="w-12 h-12 text-white mb-1" weight="fill" />
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-full p-3">
+            <MusicNotes className="w-6 h-6 text-white" weight="duotone" />
+          </div>
         </button>
 
         <button

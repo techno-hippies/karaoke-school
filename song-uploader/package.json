@@ -13,12 +13,16 @@
     "validate": "bun run src/commands/validate.ts",
     "elevenlabs": "bun run src/commands/process-elevenlabs.ts",
     "slice": "bun run src/commands/slice.ts",
-    "upload-clips": "bun run src/commands/upload.ts"
+    "upload-clips": "bun run src/commands/upload.ts",
+    "generate-thumbnails": "bun run src/commands/generate-thumbnails.ts",
+    "generate-full-metadata": "bun run src/commands/generate-full-metadata.ts",
+    "upload-full-songs": "bun run src/commands/upload-full-songs.ts"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "latest",
     "@lens-chain/sdk": "latest",
     "@lens-chain/storage-client": "latest",
+    "sharp": "^0.34.4",
     "syllable": "^5.0.1",
     "viem": "^2.0.0"
   },
