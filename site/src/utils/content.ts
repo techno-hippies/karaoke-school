@@ -253,10 +253,6 @@ export function getSourceDisplayName(source: ContentSource): string {
       return 'Library';
     case CS.Genius:
       return 'Genius';
-    case CS.Soundcloud:
-      return 'SoundCloud';
-    case CS.Spotify:
-      return 'Spotify';
     default:
       return 'Unknown';
   }
@@ -271,10 +267,6 @@ export function getSourceColor(source: ContentSource): string {
       return 'bg-blue-500';
     case CS.Genius:
       return 'bg-yellow-500';
-    case CS.Soundcloud:
-      return 'bg-orange-500';
-    case CS.Spotify:
-      return 'bg-green-500';
     default:
       return 'bg-gray-500';
   }
@@ -284,7 +276,7 @@ export function getSourceColor(source: ContentSource): string {
  * Check if source supports audio
  */
 export function sourceHasAudio(source: ContentSource): boolean {
-  return source === CS.Native || source === CS.Soundcloud || source === CS.Spotify;
+  return source === CS.Native;
 }
 
 /**
@@ -299,11 +291,4 @@ export function sourceHasTimestamps(source: ContentSource): boolean {
  */
 export function sourceHasMultipleModes(source: ContentSource): boolean {
   return source === CS.Native; // Only native has Practice/Perform/Lip Sync
-}
-
-/**
- * Check if source requires authentication
- */
-export function sourceRequiresAuth(source: ContentSource): boolean {
-  return source === CS.Spotify; // Spotify requires OAuth
 }

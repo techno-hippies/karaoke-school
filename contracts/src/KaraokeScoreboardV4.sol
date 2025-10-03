@@ -4,22 +4,20 @@ pragma solidity ^0.8.19;
 /**
  * @title KaraokeScoreboardV4
  * @notice On-chain high scores for karaoke with multi-source content support
- * @dev Tracks scores across multiple content sources (Native, Genius, SoundCloud, Spotify)
+ * @dev Tracks scores across Native (contract songs) and Genius (API songs) sources
  *
  * Architecture:
- * - ContentSource enum for type-safe source tracking
+ * - ContentSource enum: Native or Genius (how song is loaded/practiced)
+ * - Native: Songs from SongRegistryV4 with audio + word-level timestamps
+ * - Genius: Songs from Genius.com API with lyrics only (no audio)
  * - Hash-based storage: keccak256(source, id) for gas efficiency
  * - Segment-level scoring: individual practice units from any source
  * - Track-level scoring: aggregate when all segments complete
  * - Dual leaderboards: per-segment top-10 AND per-track top-10
- * - Human-readable events with source information
  * - Only trusted PKP address can submit scores (prevents cheating)
  *
- * Key Changes from V3:
- * - "Clip" → "Segment" terminology
- * - Formalized ContentSource enum
- * - Hash-based keys for efficient storage
- * - Source field in all events
+ * Note: Native songs may have Genius IDs as metadata, but if they're practiced
+ * with audio/timestamps from the contract, they're "Native" source.
  *
  * Integration:
  * - PKP submits segment scores via updateScore(source, trackId, segmentId, user, score)
@@ -34,13 +32,11 @@ contract KaraokeScoreboardV4 {
 
     /**
      * @notice Content source enumeration
-     * @dev Identifies where content originates from
+     * @dev Identifies how content is loaded and practiced
      */
     enum ContentSource {
-        Native,      // 0: Songs from SongRegistryV4 contract
-        Genius,      // 1: Songs from Genius.com API
-        Soundcloud,  // 2: Songs from SoundCloud
-        Spotify      // 3: Songs from Spotify
+        Native,   // 0: Songs from SongRegistryV4 (audio + word-level timestamps)
+        Genius    // 1: Songs from Genius.com API (lyrics only, no audio)
     }
 
     struct Score {
@@ -159,8 +155,10 @@ contract KaraokeScoreboardV4 {
     /**
      * @notice Generate content hash from source + ID
      * @dev Uses keccak256 for deterministic hashing
-     * @param source Content source (0=Native, 1=Genius, etc.)
-     * @param id Content identifier (e.g., "heat-of-the-night-scarlett-x" or "123456")
+     * @param source Content source (0=Native, 1=Genius)
+     * @param id Content identifier
+     *   Native: human-readable slug (e.g., "heat-of-the-night-scarlett-x")
+     *   Genius: genius_id as string (e.g., "123456")
      */
     function getContentHash(uint8 source, string calldata id)
         public
@@ -177,7 +175,7 @@ contract KaraokeScoreboardV4 {
     /**
      * @notice Configure a track with its segment IDs (owner only)
      * @dev Must be called before scores can be submitted for a track
-     * @param source Content source
+     * @param source Content source (0=Native, 1=Genius)
      * @param trackId The track identifier
      * @param segmentIds Array of segment IDs that belong to this track
      */
@@ -186,6 +184,7 @@ contract KaraokeScoreboardV4 {
         string calldata trackId,
         string[] calldata segmentIds
     ) external onlyOwner {
+        require(source <= uint8(ContentSource.Genius), "Invalid source");
         require(bytes(trackId).length > 0, "Invalid track ID");
         require(segmentIds.length > 0, "Must have at least one segment");
         require(segmentIds.length <= 100, "Too many segments");
@@ -208,7 +207,7 @@ contract KaraokeScoreboardV4 {
     /**
      * @notice Update segment IDs for an existing track (owner only)
      * @dev WARNING: Does not recalculate existing trackScores. Use for fixes/additions only.
-     * @param source Content source
+     * @param source Content source (0=Native, 1=Genius)
      * @param trackId The track identifier
      * @param newSegmentIds Updated array of segment IDs
      */
@@ -217,6 +216,7 @@ contract KaraokeScoreboardV4 {
         string calldata trackId,
         string[] calldata newSegmentIds
     ) external onlyOwner {
+        require(source <= uint8(ContentSource.Genius), "Invalid source");
         bytes32 trackHash = getContentHash(source, trackId);
         require(trackExists[trackHash], "Track does not exist");
         require(newSegmentIds.length > 0, "Must have at least one segment");
@@ -240,7 +240,7 @@ contract KaraokeScoreboardV4 {
     /**
      * @notice Update user's score for a segment (only callable by trusted PKP)
      * @dev Updates segment score and checks for track completion
-     * @param source Content source
+     * @param source Content source (0=Native, 1=Genius)
      * @param trackId The track identifier
      * @param segmentId The segment identifier
      * @param user The user's wallet address
@@ -253,6 +253,7 @@ contract KaraokeScoreboardV4 {
         address user,
         uint96 newScore
     ) external onlyTrustedScorer whenNotPaused {
+        require(source <= uint8(ContentSource.Genius), "Invalid source");
         require(newScore <= 100, "Invalid score");
         require(user != address(0), "Invalid user");
         require(bytes(segmentId).length > 0, "Invalid segment ID");
