@@ -2,6 +2,7 @@
 
 export interface KaraokeLine {
   text: string
+  translation?: string
   start: number
   end: number
   words?: KaraokeWord[]
@@ -24,6 +25,7 @@ export interface VideoPostData {
   description: string
   musicTitle?: string
   musicAuthor?: string
+  musicImageUrl?: string
   // Engagement metrics
   likes: number
   comments: number
@@ -49,13 +51,13 @@ export interface VideoPlayerProps {
 export interface KaraokeOverlayProps {
   lines?: KaraokeLine[]
   currentTime: number
-  username: string
   className?: string
 }
 
 export interface AudioSourceButtonProps {
   musicTitle: string
   musicAuthor?: string
+  musicImageUrl?: string
   onClick?: () => void
   className?: string
 }
@@ -80,13 +82,17 @@ export interface VideoActionsProps {
   // Audio
   musicTitle: string
   musicAuthor?: string
+  musicImageUrl?: string
   onAudioClick?: () => void
   className?: string
 }
 
 export interface VideoInfoProps {
   username: string
-  description: string
+  description?: string
+  musicTitle?: string
+  musicAuthor?: string
   onUsernameClick?: () => void
+  onMusicClick?: () => void
   className?: string
 }

@@ -26,6 +26,7 @@ export function VideoActions({
   onShareClick,
   musicTitle,
   musicAuthor,
+  musicImageUrl,
   onAudioClick,
   className
 }: VideoActionsProps) {
@@ -86,8 +87,9 @@ export function VideoActions({
         className="flex flex-col items-center cursor-pointer"
       >
         <div className={cn(
-          'rounded-full p-3 backdrop-blur-sm transition-colors',
-          isLiked ? 'bg-red-500/20' : 'bg-neutral-800/50'
+          'rounded-full p-3 transition-colors',
+          'max-md:bg-transparent',
+          isLiked ? 'md:bg-red-500/20' : 'md:bg-neutral-800/50 md:backdrop-blur-sm'
         )}>
           <Heart
             className={cn(
@@ -98,7 +100,7 @@ export function VideoActions({
           />
         </div>
         <span className={cn(
-          'text-xs mt-1',
+          'text-xs max-md:mt-0 md:mt-1',
           isLiked ? 'text-red-500' : 'text-white'
         )}>
           {formatCount(likes)}
@@ -113,10 +115,10 @@ export function VideoActions({
         }}
         className="flex flex-col items-center cursor-pointer"
       >
-        <div className="rounded-full p-3 bg-neutral-800/50 backdrop-blur-sm hover:bg-neutral-700/50 transition-colors">
+        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
           <ChatCircle className="w-7 h-7 text-white" weight="fill" />
         </div>
-        <span className="text-white text-xs mt-1">
+        <span className="text-white text-xs max-md:mt-0 md:mt-1">
           {formatCount(comments)}
         </span>
       </button>
@@ -129,10 +131,10 @@ export function VideoActions({
         }}
         className="flex flex-col items-center cursor-pointer"
       >
-        <div className="rounded-full p-3 bg-neutral-800/50 backdrop-blur-sm hover:bg-neutral-700/50 transition-colors">
+        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
           <ShareFat className="w-7 h-7 text-white" weight="fill" />
         </div>
-        <span className="text-white text-xs mt-1">
+        <span className="text-white text-xs max-md:mt-0 md:mt-1">
           {formatCount(shares)}
         </span>
       </button>
@@ -141,6 +143,7 @@ export function VideoActions({
       <AudioSourceButton
         musicTitle={musicTitle}
         musicAuthor={musicAuthor}
+        musicImageUrl={musicImageUrl}
         onClick={onAudioClick}
       />
     </div>

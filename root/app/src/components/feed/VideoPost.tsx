@@ -30,6 +30,7 @@ export function VideoPost({
   description,
   musicTitle = 'Original Sound',
   musicAuthor,
+  musicImageUrl,
   likes,
   comments,
   shares,
@@ -82,56 +83,39 @@ export function VideoPost({
           onToggleMute={() => setIsMuted(!isMuted)}
         />
 
-        {/* Karaoke Overlay - bottom-left with username */}
+        {/* Karaoke Overlay - top-center lyrics */}
         {karaokeLines && karaokeLines.length > 0 && (
           <KaraokeOverlay
             lines={karaokeLines}
             currentTime={currentTime}
-            username={username}
           />
         )}
 
-        {/* Video Info - bottom-left (desktop only, inside video) - ONLY when no karaoke */}
-        {!karaokeLines?.length && (
-          <div className="max-md:hidden absolute bottom-4 left-4 right-20 z-20">
-            <VideoInfo
-              username={username}
-              description={description}
-              onUsernameClick={onProfileClick}
-            />
-          </div>
-        )}
-
-        {/* Description only - when karaoke is present (desktop) */}
-        {karaokeLines?.length > 0 && (
-          <div className="max-md:hidden absolute bottom-4 left-4 right-20 z-20">
-            <p className="text-white text-sm drop-shadow-lg leading-tight">
-              {description}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile: Bottom gradient + Video Info - ONLY when no karaoke */}
-      {!karaokeLines?.length && (
-        <div className="md:hidden absolute bottom-0 left-0 right-0 p-4 pb-20 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10">
+        {/* Video Info - bottom-left (desktop only, inside video) - username + caption + music */}
+        <div className="max-md:hidden absolute bottom-4 left-6 right-20 z-20">
           <VideoInfo
             username={username}
             description={description}
+            musicTitle={musicTitle}
+            musicAuthor={musicAuthor}
             onUsernameClick={onProfileClick}
-            className="pointer-events-auto"
+            onMusicClick={onAudioClick}
           />
         </div>
-      )}
+      </div>
 
-      {/* Mobile: Description only when karaoke is present */}
-      {karaokeLines?.length > 0 && (
-        <div className="md:hidden absolute bottom-0 left-0 right-0 p-4 pb-20 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10">
-          <p className="text-white text-sm drop-shadow-lg leading-tight pointer-events-auto">
-            {description}
-          </p>
-        </div>
-      )}
+      {/* Mobile: Bottom gradient + Video Info */}
+      <div className="md:hidden absolute bottom-0 left-0 right-0 p-6 pb-4 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10">
+        <VideoInfo
+          username={username}
+          description={description}
+          musicTitle={musicTitle}
+          musicAuthor={musicAuthor}
+          onUsernameClick={onProfileClick}
+          onMusicClick={onAudioClick}
+          className="pointer-events-auto"
+        />
+      </div>
 
       {/* Mobile: Actions overlay on right side */}
       <div className="md:hidden absolute right-4 bottom-20 z-20">
@@ -152,6 +136,7 @@ export function VideoPost({
           onShareClick={onShareClick || (() => {})}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
+          musicImageUrl={musicImageUrl}
           onAudioClick={onAudioClick}
         />
       </div>
@@ -175,6 +160,7 @@ export function VideoPost({
           onShareClick={onShareClick || (() => {})}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
+          musicImageUrl={musicImageUrl}
           onAudioClick={onAudioClick}
         />
       </div>

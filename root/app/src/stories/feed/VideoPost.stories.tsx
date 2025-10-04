@@ -21,6 +21,7 @@ type Story = StoryObj<typeof meta>
 const sampleKaraokeLines = [
   {
     text: 'In the heat of the night',
+    translation: '在夜晚的热度中',
     start: 0,
     end: 2.5,
     words: [
@@ -34,6 +35,7 @@ const sampleKaraokeLines = [
   },
   {
     text: 'When the stars are shining bright',
+    translation: '当星星闪耀明亮',
     start: 2.5,
     end: 5.0,
     words: [
@@ -59,6 +61,7 @@ export const Default: Story = {
     description: 'Practicing my karaoke skills! Follow along 🎵',
     musicTitle: 'Heat of the Night',
     musicAuthor: 'Scarlett X',
+    musicImageUrl: 'https://placebear.com/200/200',
     likes: 45000,
     comments: 2100,
     shares: 3400,
@@ -87,6 +90,7 @@ export const LikedAndFollowing: Story = {
     description: 'Best performance ever! Can\'t stop watching 🔥🔥🔥',
     musicTitle: 'Down Home Blues',
     musicAuthor: 'Ethel Waters',
+    musicImageUrl: 'https://placebear.com/201/201',
     likes: 89001, // +1 from like
     comments: 5600,
     shares: 8900,
@@ -114,6 +118,7 @@ export const Viral: Story = {
     description: 'This blew up overnight! Thank you all so much!! 🚀💫 #viral #fyp #trending',
     musicTitle: 'Trending Sound',
     musicAuthor: 'Various Artists',
+    musicImageUrl: 'https://placebear.com/202/202',
     likes: 2500000,
     comments: 125000,
     shares: 450000,
@@ -140,6 +145,7 @@ export const NotAuthenticated: Story = {
     username: 'talent_show',
     description: 'Sign in to like, comment, and follow! 🎭',
     musicTitle: 'Original Sound',
+    musicImageUrl: 'https://placebear.com/203/203',
     likes: 5600,
     comments: 234,
     shares: 89,

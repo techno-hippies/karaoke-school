@@ -3,13 +3,12 @@ import { cn } from '@/lib/utils'
 import type { KaraokeOverlayProps, KaraokeLine } from './types'
 
 /**
- * KaraokeOverlay - TikTok-style karaoke lyrics at bottom-left
- * Shows current lyric line with word-level highlighting + username below
+ * KaraokeOverlay - TikTok-style karaoke lyrics at top-center
+ * Shows current lyric line with word-level highlighting + translation
  */
 export function KaraokeOverlay({
   lines,
   currentTime,
-  username,
   className
 }: KaraokeOverlayProps) {
   // Find current line based on time
@@ -37,10 +36,11 @@ export function KaraokeOverlay({
   }, [currentLine, currentTime])
 
   return (
-    <div className={cn('absolute bottom-20 left-4 right-20 pointer-events-none z-10', className)}>
-      {/* Lyrics with word highlighting */}
-      <div className="text-white text-left space-y-1">
-        <div className="text-lg font-bold leading-tight drop-shadow-lg">
+    <div className={cn('absolute top-20 left-0 right-0 flex justify-center pointer-events-none z-10 px-4', className)}>
+      {/* Lyrics with word highlighting - centered */}
+      <div className="text-white text-center space-y-2 max-w-xl">
+        {/* Original lyrics */}
+        <div className="text-2xl font-bold leading-tight drop-shadow-lg">
           {highlightedWords.map((word, i) => (
             <span
               key={i}
@@ -54,12 +54,12 @@ export function KaraokeOverlay({
           ))}
         </div>
 
-        {/* Username below lyrics - TikTok style */}
-        <div className="mt-2">
-          <span className="text-white font-semibold text-sm drop-shadow-lg">
-            @{username}
-          </span>
-        </div>
+        {/* Translation below original lyrics */}
+        {currentLine.translation && (
+          <div className="text-lg font-medium leading-tight drop-shadow-lg text-white/90">
+            {currentLine.translation}
+          </div>
+        )}
       </div>
     </div>
   )
