@@ -4,9 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { useWalletClient } from 'wagmi';
 import { SongListItem } from '../ui/SongListItem';
 import { SearchInput } from '../ui/SearchInput';
-import type { Song, Clip, ClipMetadata } from '../../types/song';
-import { getContractSongs, fetchSongMetadata, resolveLensUri, type RegistrySong, type SongMetadataV4 } from '../../services/SongRegistryService';
-import { getLitSearchService, type GeniusSearchResult } from '../../services/LitSearchService';
+import type { Song } from '../../types/song';
+import { ContentSource } from '../../types/song';
+import { getContractSongs, resolveLensUri } from '../../services/SongRegistryService';
+import { getLitSearchService } from '../../services/LitSearchService';
+import type { GeniusSearchResult } from '../../types/genius';
+import { TrendingSection } from '../trending';
+import { TrendingService, type TrendingSong } from '../../services/TrendingService';
+import { TimeWindow } from '../../services/TrendingQueueService';
+import { ethers } from 'ethers';
+import { LIT_ACTIONS } from '../../config/lit-actions';
 
 interface SongPickerPageProps {
   onBack?: () => void;
@@ -22,10 +29,7 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
   const navigate = useNavigate();
   const { data: walletClient } = useWalletClient();
   const [songs, setSongs] = useState<Song[]>([]);
-  const [registrySongs, setRegistrySongs] = useState<RegistrySong[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-  const [selectedMetadata, setSelectedMetadata] = useState<SongMetadataV4 | null>(null);
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [geniusResults, setGeniusResults] = useState<GeniusSearchResult[]>([]);
@@ -33,9 +37,16 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
   const [searchError, setSearchError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Load songs from contract on mount
+  // Trending state
+  const [trendingHourly, setTrendingHourly] = useState<TrendingSong[]>([]);
+  const [trendingDaily, setTrendingDaily] = useState<TrendingSong[]>([]);
+  const [trendingWeekly, setTrendingWeekly] = useState<TrendingSong[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+
+  // Load songs and trending from contract on mount
   useEffect(() => {
     loadSongs();
+    loadTrending();
   }, []);
 
   const loadSongs = async () => {
@@ -45,19 +56,15 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
       const contractSongs = await getContractSongs();
       console.log('[SongPickerPage] Loaded contract songs:', contractSongs);
 
-      // Store registry songs for later metadata fetching
-      setRegistrySongs(contractSongs);
-
-      // Convert to Song format for display
-      const displaySongs: Song[] = contractSongs.map(song => ({
+      // Convert to Song format for display (with index for clean URLs)
+      const displaySongs: Song[] = contractSongs.map((song, index) => ({
         id: song.id,
+        index: index,  // Add numeric index for URL routing
         title: song.title,
         artist: song.artist,
         duration: song.duration,
         thumbnailUrl: resolveLensUri(song.thumbnailUri),
         audioUrl: resolveLensUri(song.audioUri),
-        // Store additional metadata for later use
-        _registryData: song
       }));
 
       setSongs(displaySongs);
@@ -69,103 +76,90 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
     }
   };
 
+  const loadTrending = async () => {
+    try {
+      setTrendingLoading(true);
+      console.log('[SongPickerPage] Loading trending from TrendingTrackerV1...');
 
+      // Get trending contract config
+      const trendingConfig = LIT_ACTIONS.trending.tracker;
+      const provider = new ethers.providers.JsonRpcProvider('https://rpc.testnet.lens.xyz');
+      const trendingService = new TrendingService(provider, trendingConfig.contracts.trendingTracker);
 
-  // Handle song selection - fetch clips and full metadata, navigate to clip picker page
+      // Load all three time windows
+      const [hourly, daily, weekly] = await Promise.all([
+        trendingService.getTrendingSongs(TimeWindow.Hourly, 10),
+        trendingService.getTrendingSongs(TimeWindow.Daily, 10),
+        trendingService.getTrendingSongs(TimeWindow.Weekly, 10),
+      ]);
+
+      setTrendingHourly(hourly);
+      setTrendingDaily(daily);
+      setTrendingWeekly(weekly);
+
+      console.log('[SongPickerPage] Loaded trending:', {
+        hourly: hourly.length,
+        daily: daily.length,
+        weekly: weekly.length
+      });
+    } catch (error) {
+      console.error('Failed to load trending:', error);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+  // Handle song selection - navigate to segment picker with URL-based routing
   const handleSongSelect = async (song: Song) => {
-    console.log('[SongPickerPage] Song selected:', song);
-    setSelectedSong(song);
+    console.log('[SongPickerPage] Native song selected:', song);
 
-    // Get clip URIs and metadata URI from registry data
-    const registryData = (song as any)._registryData as RegistrySong;
-    console.log('[SongPickerPage] Registry data clipIds:', registryData?.clipIds);
-    console.log('[SongPickerPage] Registry data metadataUri:', registryData?.metadataUri);
-
-    let clips: ClipMetadata[] = [];
-    let fullMetadata: SongMetadataV4 | null = null;
-
-    if (registryData?.clipIds && registryData.clipIds.trim() !== '') {
-      try {
-        // Parse comma-separated clip URIs
-        const clipUris = registryData.clipIds.split(',').map(uri => uri.trim()).filter(uri => uri);
-        console.log(`[SongPickerPage] Found ${clipUris.length} clip URIs:`, clipUris);
-
-        // Fetch all clip metadata
-        const clipPromises = clipUris.map(async (uri) => {
-          try {
-            const response = await fetch(resolveLensUri(uri));
-            if (!response.ok) {
-              console.error(`Failed to fetch clip from ${uri}`);
-              return null;
-            }
-            return await response.json();
-          } catch (error) {
-            console.error(`Error fetching clip from ${uri}:`, error);
-            return null;
-          }
-        });
-
-        const fetchedClips = (await Promise.all(clipPromises)).filter(c => c !== null);
-        console.log(`[SongPickerPage] Loaded ${fetchedClips.length} clips`);
-
-        // Convert to ClipMetadata format
-        clips = fetchedClips.map(clip => {
-          const lineTimestamps = clip.lines.map(line => ({
-            start: line.start,
-            end: line.end,
-            text: line.originalText,
-            originalText: line.originalText,
-            translatedText: line.translations?.cn || line.originalText,
-            lineIndex: line.lineIndex,
-            wordCount: line.words?.length || 0,
-            words: line.words?.map(word => ({
-              text: word.text,
-              start: word.start,
-              end: word.end
-            })) || []
-          }));
-
-          return {
-            id: clip.id,
-            title: clip.title,
-            artist: clip.artist,
-            sectionType: clip.sectionType,
-            sectionIndex: clip.sectionIndex,
-            duration: clip.duration,
-            audioUrl: clip.audioUri ? resolveLensUri(clip.audioUri) : '',
-            instrumentalUrl: clip.instrumentalUri ? resolveLensUri(clip.instrumentalUri) : '',
-            thumbnailUrl: clip.thumbnailUri ? resolveLensUri(clip.thumbnailUri) : '',
-            difficultyLevel: clip.difficultyLevel,
-            wordsPerSecond: clip.wordsPerSecond,
-            lineTimestamps,
-            totalLines: clip.lines.length,
-            languages: clip.languages
-          };
-        });
-      } catch (error) {
-        console.error('[SongPickerPage] Failed to load clips:', error);
+    // Navigate to URL-based segment picker route with song data in state
+    // Use numeric index if available (clean URLs), fallback to ID
+    const identifier = song.index !== undefined ? song.index.toString() : song.id;
+    navigate(`/create/native/${identifier}`, {
+      state: {
+        song: {
+          ...song,
+          source: ContentSource.Native,
+        }
       }
-    } else {
-      console.log('[SongPickerPage] No clipIds in registry data');
-    }
-
-    // Fetch full song metadata with complete lyrics
-    if (registryData?.metadataUri && registryData.metadataUri.trim() !== '') {
-      try {
-        console.log('[SongPickerPage] Fetching full song metadata...');
-        fullMetadata = await fetchSongMetadata(registryData.metadataUri);
-        console.log('[SongPickerPage] Loaded full metadata with', fullMetadata.lineCount, 'lines');
-      } catch (error) {
-        console.error('[SongPickerPage] Failed to load full metadata:', error);
-      }
-    }
-
-    // Navigate to clip picker page
-    navigate('/create/clip-picker', {
-      state: { song, clips, fullMetadata }
     });
 
     onSongSelect?.(song);
+  };
+
+  // Handle Genius song selection
+  const handleGeniusSongSelect = (result: GeniusSearchResult) => {
+    console.log('[SongPickerPage] Genius song selected:', result);
+
+    // Navigate to URL-based segment picker route with song data in state
+    // Format: /create/genius/{geniusId}
+    navigate(`/create/genius/${result.genius_id}`, {
+      state: {
+        song: {
+          id: result.genius_id.toString(),
+          title: result.title_with_featured || result.title,
+          artist: result.artist,
+          thumbnailUrl: result.artwork_thumbnail,
+          source: ContentSource.Genius,
+        }
+      }
+    });
+  };
+
+  // Handle trending song click
+  const handleTrendingClick = (trendingSong: TrendingSong) => {
+    console.log('[SongPickerPage] Trending song clicked:', trendingSong);
+
+    // Navigate based on source
+    if (trendingSong.source === ContentSource.Genius) {
+      navigate(`/create/genius/${trendingSong.songId}`);
+    } else {
+      // Native song - find it in our songs list to get the identifier
+      const song = songs.find(s => s.id === trendingSong.songId);
+      const identifier = song?.index !== undefined ? song.index.toString() : trendingSong.songId;
+      navigate(`/create/native/${identifier}`);
+    }
   };
 
   // Handle song preview playback
@@ -299,86 +293,84 @@ export const SongPickerPage: React.FC<SongPickerPageProps> = ({
             </div>
 
             {/* Genius Search Results (if searching) */}
-            {searchQuery.trim() && geniusResults.length > 0 && (
+            {isSearching && searchQuery.trim() && (
               <div className="mb-6">
-                <h3 className="text-white text-sm font-semibold mb-3 px-1">
-                  Genius Search Results ({geniusResults.length})
-                </h3>
-                <div className="space-y-2 bg-neutral-800/30 rounded-lg p-2">
-                  {geniusResults.map((result) => (
-                    <div
-                      key={result.genius_id}
-                      className="p-3 bg-neutral-800 rounded-lg hover:bg-neutral-700 transition-colors"
-                    >
-                      <div className="flex items-start gap-3">
-                        {result.artwork_thumbnail ? (
-                          <img
-                            src={result.artwork_thumbnail}
-                            alt={result.title}
-                            className="w-12 h-12 rounded object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-neutral-700 flex items-center justify-center flex-shrink-0">
-                            <span className="text-neutral-500">🎵</span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-white font-medium text-sm truncate">
-                            {result.title_with_featured || result.title}
-                          </h4>
-                          <p className="text-neutral-400 text-xs truncate">
-                            {result.artist}
-                          </p>
-                          <p className="text-neutral-600 text-xs mt-1">
-                            {result.lyrics_state} • From Genius
-                          </p>
-                        </div>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-lg animate-pulse">
+                      <div className="w-20 h-20 rounded-md bg-neutral-800 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="h-5 bg-neutral-800 rounded w-3/4 mb-2" />
+                        <div className="h-4 bg-neutral-800 rounded w-1/2" />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+            {!isSearching && searchQuery.trim() && geniusResults.length > 0 && (
+              <div className="mb-6">
+                <div className="space-y-2">
+                  {geniusResults.map((result) => (
+                    <SongListItem
+                      key={result.genius_id}
+                      song={{
+                        id: result.genius_id.toString(),
+                        title: result.title_with_featured || result.title,
+                        artist: result.artist,
+                        duration: 0,
+                        thumbnailUrl: result.artwork_thumbnail || undefined,
+                      }}
+                      showPlayButton={false}
+                      onClick={() => handleGeniusSongSelect(result)}
+                      className="rounded-lg"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trending Section (shown when not searching) */}
+            {!searchQuery.trim() && (trendingHourly.length > 0 || trendingDaily.length > 0 || trendingWeekly.length > 0) && (
+              <div className="mb-8">
+                <h2 className="text-white text-xl font-bold mb-4 px-1">🔥 Trending</h2>
+                <TrendingSection
+                  hourly={trendingHourly}
+                  daily={trendingDaily}
+                  weekly={trendingWeekly}
+                  onSongClick={handleTrendingClick}
+                  loading={trendingLoading}
+                />
+              </div>
+            )}
 
             {/* Local Songs List */}
-            {filteredSongs.length === 0 && !searchQuery.trim() ? null : (
+            {filteredSongs.length > 0 && (
               <div>
                 {searchQuery.trim() && (
                   <h3 className="text-white text-sm font-semibold mb-3 px-1">
                     Local Songs ({filteredSongs.length})
                   </h3>
                 )}
-                {filteredSongs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 px-4">
-                    <div className="text-neutral-400 text-lg mb-2">
-                      No local songs found
-                    </div>
-                    <div className="text-neutral-500 text-sm">
-                      Try searching for something else
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredSongs.map((song) => (
-                      <SongListItem
-                        key={song.id}
-                        song={song}
-                        isPlaying={playingSongId === song.id}
-                        showSelectButton={true}
-                        onClick={() => handleSongSelect(song)}
-                        onPlay={() => handleSongPlay(song)}
-                        onSelect={() => handleSongSelect(song)}
-                        className="rounded-lg"
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  {filteredSongs.map((song) => (
+                    <SongListItem
+                      key={song.id}
+                      song={song}
+                      isPlaying={playingSongId === song.id}
+                      showSelectButton={false}
+                      onClick={() => handleSongSelect(song)}
+                      onPlay={() => handleSongPlay(song)}
+                      onSelect={() => handleSongSelect(song)}
+                      className="rounded-lg"
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
-
     </div>
   );
 };

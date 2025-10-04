@@ -269,13 +269,19 @@ export class LitSearchService {
         throw new Error('Referents action not found in config');
       }
 
+      // Get PKP public key for trending writes
+      const trendingConfig = getLitAction('trending', 'tracker');
+      const pkpPublicKey = trendingConfig?.pkp;
+
       console.log('[LitSearchService] Fetching referents for song ID:', songId);
       console.log('[LitSearchService] Using Lit Action CID:', referentsAction.cid);
+      console.log('[LitSearchService] PKP for trending:', pkpPublicKey);
 
       const jsParams = {
         songId,
         page: options?.page || 1,
         perPage: options?.perPage || 20,
+        pkpPublicKey, // Add PKP for trending writes
         userAddress: options?.userAddress || 'anonymous',
         sessionId: options?.sessionId || crypto.randomUUID(),
         language: navigator.language || 'en-US',

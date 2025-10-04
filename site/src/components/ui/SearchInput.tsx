@@ -54,7 +54,7 @@ export function SearchInput({
         onFocus={onFocus}
         onClick={handleInputClick}
         disabled={isLoading || !isConnected}
-        className="flex-1 h-14 text-base px-4"
+        className="flex-1 h-14 text-base px-4 text-neutral-200 placeholder:text-neutral-500 bg-neutral-900/80 dark:bg-neutral-900/80 border-neutral-800 dark:border-neutral-800 focus-visible:border-neutral-700 dark:focus-visible:border-neutral-700 focus-visible:ring-0"
         autoFocus={autoFocus}
       />
       <button

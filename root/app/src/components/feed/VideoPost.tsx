@@ -70,7 +70,7 @@ export function VideoPost({
       {/* Video Container - mobile: full screen, desktop: 9:16 centered */}
       <div
         ref={videoContainerRef}
-        className="relative w-full h-full md:w-[56vh] md:h-[90vh] md:max-w-[500px] md:max-h-[900px] bg-neutral-900 md:rounded-lg overflow-hidden"
+        className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-neutral-900 md:rounded-lg overflow-hidden"
       >
         {/* Video Player */}
         <VideoPlayer
@@ -135,7 +135,7 @@ export function VideoPost({
       </div>
 
       {/* Desktop: Actions column to the right */}
-      <div className="max-md:hidden absolute left-[calc(50%+28vh+20px)] top-1/2 transform -translate-y-1/2 z-20">
+      <div className="max-md:hidden absolute left-[calc(50%+25vh+20px)] top-1/2 transform -translate-y-1/2 z-20">
         <VideoActions
           userAvatar={userAvatar || ''}
           username={username}

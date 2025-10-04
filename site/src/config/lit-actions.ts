@@ -36,6 +36,35 @@ export const LIT_ACTIONS = {
   },
 
   /**
+   * Trending Tracker
+   */
+  trending: {
+    tracker: {
+      cid: 'QmW2wo1S7Bd4yaNKiAmXXkrbkPAwt16aFFXH6ZzmjiAGyz',
+      version: 'v1',
+      network: 'lens-testnet',
+      chainId: 37111,
+      description: 'Trending song tracker with batched event aggregation',
+      contracts: {
+        trendingTracker: '0xeaF1A26dF6A202E2b4ba6e194d7BCe9bACF82731',
+      },
+      pkp: '0x254AA0096C9287a03eE62b97AA5643A2b8003657',
+    },
+  },
+
+  /**
+   * Study / Trivia Generation
+   */
+  study: {
+    triviaGenerator: {
+      cid: 'QmUxZxX4B2wyXgNRHBWP2oHE592zaAZawgG34e6TiMkpNx',
+      version: 'v8',
+      network: 'ethereum',
+      description: 'Generate trivia questions from Genius referents with annotations',
+    },
+  },
+
+  /**
    * Genius Search
    */
   search: {
@@ -46,6 +75,22 @@ export const LIT_ACTIONS = {
       network: 'ethereum',
       description: 'Search Genius API for songs (v8 jsParams)',
       geniusApiKeyExposed: true, // API key is in the code
+    },
+    // Song metadata fetcher (v8 jsParams pattern)
+    song: {
+      cid: 'QmNvX8u4mE6xqEPeC5vk77xJVLK6W7YB2u4GdFmbnCmDGv',
+      version: 'song-free-v1',
+      network: 'ethereum',
+      description: 'Fetch full song metadata from Genius API',
+      geniusApiKeyExposed: true,
+    },
+    // Referents fetcher with trending (v8 jsParams pattern)
+    referents: {
+      cid: 'QmTF41pQBK36h2BZR4SZ6VSPpWRpie4hrw2vUYwsF4zu5f',
+      version: 'referents-trending-v1',
+      network: 'ethereum',
+      description: 'Fetch lyric referents + write to trending contract',
+      geniusApiKeyExposed: true,
     },
   },
 } as const;

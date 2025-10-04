@@ -1,10 +1,11 @@
 /**
  * StudySession Component
- * Manages a study session with SayItBack exercises and FSRS scheduling
+ * Manages a study session with SayItBack and Trivia exercises using FSRS scheduling
  */
 
 import { useState, useEffect } from 'react'
 import { SayItBack } from './SayItBack'
+import { MultipleChoiceExercise, type MultipleChoiceOption } from './MultipleChoiceExercise'
 import { getDueCards, type ExerciseCard } from '../../services/database/tinybase'
 import { fsrsService } from '../../services/FSRSService'
 import { Check } from '@phosphor-icons/react'
@@ -21,9 +22,15 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
   const [dueCards, setDueCards] = useState<ExerciseCard[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+
+  // SayItBack state
   const [transcript, setTranscript] = useState<string>()
   const [score, setScore] = useState<number | null>(null)
   const [attempts, setAttempts] = useState(0)
+
+  // Trivia state
+  const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null)
+  const [hasAnswered, setHasAnswered] = useState(false)
 
   // Load due cards on mount
   useEffect(() => {
@@ -47,6 +54,7 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
     }
   }, [])
 
+  // Handle SayItBack completion
   const handleComplete = async (reviewScore: number, reviewTranscript: string) => {
     const isCorrect = reviewScore >= 70
     const currentCard = dueCards[currentIndex]
@@ -65,13 +73,37 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
     }
   }
 
+  // Handle Trivia answer
+  const handleTriviaAnswer = async (selectedId: string, isCorrect: boolean) => {
+    const currentCard = dueCards[currentIndex]
+
+    setSelectedAnswerId(selectedId)
+    setHasAnswered(true)
+
+    // Update FSRS only if correct
+    if (isCorrect) {
+      try {
+        await fsrsService.reviewCard(currentCard.card_id, true)
+        console.log(`[StudySession] Trivia card reviewed: ${currentCard.card_id}, correct=true`)
+      } catch (error) {
+        console.error('[StudySession] Failed to update card:', error)
+      }
+    }
+  }
+
   const handleNext = () => {
     if (currentIndex < dueCards.length - 1) {
       // Move to next card
       setCurrentIndex(currentIndex + 1)
+
+      // Reset SayItBack state
       setTranscript(undefined)
       setScore(null)
       setAttempts(0)
+
+      // Reset Trivia state
+      setSelectedAnswerId(null)
+      setHasAnswered(false)
     } else {
       // Session complete
       console.log('[StudySession] Session complete!')
@@ -118,14 +150,29 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
 
   const currentCard = dueCards[currentIndex]
   const progress = (currentIndex / dueCards.length) * 100
-  const showResults = transcript !== undefined
-  const isCorrect = score !== null && score >= 70
+  const isTriviaCard = currentCard.exercise_type === 'trivia'
+
+  // Results state depends on exercise type
+  const showResults = isTriviaCard ? hasAnswered : (transcript !== undefined)
+  const isCorrect = isTriviaCard
+    ? (hasAnswered && selectedAnswerId === currentCard.correct_answer)
+    : (score !== null && score >= 70)
+
+  // Convert trivia choices to MultipleChoiceOption[] format
+  const triviaOptions: MultipleChoiceOption[] | undefined = isTriviaCard && currentCard.choices
+    ? Object.entries(currentCard.choices).map(([id, text]) => ({
+        id,
+        text,
+        isCorrect: id === currentCard.correct_answer
+      }))
+    : undefined
 
   console.log('[StudySession] === RENDER ===')
   console.log('[StudySession] currentIndex:', currentIndex)
   console.log('[StudySession] dueCards.length:', dueCards.length)
   console.log('[StudySession] progress:', progress + '%')
-  console.log('[StudySession] Current card:', currentCard?.fragment)
+  console.log('[StudySession] exercise_type:', currentCard.exercise_type)
+  console.log('[StudySession] Current card:', isTriviaCard ? currentCard.question : currentCard.fragment)
 
   return (
     <div className="flex-1 bg-neutral-900 flex flex-col">
@@ -138,29 +185,65 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
       {/* Main Content Area */}
       <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto w-full">
         <div className="space-y-6">
-          {/* SayItBack exercise */}
-          <SayItBack
-            expectedText={currentCard.fragment}
-            transcript={transcript}
-            score={score}
-            attempts={attempts}
-            onComplete={handleComplete}
-          />
+          {/* Conditional Exercise Rendering */}
+          {isTriviaCard ? (
+            <>
+              {/* Trivia Multiple Choice Exercise */}
+              {currentCard.question && triviaOptions && (
+                <MultipleChoiceExercise
+                  question={currentCard.question}
+                  options={triviaOptions}
+                  onAnswer={handleTriviaAnswer}
+                  exerciseType="trivia"
+                  hasAnswered={hasAnswered}
+                  selectedAnswerId={selectedAnswerId}
+                  explanation={currentCard.explanation}
+                />
+              )}
 
-          {/* Translation (if available) */}
-          {currentCard.translation && showResults && (
-            <div className="p-4 bg-neutral-800 rounded-lg">
-              <div className="text-neutral-500 text-xs mb-1">Translation:</div>
-              <div className="text-neutral-300 text-sm">{currentCard.translation}</div>
-            </div>
-          )}
+              {/* Show explanation after answering */}
+              {showResults && currentCard.explanation && (
+                <div className="p-4 bg-neutral-800 rounded-lg">
+                  <div className="text-neutral-500 text-xs mb-1">Explanation:</div>
+                  <div className="text-neutral-300 text-sm">{currentCard.explanation}</div>
+                </div>
+              )}
 
-          {/* Context (if available) */}
-          {currentCard.context && showResults && (
-            <div className="p-4 bg-neutral-800 rounded-lg">
-              <div className="text-neutral-500 text-xs mb-1">Context:</div>
-              <div className="text-neutral-300 text-sm">{currentCard.context}</div>
-            </div>
+              {/* Show lyric fragment for context */}
+              {showResults && currentCard.fragment && (
+                <div className="p-4 bg-neutral-800 rounded-lg">
+                  <div className="text-neutral-500 text-xs mb-1">Lyric:</div>
+                  <div className="text-neutral-300 text-sm italic">"{currentCard.fragment}"</div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* SayItBack Exercise */}
+              <SayItBack
+                expectedText={currentCard.fragment}
+                transcript={transcript}
+                score={score}
+                attempts={attempts}
+                onComplete={handleComplete}
+              />
+
+              {/* Translation (if available) */}
+              {currentCard.translation && showResults && (
+                <div className="p-4 bg-neutral-800 rounded-lg">
+                  <div className="text-neutral-500 text-xs mb-1">Translation:</div>
+                  <div className="text-neutral-300 text-sm">{currentCard.translation}</div>
+                </div>
+              )}
+
+              {/* Context (if available) */}
+              {currentCard.context && showResults && (
+                <div className="p-4 bg-neutral-800 rounded-lg">
+                  <div className="text-neutral-500 text-xs mb-1">Context:</div>
+                  <div className="text-neutral-300 text-sm">{currentCard.context}</div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -172,7 +255,16 @@ export const StudySession = ({ onExit }: StudySessionProps) => {
             onNext={handleNext}
             label={currentIndex >= dueCards.length - 1 ? 'Finish' : 'Next'}
           />
+        ) : isTriviaCard ? (
+          // Trivia cards show nothing until answered (MultipleChoice handles selection)
+          showResults ? (
+            <NavigationControls
+              onNext={handleNext}
+              label={currentIndex >= dueCards.length - 1 ? 'Finish' : 'Next'}
+            />
+          ) : null
         ) : (
+          // SayItBack shows voice controls
           <VoiceControls
             label={attempts > 0 ? 'Try Again' : 'Record'}
             onStartRecording={handleStartRecording}

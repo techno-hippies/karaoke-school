@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { X } from '@phosphor-icons/react'
 import { SearchInput } from './SearchInput'
+import { SongListItem } from './SongListItem'
+import type { Song } from '../../types/song'
 
 interface SearchResult {
   genius_id: number
@@ -19,6 +21,7 @@ interface SearchSheetProps {
   isConnected?: boolean
   onConnectClick?: () => void
   onSearch?: (query: string) => void
+  onResultClick?: (result: SearchResult) => void
   searchResults?: SearchResult[]
   isLoading?: boolean
   error?: string | null
@@ -30,6 +33,7 @@ export function SearchSheet({
   isConnected = true,
   onConnectClick,
   onSearch,
+  onResultClick,
   searchResults = [],
   isLoading = false,
   error = null,
@@ -40,6 +44,15 @@ export function SearchSheet({
     setLocalQuery(query)
     onSearch?.(query)
   }
+
+  // Convert SearchResult to Song format for SongListItem
+  const convertToSong = (result: SearchResult): Song => ({
+    id: result.genius_id.toString(),
+    title: result.title_with_featured || result.title,
+    artist: result.artist,
+    duration: 0, // Not available from search results
+    thumbnailUrl: result.artwork_thumbnail || undefined,
+  })
 
   if (!isOpen) return null
 
@@ -98,39 +111,15 @@ export function SearchSheet({
         )}
 
         {!isLoading && !error && searchResults.length > 0 && (
-          <div className="divide-y divide-neutral-800">
+          <div className="space-y-2 p-2">
             {searchResults.map((result) => (
-              <div
+              <SongListItem
                 key={result.genius_id}
-                className="p-4 hover:bg-neutral-900 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  {result.artwork_thumbnail ? (
-                    <img
-                      src={result.artwork_thumbnail}
-                      alt={result.title}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-neutral-800 flex items-center justify-center">
-                      <span className="text-neutral-600 text-2xl">🎵</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-medium truncate">
-                      {result.title_with_featured || result.title}
-                    </h3>
-                    <p className="text-neutral-400 text-sm truncate">
-                      {result.artist}
-                    </p>
-                    {result.lyrics_state && (
-                      <p className="text-neutral-600 text-xs mt-1">
-                        {result.lyrics_state}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+                song={convertToSong(result)}
+                showPlayButton={false}
+                onClick={() => onResultClick?.(result)}
+                className="rounded-lg"
+              />
             ))}
           </div>
         )}

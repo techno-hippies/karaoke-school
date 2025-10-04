@@ -141,6 +141,19 @@ export async function getContractSongById(songId: string): Promise<RegistrySong 
 }
 
 /**
+ * Get specific song by numeric index
+ */
+export async function getContractSongByIndex(index: number): Promise<RegistrySong | null> {
+  try {
+    const song = await readSongRegistry('getSongByIndex', [index]) as any;
+    return parseSong(song);
+  } catch (error) {
+    console.error(`[SongRegistryService] Failed to get song at index ${index}:`, error);
+    return null;
+  }
+}
+
+/**
  * Fetch full song metadata from Grove
  */
 export async function fetchSongMetadata(metadataUri: string): Promise<SongMetadataV4> {
@@ -157,6 +170,7 @@ export async function fetchSongMetadata(metadataUri: string): Promise<SongMetada
 /**
  * Resolve lens:// URI to Grove gateway URL
  */
-export function resolveLensUri(uri: string): string {
+export function resolveLensUri(uri: string | undefined | null): string {
+  if (!uri) return '';
   return uri.replace('lens://', 'https://api.grove.storage/');
 }

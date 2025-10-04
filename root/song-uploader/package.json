@@ -1,0 +1,21 @@
+{
+  "name": "karaoke-song-uploader",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "CLI tool for uploading karaoke songs to Grove with ElevenLabs word-level timestamps",
+  "scripts": {
+    "process": "bun run src/upload.ts --process",
+    "upload": "bun run src/upload.ts",
+    "add-song": "bun run src/upload.ts --add"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "latest",
+    "@lens-chain/sdk": "latest",
+    "@lens-chain/storage-client": "latest",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "bun-types": "latest"
+  }
+}
