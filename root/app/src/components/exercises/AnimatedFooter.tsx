@@ -19,7 +19,7 @@ export function AnimatedFooter({ show, children, className }: AnimatedFooterProp
         className
       )}
     >
-      <div className="max-w-2xl mx-auto px-6 py-4">
+      <div className="max-w-3xl mx-auto px-6 py-4">
         {children}
       </div>
     </div>

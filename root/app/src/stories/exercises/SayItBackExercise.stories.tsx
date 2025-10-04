@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { SayItBackExercise } from '@/components/exercises/SayItBackExercise'
 import { AnimatedFooter } from '@/components/exercises/AnimatedFooter'
-import { ExerciseFeedback } from '@/components/exercises/ExerciseFeedback'
 import { NavigationControls } from '@/components/exercises/NavigationControls'
 import { VoiceControls } from '@/components/exercises/VoiceControls'
+import { CheckCircle, XCircle } from '@phosphor-icons/react'
 
 const meta: Meta<typeof SayItBackExercise> = {
   title: 'Exercises/SayItBackExercise',
@@ -140,7 +140,10 @@ export const CorrectAnswer: Story = {
 
       <AnimatedFooter show={true}>
         <div className="space-y-3">
-          <ExerciseFeedback variant="correct" />
+          <div className="flex items-center gap-3 text-green-400">
+            <CheckCircle size={24} weight="duotone" />
+            <span className="text-base font-medium">Correct!</span>
+          </div>
           <NavigationControls
             label="Next"
             onNext={() => console.log('Next clicked')}
@@ -168,7 +171,10 @@ export const Incorrect: Story = {
 
       <AnimatedFooter show={true}>
         <div className="space-y-3">
-          <ExerciseFeedback variant="incorrect" />
+          <div className="flex items-center gap-3 text-destructive">
+            <XCircle size={24} weight="duotone" />
+            <span className="text-base font-medium">Try again</span>
+          </div>
           <NavigationControls
             label="Try again"
             onNext={() => console.log('Try again clicked')}
