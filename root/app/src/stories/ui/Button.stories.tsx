@@ -95,3 +95,12 @@ export const Disabled: Story = {
     children: 'Disabled',
   },
 };
+
+export const LeftAligned: Story = {
+  args: {
+    variant: 'outline',
+    size: 'lg',
+    className: 'w-64 justify-start px-4',
+    children: 'Left Aligned Button',
+  },
+};

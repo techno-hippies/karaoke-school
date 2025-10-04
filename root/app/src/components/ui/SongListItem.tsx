@@ -40,7 +40,10 @@ export function SongListItem({
       )}
     >
       {/* Album Art or Icon */}
-      <div className="relative flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center overflow-hidden group">
+      <div className={cn(
+        "relative flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center overflow-hidden group",
+        !showPlayButton && "cursor-default"
+      )}>
         {artworkUrl ? (
           <img
             src={artworkUrl}
@@ -58,7 +61,7 @@ export function SongListItem({
               e.stopPropagation()
               onPlayClick()
             }}
-            className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity group-hover:bg-black/50"
+            className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity group-hover:bg-black/50 cursor-pointer"
             aria-label="Play song"
           >
             <Play size={24} weight="fill" className="text-white" />
