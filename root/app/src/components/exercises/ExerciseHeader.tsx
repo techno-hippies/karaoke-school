@@ -44,7 +44,7 @@ export function ExerciseHeader({
 
           {/* Progress bar */}
           <div className="flex-1">
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} />
           </div>
         </div>
       </div>
