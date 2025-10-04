@@ -362,40 +362,36 @@ const go = async () => {
       sigName: 'scoreboardTx'
     });
 
-    // Parse signature
+    // Parse signature (Lit returns v = 27 or 28 for personal sign)
     const jsonSignature = JSON.parse(signature);
-    const r = '0x' + jsonSignature.r.replace(/^0x/, '');
-    const s = '0x' + jsonSignature.s.replace(/^0x/, '');
-    const v = jsonSignature.v;
+    const r = ethers.utils.stripZeros(ethers.utils.arrayify(jsonSignature.r));
+    const s = ethers.utils.stripZeros(ethers.utils.arrayify(jsonSignature.s));
+    const v = jsonSignature.v;  // 27 or 28
 
     // Verify signature recovery for debugging
-    const recovered = ethers.utils.recoverAddress(msgHash, { r, s, v });
+    const recovered = ethers.utils.recoverAddress(msgHash, { r: jsonSignature.r, s: jsonSignature.s, v });
     if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
       throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
     }
 
-    // Build 65-byte ECDSA signature (r + s + v)
-    // v should already be 27 or 28 from personal sign
-    const vByte = ethers.utils.hexlify(v).slice(2).padStart(2, '0');
-    const customSignature = r + s.slice(2) + vByte;
-
-    // Now build the signed transaction with the same fields but with the signature
+    // Build signed fields with v, r, s in fields 8, 9, 10 (for DefaultAccount/EOA)
+    // customSignature (field 15) must be '0x' for EOA accounts
     const signedFields = [
       toHexOrEmpty(nonce),                                  // 1. nonce
       toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
       toHexOrEmpty(gasPrice),                               // 3. maxFeePerGas
-      toHexOrEmpty(500000),                                 // 4. gas
+      toHexOrEmpty(500000),                                 // 4. gasLimit
       to,                                                   // 5. to
       toHexOrEmpty(0),                                      // 6. value
       updateScoreTxData || '0x',                            // 7. data
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 8. chainId
-      '0x',                                                 // 9. empty string
-      '0x',                                                 // 10. empty string
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId (again)
+      ethers.utils.hexlify(v),                              // 8. v (27 or 28)
+      ethers.utils.hexlify(r),                              // 9. r (stripped)
+      ethers.utils.hexlify(s),                              // 10. s (stripped)
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId
       from,                                                 // 12. from
       toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
       factoryDeps || [],                                    // 14. factoryDeps (array)
-      customSignature,                                      // 15. customSignature (65-byte sig)
+      '0x',                                                 // 15. customSignature (empty for EOA)
       []                                                    // 16. paymaster params (empty array)
     ];
 
