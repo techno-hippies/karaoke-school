@@ -1,5 +1,4 @@
 import { AudioButton } from '@/components/ui/audio-button'
-import { ExerciseFeedback } from './ExerciseFeedback'
 
 // Simple text similarity scoring (can be enhanced with phoneme matching later)
 export function calculateTextSimilarity(expected: string, actual: string): number {
@@ -91,18 +90,15 @@ export function SayItBackExercise({
         </div>
       )}
 
-      {/* Results */}
+      {/* User's transcript (shown after speaking) */}
       {showResults && (
-        <div className="space-y-4">
-          <ExerciseFeedback variant={isCorrect ? 'correct' : 'incorrect'} />
-
-          {/* Show transcript feedback only when incorrect */}
-          {!isCorrect && (
-            <div className="space-y-2">
-              <div className="text-muted-foreground">You said:</div>
-              <div className="text-foreground font-medium">{transcript}</div>
-            </div>
-          )}
+        <div className="text-left space-y-3">
+          <div className="text-muted-foreground text-base font-medium">
+            You said:
+          </div>
+          <div className="text-xl font-medium text-foreground leading-relaxed">
+            {transcript}
+          </div>
         </div>
       )}
     </div>
