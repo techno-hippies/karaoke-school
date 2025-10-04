@@ -140,8 +140,8 @@ export const CorrectAnswer: Story = {
 
       <AnimatedFooter show={true}>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 text-green-400">
-            <CheckCircle size={24} weight="duotone" />
+          <div className="flex items-center gap-2 text-green-400">
+            <CheckCircle size={28} weight="duotone" />
             <span className="text-base font-medium">Correct!</span>
           </div>
           <NavigationControls
@@ -171,8 +171,8 @@ export const Incorrect: Story = {
 
       <AnimatedFooter show={true}>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 text-destructive">
-            <XCircle size={24} weight="duotone" />
+          <div className="flex items-center gap-2 text-destructive">
+            <XCircle size={28} weight="duotone" />
             <span className="text-base font-medium">Try again</span>
           </div>
           <NavigationControls
