@@ -1,5 +1,5 @@
-import { CheckCircle, XCircle } from '@phosphor-icons/react'
 import { AudioButton } from '@/components/ui/audio-button'
+import { ExerciseFeedback } from './ExerciseFeedback'
 
 // Simple text similarity scoring (can be enhanced with phoneme matching later)
 export function calculateTextSimilarity(expected: string, actual: string): number {
@@ -93,28 +93,14 @@ export function SayItBackExercise({
 
       {/* Results */}
       {showResults && (
-        <div className="text-left space-y-4">
-          {isCorrect ? (
-            <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
-              <div className="flex items-center gap-3 text-green-400">
-                <CheckCircle size={24} weight="duotone" />
-                <span className="text-base font-medium">Correct!</span>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 bg-destructive/20 border border-destructive/50 rounded-lg space-y-3">
-              <div className="flex items-center gap-3 text-destructive">
-                <XCircle size={24} weight="duotone" />
-                <span className="text-base font-medium">Try again</span>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-sm mb-1">
-                  You said:
-                </div>
-                <div className="text-base font-medium text-foreground">
-                  {transcript}
-                </div>
-              </div>
+        <div className="space-y-4">
+          <ExerciseFeedback variant={isCorrect ? 'correct' : 'incorrect'} />
+
+          {/* Show transcript feedback only when incorrect */}
+          {!isCorrect && (
+            <div className="space-y-2">
+              <div className="text-muted-foreground">You said:</div>
+              <div className="text-foreground font-medium">{transcript}</div>
             </div>
           )}
         </div>
