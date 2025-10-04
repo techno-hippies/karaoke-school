@@ -52,7 +52,7 @@ export const MultipleChoiceExercise = ({
   }
 
   const getOptionStyles = (option: MultipleChoiceOption) => {
-    const baseStyles = "w-full flex items-center gap-3 p-6 rounded-lg transition-all cursor-pointer border min-h-[60px]"
+    const baseStyles = "w-full flex items-center gap-3 p-4 rounded-lg transition-all cursor-pointer border min-h-[60px]"
 
     if (!answered) {
       // Not answered yet - normal hover states

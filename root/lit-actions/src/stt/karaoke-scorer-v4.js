@@ -364,12 +364,17 @@ const go = async () => {
 
     // Parse signature (Lit returns v = 27 or 28 for personal sign)
     const jsonSignature = JSON.parse(signature);
-    const r = ethers.utils.stripZeros(ethers.utils.arrayify(jsonSignature.r));
-    const s = ethers.utils.stripZeros(ethers.utils.arrayify(jsonSignature.s));
+
+    // Ensure r and s have 0x prefix before arrayify
+    const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
+    const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
+
+    const r = ethers.utils.stripZeros(ethers.utils.arrayify(rHex));
+    const s = ethers.utils.stripZeros(ethers.utils.arrayify(sHex));
     const v = jsonSignature.v;  // 27 or 28
 
     // Verify signature recovery for debugging
-    const recovered = ethers.utils.recoverAddress(msgHash, { r: jsonSignature.r, s: jsonSignature.s, v });
+    const recovered = ethers.utils.recoverAddress(msgHash, { r: rHex, s: sHex, v });
     if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
       throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
     }

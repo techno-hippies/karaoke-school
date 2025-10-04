@@ -95,23 +95,23 @@ export function SayItBackExercise({
       {showResults && (
         <div className="text-left space-y-4">
           {isCorrect ? (
-            <div className="p-6 bg-green-500/20 border border-green-500/50 rounded-lg">
+            <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
               <div className="flex items-center gap-3 text-green-400">
-                <CheckCircle size={32} weight="duotone" />
-                <span className="text-xl font-medium">Correct!</span>
+                <CheckCircle size={24} weight="duotone" />
+                <span className="text-base font-medium">Correct!</span>
               </div>
             </div>
           ) : (
-            <div className="p-6 bg-destructive/20 border border-destructive/50 rounded-lg space-y-3">
+            <div className="p-4 bg-destructive/20 border border-destructive/50 rounded-lg space-y-3">
               <div className="flex items-center gap-3 text-destructive">
-                <XCircle size={32} weight="duotone" />
-                <span className="text-xl font-medium">Try again</span>
+                <XCircle size={24} weight="duotone" />
+                <span className="text-base font-medium">Try again</span>
               </div>
               <div>
                 <div className="text-muted-foreground text-sm mb-1">
                   You said:
                 </div>
-                <div className="text-lg font-medium text-foreground">
+                <div className="text-base font-medium text-foreground">
                   {transcript}
                 </div>
               </div>
