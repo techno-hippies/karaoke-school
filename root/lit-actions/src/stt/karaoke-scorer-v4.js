@@ -362,7 +362,7 @@ const go = async () => {
       sigName: 'scoreboardTx'
     });
 
-    // Parse signature (Lit returns v = 27 or 28 for personal sign)
+    // Parse signature (Lit returns v = 0 or 1 for personal sign)
     const jsonSignature = JSON.parse(signature);
 
     // Ensure r and s have 0x prefix before arrayify
@@ -371,7 +371,10 @@ const go = async () => {
 
     const r = ethers.utils.stripZeros(ethers.utils.arrayify(rHex));
     const s = ethers.utils.stripZeros(ethers.utils.arrayify(sHex));
-    const v = jsonSignature.v;  // 27 or 28
+
+    // Adjust v to 27/28 if it's 0/1 (yParity format)
+    let v = jsonSignature.v;
+    v = v + (v < 27 ? 27 : 0);
 
     // Verify signature recovery for debugging
     const recovered = ethers.utils.recoverAddress(msgHash, { r: rHex, s: sHex, v });
