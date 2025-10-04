@@ -74,15 +74,6 @@ export const CorrectAnswer: Story = {
   },
 }
 
-export const PartiallyCorrect: Story = {
-  args: {
-    expectedText: 'Hello how are you',
-    transcript: 'Hello how you',
-    score: 75,
-    canRecord: true,
-  },
-}
-
 export const Incorrect: Story = {
   args: {
     expectedText: 'Good morning',
