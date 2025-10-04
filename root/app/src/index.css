@@ -18,7 +18,7 @@
   --font-sans: 'Geist', 'Noto Sans SC', 'Noto Sans TC', -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-serif: ui-serif, Georgia, serif;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -71,7 +71,7 @@
   --chart-3: oklch(0.8371 0.1324 179.5013);
   --chart-4: oklch(0.7045 0.1284 263.2653);
   --chart-5: oklch(0.5801 0.2361 311.6415);
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.1613 0.0096 285.2709);
   --sidebar-foreground: oklch(0.9843 0.0017 247.8393);
   --sidebar-primary: oklch(0.6377 0.2483 21.8881);

@@ -1,9 +1,16 @@
+import { useState } from 'react'
 import { CaretLeft, Play, MusicNotes } from '@phosphor-icons/react'
 import { StudyStats } from './StudyStats'
 import { Leaderboard } from './Leaderboard'
+import { ExternalLinksSheet } from './ExternalLinksSheet'
 import { Button } from '@/components/ui/button'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
+
+interface ExternalLink {
+  label: string
+  url: string
+}
 
 export interface SongPageProps {
   songTitle: string
@@ -12,7 +19,8 @@ export interface SongPageProps {
   onBack?: () => void
   onPlay?: () => void
   isExternal?: boolean // true = external song (opens sheet), false = local (plays directly)
-  onOpenExternalLinks?: () => void // For external songs
+  externalSongLinks?: ExternalLink[]
+  externalLyricsLinks?: ExternalLink[]
   // Study stats
   newCount: number
   learningCount: number
@@ -37,7 +45,8 @@ export function SongPage({
   onBack,
   onPlay,
   isExternal = false,
-  onOpenExternalLinks,
+  externalSongLinks = [],
+  externalLyricsLinks = [],
   newCount,
   learningCount,
   dueCount,
@@ -50,6 +59,7 @@ export function SongPage({
   isQuizLoading = false,
   className,
 }: SongPageProps) {
+  const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
   return (
     <div className={cn('relative w-full h-screen bg-neutral-900 overflow-hidden', className)}>
       {/* Header */}
@@ -101,14 +111,14 @@ export function SongPage({
                 <button
                   onClick={() => {
                     if (isExternal) {
-                      onOpenExternalLinks?.()
+                      setIsExternalSheetOpen(true)
                     } else {
                       onPlay?.()
                     }
                   }}
                   className={cn(
-                    "w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
-                    isExternal ? "bg-purple-600 hover:bg-purple-700" : "bg-green-500 hover:bg-green-600"
+                    "w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer",
+                    isExternal ? "bg-purple-600 hover:bg-purple-700" : "bg-red-500 hover:bg-red-600"
                   )}
                 >
                   {isExternal ? (
@@ -172,6 +182,14 @@ export function SongPage({
           </Button>
         </div>
       </div>
+
+      {/* External Links Sheet */}
+      <ExternalLinksSheet
+        open={isExternalSheetOpen}
+        onOpenChange={setIsExternalSheetOpen}
+        songLinks={externalSongLinks}
+        lyricsLinks={externalLyricsLinks}
+      />
     </div>
   )
 }
