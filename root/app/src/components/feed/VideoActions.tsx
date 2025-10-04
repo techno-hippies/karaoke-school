@@ -1,11 +1,11 @@
-import { Heart, ChatCircle, ShareFat, Plus, Check } from '@phosphor-icons/react'
+import { Heart, ChatCircle, ShareFat, Plus, Check, SpeakerHigh, SpeakerX } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { AudioSourceButton } from './AudioSourceButton'
 import type { VideoActionsProps } from './types'
 
 /**
  * VideoActions - Vertical action buttons column
- * Profile avatar + follow, like, comment, share, audio source
+ * Profile avatar + follow, like, comment, share, mute, audio source
  * Mobile: overlays on right side of video
  * Desktop: positioned to right of video container
  */
@@ -28,6 +28,8 @@ export function VideoActions({
   musicAuthor,
   musicImageUrl,
   onAudioClick,
+  isMuted,
+  onToggleMute,
   className
 }: VideoActionsProps) {
   const formatCount = (count: number): string => {
@@ -37,22 +39,40 @@ export function VideoActions({
   }
 
   return (
-    <div className={cn('flex flex-col items-center gap-6', className)}>
+    <div className={cn('flex flex-col items-center gap-4 md:gap-6', className)}>
+      {/* Mute/Unmute Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggleMute()
+        }}
+        className="flex flex-col items-center cursor-pointer"
+      >
+        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
+          {isMuted ? (
+            <SpeakerX className="w-7 h-7 text-white" />
+          ) : (
+            <SpeakerHigh className="w-7 h-7 text-white" />
+          )}
+        </div>
+      </button>
+
       {/* Profile Avatar with Follow Button */}
-      <div className="relative">
+      <div className="relative flex items-center justify-center">
         <button
           onClick={(e) => {
             e.stopPropagation()
             onProfileClick()
           }}
-          className="w-12 h-12 rounded-full overflow-hidden cursor-pointer"
+          className="cursor-pointer"
         >
           <img
             src={userAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`}
             alt={username}
-            className="w-full h-full object-cover"
+            className="w-12 h-12 rounded-full object-cover bg-white"
           />
         </button>
+
 
         {/* Follow/Following Button */}
         <button
@@ -89,7 +109,9 @@ export function VideoActions({
         <div className={cn(
           'rounded-full p-3 transition-colors',
           'max-md:bg-transparent',
-          isLiked ? 'md:bg-red-500/20' : 'md:bg-neutral-800/50 md:backdrop-blur-sm'
+          isLiked
+            ? 'md:bg-red-500/20 md:hover:bg-red-500/30'
+            : 'md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50'
         )}>
           <Heart
             className={cn(

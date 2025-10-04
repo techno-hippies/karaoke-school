@@ -10,12 +10,14 @@ const preview: Preview = {
       },
     },
     backgrounds: {
-      default: 'dark',
-      values: [
-        { name: 'dark', value: 'oklch(0.1818 0.0170 299.9718)' },
-        { name: 'light', value: 'oklch(1.0000 0 0)' },
-      ],
+      options: {
+        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' },
+        light: { name: 'light', value: 'oklch(1.0000 0 0)' },
+      },
     },
+  },
+  initialGlobals: {
+    backgrounds: { value: 'dark' },
   },
 };
 

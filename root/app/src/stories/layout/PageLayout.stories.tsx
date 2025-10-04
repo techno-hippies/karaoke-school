@@ -9,7 +9,9 @@ const meta: Meta<typeof PageLayout> = {
     layout: 'fullscreen',
     backgrounds: {
       default: 'dark',
-      values: [{ name: 'dark', value: 'oklch(0.05 0 0)' }]
+      options: {
+        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' }
+      }
     }
   },
   tags: ['autodocs'],

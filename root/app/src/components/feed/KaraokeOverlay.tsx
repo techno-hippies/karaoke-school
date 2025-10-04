@@ -36,30 +36,31 @@ export function KaraokeOverlay({
   }, [currentLine, currentTime])
 
   return (
-    <div className={cn('absolute top-20 left-0 right-0 flex justify-center pointer-events-none z-10 px-4', className)}>
-      {/* Lyrics with word highlighting - centered */}
-      <div className="text-white text-center space-y-2 max-w-xl">
-        {/* Original lyrics */}
-        <div className="text-2xl font-bold leading-tight drop-shadow-lg">
-          {highlightedWords.map((word, i) => (
-            <span
-              key={i}
-              className={cn(
-                'transition-colors duration-200',
-                word.isSung ? 'text-yellow-400' : 'text-white/80'
-              )}
-            >
-              {word.text}{' '}
-            </span>
-          ))}
-        </div>
-
-        {/* Translation below original lyrics */}
-        {currentLine.translation && (
-          <div className="text-lg font-medium leading-tight drop-shadow-lg text-white/90">
-            {currentLine.translation}
+    <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-10', className)}>
+      <div className="flex justify-center px-4">
+        <div className="text-white text-center space-y-2 max-w-xl">
+          {/* Original lyrics */}
+          <div className="text-2xl font-bold leading-tight drop-shadow-lg">
+            {highlightedWords.map((word, i) => (
+              <span
+                key={i}
+                className={cn(
+                  'transition-colors duration-200',
+                  word.isSung ? 'text-primary' : 'text-white/80'
+                )}
+              >
+                {word.text}{' '}
+              </span>
+            ))}
           </div>
-        )}
+
+          {/* Translation below original lyrics */}
+          {currentLine.translation && (
+            <div className="text-lg font-medium leading-tight drop-shadow-lg text-white/90">
+              {currentLine.translation}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

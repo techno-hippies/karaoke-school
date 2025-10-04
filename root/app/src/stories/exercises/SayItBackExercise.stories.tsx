@@ -8,9 +8,9 @@ const meta: Meta<typeof SayItBackExercise> = {
     layout: 'padded',
     backgrounds: {
       default: 'dark',
-      values: [
-        { name: 'dark', value: 'oklch(0.1818 0.0170 299.9718)' },
-      ],
+      options: {
+        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' }
+      },
     },
   },
   decorators: [

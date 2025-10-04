@@ -1,16 +1,17 @@
-import { CaretLeft } from '@phosphor-icons/react'
 import { Leaderboard } from './Leaderboard'
 import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { SongListItem } from '@/components/ui/SongListItem'
+import { SongItem } from '@/components/ui/SongItem'
+import { Spinner } from '@/components/ui/spinner'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
 
 export interface ArtistSong {
   id: string
   title: string
+  artist: string
   artworkUrl?: string
-  dueCount?: number
   onSongClick?: () => void
   onPlayClick?: () => void
   showPlayButton?: boolean
@@ -50,16 +51,11 @@ export function ArtistPage({
   className,
 }: ArtistPageProps) {
   return (
-    <div className={cn('relative w-full h-screen bg-neutral-900 overflow-hidden', className)}>
+    <div className={cn('relative w-full h-screen bg-background overflow-hidden', className)}>
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-16 px-4">
-          <button
-            onClick={onBack}
-            className="w-12 h-12 flex items-center justify-center hover:bg-neutral-800/50 transition-colors rounded-full"
-          >
-            <CaretLeft className="w-6 h-6 text-white" />
-          </button>
+          <BackButton onClick={onBack} variant="floating" />
         </div>
       </div>
 
@@ -99,20 +95,19 @@ export function ArtistPage({
 
         <div className="px-4 mt-4 pb-32">
           <Tabs defaultValue="songs" className="w-full">
-            <TabsList className="w-full grid grid-cols-2 bg-neutral-800/50">
+            <TabsList className="w-full grid grid-cols-2 bg-muted/50">
               <TabsTrigger value="songs">Top Songs</TabsTrigger>
               <TabsTrigger value="fans">Top Fans</TabsTrigger>
             </TabsList>
 
             <TabsContent value="songs" className="mt-4">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {songs.map((song) => (
-                  <SongListItem
+                  <SongItem
                     key={song.id}
                     title={song.title}
-                    artist=""
+                    artist={song.artist}
                     artworkUrl={song.artworkUrl}
-                    dueCount={song.dueCount}
                     showPlayButton={song.showPlayButton}
                     onPlayClick={song.onPlayClick}
                     onClick={song.onSongClick}
@@ -132,7 +127,7 @@ export function ArtistPage({
       </div>
 
       {/* Sticky Footer with Study and Quiz Buttons */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-neutral-900 via-neutral-900 to-transparent pt-8 pb-4 px-4">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
         <div className="flex gap-3">
           <Button
             onClick={onQuiz}
@@ -141,11 +136,8 @@ export function ArtistPage({
             variant="secondary"
             className="flex-1"
           >
-            {isQuizLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-            ) : (
-              'Quiz'
-            )}
+            {isQuizLoading && <Spinner />}
+            Quiz
           </Button>
 
           <Button
@@ -154,11 +146,8 @@ export function ArtistPage({
             size="lg"
             className="flex-1"
           >
-            {isStudyLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
-            ) : (
-              'Study'
-            )}
+            {isStudyLoading && <Spinner />}
+            Study
           </Button>
         </div>
       </div>

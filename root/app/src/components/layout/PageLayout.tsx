@@ -1,6 +1,5 @@
 import React from 'react'
-import { CaretLeft } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
 
 interface PageLayoutProps {
   children: React.ReactNode
@@ -47,16 +46,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
       {(title || showBackButton || headerAction) && (
         <header className={`flex items-center justify-between p-4 border-b border-border ${headerClassName}`}>
           <div className="flex items-center gap-4">
-            {showBackButton && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                className="text-foreground hover:bg-secondary"
-              >
-                <CaretLeft size={24} weight="bold" />
-              </Button>
-            )}
+            {showBackButton && <BackButton onClick={onBack} />}
             {title && (
               <div>
                 <h1 className="text-xl font-semibold">{title}</h1>

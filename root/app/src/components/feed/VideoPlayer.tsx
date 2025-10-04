@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Play, SpeakerHigh, SpeakerX } from '@phosphor-icons/react'
+import { Play } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import type { VideoPlayerProps } from './types'
 
@@ -13,7 +13,6 @@ export function VideoPlayer({
   isPlaying,
   isMuted,
   onTogglePlay,
-  onToggleMute,
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -65,30 +64,13 @@ export function VideoPlayer({
       {/* Play/Pause Overlay - only show when paused */}
       {videoUrl && !isPlaying && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer"
+          className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group"
           onClick={onTogglePlay}
         >
-          <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
+          <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
             <Play className="w-10 h-10 text-white fill-white ml-1" weight="fill" />
           </div>
         </div>
-      )}
-
-      {/* Mute/Unmute Button - top-left */}
-      {videoUrl && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleMute()
-          }}
-          className="absolute top-4 left-4 p-2 rounded-full max-md:bg-transparent md:bg-black/40 md:backdrop-blur-sm md:hover:bg-black/60 transition-colors cursor-pointer z-10"
-        >
-          {isMuted ? (
-            <SpeakerX className="w-6 h-6 text-white drop-shadow-lg" />
-          ) : (
-            <SpeakerHigh className="w-6 h-6 text-white drop-shadow-lg" />
-          )}
-        </button>
       )}
     </div>
   )

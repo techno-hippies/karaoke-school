@@ -14,12 +14,12 @@ root/
 │   │   └── test/
 │   │       └── SongCatalogV1.t.sol
 │   │
-│   ├── StudyTracker/
-│   │   ├── StudyTrackerV1.sol
+│   ├── StudyProgress/
+│   │   ├── StudyProgressV1.sol
 │   │   ├── script/
-│   │   │   └── DeployStudyTrackerV1.s.sol
+│   │   │   └── DeployStudyProgressV1.s.sol
 │   │   └── test/
-│   │       └── StudyTrackerV1.t.sol
+│   │       └── StudyProgressV1.t.sol
 │   │
 │   ├── ArtistQuizTracker/
 │   │   ├── ArtistQuizTrackerV1.sol
@@ -122,7 +122,15 @@ songCatalog.addSong(
 );
 ```
 
-### 2. StudyTrackerV1
+**Deployment**: `0x88996135809cc745E6d8966e3a7A01389C774910` ([Explorer](https://explorer.testnet.lens.xyz/address/0x88996135809cc745E6d8966e3a7A01389C774910))
+
+**Song Uploader Integration**:
+- The `song-uploader/` CLI tool automatically uploads songs to this contract
+- Uses ElevenLabs for word-level timestamps
+- Uploads assets to Grove storage (Lens decentralized storage)
+- See [`song-uploader/README.md`](../song-uploader/README.md) for usage
+
+### 2. StudyProgressV1
 
 **Purpose**: Track study sessions, streaks, and encrypted FSRS spaced-repetition data
 
@@ -158,17 +166,17 @@ StudyStats memory stats = studyTracker.getUserStats(userAddress);
 // stats.currentStreak, stats.totalSessions, etc.
 ```
 
-### 3. ArtistQuizTrackerV1
+### 3. SongQuizV1
 
-**Purpose**: Daily artist quiz challenges - prove you're a superfan
+**Purpose**: Daily song quiz challenges - prove you're a superfan
 
 **Key Features**:
 - Encrypted questions stored on-chain (Lit Protocol)
-- 8-second time limit (prevents AI cheating)
-- 1 quiz per day per artist (creates daily engagement)
+- 15-second time limit (prevents AI cheating while accounting for network overhead)
+- 1 quiz per day per song (creates daily engagement)
 - Sequential unlock (must complete Q1 before Q2)
 - Study gating (must complete SayItBack first)
-- Artist-specific streaks and leaderboards
+- Song-specific streaks and leaderboards
 
 **Integration**:
 ```solidity
@@ -198,7 +206,9 @@ ArtistProgress memory progress = quizTracker.getUserProgress(artistHash, userAdd
 LeaderboardEntry[10] memory leaders = quizTracker.getLeaderboard(artistHash);
 ```
 
-**See**: `ArtistQuizTracker/ARCHITECTURE.md` for complete system design
+**See**: `SongQuiz/ARCHITECTURE.md` for complete system design
+
+**Note**: Contract was renamed from `ArtistQuizTrackerV1` to `SongQuizV1` to better reflect functionality (tracks per-song quizzes, not per-artist). See `CHANGES.md` for details.
 
 ### 4. TrendingTrackerV1
 
@@ -308,8 +318,8 @@ FOUNDRY_PROFILE=zksync forge script KaraokeScoreboard/script/DeployKaraokeScoreb
   --broadcast \
   --zksync
 
-# 3. StudyTrackerV1 (requires PKP_ADDRESS)
-FOUNDRY_PROFILE=zksync forge script StudyTracker/script/DeployStudyTrackerV1.s.sol:DeployStudyTrackerV1 \
+# 3. StudyProgressV1 (requires PKP_ADDRESS)
+FOUNDRY_PROFILE=zksync forge script StudyProgress/script/DeployStudyProgressV1.s.sol:DeployStudyProgressV1 \
   --rpc-url https://rpc.testnet.lens.xyz \
   --private-key $PRIVATE_KEY \
   --broadcast \
@@ -364,14 +374,24 @@ Old versions remain deployed for backwards compatibility. Frontend should query 
 
 ### Lens Testnet (zkSync)
 
-- `SongCatalogV1`: `0x...` (TBD)
-- `KaraokeScoreboardV1`: `0x...` (TBD)
-- `StudyTrackerV1`: `0x...` (TBD)
-- `TrendingTrackerV1`: `0x...` (TBD)
+- `SongCatalogV1`: **`0x88996135809cc745E6d8966e3a7A01389C774910`** ✅
+  - Deployed: 2025-10-03
+  - Tx: `0x7b3052db58642f34b1cb3e9010d03eb9974dd93139b9a67a7356e25edd34aeab`
+  - [Explorer](https://explorer.testnet.lens.xyz/address/0x88996135809cc745E6d8966e3a7A01389C774910)
+
+- `KaraokeScoreboardV4`: **`0x8301E4bbe0C244870a4BC44ccF0241A908293d36`** ✅
+  - Deployed: 2025-10-03
+
+- `StudyProgressV1`: **`0x784Ff3655B8FDb37b5CFB831C531482A606365f1`** ✅
+  - Deployed: 2025-10-03
+
+- `TrendingTrackerV1`: **`0xeaF1A26dF6A202E2b4ba6e194d7BCe9bACF82731`** ✅
+  - Deployed: 2025-10-03
 
 ### PKP Address
 
 - Trusted PKP: `0x254AA0096C9287a03eE62b97AA5643A2b8003657`
+- Funded with 0.076 ETH on Lens Testnet
 
 ## Future Enhancements
 

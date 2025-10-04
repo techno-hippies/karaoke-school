@@ -30,7 +30,7 @@ export function KaraokeWordsRenderer({
   )
 }
 
-// Pre-configured renderer with TikTok-style highlighting
+// Pre-configured renderer with karaoke-style highlighting
 export function TikTokKaraokeRenderer({
   words,
   className = 'flex flex-wrap',
@@ -40,7 +40,7 @@ export function TikTokKaraokeRenderer({
       words={words}
       className={className}
       wordClassName={(word) =>
-        `mr-2 ${word.isActive ? 'text-[#FE2C55]' : 'text-white'}`
+        `mr-2 ${word.isActive ? 'text-primary' : 'text-white'}`
       }
     />
   )

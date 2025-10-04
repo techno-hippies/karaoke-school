@@ -1,8 +1,8 @@
-import { CaretLeft } from '@phosphor-icons/react'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
 import { AudioButton } from '@/components/ui/audio-button'
 import { AudioScrobbleBar } from '@/components/audio/AudioScrobbleBar'
+import { BackButton } from '@/components/ui/back-button'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
@@ -43,12 +43,7 @@ export function MediaPage({
 
       {/* Header */}
       <div className="flex-none h-16 border-b border-neutral-800 flex items-center px-4">
-        <button
-          onClick={onBack}
-          className="w-12 h-12 flex items-center justify-center hover:bg-white/10 transition-colors rounded-full"
-        >
-          <CaretLeft className="w-6 h-6 text-white" />
-        </button>
+        <BackButton onClick={onBack} />
         <h1 className="text-white text-base font-semibold flex-1 text-center pr-12">
           {title} - {artist}
         </h1>

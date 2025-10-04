@@ -278,12 +278,15 @@ const go = async () => {
       provider
     );
 
+    // Normalize user address (checksum and validate)
+    const normalizedUserAddress = ethers.utils.getAddress(userAddress.toLowerCase());
+
     // Encode the transaction data
     const updateScoreTxData = scoreboardContract.interface.encodeFunctionData('updateScore', [
       CONTENT_SOURCE_NATIVE,  // source = 0 (Native)
       songId,                 // trackId
       segmentId,              // segmentId
-      userAddress,            // user address
+      normalizedUserAddress,  // user address (checksummed)
       calculatedScore         // score (0-100)
     ]);
 
@@ -293,47 +296,144 @@ const go = async () => {
     // Get current nonce for PKP address
     const nonce = await provider.getTransactionCount(pkpEthAddress);
 
-    // Get gas price
+    // Get gas price (use as maxFeePerGas for zkSync EIP-1559 style)
     const gasPrice = await provider.getGasPrice();
 
-    // Build unsigned transaction
-    const unsignedTx = {
-      to: SCOREBOARD_CONTRACT_ADDRESS,
-      data: updateScoreTxData,
-      nonce: nonce,
-      gasLimit: ethers.BigNumber.from(500000),
-      gasPrice: gasPrice,
-      chainId: LENS_TESTNET_CHAIN_ID,
-      type: 0 // Legacy transaction
+    // For zkSync, set maxPriorityFeePerGas to 0 (fixed priority in L2)
+    const maxPriorityFeePerGas = ethers.BigNumber.from(0);
+
+    // zkSync gasPerPubdataByteLimit (typical value for L2 tx; adjust if needed based on pubdata usage)
+    const gasPerPubdataByteLimit = ethers.BigNumber.from(800);
+
+    // zkSync defaults: no paymaster, no factory deps
+    const paymaster = '0x0000000000000000000000000000000000000000';
+    const paymasterInput = '0x';
+    const factoryDeps = [];
+
+    // Normalize addresses (checksummed format for RLP encoding)
+    const from = ethers.utils.getAddress(pkpEthAddress);
+    const to = ethers.utils.getAddress(SCOREBOARD_CONTRACT_ADDRESS);
+
+    // Helper to convert to hex or default to '0x'
+    const toHexOrEmpty = (value) => {
+      if (!value || value === 0 || value === '0') return '0x';
+      const hex = ethers.utils.hexlify(value);
+      return ethers.utils.stripZeros(hex) || '0x';
     };
 
-    // Serialize the transaction for signing
-    const serializedTx = ethers.utils.serializeTransaction(unsignedTx);
-    const txHash = ethers.utils.keccak256(serializedTx);
-    const toSign = ethers.utils.arrayify(txHash);
+    // Build unsigned transaction for RLP encoding to get txHash
+    // This matches the fields that will be RLP encoded
+    const unsignedFields = [
+      toHexOrEmpty(nonce),                                  // 1. nonce
+      toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
+      toHexOrEmpty(gasPrice),                               // 3. maxFeePerGas
+      toHexOrEmpty(500000),                                 // 4. gas
+      to,                                                   // 5. to
+      toHexOrEmpty(0),                                      // 6. value
+      updateScoreTxData || '0x',                            // 7. data
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 8. chainId
+      '0x',                                                 // 9. empty string
+      '0x',                                                 // 10. empty string
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId (again)
+      from,                                                 // 12. from
+      toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
+      factoryDeps || [],                                    // 14. factoryDeps (array)
+      '0x',                                                 // 15. empty signature placeholder
+      []                                                    // 16. paymaster params (empty array)
+    ];
 
-    // Sign with PKP
+    // RLP encode the unsigned transaction
+    const unsignedRlp = ethers.utils.RLP.encode(unsignedFields);
+
+    // Prepend type 0x71 for zkSync EIP-712
+    const unsignedSerialized = '0x71' + unsignedRlp.slice(2);
+
+    // txHash = keccak256(unsignedSerialized)
+    const txHash = ethers.utils.keccak256(unsignedSerialized);
+
+    // zkSync DefaultAccount expects personal sign: "\x19Ethereum Signed Message:\n32" + txHash
+    const msgHash = ethers.utils.hashMessage(ethers.utils.arrayify(txHash));
+    const toSign = ethers.utils.arrayify(msgHash);
+
+    // Sign with PKP (personal sign)
     const signature = await Lit.Actions.signAndCombineEcdsa({
       toSign: toSign,
       publicKey: pkpPublicKey,
       sigName: 'scoreboardTx'
     });
 
-    // Parse v8 signature format (returns JSON string)
+    // Parse signature
     const jsonSignature = JSON.parse(signature);
-    jsonSignature.r = jsonSignature.r.startsWith('0x') ? jsonSignature.r : '0x' + jsonSignature.r;
-    jsonSignature.s = jsonSignature.s.startsWith('0x') ? jsonSignature.s : '0x' + jsonSignature.s;
-    const hexSignature = ethers.utils.joinSignature(jsonSignature);
+    const r = '0x' + jsonSignature.r.replace(/^0x/, '');
+    const s = '0x' + jsonSignature.s.replace(/^0x/, '');
+    const v = jsonSignature.v;
 
-    // Serialize signed transaction
-    const signedTxSerialized = ethers.utils.serializeTransaction(unsignedTx, hexSignature);
+    // Verify signature recovery for debugging
+    const recovered = ethers.utils.recoverAddress(msgHash, { r, s, v });
+    if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
+      throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
+    }
 
-    // Send raw transaction
-    const txResponse = await provider.sendTransaction(signedTxSerialized);
+    // Build 65-byte ECDSA signature (r + s + v)
+    // v should already be 27 or 28 from personal sign
+    const vByte = ethers.utils.hexlify(v).slice(2).padStart(2, '0');
+    const customSignature = r + s.slice(2) + vByte;
 
-    // Wait for confirmation
-    const receipt = await txResponse.wait();
-    txHash = receipt.transactionHash;
+    // Helper to convert to hex or default to '0x'
+    const toHexOrEmpty = (value) => {
+      if (!value || value === 0 || value === '0') return '0x';
+      const hex = ethers.utils.hexlify(value);
+      return ethers.utils.stripZeros(hex) || '0x';
+    };
+
+    // Prepare fields for RLP encoding (viem zkSync EIP-712 structure)
+    // Reference: https://github.com/wevm/viem/blob/main/src/zksync/serializers.ts
+    const fields = [
+      toHexOrEmpty(message.nonce),                              // 1. nonce
+      toHexOrEmpty(message.maxPriorityFeePerGas),               // 2. maxPriorityFeePerGas
+      toHexOrEmpty(message.maxFeePerGas),                       // 3. maxFeePerGas
+      toHexOrEmpty(message.gasLimit),                           // 4. gas
+      to,                                                       // 5. to (use original address string)
+      toHexOrEmpty(message.value),                              // 6. value
+      message.data || '0x',                                     // 7. data
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                      // 8. chainId
+      '0x',                                                     // 9. empty string
+      '0x',                                                     // 10. empty string
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                      // 11. chainId (again)
+      from,                                                     // 12. from (use original address string)
+      toHexOrEmpty(message.gasPerPubdataByteLimit),             // 13. gasPerPubdata
+      factoryDeps || [],                                        // 14. factoryDeps (array)
+      customSignature,                                          // 15. customSignature (65-byte sig)
+      []                                                        // 16. paymaster params (empty array, no paymaster)
+    ];
+
+    // RLP encode fields
+    const rlpEncoded = ethers.utils.RLP.encode(fields);
+
+    // Prepend type 0x71
+    const signedTxSerialized = '0x71' + rlpEncoded.slice(2); // remove '0x' from RLP and prepend
+
+    // Submit transaction using runOnce to avoid duplicates from multiple nodes
+    const response = await Lit.Actions.runOnce(
+      { waitForResponse: true, name: "txSender" },
+      async () => {
+        try {
+          // Use raw RPC call since ethers.js v5 doesn't support zkSync type 0x71
+          txHash = await provider.send("eth_sendRawTransaction", [signedTxSerialized]);
+          return txHash;
+        } catch (error) {
+          return `TX_SUBMIT_ERROR: ${error.message}`;
+        }
+      }
+    );
+    txHash = response; // If error, it will be the error string
+
+    // Check if txHash is an error message
+    if (txHash && txHash.startsWith('TX_SUBMIT_ERROR:')) {
+      errorType = txHash;
+      txHash = null;
+    }
+
     success = true;
 
   } catch (error) {
