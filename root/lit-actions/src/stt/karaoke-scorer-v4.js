@@ -348,11 +348,11 @@ const go = async () => {
     // Prepend type 0x71 for zkSync EIP-712
     const unsignedSerialized = '0x71' + unsignedRlp.slice(2);
 
-    // txHash = keccak256(unsignedSerialized)
-    const txHash = ethers.utils.keccak256(unsignedSerialized);
+    // Calculate hash of unsigned transaction
+    const unsignedTxHash = ethers.utils.keccak256(unsignedSerialized);
 
-    // zkSync DefaultAccount expects personal sign: "\x19Ethereum Signed Message:\n32" + txHash
-    const msgHash = ethers.utils.hashMessage(ethers.utils.arrayify(txHash));
+    // zkSync DefaultAccount expects personal sign: "\x19Ethereum Signed Message:\n32" + unsignedTxHash
+    const msgHash = ethers.utils.hashMessage(ethers.utils.arrayify(unsignedTxHash));
     const toSign = ethers.utils.arrayify(msgHash);
 
     // Sign with PKP (personal sign)
@@ -379,39 +379,31 @@ const go = async () => {
     const vByte = ethers.utils.hexlify(v).slice(2).padStart(2, '0');
     const customSignature = r + s.slice(2) + vByte;
 
-    // Helper to convert to hex or default to '0x'
-    const toHexOrEmpty = (value) => {
-      if (!value || value === 0 || value === '0') return '0x';
-      const hex = ethers.utils.hexlify(value);
-      return ethers.utils.stripZeros(hex) || '0x';
-    };
-
-    // Prepare fields for RLP encoding (viem zkSync EIP-712 structure)
-    // Reference: https://github.com/wevm/viem/blob/main/src/zksync/serializers.ts
-    const fields = [
-      toHexOrEmpty(message.nonce),                              // 1. nonce
-      toHexOrEmpty(message.maxPriorityFeePerGas),               // 2. maxPriorityFeePerGas
-      toHexOrEmpty(message.maxFeePerGas),                       // 3. maxFeePerGas
-      toHexOrEmpty(message.gasLimit),                           // 4. gas
-      to,                                                       // 5. to (use original address string)
-      toHexOrEmpty(message.value),                              // 6. value
-      message.data || '0x',                                     // 7. data
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                      // 8. chainId
-      '0x',                                                     // 9. empty string
-      '0x',                                                     // 10. empty string
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                      // 11. chainId (again)
-      from,                                                     // 12. from (use original address string)
-      toHexOrEmpty(message.gasPerPubdataByteLimit),             // 13. gasPerPubdata
-      factoryDeps || [],                                        // 14. factoryDeps (array)
-      customSignature,                                          // 15. customSignature (65-byte sig)
-      []                                                        // 16. paymaster params (empty array, no paymaster)
+    // Now build the signed transaction with the same fields but with the signature
+    const signedFields = [
+      toHexOrEmpty(nonce),                                  // 1. nonce
+      toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
+      toHexOrEmpty(gasPrice),                               // 3. maxFeePerGas
+      toHexOrEmpty(500000),                                 // 4. gas
+      to,                                                   // 5. to
+      toHexOrEmpty(0),                                      // 6. value
+      updateScoreTxData || '0x',                            // 7. data
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 8. chainId
+      '0x',                                                 // 9. empty string
+      '0x',                                                 // 10. empty string
+      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId (again)
+      from,                                                 // 12. from
+      toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
+      factoryDeps || [],                                    // 14. factoryDeps (array)
+      customSignature,                                      // 15. customSignature (65-byte sig)
+      []                                                    // 16. paymaster params (empty array)
     ];
 
-    // RLP encode fields
-    const rlpEncoded = ethers.utils.RLP.encode(fields);
+    // RLP encode signed fields
+    const signedRlp = ethers.utils.RLP.encode(signedFields);
 
     // Prepend type 0x71
-    const signedTxSerialized = '0x71' + rlpEncoded.slice(2); // remove '0x' from RLP and prepend
+    const signedTxSerialized = '0x71' + signedRlp.slice(2);
 
     // Submit transaction using runOnce to avoid duplicates from multiple nodes
     const response = await Lit.Actions.runOnce(
