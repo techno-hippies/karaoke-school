@@ -351,18 +351,18 @@ const go = async () => {
     // Calculate hash of unsigned transaction
     const unsignedTxHash = ethers.utils.keccak256(unsignedSerialized);
 
-    // zkSync DefaultAccount expects personal sign: "\x19Ethereum Signed Message:\n32" + unsignedTxHash
-    const msgHash = ethers.utils.hashMessage(ethers.utils.arrayify(unsignedTxHash));
-    const toSign = ethers.utils.arrayify(msgHash);
+    // zkSync DefaultAccount validates against the raw unsigned tx hash (no personal sign wrapping)
+    // Sign the raw hash directly
+    const toSign = ethers.utils.arrayify(unsignedTxHash);
 
-    // Sign with PKP (personal sign)
+    // Sign with PKP
     const signature = await Lit.Actions.signAndCombineEcdsa({
       toSign: toSign,
       publicKey: pkpPublicKey,
       sigName: 'scoreboardTx'
     });
 
-    // Parse signature (Lit returns v = 0 or 1 for personal sign)
+    // Parse signature (Lit returns v = 0 or 1 for yParity)
     const jsonSignature = JSON.parse(signature);
 
     // Ensure r and s have 0x prefix before arrayify
@@ -376,8 +376,8 @@ const go = async () => {
     let v = jsonSignature.v;
     v = v + (v < 27 ? 27 : 0);
 
-    // Verify signature recovery for debugging
-    const recovered = ethers.utils.recoverAddress(msgHash, { r: rHex, s: sHex, v });
+    // Verify signature recovery for debugging (recover from the unsigned tx hash)
+    const recovered = ethers.utils.recoverAddress(unsignedTxHash, { r: rHex, s: sHex, v });
     if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
       throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
     }

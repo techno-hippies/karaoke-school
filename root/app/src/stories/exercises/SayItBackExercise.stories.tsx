@@ -99,31 +99,6 @@ export const Processing: Story = {
   ),
 }
 
-export const NotReady: Story = {
-  render: () => (
-    <div className="h-screen bg-background flex flex-col relative">
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-3xl">
-          <SayItBackExercise
-            expectedText="Hello, how are you?"
-            canRecord={false}
-            statusMessage="Connecting to speech recognition..."
-            onStartRecording={() => console.log('Start recording')}
-            onStopRecording={() => console.log('Stop recording')}
-          />
-        </div>
-      </div>
-
-      <AnimatedFooter show={false}>
-        <VoiceControls
-          onStartRecording={() => console.log('Start recording')}
-          onStopRecording={() => console.log('Stop recording')}
-        />
-      </AnimatedFooter>
-    </div>
-  ),
-}
-
 export const CorrectAnswer: Story = {
   render: () => (
     <div className="h-screen bg-background flex flex-col relative">
@@ -154,7 +129,10 @@ export const CorrectAnswer: Story = {
   ),
 }
 
-export const Incorrect: Story = {
+/**
+ * First attempt incorrect - user can try again with voice
+ */
+export const IncorrectFirstAttempt: Story = {
   render: () => (
     <div className="h-screen bg-background flex flex-col relative">
       <div className="flex-1 flex items-center justify-center p-6">
@@ -175,9 +153,77 @@ export const Incorrect: Story = {
             <XCircle size={28} weight="duotone" />
             <span className="text-base font-medium">Try again</span>
           </div>
+          <VoiceControls
+            onStartRecording={() => console.log('Start recording')}
+            onStopRecording={() => console.log('Stop recording')}
+          />
+        </div>
+      </AnimatedFooter>
+    </div>
+  ),
+}
+
+/**
+ * Second attempt incorrect - forced progression with Next button
+ */
+export const IncorrectSecondAttempt: Story = {
+  render: () => (
+    <div className="h-screen bg-background flex flex-col relative">
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-3xl">
+          <SayItBackExercise
+            expectedText="Good morning"
+            transcript="Good afternoon"
+            score={45}
+            attempts={2}
+            canRecord={true}
+          />
+        </div>
+      </div>
+
+      <AnimatedFooter show={true}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-destructive">
+            <XCircle size={28} weight="duotone" />
+            <span className="text-base font-medium">Try again</span>
+          </div>
           <NavigationControls
-            label="Try again"
-            onNext={() => console.log('Try again clicked')}
+            label="Next"
+            onNext={() => console.log('Next clicked - forced progression')}
+          />
+        </div>
+      </AnimatedFooter>
+    </div>
+  ),
+}
+
+/**
+ * Second attempt correct - progression with Next button
+ */
+export const CorrectSecondAttempt: Story = {
+  render: () => (
+    <div className="h-screen bg-background flex flex-col relative">
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-3xl">
+          <SayItBackExercise
+            expectedText="Good morning"
+            transcript="Good morning"
+            score={100}
+            attempts={2}
+            canRecord={true}
+          />
+        </div>
+      </div>
+
+      <AnimatedFooter show={true}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-green-400">
+            <CheckCircle size={28} weight="duotone" />
+            <span className="text-base font-medium">Correct!</span>
+          </div>
+          <NavigationControls
+            label="Next"
+            onNext={() => console.log('Next clicked')}
           />
         </div>
       </AnimatedFooter>
