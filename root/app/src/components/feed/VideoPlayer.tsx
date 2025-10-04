@@ -74,14 +74,14 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Mute/Unmute Button - top-right */}
+      {/* Mute/Unmute Button - top-left */}
       {videoUrl && (
         <button
           onClick={(e) => {
             e.stopPropagation()
             onToggleMute()
           }}
-          className="absolute top-4 right-4 p-2 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors cursor-pointer z-10"
+          className="absolute top-4 left-4 p-2 rounded-full max-md:bg-transparent md:bg-black/40 md:backdrop-blur-sm md:hover:bg-black/60 transition-colors cursor-pointer z-10"
         >
           {isMuted ? (
             <SpeakerX className="w-6 h-6 text-white drop-shadow-lg" />
