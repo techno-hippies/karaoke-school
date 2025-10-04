@@ -77,18 +77,6 @@ export function SayItBackExercise({
         </div>
       </div>
 
-      {/* Status messages */}
-      {statusMessage && (
-        <div className="text-yellow-400 text-sm">
-          {statusMessage}
-        </div>
-      )}
-
-      {isRecording && (
-        <div className="text-blue-400 text-sm animate-pulse">
-          Recording... Click stop when done
-        </div>
-      )}
 
       {/* User's transcript (shown after speaking) */}
       {showResults && (
