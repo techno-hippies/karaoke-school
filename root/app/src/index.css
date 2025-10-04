@@ -45,7 +45,7 @@
   --color-ring: var(--ring);
 }
 
-/* Karaoke Theme - Dark by Default */
+/* Karaoke Theme - Dark with Neon Blue Primary */
 :root {
   --background: oklch(0.1821 0.0125 285.0965);
   --foreground: oklch(0.9843 0.0017 247.8393);
@@ -53,7 +53,7 @@
   --card-foreground: oklch(0.9843 0.0017 247.8393);
   --popover: oklch(0.2221 0.0178 284.8591);
   --popover-foreground: oklch(0.9843 0.0017 247.8393);
-  --primary: oklch(0.6377 0.2483 21.8881);
+  --primary: oklch(0.65 0.25 240);
   --primary-foreground: oklch(0.98 0.002 0);
   --secondary: oklch(0.3050 0.0182 285.2681);
   --secondary-foreground: oklch(0.9210 0.0088 247.9219);
@@ -61,29 +61,29 @@
   --muted-foreground: oklch(0.7107 0.0351 256.7877);
   --accent: oklch(0.3512 0.0220 285.2107);
   --accent-foreground: oklch(0.7940 0.1709 71.0585);
-  --destructive: oklch(0.6398 0.2196 26.0168);
+  --destructive: oklch(0.64 0.22 25);
   --destructive-foreground: oklch(0.9843 0.0017 247.8393);
   --border: oklch(0.3781 0.0242 285.1842);
   --input: oklch(0.3237 0.0198 285.2427);
-  --ring: oklch(0.6377 0.2483 21.8881);
-  --chart-1: oklch(0.6377 0.2483 21.8881);
-  --chart-2: oklch(0.7940 0.1709 71.0585);
+  --ring: oklch(0.65 0.25 240);
+  --chart-1: oklch(0.65 0.25 240);
+  --chart-2: oklch(0.70 0.20 145);
   --chart-3: oklch(0.8371 0.1324 179.5013);
   --chart-4: oklch(0.7045 0.1284 263.2653);
   --chart-5: oklch(0.5801 0.2361 311.6415);
   --radius: 0.5rem;
   --sidebar: oklch(0.1613 0.0096 285.2709);
   --sidebar-foreground: oklch(0.9843 0.0017 247.8393);
-  --sidebar-primary: oklch(0.6377 0.2483 21.8881);
+  --sidebar-primary: oklch(0.65 0.25 240);
   --sidebar-primary-foreground: oklch(0.2067 0.0100 285.4885);
   --sidebar-accent: oklch(0.3512 0.0220 285.2107);
   --sidebar-accent-foreground: oklch(0.7940 0.1709 71.0585);
   --sidebar-border: oklch(0.3781 0.0242 285.1842);
-  --sidebar-ring: oklch(0.6377 0.2483 21.8881);
+  --sidebar-ring: oklch(0.65 0.25 240);
   --font-sans: 'Geist', 'Noto Sans SC', 'Noto Sans TC', -apple-system, system-ui, sans-serif;
   --font-serif: ui-serif, Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  --shadow-color: 255 0 0;
+  --shadow-color: 0 150 255;
   --shadow-opacity: 0.3;
   --shadow-blur: 12px;
   --shadow-spread: 4px;
@@ -91,14 +91,14 @@
   --shadow-offset-y: 6px;
   --letter-spacing: 0em;
   --spacing: 0.25rem;
-  --shadow-2xs: 0 6px 12px 4px hsl(255 0 0 / 0.15);
-  --shadow-xs: 0 6px 12px 4px hsl(255 0 0 / 0.15);
-  --shadow-sm: 0 6px 12px 4px hsl(255 0 0 / 0.30), 0 1px 2px 3px hsl(255 0 0 / 0.30);
-  --shadow: 0 6px 12px 4px hsl(255 0 0 / 0.30), 0 1px 2px 3px hsl(255 0 0 / 0.30);
-  --shadow-md: 0 6px 12px 4px hsl(255 0 0 / 0.30), 0 2px 4px 3px hsl(255 0 0 / 0.30);
-  --shadow-lg: 0 6px 12px 4px hsl(255 0 0 / 0.30), 0 4px 6px 3px hsl(255 0 0 / 0.30);
-  --shadow-xl: 0 6px 12px 4px hsl(255 0 0 / 0.30), 0 8px 10px 3px hsl(255 0 0 / 0.30);
-  --shadow-2xl: 0 6px 12px 4px hsl(255 0 0 / 0.75);
+  --shadow-2xs: 0 6px 12px 4px hsl(210 100% 50% / 0.15);
+  --shadow-xs: 0 6px 12px 4px hsl(210 100% 50% / 0.15);
+  --shadow-sm: 0 6px 12px 4px hsl(210 100% 50% / 0.30), 0 1px 2px 3px hsl(210 100% 50% / 0.30);
+  --shadow: 0 6px 12px 4px hsl(210 100% 50% / 0.30), 0 1px 2px 3px hsl(210 100% 50% / 0.30);
+  --shadow-md: 0 6px 12px 4px hsl(210 100% 50% / 0.30), 0 2px 4px 3px hsl(210 100% 50% / 0.30);
+  --shadow-lg: 0 6px 12px 4px hsl(210 100% 50% / 0.30), 0 4px 6px 3px hsl(210 100% 50% / 0.30);
+  --shadow-xl: 0 6px 12px 4px hsl(210 100% 50% / 0.30), 0 8px 10px 3px hsl(210 100% 50% / 0.30);
+  --shadow-2xl: 0 6px 12px 4px hsl(210 100% 50% / 0.75);
   --tracking-normal: 0em;
 }
 
