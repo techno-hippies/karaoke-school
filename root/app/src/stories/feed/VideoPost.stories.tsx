@@ -1,0 +1,180 @@
+import type { Meta, StoryObj } from '@storybook/react-vite'
+import { VideoPost } from '@/components/feed/VideoPost'
+
+const meta = {
+  title: 'Feed/VideoPost',
+  component: VideoPost,
+  parameters: {
+    layout: 'fullscreen',
+    backgrounds: {
+      default: 'dark',
+      values: [{ name: 'dark', value: '#000000' }],
+    },
+  },
+  tags: ['autodocs'],
+} satisfies Meta<typeof VideoPost>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+// Sample karaoke data
+const sampleKaraokeLines = [
+  {
+    text: 'In the heat of the night',
+    start: 0,
+    end: 2.5,
+    words: [
+      { text: 'In', start: 0, end: 0.3 },
+      { text: 'the', start: 0.3, end: 0.5 },
+      { text: 'heat', start: 0.5, end: 1.0 },
+      { text: 'of', start: 1.0, end: 1.2 },
+      { text: 'the', start: 1.2, end: 1.4 },
+      { text: 'night', start: 1.4, end: 2.5 },
+    ],
+  },
+  {
+    text: 'When the stars are shining bright',
+    start: 2.5,
+    end: 5.0,
+    words: [
+      { text: 'When', start: 2.5, end: 2.8 },
+      { text: 'the', start: 2.8, end: 3.0 },
+      { text: 'stars', start: 3.0, end: 3.5 },
+      { text: 'are', start: 3.5, end: 3.8 },
+      { text: 'shining', start: 3.8, end: 4.5 },
+      { text: 'bright', start: 4.5, end: 5.0 },
+    ],
+  },
+]
+
+/**
+ * Basic video post with thumbnail only
+ */
+export const WithThumbnail: Story = {
+  args: {
+    id: '1',
+    username: 'karaokequeen',
+    description: 'Amazing cover of Heat of the Night! 🎤✨ #karaoke #singing',
+    thumbnailUrl: 'https://picsum.photos/400/700?random=1',
+    musicTitle: 'Heat of the Night',
+    musicAuthor: 'Scarlett X',
+    likes: 12500,
+    comments: 892,
+    shares: 1250,
+    isLiked: false,
+    isFollowing: false,
+    canInteract: true,
+    onLikeClick: () => console.log('Like clicked'),
+    onCommentClick: () => console.log('Comment clicked'),
+    onShareClick: () => console.log('Share clicked'),
+    onFollowClick: () => console.log('Follow clicked'),
+    onProfileClick: () => console.log('Profile clicked'),
+    onAudioClick: () => console.log('Audio clicked'),
+  },
+}
+
+/**
+ * Video with karaoke lyrics
+ */
+export const WithKaraoke: Story = {
+  args: {
+    id: '2',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    thumbnailUrl: 'https://picsum.photos/400/700?random=2',
+    username: 'singerstar',
+    description: 'Practicing my karaoke skills! Follow along 🎵',
+    musicTitle: 'Heat of the Night',
+    musicAuthor: 'Scarlett X',
+    likes: 45000,
+    comments: 2100,
+    shares: 3400,
+    karaokeLines: sampleKaraokeLines,
+    isLiked: false,
+    isFollowing: false,
+    canInteract: true,
+    onLikeClick: () => console.log('Like clicked'),
+    onCommentClick: () => console.log('Comment clicked'),
+    onShareClick: () => console.log('Share clicked'),
+    onFollowClick: () => console.log('Follow clicked'),
+    onProfileClick: () => console.log('Profile clicked'),
+    onAudioClick: () => console.log('Audio clicked'),
+  },
+}
+
+/**
+ * Already liked and following
+ */
+export const LikedAndFollowing: Story = {
+  args: {
+    id: '3',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    thumbnailUrl: 'https://picsum.photos/400/700?random=3',
+    username: 'musiclover',
+    description: 'Best performance ever! Can\'t stop watching 🔥🔥🔥',
+    musicTitle: 'Down Home Blues',
+    musicAuthor: 'Ethel Waters',
+    likes: 89001, // +1 from like
+    comments: 5600,
+    shares: 8900,
+    isLiked: true,
+    isFollowing: true,
+    canInteract: true,
+    onLikeClick: () => console.log('Unlike clicked'),
+    onCommentClick: () => console.log('Comment clicked'),
+    onShareClick: () => console.log('Share clicked'),
+    onFollowClick: () => console.log('Unfollow clicked'),
+    onProfileClick: () => console.log('Profile clicked'),
+    onAudioClick: () => console.log('Audio clicked'),
+  },
+}
+
+/**
+ * High engagement numbers (viral post)
+ */
+export const Viral: Story = {
+  args: {
+    id: '4',
+    thumbnailUrl: 'https://picsum.photos/400/700?random=4',
+    username: 'viral_sensation',
+    description: 'This blew up overnight! Thank you all so much!! 🚀💫 #viral #fyp #trending',
+    musicTitle: 'Trending Sound',
+    musicAuthor: 'Various Artists',
+    likes: 2500000,
+    comments: 125000,
+    shares: 450000,
+    isLiked: true,
+    isFollowing: false,
+    canInteract: true,
+    onLikeClick: () => console.log('Like clicked'),
+    onCommentClick: () => console.log('Comment clicked'),
+    onShareClick: () => console.log('Share clicked'),
+    onFollowClick: () => console.log('Follow clicked'),
+    onProfileClick: () => console.log('Profile clicked'),
+    onAudioClick: () => console.log('Audio clicked'),
+  },
+}
+
+/**
+ * Not authenticated (cannot interact)
+ */
+export const NotAuthenticated: Story = {
+  args: {
+    id: '5',
+    thumbnailUrl: 'https://picsum.photos/400/700?random=5',
+    username: 'talent_show',
+    description: 'Sign in to like, comment, and follow! 🎭',
+    musicTitle: 'Original Sound',
+    likes: 5600,
+    comments: 234,
+    shares: 89,
+    isLiked: false,
+    isFollowing: false,
+    canInteract: false, // Cannot interact
+    onLikeClick: () => console.log('Like clicked (requires auth)'),
+    onCommentClick: () => console.log('Comment clicked'),
+    onShareClick: () => console.log('Share clicked'),
+    onFollowClick: () => console.log('Follow clicked (requires auth)'),
+    onProfileClick: () => console.log('Profile clicked'),
+    onAudioClick: () => console.log('Audio clicked'),
+  },
+}
