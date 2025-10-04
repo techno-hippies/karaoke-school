@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { ExerciseHeader } from '@/components/exercises/layouts/ExerciseHeader'
+import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
 
 const meta: Meta<typeof ExerciseHeader> = {
-  title: 'Exercises/Layouts/ExerciseHeader',
+  title: 'Exercises/ExerciseHeader',
   component: ExerciseHeader,
   parameters: {
     layout: 'fullscreen',
