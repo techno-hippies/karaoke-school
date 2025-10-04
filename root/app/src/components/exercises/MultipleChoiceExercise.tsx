@@ -58,7 +58,7 @@ export const MultipleChoiceExercise = ({
       // Not answered yet - normal hover states
       return cn(
         baseStyles,
-        "bg-card hover:bg-secondary border-border text-foreground"
+        "bg-secondary/30 hover:bg-secondary border-border text-foreground"
       )
     }
 
@@ -93,7 +93,7 @@ export const MultipleChoiceExercise = ({
     // Not selected and not correct - muted
     return cn(
       baseStyles,
-      "bg-card/50 border-border/50 text-muted-foreground"
+      "bg-muted/30 border-border/50 text-muted-foreground opacity-60"
     )
   }
 
@@ -127,9 +127,9 @@ export const MultipleChoiceExercise = ({
 
       {/* Explanation (shown after answering if provided) */}
       {answered && explanation && (
-        <div className="p-4 bg-card border border-border rounded-lg">
-          <div className="text-muted-foreground text-sm mb-1">Explanation:</div>
-          <div className="text-foreground text-sm">{explanation}</div>
+        <div className="p-4 bg-secondary/20 border border-border rounded-lg">
+          <div className="text-muted-foreground text-sm font-medium mb-1">Explanation:</div>
+          <div className="text-foreground text-base">{explanation}</div>
         </div>
       )}
     </div>

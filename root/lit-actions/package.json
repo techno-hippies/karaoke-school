@@ -1,0 +1,25 @@
+{
+  "name": "karaoke-lit-actions",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Lit Actions for karaoke scoring with Voxstral API",
+  "scripts": {
+    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs",
+    "mint-pkp": "bun run scripts/mint-pkp.ts",
+    "update-pkp-permissions": "bun run scripts/update-pkp-permissions.ts",
+    "upload-action": "node scripts/upload-lit-action.mjs",
+    "encrypt-keys": "node scripts/encrypt-keys-v8.mjs"
+  },
+  "dependencies": {
+    "@lit-protocol/auth": "^8.0.0",
+    "@lit-protocol/auth-helpers": "^8.0.0",
+    "@lit-protocol/lit-client": "^8.0.0",
+    "@lit-protocol/lit-node-client": "^7.3.1",
+    "@lit-protocol/networks": "^8.0.0",
+    "dotenv": "^16.4.7",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  }
+}

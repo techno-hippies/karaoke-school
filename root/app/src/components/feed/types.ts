@@ -44,7 +44,6 @@ export interface VideoPlayerProps {
   isPlaying: boolean
   isMuted: boolean
   onTogglePlay: () => void
-  onToggleMute: () => void
   className?: string
 }
 
@@ -84,6 +83,9 @@ export interface VideoActionsProps {
   musicAuthor?: string
   musicImageUrl?: string
   onAudioClick?: () => void
+  // Video controls
+  isMuted: boolean
+  onToggleMute: () => void
   className?: string
 }
 

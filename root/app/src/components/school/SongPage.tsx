@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { CaretLeft, Play, MusicNotes } from '@phosphor-icons/react'
+import { Play, MusicNotes } from '@phosphor-icons/react'
 import { StudyStats } from './StudyStats'
 import { Leaderboard } from './Leaderboard'
 import { ExternalLinksSheet } from './ExternalLinksSheet'
 import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
+import { Spinner } from '@/components/ui/spinner'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
 
@@ -65,12 +67,7 @@ export function SongPage({
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-16 px-4">
-          <button
-            onClick={onBack}
-            className="w-12 h-12 flex items-center justify-center hover:bg-neutral-800/50 transition-colors rounded-full"
-          >
-            <CaretLeft className="w-6 h-6 text-white" />
-          </button>
+          <BackButton onClick={onBack} variant="floating" />
         </div>
       </div>
 
@@ -161,11 +158,8 @@ export function SongPage({
             variant="secondary"
             className="flex-1"
           >
-            {isQuizLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-            ) : (
-              'Quiz'
-            )}
+            {isQuizLoading && <Spinner />}
+            Quiz
           </Button>
 
           <Button
@@ -174,11 +168,8 @@ export function SongPage({
             size="lg"
             className="flex-1"
           >
-            {isStudyLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
-            ) : (
-              'Study'
-            )}
+            {isStudyLoading && <Spinner />}
+            Study
           </Button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { MagnifyingGlass } from '@phosphor-icons/react'
-import { SongListItem } from '../ui/SongListItem'
+import { SongItem } from '../ui/SongItem'
 import { Input } from '../ui/input'
 
 export interface ClassSong {
@@ -7,7 +7,6 @@ export interface ClassSong {
   title: string
   artist: string
   artworkUrl?: string
-  dueCount?: number
   isNative?: boolean
 }
 
@@ -56,12 +55,11 @@ export function ClassPage({
         <h2 className="text-lg font-semibold text-foreground">Your Songs</h2>
         <div className="space-y-2">
           {studySongs.map((song) => (
-            <SongListItem
+            <SongItem
               key={song.id}
               title={song.title}
               artist={song.artist}
               artworkUrl={song.artworkUrl}
-              dueCount={song.dueCount}
               showPlayButton={song.isNative}
               onPlayClick={() => onPlayClick?.(song.id)}
               onClick={() => onSongClick?.(song.id)}
@@ -75,7 +73,7 @@ export function ClassPage({
         <h2 className="text-lg font-semibold text-foreground">Liked Songs</h2>
         <div className="space-y-2">
           {likedSongs.map((song) => (
-            <SongListItem
+            <SongItem
               key={song.id}
               title={song.title}
               artist={song.artist}

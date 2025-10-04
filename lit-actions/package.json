@@ -6,15 +6,16 @@
   "scripts": {
     "test:scorer": "node src/test/test-karaoke-scorer.mjs",
     "test:scorer-v2": "node src/test/test-karaoke-scorer-v2.mjs",
-    "test:scorer-v3": "node src/test/test-karaoke-scorer-v3.mjs"
+    "test:scorer-v3": "node src/test/test-karaoke-scorer-v3.mjs",
+    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs"
   },
   "dependencies": {
+    "@lit-protocol/auth": "^8.0.0",
     "@lit-protocol/lit-client": "^8.0.0",
     "@lit-protocol/networks": "^8.0.0",
-    "@lit-protocol/auth": "^8.0.0",
-    "viem": "^2.21.54",
     "dotenv": "^16.4.7",
-    "ethers": "^5.7.2"
+    "ethers": "^5.7.2",
+    "viem": "^2.21.54"
   },
   "devDependencies": {
     "@types/node": "^22.10.2"

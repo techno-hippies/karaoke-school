@@ -1,5 +1,5 @@
 import React from 'react'
-import { House, Exam, User, MusicNotes, ChatCenteredText } from '@phosphor-icons/react'
+import { House, Exam, User, MicrophoneStage, ChatCenteredText } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface DesktopSidebarProps {
@@ -21,7 +21,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onConnectWallet
 }) => {
   return (
-    <div className="max-md:hidden fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50">
+    <div className="max-md:hidden fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-border z-50">
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="p-6 px-8">
@@ -40,7 +40,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <House className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">For You</span>
+            <span className="text-lg">Home</span>
           </Button>
 
           <Button
@@ -68,7 +68,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <MusicNotes className="w-6 h-6 flex-shrink-0" weight="duotone" />
+            <MicrophoneStage className="w-6 h-6 flex-shrink-0" weight="duotone" />
             <span className="text-lg">Karaoke</span>
           </Button>
 
@@ -107,8 +107,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               variant="ghost"
               className="w-full justify-start gap-3 hover:bg-secondary p-2 h-auto"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex-shrink-0" />
-              <p className="text-foreground text-sm font-medium truncate">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex-shrink-0" />
+              <p className="text-foreground text-base font-medium truncate">
                 {walletAddress.length > 15
                   ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
                   : walletAddress
@@ -118,7 +118,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           ) : (
             <Button
               onClick={onConnectWallet}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              variant="default"
+              className="w-full"
             >
               Sign In
             </Button>

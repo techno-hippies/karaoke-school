@@ -1,5 +1,5 @@
 import React from 'react'
-import { House, Exam, MusicNotes, ChatCenteredText, User } from '@phosphor-icons/react'
+import { House, Exam, MicrophoneStage, ChatCenteredText, User } from '@phosphor-icons/react'
 
 interface MobileFooterProps {
   activeTab: 'home' | 'study' | 'post' | 'inbox' | 'profile'
@@ -40,8 +40,8 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
           className="flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer"
           aria-label="Create Post"
         >
-          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl px-6 py-3">
-            <MusicNotes className="w-6 h-6 text-white" weight="duotone" />
+          <div className="bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-xl px-6 py-3 transition-all">
+            <MicrophoneStage className="w-6 h-6 text-white" weight="duotone" />
           </div>
         </button>
 

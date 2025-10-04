@@ -120,7 +120,7 @@ CLI tool to:
 
 ### Contracts
 - [x] KaraokeScoreboardV4 - Configure test track
-- [ ] KaraokeScoreboardV4 - Submit test score via PKP
+- [x] KaraokeScoreboardV4 - Submit test score via PKP (100/100 score)
 - [ ] KaraokeScoreboardV4 - Query leaderboards
 - [x] StudyProgressV1 - Record test session
 - [x] StudyProgressV1 - Verify state changed on-chain
@@ -129,7 +129,7 @@ CLI tool to:
 - [x] SongCatalogV1 - Register test song via uploader
 
 ### Lit Actions
-- [ ] karaoke-scorer-v4 - End-to-end STT scoring test
+- [x] karaoke-scorer-v4 - End-to-end STT scoring test (100/100 score achieved)
 - [x] study-session-recorder-v1 - Verified with test script
 - [ ] trending-tracker-v1 - Verify events get aggregated
 - [x] All search actions - Verified accessible on IPFS
@@ -171,8 +171,16 @@ CLI tool to:
 4. ✅ **Update song-uploader** for SongCatalogV1 integration - DONE
 5. ✅ **Test song-uploader** with sample song - DONE ("Heat of the Night")
 6. ✅ **Configure test track** in KaraokeScoreboardV4 - DONE (6 segments)
-7. ✅ **Create karaoke-scorer-v4** for new architecture - DONE
-8. ⬜ **Test karaoke-scorer-v4** end-to-end with audio
+7. ✅ **Create karaoke-scorer-v4** for new architecture - DONE (CID: `QmUq1CtXhDAHXc99oQK8jy7HvZ1dx1aYwsiYDTAxD48ZBj`)
+8. ✅ **Test karaoke-scorer-v4** end-to-end with audio - DONE
+   - Test file: `root/lit-actions/src/test/test-karaoke-scorer-v4.mjs`
+   - Used test audio: `verse-1.mp3` (202KB, "Heat of the Night" verse-1)
+   - ✅ Voxstral API decryption working
+   - ✅ Audio transcription: "In the heat of the night, under city lights..."
+   - ✅ Score calculation: 100/100 (perfect match)
+   - ✅ PKP signing successful
+   - ✅ Transaction submission working
+   - Complete flow verified: Audio → Voxstral STT → Score → PKP signs → KaraokeScoreboardV4
 9. ⬜ **Write polling pattern example** for frontend
 10. ⬜ **Document complete foundation** ready for app dev
 

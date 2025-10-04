@@ -4,6 +4,8 @@ import { VideoPlayer } from './VideoPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { VideoActions } from './VideoActions'
 import { VideoInfo } from './VideoInfo'
+import { CommentSheet } from './CommentSheet'
+import { ShareSheet } from './ShareSheet'
 import type { VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
@@ -28,7 +30,7 @@ export function VideoPost({
   username,
   userAvatar,
   description,
-  musicTitle = 'Original Sound',
+  musicTitle,
   musicAuthor,
   musicImageUrl,
   likes,
@@ -49,7 +51,19 @@ export function VideoPost({
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
+  const [commentSheetOpen, setCommentSheetOpen] = useState(false)
+  const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  const handleCommentClick = () => {
+    setCommentSheetOpen(true)
+    onCommentClick?.()
+  }
+
+  const handleShareClick = () => {
+    setShareSheetOpen(true)
+    onShareClick?.()
+  }
 
   // Track video time for karaoke
   useEffect(() => {
@@ -65,7 +79,7 @@ export function VideoPost({
 
   return (
     <div className={cn(
-      'relative h-screen w-full bg-black snap-start flex items-center justify-center',
+      'relative h-screen w-full bg-neutral-900 snap-start flex items-center justify-center',
       className
     )}>
       {/* Video Container - mobile: full screen, desktop: 9:16 centered */}
@@ -80,7 +94,6 @@ export function VideoPost({
           isPlaying={isPlaying}
           isMuted={isMuted}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
-          onToggleMute={() => setIsMuted(!isMuted)}
         />
 
         {/* Karaoke Overlay - top-center lyrics */}
@@ -132,12 +145,14 @@ export function VideoPost({
           isLiked={isLiked}
           canLike={canInteract}
           onLikeClick={onLikeClick || (() => {})}
-          onCommentClick={onCommentClick || (() => {})}
-          onShareClick={onShareClick || (() => {})}
+          onCommentClick={handleCommentClick}
+          onShareClick={handleShareClick}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
           musicImageUrl={musicImageUrl}
           onAudioClick={onAudioClick}
+          isMuted={isMuted}
+          onToggleMute={() => setIsMuted(!isMuted)}
         />
       </div>
 
@@ -156,14 +171,39 @@ export function VideoPost({
           isLiked={isLiked}
           canLike={canInteract}
           onLikeClick={onLikeClick || (() => {})}
-          onCommentClick={onCommentClick || (() => {})}
-          onShareClick={onShareClick || (() => {})}
+          onCommentClick={handleCommentClick}
+          onShareClick={handleShareClick}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
           musicImageUrl={musicImageUrl}
           onAudioClick={onAudioClick}
+          isMuted={isMuted}
+          onToggleMute={() => setIsMuted(!isMuted)}
         />
       </div>
+
+      {/* Comment Sheet */}
+      <CommentSheet
+        open={commentSheetOpen}
+        onOpenChange={setCommentSheetOpen}
+        comments={[]}
+        commentCount={comments}
+        canComment={canInteract}
+        onSubmitComment={async (content) => {
+          console.log('Submit comment:', content)
+          return true
+        }}
+      />
+
+      {/* Share Sheet */}
+      <ShareSheet
+        open={shareSheetOpen}
+        onOpenChange={setShareSheetOpen}
+        postUrl={typeof window !== 'undefined' ? window.location.href : ''}
+        postDescription={description}
+        onCopyLink={() => console.log('Link copied')}
+        onDownload={() => console.log('Download video')}
+      />
     </div>
   )
 }

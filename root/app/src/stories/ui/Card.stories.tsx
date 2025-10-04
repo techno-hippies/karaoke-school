@@ -10,10 +10,10 @@ const meta: Meta<typeof Card> = {
     layout: 'centered',
     backgrounds: {
       default: 'dark',
-      values: [
-        { name: 'dark', value: 'oklch(0.145 0 0)' },
-        { name: 'light', value: 'oklch(1 0 0)' }
-      ]
+      options: {
+        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' },
+        light: { name: 'light', value: 'oklch(1 0 0)' }
+      }
     }
   },
   tags: ['autodocs'],

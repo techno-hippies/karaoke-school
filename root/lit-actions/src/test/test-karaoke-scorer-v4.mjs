@@ -36,7 +36,7 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '../../.env') });
 
 // Load PKP credentials
-const PKP_CREDS_PATH = '/media/t42/th42/Code/site/contracts/output/pkp-credentials.json';
+const PKP_CREDS_PATH = '/media/t42/th42/Code/site/root/lit-actions/output/pkp-credentials.json';
 
 // Test audio file
 const TEST_AUDIO_PATH = '/media/t42/th42/Code/site/root/lit-actions/text-fixtures/audio/verse-1.mp3';
@@ -46,16 +46,16 @@ const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
 const SCOREBOARD_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36';
 
 // Test parameters
-const TEST_USER_ADDRESS = "0x0C6433789d14050aF47198B2751f6689731Ca79C";
+const TEST_USER_ADDRESS = `0x${Date.now().toString(16).padStart(40, '0')}`; // Random address for each test
 const TEST_SONG_ID = "heat-of-the-night-scarlett-x";
 const TEST_SEGMENT_ID = "verse-1";
 const TEST_LANGUAGE = "en";
 
-// Karaoke Scorer v4 CID (Final - All fixes applied)
-const KARAOKE_SCORER_V4_CID = 'QmUq1CtXhDAHXc99oQK8jy7HvZ1dx1aYwsiYDTAxD48ZBj';
+// Karaoke Scorer v4 CID (Fixed RLP Address Encoding)
+const KARAOKE_SCORER_V4_CID = 'QmUuJkjyZ4PVCnoBL867FEQQdDcvNfYMRrYpLvGCSK23Hz';
 
 // Voxstral API key encryption CID (must match Lit Action CID)
-const VOXSTRAL_KEY_CID = 'QmUq1CtXhDAHXc99oQK8jy7HvZ1dx1aYwsiYDTAxD48ZBj';
+const VOXSTRAL_KEY_CID = 'QmUuJkjyZ4PVCnoBL867FEQQdDcvNfYMRrYpLvGCSK23Hz';
 
 async function loadPKPCredentials() {
   console.log('🔑 Loading PKP credentials...');
@@ -78,7 +78,7 @@ async function loadVoxstralKeyEncryption() {
   const keyPath = '/media/t42/th42/Code/site/root/lit-actions/src/stt/keys/voxstral_api_key.json';
   const keyData = JSON.parse(await readFile(keyPath, 'utf-8'));
   console.log('✅ Voxstral key encryption loaded');
-  console.log(`   CID: ${keyData.ipfsCid || VOXSTRAL_KEY_CID}`);
+  console.log(`   CID: ${keyData.cid || VOXSTRAL_KEY_CID}`);
   return keyData;
 }
 

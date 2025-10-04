@@ -8,7 +8,9 @@ const meta = {
     layout: 'fullscreen',
     backgrounds: {
       default: 'dark',
-      values: [{ name: 'dark', value: '#000000' }],
+      options: {
+        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' }
+      },
     },
   },
   tags: ['autodocs'],
@@ -50,7 +52,7 @@ const sampleKaraokeLines = [
 ]
 
 /**
- * Default video post with karaoke lyrics
+ * Lip sync video - using original audio
  */
 export const Default: Story = {
   args: {
@@ -79,16 +81,16 @@ export const Default: Story = {
 }
 
 /**
- * Already liked and following
+ * Cover video - user singing a cover version
  */
-export const LikedAndFollowing: Story = {
+export const Cover: Story = {
   args: {
     id: '3',
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     thumbnailUrl: 'https://picsum.photos/400/700?random=3',
     username: 'musiclover',
-    description: 'Best performance ever! Can\'t stop watching 🔥🔥🔥',
-    musicTitle: 'Down Home Blues',
+    description: 'My cover of this classic! Hope you enjoy 🎤✨',
+    musicTitle: 'Down Home Blues (Cover)',
     musicAuthor: 'Ethel Waters',
     musicImageUrl: 'https://placebear.com/201/201',
     likes: 89001, // +1 from like
@@ -108,23 +110,24 @@ export const LikedAndFollowing: Story = {
 }
 
 /**
- * High engagement numbers (viral post)
+ * Already liked and following
  */
-export const Viral: Story = {
+export const LikedAndFollowing: Story = {
   args: {
     id: '4',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     thumbnailUrl: 'https://picsum.photos/400/700?random=4',
     username: 'viral_sensation',
     description: 'This blew up overnight! Thank you all so much!! 🚀💫 #viral #fyp #trending',
-    musicTitle: 'Trending Sound',
-    musicAuthor: 'Various Artists',
+    musicTitle: 'Stand By Me',
+    musicAuthor: 'Ben E. King',
     musicImageUrl: 'https://placebear.com/202/202',
     likes: 2500000,
     comments: 125000,
     shares: 450000,
     karaokeLines: sampleKaraokeLines,
     isLiked: true,
-    isFollowing: false,
+    isFollowing: true,
     canInteract: true,
     onLikeClick: () => console.log('Like clicked'),
     onCommentClick: () => console.log('Comment clicked'),
@@ -141,10 +144,12 @@ export const Viral: Story = {
 export const NotAuthenticated: Story = {
   args: {
     id: '5',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     thumbnailUrl: 'https://picsum.photos/400/700?random=5',
     username: 'talent_show',
     description: 'Sign in to like, comment, and follow! 🎭',
-    musicTitle: 'Original Sound',
+    musicTitle: 'Blue Moon',
+    musicAuthor: 'The Marcels',
     musicImageUrl: 'https://placebear.com/203/203',
     likes: 5600,
     comments: 234,

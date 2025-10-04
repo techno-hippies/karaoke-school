@@ -42,7 +42,7 @@ export function VideoInfo({
                   e.stopPropagation()
                   setIsExpanded(false)
                 }}
-                className="font-bold hover:opacity-80 transition-opacity pointer-events-auto inline"
+                className="font-bold hover:opacity-80 transition-opacity pointer-events-auto inline cursor-pointer"
               >
                 less
               </button>
@@ -57,7 +57,7 @@ export function VideoInfo({
                   e.stopPropagation()
                   setIsExpanded(true)
                 }}
-                className="font-bold hover:opacity-80 transition-opacity pointer-events-auto whitespace-nowrap flex-shrink-0"
+                className="font-bold hover:opacity-80 transition-opacity pointer-events-auto whitespace-nowrap flex-shrink-0 cursor-pointer"
               >
                 more
               </button>
@@ -73,10 +73,10 @@ export function VideoInfo({
             e.stopPropagation()
             onMusicClick?.()
           }}
-          className="flex items-center gap-1.5 cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
+          className="flex items-center gap-1.5 cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity overflow-hidden"
         >
           <MusicNotes className="w-5 h-5 text-white flex-shrink-0" weight="fill" />
-          <span className="text-white text-base drop-shadow-lg">
+          <span className="text-white text-base drop-shadow-lg truncate">
             {musicAuthor ? `${musicAuthor} - ${musicTitle}` : musicTitle}
           </span>
         </button>

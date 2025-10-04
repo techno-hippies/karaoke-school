@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { Item, ItemMedia, ItemContent, ItemTitle, ItemActions } from '@/components/ui/item'
 
 export type LeaderboardEntry = {
   rank: number
@@ -6,6 +7,7 @@ export type LeaderboardEntry = {
   score: number
   avatarUrl?: string
   isCurrentUser?: boolean
+  onProfileClick?: () => void
 }
 
 export type LeaderboardProps = {
@@ -32,36 +34,42 @@ export function Leaderboard({
   return (
     <div className={cn('w-full', className)}>
       <div className="space-y-0.5">
-        {displayEntries.map((entry, index) => (
-          <div
+        {displayEntries.map((entry) => (
+          <Item
             key={`${entry.rank}-${entry.username}`}
-            className="flex items-center gap-3 py-2 pr-3 rounded-lg bg-neutral-900/50 transition-colors"
+            variant="default"
+            asChild
+            className="gap-3 p-2 hover:bg-secondary/50 transition-colors"
           >
-            {/* Avatar */}
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex-shrink-0">
-              {entry.avatarUrl ? (
-                <img
-                  src={entry.avatarUrl}
-                  alt={entry.username}
-                  className="w-full h-full rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-full h-full rounded-lg bg-neutral-700" />
-              )}
-            </div>
+            <button onClick={entry.onProfileClick} className="w-full cursor-pointer">
+              {/* Avatar */}
+              <ItemMedia variant="image" className="size-12 self-center translate-y-0">
+                {entry.avatarUrl ? (
+                  <img
+                    src={entry.avatarUrl}
+                    alt={entry.username}
+                    className="w-full h-full rounded-sm object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-sm bg-gradient-to-br from-pink-400 to-purple-600" />
+                )}
+              </ItemMedia>
 
-            {/* Username */}
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-white truncate">
-                {entry.username}
-              </p>
-            </div>
+              {/* Username */}
+              <ItemContent className="min-w-0">
+                <ItemTitle className="w-full truncate text-left text-base font-semibold">
+                  {entry.username}
+                </ItemTitle>
+              </ItemContent>
 
-            {/* Score */}
-            <div className="font-semibold text-neutral-300">
-              {entry.score.toLocaleString()}
-            </div>
-          </div>
+              {/* Score */}
+              <ItemActions>
+                <div className="font-semibold text-muted-foreground text-base">
+                  {entry.score.toLocaleString()}
+                </div>
+              </ItemActions>
+            </button>
+          </Item>
         ))}
       </div>
     </div>
