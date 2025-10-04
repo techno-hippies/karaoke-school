@@ -65,12 +65,12 @@ export function VoiceControls({
         {isRecording ? (
           <>
             <StopCircle size={24} weight="fill" />
-            <span className="ml-2">Stop</span>
+            Stop
           </>
         ) : (
           <>
             <Microphone size={24} weight="fill" />
-            <span className="ml-2">{label}</span>
+            {label}
           </>
         )}
       </Button>

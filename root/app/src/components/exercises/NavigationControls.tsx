@@ -89,7 +89,7 @@ export function NavigationControls({
             className="flex-1 h-12"
           >
             {label}
-            <ArrowRight size={20} weight="bold" className="ml-2" />
+            <ArrowRight size={20} weight="bold" />
           </Button>
         </div>
       )}
