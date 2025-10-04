@@ -48,35 +48,9 @@ const sampleKaraokeLines = [
 ]
 
 /**
- * Basic video post with thumbnail only
+ * Default video post with karaoke lyrics
  */
-export const WithThumbnail: Story = {
-  args: {
-    id: '1',
-    username: 'karaokequeen',
-    description: 'Amazing cover of Heat of the Night! 🎤✨ #karaoke #singing',
-    thumbnailUrl: 'https://picsum.photos/400/700?random=1',
-    musicTitle: 'Heat of the Night',
-    musicAuthor: 'Scarlett X',
-    likes: 12500,
-    comments: 892,
-    shares: 1250,
-    isLiked: false,
-    isFollowing: false,
-    canInteract: true,
-    onLikeClick: () => console.log('Like clicked'),
-    onCommentClick: () => console.log('Comment clicked'),
-    onShareClick: () => console.log('Share clicked'),
-    onFollowClick: () => console.log('Follow clicked'),
-    onProfileClick: () => console.log('Profile clicked'),
-    onAudioClick: () => console.log('Audio clicked'),
-  },
-}
-
-/**
- * Video with karaoke lyrics
- */
-export const WithKaraoke: Story = {
+export const Default: Story = {
   args: {
     id: '2',
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -116,6 +90,7 @@ export const LikedAndFollowing: Story = {
     likes: 89001, // +1 from like
     comments: 5600,
     shares: 8900,
+    karaokeLines: sampleKaraokeLines,
     isLiked: true,
     isFollowing: true,
     canInteract: true,
@@ -142,6 +117,7 @@ export const Viral: Story = {
     likes: 2500000,
     comments: 125000,
     shares: 450000,
+    karaokeLines: sampleKaraokeLines,
     isLiked: true,
     isFollowing: false,
     canInteract: true,
@@ -167,6 +143,7 @@ export const NotAuthenticated: Story = {
     likes: 5600,
     comments: 234,
     shares: 89,
+    karaokeLines: sampleKaraokeLines,
     isLiked: false,
     isFollowing: false,
     canInteract: false, // Cannot interact
