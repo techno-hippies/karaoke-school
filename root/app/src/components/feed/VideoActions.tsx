@@ -85,12 +85,12 @@ export function VideoActions({
             'absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200',
             isFollowing
               ? 'bg-neutral-800 hover:bg-neutral-700'
-              : 'bg-[#FE2C55] hover:bg-[#FF0F3F]',
+              : 'bg-primary hover:bg-primary/90',
             !canFollow && 'opacity-50 cursor-not-allowed'
           )}
         >
           {isFollowing ? (
-            <Check className="w-4 h-4 text-red-500" />
+            <Check className="w-4 h-4 text-primary" />
           ) : (
             <Plus className="w-4 h-4 text-white" />
           )}

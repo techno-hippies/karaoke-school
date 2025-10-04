@@ -31,7 +31,6 @@
 // ============================================================
 // CONFIGURATION - Public contract addresses (hardcoded)
 // ============================================================
-
 const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
 const SCOREBOARD_CONTRACT_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36'; // V4 with multi-source
 const LENS_TESTNET_CHAIN_ID = 37111;
@@ -41,7 +40,6 @@ const CONTENT_SOURCE_NATIVE = 0; // ContentSource.Native
 // ============================================================
 // MAIN EXECUTION
 // ============================================================
-
 const go = async () => {
   const startTime = Date.now();
   let success = false;
@@ -302,12 +300,10 @@ const go = async () => {
     // For zkSync, set maxPriorityFeePerGas to 0 (fixed priority in L2)
     const maxPriorityFeePerGas = ethers.BigNumber.from(0);
 
-    // zkSync gasPerPubdataByteLimit (typical value for L2 tx; adjust if needed based on pubdata usage)
+    // zkSync gasPerPubdataByteLimit (typical value for L2 tx)
     const gasPerPubdataByteLimit = ethers.BigNumber.from(800);
 
-    // zkSync defaults: no paymaster, no factory deps
-    const paymaster = '0x0000000000000000000000000000000000000000';
-    const paymasterInput = '0x';
+    // zkSync defaults: no factory deps
     const factoryDeps = [];
 
     // Normalize addresses (checksummed format for RLP encoding)
@@ -321,8 +317,7 @@ const go = async () => {
       return ethers.utils.stripZeros(hex) || '0x';
     };
 
-    // Build unsigned transaction for RLP encoding to get txHash
-    // This matches the fields that will be RLP encoded
+    // Build unsigned fields for RLP encoding to get txHash
     const unsignedFields = [
       toHexOrEmpty(nonce),                                  // 1. nonce
       toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
@@ -362,7 +357,7 @@ const go = async () => {
       sigName: 'scoreboardTx'
     });
 
-    // Parse signature (Lit returns v = 0 or 1 for yParity)
+    // Parse signature (Lit returns v as 0/1 or 27/28 depending on implementation)
     const jsonSignature = JSON.parse(signature);
 
     // Ensure r and s have 0x prefix before arrayify
@@ -372,12 +367,17 @@ const go = async () => {
     const r = ethers.utils.stripZeros(ethers.utils.arrayify(rHex));
     const s = ethers.utils.stripZeros(ethers.utils.arrayify(sHex));
 
-    // Adjust v to 27/28 if it's 0/1 (yParity format)
+    // zkSync DefaultAccount expects yParity (0 or 1), not Ethereum format (27/28)
+    // Extract yParity from v (handle both 0/1 and 27/28 formats)
     let v = jsonSignature.v;
-    v = v + (v < 27 ? 27 : 0);
+    if (v >= 27) {
+      v = v - 27; // Convert 27/28 to 0/1
+    }
+    // Now v should be 0 or 1 (yParity)
 
-    // Verify signature recovery for debugging (recover from the unsigned tx hash)
-    const recovered = ethers.utils.recoverAddress(unsignedTxHash, { r: rHex, s: sHex, v });
+    // Verify signature recovery for debugging (need 27/28 for recovery function)
+    const vForRecovery = v + 27;
+    const recovered = ethers.utils.recoverAddress(unsignedTxHash, { r: rHex, s: sHex, v: vForRecovery });
     if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
       throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
     }
@@ -392,9 +392,9 @@ const go = async () => {
       to,                                                   // 5. to
       toHexOrEmpty(0),                                      // 6. value
       updateScoreTxData || '0x',                            // 7. data
-      ethers.utils.hexlify(v),                              // 8. v (27 or 28)
-      ethers.utils.hexlify(r),                              // 9. r (stripped)
-      ethers.utils.hexlify(s),                              // 10. s (stripped)
+      toHexOrEmpty(v),                                      // 8. v (0 or 1 as hex for yParity)
+      ethers.utils.hexlify(r),                              // 9. r (stripped Uint8Array)
+      ethers.utils.hexlify(s),                              // 10. s (stripped Uint8Array)
       toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId
       from,                                                 // 12. from
       toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
@@ -422,6 +422,7 @@ const go = async () => {
         }
       }
     );
+
     txHash = response; // If error, it will be the error string
 
     // Check if txHash is an error message

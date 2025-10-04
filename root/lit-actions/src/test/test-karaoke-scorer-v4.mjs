@@ -51,11 +51,11 @@ const TEST_SONG_ID = "heat-of-the-night-scarlett-x";
 const TEST_SEGMENT_ID = "verse-1";
 const TEST_LANGUAGE = "en";
 
-// Karaoke Scorer v4 CID (Direct Hash Sign - no personal sign)
-const KARAOKE_SCORER_V4_CID = 'QmUj9MQQfcQiu6ck3S9iyJWQQ4DhX12TbJd9oKsdmiSUJ1';
+// Karaoke Scorer v4 CID (yParity Raw Number for RLP)
+const KARAOKE_SCORER_V4_CID = 'QmbDpjM3qpY5sAhZHFXic9KMPVYJZExXqC4eHvBiC1Jep2';
 
 // Voxstral API key encryption CID (must match Lit Action CID)
-const VOXSTRAL_KEY_CID = 'QmUj9MQQfcQiu6ck3S9iyJWQQ4DhX12TbJd9oKsdmiSUJ1';
+const VOXSTRAL_KEY_CID = 'QmbDpjM3qpY5sAhZHFXic9KMPVYJZExXqC4eHvBiC1Jep2';
 
 async function loadPKPCredentials() {
   console.log('🔑 Loading PKP credentials...');

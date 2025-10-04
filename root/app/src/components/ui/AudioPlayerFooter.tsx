@@ -38,7 +38,7 @@ export function AudioPlayerFooter({
         onClick={() => onSeek?.(progress)}
       >
         <div
-          className="absolute top-0 left-0 h-full bg-destructive transition-all"
+          className="absolute top-0 left-0 h-full bg-primary transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
