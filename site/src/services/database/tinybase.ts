@@ -7,16 +7,32 @@ import { createStore } from 'tinybase'
 
 // FSRS Card State in TinyBase
 export interface ExerciseCard {
-  card_id: string          // Primary key: `${postId}_line_${lineIndex}`
-  post_id: string          // Lens post ID
-  line_index: number       // Which line in the segment
+  card_id: string          // Primary key: `${postId}_line_${lineIndex}` or `${genius_song_id}_trivia_${referent_id}`
+  post_id: string          // Lens post ID (for SayItBack) or 'trivia' for trivia cards
+  line_index: number       // Which line in the segment (for SayItBack) or 0 for trivia
 
-  // Content
-  fragment: string         // The text to practice
-  translation?: string     // Optional translation
+  // Exercise type
+  exercise_type: 'sayitback' | 'trivia'
+
+  // SayItBack content
+  fragment: string         // The text to practice (SayItBack) or lyric fragment (trivia)
+  translation?: string     // Optional translation (SayItBack only)
+
+  // Trivia content (only for exercise_type='trivia')
+  question?: string        // The trivia question
+  choices?: {              // Multiple choice options
+    A: string
+    B: string
+    C: string
+    D: string
+  }
+  correct_answer?: 'A' | 'B' | 'C' | 'D'  // Correct choice
+  explanation?: string     // Why this answer is correct
 
   // Metadata
-  song_id: string
+  song_id: string          // Native song ID or empty string for trivia-only
+  genius_song_id?: number  // Genius song ID (for trivia cards)
+  referent_id?: number     // Genius referent ID (for trivia cards)
   song_title: string
   artist: string
 

@@ -7,10 +7,12 @@ import type { GeniusSong } from './genius';
  * Note: Native songs may have Genius IDs as metadata, but if they're practiced
  * with audio/timestamps from the contract, they're "Native" source.
  */
-export enum ContentSource {
-  Native = 0,    // Songs from SongRegistryV4 (audio + word-level timestamps)
-  Genius = 1,    // Songs from Genius.com API (lyrics only, no audio)
-}
+export const ContentSource = {
+  Native: 0,    // Songs from SongRegistryV4 (audio + word-level timestamps)
+  Genius: 1,    // Songs from Genius.com API (lyrics only, no audio)
+} as const;
+
+export type ContentSource = typeof ContentSource[keyof typeof ContentSource];
 
 /**
  * Content Identifier
@@ -27,12 +29,13 @@ export interface ContentIdentifier {
  */
 export interface Song {
   id: string;              // Native: "heat-of-the-night-scarlett-x", Genius: "123456"
-  source: ContentSource;
+  source?: ContentSource;  // Optional for backward compatibility
   title: string;
   artist: string;
   duration?: number;       // Optional (Genius songs have no audio)
   thumbnailUrl?: string;
   audioUrl?: string;       // Only for native songs
+  index?: number;          // Native: array index (0, 1, 2...) for clean URLs
 
   // Source-specific data
   _registryData?: any;     // Native: RegistrySong from contract
@@ -182,15 +185,18 @@ export interface ClipMetadata extends Clip {
  * Convert ContentSource enum to URL path segment
  */
 export function sourceToPath(source: ContentSource): string {
-  return ContentSource[source].toLowerCase();
+  if (source === ContentSource.Native) return 'native';
+  if (source === ContentSource.Genius) return 'genius';
+  return 'native';
 }
 
 /**
  * Parse ContentSource from URL path segment
  */
 export function pathToSource(path: string): ContentSource {
-  const normalized = path.charAt(0).toUpperCase() + path.slice(1).toLowerCase();
-  return ContentSource[normalized as keyof typeof ContentSource] ?? ContentSource.Native;
+  const lower = path.toLowerCase();
+  if (lower === 'genius') return ContentSource.Genius;
+  return ContentSource.Native;
 }
 
 /**

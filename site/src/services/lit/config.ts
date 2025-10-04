@@ -94,3 +94,28 @@ export const dbTokenKeyData: EncryptedKey = {
   "litActionFile": "stt/free.js",
   "cid": "QmV5zj59N3z7dgqGDHkftL9FjTKa9qxTm3APYbsoq132DW"
 }
+
+// OpenRouter API Key (required for trivia generation)
+export const openrouterKeyData: EncryptedKey = {
+  "ciphertext": "t03nKldyBz/WxtgYaCsbTJnaJ35ZTksnfNXG6/MtDiBg91ttD/p3+Q0tuhcKKBT2WPRqyeFu/1MmQrZf1Sf4e6CFCwXjJqc9D4HwMXhaQElKq0SwLx4E1js7WNdq0pgzSZszDTGzrgHOimV09XC9FeNMlllpKmtR73i8BBKFfxhNn1LYw0lUAJlNpWzRcCfjLupM8orNBzkGqKgC",
+  "dataToEncryptHash": "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
+  "accessControlConditions": [
+    {
+      "conditionType": "evmBasic",
+      "contractAddress": "",
+      "standardContractType": "",
+      "chain": "ethereum",
+      "method": "",
+      "parameters": [
+        ":currentActionIpfsId"
+      ],
+      "returnValueTest": {
+        "comparator": "=",
+        "value": "QmUxZxX4B2wyXgNRHBWP2oHE592zaAZawgG34e6TiMkpNx"
+      }
+    }
+  ],
+  "encryptedAt": "2025-10-03T08:23:05.964Z",
+  "litActionFile": "study/trivia-generator-v8.js",
+  "cid": "QmUxZxX4B2wyXgNRHBWP2oHE592zaAZawgG34e6TiMkpNx"
+}

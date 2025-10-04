@@ -18,14 +18,17 @@ const ExternalLinksDemo = () => {
   const [open, setOpen] = useState(false);
 
   const songLinks = [
-    { label: 'SoundCloud', url: 'https://soundcloud.com/example' },
-    { label: 'Maid.zone', url: 'https://maid.zone/example' }
+    { label: 'YouTube', url: 'https://www.youtube.com/watch?v=GHe8kKO8uds' },
+    { label: 'Spotify', url: 'https://open.spotify.com/track/5M4yti0QxgqJieUYaEXcpw' },
+    { label: 'Apple Music', url: 'https://music.apple.com/us/song/989492311' },
+    { label: 'SoundCloud', url: 'https://soundcloud.com/tameimpala/the-less-i-know-the-better' },
+    { label: 'Maid.zone', url: 'https://sc.maid.zone/tameimpala/the-less-i-know-the-better' }
   ];
 
   const lyricsLinks = [
-    { label: 'Genius', url: 'https://genius.com/example' },
-    { label: 'Intellectual', url: 'https://intellectual.insprill.net/example' },
-    { label: 'Dumb', url: 'https://dm.vern.cc/example' }
+    { label: 'Genius', url: 'https://genius.com/Tame-impala-the-less-i-know-the-better-lyrics' },
+    { label: 'Intellectual', url: 'https://intellectual.insprill.net/Tame-impala-the-less-i-know-the-better-lyrics' },
+    { label: 'Dumb', url: 'https://dm.vern.cc/Tame-impala-the-less-i-know-the-better-lyrics' }
   ];
 
   return (
@@ -49,8 +52,11 @@ const OnlySongLinks = () => {
   const [open, setOpen] = useState(true);
 
   const songLinks = [
-    { label: 'SoundCloud', url: 'https://soundcloud.com/example' },
-    { label: 'Maid.zone', url: 'https://maid.zone/example' }
+    { label: 'YouTube', url: 'https://www.youtube.com/watch?v=GHe8kKO8uds' },
+    { label: 'Spotify', url: 'https://open.spotify.com/track/5M4yti0QxgqJieUYaEXcpw' },
+    { label: 'Apple Music', url: 'https://music.apple.com/us/song/989492311' },
+    { label: 'SoundCloud', url: 'https://soundcloud.com/tameimpala/the-less-i-know-the-better' },
+    { label: 'Maid.zone', url: 'https://sc.maid.zone/tameimpala/the-less-i-know-the-better' }
   ];
 
   return (

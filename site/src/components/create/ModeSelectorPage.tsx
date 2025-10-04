@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CaretLeft, CaretRight, Microphone, VideoCamera, TiktokLogo } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, BookOpen, VideoCamera, TiktokLogo } from '@phosphor-icons/react';
 import type { ClipMetadata } from '../../types/song';
 
-export type RecordingMode = 'practice' | 'perform' | 'lipsync';
+export type RecordingMode = 'study' | 'perform' | 'lipsync';
 
 interface ModeSelectorPageProps {
   clip?: ClipMetadata;
@@ -22,10 +22,10 @@ export const ModeSelectorPage: React.FC<ModeSelectorPageProps> = ({
 
   const modes = [
     {
-      id: 'practice' as RecordingMode,
-      title: 'Practice',
-      description: 'Audio only',
-      icon: Microphone,
+      id: 'study' as RecordingMode,
+      title: 'Study',
+      description: 'Learn lyrics with trivia',
+      icon: BookOpen,
       iconColor: 'text-purple-400',
     },
     {
@@ -77,12 +77,15 @@ export const ModeSelectorPage: React.FC<ModeSelectorPageProps> = ({
               onClick={() => {
                 if (onModeSelect) {
                   onModeSelect(mode.id);
+                } else if (mode.id === 'study') {
+                  // Navigate to study page
+                  navigate('/study');
                 } else if (clip) {
                   navigate(`/create/camera-recorder/${clip.id}`, {
                     state: {
                       clip,
                       mode: mode.id,
-                      videoEnabled: mode.id !== 'practice',
+                      videoEnabled: mode.id !== 'study',
                       recordingMode: mode.id === 'lipsync' ? 'lipsync' : 'cover'
                     }
                   });

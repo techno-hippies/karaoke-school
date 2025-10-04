@@ -49,6 +49,9 @@ class FSRSService {
         post_id: postId,
         line_index: line.lineIndex,
 
+        // Exercise type
+        exercise_type: 'sayitback',
+
         // Content
         fragment: line.originalText,
         translation: line.translatedText,

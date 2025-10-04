@@ -66,6 +66,10 @@ const meta = {
       action: 'searched',
       description: 'Called when search is triggered',
     },
+    onResultClick: {
+      action: 'result-clicked',
+      description: 'Called when a search result is clicked',
+    },
     onConnectClick: {
       action: 'connect-clicked',
       description: 'Called when connect wallet is clicked',

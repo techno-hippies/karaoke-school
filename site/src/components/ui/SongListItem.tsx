@@ -12,6 +12,7 @@ interface SongListItemProps {
   isPlaying?: boolean;
   showSelectButton?: boolean;
   showThumbnail?: boolean;
+  showPlayButton?: boolean;
   onClick?: (song: Song) => void;
   onPlay?: (song: Song) => void;
   onSelect?: (song: Song) => void;
@@ -30,6 +31,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
   isPlaying = false,
   showSelectButton = false,
   showThumbnail = true,
+  showPlayButton = true,
   onClick,
   onPlay,
   onSelect,
@@ -87,21 +89,23 @@ export const SongListItem: React.FC<SongListItemProps> = ({
         </div>
 
         {/* Play/Pause button - always visible like TikTok */}
-        <button
-          onClick={handlePlayClick}
-          className="absolute inset-0 bg-black/20 flex items-center justify-center transition-colors duration-200 hover:bg-black/40"
-        >
-          <div className="w-8 h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center">
-            {isPlaying ? (
-              <div className="w-3 h-3 flex gap-0.5">
-                <div className="w-1 h-full bg-white rounded-sm" />
-                <div className="w-1 h-full bg-white rounded-sm" />
-              </div>
-            ) : (
-              <Play className="w-4 h-4 text-white fill-white ml-0.5" weight="fill" />
-            )}
-          </div>
-        </button>
+        {showPlayButton && (
+          <button
+            onClick={handlePlayClick}
+            className="absolute inset-0 bg-black/20 flex items-center justify-center transition-colors duration-200 hover:bg-black/40"
+          >
+            <div className="w-8 h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center">
+              {isPlaying ? (
+                <div className="w-3 h-3 flex gap-0.5">
+                  <div className="w-1 h-full bg-white rounded-sm" />
+                  <div className="w-1 h-full bg-white rounded-sm" />
+                </div>
+              ) : (
+                <Play className="w-4 h-4 text-white fill-white ml-0.5" weight="fill" />
+              )}
+            </div>
+          </button>
+        )}
       </div>
       )}
 

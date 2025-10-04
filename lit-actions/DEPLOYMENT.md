@@ -11,9 +11,14 @@ lit-actions/
 │   │   ├── karaoke-scorer-v3.js # Production STT
 │   │   ├── free-v8.js           # Basic STT
 │   │   └── keys/                # Encrypted keys
-│   └── search/                  # Search actions
-│       ├── free.js              # Genius search
-│       └── keys/                # Encrypted keys
+│   ├── search/                  # Search actions
+│   │   ├── free.js              # Genius search
+│   │   └── keys/                # Encrypted keys
+│   ├── study/                   # Study/Progress actions
+│   │   └── study-session-recorder-v1.js  # Study session tracking
+│   └── test/                    # Integration tests
+│       ├── test-karaoke-scorer-v3.mjs
+│       └── test-study-session-recorder-v1.mjs
 ├── scripts/
 │   ├── upload-lit-action.mjs    # Upload to IPFS
 │   └── encrypt-keys-v8.mjs      # Encrypt secrets
@@ -93,7 +98,9 @@ npm run dev
 
 | Version | CID | Status | Notes |
 |---------|-----|--------|-------|
-| free-v8 | `QmQ721ZFN4zwTkQ4DXXCzTdWzWF5dBQTRbjs2LMdjnN4Fj` | ✅ Production | v8 jsParams pattern |
+| free-v8 | `QmQ721ZFN4zwTkQ4DXXCzTdWzWF5dBQTRbjs2LMdjnN4Fj` | ✅ Production | Search for songs (v8 jsParams) |
+| song-free-v1 | `QmNvX8u4mE6xqEPeC5vk77xJVLK6W7YB2u4GdFmbnCmDGv` | ✅ Production | Fetch song metadata (v8 jsParams) |
+| referents-free-v1 | `QmZXKFHfnmuUTM7bY8dDgpBdj57aRTVcWK6KvpidKekrQK` | ✅ Production | Fetch lyric referents (v8 jsParams) |
 | free-v3 | `QmS1ZUdhinpLmu6fw7GMzu7ktBk3EXwrjK6oJgvtnfm38B` | ⚠️ Legacy | Old pattern (no jsParams) |
 
 ### STT Actions
@@ -102,6 +109,12 @@ npm run dev
 |---------|-----|--------|-------|
 | karaoke-scorer-v3 | `QmS3Q7pcRXvb12pB2e681YMq1BWqyGY5MUdzT8sFEs4rzs` | ✅ Production | With ClipRegistry integration |
 | free-v8 | TBD | 🚧 Pending | Basic STT only |
+
+### Study Actions
+
+| Version | CID | Status | Notes |
+|---------|-----|--------|-------|
+| trivia-generator-v8 | `QmdezmuwUmdEWTFLcqGKsD4WLSr1wECcQXAaddm3jsMqf9` | ✅ Production | Generates trivia from referents/annotations (v8 jsParams) |
 
 ## 🔐 Secrets Management
 
@@ -190,6 +203,45 @@ Before deploying to production:
 **Cause**: Network issues or wrong Lit Network
 
 **Solution**: Check `LitSearchService.ts` uses correct network (DatilDev for testnet)
+
+## 🆕 New Lit Actions (Not Yet Deployed)
+
+### study-session-recorder-v1
+
+**Purpose**: Records completed study sessions to StudyProgressV1 contract with optional FSRS encryption
+
+**File**: `src/study/study-session-recorder-v1.js`
+
+**Contract Integration**: StudyProgressV1 (needs deployment address)
+
+**Key Features**:
+- Records study sessions on-chain (`recordStudySession()`)
+- Encrypts FSRS spaced repetition data using `Lit.Actions.encrypt()`
+- Stores encrypted FSRS on-chain (`storeEncryptedFSRS()`)
+- Two-transaction pattern (session + FSRS)
+- Parameter validation for user inputs
+- Hardcoded public contract address (v3 pattern)
+
+**Required Parameters**:
+- `userAddress` - User's wallet address
+- `source` - ContentSource enum (0=Native, 1=Genius)
+- `contentId` - Song/segment identifier
+- `itemsReviewed` - Number of items reviewed (uint16)
+- `averageScore` - Average score 0-100 (uint8)
+- `pkpPublicKey` - PKP public key for transaction signing
+
+**Optional Parameters**:
+- `fsrsData` - JSON object with FSRS state (encrypted if provided)
+- `fsrsAccessControlConditions` - Access control for encrypted FSRS
+
+**Deployment Steps**:
+1. Deploy StudyProgressV1 contract to Lens Testnet
+2. Update `STUDY_PROGRESS_ADDRESS` in `study-session-recorder-v1.js`
+3. Upload to IPFS: `DOTENV_PRIVATE_KEY='...' npx dotenvx run -- node scripts/upload-lit-action.mjs src/study/study-session-recorder-v1.js "Study Session Recorder v1"`
+4. Update frontend config (`lit-actions.ts`)
+5. Test with: `bun run test:study-recorder-v1`
+
+**Test File**: `src/test/test-study-session-recorder-v1.mjs`
 
 ## 📚 Resources
 

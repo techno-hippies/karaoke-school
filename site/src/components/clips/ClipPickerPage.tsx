@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CaretLeft, CaretRight, Play, SoundcloudLogo } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, Play, MusicNotes, BookOpen } from '@phosphor-icons/react';
 import { SongListItem } from '../ui/SongListItem';
 import { ExternalLinksSheet } from './ExternalLinksSheet';
 import type { Song, ClipMetadata } from '../../types/song';
@@ -27,6 +27,9 @@ interface ClipPickerPageProps {
   externalLyricsLinks?: ExternalLink[];
   audioUrl?: string; // For local playback
   className?: string;
+  geniusSongId?: number; // Genius song ID for trivia generation
+  onStudy?: () => void; // Callback when Study button is clicked
+  isGeneratingStudy?: boolean; // Loading state for study generation
 }
 
 export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
@@ -45,7 +48,10 @@ export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
   externalSongLinks = [],
   externalLyricsLinks = [],
   audioUrl,
-  className = ''
+  className = '',
+  geniusSongId,
+  onStudy,
+  isGeneratingStudy = false
 }) => {
   const [playingClipId, setPlayingClipId] = useState<string | null>(null);
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false);
@@ -163,12 +169,11 @@ export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
                       }}
                       className={cn(
                         "w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer",
-                        isExternal ? "hover:opacity-90" : "bg-green-500 hover:bg-green-600"
+                        isExternal ? "bg-purple-600 hover:bg-purple-700" : "bg-green-500 hover:bg-green-600"
                       )}
-                      style={isExternal ? { backgroundColor: '#ef630e' } : undefined}
                     >
                       {isExternal ? (
-                        <SoundcloudLogo className="w-7 h-7 text-white" weight="fill" />
+                        <MusicNotes className="w-7 h-7 text-white" weight="fill" />
                       ) : (
                         <Play className="w-7 h-7 text-white" weight="fill" />
                       )}
@@ -178,7 +183,10 @@ export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
               </div>
             </div>
 
-            <div className="px-4 mt-4 space-y-4 pb-4">
+            <div className={cn(
+              "px-4 mt-4 space-y-4",
+              geniusSongId && onStudy ? "pb-32" : "pb-4"
+            )}>
               {/* Leaderboard Stats */}
               <div className="flex gap-2 md:gap-4">
                 <div className="flex-1 bg-neutral-900 rounded-lg p-3 md:p-4 border border-neutral-800">
@@ -213,7 +221,7 @@ export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
                 const clipAsSong: Song = {
                   id: clip.id,
                   title: clip.sectionType,
-                  artist: `${Math.floor(clip.duration)}s`,
+                  artist: clip.duration > 0 ? `${Math.floor(clip.duration)}s` : '', // Only show duration if > 0
                   duration: clip.duration,
                   audioUrl: clip.audioUrl,
                   thumbnailUrl: clip.thumbnailUrl
@@ -238,6 +246,34 @@ export const ClipPickerPage: React.FC<ClipPickerPageProps> = ({
           </>
         )}
       </div>
+
+      {/* Sticky Footer with Study Button */}
+      {geniusSongId && onStudy && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-neutral-900 via-neutral-900 to-transparent pt-8 pb-4 px-4">
+          <button
+            onClick={onStudy}
+            disabled={isGeneratingStudy}
+            className={cn(
+              "w-full font-semibold py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-colors shadow-lg",
+              isGeneratingStudy
+                ? "bg-purple-800 cursor-not-allowed"
+                : "bg-purple-600 hover:bg-purple-700 text-white"
+            )}
+          >
+            {isGeneratingStudy ? (
+              <>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                <span className="text-lg">Generating Study Cards...</span>
+              </>
+            ) : (
+              <>
+                <BookOpen className="w-6 h-6" weight="duotone" />
+                <span className="text-lg">Study This Song</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* External Links Sheet */}
       <ExternalLinksSheet
