@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from '@/components/ui/button';
-import { MusicNotes } from '@phosphor-icons/react';
+import { MusicNotes, GitBranch, ArrowRight, Download, Plus } from '@phosphor-icons/react';
 
 const meta = {
   title: 'UI/Button',
@@ -103,4 +103,53 @@ export const LeftAligned: Story = {
     className: 'w-64 justify-start px-4',
     children: 'Left Aligned Button',
   },
+};
+
+/**
+ * Button with icon - spacing is automatic via gap-2 in button base class.
+ * No need to add manual margins (ml-2, mr-2) on icons or text.
+ */
+export const WithIcon: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      <Button variant="outline" size="sm">
+        <GitBranch size={16} weight="bold" />
+        New Branch
+      </Button>
+      <Button variant="default">
+        <Download size={20} weight="bold" />
+        Download
+      </Button>
+      <Button variant="secondary" size="lg">
+        <Plus size={24} weight="bold" />
+        Create New
+      </Button>
+      <Button variant="outline">
+        Next
+        <ArrowRight size={20} weight="bold" />
+      </Button>
+    </div>
+  ),
+};
+
+/**
+ * All sizes with icons to show automatic spacing
+ */
+export const IconSizes: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-4">
+      <Button variant="outline" size="sm">
+        <GitBranch size={16} weight="bold" />
+        Small
+      </Button>
+      <Button variant="outline">
+        <GitBranch size={20} weight="bold" />
+        Default
+      </Button>
+      <Button variant="outline" size="lg">
+        <GitBranch size={24} weight="bold" />
+        Large
+      </Button>
+    </div>
+  ),
 };
