@@ -50,7 +50,10 @@ export function KaraokeOverlay({
       <div className="flex justify-center px-4">
         <div className="text-white text-center space-y-2 max-w-xl">
           {/* Current line with word highlighting */}
-          <div className="text-2xl font-bold leading-tight drop-shadow-lg">
+          <div className={cn(
+            "font-bold leading-tight drop-shadow-lg",
+            showNextLine ? "text-xl" : "text-2xl"
+          )}>
             {highlightedWords.map((word, i) => (
               <span
                 key={i}
@@ -66,7 +69,7 @@ export function KaraokeOverlay({
 
           {/* Next line (for karaoke recording) or translation (for video playback) */}
           {showNextLine && nextLine ? (
-            <div className="text-lg font-medium leading-tight drop-shadow-lg text-white/60">
+            <div className="text-xl font-bold leading-tight drop-shadow-lg text-white/60">
               {nextLine.text}
             </div>
           ) : currentLine.translation ? (
