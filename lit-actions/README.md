@@ -1,276 +1,253 @@
-# Lit Actions - Karaoke Game
+# Lit Actions
 
-This repository contains Lit Protocol v8 Lit Actions for the karaoke game.
+Decentralized serverless functions for the karaoke app, powered by [Lit Protocol](https://developer.litprotocol.com/).
 
-## 🎤 Karaoke Scorer
+## 📁 Project Structure
 
-**Latest Version**: v3 ✅ **Production Ready** (simplified architecture)
-**Previous Version**: v2 ✅ Works but unnecessarily complex
-**Legacy Version**: v1 ⚠️ Deprecated (security vulnerability)
+```
+lit-actions/
+├── src/
+│   ├── stt/                          # Speech-to-Text actions
+│   │   ├── karaoke-scorer-v4.js      # ✅ PRODUCTION - zkSync EIP-712 scoring
+│   │   ├── free-v8.js                # Basic STT (no scoring)
+│   │   └── keys/                     # Encrypted API keys
+│   ├── study/                        # Study/progress tracking
+│   │   ├── study-session-recorder-v1.js
+│   │   └── test-*.js                 # Debug helpers
+│   └── test/                         # Integration tests
+│       ├── test-karaoke-scorer-v4.mjs
+│       ├── zksync-sig-test.js        # ⭐ zkSync signing reference
+│       └── test-zksync-sig.mjs
+├── scripts/
+│   ├── upload-lit-action.mjs         # Upload to IPFS
+│   ├── encrypt-keys-v8.mjs           # Encrypt secrets
+│   └── update-pkp-permissions.ts     # Grant PKP permissions
+├── output/                           # PKP credentials
+└── docs/
+    ├── DEPLOYMENT.md                 # Deployment guide
+    ├── STUDY_SESSION_RECORDER_README.md
+    └── ZKSYNC_EIP712_DEBUGGING.md   # zkSync deep dive
+```
 
-The karaoke scorer transcribes audio, calculates scores, and submits them on-chain using PKP signing.
+## 🚀 Quick Start
 
-### Quick Start
+### 1. Install Dependencies
+
+```bash
+bun install
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+# Add your PRIVATE_KEY, PINATA_JWT, etc.
+```
+
+### 3. Run Tests
+
+```bash
+# Test karaoke scorer v4 (end-to-end)
+bun run test:scorer-v4
+
+# Test zkSync signing only (minimal)
+bun run test:zksync
+```
+
+## 🎯 Current Production Lit Actions
+
+| Action | CID | Contract | Status |
+|--------|-----|----------|--------|
+| karaoke-scorer-v4 | `Qme5MZK7vyfEphzmgLJDMA9htkm9Xh37yA4SGfGLdtDStS` | KaraokeScoreboardV4 | ✅ Working |
+| study-session-recorder-v1 | `QmaesnxLXgyNDEpLm563xA4VcNsT2zqSysw6CtwDJgMw77` | StudyProgressV1 | ✅ Working |
+
+### Karaoke Scorer v4
+
+**New Architecture:**
+- Uses `SongCatalogV1` for song metadata (replaces ClipRegistry)
+- Uses `KaraokeScoreboardV4` with multi-source support
+- Scores individual segments (verse-1, chorus-1, etc.)
+- **zkSync EIP-712 transactions** signed by PKP
+
+**Flow:**
+1. Query SongCatalogV1 for song metadata → Grove URI
+2. Fetch segment lyrics from metadataUri (word-level timestamps)
+3. Transcribe user audio using Voxstral STT API
+4. Calculate similarity score (transcript vs expected lyrics)
+5. Submit score to KaraokeScoreboardV4 via zkSync EIP-712 transaction
+
+**Deployed Contracts (Lens Testnet):**
+- SongCatalogV1: `0x88996135809cc745E6d8966e3a7A01389C774910`
+- KaraokeScoreboardV4: `0x8301E4bbe0C244870a4BC44ccF0241A908293d36`
+
+**Test:**
+```bash
+bun run test:scorer-v4
+```
+
+**Critical Fix Applied:** [ZKSYNC_EIP712_DEBUGGING.md](./ZKSYNC_EIP712_DEBUGGING.md)
+- yParity encoding fix (v → yParity conversion)
+- Gas limit increased to 2M
+- 10+ hour debugging journey documented
+
+## 🔐 Secrets Management
+
+### Encrypted Secrets (Voxstral API Key)
+
+Stored in: `src/stt/keys/voxstral_api_key.json`
+
+**Access Control:** CID-locked to specific Lit Action
+
+**Re-encrypt when:**
+- New Lit Action version uploaded (new CID)
+- API key rotation
+- Access control changes
+
+```bash
+VOXSTRAL_API_KEY=your-key node scripts/encrypt-keys-v8.mjs \
+  --cid QmNewCID \
+  --key voxstral_api_key \
+  --output src/stt/keys/voxstral_api_key.json
+```
+
+### PKP Permissions
+
+After uploading new Lit Action, grant PKP permission:
+
+```bash
+PRIVATE_KEY=your-key timeout 90 bun run scripts/update-pkp-permissions.ts QmNewCID
+```
+
+## 🧪 Testing
+
+### End-to-End Tests
+
+```bash
+# Karaoke scorer v4 (full flow: audio → transcript → score → blockchain)
+bun run test:scorer-v4
+
+# Study session recorder
+bun run test:study-recorder-v1
+```
+
+### zkSync Reference Tests
+
+**⭐ Important:** `src/test/zksync-sig-test.js` is a **critical reference** for zkSync EIP-712 signing.
+
+This minimal test proved essential during debugging:
+- Tests ONLY zkSync transaction signing (no audio, no API keys)
+- Demonstrates correct yParity encoding (v → yParity conversion)
+- Shows proper RLP structure for zkSync transactions
+- Validates signature recovery before submission
+
+**Do not delete** - saved 10+ hours of debugging!
+
+```bash
+bun run test:zksync
+```
+
+## 📦 Deployment
+
+### 1. Upload to IPFS
+
+```bash
+DOTENV_PRIVATE_KEY='your-key' npx dotenvx run -- \
+  node scripts/upload-lit-action.mjs \
+  src/stt/karaoke-scorer-v4.js \
+  "Karaoke Scorer v4"
+```
+
+### 2. Re-encrypt Secrets
+
+```bash
+VOXSTRAL_API_KEY=your-key node scripts/encrypt-keys-v8.mjs \
+  --cid QmNewCID \
+  --key voxstral_api_key \
+  --output src/stt/keys/voxstral_api_key.json
+```
+
+### 3. Update PKP Permissions
+
+```bash
+PRIVATE_KEY=your-key timeout 90 bun run scripts/update-pkp-permissions.ts QmNewCID
+```
+
+### 4. Update Frontend Config
+
+```typescript
+// site/src/config/lit-actions.ts
+export const LIT_ACTIONS = {
+  karaoke: {
+    scorer: {
+      cid: 'QmNewCID',
+      version: 'v4',
+    },
+  },
+};
+```
+
+### 5. Test Integration
+
+```bash
+bun run test:scorer-v4
+```
+
+## 📚 Documentation
+
+- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Full deployment guide
+- [ZKSYNC_EIP712_DEBUGGING.md](./docs/ZKSYNC_EIP712_DEBUGGING.md) - zkSync EIP-712 deep dive
+- [STUDY_SESSION_RECORDER_README.md](./docs/STUDY_SESSION_RECORDER_README.md) - Study session recorder docs
+
+## 🔗 Resources
+
+- [Lit Protocol Docs](https://developer.litprotocol.com/)
+- [zkSync EIP-712 Spec](https://github.com/matter-labs/zksync-era/blob/main/docs/specs/zk_evm/eip712.md)
+- [Pinata IPFS](https://docs.pinata.cloud/)
+- [Lens Testnet Explorer](https://explorer.testnet.lens.xyz/)
+
+## 🛠️ Development Scripts
 
 ```bash
 # Install dependencies
 bun install
 
-# Run v3 test (recommended - simplified)
-bun run test:scorer-v3
+# Run tests
+bun run test:scorer-v4
+bun run test:zksync
+bun run test:study-recorder-v1
 
-# Run v2 test (works but complex)
-bun run test:scorer-v2
+# Upload to IPFS
+DOTENV_PRIVATE_KEY='...' npx dotenvx run -- \
+  node scripts/upload-lit-action.mjs <file> <name>
 
-# Run v1 test (deprecated)
-bun run test:scorer
+# Encrypt secrets
+API_KEY=... node scripts/encrypt-keys-v8.mjs --cid <cid> --key <name> --output <path>
+
+# Update PKP permissions
+PRIVATE_KEY=... timeout 90 bun run scripts/update-pkp-permissions.ts <cid>
 ```
 
-### 📚 Full Documentation
+## ⚠️ Important Notes
 
-**READ THIS FIRST**: [KARAOKE_SCORER_PRODUCTION_README.md](./KARAOKE_SCORER_PRODUCTION_README.md)
+### zkSync EIP-712 Transactions
 
-This comprehensive guide includes:
-- Complete architecture & flow diagrams
-- Hard-won lessons from debugging
-- Lit Protocol v8 SDK migration guide
-- Signature parsing (critical!)
-- Transaction timeout fixes
-- Security issues & fixes
-- Maintenance procedures
-- Troubleshooting guide
+- Use **yParity (0/1)** in RLP field 7, NOT v (27/28)
+- Gas limit must be generous (2M for scoreboard contract)
+- See [ZKSYNC_EIP712_DEBUGGING.md](./ZKSYNC_EIP712_DEBUGGING.md) for details
 
-### ✅ Security Fix & Simplification
+### IPFS CID Management
 
-**Problem (v1)**: `expectedLyrics` was passed as a jsParam, allowing score spoofing.
+- Each code change requires new IPFS upload → new CID
+- Re-encrypt ALL secrets for new CID
+- Update PKP permissions for new CID
+- Update all test files with new CID
 
-**Fix (v2+v3)**: Integrated with `ClipRegistryV1` contract. Lyrics are fetched from on-chain registry via Grove storage, preventing spoofing attacks.
+### Test Files to Keep
 
-**v3 Improvements Over v2**:
-- ✅ Removed unnecessary encryption of public contract addresses
-- ✅ Hardcoded `ClipRegistry` and `Scoreboard` addresses directly in Lit Action
-- ✅ Only encrypts actual secrets (Voxstral API key)
-- ✅ Simpler jsParams (fewer parameters to manage)
-- ✅ Faster execution (no pointless decryption)
-- ✅ Easier to audit (contract addresses visible in code)
-
-**Migration**: Use v3 for all new implementations.
+- `zksync-sig-test.js` - Critical reference for zkSync signing
+- `test-karaoke-scorer-v4.mjs` - End-to-end production test
+- Study test files - Minimal debug helpers (< 3KB each)
 
 ---
 
-### Current Deployment
-
-**v3 (Recommended - Simplified) with V2 Scoreboard**:
-- **IPFS CID**: `QmS3Q7pcRXvb12pB2e681YMq1BWqyGY5MUdzT8sFEs4rzs`
-- **Scoreboard Contract**: `0xD4A9c232982Bb25299E9F62128617DAC5099B059` (V2 with top-10 leaderboard)
-- **ClipRegistry Contract**: `0x59fCAe6753041C7b2E2ad443e4F2342Af46b81bf` (hardcoded in v3)
-- **PKP**: `0x254AA0096C9287a03eE62b97AA5643A2b8003657`
-- **Network**: Lens Chain Testnet (Chain ID 37111)
-- **Encrypted**: Voxstral API key only
-
-**Previous v3 with V1 Scoreboard**:
-- **IPFS CID**: `QmZmPnp5tGFnLstWEL3wTsAyUQSeBSwqPuPgAZuTN3swjJ`
-- **Scoreboard Contract**: `0x8D14f835fdA7b5349f6f1b1963EBA54FD058CF6A` (V1)
-
-**v2 (Works but unnecessarily complex)**:
-- **IPFS CID**: `QmWQX6N8wUs4xPk7DqN77QbqPb93LtsKtPuDGBU4WGeDB4`
-- **Encrypted**: Voxstral API key + contract addresses (pointless)
-
-**v1 (Deprecated)**:
-- **IPFS CID**: `QmZLFxWYVm7LFGHkdRaEwpngVDwvLzqbcPPvQo6DTRdjuu` ⚠️ Security vulnerability
-
-### Test Results (v3)
-
-```
-✅ ALL TESTS PASSED! 🎉 (6/6)
-
-✅ Transcription: "One, two, three, four. This is me opening a door."
-✅ Score: 0/100 (test audio vs. "Down Home Blues" lyrics)
-✅ TX Hash: 0x559e60c01bf6b656b9a8f87ec400522e4e22266f381b34cf5bab2793520ec524
-⏱️  Execution: 5.4s (faster than v2!)
-
-🎯 v3 Improvements Verified:
-   ✅ Contract addresses hardcoded (no unnecessary encryption)
-   ✅ Only Voxstral API key encrypted (actual secret)
-   ✅ Simpler jsParams (fewer parameters)
-   ✅ Lyrics from on-chain ClipRegistry (security fix maintained)
-```
-
----
-
-## 🔍 Genius Search
-
-**Current Version**: free.js ✅ **v8 Compatible**
-
-The Genius search action queries the Genius API for song metadata using Lit Actions with usage analytics.
-
-### Quick Info
-
-- **Purpose**: Search Genius API for songs (artist, title, artwork, lyrics state)
-- **Network**: Network-agnostic (no blockchain interaction)
-- **API Key**: Public/exposed (rate-limited by Genius)
-- **v8 SDK**: ✅ Uses jsParams, runOnce, decryptAndCombine
-- **Analytics**: Optional (same `ks_web_1` schema as STT)
-
-### Key Features
-
-- ✅ **v8 Compatible**: Uses modern Lit Protocol SDK patterns
-- ✅ **Public API Key**: Exposed in code (intentional for free tier)
-- ✅ **No Authentication Required**: No wallet signature needed
-- ✅ **Analytics Ready**: Tracks usage metrics if DB credentials provided
-- ✅ **Rate Limit Handling**: Graceful degradation on 429 errors
-- ✅ **Key Rotation Ready**: Supports 3 encrypted keys (currently unused)
-
-### Expected Parameters
-
-```javascript
-{
-  // Required
-  query: string,              // Search query
-
-  // Optional
-  limit: number,              // Results limit (default: 10, max: 20)
-  userAddress: string,        // Wallet address for analytics
-  language: string,           // Browser language (e.g., 'en-US')
-  userIpCountry: string,      // Country code
-  userAgent: string,          // User agent
-  sessionId: string,          // Session identifier
-
-  // Analytics (optional)
-  dbUrlCiphertext: string,
-  dbUrlDataToEncryptHash: string,
-  dbUrlAccessControlConditions: array,
-  dbTokenCiphertext: string,
-  dbTokenDataToEncryptHash: string,
-  dbTokenAccessControlConditions: array
-}
-```
-
-### Response Format
-
-```javascript
-{
-  success: boolean,
-  results: [{
-    genius_id: number,
-    title: string,
-    title_with_featured: string,
-    artist: string,
-    artist_id: number,
-    genius_slug: string,
-    url: string,
-    artwork_thumbnail: string,
-    lyrics_state: string,
-    _score: number
-  }],
-  count: number,
-  keyUsed: number,            // Which API key was used
-  version: string,
-  analytics: string           // "analytics sent" | "analytics skipped"
-}
-```
-
-### Current Deployment
-
-**Production CID**: `QmQ721ZFN4zwTkQ4DXXCzTdWzWF5dBQTRbjs2LMdjnN4Fj` (v8 jsParams pattern)
-- Uses exposed Genius API key (no encryption needed for free tier)
-- Compatible with v8 Lit Protocol SDK
-
-**Legacy CID**: `QmS1ZUdhinpLmu6fw7GMzu7ktBk3EXwrjK6oJgvtnfm38B` (old pattern)
-- Note: This version doesn't use jsParams properly
-
----
-
-## Project Structure
-
-```
-lit-actions/
-├── src/
-│   ├── stt/                          # 🎤 Speech-to-Text / Karaoke
-│   │   ├── karaoke-scorer-v1.js      # Legacy version (deprecated)
-│   │   ├── karaoke-scorer-v2.js      # Complex version (works)
-│   │   ├── karaoke-scorer-v3.js      # ✅ Production (simplified)
-│   │   ├── free-v8.js                # Basic STT action
-│   │   └── keys/                     # 🔐 Encrypted keys (CID-locked)
-│   │       ├── voxstral_api_key.json
-│   │       ├── clip_registry_address.json
-│   │       ├── contract_address.json
-│   │       ├── db_auth_token.json
-│   │       └── db_endpoint_url.json
-│   ├── search/                       # 🔍 Genius API Search
-│   │   ├── free.js                   # ✅ Search action (v8)
-│   │   └── keys/                     # 🔐 Encrypted keys (CID-locked)
-│   │       ├── genius1.json
-│   │       ├── genius2.json
-│   │       ├── genius3.json
-│   │       ├── db_auth_token.json
-│   │       └── db_endpoint_url.json
-│   └── test/
-│       ├── test-karaoke-scorer.mjs   # ✅ v1 test
-│       ├── test-karaoke-scorer-v2.mjs # ✅ v2 test
-│       ├── test-karaoke-scorer-v3.mjs # ✅ v3 test
-│       └── test-audio.mp3            # 🎵 Test audio
-├── scripts/
-│   ├── encrypt-keys-v8.mjs           # 🔒 Encrypt keys for CID
-│   └── upload-lit-action.mjs         # 📤 Upload to IPFS
-├── KARAOKE_SCORER_PRODUCTION_README.md  # 📚 Full documentation
-└── package.json
-
-contracts/ (sibling directory)
-├── src/
-│   └── KaraokeScoreboardV1.sol       # 📊 On-chain score storage
-└── scripts/
-    ├── mint-pkp.ts                   # 🔑 Mint new PKP
-    ├── fund-pkp.ts                   # 💰 Fund PKP
-    └── update-pkp-permissions.ts     # ✅ Update PKP CID permissions
-```
-
----
-
-## Common Tasks
-
-### Upload New Version
-```bash
-npx dotenvx run -- node scripts/upload-lit-action.mjs \
-  src/stt/karaoke-scorer-v1.js "Karaoke Scorer v1"
-# → Returns new CID
-```
-
-### Re-encrypt Keys
-```bash
-VOXSTRAL_API_KEY=<key> node scripts/encrypt-keys-v8.mjs \
-  --cid <CID> \
-  --key voxstral_api_key \
-  --output src/stt/keys/voxstral_api_key.json
-```
-
-### Update PKP Permissions
-```bash
-cd ../contracts
-npx dotenvx run -- bun run scripts/update-pkp-permissions.ts <CID>
-```
-
-### Run Tests
-```bash
-bun run test:scorer
-```
-
----
-
-## Next Steps
-
-1. **✅ COMPLETED**: ClipRegistry integration (v2+v3)
-2. **✅ COMPLETED**: Simplified architecture (v3)
-3. **Frontend Integration**: Update to use v3 CID with clipId parameter
-4. **Monitoring**: Set up PKP balance alerts
-5. **Production Deploy**: Follow checklist in production README
-
----
-
-## Need Help?
-
-1. Check [KARAOKE_SCORER_PRODUCTION_README.md](./KARAOKE_SCORER_PRODUCTION_README.md) first
-2. Review test script: `src/test/test-karaoke-scorer.mjs`
-3. Check Lit Protocol v8 docs: https://developer.litprotocol.com/
-
-**This took a long time to debug. Read the production README before making changes!**
+**Status:** ✅ karaoke-scorer-v4 fully operational on Lens Testnet with zkSync EIP-712 PKP-signed transactions

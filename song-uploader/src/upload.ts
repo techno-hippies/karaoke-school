@@ -7,21 +7,19 @@ import { readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { chains } from "@lens-chain/sdk/viem";
 import { immutable, StorageClient } from "@lens-chain/storage-client";
-import { initializeWallet } from './wallet.js';
-import {
-  createRegistry,
-  loadRegistry,
-  addSongToRegistry,
-  updateRegistry,
-  saveRegistryUri,
-  songExists
-} from './registry.js';
 import { ElevenLabsProcessor } from './processors/elevenlabs.js';
 import { MetadataGenerator } from './processors/metadata.js';
-import type { SongFiles, SongMetadata, EnhancedSongMetadata, UploadResult } from './types.js';
+import {
+  initializeSongCatalog,
+  songExistsInCatalog,
+  addSongToCatalog,
+  updateSongInCatalog,
+  getSongCount,
+  type SongCatalogConfig
+} from './contract.js';
+import type { SongFiles, SongConfig, UploadResult, EnhancedSongMetadata } from './types.js';
 
 const SONGS_DIR = './songs';
-const REGISTRY_URI_FILE = './output/registry-uri.txt';
 
 let storageClient: StorageClient | null = null;
 
@@ -56,6 +54,31 @@ async function getSongFolders(): Promise<string[]> {
 }
 
 /**
+ * Load song configuration from metadata.json
+ */
+async function loadSongConfig(songId: string): Promise<SongConfig | null> {
+  const configPath = join(SONGS_DIR, songId, 'metadata.json');
+
+  try {
+    const configText = await Bun.file(configPath).text();
+    const config = JSON.parse(configText) as SongConfig;
+
+    // Ensure ID is set
+    if (!config.id) {
+      config.id = songId;
+    }
+
+    return config;
+  } catch (error) {
+    // If no metadata.json, use folder name as ID
+    console.log(`No metadata.json for ${songId}, using folder name as ID`);
+    return {
+      id: songId
+    };
+  }
+}
+
+/**
  * Load song files from a directory
  */
 async function loadSongFiles(songId: string): Promise<SongFiles | null> {
@@ -85,15 +108,6 @@ async function loadSongFiles(songId: string): Promise<SongFiles | null> {
         songFiles.lyrics = new File([await Bun.file(filePath).arrayBuffer()], file, {
           type: 'text/plain'
         });
-      } else if (file === 'translation.txt') {
-        songFiles.translation = new File([await Bun.file(filePath).arrayBuffer()], file, {
-          type: 'text/plain'
-        });
-      } else if (file === 'metadata.json') {
-        // Legacy metadata file
-        songFiles.metadata = new File([await Bun.file(filePath).arrayBuffer()], file, {
-          type: 'application/json'
-        });
       } else if (ext === '.jpg' || ext === '.png' || ext === '.webp') {
         songFiles.thumbnail = new File([await Bun.file(filePath).arrayBuffer()], file, {
           type: `image/${ext.slice(1)}`
@@ -116,16 +130,22 @@ async function loadSongFiles(songId: string): Promise<SongFiles | null> {
 /**
  * Upload a song folder to Grove
  */
-async function uploadSong(songId: string, songFiles: SongFiles): Promise<UploadResult> {
+async function uploadSong(songId: string, songFiles: SongFiles, metadata: EnhancedSongMetadata): Promise<UploadResult> {
   const storage = getStorageClient();
-
   const acl = immutable(chains.mainnet.id);
 
   console.log(`Uploading song: ${songId}`);
 
-  // Prepare files array - only upload audio (full song), metadata, and thumbnail to Grove
-  // Voice stems are NOT uploaded to Grove (only used for ElevenLabs processing)
-  const files = [songFiles.audio, songFiles.metadata];
+  // Create metadata file from enhanced data
+  const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], {
+    type: 'application/json'
+  });
+  const metadataFile = new File([metadataBlob], 'metadata.json', {
+    type: 'application/json'
+  });
+
+  // Prepare files array - only upload audio, metadata, and thumbnail to Grove
+  const files = [songFiles.audio, metadataFile];
   if (songFiles.thumbnail) {
     files.push(songFiles.thumbnail);
   }
@@ -139,11 +159,9 @@ async function uploadSong(songId: string, songFiles: SongFiles): Promise<UploadR
   const index = (resources: any[]) => {
     console.log('Resources received:', resources.length);
 
-    // Since Grove doesn't provide filenames, match by file order
-    // Files are uploaded in order: audio, metadata, thumbnail (if present)
     const audioResource = resources[0]; // First file is audio
     const metadataResource = resources[1]; // Second file is metadata
-    const thumbnailResource = resources.length > 2 ? resources[2] : null; // Third file is thumbnail if present
+    const thumbnailResource = resources.length > 2 ? resources[2] : null;
 
     return {
       id: songId,
@@ -169,14 +187,14 @@ async function uploadSong(songId: string, songFiles: SongFiles): Promise<UploadR
 
   const response = await storage.uploadFolder(files, { acl, index });
 
-  console.log(`✅ Song ${songId} uploaded successfully`);
+  console.log(`✅ Song ${songId} uploaded to Grove`);
 
   return {
     songId,
     folderUri: response.folder.uri,
-    audioUri: response.files[0]?.uri || '', // First file is audio
-    metadataUri: response.files[1]?.uri || '', // Second file is metadata
-    thumbnailUri: response.files.length > 2 ? response.files[2]?.uri : undefined // Third file is thumbnail if present
+    audioUri: response.files[0]?.uri || '',
+    metadataUri: response.files[1]?.uri || '',
+    thumbnailUri: response.files.length > 2 ? response.files[2]?.uri : undefined
   };
 }
 
@@ -186,32 +204,23 @@ async function uploadSong(songId: string, songFiles: SongFiles): Promise<UploadR
 async function processSongWithElevenLabs(
   songId: string,
   songFiles: SongFiles,
-  apiKey: string
+  apiKey: string,
+  config: SongConfig
 ): Promise<EnhancedSongMetadata> {
   console.log(`🔄 Processing ${songId} with ElevenLabs...`);
 
-  // Check if we have lyrics file or need to extract from legacy metadata
-  let lyrics = '';
-
-  if (songFiles.lyrics) {
-    lyrics = await songFiles.lyrics.text();
-  } else if (songFiles.metadata) {
-    // Try to extract from legacy metadata
-    const legacyText = await songFiles.metadata.text();
-    const legacyData = JSON.parse(legacyText);
-    if (legacyData.lineTimestamps) {
-      lyrics = legacyData.lineTimestamps.map((line: any) => line.originalText || line.text).join('\n');
-    }
-  } else {
-    throw new Error(`No lyrics found for song ${songId}. Need either lyrics.txt or legacy metadata.json`);
+  // Must have lyrics file
+  if (!songFiles.lyrics) {
+    throw new Error(`Song ${songId} requires lyrics.txt file`);
   }
 
+  const lyrics = await songFiles.lyrics.text();
   if (!lyrics.trim()) {
     throw new Error(`Empty lyrics for song ${songId}`);
   }
 
   // Load all translations from translations/ folder
-  const translations: Record<string, string[]> = {}; // { "cn": ["line1", "line2"], "vi": [...] }
+  const translations: Record<string, string[]> = {};
   const translationsDir = join(SONGS_DIR, songId, 'translations');
 
   try {
@@ -235,14 +244,12 @@ async function processSongWithElevenLabs(
   let alignmentResult;
 
   try {
-    // Try to load existing alignment file
     alignmentResult = await elevenLabsProcessor.loadAlignmentFromFile(alignmentFilePath);
     console.log(`✅ Using existing alignment file: ${alignmentFilePath}`);
   } catch {
-    // No existing file, need to call ElevenLabs API
     console.log(`📞 No alignment file found, calling ElevenLabs API...`);
 
-    // Use voice stems for ElevenLabs processing if available, otherwise fall back to full audio
+    // Use voice stems for ElevenLabs processing if available
     const audioForProcessing = songFiles.voiceStems || songFiles.audio!;
     console.log(`Using ${songFiles.voiceStems ? 'voice stems' : 'full audio'} for ElevenLabs processing: ${audioForProcessing.name}`);
 
@@ -258,8 +265,10 @@ async function processSongWithElevenLabs(
   const metadataGenerator = new MetadataGenerator();
   const lyricsLines = lyrics.split('\n').filter(line => line.trim());
 
-  // Extract song info
-  const { title, artist } = metadataGenerator.extractSongInfo(lyrics, songFiles.audio!.name);
+  // Extract song info (use config overrides if available)
+  const extracted = metadataGenerator.extractSongInfo(lyrics, songFiles.audio!.name);
+  const title = config.title || extracted.title;
+  const artist = config.artist || extracted.artist;
 
   const enhancedMetadata = metadataGenerator.generateEnhancedMetadata(
     alignmentResult.words,
@@ -275,76 +284,8 @@ async function processSongWithElevenLabs(
     console.warn(`⚠️ Metadata validation warnings for ${songId}:`, validation.errors);
   }
 
-  // Save metadata.json to song folder
-  const metadataFilePath = join(SONGS_DIR, songId, 'metadata.json');
-  await Bun.write(metadataFilePath, JSON.stringify(enhancedMetadata, null, 2));
-  console.log(`✅ Saved metadata to: ${metadataFilePath}`);
-
   console.log(`✅ ${songId} processed: ${enhancedMetadata.wordCount} words, ${enhancedMetadata.lineCount} lines`);
   return enhancedMetadata;
-}
-
-/**
- * Parse metadata from uploaded file (legacy support)
- */
-async function parseMetadata(metadataFile: File): Promise<{ title: string; artist: string; duration: number }> {
-  const text = await metadataFile.text();
-  const metadata = JSON.parse(text) as SongMetadata;
-
-  // Handle enhanced metadata
-  if ('version' in metadata && metadata.version === 2) {
-    return {
-      title: metadata.title,
-      artist: metadata.artist,
-      duration: metadata.duration
-    };
-  }
-
-  // Handle legacy metadata
-  const legacyMetadata = metadata as any;
-  let duration = legacyMetadata.duration || 0;
-  if (!duration && legacyMetadata.lineTimestamps?.length > 0) {
-    const lastLine = legacyMetadata.lineTimestamps[legacyMetadata.lineTimestamps.length - 1];
-    duration = Math.ceil(lastLine.end || 0);
-  }
-
-  return {
-    title: legacyMetadata.title || 'Unknown Title',
-    artist: legacyMetadata.artist || 'Unknown Artist',
-    duration
-  };
-}
-
-/**
- * Get existing registry URI or create new one
- */
-async function getOrCreateRegistryUri(walletClient: any): Promise<string> {
-  // First check .env for REGISTRY_URI
-  const envRegistryUri = process.env.REGISTRY_URI?.trim();
-  if (envRegistryUri) {
-    console.log('Using registry from .env:', envRegistryUri);
-    return envRegistryUri;
-  }
-
-  // Fallback: Try to load from file (legacy support)
-  try {
-    const existingUri = await Bun.file(REGISTRY_URI_FILE).text();
-    if (existingUri.trim()) {
-      console.log('⚠️  Using registry from file (consider moving to .env):', existingUri.trim());
-      return existingUri.trim();
-    }
-  } catch {
-    // File doesn't exist
-  }
-
-  // Create new registry only if none exists
-  console.log('No registry found. Creating new registry...');
-  const registryUri = await createRegistry();
-  console.log('✅ Registry created:', registryUri);
-  console.log('⚠️  IMPORTANT: Add this to your .env file as REGISTRY_URI:');
-  console.log(`   REGISTRY_URI="${registryUri}"`);
-  await saveRegistryUri(registryUri);
-  return registryUri;
 }
 
 /**
@@ -354,40 +295,35 @@ async function main() {
   try {
     const args = process.argv.slice(2);
     const isAddMode = args.includes('--add');
-    const isInitMode = args.includes('--init');
-    const isSyncMode = args.includes('--sync');
     const isProcessMode = args.includes('--process');
 
-    console.log('🎵 Song Uploader Starting...');
+    console.log('🎵 Song Uploader for SongCatalogV1');
 
-    // Initialize wallet
-    const walletClient = initializeWallet();
-    console.log('Wallet connected:', walletClient.account.address);
+    // Check environment variables
+    const privateKey = process.env.PRIVATE_KEY;
+    const contractAddress = process.env.SONG_CATALOG_ADDRESS;
 
-    // Get or create registry
-    const registryUri = await getOrCreateRegistryUri(walletClient);
-
-    if (isInitMode) {
-      console.log('✅ Registry initialized:', registryUri);
-      return;
+    if (!privateKey) {
+      throw new Error('PRIVATE_KEY environment variable is required');
     }
 
-    if (isSyncMode) {
-      console.log('🔄 Sync mode: Will add missing songs to registry without re-uploading');
+    if (!contractAddress || !contractAddress.startsWith('0x')) {
+      throw new Error('SONG_CATALOG_ADDRESS environment variable is required');
     }
 
-    if (isProcessMode) {
-      console.log('🎵 Process mode: Will generate enhanced metadata using ElevenLabs');
-
-      // Check for ElevenLabs API key
-      const apiKey = process.env.ELEVENLABS_API_KEY;
-      if (!apiKey) {
-        throw new Error('ELEVENLABS_API_KEY environment variable is required for processing mode');
-      }
+    if (isProcessMode && !process.env.ELEVENLABS_API_KEY) {
+      throw new Error('ELEVENLABS_API_KEY environment variable is required for --process mode');
     }
 
-    // Load current registry
-    const registry = await loadRegistry(registryUri);
+    // Initialize contract
+    console.log('Initializing SongCatalogV1 contract...');
+    const catalog = initializeSongCatalog(privateKey, contractAddress as `0x${string}`);
+    console.log('Contract address:', catalog.contractAddress);
+    console.log('Wallet address:', catalog.walletClient.account.address);
+
+    // Get current song count
+    const songCount = await getSongCount(catalog);
+    console.log(`Current catalog has ${songCount} songs\n`);
 
     // Scan for songs
     const songFolders = await getSongFolders();
@@ -398,90 +334,84 @@ async function main() {
       return;
     }
 
-    let updatedRegistry = registry;
     let uploadCount = 0;
 
-    for (const songId of songFolders) {
-      // Check if song is actually in the registry (not just uploaded before)
-      if (songExists(updatedRegistry, songId)) {
-        console.log(`⏭️  Skipping ${songId} (already in registry)`);
+    for (const songFolder of songFolders) {
+      // Load song configuration
+      const config = await loadSongConfig(songFolder);
+      if (!config) {
+        console.log(`❌ Skipping ${songFolder} (invalid config)`);
         continue;
       }
 
-      const songFiles = await loadSongFiles(songId);
+      const songId = config.id;
+
+      // Check if song already exists in catalog
+      const songExists = await songExistsInCatalog(catalog, songId);
+
+      const songFiles = await loadSongFiles(songFolder);
       if (!songFiles) {
         console.log(`❌ Skipping ${songId} (missing files)`);
         continue;
       }
 
       try {
-        let uploadResult: UploadResult;
-        let metadata: { title: string; artist: string; duration: number };
+        let metadata: EnhancedSongMetadata;
 
         if (isProcessMode) {
           // Processing mode: Generate enhanced metadata with ElevenLabs
           const apiKey = process.env.ELEVENLABS_API_KEY!;
 
-          // Check if we have voice stems for better processing
           if (!songFiles.voiceStems) {
             console.warn(`⚠️ No voice stems found for ${songId}, using full audio for ElevenLabs processing`);
             console.warn(`   For better results, include a file with "vocals" or "stems" in the name`);
           }
 
-          const enhancedMetadata = await processSongWithElevenLabs(songId, songFiles, apiKey);
-
-          // Create metadata file from enhanced data
-          const metadataBlob = new Blob([JSON.stringify(enhancedMetadata, null, 2)], {
-            type: 'application/json'
-          });
-          const metadataFile = new File([metadataBlob], 'metadata.json', {
-            type: 'application/json'
-          });
-
-          // Update song files with generated metadata
-          const processedSongFiles = {
-            ...songFiles,
-            metadata: metadataFile
-          };
-
-          uploadResult = await uploadSong(songId, processedSongFiles);
-          metadata = {
-            title: enhancedMetadata.title,
-            artist: enhancedMetadata.artist,
-            duration: enhancedMetadata.duration
-          };
+          metadata = await processSongWithElevenLabs(songId, songFiles, apiKey, config);
         } else {
-          // Normal mode: Use existing metadata or generate basic metadata
-          if (!songFiles.metadata) {
-            throw new Error(`Song ${songId} requires metadata.json or use --process mode for auto-generation`);
-          }
-
-          uploadResult = await uploadSong(songId, songFiles);
-          metadata = await parseMetadata(songFiles.metadata);
+          throw new Error(`Song ${songId} requires --process mode to generate metadata`);
         }
 
-        // Add to registry
-        updatedRegistry = addSongToRegistry(updatedRegistry, uploadResult, metadata);
-        uploadCount++;
+        // Upload to Grove
+        const uploadResult = await uploadSong(songId, songFiles, metadata);
 
-        console.log(`✅ Added ${songId} to registry`);
+        if (songExists) {
+          // Update existing song in catalog
+          console.log(`🔄 ${songId} already exists, updating...`);
+          await updateSongInCatalog(
+            catalog,
+            uploadResult,
+            metadata,
+            config.geniusId || 0,
+            config.geniusArtistId || 0,
+            config.segmentIds || [],
+            '', // coverUri (not yet implemented)
+            '',  // musicVideoUri (not yet implemented)
+            true // enabled
+          );
+          console.log(`✅ ${songId} successfully updated in catalog!\n`);
+        } else {
+          // Add new song to catalog
+          await addSongToCatalog(
+            catalog,
+            uploadResult,
+            metadata,
+            config.geniusId || 0,
+            config.geniusArtistId || 0,
+            config.segmentIds || [],
+            '', // coverUri (not yet implemented)
+            ''  // musicVideoUri (not yet implemented)
+          );
+          uploadCount++;
+          console.log(`✅ ${songId} successfully added to catalog!\n`);
+        }
       } catch (error) {
         console.error(`❌ Failed to process ${songId}:`, error);
       }
     }
 
-    if (uploadCount > 0) {
-      // Create new registry with updated songs (immutable)
-      const newRegistryUri = await updateRegistry(registryUri, updatedRegistry);
-      await saveRegistryUri(newRegistryUri);
-
-      console.log(`🎉 Upload complete! Added ${uploadCount} songs.`);
-      console.log(`New Registry URI: ${newRegistryUri}`);
-      console.log('⚠️  IMPORTANT: Update your .env file with the new REGISTRY_URI:');
-      console.log(`   REGISTRY_URI="${newRegistryUri}"`);
-    } else {
-      console.log('No new songs to upload.');
-    }
+    console.log(`\n🎉 Upload complete! Added ${uploadCount} songs to SongCatalogV1.`);
+    console.log(`Total songs in catalog: ${await getSongCount(catalog)}`);
 
   } catch (error) {
     console.error('Upload failed:', error);

@@ -4,17 +4,21 @@
   "type": "module",
   "description": "Lit Actions for karaoke scoring with Voxstral API",
   "scripts": {
-    "test:scorer": "node src/test/test-karaoke-scorer.mjs",
-    "test:scorer-v2": "node src/test/test-karaoke-scorer-v2.mjs",
-    "test:scorer-v3": "node src/test/test-karaoke-scorer-v3.mjs",
-    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs"
+    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs",
+    "test:trivia-gen": "node src/test/test-trivia-generator-v1.mjs",
+    "test:zksync": "node src/test/test-zksync-sig.mjs",
+    "mint-pkp": "bun run scripts/mint-pkp.ts",
+    "update-pkp-permissions": "bun run scripts/update-pkp-permissions.ts",
+    "upload-action": "node scripts/upload-lit-action.mjs",
+    "encrypt-keys": "node scripts/encrypt-keys-v8.mjs"
   },
   "dependencies": {
     "@lit-protocol/auth": "^8.0.0",
+    "@lit-protocol/auth-helpers": "^8.0.0",
     "@lit-protocol/lit-client": "^8.0.0",
+    "@lit-protocol/lit-node-client": "^7.3.1",
     "@lit-protocol/networks": "^8.0.0",
     "dotenv": "^16.4.7",
-    "ethers": "^5.7.2",
     "viem": "^2.21.54"
   },
   "devDependencies": {
