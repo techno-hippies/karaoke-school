@@ -310,45 +310,63 @@ const go = async () => {
     const from = ethers.utils.getAddress(pkpEthAddress);
     const to = ethers.utils.getAddress(SCOREBOARD_CONTRACT_ADDRESS);
 
-    // Helper to convert to hex or default to '0x'
-    const toHexOrEmpty = (value) => {
-      if (!value || value === 0 || value === '0') return '0x';
-      const hex = ethers.utils.hexlify(value);
-      return ethers.utils.stripZeros(hex) || '0x';
-    };
+    // zkSync uses EIP-712 typed data hashing, not simple keccak256(RLP)
+    // Domain: { name: "zkSync", version: "2", chainId: 37111 }
+    // We need to calculate: keccak256("\x19\x01" + domainSeparator + structHash)
 
-    // Build unsigned fields for RLP encoding to get txHash
-    const unsignedFields = [
-      toHexOrEmpty(nonce),                                  // 1. nonce
-      toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
-      toHexOrEmpty(gasPrice),                               // 3. maxFeePerGas
-      toHexOrEmpty(500000),                                 // 4. gas
-      to,                                                   // 5. to
-      toHexOrEmpty(0),                                      // 6. value
-      updateScoreTxData || '0x',                            // 7. data
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 8. chainId
-      '0x',                                                 // 9. empty string
-      '0x',                                                 // 10. empty string
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId (again)
-      from,                                                 // 12. from
-      toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
-      factoryDeps || [],                                    // 14. factoryDeps (array)
-      '0x',                                                 // 15. empty signature placeholder
-      []                                                    // 16. paymaster params (empty array)
-    ];
+    // Calculate EIP-712 domain separator
+    const domainTypeHash = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes('EIP712Domain(string name,string version,uint256 chainId)')
+    );
+    const nameHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('zkSync'));
+    const versionHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('2'));
 
-    // RLP encode the unsigned transaction
-    const unsignedRlp = ethers.utils.RLP.encode(unsignedFields);
+    const domainSeparator = ethers.utils.keccak256(
+      ethers.utils.concat([
+        domainTypeHash,
+        nameHash,
+        versionHash,
+        ethers.utils.zeroPad(ethers.utils.hexlify(LENS_TESTNET_CHAIN_ID), 32)
+      ])
+    );
 
-    // Prepend type 0x71 for zkSync EIP-712
-    const unsignedSerialized = '0x71' + unsignedRlp.slice(2);
+    // Calculate EIP-712 struct hash
+    // Transaction(uint256 txType,uint256 from,uint256 to,uint256 gasLimit,uint256 gasPerPubdataByteLimit,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,uint256 paymaster,uint256 nonce,uint256 value,bytes data,bytes32[] factoryDeps,bytes paymasterInput)
+    const txTypeHash = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes('Transaction(uint256 txType,uint256 from,uint256 to,uint256 gasLimit,uint256 gasPerPubdataByteLimit,uint256 maxFeePerGas,uint256 maxPriorityFeePerGas,uint256 paymaster,uint256 nonce,uint256 value,bytes data,bytes32[] factoryDeps,bytes paymasterInput)')
+    );
 
-    // Calculate hash of unsigned transaction
-    const unsignedTxHash = ethers.utils.keccak256(unsignedSerialized);
+    // Encode struct fields (all as uint256 except bytes/bytes32[])
+    const structHash = ethers.utils.keccak256(
+      ethers.utils.concat([
+        txTypeHash,
+        ethers.utils.zeroPad(ethers.utils.hexlify(113), 32),           // txType: 113 (0x71)
+        ethers.utils.zeroPad(from, 32),                                // from: address as uint256
+        ethers.utils.zeroPad(to, 32),                                  // to: address as uint256
+        ethers.utils.zeroPad(ethers.utils.hexlify(2000000), 32),       // gasLimit (2M for updateScore)
+        ethers.utils.zeroPad(ethers.utils.hexlify(gasPerPubdataByteLimit), 32), // gasPerPubdata
+        ethers.utils.zeroPad(ethers.utils.hexlify(gasPrice), 32),      // maxFeePerGas
+        ethers.utils.zeroPad(ethers.utils.hexlify(maxPriorityFeePerGas), 32), // maxPriorityFeePerGas
+        ethers.utils.zeroPad('0x00', 32),                              // paymaster: 0
+        ethers.utils.zeroPad(ethers.utils.hexlify(nonce), 32),         // nonce
+        ethers.utils.zeroPad('0x00', 32),                              // value: 0
+        ethers.utils.keccak256(updateScoreTxData || '0x'),             // data: keccak256(data)
+        ethers.utils.keccak256('0x'),                                  // factoryDeps: keccak256([]) = keccak256(0xc0)
+        ethers.utils.keccak256('0x')                                   // paymasterInput: keccak256(0x)
+      ])
+    );
 
-    // zkSync DefaultAccount validates against the raw unsigned tx hash (no personal sign wrapping)
-    // Sign the raw hash directly
-    const toSign = ethers.utils.arrayify(unsignedTxHash);
+    // Calculate final EIP-712 hash
+    const eip712Hash = ethers.utils.keccak256(
+      ethers.utils.concat([
+        ethers.utils.toUtf8Bytes('\x19\x01'),
+        domainSeparator,
+        structHash
+      ])
+    );
+
+    // Sign the EIP-712 hash with PKP
+    const toSign = ethers.utils.arrayify(eip712Hash);
 
     // Sign with PKP
     const signature = await Lit.Actions.signAndCombineEcdsa({
@@ -360,47 +378,59 @@ const go = async () => {
     // Parse signature (Lit returns v as 0/1 or 27/28 depending on implementation)
     const jsonSignature = JSON.parse(signature);
 
-    // Ensure r and s have 0x prefix before arrayify
+    // Ensure r and s have 0x prefix
     const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
     const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
 
-    const r = ethers.utils.stripZeros(ethers.utils.arrayify(rHex));
-    const s = ethers.utils.stripZeros(ethers.utils.arrayify(sHex));
+    // Keep r and s as full 32-byte arrays (DO NOT strip zeros - zkSync requires full length!)
+    const r = ethers.utils.zeroPad(rHex, 32);
+    const s = ethers.utils.zeroPad(sHex, 32);
 
-    // zkSync DefaultAccount expects yParity (0 or 1), not Ethereum format (27/28)
-    // Extract yParity from v (handle both 0/1 and 27/28 formats)
+    // Ensure v is in Ethereum format (27/28) for recovery check
     let v = jsonSignature.v;
-    if (v >= 27) {
-      v = v - 27; // Convert 27/28 to 0/1
+    if (v < 27) {
+      v = v + 27; // Convert 0/1 to 27/28
     }
-    // Now v should be 0 or 1 (yParity)
 
-    // Verify signature recovery for debugging (need 27/28 for recovery function)
-    const vForRecovery = v + 27;
-    const recovered = ethers.utils.recoverAddress(unsignedTxHash, { r: rHex, s: sHex, v: vForRecovery });
+    // Verify signature recovery against EIP-712 hash
+    const recovered = ethers.utils.recoverAddress(eip712Hash, { r: rHex, s: sHex, v: v });
     if (recovered.toLowerCase() !== pkpEthAddress.toLowerCase()) {
       throw new Error(`Signature recovery failed: expected ${pkpEthAddress}, got ${recovered}`);
     }
 
-    // Build signed fields with v, r, s in fields 8, 9, 10 (for DefaultAccount/EOA)
-    // customSignature (field 15) must be '0x' for EOA accounts
+    // Convert v to yParity for zkSync RLP encoding
+    // zkSync uses yParity (0 or 1) in RLP, NOT v (27 or 28)
+    const yParity = v - 27;
+
+    // Helper: mimics ethers v6 toBeArray() - converts number to minimal big-endian bytes
+    // 0 becomes empty array [], which RLP encodes as 0x80
+    const toBeArray = (value) => {
+      if (!value || value === 0 || value === '0') {
+        return new Uint8Array([]); // Empty for zero
+      }
+      const hex = ethers.utils.hexlify(value);
+      return ethers.utils.arrayify(ethers.utils.stripZeros(hex));
+    };
+
+    // Build RLP fields following zksync-ethers serializeEip712 structure exactly
+    // IMPORTANT: Field 7 must be yParity (0 or 1), NOT v (27 or 28)
     const signedFields = [
-      toHexOrEmpty(nonce),                                  // 1. nonce
-      toHexOrEmpty(maxPriorityFeePerGas),                   // 2. maxPriorityFeePerGas
-      toHexOrEmpty(gasPrice),                               // 3. maxFeePerGas
-      toHexOrEmpty(500000),                                 // 4. gasLimit
-      to,                                                   // 5. to
-      toHexOrEmpty(0),                                      // 6. value
-      updateScoreTxData || '0x',                            // 7. data
-      toHexOrEmpty(v),                                      // 8. v (0 or 1 as hex for yParity)
-      ethers.utils.hexlify(r),                              // 9. r (stripped Uint8Array)
-      ethers.utils.hexlify(s),                              // 10. s (stripped Uint8Array)
-      toHexOrEmpty(LENS_TESTNET_CHAIN_ID),                  // 11. chainId
-      from,                                                 // 12. from
-      toHexOrEmpty(gasPerPubdataByteLimit),                 // 13. gasPerPubdata
-      factoryDeps || [],                                    // 14. factoryDeps (array)
-      '0x',                                                 // 15. customSignature (empty for EOA)
-      []                                                    // 16. paymaster params (empty array)
+      toBeArray(nonce),                                     // 0. nonce
+      toBeArray(maxPriorityFeePerGas),                      // 1. maxPriorityFeePerGas
+      toBeArray(gasPrice),                                  // 2. maxFeePerGas
+      toBeArray(2000000),                                   // 3. gasLimit (2M for updateScore)
+      to || '0x',                                           // 4. to (address or '0x')
+      toBeArray(0),                                         // 5. value
+      updateScoreTxData || '0x',                            // 6. data
+      toBeArray(yParity),                                   // 7. yParity (0 or 1) - CRITICAL FIX!
+      ethers.utils.arrayify(r),                             // 8. r (full 32 bytes)
+      ethers.utils.arrayify(s),                             // 9. s (full 32 bytes)
+      toBeArray(LENS_TESTNET_CHAIN_ID),                     // 10. chainId
+      from,                                                 // 11. from (address)
+      toBeArray(gasPerPubdataByteLimit),                    // 12. gasPerPubdata
+      [],                                                   // 13. factoryDeps (empty array)
+      '0x',                                                 // 14. customSignature (empty string for EOA)
+      []                                                    // 15. paymasterParams (empty array)
     ];
 
     // RLP encode signed fields

@@ -51,6 +51,8 @@ export interface KaraokeOverlayProps {
   lines?: KaraokeLine[]
   currentTime: number
   className?: string
+  /** Show next line below current line (for karaoke recording) */
+  showNextLine?: boolean
 }
 
 export interface AudioSourceButtonProps {

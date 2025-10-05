@@ -1,4 +1,4 @@
-import { SpeakerHigh, CheckCircle, XCircle } from '@phosphor-icons/react'
+import { SpeakerHigh } from '@phosphor-icons/react'
 
 // Simple text similarity scoring (can be enhanced with phoneme matching later)
 export function calculateTextSimilarity(expected: string, actual: string): number {
@@ -47,17 +47,6 @@ export interface SayItBackExerciseProps {
   score?: number | null
   /** Number of attempts */
   attempts?: number
-  /** Whether recording is in progress */
-  isRecording?: boolean
-  /** Whether transcription is processing */
-  isProcessing?: boolean
-  /** Whether the exercise can record (Lit + wallet ready) */
-  canRecord?: boolean
-  /** Status message to show */
-  statusMessage?: string
-  /** Callbacks */
-  onStartRecording?: () => void
-  onStopRecording?: () => void
 }
 
 export function SayItBackExercise({
@@ -65,12 +54,6 @@ export function SayItBackExercise({
   transcript,
   score = null,
   attempts = 0,
-  isRecording = false,
-  isProcessing = false,
-  canRecord = true,
-  statusMessage,
-  onStartRecording,
-  onStopRecording,
 }: SayItBackExerciseProps) {
   const isCorrect = score !== null && score >= 70
   const showResults = transcript !== undefined
@@ -90,45 +73,15 @@ export function SayItBackExercise({
         </div>
       </div>
 
-      {/* Status messages */}
-      {statusMessage && (
-        <div className="text-yellow-400 text-sm">
-          {statusMessage}
-        </div>
-      )}
-
-      {isRecording && (
-        <div className="text-blue-400 text-sm animate-pulse">
-          Recording... Click stop when done
-        </div>
-      )}
-
-      {/* Results */}
-      {showResults && (
-        <div className="text-left space-y-4">
-          {isCorrect ? (
-            <div className="p-6 bg-green-900/20 border border-green-600 rounded-lg">
-              <div className="flex items-center gap-3 text-green-400">
-                <CheckCircle size={32} weight="duotone" />
-                <span className="text-xl font-medium">Correct!</span>
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 bg-red-900/20 border border-red-600 rounded-lg space-y-3">
-              <div className="flex items-center gap-3 text-red-400">
-                <XCircle size={32} weight="duotone" />
-                <span className="text-xl font-medium">Try again</span>
-              </div>
-              <div>
-                <div className="text-neutral-400 text-sm mb-1">
-                  You said:
-                </div>
-                <div className="text-lg font-medium text-white">
-                  {transcript}
-                </div>
-              </div>
-            </div>
-          )}
+      {/* Exercise-specific feedback (what you said) */}
+      {showResults && !isCorrect && (
+        <div className="text-left space-y-2">
+          <div className="text-neutral-400 text-sm">
+            You said:
+          </div>
+          <div className="text-lg font-medium text-white">
+            {transcript}
+          </div>
         </div>
       )}
     </div>

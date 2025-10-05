@@ -1,12 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { useState } from 'react'
 import { SayItBackExercise } from './SayItBackExercise'
+import { ExerciseFooter } from './ExerciseFooter'
 
 const meta: Meta<typeof SayItBackExercise> = {
   title: 'Exercises/SayItBackExercise',
   component: SayItBackExercise,
   parameters: {
-    layout: 'centered',
+    layout: 'fullscreen',
     backgrounds: {
       default: 'dark',
       values: [
@@ -14,99 +15,169 @@ const meta: Meta<typeof SayItBackExercise> = {
       ],
     },
   },
-  decorators: [
-    (Story) => (
-      <div className="w-full max-w-2xl p-6">
-        <Story />
-      </div>
-    ),
-  ],
   tags: ['autodocs'],
 }
 
 export default meta
 type Story = StoryObj<typeof SayItBackExercise>
 
-// Basic States
-export const Default: Story = {
-  args: {
-    expectedText: 'Hello, how are you?',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
+// Basic States - Ready to Record
+export const ReadyToRecord: Story = {
+  render: () => {
+    const [isRecording, setIsRecording] = useState(false)
+
+    return (
+      <div className="min-h-screen bg-neutral-900 flex flex-col">
+        <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+          <SayItBackExercise expectedText="Hello, how are you?" />
+        </div>
+
+        <ExerciseFooter
+          controls={{
+            type: 'voice',
+            isRecording,
+            onStartRecording: () => setIsRecording(true),
+            onStopRecording: () => setIsRecording(false),
+          }}
+        />
+      </div>
+    )
   },
 }
 
 export const Recording: Story = {
-  args: {
-    expectedText: 'Hello, how are you?',
-    isRecording: true,
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Hello, how are you?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          isRecording: true,
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 export const Processing: Story = {
-  args: {
-    expectedText: 'Hello, how are you?',
-    isProcessing: true,
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
-}
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Hello, how are you?" />
+      </div>
 
-export const NotReady: Story = {
-  args: {
-    expectedText: 'Hello, how are you?',
-    canRecord: false,
-    statusMessage: 'Connecting to speech recognition...',
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          isProcessing: true,
+        }}
+      />
+    </div>
+  ),
 }
 
 // Result States
 export const CorrectAnswer: Story = {
-  args: {
-    expectedText: 'Good morning',
-    transcript: 'Good morning',
-    score: 100,
-    canRecord: true,
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise
+          expectedText="Good morning"
+          score={100}
+        />
+      </div>
+
+      <ExerciseFooter
+        feedback={{ isCorrect: true }}
+        controls={{
+          type: 'navigation',
+          onNext: () => console.log('Next exercise'),
+          onReport: (reason) => console.log('Reported:', reason),
+          exerciseKey: 'say-it-back-001',
+        }}
+      />
+    </div>
+  ),
 }
 
 export const PartiallyCorrect: Story = {
-  args: {
-    expectedText: 'Hello how are you',
-    transcript: 'Hello how you',
-    score: 75,
-    canRecord: true,
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise
+          expectedText="Hello how are you"
+          score={75}
+        />
+      </div>
+
+      <ExerciseFooter
+        feedback={{ isCorrect: true }}
+        controls={{
+          type: 'navigation',
+          onNext: () => console.log('Next exercise'),
+          onReport: (reason) => console.log('Reported:', reason),
+          exerciseKey: 'say-it-back-002',
+        }}
+      />
+    </div>
+  ),
 }
 
-export const Incorrect: Story = {
-  args: {
-    expectedText: 'Good morning',
-    transcript: 'Good evening',
-    score: 50,
-    attempts: 1,
-    canRecord: true,
-  },
+export const IncorrectFirstAttempt: Story = {
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise
+          expectedText="Good morning"
+          transcript="Good evening"
+          score={50}
+          attempts={1}
+        />
+      </div>
+
+      <ExerciseFooter
+        feedback={{ isCorrect: false }}
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Try again'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
-export const VeryIncorrect: Story = {
-  args: {
-    expectedText: 'Hello how are you',
-    transcript: 'Goodbye',
-    score: 0,
-    attempts: 2,
-    canRecord: true,
-  },
+export const IncorrectSecondAttempt: Story = {
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise
+          expectedText="Hello how are you"
+          transcript="Goodbye"
+          score={0}
+          attempts={2}
+        />
+      </div>
+
+      <ExerciseFooter
+        feedback={{ isCorrect: false }}
+        controls={{
+          type: 'navigation',
+          onNext: () => console.log('Move on to next'),
+          onReport: (reason) => console.log('Reported:', reason),
+          exerciseKey: 'say-it-back-003',
+        }}
+      />
+    </div>
+  ),
 }
 
-// Interactive Flow
+// Interactive Flow (demonstrates 2-attempt flow)
 export const InteractiveFlow: Story = {
   render: () => {
     const [isRecording, setIsRecording] = useState(false)
@@ -117,9 +188,12 @@ export const InteractiveFlow: Story = {
 
     const handleStartRecording = () => {
       setIsRecording(true)
-      // Clear previous results
-      setTranscript(undefined)
-      setScore(null)
+      // Clear previous results if starting fresh
+      if (score !== null && score >= 70) {
+        setTranscript(undefined)
+        setScore(null)
+        setAttempts(0)
+      }
     }
 
     const handleStopRecording = () => {
@@ -144,34 +218,47 @@ export const InteractiveFlow: Story = {
       }, 2000)
     }
 
-    const handleReset = () => {
+    const handleNext = () => {
+      // Reset for next exercise
       setTranscript(undefined)
       setScore(null)
       setAttempts(0)
     }
 
-    return (
-      <div className="space-y-6">
-        <SayItBackExercise
-          expectedText="Hello, how are you today?"
-          transcript={transcript}
-          score={score}
-          attempts={attempts}
-          isRecording={isRecording}
-          isProcessing={isProcessing}
-          canRecord={true}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
-        />
+    const isCorrect = score !== null && score >= 70
+    const showFeedback = score !== null
+    const canRetry = attempts < 2 && !isCorrect
 
-        {transcript && (
-          <button
-            onClick={handleReset}
-            className="w-full px-6 py-3 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600"
-          >
-            Reset Exercise
-          </button>
-        )}
+    return (
+      <div className="min-h-screen bg-neutral-900 flex flex-col">
+        <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+          <SayItBackExercise
+            expectedText="Hello, how are you today?"
+            transcript={transcript}
+            score={score}
+            attempts={attempts}
+          />
+        </div>
+
+        <ExerciseFooter
+          feedback={showFeedback ? { isCorrect } : undefined}
+          controls={
+            isCorrect || attempts >= 2
+              ? {
+                  type: 'navigation',
+                  onNext: handleNext,
+                  onReport: (reason) => console.log('Reported:', reason),
+                  exerciseKey: 'interactive-demo',
+                }
+              : {
+                  type: 'voice',
+                  isRecording,
+                  isProcessing,
+                  onStartRecording: handleStartRecording,
+                  onStopRecording: handleStopRecording,
+                }
+          }
+        />
       </div>
     )
   },
@@ -179,33 +266,60 @@ export const InteractiveFlow: Story = {
 
 // Different Difficulty Levels
 export const ShortPhrase: Story = {
-  args: {
-    expectedText: 'Hello',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Hello" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 export const MediumPhrase: Story = {
-  args: {
-    expectedText: 'Good morning, how are you?',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Good morning, how are you?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 export const LongPhrase: Story = {
-  args: {
-    expectedText: 'Could you please tell me how to get to the nearest subway station from here?',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Could you please tell me how to get to the nearest subway station from here?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
-// Full Page Context
+// Full Page Context with Header
 export const InStudyPageContext: Story = {
   render: () => {
     const [isRecording, setIsRecording] = useState(false)
@@ -222,6 +336,13 @@ export const InStudyPageContext: Story = {
         setIsProcessing(false)
       }, 2000)
     }
+
+    const handleNext = () => {
+      setTranscript(undefined)
+      setScore(null)
+    }
+
+    const isCorrect = score !== null && score >= 70
 
     return (
       <div className="min-h-screen bg-neutral-900 flex flex-col">
@@ -240,66 +361,104 @@ export const InStudyPageContext: Story = {
             expectedText="Hello, how are you?"
             transcript={transcript}
             score={score}
-            isRecording={isRecording}
-            isProcessing={isProcessing}
-            canRecord={true}
-            onStartRecording={() => setIsRecording(true)}
-            onStopRecording={handleStopRecording}
           />
         </div>
 
         {/* Footer */}
-        {score && score >= 70 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-neutral-800 border-t border-neutral-700">
-            <div className="max-w-2xl mx-auto px-6 py-4">
-              <button className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Next Exercise
-              </button>
-            </div>
-          </div>
-        )}
+        <ExerciseFooter
+          feedback={score !== null ? { isCorrect } : undefined}
+          controls={
+            isCorrect
+              ? {
+                  type: 'navigation',
+                  onNext: handleNext,
+                  onReport: (reason) => console.log('Reported:', reason),
+                  exerciseKey: 'study-page-demo',
+                }
+              : {
+                  type: 'voice',
+                  isRecording,
+                  isProcessing,
+                  onStartRecording: () => setIsRecording(true),
+                  onStopRecording: handleStopRecording,
+                }
+          }
+        />
       </div>
     )
-  },
-  parameters: {
-    layout: 'fullscreen',
   },
 }
 
 // Multi-language Examples
 export const SpanishPhrase: Story = {
-  args: {
-    expectedText: 'Buenos días, ¿cómo estás?',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Buenos días, ¿cómo estás?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 export const FrenchPhrase: Story = {
-  args: {
-    expectedText: 'Bonjour, comment allez-vous?',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="Bonjour, comment allez-vous?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 // Edge Cases
 export const WithSpecialCharacters: Story = {
-  args: {
-    expectedText: "It's a beautiful day, isn't it?",
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="It's a beautiful day, isn't it?" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
 
 export const WithNumbers: Story = {
-  args: {
-    expectedText: 'I have 3 apples and 2 oranges',
-    canRecord: true,
-    onStartRecording: () => console.log('Start recording'),
-    onStopRecording: () => console.log('Stop recording'),
-  },
+  render: () => (
+    <div className="min-h-screen bg-neutral-900 flex flex-col">
+      <div className="flex-1 pt-24 pb-32 px-6 max-w-2xl mx-auto">
+        <SayItBackExercise expectedText="I have 3 apples and 2 oranges" />
+      </div>
+
+      <ExerciseFooter
+        controls={{
+          type: 'voice',
+          onStartRecording: () => console.log('Start'),
+          onStopRecording: () => console.log('Stop'),
+        }}
+      />
+    </div>
+  ),
 }
