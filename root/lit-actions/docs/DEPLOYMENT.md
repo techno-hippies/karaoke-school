@@ -8,21 +8,24 @@ This guide explains how to deploy and manage Lit Actions for the frontend.
 lit-actions/
 ├── src/
 │   ├── stt/                     # Speech-to-Text actions
-│   │   ├── karaoke-scorer-v3.js # Production STT
-│   │   ├── free-v8.js           # Basic STT
-│   │   └── keys/                # Encrypted keys
-│   ├── search/                  # Search actions
-│   │   ├── free.js              # Genius search
+│   │   ├── karaoke-scorer-v4.js # ✅ PRODUCTION - zkSync EIP-712 scoring
+│   │   ├── free-v8.js           # Basic STT (no scoring)
 │   │   └── keys/                # Encrypted keys
 │   ├── study/                   # Study/Progress actions
 │   │   └── study-session-recorder-v1.js  # Study session tracking
 │   └── test/                    # Integration tests
-│       ├── test-karaoke-scorer-v3.mjs
+│       ├── test-karaoke-scorer-v4.mjs
+│       ├── zksync-sig-test.js   # ⭐ zkSync signing reference (keep!)
 │       └── test-study-session-recorder-v1.mjs
 ├── scripts/
 │   ├── upload-lit-action.mjs    # Upload to IPFS
-│   └── encrypt-keys-v8.mjs      # Encrypt secrets
-└── DEPLOYMENT.md               # This file
+│   ├── encrypt-keys-v8.mjs      # Encrypt secrets
+│   └── update-pkp-permissions.ts # Grant PKP permissions
+├── docs/
+│   ├── DEPLOYMENT.md            # This file
+│   ├── ZKSYNC_EIP712_DEBUGGING.md # zkSync EIP-712 deep dive
+│   └── STUDY_SESSION_RECORDER_README.md
+└── README.md                    # Quick start guide
 ```
 
 ## 🚀 Deployment Process
@@ -107,8 +110,8 @@ npm run dev
 
 | Version | CID | Status | Notes |
 |---------|-----|--------|-------|
-| karaoke-scorer-v3 | `QmS3Q7pcRXvb12pB2e681YMq1BWqyGY5MUdzT8sFEs4rzs` | ✅ Production | With ClipRegistry integration |
-| free-v8 | TBD | 🚧 Pending | Basic STT only |
+| karaoke-scorer-v4 | `Qme5MZK7vyfEphzmgLJDMA9htkm9Xh37yA4SGfGLdtDStS` | ✅ Production | zkSync EIP-712, SongCatalogV1, KaraokeScoreboardV4 |
+| free-v8 | TBD | 📦 Available | Basic STT only (no scoring) |
 
 ### Study Actions
 
