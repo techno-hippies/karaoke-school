@@ -51,7 +51,7 @@ export function CommentSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[70vh] bg-card border-border p-0 flex flex-col"
+        className="h-[70vh] border-border p-0 flex flex-col"
       >
         <SheetHeader className="border-b border-border p-4">
           <SheetTitle className="text-white text-center text-lg">

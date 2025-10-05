@@ -8,7 +8,8 @@
     "mint-pkp": "bun run scripts/mint-pkp.ts",
     "update-pkp-permissions": "bun run scripts/update-pkp-permissions.ts",
     "upload-action": "node scripts/upload-lit-action.mjs",
-    "encrypt-keys": "node scripts/encrypt-keys-v8.mjs"
+    "encrypt-keys": "node scripts/encrypt-keys-v8.mjs",
+    "test:zksync": "node src/test/test-zksync-sig.mjs"
   },
   "dependencies": {
     "@lit-protocol/auth": "^8.0.0",
