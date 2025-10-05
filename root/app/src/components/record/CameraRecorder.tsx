@@ -56,7 +56,7 @@ export function CameraRecorder({
   const [showLyrics, setShowLyrics] = useState(true)
   const [frontCamera, setFrontCamera] = useState(true)
   const [countdownEnabled, setCountdownEnabled] = useState(false)
-  const [currentTime, setCurrentTime] = useState(5) // Demo time for lyrics highlighting
+  const [currentTime, setCurrentTime] = useState(1) // Demo time for lyrics highlighting
   const [countdown, setCountdown] = useState<number | null>(null)
 
   const isKaraokeMode = mode === 'karaoke'
