@@ -86,6 +86,103 @@ export class MetadataGenerator {
   }
 
   /**
+   * Build segmentId mapping from section markers in lyrics
+   * Returns a map of lineIndex -> segmentId (e.g., 0 -> "verse-1", 5 -> "chorus-1")
+   */
+  private buildSegmentMapping(lyricsLines: string[], songTitle: string): Map<number, string> {
+    const mapping = new Map<number, string>();
+    let currentSegmentId: string | null = null;
+    const sectionTypeCounts = new Map<string, number>();
+
+    // Slugify helper (from section-detector.ts)
+    const slugify = (text: string): string => {
+      return text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+    };
+
+    // Extract base section type without numbers (e.g., "Verse 1" -> "Verse", "Chorus" -> "Chorus")
+    const extractBaseSectionType = (raw: string): { base: string; explicitNumber: number | null } => {
+      let cleaned = raw.trim();
+
+      // Handle compound types - take first part
+      if (cleaned.includes('/')) {
+        cleaned = cleaned.split('/')[0];
+      }
+      if (cleaned.includes(' - ')) {
+        cleaned = cleaned.split(' - ')[0];
+      }
+
+      // Check if there's a number at the end (e.g., "Verse 1", "Chorus 2")
+      const numberMatch = cleaned.match(/^(.+?)\s+(\d+)$/);
+      if (numberMatch) {
+        const base = numberMatch[1].trim();
+        const number = parseInt(numberMatch[2], 10);
+        return {
+          base: base.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '),
+          explicitNumber: number
+        };
+      }
+
+      // No number in name - return normalized base
+      return {
+        base: cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '),
+        explicitNumber: null
+      };
+    };
+
+    for (let lineIndex = 0; lineIndex < lyricsLines.length; lineIndex++) {
+      const lineText = lyricsLines[lineIndex];
+
+      // Check if line is a section marker: [Verse 1], (Chorus), etc.
+      const sectionMatch = lineText.match(/^\s*[\(\[]([^\)\]]+)[\)\]]\s*$/);
+
+      if (sectionMatch) {
+        // Extract base section type and explicit number
+        const rawSectionType = sectionMatch[1].trim();
+        const { base: baseType, explicitNumber } = extractBaseSectionType(rawSectionType);
+
+        // Track occurrence counts by base type
+        const currentIndex = sectionTypeCounts.get(baseType) || 0;
+        sectionTypeCounts.set(baseType, currentIndex + 1);
+
+        // Generate segmentId
+        // If section has explicit number (e.g., "Verse 1"), use that: "verse-1"
+        // If no explicit number (e.g., "Chorus"), use occurrence count: "chorus-1", "chorus-2", etc.
+        const sectionSlug = slugify(baseType);
+
+        if (explicitNumber !== null) {
+          // Use explicit number from section name
+          currentSegmentId = `${sectionSlug}-${explicitNumber}`;
+        } else {
+          // Use occurrence count (always add number for consistency)
+          currentSegmentId = `${sectionSlug}-${currentIndex + 1}`;
+        }
+
+        this.log(`Detected section marker at line ${lineIndex}: "${lineText}" -> segmentId: "${currentSegmentId}"`);
+
+        // Section markers themselves don't get segmentId (they're just markers)
+        // The next line will get the segmentId
+      } else if (currentSegmentId) {
+        // Assign current segmentId to this line
+        mapping.set(lineIndex, currentSegmentId);
+        this.log(`  Assigned segmentId "${currentSegmentId}" to line ${lineIndex}`);
+      } else {
+        // Lines before first section marker -> "intro" segment
+        if (!mapping.has(lineIndex)) {
+          mapping.set(lineIndex, 'intro');
+          this.log(`  Assigned segmentId "intro" to line ${lineIndex} (before first marker)`);
+        }
+      }
+    }
+
+    return mapping;
+  }
+
+  /**
    * Generate enhanced metadata with word-level timestamps
    */
   generateEnhancedMetadata(
@@ -103,6 +200,9 @@ export class MetadataGenerator {
 
     // Build word-to-line mapping
     const wordLineMapping = this.buildWordLineMapping(elevenLabsWords, lyricsLines);
+
+    // Detect sections and build segmentId mapping
+    const segmentMapping = this.buildSegmentMapping(lyricsLines, songTitle);
 
     // Convert to enhanced line format
     const lines: LineWithWords[] = wordLineMapping.map((lineMapping, lineIndex) => {
@@ -139,6 +239,7 @@ export class MetadataGenerator {
 
       return {
         lineIndex,
+        segmentId: segmentMapping.get(lineIndex), // Add segmentId from section detection
         originalText,
         translations: Object.keys(lineTranslations).length > 0 ? lineTranslations : undefined,
         start: startTime,

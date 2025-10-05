@@ -1,390 +1,413 @@
-# Karaoke Game Contracts
+# Karaoke School Contracts
 
-Smart contracts for karaoke gameplay features (scores, leaderboards, etc.) deployed on Lens Chain.
+Core smart contracts for the Karaoke School platform, deployed on Lens testnet (zkSync).
+
+## Project Structure
+
+```
+root/
+├── contracts/                         # Smart contracts
+│   ├── SongCatalog/
+│   │   ├── SongCatalogV1.sol
+│   │   ├── script/
+│   │   │   └── DeploySongCatalogV1.s.sol
+│   │   └── test/
+│   │       └── SongCatalogV1.t.sol
+│   │
+│   ├── StudyProgress/
+│   │   ├── StudyProgressV1.sol
+│   │   ├── script/
+│   │   │   └── DeployStudyProgressV1.s.sol
+│   │   └── test/
+│   │       └── StudyProgressV1.t.sol
+│   │
+│   ├── ArtistQuizTracker/
+│   │   ├── ArtistQuizTrackerV1.sol
+│   │   ├── ARCHITECTURE.md
+│   │   ├── script/
+│   │   │   └── DeployArtistQuizTrackerV1.s.sol
+│   │   └── test/
+│   │       └── ArtistQuizTrackerV1.t.sol
+│   │
+│   ├── TrendingTracker/
+│   │   ├── TrendingTrackerV1.sol
+│   │   ├── script/
+│   │   │   └── DeployTrendingTrackerV1.s.sol
+│   │   └── test/
+│   │       └── TrendingTrackerV1.t.sol
+│   │
+│   ├── foundry.toml
+│   └── README.md
+│
+└── shared/                            # Shared types (outside contracts)
+    └── types/
+        └── index.ts                   # TypeScript types for all contracts
+```
+
+## Architecture Overview
+
+### Data Model Philosophy
+
+**Hybrid ID Strategy:**
+- **Primary ID**: Human-readable slug (e.g., `"heat-of-the-night-scarlett-x"`)
+- **Optional Genius ID**: Links to Genius.com for metadata enrichment
+- **Decoupled from Genius**: Primary operations don't depend on Genius API
+- **Future-proof**: Can integrate other data sources without migration
+
+### Contract Ecosystem
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              SongCatalogV1                              │
+│  Native songs with audio + word-level timestamps        │
+│  • Primary: human-readable ID (slug)                    │
+│  • Optional: Genius ID + Artist ID for unification      │
+│  • Grove URIs for all assets                            │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ├── Powers ──────────────────┐
+                            │                             │
+                            ▼                             ▼
+┌─────────────────────────────────────┐   ┌─────────────────────────────┐
+│   StudyTrackerV1                    │   │   ArtistQuizTrackerV1       │
+│  SayItBack practice sessions        │   │  Daily fan challenges       │
+│  • Encrypted FSRS data (Lit v8)     │   │  • Encrypted questions      │
+│  • Public stats/streaks             │   │  • 8-second time limit      │
+│  • Session history                  │   │  • Artist-specific streaks  │
+│  • Timezone-aware (UTC)             │   │  • Top-10 leaderboards      │
+└─────────────────────────────────────┘   └─────────────────────────────┘
+                            │
+                            ├── Aggregates ──────────────┐
+                            │                             │
+                            ▼                             ▼
+                ┌───────────────────────┐   ┌─────────────────────────────┐
+                │ TrendingTrackerV1     │   │   (Future: MegapotLottery)  │
+                │  Time-windowed trends │   │  Chainlink VRF distribution │
+                │  • Hourly/Daily/Weekly│   │  • Leader-based tickets     │
+                │  • Weighted scoring   │   └─────────────────────────────┘
+                │  • PKP aggregation    │
+                └───────────────────────┘
+```
 
 ## Contracts
 
-### KaraokeScoreboardV1
+### 1. SongCatalogV1
 
-On-chain high score registry for karaoke clips.
+**Purpose**: Registry for native karaoke songs with full audio and word-level timestamps
 
-**Features:**
-- ✅ High score tracking per clip per user
-- ✅ Sorted leaderboards (top 100)
-- ✅ PKP-only writes (prevents cheating via Lit Protocol)
-- ✅ Public reads (anyone can query scores)
-- ✅ Gas-optimized with packed structs
-- ✅ Attempt counter per user per clip
+**Key Features**:
+- Primary ID: Human-readable slug (permanent, immutable)
+- Optional Genius ID: For artist/song unification across platforms
+- Full song assets (audio, metadata, covers) stored on Grove
+- Segment/clip references for practice units
+- Multilingual support (comma-separated language codes)
+- Soft delete with enable/disable toggle
 
-**Architecture:**
-- References clip IDs from `ClipRegistryV1` contract
-- Trusted PKP address (from Lit Protocol) submits scores
-- Lit Action computes score from speech-to-text → signs transaction → calls `updateScore()`
-- Frontend queries scores for leaderboards
-
----
-
-## Prerequisites
-
-**Critical Requirements:**
-- ✅ Foundry ZKsync fork v0.0.29 (installed)
-- ✅ Solidity 0.8.19 (to avoid PUSH0 opcode issues on zkSync)
-- ✅ NO OpenZeppelin dependencies (causes zkSync deployment failures)
-- ✅ FOUNDRY_PROFILE=zksync (must use zksync profile)
-- ✅ PKP minted via Lit Protocol (for trusted scorer)
-
-**Verify installation:**
-```bash
-forge --version
-# Should show: forge Version: 1.3.5-foundry-zksync-v0.0.29
+**Integration**:
+```solidity
+// Add song to catalog
+songCatalog.addSong(
+    "heat-of-the-night-scarlett-x",  // id
+    12345,                            // geniusId (0 if none)
+    "Heat of the Night",              // title
+    "Scarlett X",                     // artist
+    194,                              // duration
+    "lens://4f91cab...",              // audioUri
+    "lens://7a3bc9d...",              // metadataUri
+    "lens://2e5f8c3...",              // coverUri
+    "lens://9d8e7f6...",              // thumbnailUri
+    "",                               // musicVideoUri (optional)
+    "verse-1,chorus-1,verse-2",       // segmentIds
+    "en,cn,vi"                        // languages
+);
 ```
 
----
+**Deployment**: `0x88996135809cc745E6d8966e3a7A01389C774910` ([Explorer](https://explorer.testnet.lens.xyz/address/0x88996135809cc745E6d8966e3a7A01389C774910))
 
-## PKP Setup
+**Song Uploader Integration**:
+- The `song-uploader/` CLI tool automatically uploads songs to this contract
+- Uses ElevenLabs for word-level timestamps
+- Uploads assets to Grove storage (Lens decentralized storage)
+- See [`song-uploader/README.md`](../song-uploader/README.md) for usage
 
-Before deploying the scoreboard contract, you need to create a PKP (Programmable Key Pair) that will be the trusted scorer.
+### 2. StudyProgressV1
 
-### Automated PKP Creation
+**Purpose**: Track study sessions, streaks, and encrypted FSRS spaced-repetition data
 
-We've created scripts to handle PKP creation automatically:
+**Key Features**:
+- Study session recording
+- Streak tracking (UTC-based, consecutive days)
+- Encrypted FSRS state (Lit Protocol v8)
+- Public stats for achievements
+- Session history (last 100)
 
-**Step 1: Get Test Tokens**
+**Integration**:
+```solidity
+// Record session (via PKP)
+studyTracker.recordStudySession(
+    userAddress,                        // user
+    0,                                  // ContentSource.Native
+    "heat-of-the-night-scarlett-x",    // contentId
+    5,                                  // itemsReviewed
+    92                                  // averageScore
+);
 
-The test wallet address is: `0x5C3c78DA1a4A4622486b4470d2a70cdF43052990`
+// Store encrypted FSRS
+studyTracker.storeEncryptedFSRS(
+    userAddress,                        // user
+    0,                                  // ContentSource.Native
+    "verse-1",                          // contentId
+    "encrypted_ciphertext_here...",     // ciphertext
+    "0xdataToEncryptHash..."            // hash
+);
 
-Get Chronicle Yellowstone testnet tokens from:
-- https://chronicle-yellowstone-faucet.getlit.dev/
-
-You'll need these tokens to mint the PKP (gas fees on Lit's testnet).
-
-**Step 2: Mint PKP**
-
-```bash
-cd contracts
-bun run mint-pkp
+// Query stats
+StudyStats memory stats = studyTracker.getUserStats(userAddress);
+// stats.currentStreak, stats.totalSessions, etc.
 ```
 
-This script will:
-- Connect to Lit Protocol (nagaDev network)
-- Mint a PKP using your test wallet
-- Add signing permissions to the PKP
-- Save PKP credentials to `output/pkp-credentials.json`
-- Update `.env` with `PKP_ADDRESS`
+### 3. SongQuizV1
 
-**Step 3: Fund PKP on Lens Chain**
+**Purpose**: Daily song quiz challenges - prove you're a superfan
 
-After minting, fund the PKP with gas tokens on Lens Chain testnet:
+**Key Features**:
+- Encrypted questions stored on-chain (Lit Protocol)
+- 15-second time limit (prevents AI cheating while accounting for network overhead)
+- 1 quiz per day per song (creates daily engagement)
+- Sequential unlock (must complete Q1 before Q2)
+- Study gating (must complete SayItBack first)
+- Song-specific streaks and leaderboards
 
-```bash
-# Using the script (requires Lens Chain testnet tokens in your wallet)
-bun run fund-pkp
+**Integration**:
+```solidity
+// Add encrypted questions (via PKP)
+quizTracker.addQuestions(
+    artistHash,                         // keccak256("genius-artist-{id}")
+    ["ciphertext1", "ciphertext2"],     // Encrypted questions
+    ["hash1", "hash2"],                 // Verification hashes
+    [referentHash1, referentHash2]      // Source tracking
+);
 
-# Or manually with cast
-cast send $PKP_ADDRESS --value 0.1ether \
-  --rpc-url https://rpc.testnet.lens.xyz \
-  --private-key $PRIVATE_KEY
+// Record quiz completion (via PKP after validation)
+quizTracker.recordQuizCompletion(
+    artistHash,                         // Artist identifier
+    userAddress,                        // User
+    0,                                  // Question index
+    true,                               // Correct answer
+    submittedAt,                        // Timestamp
+    questionShownAt                     // Time validation
+);
+
+// Query progress
+ArtistProgress memory progress = quizTracker.getUserProgress(artistHash, userAddress);
+// progress.currentStreak, progress.questionsCorrect, etc.
+
+// Get leaderboard
+LeaderboardEntry[10] memory leaders = quizTracker.getLeaderboard(artistHash);
 ```
 
-Get Lens Chain testnet tokens from: https://faucet.lens.xyz
+**See**: `SongQuiz/ARCHITECTURE.md` for complete system design
 
-**Step 4: Verify Setup**
+**Note**: Contract was renamed from `ArtistQuizTrackerV1` to `SongQuizV1` to better reflect functionality (tracks per-song quizzes, not per-artist). See `CHANGES.md` for details.
 
-```bash
-# Check PKP balance on Lens Chain
-cast balance $PKP_ADDRESS --rpc-url https://rpc.testnet.lens.xyz
+### 4. TrendingTrackerV1
+
+**Purpose**: Time-windowed trending songs based on user interactions
+
+**Key Features**:
+- Time windows: Hourly, Daily, Weekly
+- Event types: clicks, plays, completions
+- Weighted scoring: completion (60%) > play (30%) > click (10%)
+- PKP batch aggregation
+
+**Integration**:
+```solidity
+// Update trending (via PKP batch)
+trendingTracker.updateTrendingBatch(
+    1,                                  // TimeWindow.Daily
+    [0, 0, 1],                          // sources (Native, Native, Genius)
+    ["song-1", "song-2", "123456"],     // songIds
+    [10, 5, 3],                         // clicks
+    [50, 30, 20],                       // plays
+    [25, 15, 10]                        // completions
+);
+
+// Query trending
+TrendingSong[] memory trending = trendingTracker.getTrendingSongs(
+    1,   // TimeWindow.Daily
+    10   // top 10
+);
 ```
 
----
+## Data Model Alignment
 
-## Deployment
+### Shared Types
 
-### 1. Set Environment Variables
+All contracts use consistent data structures (see `../shared/types/index.ts`):
 
-```bash
-export PRIVATE_KEY="your_deployer_private_key"
-export PKP_ADDRESS="your_pkp_public_address"
-```
+```typescript
+// ContentSource enum (matches all contracts)
+export const ContentSource = {
+  Native: 0,    // SongCatalogV1
+  Genius: 1,    // Genius API
+} as const;
 
-**Note:** If you used the automated PKP setup above, `PKP_ADDRESS` is already in `.env`
-
-Or use `.env` file:
-```bash
-# .env
-PRIVATE_KEY="0x..."
-PKP_ADDRESS="0x..."
-```
-
-**Important:**
-- `PRIVATE_KEY`: Your deployer wallet (needs gas tokens on Lens Chain)
-- `PKP_ADDRESS`: The PKP address from Lit Protocol that will submit scores
-
-### 2. Deploy Contract
-
-**IMPORTANT:** Must use `FOUNDRY_PROFILE=zksync` and `--zksync` flag:
-
-```bash
-cd contracts
-
-FOUNDRY_PROFILE=zksync forge create \
-  --rpc-url https://rpc.testnet.lens.xyz \
-  --private-key $PRIVATE_KEY \
-  --constructor-args "$PKP_ADDRESS" \
-  src/KaraokeScoreboardV1.sol:KaraokeScoreboardV1 \
-  --zksync \
-  --gas-limit 10000000 \
-  --gas-price 300000000 \
-  --broadcast
-```
-
-**Expected output:**
-```
-Deployer: 0x...
-Deployed to: 0x... (contract address)
-Transaction hash: 0x...
-```
-
-### 3. Fund PKP Address
-
-The PKP needs gas tokens to submit score transactions:
-
-```bash
-# Send some testnet tokens to PKP address
-# On Lens Testnet, get tokens from faucet:
-# https://faucet.lens.xyz
-
-# Or transfer from your wallet:
-cast send $PKP_ADDRESS \
-  --value 0.1ether \
-  --rpc-url https://rpc.testnet.lens.xyz \
-  --private-key $PRIVATE_KEY
-```
-
-### 4. Verify Deployment
-
-```bash
-# Check owner
-cast call <CONTRACT_ADDRESS> "owner()" --rpc-url https://rpc.testnet.lens.xyz
-
-# Check trusted scorer
-cast call <CONTRACT_ADDRESS> "trustedScorer()" --rpc-url https://rpc.testnet.lens.xyz
-
-# Should match your PKP_ADDRESS
-```
-
-### 5. Update Lit Action Permissions
-
-Permit your Lit Action to use the PKP for signing:
-
-```bash
-# Using Lit SDK (example - adjust to your setup)
-# Add the Lit Action's IPFS CID as a permitted auth method
-# with "sign-anything" capability
-```
-
----
-
-## Testing Deployed Contract
-
-### Query Functions (Free)
-
-```bash
-# Get user's score for a clip
-cast call <CONTRACT_ADDRESS> \
-  "getScore(string,address)" "scarlett-verse-1" "0xUserAddress" \
-  --rpc-url https://rpc.testnet.lens.xyz
-
-# Get top 10 scores for a clip
-cast call <CONTRACT_ADDRESS> \
-  "getTopScores(string,uint256)" "scarlett-verse-1" 10 \
-  --rpc-url https://rpc.testnet.lens.xyz
-
-# Get leaderboard size
-cast call <CONTRACT_ADDRESS> \
-  "getLeaderboardSize(string)" "scarlett-verse-1" \
-  --rpc-url https://rpc.testnet.lens.xyz
-```
-
-### Write Functions (PKP Only)
-
-**Note:** These should be called by your Lit Action, not manually:
-
-```bash
-# Update score (only PKP can call this)
-cast send <CONTRACT_ADDRESS> \
-  "updateScore(string,address,uint96)" "scarlett-verse-1" "0xUserAddress" 85 \
-  --rpc-url https://rpc.testnet.lens.xyz \
-  --private-key $PKP_PRIVATE_KEY
-```
-
----
-
-## Integration with Lit Actions
-
-### 1. Update Lit Action Code
-
-Modify `lit-actions/src/stt/free-v8.js` to include score submission:
-
-```javascript
-// After computing score from transcript (around line 187)
-if (jsParams.updateHighScore && jsParams.scoreboardContract && jsParams.pkpPublicKey) {
-  const rpcUrl = await Lit.Actions.getRpcUrl({ chain: jsParams.chain || 'baseSepolia' });
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-
-  // Build transaction to updateScore()
-  const abi = ["function updateScore(string,address,uint96)"];
-  const iface = new ethers.utils.Interface(abi);
-  const data = iface.encodeFunctionData("updateScore", [
-    jsParams.clipId,
-    userAddress,
-    score
-  ]);
-
-  // Sign with PKP and broadcast (see Lit Actions docs for full code)
-  // ...
+// Content hash function (matches contract keccak256)
+export function getContentHash(source: ContentSource, id: string): string {
+  return keccak256(encodePacked(['uint8', 'string'], [source, id]));
 }
 ```
 
-### 2. Call Lit Action from Frontend
-
-```javascript
-const result = await litClient.executeJs({
-  ipfsId: "your-lit-action-cid",
-  authContext: authContext,
-  jsParams: {
-    audioDataBase64: base64Audio,
-    expectedLyrics: "lyrics here",
-
-    // Encryption params for Voxstral API key
-    accessControlConditions: voxstralAccConditions,
-    ciphertext: voxstralCiphertext,
-    dataToEncryptHash: voxstralHash,
-
-    // NEW: Scoreboard params
-    updateHighScore: true,
-    scoreboardContract: "0xYourScoreboardAddress",
-    pkpPublicKey: "0xYourPKPPublicKey",
-    clipId: "scarlett-verse-1",
-    chain: "lens-testnet",
-
-    // Analytics
-    userAddress: userWalletAddress,
-    sessionId: sessionId,
-  },
-});
-
-console.log('Transcript:', result.response.transcript);
-console.log('Score:', result.response.score);
-```
-
----
-
-## Common Issues & Solutions
-
-### Issue 1: PUSH0 Opcode Error
-**Error:** `Transaction reverted: invalid opcode PUSH0`
-
-**Solution:** Use Solidity 0.8.19 (not 0.8.20+)
-```toml
-# foundry.toml
-[profile.zksync]
-solc_version = "0.8.19"
-```
-
-### Issue 2: "Not trusted scorer" Error
-**Error:** Contract reverts with "Not trusted scorer"
-
-**Solution:**
-- Ensure the PKP address is correct in deployment
-- Verify Lit Action is signing transactions with the correct PKP
-- Check PKP has gas tokens
-
-### Issue 3: Forgot --zksync Flag
-**Error:** Contract deploys but doesn't work on Lens Chain
-
-**Solution:** Always use `FOUNDRY_PROFILE=zksync` and `--zksync` flag:
-```bash
-FOUNDRY_PROFILE=zksync forge create --zksync ...
-```
-
-### Issue 4: Gas Estimation Failed
-**Error:** `Gas estimation failed`
-
-**Solution:** Manually set gas parameters:
-```bash
---gas-limit 10000000 --gas-price 300000000
-```
-
----
-
-## Contract ABI Export
-
-After deployment, export ABI for frontend:
-
-```bash
-cd contracts
-
-# Generate ABI (use zksync profile)
-FOUNDRY_PROFILE=zksync forge build --zksync
-
-# Copy ABI to frontend (adjust path as needed)
-# zkSync builds go to zkout/ directory
-cp zkout/KaraokeScoreboardV1.sol/KaraokeScoreboardV1.json ../site/src/abi/
-```
-
----
-
 ## Development
 
+### Setup
+
 ```bash
-# Install dependencies
+# Install Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+
+# Install dependencies (if any)
 forge install
 
-# Build contracts (zkSync)
-FOUNDRY_PROFILE=zksync forge build --zksync
-
-# Build contracts (regular)
+# Build contracts
 forge build
-
-# Run tests
-forge test -vv
-
-# Format code
-forge fmt
 ```
 
----
+### Testing
 
-## Deployment Checklist
+```bash
+# Run all tests
+forge test
 
-- [ ] Foundry ZKsync v0.0.29 installed
-- [ ] Using Solidity 0.8.19 in zksync profile
-- [ ] No OpenZeppelin dependencies
-- [ ] PKP minted via Lit Protocol
-- [ ] PKP_ADDRESS set in environment
-- [ ] PRIVATE_KEY set in environment
-- [ ] Deployer wallet funded with gas tokens
-- [ ] FOUNDRY_PROFILE=zksync in deploy command
-- [ ] --zksync flag included
-- [ ] Gas parameters set (10M limit, 300M price)
-- [ ] Contract deployed successfully
-- [ ] PKP address funded with gas tokens
-- [ ] Lit Action permitted to use PKP
-- [ ] Lit Action updated with scoreboard integration
-- [ ] ABI exported to frontend
-- [ ] Explorer verified: https://explorer.testnet.lens.xyz/address/<CONTRACT_ADDRESS>
+# Run specific contract tests
+forge test --match-contract SongCatalogV1Test
 
----
+# Run with verbosity
+forge test -vvv
 
-## Network Information
+# Generate coverage
+forge coverage
+```
 
-**Lens Chain Testnet:**
-- RPC URL: `https://rpc.testnet.lens.xyz`
-- Chain ID: 37111
-- Explorer: https://explorer.testnet.lens.xyz
-- Faucet: https://faucet.lens.xyz
+### Deployment
 
-**Lens Chain Mainnet:**
-- RPC URL: `https://rpc.lens.xyz`
-- Chain ID: 37111
-- Explorer: https://explorer.lens.xyz
+#### Set Environment Variables
+
+```bash
+export PRIVATE_KEY=0x...
+export PKP_ADDRESS=0x254AA0096C9287a03eE62b97AA5643A2b8003657
+```
+
+#### Deploy Contracts Individually
+
+Deploy contracts in this order (some have dependencies):
+
+```bash
+# 1. SongCatalogV1 (no dependencies)
+FOUNDRY_PROFILE=zksync forge script SongCatalog/script/DeploySongCatalogV1.s.sol:DeploySongCatalogV1 \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --zksync
+
+# 2. KaraokeScoreboardV1 (requires PKP_ADDRESS)
+FOUNDRY_PROFILE=zksync forge script KaraokeScoreboard/script/DeployKaraokeScoreboardV1.s.sol:DeployKaraokeScoreboardV1 \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --zksync
+
+# 3. StudyProgressV1 (requires PKP_ADDRESS)
+FOUNDRY_PROFILE=zksync forge script StudyProgress/script/DeployStudyProgressV1.s.sol:DeployStudyProgressV1 \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --zksync
+
+# 4. TrendingTrackerV1 (requires PKP_ADDRESS)
+FOUNDRY_PROFILE=zksync forge script TrendingTracker/script/DeployTrendingTrackerV1.s.sol:DeployTrendingTrackerV1 \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --zksync
+```
+
+> **Note**: Contracts are independent and can be deployed in any order. The numbering above is just a suggested sequence.
+
+## Security
+
+### Trusted Roles
+
+- **Owner**: Can update config, pause contracts, transfer ownership
+- **Trusted PKP**: Can submit scores, sessions, trending data
+  - Prevents cheating (users can't self-report scores)
+  - Lit Protocol v8 PKP address: `0x254AA0096C9287a03eE62b97AA5643A2b8003657`
+  - Immutable Lit Actions (IPFS CID)
+
+### Access Control
+
+```solidity
+modifier onlyOwner()           // Admin functions
+modifier onlyTrustedScorer()   // Score submission (KaraokeScoreboard)
+modifier onlyTrustedTracker()  // Session/trending updates
+modifier whenNotPaused()       // Emergency stop
+```
+
+## Versioning Strategy
+
+Each contract follows semantic versioning:
+
+- **V1**: Initial version
+- **V2**: Breaking changes or major features
+- **V3+**: Future iterations
+
+Old versions remain deployed for backwards compatibility. Frontend should query the latest version.
+
+**Upgrade Path**:
+1. Deploy new version (e.g., SongCatalogV2)
+2. Migrate data if needed (owner scripts)
+3. Update frontend to use new address
+4. Keep V1 deployed (read-only) for historical data
+
+## Deployment Addresses
+
+### Lens Testnet (zkSync)
+
+- `SongCatalogV1`: **`0x88996135809cc745E6d8966e3a7A01389C774910`** ✅
+  - Deployed: 2025-10-03
+  - Tx: `0x7b3052db58642f34b1cb3e9010d03eb9974dd93139b9a67a7356e25edd34aeab`
+  - [Explorer](https://explorer.testnet.lens.xyz/address/0x88996135809cc745E6d8966e3a7A01389C774910)
+
+- `KaraokeScoreboardV4`: **`0x8301E4bbe0C244870a4BC44ccF0241A908293d36`** ✅
+  - Deployed: 2025-10-03
+
+- `StudyProgressV1`: **`0x784Ff3655B8FDb37b5CFB831C531482A606365f1`** ✅
+  - Deployed: 2025-10-03
+
+- `TrendingTrackerV1`: **`0xeaF1A26dF6A202E2b4ba6e194d7BCe9bACF82731`** ✅
+  - Deployed: 2025-10-03
+
+### PKP Address
+
+- Trusted PKP: `0x254AA0096C9287a03eE62b97AA5643A2b8003657`
+- Funded with 0.076 ETH on Lens Testnet
+
+## Future Enhancements
+
+### V2 Contracts
+
+- **SongCatalogV2**: On-chain segment metadata, enhanced search
+- **KaraokeScoreboardV2**: Unlimited leaderboards via events + TheGraph
+- **StudyTrackerV2**: Advanced FSRS algorithms, challenge modes
+- **TrendingTrackerV2**: Genre-based trending, personalized feeds
+
+### New Contracts
+
+- **MegapotLottery**: Chainlink VRF-based lottery for leaders
+- **AchievementTracker**: On-chain badges and milestones
+- **SocialGraph**: Following, challenges, competitions
+
+## License
+
+MIT

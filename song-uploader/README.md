@@ -1,409 +1,336 @@
-# Clip-Based Karaoke Uploader
+# Karaoke Song Uploader
 
-TikTok-style clip-based karaoke system with modular processing pipeline. Slices songs into learnable sections with word-level timestamps, learning metrics, and instrumental backing tracks.
+CLI tool for preparing and uploading karaoke songs to the **SongCatalogV1** contract with ElevenLabs word-level timestamps.
 
 ## Architecture
 
-**Clip-Based Design:**
-- Songs sliced into sections (Verse, Chorus, Bridge, etc.)
-- Each clip: 15-60 seconds, self-contained, standalone
-- Perfect for bite-sized learning and TikTok-style consumption
+This tool integrates with the SongCatalogV1 smart contract:
 
-**Storage:**
-- **Grove**: Decentralized storage (Lens Chain)
-- **ClipRegistry Contract**: On-chain metadata registry
-- **Contract Address**: `0x59fCAe6753041C7b2E2ad443e4F2342Af46b81bf` (Lens Chain Testnet)
+```
+Local Songs → ElevenLabs API → Grove Storage → SongCatalogV1 Contract
+```
 
-## Setup
+### Data Model Alignment
 
-### 1. Install Dependencies
+Songs are uploaded with:
+- **Primary ID**: Human-readable slug (e.g., `"heat-of-the-night-scarlett-x"`)
+- **Optional Genius ID**: For cross-platform artist/song matching (default: `0`)
+- **Optional Genius Artist ID**: For canonical artist identification (default: `0`)
+- **Grove URIs**: Immutable storage on Lens Chain (mainnet)
+- **Contract Storage**: Song metadata stored on Lens Testnet (chain ID: 37111)
+
+## Quick Start
+
+### 1. Setup
+
 ```bash
+# Install dependencies
 bun install
-```
 
-### 2. Configure Environment
-```bash
+# Copy environment template
 cp .env.example .env
-# Edit .env with:
-# - PRIVATE_KEY: Your wallet private key
-# - ELEVENLABS_API_KEY: ElevenLabs API key for word alignment
+
+# Edit .env with your credentials
+PRIVATE_KEY=0x...                          # Your wallet private key
+ELEVENLABS_API_KEY=...                     # ElevenLabs API key
+SONG_CATALOG_ADDRESS=0x88996135809cc745E6d8966e3a7A01389C774910  # SongCatalogV1 on Lens Testnet
 ```
 
-### 3. Add Songs
+### 2. Prepare Songs
+
 ```bash
-mkdir -p "songs/Artist - Song Title"
-# Add required files (see Song Folder Structure below)
-```
-
-## Song Folder Structure
-
-```
+# Place songs in ./songs/ directory with this structure:
 songs/
-└── Ethel Waters - Down Home Blues/
-    ├── Ethel Waters - Down Home Blues.mp3              # Required: Full audio
-    ├── Ethel Waters - Down Home Blues (Vocals).mp3     # Optional: Isolated vocals (better ElevenLabs accuracy)
-    ├── Ethel Waters - Down Home Blues (Instrumental).mp3  # Optional: Backing track for karaoke practice
-    ├── lyrics.txt                                       # Required: Lyrics with section markers
-    ├── song-cover.png                                   # Required: Album/song cover (high-res)
-    ├── song-cover-thumb.png                            # Auto-generated: 300x300 thumbnail
-    ├── music-video-uri.txt                             # Optional: Grove URI for music video
-    ├── karaoke-alignment.json                          # Auto-generated: ElevenLabs cache
-    ├── full-song-metadata.json                         # Auto-generated: Complete song karaoke data
-    ├── translations/                                    # Optional: Translation files
-    │   ├── cn.txt                                      # Chinese translation
-    │   └── vi.txt                                      # Vietnamese translation
-    └── clips/                                          # Auto-generated: Sliced clips
-        ├── verse.mp3
-        ├── verse-instrumental.mp3
-        ├── verse.json
-        ├── chorus.mp3
-        ├── chorus-instrumental.mp3
-        └── chorus.json
+├── song-1/
+│   ├── audio.mp3                    # Required: Full song
+│   ├── audio (Vocals).mp3           # Optional: Isolated vocals (better timestamps)
+│   ├── lyrics.txt                   # Required: One line per lyric line
+│   ├── thumbnail.jpg                # Optional: Cover art
+│   ├── metadata.json                # Optional: Song info with geniusId
+│   └── translations/                # Optional: Translations
+│       ├── cn.txt
+│       ├── vi.txt
+│       └── es.txt
 ```
 
-### Filename Requirements
+### 3. Process & Upload
 
-**Audio files must follow format:** `Artist - Title.mp3`
-- ✅ `Ethel Waters - Down Home Blues.mp3`
-- ✅ `Ethel Waters - Down Home Blues (Vocals).mp3`
-- ✅ `Ethel Waters - Down Home Blues (Instrumental).mp3`
-- ❌ `Ethel Waters Down Home Blues.mp3` (missing hyphen)
-
-### Lyrics Format
-
-**Section markers:** Use `[SectionName]` format
-```
-[Verse]
-I never felt so lonesome before
-My friend has quit me, he's gone for sure
-
-[Chorus]
-Woke up this mornin', the day was dawnin'
-And I was feelin' all sad and blue
-
-[Instrumental]
-
-[Chorus]
-Woke up this mornin', the day was dawnin'
-...
-```
-
-**Standard section names:**
-- `[Intro]`, `[Verse]`, `[Verse 1]`, `[Verse 2]`
-- `[Pre-chorus]`, `[Chorus]`, `[Post-chorus]`
-- `[Bridge]`, `[Breakdown]`, `[Instrumental]`, `[Interlude]`, `[Outro]`
-
-**Translation files:** Same structure, English markers, translated lyrics
-
-## Modular Pipeline
-
-### Step 1: Validate Lyrics Format
 ```bash
-bun run validate --song "Artist - Song Title"
-bun run validate --all
+# Process songs with ElevenLabs and upload to Grove + contract
+bun run process
 ```
 
-**Checks:**
-- ✅ Correct bracket usage `[]` (not `()`)
-- ✅ Standard section names
-- ✅ Proper capitalization
-- ✅ Translation alignment (sections match across all languages)
+## Song Metadata
 
-### Step 2: Generate Thumbnails
-```bash
-bun run generate-thumbnails --song "Artist - Song Title"
-bun run generate-thumbnails --all
-bun run generate-thumbnails --force --all  # Regenerate existing
-```
-
-**Process:**
-- Reads `song-cover.png` (high-res cover image)
-- Generates `song-cover-thumb.png` (300x300, optimized for feed views)
-- Skips if thumbnail already exists (unless --force)
-
-### Step 3: Generate Word-Level Timestamps
-```bash
-bun run elevenlabs --song "Artist - Song Title"
-bun run elevenlabs --all
-```
-
-**Process:**
-- Calls ElevenLabs Forced Alignment API
-- Uses vocal stems if available (better accuracy)
-- Caches results in `karaoke-alignment.json`
-- Skips songs with existing alignment files
-
-### Step 4: Generate Full-Song Metadata
-```bash
-bun run generate-full-metadata --song "Artist - Song Title"
-bun run generate-full-metadata --all
-bun run generate-full-metadata --force --all  # Regenerate existing
-```
-
-**Process:**
-- Reads `karaoke-alignment.json` (ElevenLabs word timestamps)
-- Reads `lyrics.txt` with section markers
-- Reads all `translations/*.txt` files
-- Generates `full-song-metadata.json` with:
-  - Word-level AND line-level timestamps for entire song
-  - Section markers for navigation
-  - Multilingual translations
-  - Full karaoke-ready format
-
-### Step 5: Slice Into Clips
-```bash
-bun run slice --song "Artist - Song Title"
-bun run slice --all
-```
-
-**Features:**
-- Detects section boundaries from markers
-- Adds **0.25s buffer before** and **0.3s buffer after** each section
-- Trims long gaps (e.g., instrumental breaks)
-- Slices both vocal and instrumental tracks (if available)
-- Generates metadata with learning metrics
-- Saves to `songs/{songId}/clips/`
-
-**Clip naming:**
-- `verse.mp3`, `verse-instrumental.mp3`, `verse.json`
-- `chorus.mp3`, `chorus-instrumental.mp3`, `chorus.json`
-- `chorus-2.mp3`, `chorus-2-instrumental.mp3`, `chorus-2.json`
-
-### Step 6: Upload Clips to Grove + Contract
-```bash
-bun run upload-clips --song "Artist - Song Title"
-bun run upload-clips --all
-bun run upload-clips --dry-run --song "Artist - Song Title"  # Test first
-```
-
-**Process:**
-- Uploads each clip folder to Grove (vocal + instrumental + metadata + thumbnail)
-- Registers in ClipRegistry contract
-- Checks for duplicates before uploading
-- Returns Grove URIs for each resource
-
-### Step 7: Upload Full Songs to Grove
-```bash
-bun run upload-full-songs --song "Artist - Song Title"
-bun run upload-full-songs --all
-bun run upload-full-songs --dry-run --song "Artist - Song Title"  # Test first
-```
-
-**Process:**
-- Uploads full song package to Grove:
-  - Complete audio file (full song, not clips)
-  - `full-song-metadata.json` (word + line timestamps for entire song)
-  - `song-cover.png` (high-res cover image)
-  - `song-cover-thumb.png` (300x300 thumbnail)
-  - `music-video-uri.txt` (if present - links to music video on Grove)
-- Returns Grove URIs for all assets
-- **TODO:** Store URIs in song registry/contract
-
-## Clip Metadata Structure
-
-Each clip includes comprehensive metadata:
+### metadata.json Structure
 
 ```json
 {
-  "version": 3,
-  "id": "down-home-blues-verse",
-  "title": "Down Home Blues",
-  "artist": "Ethel Waters",
-  "sectionType": "Verse",
-  "sectionIndex": 0,
-  "duration": 42.69,
-  "format": "word-and-line-timestamps",
-  "lines": [
-    {
-      "lineIndex": 1,
-      "originalText": "I never felt so lonesome before",
-      "translations": {
-        "cn": "我从未感到如此孤单",
-        "vi": "Tôi chưa bao giờ cảm thấy cô đơn đến thế trước đây"
-      },
-      "start": 0.25,
-      "end": 7.351,
-      "words": [
-        { "text": "I", "start": 0.25, "end": 1.17 },
-        { "text": "never", "start": 1.75, "end": 2.19 }
-      ]
-    }
-  ],
-  "availableLanguages": ["en", "cn", "vi"],
-  "learningMetrics": {
-    "difficultyLevel": 2,
-    "vocabularyCoverage": {
-      "top1kPercent": 78.26,
-      "difficultWords": ["lonesome", "quit", "worried"]
-    },
-    "pace": {
-      "wordsPerSecond": 1.08,
-      "classification": "slow"
-    },
-    "pronunciation": {
-      "syllablesPerWord": 1.13,
-      "complexity": "simple"
-    }
-  }
+  "id": "heat-of-the-night-scarlett-x",
+  "geniusId": 12345,
+  "geniusArtistId": 67890,
+  "title": "Heat of the Night",
+  "artist": "Scarlett X",
+  "segmentIds": ["verse-1", "chorus-1", "verse-2", "chorus-2"]
 }
 ```
 
-## Learning Metrics
+**Fields**:
+- `id` (required): Slug-formatted unique identifier
+- `geniusId` (optional): Genius API song ID (default: 0)
+- `geniusArtistId` (optional): Genius API artist ID (default: 0)
+- `title` (optional): Song title (auto-detected from lyrics if not provided)
+- `artist` (optional): Artist name (auto-detected from lyrics if not provided)
+- `segmentIds` (optional): Array of practice segments (e.g., ["verse-1", "chorus-1"])
 
-**Automatic difficulty scoring** for English learners:
+**Auto-detected fields**:
+- `duration`: Calculated from audio file
+- `languages`: Detected from translations/ folder
 
-**Difficulty Levels (1-5):**
-- **Level 1**: Simple vocabulary, slow pace, easy pronunciation
-- **Level 5**: Advanced vocabulary, fast pace, complex pronunciation
+### Genius ID Integration
 
-**Calculated from:**
-- **Vocabulary Coverage (40%)**: Top 1k English words
-- **Speaking Pace (40%)**: Words per second
-- **Pronunciation Complexity (20%)**: Syllables per word
+If your song exists on Genius.com, add the `geniusId`:
 
-**Used for:**
-- Filtering clips by difficulty in karaoke app
-- Recommending appropriate content for learners
-- Progressive learning paths
+```json
+{
+  "id": "down-home-blues-ethel-waters",
+  "geniusId": 987654,
+  "title": "Down Home Blues",
+  "artist": "Ethel Waters"
+}
+```
 
-## Contract Integration
+**Benefits**:
+- Unified artist matching across Native and Genius sources
+- Cross-platform leaderboards (same artist, different sources)
+- Optional - system works without it
 
-**ClipRegistry Contract:** `0x59fCAe6753041C7b2E2ad443e4F2342Af46b81bf`
+**How to find Genius ID**:
+1. Search song on Genius.com
+2. URL format: `https://genius.com/{artist}-{song}-lyrics`
+3. View page source, find `"song":{"id":123456,...}`
+4. Or use Genius API search
 
-**Stored on-chain:**
-- Clip ID, title, artist, section type/index
-- Duration, difficulty level, words per second
-- Grove URIs (audio, instrumental, metadata, thumbnail)
-- Languages, enabled flag
+## Commands
 
-**Query methods:**
+### Development Commands
+
+```bash
+# Process songs with ElevenLabs and upload to contract
+bun run process
+
+# Add only new songs not in contract
+bun run add-song
+```
+
+## Features
+
+### ElevenLabs Word-Level Timestamps
+
+- Automatic forced-alignment for word-level timing
+- Uses isolated vocals (if available) for better accuracy
+- Caching system (7-day TTL) to avoid re-processing
+- Cached in `karaoke-alignment.json` per song
+
+### Grove Storage
+
+- Immutable uploads to Lens Chain storage
+- All URIs start with `lens://`
+- Resolves via `https://gw.lens.xyz/grove/{hash}`
+- Assets:
+  - Full song audio
+  - Word+line timestamp metadata
+  - High-res cover
+  - 300x300 thumbnail
+  - Music video (optional)
+
+### Contract Integration
+
+Uploads directly to **SongCatalogV1** contract:
+
 ```solidity
-getClip(string id) → Clip
-getAllClips() → Clip[]
-getClipsByDifficulty(uint8 min, uint8 max) → Clip[]
-getClipsByPace(uint8 minWps, uint8 maxWps) → Clip[]
+function addSong(
+    string calldata id,
+    uint32 geniusId,
+    uint32 geniusArtistId,
+    string calldata title,
+    string calldata artist,
+    uint32 duration,
+    string calldata audioUri,
+    string calldata metadataUri,
+    string calldata coverUri,
+    string calldata thumbnailUri,
+    string calldata musicVideoUri,
+    string calldata segmentIds,
+    string calldata languages
+) external onlyOwner;
 ```
 
-## Complete Workflow Example
+**Contract Address (Lens Testnet)**: `0x88996135809cc745E6d8966e3a7A01389C774910`
+
+## Workflow
+
+### 1. Processing Mode (`bun run process`)
+
+1. Scan `./songs/` for song folders
+2. Load audio, lyrics, metadata.json config, translations
+3. Check for cached `karaoke-alignment.json`
+4. If not cached:
+   - Send vocals (or full audio) + lyrics to ElevenLabs API
+   - Generate word-level timestamps
+   - Cache results locally
+5. Build enhanced metadata with word+line structure
+6. Upload to Grove: audio, metadata, thumbnail
+7. Call `SongCatalogV1.addSong()` with all data
+8. Wait for transaction confirmation
+9. Display transaction hash and block number
+
+### 2. Add Mode (`bun run add-song`)
+
+1. Query SongCatalogV1 for existing song IDs
+2. Only process/upload songs not in contract
+3. Useful for incremental additions
+
+## Metadata Format
+
+### Enhanced Song Metadata (v2)
+
+Generated by ElevenLabs processor:
+
+```json
+{
+  "version": 2,
+  "title": "Heat of the Night",
+  "artist": "Scarlett X",
+  "duration": 194,
+  "format": "word-and-line-timestamps",
+  "lines": [
+    {
+      "lineIndex": 0,
+      "originalText": "Dancing in the moonlight",
+      "translatedText": "在月光下跳舞",
+      "start": 0.5,
+      "end": 3.2,
+      "words": [
+        { "text": "Dancing", "start": 0.5, "end": 1.1 },
+        { "text": "in", "start": 1.1, "end": 1.3 },
+        { "text": "the", "start": 1.3, "end": 1.5 },
+        { "text": "moonlight", "start": 1.5, "end": 3.2 }
+      ]
+    }
+  ],
+  "elevenLabsProcessed": true,
+  "wordCount": 45,
+  "lineCount": 12
+}
+```
+
+## Environment Variables
 
 ```bash
-# 1. Validate lyrics format
-bun run validate --song "Ethel Waters - Down Home Blues"
-# ✅ All validations passed
+# Required
+PRIVATE_KEY=0x...                    # Wallet private key (owner of SongCatalog)
+ELEVENLABS_API_KEY=...               # ElevenLabs API key
+SONG_CATALOG_ADDRESS=0x...           # SongCatalog contract address
 
-# 2. Generate ElevenLabs alignment
-bun run elevenlabs --song "Ethel Waters - Down Home Blues"
-# ✅ Alignment saved (373 words)
-
-# 3. Slice into clips
-bun run slice --song "Ethel Waters - Down Home Blues"
-# ✅ Sliced 3/3 clips (verse, chorus, chorus-2)
-
-# 4. Upload to Grove + contract
-bun run upload-clips --song "Ethel Waters - Down Home Blues"
-# ✅ All clips uploaded successfully
+# Optional
+PKP_ADDRESS=0x254AA...               # PKP address for trusted operations
 ```
 
-## Output Structure
+## Contract Information
 
-After processing, each song has:
-```
-songs/Artist - Song Title/
-├── [original audio files]
-├── lyrics.txt
-├── karaoke-alignment.json
-├── translations/
-│   └── *.txt
-└── clips/
-    ├── verse.mp3                    # 42s vocal clip
-    ├── verse-instrumental.mp3       # 42s backing track
-    ├── verse.json                   # Metadata with learning metrics
-    ├── chorus.mp3
-    ├── chorus-instrumental.mp3
-    └── chorus.json
-```
+### SongCatalogV1 (Already Deployed)
 
-## Commands Reference
+**Network**: Lens Chain Testnet (Chain ID: 37111)
+**Contract Address**: `0x88996135809cc745E6d8966e3a7A01389C774910`
+**Explorer**: https://explorer.testnet.lens.xyz/address/0x88996135809cc745E6d8966e3a7A01389C774910
+**Deployment Date**: 2025-10-03
 
-### Pipeline Commands
-- `bun run validate --song <id>` / `--all` - Validate lyrics format
-- `bun run elevenlabs --song <id>` / `--all` - Generate word timestamps
-- `bun run slice --song <id>` / `--all` - Slice into clips
-- `bun run upload-clips --song <id>` / `--all` - Upload to Grove + contract
+The contract is already deployed and ready to use. Just add the address to your `.env` file.
 
-### Legacy Commands (Full Song Upload)
-- `bun run process` - Enhanced processing with ElevenLabs
-- `bun run upload` - Upload full songs
-- `bun run add-song` - Only upload new songs
-- `bun run sync` - Sync registry
-- `bun run create-registry` - Initialize registry
+## Common Issues
 
-## Benefits
+### 1. ElevenLabs API Errors
 
-**For Learners:**
-- ✨ Bite-sized learning (15-60s clips)
-- ✨ Difficulty-based filtering
-- ✨ Word-by-word highlighting
-- ✨ Instrumental backing tracks for practice
-- ✨ Multilingual translations
-- ✨ Progressive difficulty curves
+**Problem**: Lyrics formatting issues
+**Solution**:
+- Ensure `lyrics.txt` is clean (no excessive markup)
+- Tool auto-removes `[Verse]`, `[Chorus]` tags but preserves in output
+- Check line breaks match actual song structure
 
-**For Developers:**
-- 🔧 Modular, independent pipeline steps
-- 🔧 Dry-run testing before upload
-- 🔧 Automatic validation and error checking
-- 🔧 Cached ElevenLabs results
-- 🔧 On-chain metadata registry
-- 🔧 Decentralized storage (Grove)
+### 2. Voice Stems Recommended
 
-## Development
+**Problem**: Poor word alignment
+**Solution**:
+- Provide isolated vocals as `audio (Vocals).mp3`
+- Much better accuracy than full mix
+- Tool falls back to full audio if not available
 
-**Technologies:**
-- Bun runtime
-- TypeScript
-- Viem (Ethereum interactions)
-- ElevenLabs API (word alignment)
-- FFmpeg (audio slicing)
-- Grove Storage (@lens-chain/storage-client)
-- Solidity 0.8.19 (zkSync compatible)
+### 3. Missing Genius ID
 
-**Contract Deployment:**
-```bash
-cd contract
-FOUNDRY_PROFILE=zksync forge create src/ClipRegistryV1.sol:ClipRegistryV1 \
-  --rpc-url https://rpc.testnet.lens.xyz \
-  --private-key $PRIVATE_KEY \
-  --zksync --gas-limit 10000000 --broadcast
-```
+**Not a problem!** Genius ID is optional:
+- System works perfectly without it
+- Add later via `updateSong()` if needed
+- Useful for cross-platform features only
 
-## Project Structure
+### 4. Transaction Failures
+
+**Problem**: Contract transaction reverts
+**Solution**:
+- Ensure wallet has sufficient ETH on Lens Testnet
+- Check that song ID doesn't already exist in catalog
+- Verify you're using the correct contract address
+- Check wallet is the contract owner
+
+## File Structure
 
 ```
 song-uploader/
 ├── src/
-│   ├── commands/          # Modular pipeline commands
-│   │   ├── validate.ts    # Lyrics format validation
-│   │   ├── process-elevenlabs.ts  # ElevenLabs alignment
-│   │   ├── slice.ts       # Audio slicing
-│   │   └── upload.ts      # Grove + contract upload
-│   ├── processors/        # Core processing logic
-│   │   ├── elevenlabs.js
-│   │   ├── metadata.js
-│   │   ├── section-detector.ts
-│   │   ├── audio-slicer.ts
-│   │   ├── learning-metrics.ts
-│   │   └── lyrics-validator.ts
-│   ├── utils/
-│   │   └── filename-parser.ts
-│   ├── abi/
-│   │   └── ClipRegistryV1.json
-│   └── types.ts
-├── contract/
-│   └── src/
-│       └── ClipRegistryV1.sol
-├── songs/                 # Song source files
-└── output/               # Generated outputs
+│   ├── upload.ts              # Main entry point
+│   ├── contract.ts            # SongCatalogV1 integration
+│   ├── chains.ts              # Lens Testnet chain config
+│   ├── types.ts               # TypeScript types
+│   ├── wallet.ts              # Viem wallet setup
+│   └── processors/
+│       ├── elevenlabs.ts      # ElevenLabs API integration
+│       └── metadata.ts        # Metadata generation
+├── songs/                     # Song source files
+│   └── {song-slug}/
+│       ├── audio.mp3
+│       ├── audio (Vocals).mp3 # Optional: Voice stems
+│       ├── lyrics.txt
+│       ├── metadata.json      # Song config
+│       ├── karaoke-alignment.json  # Auto-generated cache
+│       ├── thumbnail.jpg
+│       └── translations/
+│           ├── cn.txt
+│           └── vi.txt
+├── output/                    # Not used (legacy)
+├── package.json
+├── tsconfig.json
+└── .env
 ```
+
+## Integration with Other Contracts
+
+Songs uploaded via this tool can be used with:
+
+- **StudyProgressV1**: Practice sessions for native songs (`ContentSource.Native` + song `id`)
+- **KaraokeScoreboardV4**: Karaoke scoring with native tracks (`ContentSource.Native` + track `id`)
+- **TrendingTrackerV1**: Native song trending data
+- **Future: ArtistQuizTracker**: Artist-specific quiz challenges (via `geniusArtistId`)
+
+All contracts reference songs using the `id` field from SongCatalogV1.
+
+## Next Steps
+
+After uploading songs:
+
+1. **Configure Tracks**: Add tracks to KaraokeScoreboardV4 with segment IDs
+2. **Setup Lit Actions**: Configure karaoke-scorer-v3 to use native songs
+3. **Update Frontend**: Query `SongCatalogV1.getAllSongs()` for catalog
+4. **Test End-to-End**: Try karaoke scoring with uploaded songs
 
 ## License
 
