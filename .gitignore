@@ -23,6 +23,9 @@ temp/
 # Song data (can be large)
 songs/
 
+# Music pipeline POC
+music-pipeline/
+
 # Logs
 logs/
 *.log

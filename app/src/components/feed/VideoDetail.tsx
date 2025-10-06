@@ -193,9 +193,12 @@ export function VideoDetail({
         {/* Video Container - 9:16 aspect ratio, centered */}
         <div
           ref={videoContainerRef}
-          className="relative bg-neutral-900 rounded-lg overflow-hidden cursor-pointer"
+          className={cn(
+            "relative bg-neutral-900 rounded-lg overflow-hidden",
+            !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && "cursor-pointer"
+          )}
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
-          onClick={togglePlayPause}
+          onClick={videoPostProps.isPremium && !videoPostProps.userIsSubscribed ? undefined : togglePlayPause}
         >
           {/* Video Player */}
           <VideoPlayer
@@ -217,7 +220,7 @@ export function VideoDetail({
 
           {/* Premium Lock Overlay - show when video is locked */}
           {videoPostProps.isPremium && !videoPostProps.userIsSubscribed && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
               <SubscribeCard
                 username={videoPostProps.username}
                 userAvatar={videoPostProps.userAvatar}

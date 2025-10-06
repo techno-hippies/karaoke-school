@@ -1,0 +1,264 @@
+import type { Meta, StoryObj } from '@storybook/react-vite'
+import { SongSelectPage, type Song } from '@/components/post/SongSelectPage'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+
+const meta = {
+  title: 'Post/SongSelectPage',
+  component: SongSelectPage,
+  parameters: {
+    layout: 'fullscreen',
+    backgrounds: {
+      default: 'dark',
+    },
+  },
+  tags: ['autodocs'],
+} satisfies Meta<typeof SongSelectPage>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+const trendingSongs: Song[] = [
+  {
+    id: '1',
+    title: 'Blinding Lights',
+    artist: 'The Weeknd',
+    artworkUrl: 'https://picsum.photos/seed/song1/200/200',
+  },
+  {
+    id: '2',
+    title: 'Shape of You',
+    artist: 'Ed Sheeran',
+    artworkUrl: 'https://picsum.photos/seed/song2/200/200',
+  },
+  {
+    id: '3',
+    title: 'Dance Monkey',
+    artist: 'Tones and I',
+    artworkUrl: 'https://picsum.photos/seed/song3/200/200',
+  },
+  {
+    id: '4',
+    title: 'Someone Like You',
+    artist: 'Adele',
+    artworkUrl: 'https://picsum.photos/seed/song4/200/200',
+  },
+  {
+    id: '5',
+    title: 'Perfect',
+    artist: 'Ed Sheeran',
+    artworkUrl: 'https://picsum.photos/seed/song5/200/200',
+  },
+  {
+    id: '6',
+    title: 'Levitating',
+    artist: 'Dua Lipa',
+    artworkUrl: 'https://picsum.photos/seed/song6/200/200',
+  },
+  {
+    id: '7',
+    title: 'As It Was',
+    artist: 'Harry Styles',
+    artworkUrl: 'https://picsum.photos/seed/song7/200/200',
+  },
+  {
+    id: '8',
+    title: 'Anti-Hero',
+    artist: 'Taylor Swift',
+    artworkUrl: 'https://picsum.photos/seed/song8/200/200',
+  },
+  {
+    id: '9',
+    title: 'Heat Waves',
+    artist: 'Glass Animals',
+    artworkUrl: 'https://picsum.photos/seed/song9/200/200',
+  },
+  {
+    id: '10',
+    title: 'Shivers',
+    artist: 'Ed Sheeran',
+    artworkUrl: 'https://picsum.photos/seed/song10/200/200',
+  },
+]
+
+const favoriteSongs: Song[] = [
+  {
+    id: '11',
+    title: 'Bohemian Rhapsody',
+    artist: 'Queen',
+    artworkUrl: 'https://picsum.photos/seed/fav1/200/200',
+  },
+  {
+    id: '12',
+    title: 'Don\'t Stop Believin\'',
+    artist: 'Journey',
+    artworkUrl: 'https://picsum.photos/seed/fav2/200/200',
+  },
+  {
+    id: '13',
+    title: 'Sweet Child O\' Mine',
+    artist: 'Guns N\' Roses',
+    artworkUrl: 'https://picsum.photos/seed/fav3/200/200',
+  },
+  {
+    id: '14',
+    title: 'I Will Always Love You',
+    artist: 'Whitney Houston',
+    artworkUrl: 'https://picsum.photos/seed/fav4/200/200',
+  },
+  {
+    id: '15',
+    title: 'Wonderwall',
+    artist: 'Oasis',
+    artworkUrl: 'https://picsum.photos/seed/fav5/200/200',
+  },
+]
+
+/**
+ * Default page - Trending tab
+ */
+export const Default: Story = {
+  args: {
+    open: true,
+    onClose: () => console.log('Close clicked'),
+    trendingSongs,
+    favoriteSongs,
+    onSelectSong: (song) => console.log('Selected song:', song),
+  },
+}
+
+/**
+ * Empty trending list
+ */
+export const EmptyTrending: Story = {
+  args: {
+    open: true,
+    onClose: () => console.log('Close clicked'),
+    trendingSongs: [],
+    favoriteSongs,
+    onSelectSong: (song) => console.log('Selected song:', song),
+  },
+}
+
+/**
+ * Empty favorites list
+ */
+export const EmptyFavorites: Story = {
+  args: {
+    open: true,
+    onClose: () => console.log('Close clicked'),
+    trendingSongs,
+    favoriteSongs: [],
+    onSelectSong: (song) => console.log('Selected song:', song),
+  },
+}
+
+/**
+ * Interactive - Click button to open
+ */
+export const Interactive: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false)
+    const [selectedSong, setSelectedSong] = useState<Song | null>(null)
+
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
+        <Button onClick={() => setOpen(true)}>
+          Select a song
+        </Button>
+        {selectedSong && (
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Selected:</p>
+            <p className="text-lg font-semibold">{selectedSong.title}</p>
+            <p className="text-sm text-muted-foreground">{selectedSong.artist}</p>
+          </div>
+        )}
+        <SongSelectPage
+          open={open}
+          onClose={() => setOpen(false)}
+          trendingSongs={trendingSongs}
+          favoriteSongs={favoriteSongs}
+          onSelectSong={(song) => {
+            setSelectedSong(song)
+            console.log('Selected song:', song)
+          }}
+        />
+      </div>
+    )
+  },
+}
+
+/**
+ * No Credits - Shows purchase sheet when song is selected
+ */
+export const NoCredits: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false)
+    const [purchased, setPurchased] = useState(false)
+
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
+        <Button onClick={() => setOpen(true)}>
+          Select a song (0 credits)
+        </Button>
+        {purchased && (
+          <div className="text-center p-4 bg-green-500/20 rounded-lg">
+            <p className="text-lg font-semibold">Credits purchased!</p>
+          </div>
+        )}
+        <SongSelectPage
+          open={open}
+          onClose={() => setOpen(false)}
+          trendingSongs={trendingSongs}
+          favoriteSongs={favoriteSongs}
+          userCredits={0}
+          onPurchaseCredits={() => {
+            setPurchased(true)
+            console.log('Credits purchased!')
+            setTimeout(() => setPurchased(false), 3000)
+          }}
+        />
+      </div>
+    )
+  },
+}
+
+/**
+ * Has Credits - Shows confirm sheet when song is selected
+ */
+export const HasCredits: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false)
+    const [confirmed, setConfirmed] = useState(false)
+    const [credits, setCredits] = useState(5)
+
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
+        <div className="text-center mb-4">
+          <p className="text-sm text-muted-foreground">Credits: {credits}</p>
+        </div>
+        <Button onClick={() => setOpen(true)}>
+          Select a song ({credits} credits)
+        </Button>
+        {confirmed && (
+          <div className="text-center p-4 bg-green-500/20 rounded-lg">
+            <p className="text-lg font-semibold">Song confirmed!</p>
+          </div>
+        )}
+        <SongSelectPage
+          open={open}
+          onClose={() => setOpen(false)}
+          trendingSongs={trendingSongs}
+          favoriteSongs={favoriteSongs}
+          userCredits={credits}
+          onConfirmCredit={(song) => {
+            setCredits(credits - 1)
+            setConfirmed(true)
+            console.log('Confirmed song:', song)
+            setTimeout(() => setConfirmed(false), 3000)
+          }}
+        />
+      </div>
+    )
+  },
+}

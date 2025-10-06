@@ -1,6 +1,10 @@
 import { MagnifyingGlass } from '@phosphor-icons/react'
 import { SongItem } from '../ui/SongItem'
-import { Input } from '../ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from '../ui/input-group'
 
 export interface ClassSong {
   id: string
@@ -36,19 +40,17 @@ export function ClassPage({
   return (
     <div className="w-full max-w-3xl mx-auto p-4 space-y-6">
       {/* Search Bar */}
-      <div className="relative">
-        <MagnifyingGlass
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          size={20}
-        />
-        <Input
+      <InputGroup>
+        <InputGroupInput
           type="text"
           placeholder="Search songs..."
           value={searchQuery}
           onChange={(e) => onSearchChange?.(e.target.value)}
-          className="pl-10"
         />
-      </div>
+        <InputGroupAddon>
+          <MagnifyingGlass />
+        </InputGroupAddon>
+      </InputGroup>
 
       {/* Your Songs Section */}
       <div className="space-y-3">
