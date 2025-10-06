@@ -103,7 +103,7 @@ export function VideoPost({
 
         {/* Premium Lock Overlay - show when video is locked */}
         {isPremium && !userIsSubscribed && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
             <SubscribeCard
               username={username}
               userAvatar={userAvatar}
