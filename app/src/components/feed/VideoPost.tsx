@@ -6,6 +6,7 @@ import { VideoActions } from './VideoActions'
 import { VideoInfo } from './VideoInfo'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
+import { SubscribeCard } from '../profile/SubscribeCard'
 import type { VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
@@ -41,6 +42,8 @@ export function VideoPost({
   isLiked = false,
   isFollowing = false,
   canInteract = false,
+  isPremium = false,
+  userIsSubscribed = false,
   onLikeClick,
   onCommentClick,
   onShareClick,
@@ -98,8 +101,23 @@ export function VideoPost({
           onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
 
+        {/* Premium Lock Overlay - show when video is locked */}
+        {isPremium && !userIsSubscribed && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30">
+            <SubscribeCard
+              username={username}
+              userAvatar={userAvatar}
+              onSubscribe={() => {
+                console.log('[VideoPost] Subscribe clicked for', username)
+                // Handle subscription logic here
+              }}
+              className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
+            />
+          </div>
+        )}
+
         {/* Karaoke Overlay - top-center lyrics */}
-        {karaokeLines && karaokeLines.length > 0 && (
+        {karaokeLines && karaokeLines.length > 0 && !(isPremium && !userIsSubscribed) && (
           <KaraokeOverlay
             lines={karaokeLines}
             currentTime={currentTime}
@@ -107,8 +125,8 @@ export function VideoPost({
           />
         )}
 
-        {/* Video Info - bottom-left (desktop only, inside video) - username + caption + music */}
-        <div className="max-md:hidden absolute bottom-4 left-6 right-20 z-20">
+        {/* Video Info - bottom-left (desktop only, mobile uses gradient overlay below) */}
+        <div className="absolute bottom-4 left-6 right-20 z-20 max-md:hidden">
           <VideoInfo
             username={username}
             description={description}

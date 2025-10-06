@@ -110,6 +110,7 @@ export const Default: Story = {
     thumbnailUrl: 'https://picsum.photos/400/700?random=1',
     username: 'singer_star',
     userHandle: 'Professional Vocalist',
+    createdAt: '2024-8-9',
     description: 'Practicing this classic! Let me know what you think 🎤✨\n\n#karaoke #singing #cover',
     musicTitle: 'Heat of the Night',
     musicAuthor: 'Scarlett X',
@@ -145,6 +146,8 @@ export const LikedAndFollowing: Story = {
     ...Default.args,
     id: '2',
     username: 'viral_sensation',
+    userHandle: 'Viral Star',
+    createdAt: '2024-12-15',
     description: 'This blew up overnight! Thank you all so much!! 🚀💫\n\n#viral #fyp #trending',
     likes: 2500000,
     comments: 125000,
@@ -162,6 +165,8 @@ export const NotAuthenticated: Story = {
     ...Default.args,
     id: '3',
     username: 'talent_show',
+    userHandle: 'Talent Scout',
+    createdAt: '2024-11-3',
     description: 'Sign in to like, comment, and follow! 🎭',
     canInteract: false,
     commentsData: sampleComments,
@@ -278,6 +283,48 @@ What should I cover next? Drop your suggestions below! 👇
         isLiked: false,
       },
     ],
+  },
+}
+
+/**
+ * Premium locked video - requires subscription
+ */
+export const PremiumLocked: Story = {
+  args: {
+    ...Default.args,
+    id: '11',
+    username: 'billboard_artist',
+    userHandle: 'Chart Topper',
+    createdAt: '2024-12-20',
+    description: 'My cover of this Billboard hit! 🔥 Subscribe to watch the full performance',
+    musicTitle: 'Shape of You',
+    musicAuthor: 'Ed Sheeran',
+    isPremium: true,
+    userIsSubscribed: false,
+    likes: 3456789,
+    comments: 234567,
+    shares: 123456,
+  },
+}
+
+/**
+ * Premium unlocked - user is subscribed
+ */
+export const PremiumUnlocked: Story = {
+  args: {
+    ...Default.args,
+    id: '12',
+    username: 'billboard_artist',
+    userHandle: 'Chart Topper',
+    createdAt: '2024-12-20',
+    description: 'My cover of this Billboard hit! 🔥 Thanks for subscribing!',
+    musicTitle: 'Blinding Lights',
+    musicAuthor: 'The Weeknd',
+    isPremium: true,
+    userIsSubscribed: true,
+    likes: 4567890,
+    comments: 345678,
+    shares: 234567,
   },
 }
 

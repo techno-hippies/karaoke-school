@@ -14,9 +14,11 @@ export interface ProfileHeaderProps {
   isVerified?: boolean
   isOwnProfile: boolean
   isFollowing?: boolean
+  isSubscribed?: boolean
   isFollowLoading?: boolean
   onEditClick?: () => void
   onFollowClick?: () => void
+  onSubscribeClick?: () => void
   onMessageClick?: () => void
   onMoreClick?: () => void
   className?: string
@@ -36,9 +38,11 @@ export function ProfileHeader({
   isVerified = false,
   isOwnProfile,
   isFollowing = false,
+  isSubscribed = false,
   isFollowLoading = false,
   onEditClick,
   onFollowClick,
+  onSubscribeClick,
   onMessageClick,
   onMoreClick,
   className
@@ -76,9 +80,11 @@ export function ProfileHeader({
           <ProfileActions
             isOwnProfile={isOwnProfile}
             isFollowing={isFollowing}
+            isSubscribed={isSubscribed}
             isFollowLoading={isFollowLoading}
             onEditClick={onEditClick}
             onFollowClick={onFollowClick}
+            onSubscribeClick={onSubscribeClick}
             onMessageClick={onMessageClick}
             onMoreClick={onMoreClick}
           />

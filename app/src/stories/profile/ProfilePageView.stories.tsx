@@ -23,6 +23,8 @@ const mockVideos: Video[] = Array.from({ length: 18 }, (_, i) => ({
   id: `video-${i}`,
   thumbnailUrl: `https://picsum.photos/400/711?random=${i}`,
   playCount: Math.floor(Math.random() * 5000000),
+  // Mix of free and premium videos - every 3rd video is premium
+  isPremium: i % 3 === 0,
 }))
 
 /**

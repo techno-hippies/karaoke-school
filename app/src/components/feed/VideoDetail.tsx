@@ -7,6 +7,7 @@ import { VideoPlayer } from './VideoPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
+import { SubscribeCard } from '../profile/SubscribeCard'
 import { Comment, type CommentData } from './Comment'
 import { CommentInput } from './CommentInput'
 import type { VideoPostData } from './types'
@@ -205,8 +206,8 @@ export function VideoDetail({
             onTogglePlay={togglePlayPause}
           />
 
-          {/* Play/Pause Overlay - only show when paused */}
-          {videoPostProps.videoUrl && !isPlaying && (
+          {/* Play/Pause Overlay - only show when paused and not locked */}
+          {videoPostProps.videoUrl && !isPlaying && !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200 pointer-events-none">
               <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
                 <Play className="w-10 h-10 text-foreground ml-1" weight="fill" />
@@ -214,8 +215,23 @@ export function VideoDetail({
             </div>
           )}
 
+          {/* Premium Lock Overlay - show when video is locked */}
+          {videoPostProps.isPremium && !videoPostProps.userIsSubscribed && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30">
+              <SubscribeCard
+                username={videoPostProps.username}
+                userAvatar={videoPostProps.userAvatar}
+                onSubscribe={() => {
+                  console.log('[VideoDetail] Subscribe clicked for', videoPostProps.username)
+                  // Handle subscription logic here
+                }}
+                className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
+              />
+            </div>
+          )}
+
           {/* Karaoke Overlay */}
-          {videoPostProps.karaokeLines && videoPostProps.karaokeLines.length > 0 && (
+          {videoPostProps.karaokeLines && videoPostProps.karaokeLines.length > 0 && !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && (
             <KaraokeOverlay
               lines={videoPostProps.karaokeLines}
               currentTime={currentTime}
@@ -251,7 +267,7 @@ export function VideoDetail({
       </div>
 
       {/* Right Sidebar - Fixed Width */}
-      <div className="w-[400px] bg-neutral-900 flex flex-col h-full border-l border-neutral-800">
+      <div className="w-[560px] bg-neutral-900 flex flex-col h-full border-l border-neutral-800">
         {/* Profile Section */}
         <div className="p-4 border-b border-neutral-800">
           <div className="flex items-start justify-between">
@@ -275,17 +291,23 @@ export function VideoDetail({
                     e.stopPropagation()
                     videoPostProps.onProfileClick?.()
                   }}
-                  className="hover:underline text-left"
+                  className="hover:underline text-left block"
                 >
                   <h3 className="font-semibold text-base text-foreground truncate">
-                    @{videoPostProps.username}
+                    {videoPostProps.username}
                   </h3>
                 </button>
-                {videoPostProps.userHandle && (
-                  <p className="text-sm text-muted-foreground truncate">
-                    {videoPostProps.userHandle}
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground truncate">
+                  {videoPostProps.userHandle && (
+                    <>
+                      {videoPostProps.userHandle}
+                      {videoPostProps.createdAt && <span> · </span>}
+                    </>
+                  )}
+                  {videoPostProps.createdAt && (
+                    <span>{videoPostProps.createdAt}</span>
+                  )}
+                </p>
               </div>
             </div>
             <Button
@@ -313,7 +335,7 @@ export function VideoDetail({
                 e.stopPropagation()
                 videoPostProps.onAudioClick?.()
               }}
-              className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center text-muted-foreground hover:text-foreground hover:underline transition-colors cursor-pointer"
             >
               <MusicNote className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="text-sm truncate">
@@ -396,7 +418,7 @@ export function VideoDetail({
         <div className="flex-1 flex flex-col min-h-0">
           <div className="px-4 py-3 border-b border-neutral-800">
             <h3 className="font-semibold text-base text-foreground">
-              {videoPostProps.comments > 0 ? `${videoPostProps.comments} Comments` : 'Comments'}
+              Comments {videoPostProps.comments > 0 && `(${videoPostProps.comments})`}
             </h3>
           </div>
 

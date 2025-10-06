@@ -20,12 +20,13 @@ export interface VideoPostData {
   videoUrl?: string
   thumbnailUrl?: string
   username: string
-  userHandle?: string
+  userHandle?: string // Display name (e.g., "Professional Vocalist")
   userAvatar?: string
   description: string
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
+  createdAt?: string // Post date/time
   // Engagement metrics
   likes: number
   comments: number
@@ -36,6 +37,9 @@ export interface VideoPostData {
   isLiked?: boolean
   isFollowing?: boolean
   canInteract?: boolean // Can like/comment/follow
+  // Premium content
+  isPremium?: boolean // Requires subscription to play
+  userIsSubscribed?: boolean // User has active subscription
 }
 
 export interface VideoPlayerProps {
