@@ -6,6 +6,7 @@ export interface Video {
   thumbnailUrl: string
   playCount: number
   videoUrl?: string
+  isPremium?: boolean
 }
 
 export interface VideoGridProps {
@@ -77,6 +78,7 @@ export function VideoGrid({
             key={video.id}
             thumbnailUrl={video.thumbnailUrl}
             playCount={video.playCount}
+            isPremium={video.isPremium}
             onClick={() => onVideoClick?.(video)}
           />
         ))}

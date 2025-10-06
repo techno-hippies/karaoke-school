@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { SignOut } from '@phosphor-icons/react'
 import { ProfileHeader } from './ProfileHeader'
 import { VideoGrid, type Video } from './VideoGrid'
 import { DesktopSidebar } from '../navigation/DesktopSidebar'
 import { MobileFooter } from '../navigation/MobileFooter'
 import { BackButton } from '@/components/ui/back-button'
+import { SubscriptionDialog } from './SubscriptionDialog'
 
 export interface ProfilePageViewProps {
   // Profile data
@@ -73,6 +75,8 @@ export function ProfilePageView({
   onVideoClick,
   onNavigateHome,
 }: ProfilePageViewProps) {
+  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
+
   return (
     <div className="h-screen bg-neutral-900">
       {/* Desktop Sidebar - fixed, removed from flow */}
@@ -143,6 +147,7 @@ export function ProfilePageView({
             isFollowLoading={followState.isLoading}
             onEditClick={onEditProfile}
             onFollowClick={onFollowClick}
+            onSubscribeClick={() => setSubscriptionDialogOpen(true)}
             onMessageClick={onMessageClick}
             onMoreClick={onShareProfile}
           />
@@ -163,6 +168,18 @@ export function ProfilePageView({
           onTabChange={onMobileTabChange}
         />
       )}
+
+      {/* Subscription Dialog */}
+      <SubscriptionDialog
+        open={subscriptionDialogOpen}
+        onOpenChange={setSubscriptionDialogOpen}
+        username={profile.username}
+        userAvatar={profile.avatarUrl}
+        onSubscribe={() => {
+          console.log('Subscribe clicked for', profile.username)
+          setSubscriptionDialogOpen(false)
+        }}
+      />
     </div>
   )
 }
