@@ -1,0 +1,10 @@
+# Sensitive - contains session secret keys
+lit-auth-storage/
+
+# Sensitive - contains PKP credentials
+output/
+
+# Environment variables
+.env
+.env.*
+!.env.example
