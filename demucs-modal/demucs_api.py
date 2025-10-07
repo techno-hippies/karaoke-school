@@ -15,33 +15,27 @@ import io
 import zipfile
 import tempfile
 import os
-from typing import Optional
+from typing import Optional, List
 import modal
 
 # Import FastAPI only when needed (in Modal container, not locally)
 # This allows local deployment without installing FastAPI locally
 
 # Define the image with Demucs pre-installed and models cached
-# Using uv for faster package installation (Rust-based, much faster than pip)
+# Using Modal's built-in uv support for faster package installation
 demucs_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("curl", "ffmpeg")  # Need curl for uv installer, ffmpeg for audio processing
-    .run_commands(
-        # Install uv (fast Rust-based package installer)
-        "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    )
-    .run_commands(
-        # Use uv to install dependencies (much faster than pip)
-        # Note: numpy<2 required for torch 2.1.0 compatibility
-        "/root/.local/bin/uv pip install --system 'numpy<2' scipy"
-    )
-    .run_commands(
-        # Install torch 2.8.0 with B200 GPU kernel support
-        "/root/.local/bin/uv pip install --system torch==2.8.0 torchaudio==2.8.0"
-    )
-    .run_commands(
-        # Install demucs and other dependencies
-        "/root/.local/bin/uv pip install --system demucs==4.0.1 fastapi python-multipart"
+    .apt_install("ffmpeg")  # FFmpeg for audio processing and trimming
+    .uv_pip_install(
+        "numpy<2",  # numpy<2 required for torch compatibility
+        "scipy",
+        "torch==2.8.0",
+        "torchaudio==2.8.0",
+        "demucs==4.0.1",
+        "fastapi",
+        "python-multipart",
+        "requests",  # For downloading audio from maid.zone
+        gpu="B200"  # B200-aware installation
     )
     # Pre-download htdemucs model to reduce cold start time
     .run_commands(
@@ -230,6 +224,181 @@ class DemucsSeparator:
                 traceback.print_exc()
                 raise
 
+    @modal.method()
+    def process_karaoke_section(
+        self,
+        audio_url: str,
+        start_time: float,
+        duration: float,
+        stems: List[str] = ["vocals", "drums"],
+        shifts: int = 1,
+        overlap: float = 0.25,
+        mp3: bool = True,
+        mp3_bitrate: int = 192,
+    ) -> dict:
+        """
+        All-in-one karaoke processing: download from maid.zone → trim → separate stems.
+
+        Eliminates network hops by doing everything in one Modal GPU session.
+
+        Args:
+            audio_url: URL to audio file (e.g., https://sc.maid.zone/_/restream/...)
+            start_time: Start time in seconds for trimming
+            duration: Duration in seconds to trim
+            stems: List of stems to separate (e.g., ["vocals", "drums"])
+            shifts: Number of random shifts for quality (1=fast, 5+=better)
+            overlap: Overlap between prediction windows
+            mp3: Output as MP3 (True) or WAV (False)
+            mp3_bitrate: MP3 bitrate in kbps
+
+        Returns:
+            dict with keys for each stem (e.g., {"vocals": bytes, "drums": bytes})
+            Each value is a ZIP file containing stem.mp3 + no_stem.mp3
+        """
+        import requests
+        import subprocess
+
+        print(f"[KARAOKE] Processing: {audio_url}")
+        print(f"[KARAOKE] Trim: {start_time}s → {start_time + duration}s ({duration}s)")
+        print(f"[KARAOKE] Stems: {stems}")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Step 1: Download audio from maid.zone
+            print("[1/3] Downloading audio from maid.zone...")
+            download_start = __import__("time").time()
+
+            resp = requests.get(audio_url, timeout=60)
+            resp.raise_for_status()
+
+            download_time = __import__("time").time() - download_start
+            print(f"✓ Downloaded {len(resp.content) / 1024 / 1024:.2f}MB in {download_time:.1f}s")
+
+            # Save to temp file
+            input_path = os.path.join(tmp_dir, "input.mp3")
+            with open(input_path, "wb") as f:
+                f.write(resp.content)
+
+            # Step 2: Trim with FFmpeg
+            print(f"[2/3] Trimming audio (FFmpeg)...")
+            trim_start = __import__("time").time()
+
+            trimmed_path = os.path.join(tmp_dir, "trimmed.wav")
+            subprocess.run([
+                "ffmpeg", "-i", input_path,
+                "-ss", str(start_time),
+                "-t", str(duration),
+                "-y",  # Overwrite output
+                trimmed_path
+            ], check=True, capture_output=True)
+
+            trim_time = __import__("time").time() - trim_start
+            trimmed_size = os.path.getsize(trimmed_path) / 1024 / 1024
+            print(f"✓ Trimmed to {trimmed_size:.2f}MB in {trim_time:.1f}s")
+
+            # Step 3: Separate stems with Demucs
+            print(f"[3/3] Separating stems with Demucs...")
+            sep_start = __import__("time").time()
+
+            import torch
+            import torchaudio
+            from demucs.apply import apply_model
+            from demucs.audio import AudioFile, save_audio
+            import subprocess
+            import zipfile
+
+            # Load trimmed audio
+            wav = AudioFile(trimmed_path).read(
+                streams=0,
+                samplerate=self.model.samplerate,
+                channels=self.model.audio_channels
+            )
+
+            # Normalize
+            ref = wav.mean(0)
+            wav = (wav - ref.mean()) / ref.std()
+
+            # Apply Demucs model once to get all sources
+            print("Running Demucs separation...")
+            with torch.no_grad():
+                sources = apply_model(
+                    self.model,
+                    wav[None],
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    shifts=shifts,
+                    split=True,
+                    overlap=overlap,
+                    progress=False,
+                )[0]
+
+            # Denormalize
+            sources = sources * ref.std() + ref.mean()
+
+            # Save each requested stem as a ZIP
+            stem_names = self.model.sources
+            results = {}
+
+            for stem in stems:
+                if stem not in stem_names:
+                    raise ValueError(f"Invalid stem: {stem}. Available: {stem_names}")
+
+                stem_idx = stem_names.index(stem)
+
+                # Create temp dir for this stem's output
+                stem_output_dir = os.path.join(tmp_dir, f"{stem}_output")
+                os.makedirs(stem_output_dir, exist_ok=True)
+
+                # Save stem as WAV
+                stem_wav = os.path.join(stem_output_dir, f"{stem}.wav")
+                save_audio(sources[stem_idx], stem_wav, self.model.samplerate)
+
+                # Mix all other stems for accompaniment
+                other_indices = [i for i in range(len(stem_names)) if i != stem_idx]
+                accompaniment = sum(sources[i] for i in other_indices)
+                acc_name = "no_vocals" if stem == "vocals" else f"no_{stem}"
+                acc_wav = os.path.join(stem_output_dir, f"{acc_name}.wav")
+                save_audio(accompaniment, acc_wav, self.model.samplerate)
+
+                # Convert to MP3 if requested
+                if mp3:
+                    for wav_file in [stem_wav, acc_wav]:
+                        mp3_file = wav_file.replace('.wav', '.mp3')
+                        subprocess.run([
+                            'ffmpeg', '-i', wav_file, '-b:a', f'{mp3_bitrate}k',
+                            '-y', mp3_file
+                        ], check=True, capture_output=True)
+                        os.remove(wav_file)
+
+                # Create ZIP for this stem
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for output_file in os.listdir(stem_output_dir):
+                        file_path = os.path.join(stem_output_dir, output_file)
+                        zip_file.write(file_path, output_file)
+
+                results[stem] = zip_buffer.getvalue()
+                print(f"✓ {stem}: {len(results[stem]) / 1024 / 1024:.2f}MB")
+
+            sep_time = __import__("time").time() - sep_start
+            total_time = download_time + trim_time + sep_time
+
+            print(f"[KARAOKE] Complete in {total_time:.1f}s (download: {download_time:.1f}s, trim: {trim_time:.1f}s, stems: {sep_time:.1f}s)")
+
+            return {
+                "stems": results,
+                "timing": {
+                    "download": download_time,
+                    "trim": trim_time,
+                    "separation": sep_time,
+                    "total": total_time
+                },
+                "metadata": {
+                    "audio_url": audio_url,
+                    "start_time": start_time,
+                    "duration": duration,
+                    "stems": stems
+                }
+            }
+
 
 # FastAPI web endpoint
 @app.function(image=demucs_image)
@@ -321,6 +490,77 @@ def fastapi_app():
             print(f"API Error: {str(e)}")
             print(f"Full traceback:\n{error_details}")
             raise HTTPException(500, f"Separation failed: {str(e)}")
+
+    @web_app.post("/process-karaoke")
+    async def process_karaoke_endpoint(
+        audio_url: str = Form(..., description="Audio URL (e.g., https://sc.maid.zone/_/restream/...)"),
+        start_time: float = Form(..., description="Start time in seconds", ge=0),
+        duration: float = Form(..., description="Duration in seconds", ge=0.1),
+        stems: str = Form("vocals,drums", description="Comma-separated stems to separate (e.g., 'vocals,drums')"),
+        shifts: int = Form(1, description="Quality param: 1=fast, 5+=better", ge=1, le=10),
+        overlap: float = Form(0.25, description="Overlap between prediction windows", ge=0.0, le=1.0),
+        mp3: bool = Form(True, description="Output as MP3 (True) or WAV (False)"),
+        mp3_bitrate: int = Form(192, description="MP3 bitrate in kbps", ge=128, le=320)
+    ):
+        """
+        All-in-one karaoke processing endpoint.
+
+        Downloads audio from URL (e.g., maid.zone), trims to section, separates stems.
+        Eliminates network hops by doing everything in one Modal GPU session.
+
+        **Parameters:**
+        - `audio_url`: URL to audio file (e.g., https://sc.maid.zone/_/restream/siamusic/sia-chandelier)
+        - `start_time`: Start time in seconds for trimming
+        - `duration`: Duration in seconds to trim
+        - `stems`: Comma-separated stems (e.g., "vocals,drums")
+        - `shifts`: Quality vs speed (1=fast, 5+=better)
+        - `overlap`: Prediction window overlap
+        - `mp3`: Save as MP3 (True) or WAV (False)
+        - `mp3_bitrate`: MP3 bitrate in kbps
+
+        **Returns:**
+        JSON with base64-encoded ZIP files for each stem + timing metadata
+        """
+        # Parse stems
+        stems_list = [s.strip() for s in stems.split(",")]
+        valid_stems = ["vocals", "drums", "bass", "other"]
+        for stem in stems_list:
+            if stem not in valid_stems:
+                raise HTTPException(400, f"Invalid stem: {stem}. Must be one of: {valid_stems}")
+
+        # Call the processor
+        separator = DemucsSeparator()
+        try:
+            result = separator.process_karaoke_section.remote(
+                audio_url=audio_url,
+                start_time=start_time,
+                duration=duration,
+                stems=stems_list,
+                shifts=shifts,
+                overlap=overlap,
+                mp3=mp3,
+                mp3_bitrate=mp3_bitrate
+            )
+
+            # Encode ZIPs as base64 for JSON transport
+            import base64
+            stems_data = {}
+            for stem, zip_bytes in result["stems"].items():
+                stems_data[stem] = base64.b64encode(zip_bytes).decode("utf-8")
+
+            return {
+                "success": True,
+                "stems": stems_data,
+                "timing": result["timing"],
+                "metadata": result["metadata"]
+            }
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"API Error: {str(e)}")
+            print(f"Full traceback:\n{error_details}")
+            raise HTTPException(500, f"Karaoke processing failed: {str(e)}")
 
     return web_app
 
