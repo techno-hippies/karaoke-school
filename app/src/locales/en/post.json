@@ -1,0 +1,48 @@
+{
+  "songSelect": {
+    "title": "Select a Song",
+    "trending": "Trending",
+    "favorites": "Favorites",
+    "search": "Search songs...",
+    "credits": "{{count}} credits",
+    "credits_other": "{{count}} credits",
+    "credits_one": "{{count}} credit",
+    "needsGeneration": "Generate Karaoke",
+    "free": "Free",
+    "emptyTrending": "No trending songs yet",
+    "emptyFavorites": "No favorite songs yet"
+  },
+  "performanceGrade": {
+    "yourGrade": "Your Grade",
+    "topGrade": "Top: {{grade}}",
+    "perfect": "Perfect!",
+    "excellent": "Excellent!",
+    "watchPacing": "Watch your pacing:",
+    "practicePronunciation": "Practice this pronunciation:",
+    "missedPart": "You missed this part:",
+    "complete": "Complete",
+    "next": "Next",
+    "post": "Post"
+  },
+  "purchaseCredits": {
+    "title": "Get Karaoke Credits",
+    "priceLabel": "USDC",
+    "description": "for {{count}} credits",
+    "purchase": "Buy",
+    "cancel": "Cancel"
+  },
+  "segmentPicker": {
+    "title": "Choose a Segment",
+    "description": "Select which part of the song you want to sing",
+    "owned": "Owned",
+    "duration": "{{seconds}}s",
+    "confirm": "Confirm"
+  },
+  "generateKaraoke": {
+    "title": "Generate Karaoke",
+    "description": "This song needs karaoke generation first",
+    "prompt": "Describe what you want to focus on (optional)",
+    "generate": "Generate",
+    "estimatedTime": "~2 minutes"
+  }
+}

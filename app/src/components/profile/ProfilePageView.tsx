@@ -7,7 +7,7 @@ import { MobileFooter } from '../navigation/MobileFooter'
 import { BackButton } from '@/components/ui/back-button'
 import { SubscriptionDialog } from './SubscriptionDialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Leaderboard, type LeaderboardEntry } from '@/components/school/Leaderboard'
+import { Leaderboard, type LeaderboardEntry } from '@/components/class/Leaderboard'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 export interface ProfilePageViewProps {

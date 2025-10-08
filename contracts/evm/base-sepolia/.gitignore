@@ -1,0 +1,11 @@
+# Build artifacts
+out/
+cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Broadcast logs
+broadcast/

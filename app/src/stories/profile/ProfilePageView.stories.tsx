@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ProfilePageView, type Video } from '@/components/profile/ProfilePageView'
-import type { LeaderboardEntry } from '@/components/school/Leaderboard'
+import type { LeaderboardEntry } from '@/components/class/Leaderboard'
 
 const meta = {
   title: 'Profile/ProfilePageView',

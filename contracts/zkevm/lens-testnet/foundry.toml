@@ -1,0 +1,19 @@
+[profile.default]
+src = "."
+out = "out"
+libs = ["lib"]
+fallback_oz = false
+mode = "3"
+solc = "0.8.19"
+
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "SongCatalog/=SongCatalog/",
+    "StudyProgress/=StudyProgress/",
+    "TrendingTracker/=TrendingTracker/",
+    "SongQuiz/=SongQuiz/"
+]
+
+# Lens Testnet configuration (zkSync)
+[rpc_endpoints]
+lens_testnet = "https://rpc.testnet.lens.xyz"

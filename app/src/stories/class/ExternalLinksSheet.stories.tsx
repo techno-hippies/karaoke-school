@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
-import { ExternalLinksSheet } from '@/components/school/ExternalLinksSheet'
+import { ExternalLinksSheet } from '@/components/class/ExternalLinksSheet'
 import { Button } from '@/components/ui/button'
 
 const meta = {
