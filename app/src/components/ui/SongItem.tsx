@@ -9,6 +9,8 @@ export interface SongItemProps {
   artist: string
   /** Optional album art URL */
   artworkUrl?: string
+  /** Is this song free (no credits required)? */
+  isFree?: boolean
   /** Show play/pause button overlay */
   showPlayButton?: boolean
   /** Is this song currently playing? */
@@ -17,6 +19,8 @@ export interface SongItemProps {
   onPlayClick?: () => void
   /** Called when the entire row is clicked */
   onClick?: () => void
+  /** Optional rank number to show on the left */
+  rank?: number
   /** Optional className for additional styling */
   className?: string
 }
@@ -29,15 +33,26 @@ export function SongItem({
   title,
   artist,
   artworkUrl,
+  isFree = false,
   showPlayButton = false,
   isPlaying = false,
   onPlayClick,
   onClick,
+  rank,
   className,
 }: SongItemProps) {
   return (
     <Item variant="default" asChild className={cn("gap-3 p-2", className)}>
       <button onClick={onClick} className="w-full cursor-pointer hover:bg-secondary/50 transition-colors">
+        {/* Rank */}
+        {rank !== undefined && (
+          <div className="flex items-center justify-center w-6 flex-shrink-0">
+            <span className="text-base font-semibold text-muted-foreground">
+              {rank}
+            </span>
+          </div>
+        )}
+
         <ItemMedia variant="image" className="size-12 self-center translate-y-0">
           <div className="relative w-full h-full group">
             {/* Artwork or Gradient Fallback */}
@@ -76,10 +91,19 @@ export function SongItem({
           </div>
         </ItemMedia>
 
-        <ItemContent className="min-w-0 gap-0.5">
-          <ItemTitle className="w-full truncate text-left text-base font-semibold">{title}</ItemTitle>
+        <ItemContent className="min-w-0 gap-0.5 flex-1">
+          <ItemTitle className="w-full truncate text-left">{title}</ItemTitle>
           <ItemDescription className="w-full truncate text-left line-clamp-1">{artist}</ItemDescription>
         </ItemContent>
+
+        {/* Free Badge */}
+        {isFree && (
+          <div className="flex-shrink-0 self-center">
+            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+              FREE
+            </span>
+          </div>
+        )}
       </button>
     </Item>
   )

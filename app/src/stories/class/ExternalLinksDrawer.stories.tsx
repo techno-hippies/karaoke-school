@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 const meta = {
-  title: 'School/ExternalLinksDrawer',
+  title: 'Class/ExternalLinksDrawer',
   component: ExternalLinksDrawer,
   parameters: {
     layout: 'centered',

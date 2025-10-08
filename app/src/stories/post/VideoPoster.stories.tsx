@@ -60,7 +60,6 @@ export const Default: Story = {
   args: {
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     karaokeLines: sampleKaraokeLines,
-    currentTime: 1,
     onBack: () => console.log('Back clicked'),
     onPost: () => console.log('Post clicked'),
   },

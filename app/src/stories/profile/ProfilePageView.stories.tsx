@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ProfilePageView, type Video } from '@/components/profile/ProfilePageView'
+import type { LeaderboardEntry } from '@/components/school/Leaderboard'
 
 const meta = {
   title: 'Profile/ProfilePageView',
@@ -27,6 +28,30 @@ const mockVideos: Video[] = Array.from({ length: 18 }, (_, i) => ({
   isPremium: i % 3 === 0,
 }))
 
+const mockFavoriteArtists: LeaderboardEntry[] = [
+  {
+    rank: 1,
+    username: 'Taylor Swift',
+    score: 12847,
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=taylorswift',
+    onProfileClick: () => console.log('Navigate to Taylor Swift'),
+  },
+  {
+    rank: 2,
+    username: 'The Weeknd',
+    score: 9234,
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=theweeknd',
+    onProfileClick: () => console.log('Navigate to The Weeknd'),
+  },
+  {
+    rank: 3,
+    username: 'Billie Eilish',
+    score: 7891,
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=billieeilish',
+    onProfileClick: () => console.log('Navigate to Billie Eilish'),
+  },
+]
+
 /**
  * Own profile - authenticated user viewing their own profile
  */
@@ -36,7 +61,6 @@ export const OwnProfile: Story = {
       username: 'alice.lens',
       displayName: 'Alice Johnson',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alice',
-      bio: 'Product designer & creative technologist 🎨',
       following: 892,
       followers: 1250,
       isVerified: true,
@@ -44,6 +68,7 @@ export const OwnProfile: Story = {
     },
     videos: mockVideos,
     videosLoading: false,
+    favoriteArtists: mockFavoriteArtists,
     followState: {
       isFollowing: false,
       isLoading: false,
@@ -74,7 +99,6 @@ export const OtherProfileNotFollowing: Story = {
       username: 'bob.lens',
       displayName: 'Bob Smith',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob',
-      bio: 'Building cool stuff on Lens Protocol',
       following: 234,
       followers: 5670,
       isVerified: false,
@@ -112,7 +136,6 @@ export const OtherProfileFollowing: Story = {
       username: 'charlie.lens',
       displayName: 'Charlie Davis',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=charlie',
-      bio: 'Content creator | Photographer | Travel enthusiast',
       following: 1500,
       followers: 125000,
       isVerified: true,
@@ -120,6 +143,7 @@ export const OtherProfileFollowing: Story = {
     },
     videos: mockVideos,
     videosLoading: false,
+    favoriteArtists: mockFavoriteArtists,
     followState: {
       isFollowing: true,
       isLoading: false,
@@ -150,7 +174,6 @@ export const LoadingVideos: Story = {
       username: 'diana.lens',
       displayName: 'Diana Lee',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diana',
-      bio: 'Artist & Creator',
       following: 456,
       followers: 789,
       isVerified: false,
@@ -225,7 +248,6 @@ export const FollowLoading: Story = {
       username: 'emma.lens',
       displayName: 'Emma Wilson',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=emma',
-      bio: 'Developer building on Web3',
       following: 678,
       followers: 2340,
       isVerified: false,
@@ -263,7 +285,6 @@ export const NotConnected: Story = {
       username: 'frank.lens',
       displayName: 'Frank Miller',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=frank',
-      bio: 'Content creator',
       following: 345,
       followers: 12000,
       isVerified: true,
@@ -278,6 +299,44 @@ export const NotConnected: Story = {
     activeTab: 'profile',
     mobileTab: 'profile',
     isConnected: false,
+    onDesktopTabChange: (tab) => console.log('Desktop tab:', tab),
+    onMobileTabChange: (tab) => console.log('Mobile tab:', tab),
+    onConnectWallet: () => console.log('Connect wallet'),
+    onDisconnect: () => console.log('Disconnect'),
+    onEditProfile: () => console.log('Edit profile'),
+    onFollowClick: () => console.log('Follow'),
+    onMessageClick: () => console.log('Message'),
+    onShareProfile: () => console.log('Share'),
+    onVideoClick: (video) => console.log('Video clicked:', video.id),
+    onNavigateHome: () => console.log('Navigate home'),
+  },
+}
+
+/**
+ * No favorite artists - empty state
+ */
+export const NoFavoriteArtists: Story = {
+  args: {
+    profile: {
+      username: 'grace.lens',
+      displayName: 'Grace Kim',
+      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=grace',
+      following: 23,
+      followers: 45,
+      isVerified: false,
+      isOwnProfile: true,
+    },
+    videos: mockVideos,
+    videosLoading: false,
+    favoriteArtists: [],
+    followState: {
+      isFollowing: false,
+      isLoading: false,
+    },
+    activeTab: 'profile',
+    mobileTab: 'profile',
+    isConnected: true,
+    walletAddress: '0x1234567890123456789012345678901234567890',
     onDesktopTabChange: (tab) => console.log('Desktop tab:', tab),
     onMobileTabChange: (tab) => console.log('Mobile tab:', tab),
     onConnectWallet: () => console.log('Connect wallet'),

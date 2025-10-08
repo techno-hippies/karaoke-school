@@ -16,13 +16,11 @@ export interface EditProfileViewProps {
   profilePhoto?: string
   displayName: string
   username: string
-  bio: string
   socialLinks: SocialLinks
 
   // Handlers
   onPhotoChange?: (file: File) => void
   onDisplayNameChange?: (value: string) => void
-  onBioChange?: (value: string) => void
   onSocialLinkChange?: (platform: 'twitter' | 'instagram' | 'website', url: string) => void
   onSave?: () => void
   onCancel?: () => void
@@ -38,11 +36,9 @@ export function EditProfileView({
   profilePhoto,
   displayName,
   username,
-  bio,
   socialLinks,
   onPhotoChange,
   onDisplayNameChange,
-  onBioChange,
   onSocialLinkChange,
   onSave,
   onCancel,
@@ -79,18 +75,6 @@ export function EditProfileView({
           label="Username"
           value={`@${username}`}
           readOnly
-        />
-
-        {/* Bio */}
-        <FormField
-          label="Bio"
-          value={bio}
-          onChange={onBioChange}
-          placeholder="Tell us about yourself"
-          multiline
-          rows={3}
-          maxLength={80}
-          showCharCount
         />
 
         {/* Social Links - Always Visible Fields */}
