@@ -10,5 +10,9 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    conditions: ['import', 'module', 'browser', 'default'],
+  },
+  optimizeDeps: {
+    include: ['@lens-chain/sdk/viem'],
   },
 })

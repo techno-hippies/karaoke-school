@@ -1,6 +1,23 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { WagmiProvider } from 'wagmi'
+import { ConnectKitProvider, getParticleConfig } from './lib/particle/client'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
+
+// React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
+
+// Get Particle config (which includes wagmi config)
+const particleConfig = getParticleConfig()
 
 // Placeholder pages - we'll create these properly
 function HomePage() {
@@ -64,6 +81,17 @@ function AppRouter() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home')
 
+  // Get auth context
+  const { isWalletConnected, walletAddress, connectWallet, disconnectWallet } = useAuth()
+
+  // Debug: Log auth state
+  useEffect(() => {
+    console.log('[App] Auth state:', {
+      isWalletConnected,
+      walletAddress,
+    })
+  }, [isWalletConnected, walletAddress])
+
   // Sync active tab with current route
   useEffect(() => {
     const pathToTab: Record<string, 'home' | 'study' | 'post' | 'inbox' | 'profile'> = {
@@ -92,8 +120,10 @@ function AppRouter() {
     <AppLayout
       activeTab={activeTab}
       onTabChange={handleTabChange}
-      isConnected={false}
-      onConnectWallet={() => console.log('Connect wallet')}
+      isConnected={isWalletConnected}
+      walletAddress={walletAddress || undefined}
+      onConnectWallet={connectWallet}
+      onDisconnect={disconnectWallet}
     >
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -110,9 +140,17 @@ function AppRouter() {
 
 function App() {
   return (
-    <HashRouter>
-      <AppRouter />
-    </HashRouter>
+    <QueryClientProvider client={queryClient}>
+      <ConnectKitProvider config={particleConfig}>
+        <WagmiProvider config={particleConfig}>
+          <AuthProvider>
+            <HashRouter>
+              <AppRouter />
+            </HashRouter>
+          </AuthProvider>
+        </WagmiProvider>
+      </ConnectKitProvider>
+    </QueryClientProvider>
   )
 }
 

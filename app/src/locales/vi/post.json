@@ -1,0 +1,46 @@
+{
+  "songSelect": {
+    "title": "Chọn Bài Hát",
+    "trending": "Thịnh hành",
+    "favorites": "Yêu thích",
+    "search": "Tìm kiếm bài hát...",
+    "credits": "{{count}} tín dụng",
+    "needsGeneration": "Tạo Karaoke",
+    "free": "Miễn phí",
+    "emptyTrending": "Chưa có bài hát thịnh hành",
+    "emptyFavorites": "Chưa có bài hát yêu thích"
+  },
+  "performanceGrade": {
+    "yourGrade": "Điểm của bạn",
+    "topGrade": "Cao nhất: {{grade}}",
+    "perfect": "Hoàn hảo!",
+    "excellent": "Xuất sắc!",
+    "watchPacing": "Chú ý nhịp độ:",
+    "practicePronunciation": "Luyện phát âm:",
+    "missedPart": "Bạn đã bỏ lỡ phần này:",
+    "complete": "Hoàn thành",
+    "next": "Tiếp theo",
+    "post": "Đăng"
+  },
+  "purchaseCredits": {
+    "title": "Nhận Tín Dụng Karaoke",
+    "priceLabel": "USDC",
+    "description": "cho {{count}} tín dụng",
+    "purchase": "Mua",
+    "cancel": "Hủy"
+  },
+  "segmentPicker": {
+    "title": "Chọn Đoạn Nhạc",
+    "description": "Chọn phần bài hát bạn muốn hát",
+    "owned": "Đã sở hữu",
+    "duration": "{{seconds}}s",
+    "confirm": "Xác nhận"
+  },
+  "generateKaraoke": {
+    "title": "Tạo Karaoke",
+    "description": "Bài hát này cần tạo karaoke trước",
+    "prompt": "Mô tả những gì bạn muốn tập trung (tùy chọn)",
+    "generate": "Tạo",
+    "estimatedTime": "~2 phút"
+  }
+}

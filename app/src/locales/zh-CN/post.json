@@ -1,0 +1,46 @@
+{
+  "songSelect": {
+    "title": "选择歌曲",
+    "trending": "热门",
+    "favorites": "收藏",
+    "search": "搜索歌曲...",
+    "credits": "{{count}} 积分",
+    "needsGeneration": "生成卡拉OK",
+    "free": "免费",
+    "emptyTrending": "暂无热门歌曲",
+    "emptyFavorites": "暂无收藏歌曲"
+  },
+  "performanceGrade": {
+    "yourGrade": "你的成绩",
+    "topGrade": "最高: {{grade}}",
+    "perfect": "完美!",
+    "excellent": "优秀!",
+    "watchPacing": "注意节奏:",
+    "practicePronunciation": "练习发音:",
+    "missedPart": "你错过了这部分:",
+    "complete": "完成",
+    "next": "下一步",
+    "post": "发布"
+  },
+  "purchaseCredits": {
+    "title": "获取卡拉OK积分",
+    "priceLabel": "USDC",
+    "description": "{{count}} 积分",
+    "purchase": "购买",
+    "cancel": "取消"
+  },
+  "segmentPicker": {
+    "title": "选择片段",
+    "description": "选择你想演唱的歌曲部分",
+    "owned": "已拥有",
+    "duration": "{{seconds}}秒",
+    "confirm": "确认"
+  },
+  "generateKaraoke": {
+    "title": "生成卡拉OK",
+    "description": "此歌曲需要先生成卡拉OK",
+    "prompt": "描述你想重点关注的内容(可选)",
+    "generate": "生成",
+    "estimatedTime": "约2分钟"
+  }
+}

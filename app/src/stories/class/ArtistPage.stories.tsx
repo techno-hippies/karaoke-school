@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ArtistPage } from '@/components/school/ArtistPage'
-import type { ArtistSong } from '@/components/school/ArtistPage'
+import { ArtistPage } from '@/components/class/ArtistPage'
+import type { ArtistSong } from '@/components/class/ArtistPage'
 
 const meta = {
   title: 'Class/ArtistPage',

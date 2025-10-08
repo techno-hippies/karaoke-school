@@ -121,7 +121,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               variant="default"
               className="w-full"
             >
-              Sign In
+              Connect
             </Button>
           )}
         </div>

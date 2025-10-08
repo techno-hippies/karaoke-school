@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, fn, userEvent, within } from 'storybook/test'
 import { PurchaseCreditsDialog } from '@/components/post/PurchaseCreditsDialog'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import i18n from '@/i18n/config'
 
 const meta = {
   title: 'Post/PurchaseCreditsDialog',
@@ -12,7 +14,7 @@ const meta = {
       default: 'dark',
     },
   },
-  tags: ['autodocs'],
+  tags: ['autodocs', 'vitest'], // Use 'vitest' tag to enable testing for this story only
 } satisfies Meta<typeof PurchaseCreditsDialog>
 
 export default meta
@@ -31,7 +33,7 @@ export const Default: Story = {
 }
 
 /**
- * Interactive - Click button to open
+ * Interactive - Click button to open (manual testing)
  */
 export const Interactive: Story = {
   render: () => {
@@ -62,5 +64,79 @@ export const Interactive: Story = {
         />
       </div>
     )
+  },
+}
+
+/**
+ * Test: User clicks Buy button
+ * Verifies the main CTA works and callback fires
+ */
+export const ClickBuy: Story = {
+  args: {
+    open: true,
+    price: '$10',
+    creditAmount: 20,
+    onPurchase: fn(), // Mock function for spying
+  },
+  play: async ({ args }) => {
+    // Radix dialogs are portaled to document.body
+    const body = within(document.body)
+
+    const title = await body.findByText('Get Karaoke Credits')
+    await expect(title).toBeInTheDocument()
+
+    await expect(body.getByText('$10')).toBeInTheDocument()
+    await expect(body.getByText('for 20 credits')).toBeInTheDocument()
+
+    // Find and click the Buy button
+    const buyButton = body.getByRole('button', { name: 'Buy' })
+    await userEvent.click(buyButton)
+
+    // Verify the callback was called
+    await expect(args.onPurchase).toHaveBeenCalledOnce()
+  },
+}
+
+/**
+ * Test: Multi-language rendering
+ * Verifies component works in all 3 supported languages
+ */
+export const AllLanguages: Story = {
+  args: {
+    open: true,
+    price: '$10',
+    creditAmount: 20,
+    onPurchase: () => console.log('Purchase clicked'),
+  },
+  play: async () => {
+    // Radix dialogs are portaled to document.body
+    const body = within(document.body)
+
+    // Test English (default) - wait for dialog to appear
+    await i18n.changeLanguage('en')
+    const englishTitle = await body.findByText('Get Karaoke Credits')
+    await expect(englishTitle).toBeInTheDocument()
+    await expect(body.getByText('USDC')).toBeInTheDocument()
+    await expect(body.getByText('for 20 credits')).toBeInTheDocument()
+    await expect(body.getByRole('button', { name: 'Buy' })).toBeInTheDocument()
+
+    // Test Chinese - wait for text to update
+    await i18n.changeLanguage('zh-CN')
+    const chineseTitle = await body.findByText('获取卡拉OK积分')
+    await expect(chineseTitle).toBeInTheDocument()
+    await expect(body.getByText('USDC')).toBeInTheDocument()
+    await expect(body.getByText('20 积分')).toBeInTheDocument()
+    await expect(body.getByRole('button', { name: '购买' })).toBeInTheDocument()
+
+    // Test Vietnamese - wait for text to update
+    await i18n.changeLanguage('vi')
+    const vietnameseTitle = await body.findByText('Nhận Tín Dụng Karaoke')
+    await expect(vietnameseTitle).toBeInTheDocument()
+    await expect(body.getByText('USDC')).toBeInTheDocument()
+    await expect(body.getByText('cho 20 tín dụng')).toBeInTheDocument()
+    await expect(body.getByRole('button', { name: 'Mua' })).toBeInTheDocument()
+
+    // Reset to English for other tests
+    await i18n.changeLanguage('en')
   },
 }

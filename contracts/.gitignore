@@ -1,0 +1,7 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts (handled by subdirectories)
+# Each evm/ and zkevm/ has its own .gitignore

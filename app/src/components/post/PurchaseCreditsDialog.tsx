@@ -1,6 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
@@ -23,18 +26,30 @@ export function PurchaseCreditsDialog({
   price,
   creditAmount,
 }: PurchaseCreditsDialogProps) {
+  const { t } = useTranslation('post')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-6">
-        <div className="flex flex-col gap-6 text-center">
-          <h2 className="text-2xl font-bold text-foreground">Get Karaoke Credits</h2>
+        <DialogTitle className="text-2xl font-bold text-foreground text-center">
+          {t('purchaseCredits.title')}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Purchase {creditAmount} karaoke credits for {price} USDC
+        </DialogDescription>
 
+        <div className="flex flex-col gap-6 text-center">
           <div className="py-6">
-            <div className="text-5xl font-bold text-foreground mb-2">
-              {price}
+            <div className="flex items-baseline justify-center gap-2 mb-2">
+              <div className="text-5xl font-bold text-foreground">
+                {price}
+              </div>
+              <div className="text-lg text-muted-foreground">
+                {t('purchaseCredits.priceLabel')}
+              </div>
             </div>
             <p className="text-lg text-muted-foreground">
-              for {creditAmount} credits
+              {t('purchaseCredits.description', { count: creditAmount })}
             </p>
           </div>
 
@@ -43,7 +58,7 @@ export function PurchaseCreditsDialog({
             onClick={onPurchase}
             className="w-full"
           >
-            Buy
+            {t('purchaseCredits.purchase')}
           </Button>
         </div>
       </DialogContent>

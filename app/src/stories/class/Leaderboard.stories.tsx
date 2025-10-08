@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Leaderboard } from '@/components/school/Leaderboard'
+import { Leaderboard } from '@/components/class/Leaderboard'
 
 const meta = {
   title: 'Class/Leaderboard',

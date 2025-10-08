@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { StudyStats } from '@/components/school/StudyStats'
+import { StudyStats } from '@/components/class/StudyStats'
 
 const meta = {
   title: 'Class/StudyStats',
