@@ -22,7 +22,7 @@ export interface VideoPostData {
   username: string
   userHandle?: string // Display name (e.g., "Professional Vocalist")
   userAvatar?: string
-  description: string
+  grade?: string // Performance grade (A, B+, C, etc)
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
@@ -97,7 +97,6 @@ export interface VideoActionsProps {
 
 export interface VideoInfoProps {
   username: string
-  description?: string
   musicTitle?: string
   musicAuthor?: string
   onUsernameClick?: () => void

@@ -6,6 +6,7 @@ import { ExternalLinksSheet } from './ExternalLinksSheet'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/ui/back-button'
 import { Spinner } from '@/components/ui/spinner'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
 
@@ -19,7 +20,7 @@ export interface SongPageProps {
   artist: string
   artworkUrl?: string
   onBack?: () => void
-  onPlay?: () => void
+  onPlay: () => void // Required - play button is always shown
   isExternal?: boolean // true = external song (opens sheet), false = local (plays directly)
   externalSongLinks?: ExternalLink[]
   externalLyricsLinks?: ExternalLink[]
@@ -70,13 +71,7 @@ export function SongPage({
       </div>
 
       {/* Main content */}
-      <div
-        className="absolute top-0 left-0 right-0 bottom-0 overflow-y-auto"
-        style={{
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgb(64 64 64) transparent'
-        }}
-      >
+      <ScrollArea className="absolute top-0 left-0 right-0 bottom-0">
         {/* Album Art Hero */}
         <div className="relative w-full" style={{ height: 'min(384px, 40vh)' }}>
           {artworkUrl && (
@@ -102,27 +97,25 @@ export function SongPage({
                   {artist}
                 </p>
               </div>
-              {onPlay && (
-                <button
-                  onClick={() => {
-                    if (isExternal) {
-                      setIsExternalSheetOpen(true)
-                    } else {
-                      onPlay?.()
-                    }
-                  }}
-                  className={cn(
-                    "w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer",
-                    isExternal ? "bg-purple-600 hover:bg-purple-700" : "bg-red-500 hover:bg-red-600"
-                  )}
-                >
-                  {isExternal ? (
-                    <MusicNotes className="w-7 h-7 text-foreground" weight="fill" />
-                  ) : (
-                    <Play className="w-7 h-7 text-foreground" weight="fill" />
-                  )}
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (isExternal) {
+                    setIsExternalSheetOpen(true)
+                  } else {
+                    onPlay()
+                  }
+                }}
+                className={cn(
+                  "w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer",
+                  isExternal ? "bg-purple-600 hover:bg-purple-700" : "bg-primary hover:opacity-90"
+                )}
+              >
+                {isExternal ? (
+                  <MusicNotes className="w-7 h-7 text-foreground" weight="fill" />
+                ) : (
+                  <Play className="w-7 h-7 text-foreground" weight="fill" />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -144,7 +137,7 @@ export function SongPage({
             />
           </div>
         </div>
-      </div>
+      </ScrollArea>
 
       {/* Sticky Footer with Study and Karaoke Buttons */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">

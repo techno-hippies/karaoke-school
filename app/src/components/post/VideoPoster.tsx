@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/ui/back-button'
+import { VideoPlayer } from '@/components/feed/VideoPlayer'
 import { KaraokeOverlay } from '@/components/feed/KaraokeOverlay'
 import type { KaraokeLine } from '@/components/feed/types'
 
@@ -10,8 +11,6 @@ export interface VideoPosterProps {
   videoUrl?: string
   /** Karaoke lyrics to display at top */
   karaokeLines?: KaraokeLine[]
-  /** Current playback time for karaoke highlighting */
-  currentTime?: number
   /** Callback when back button is clicked */
   onBack?: () => void
   /** Callback when post button is clicked */
@@ -23,38 +22,44 @@ export interface VideoPosterProps {
 export function VideoPoster({
   videoUrl,
   karaokeLines,
-  currentTime = 0,
   onBack,
   onPost,
   className,
 }: VideoPosterProps) {
   const [isPlaying, setIsPlaying] = useState(true)
+  const [currentTime, setCurrentTime] = useState(0)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // Track video time for karaoke
+  useEffect(() => {
+    if (!videoContainerRef.current) return
+
+    const video = videoContainerRef.current.querySelector('video')
+    if (!video) return
+
+    const updateTime = () => setCurrentTime(video.currentTime)
+    video.addEventListener('timeupdate', updateTime)
+    return () => video.removeEventListener('timeupdate', updateTime)
+  }, [videoUrl])
 
   return (
     <div className={cn('relative h-screen w-full bg-black overflow-hidden', className)}>
       {/* Video preview - full screen, looping */}
-      {videoUrl ? (
-        <video
-          src={videoUrl}
-          className="absolute inset-0 w-full h-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-          onClick={() => setIsPlaying(!isPlaying)}
+      <div ref={videoContainerRef} className="absolute inset-0">
+        <VideoPlayer
+          videoUrl={videoUrl}
+          isPlaying={isPlaying}
+          isMuted={false}
+          onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-          <p className="text-foreground/60 text-lg">No video recorded</p>
-        </div>
-      )}
+      </div>
 
       {/* Karaoke lyrics at top */}
-      {karaokeLines && (
+      {karaokeLines && karaokeLines.length > 0 && (
         <KaraokeOverlay
           lines={karaokeLines}
           currentTime={currentTime}
-          className="pt-16"
+          className="pt-16 pointer-events-none z-10"
           showNextLine={true}
         />
       )}

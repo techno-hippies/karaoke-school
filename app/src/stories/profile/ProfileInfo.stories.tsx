@@ -25,7 +25,6 @@ type Story = StoryObj<typeof meta>
 export const UsernameOnly: Story = {
   args: {
     username: 'alice.lens',
-    bio: 'Building in public 🚀',
   },
 }
 
@@ -36,7 +35,6 @@ export const WithDisplayName: Story = {
   args: {
     username: 'alice.lens',
     displayName: 'Alice Johnson',
-    bio: 'Product designer & creative technologist',
   },
 }
 
@@ -47,30 +45,17 @@ export const Verified: Story = {
   args: {
     username: 'vitalik.lens',
     displayName: 'Vitalik Buterin',
-    bio: 'Ethereum co-founder',
     isVerified: true,
   },
 }
 
 /**
- * No bio
+ * New user with minimal info
  */
-export const NoBio: Story = {
+export const NewUser: Story = {
   args: {
     username: 'newuser.lens',
     displayName: 'New User',
-  },
-}
-
-/**
- * Long bio
- */
-export const LongBio: Story = {
-  args: {
-    username: 'creator.lens',
-    displayName: 'Content Creator',
-    bio: 'Professional photographer and videographer sharing my journey through stunning landscapes and urban exploration. Follow for daily inspiration and behind-the-scenes content.',
-    isVerified: true,
   },
 }
 
@@ -81,7 +66,6 @@ export const LeftAligned: Story = {
   args: {
     username: 'alice.lens',
     displayName: 'Alice Johnson',
-    bio: 'Building in public 🚀',
     isVerified: true,
     alignment: 'left',
   },
@@ -94,7 +78,6 @@ export const CenterAligned: Story = {
   args: {
     username: 'alice.lens',
     displayName: 'Alice Johnson',
-    bio: 'Building in public 🚀',
     isVerified: true,
     alignment: 'center',
   },

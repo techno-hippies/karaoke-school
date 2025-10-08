@@ -8,7 +8,6 @@ export interface ProfileHeaderProps {
   username: string
   displayName?: string
   avatarUrl: string
-  bio?: string
   following: number
   followers: number
   isVerified?: boolean
@@ -32,7 +31,6 @@ export function ProfileHeader({
   username,
   displayName,
   avatarUrl,
-  bio,
   following,
   followers,
   isVerified = false,
@@ -67,7 +65,6 @@ export function ProfileHeader({
           <ProfileInfo
             username={username}
             displayName={displayName}
-            bio={bio}
             isVerified={isVerified}
             alignment="center"
           />

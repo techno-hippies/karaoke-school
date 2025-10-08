@@ -4,20 +4,18 @@ import { cn } from '@/lib/utils'
 export interface ProfileInfoProps {
   username: string
   displayName?: string
-  bio?: string
   isVerified?: boolean
   alignment?: 'left' | 'center'
   className?: string
 }
 
 /**
- * ProfileInfo - Username, display name, bio, and verified badge
+ * ProfileInfo - Username, display name, and verified badge
  * Responsive text sizes and auto-responsive alignment
  */
 export function ProfileInfo({
   username,
   displayName,
-  bio,
   isVerified = false,
   alignment = 'center',
   className
@@ -51,13 +49,6 @@ export function ProfileInfo({
         <h2 className="text-base md:text-xl text-neutral-400 mb-2 md:mb-4">
           @{username}
         </h2>
-      )}
-
-      {/* Bio */}
-      {bio && (
-        <p className="text-base md:text-lg text-neutral-300 mt-2 md:mt-0 mb-4">
-          {bio}
-        </p>
       )}
     </div>
   )

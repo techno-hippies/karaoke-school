@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MagnifyingGlass, X, Check } from '@phosphor-icons/react'
+import { MagnifyingGlass, X } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { SongItem } from '@/components/ui/SongItem'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -9,17 +9,22 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group'
-import {
-  Drawer,
-  DrawerContent,
-} from '@/components/ui/drawer'
+import { SegmentPickerDrawer, type SongSegment } from './SegmentPickerDrawer'
+import { GenerateKaraokeDrawer } from './GenerateKaraokeDrawer'
+import { PurchaseCreditsDialog } from './PurchaseCreditsDialog'
 import { cn } from '@/lib/utils'
+
+// Re-export for convenience
+export type { SongSegment } from './SegmentPickerDrawer'
 
 export interface Song {
   id: string
   title: string
   artist: string
   artworkUrl?: string
+  isFree?: boolean
+  isProcessed?: boolean  // Has karaoke segments been generated?
+  segments?: SongSegment[]  // Available segments
 }
 
 export interface SongSelectPageProps {
@@ -32,13 +37,15 @@ export interface SongSelectPageProps {
   /** User's favorite songs */
   favoriteSongs?: Song[]
   /** Called when a song is selected (after confirmation/purchase) */
-  onSelectSong?: (song: Song) => void
+  onSelectSong?: (song: Song, segment: SongSegment) => void
   /** Number of credits user currently has */
   userCredits?: number
   /** Called when user purchases credits */
   onPurchaseCredits?: () => void
   /** Called when user confirms credit usage */
-  onConfirmCredit?: (song: Song) => void
+  onConfirmCredit?: (song: Song, segment: SongSegment) => void
+  /** Called when user initiates karaoke generation for a song */
+  onGenerateKaraoke?: (song: Song) => void
   /** Optional className */
   className?: string
 }
@@ -60,41 +67,82 @@ export function SongSelectPage({
   userCredits = 0,
   onPurchaseCredits,
   onConfirmCredit,
+  onGenerateKaraoke,
   className,
 }: SongSelectPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSheet, setShowSheet] = useState(false)
   const [selectedSong, setSelectedSong] = useState<Song | null>(null)
+  const [selectedSegment, setSelectedSegment] = useState<SongSegment | null>(null)
+  const [drawerMode, setDrawerMode] = useState<'generate' | 'segment' | 'purchase'>('segment')
 
   const hasCredits = userCredits > 0
 
   const handleSongClick = (song: Song) => {
+    // Free songs skip credit flow
+    if (song.isFree) {
+      // TODO: Still need segment picker for free songs?
+      // For now, skip everything
+      onClose()
+      return
+    }
+
+    // Set selected song
     setSelectedSong(song)
+    setSelectedSegment(null) // Reset segment
+
+    // Determine which drawer to show
+    if (!song.isProcessed) {
+      // Song needs karaoke generation first
+      setDrawerMode('generate')
+    } else {
+      // Song is processed - show segment picker
+      setDrawerMode('segment')
+    }
+
     setShowSheet(true)
+  }
+
+  const handleGenerate = () => {
+    if (selectedSong) {
+      onGenerateKaraoke?.(selectedSong)
+    }
+    setShowSheet(false)
+    onClose()
+  }
+
+  const handleSegmentSelect = (segment: SongSegment) => {
+    setSelectedSegment(segment)
+
+    // If segment is already owned, skip payment and proceed directly
+    if (segment.isOwned) {
+      if (selectedSong) {
+        onSelectSong?.(selectedSong, segment)
+      }
+      setShowSheet(false)
+      onClose()
+      return
+    }
+
+    // For locked segments, check if user has credits
+    if (hasCredits) {
+      // User has credits - trigger payment/confirm directly
+      if (selectedSong) {
+        onConfirmCredit?.(selectedSong, segment)
+        onSelectSong?.(selectedSong, segment)
+      }
+      setShowSheet(false)
+      onClose()
+    } else {
+      // User needs to buy credits first
+      setDrawerMode('purchase')
+    }
   }
 
   const handlePurchase = () => {
     onPurchaseCredits?.()
     setShowSheet(false)
-    // Optionally select the song after purchase
-    if (selectedSong) {
-      onSelectSong?.(selectedSong)
-    }
     onClose()
-  }
-
-  const handleConfirm = () => {
-    if (selectedSong) {
-      onConfirmCredit?.(selectedSong)
-      onSelectSong?.(selectedSong)
-    }
-    setShowSheet(false)
-    onClose()
-  }
-
-  const handleCancel = () => {
-    setShowSheet(false)
-    setSelectedSong(null)
   }
 
   const filterSongs = (songs: Song[]) => {
@@ -171,6 +219,7 @@ export function SongSelectPage({
                         title={song.title}
                         artist={song.artist}
                         artworkUrl={song.artworkUrl}
+                        isFree={song.isFree}
                         onClick={() => handleSongClick(song)}
                       />
                     ))
@@ -196,6 +245,7 @@ export function SongSelectPage({
                         title={song.title}
                         artist={song.artist}
                         artworkUrl={song.artworkUrl}
+                        isFree={song.isFree}
                         onClick={() => handleSongClick(song)}
                       />
                     ))
@@ -213,87 +263,34 @@ export function SongSelectPage({
         </div>
       </div>
 
-      {/* Credits Drawer - Purchase or Confirm */}
-      <Drawer open={showSheet} onOpenChange={setShowSheet}>
-        <DrawerContent className="p-4 flex flex-col">
-          {/* Confirm Credit Usage */}
-          {hasCredits && selectedSong ? (
-            <div className="flex flex-col items-center gap-4">
-                {/* Song artwork */}
-                <div className="w-32 h-32 rounded-lg overflow-hidden">
-                  {selectedSong.artworkUrl ? (
-                    <img
-                      src={selectedSong.artworkUrl}
-                      alt={selectedSong.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
-                      <span className="text-5xl">🎤</span>
-                    </div>
-                  )}
-                </div>
+      {/* Generate Karaoke Drawer */}
+      <GenerateKaraokeDrawer
+        open={showSheet && drawerMode === 'generate'}
+        onOpenChange={setShowSheet}
+        onGenerate={handleGenerate}
+      />
 
-                {/* Song details */}
-                <div className="w-full text-center">
-                  <h3 className="text-xl font-bold text-foreground">
-                    {selectedSong.title}
-                  </h3>
-                  <p className="text-base text-muted-foreground mt-1">
-                    {selectedSong.artist}
-                  </p>
-                </div>
+      {/* Segment Picker Drawer */}
+      {selectedSong && selectedSong.segments && (
+        <SegmentPickerDrawer
+          open={showSheet && drawerMode === 'segment'}
+          onOpenChange={setShowSheet}
+          songTitle={selectedSong.title}
+          songArtist={selectedSong.artist}
+          songArtwork={selectedSong.artworkUrl}
+          segments={selectedSong.segments}
+          onSelectSegment={handleSegmentSelect}
+        />
+      )}
 
-                {/* Credit info */}
-                <div className="w-full bg-muted/30 rounded-lg p-4 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Use 1 credit for this song
-                  </p>
-                  <p className="text-base font-semibold text-foreground mt-1">
-                    {userCredits - 1} credits remaining after
-                  </p>
-                </div>
-
-                {/* Action buttons */}
-                <div className="w-full space-y-2">
-                  <Button
-                    size="lg"
-                    onClick={handleConfirm}
-                    className="w-full"
-                  >
-                    Confirm
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={handleCancel}
-                    className="w-full"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-          ) : (
-            /* Purchase Credits */
-            <div className="flex flex-col items-center gap-4 text-center">
-                {/* Header */}
-                <div className="w-full">
-                  <h2 className="text-2xl font-bold text-foreground">Get Karaoke Credits</h2>
-                  <p className="text-base text-muted-foreground mt-1">$5 for 10 songs</p>
-                </div>
-
-                {/* Purchase Button */}
-                <Button
-                  size="lg"
-                  onClick={handlePurchase}
-                  className="w-full"
-                >
-                  Buy
-                </Button>
-              </div>
-          )}
-        </DrawerContent>
-      </Drawer>
+      {/* Purchase Credits Dialog */}
+      <PurchaseCreditsDialog
+        open={showSheet && drawerMode === 'purchase'}
+        onOpenChange={setShowSheet}
+        price="$10"
+        creditAmount={20}
+        onPurchase={handlePurchase}
+      />
     </>
   )
 }

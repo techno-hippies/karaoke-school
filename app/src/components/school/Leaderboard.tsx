@@ -42,6 +42,13 @@ export function Leaderboard({
             className="gap-3 p-2 hover:bg-secondary/50 transition-colors"
           >
             <button onClick={entry.onProfileClick} className="w-full cursor-pointer">
+              {/* Rank */}
+              <div className="flex items-center justify-center w-6 flex-shrink-0">
+                <span className="text-base font-semibold text-muted-foreground">
+                  {entry.rank}
+                </span>
+              </div>
+
               {/* Avatar */}
               <ItemMedia variant="image" className="size-12 self-center translate-y-0">
                 {entry.avatarUrl ? (

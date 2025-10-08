@@ -31,7 +31,7 @@ export function VideoPost({
   thumbnailUrl,
   username,
   userAvatar,
-  description,
+  grade,
   musicTitle,
   musicAuthor,
   musicImageUrl,
@@ -129,7 +129,6 @@ export function VideoPost({
         <div className="absolute bottom-4 left-6 right-20 z-20 max-md:hidden">
           <VideoInfo
             username={username}
-            description={description}
             musicTitle={musicTitle}
             musicAuthor={musicAuthor}
             onUsernameClick={onProfileClick}
@@ -142,7 +141,6 @@ export function VideoPost({
       <div className="md:hidden absolute bottom-0 left-0 right-0 p-6 pb-4 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10">
         <VideoInfo
           username={username}
-          description={description}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
           onUsernameClick={onProfileClick}
@@ -221,7 +219,7 @@ export function VideoPost({
         open={shareSheetOpen}
         onOpenChange={setShareSheetOpen}
         postUrl={typeof window !== 'undefined' ? window.location.href : ''}
-        postDescription={description}
+        postDescription={`${username} got a ${grade || 'grade'} on ${musicTitle || 'karaoke'}`}
         onCopyLink={() => console.log('Link copied')}
         onDownload={() => console.log('Download video')}
       />

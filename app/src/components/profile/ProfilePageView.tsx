@@ -6,6 +6,9 @@ import { DesktopSidebar } from '../navigation/DesktopSidebar'
 import { MobileFooter } from '../navigation/MobileFooter'
 import { BackButton } from '@/components/ui/back-button'
 import { SubscriptionDialog } from './SubscriptionDialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Leaderboard, type LeaderboardEntry } from '@/components/school/Leaderboard'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export interface ProfilePageViewProps {
   // Profile data
@@ -13,7 +16,6 @@ export interface ProfilePageViewProps {
     username: string
     displayName?: string
     avatarUrl: string
-    bio?: string
     following: number
     followers: number
     isVerified: boolean
@@ -23,6 +25,9 @@ export interface ProfilePageViewProps {
   // Videos
   videos: Video[]
   videosLoading?: boolean
+
+  // Favorite Artists
+  favoriteArtists?: LeaderboardEntry[]
 
   // Follow state
   followState: {
@@ -59,6 +64,7 @@ export function ProfilePageView({
   profile,
   videos,
   videosLoading,
+  favoriteArtists = [],
   followState,
   activeTab,
   mobileTab,
@@ -91,7 +97,7 @@ export function ProfilePageView({
       />
 
       {/* Main Content - margin pushes content right of fixed sidebar */}
-      <div className="h-full overflow-y-auto md:ml-64">
+      <ScrollArea className="h-full md:ml-64">
         <div className="min-h-screen bg-neutral-900 pb-20 md:pb-0">
 
           {/* Desktop Logout - top right */}
@@ -138,7 +144,6 @@ export function ProfilePageView({
             username={profile.username}
             displayName={profile.displayName}
             avatarUrl={profile.avatarUrl}
-            bio={profile.bio}
             following={profile.following}
             followers={profile.followers}
             isVerified={profile.isVerified}
@@ -152,14 +157,37 @@ export function ProfilePageView({
             onMoreClick={onShareProfile}
           />
 
-          {/* Video Grid */}
-          <VideoGrid
-            videos={videos}
-            isLoading={videosLoading}
-            onVideoClick={onVideoClick}
-          />
+          {/* Tabs: Videos | Favorite Artists */}
+          <div className="mt-4 mb-4">
+            <Tabs defaultValue="videos" className="w-full">
+              <div className="px-4">
+                <TabsList className="w-full grid grid-cols-2 bg-muted/50">
+                  <TabsTrigger value="videos">Videos</TabsTrigger>
+                  <TabsTrigger value="artists">Favorite Artists</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="videos" className="mt-4">
+                <VideoGrid
+                  videos={videos}
+                  isLoading={videosLoading}
+                  onVideoClick={onVideoClick}
+                />
+              </TabsContent>
+
+              <TabsContent value="artists" className="mt-4 px-4">
+                {favoriteArtists.length > 0 ? (
+                  <Leaderboard entries={favoriteArtists} />
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No favorite artists yet
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
-      </div>
+      </ScrollArea>
 
       {/* Mobile Footer - only for own profile */}
       {profile.isOwnProfile && (
