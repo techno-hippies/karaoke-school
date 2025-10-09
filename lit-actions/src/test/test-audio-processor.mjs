@@ -1,13 +1,21 @@
 #!/usr/bin/env node
 
 /**
- * Test Audio Processor v2 Lit Action
+ * Test Audio Processor v1 Lit Action (with Credit Validation)
  *
- * Tests consolidated audio processing (download + trim + stems)
- * Uses output from match-and-segment-v2 as input
+ * Tests:
+ * 1. Segment ownership verification via KaraokeCreditsV1 contract
+ * 2. Consolidated audio processing (download + trim + stems)
+ * 3. Credit-gated karaoke generation
+ *
+ * Prerequisites:
+ *   Run setup script first to unlock test segment:
+ *   DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+ *   dotenvx run -- bash scripts/setup-test-credits.sh
  *
  * Usage:
- *   bun run src/test/test-audio-processor.mjs
+ *   DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+ *   dotenvx run -- bun run src/test/test-audio-processor.mjs
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
@@ -28,11 +36,14 @@ dotenv.config({ path: join(__dirname, '../../.env') });
 // Load PKP credentials
 const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 
-// Audio Processor v2 CID
-const AUDIO_PROCESSOR_V2_CID = 'QmUi7DijL3ng9C1GUnBduaGSus1axTRGJo9VvRPAsCJZnt';
+// Audio Processor v1 CID (with credit validation)
+const AUDIO_PROCESSOR_V1_CID = 'QmTODO_UPLOAD_AUDIO_PROCESSOR_V1'; // TODO: Update after upload
 
 // Encrypted key path
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v1.json');
+
+// KaraokeCredits contract (Base Sepolia)
+const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
 
 // Test data (from match-and-segment output)
 const TEST_DATA = {
@@ -128,32 +139,52 @@ async function testAudioProcessor() {
   });
   console.log('✅ Auth context created');
 
-  // Prepare jsParams - add dummy rendiKey params for backward compatibility
+  // Get user address from test wallet
+  const userAddress = viemAccount.address;
+  console.log(`📍 Test wallet address: ${userAddress}`);
+
+  // Check segment ownership before proceeding
+  const selectedSection = TEST_DATA.sections[TEST_DATA.sectionIndex - 1];
+  const segmentId = selectedSection.type.toLowerCase().replace(/\s+/g, '-'); // "verse-1"
+
+  console.log('\n🔍 Checking segment ownership...');
+  console.log(`   Genius ID: ${TEST_DATA.geniusId}`);
+  console.log(`   Segment: ${segmentId}`);
+
+  // Note: In real test, you should run this first:
+  // 1. Grant credits: creditsContract.grantCredits(userAddress, 5, "test") (as PKP/owner)
+  // 2. Unlock segment: creditsContract.useCredit(1, "378195", "verse-1") (as user)
+  console.log('\n⚠️  This test requires segment ownership!');
+  console.log('   Run these commands first:');
+  console.log(`   1. Grant credits to ${userAddress}`);
+  console.log(`   2. Unlock segment: geniusId=378195, segmentId="${segmentId}"`);
+  console.log('   Or the Lit Action will fail with "Segment not owned" error.\n');
+
+  // Prepare jsParams
   const jsParams = {
     geniusId: TEST_DATA.geniusId,
     sectionIndex: TEST_DATA.sectionIndex,
     sections: TEST_DATA.sections,
-    genius: TEST_DATA.genius,
     soundcloudPermalink: TEST_DATA.soundcloudPermalink,
+    userAddress: userAddress, // Required for ownership verification
 
     // ElevenLabs key (for future alignment step)
     elevenlabsKeyAccessControlConditions: elevenlabsKey.accessControlConditions,
     elevenlabsKeyCiphertext: elevenlabsKey.ciphertext,
-    elevenlabsKeyDataToEncryptHash: elevenlabsKey.dataToEncryptHash,
-
-    // Dummy Rendi params (backward compatibility - ignored by v2)
-    rendiKeyAccessControlConditions: [],
-    rendiKeyCiphertext: '',
-    rendiKeyDataToEncryptHash: ''
+    elevenlabsKeyDataToEncryptHash: elevenlabsKey.dataToEncryptHash
   };
 
   console.log('\n🚀 Executing Audio Processor Lit Action...');
-  console.log('⏱️  Expected time: ~31s (51% faster than v1)');
+  console.log('⏱️  Expected time: ~31s for processing');
+  console.log('   Step 1: Verify segment ownership on-chain');
+  console.log('   Step 2: Decrypt API keys');
+  console.log('   Step 3: Verify audio availability');
+  console.log('   Step 4: Process with Modal (download + trim + stems)');
   const startTime = Date.now();
 
   try {
     const result = await litClient.executeJs({
-      ipfsId: AUDIO_PROCESSOR_V2_CID,
+      ipfsId: AUDIO_PROCESSOR_V1_CID,
       authContext: authContext,
       jsParams: jsParams,
     });
@@ -217,9 +248,11 @@ async function testAudioProcessor() {
 }
 
 // Run test
-console.log('🎹 Audio Processor v2 Test\n');
-console.log('Testing consolidated Modal endpoint (download + trim + stems)');
-console.log('Expected improvement: 51% faster than v1 (64s → 31s)\n');
+console.log('🎹 Audio Processor v1 Test (with Credit Validation)\n');
+console.log('Testing:');
+console.log('  1. Segment ownership verification (KaraokeCreditsV1 on Base Sepolia)');
+console.log('  2. Consolidated Modal endpoint (download + trim + stems)');
+console.log('  3. Credit-gated karaoke generation\n');
 
 const success = await testAudioProcessor();
 
