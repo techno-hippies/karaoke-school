@@ -36,8 +36,8 @@ dotenv.config({ path: join(__dirname, '../../.env') });
 // Load PKP credentials
 const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 
-// Audio Processor v1 CID (with credit validation)
-const AUDIO_PROCESSOR_V1_CID = 'QmTODO_UPLOAD_AUDIO_PROCESSOR_V1'; // TODO: Update after upload
+// Audio Processor v1 CID (with credit validation, optional ElevenLabs key)
+const AUDIO_PROCESSOR_V1_CID = 'QmdCAnGwe5gq3HrAFKh9t9JL8y7ekiwVLejjzVSAA7SRCJ';
 
 // Encrypted key path
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v1.json');
