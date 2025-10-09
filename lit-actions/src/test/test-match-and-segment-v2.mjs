@@ -59,8 +59,8 @@ const TEST_SONGS = [
   }
 ];
 
-// CID for match-and-segment-v2 (Fixed timestamp conversion - LRC to total seconds)
-const MATCH_AND_SEGMENT_V2_CID = 'QmbgoyZu5TPNNUvyw3x1tS4dSgnCzPULPNGV1Af1pHA2jU';
+// CID for match-and-segment-v2 (Added response logging for debugging)
+const MATCH_AND_SEGMENT_V2_CID = 'QmWg8Qb7WJbPTGrJL3WULvvzkf8LhMrJAsHk6udAbr5e2s';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
