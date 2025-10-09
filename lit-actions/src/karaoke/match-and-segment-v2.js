@@ -124,7 +124,11 @@ Instructions:
 3. Prioritize verses, choruses, bridge. Skip intros, outros, instrumentals.
 4. Labels: Verse 1, Verse 2, Verse 3, Verse 4, Chorus 1, Chorus 2, Bridge.
 5. Use Chorus 1 for main chorus. Only use Chorus 2 if vocals/melody differ significantly.
-6. Confidence: high (artist+title exact match), medium (close), low (different).`;
+6. Confidence: high (artist+title exact match), medium (close), low (different).
+7. CRITICAL - Timestamp conversion: LRC format is [mm:ss.xx]. Convert to TOTAL SECONDS: (mm * 60) + ss.xx
+   Example: [01:23.45] = (1 * 60) + 23.45 = 83.45 seconds
+   Example: [02:15.80] = (2 * 60) + 15.80 = 135.80 seconds
+   All startTime, endTime, duration values MUST be in total seconds, not fractional minutes.`;
 
     console.log('Prompt created, length:', prompt.length);
     console.log('Calling OpenRouter API...');
@@ -196,13 +200,14 @@ Instructions:
     }
 
     const content = apiData.choices?.[0]?.message?.content || '{"isMatch":false,"confidence":"low","sections":[]}';
+    console.log('API response content (first 500 chars):', content.substring(0, 500));
 
     // Structured output guarantees valid JSON
     let result;
     try {
       result = JSON.parse(content);
     } catch (parseError) {
-      console.log('Failed to parse response:', content.substring(0, 200));
+      console.log('Failed to parse response (full):', content);
       throw new Error(`JSON parse failed: ${parseError.message}`);
     }
 
