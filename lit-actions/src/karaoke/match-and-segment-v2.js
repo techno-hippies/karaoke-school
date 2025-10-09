@@ -34,22 +34,33 @@ const go = async () => {
   try {
     // Step 1: Decrypt keys
     console.log('[1/3] Decrypting keys...');
-    const [geniusKey, openrouterKey] = await Promise.all([
-      Lit.Actions.decryptAndCombine({
-        accessControlConditions: geniusKeyAccessControlConditions,
-        ciphertext: geniusKeyCiphertext,
-        dataToEncryptHash: geniusKeyDataToEncryptHash,
-        authSig: null,
-        chain: 'ethereum'
-      }),
-      Lit.Actions.decryptAndCombine({
-        accessControlConditions: openrouterKeyAccessControlConditions,
-        ciphertext: openrouterKeyCiphertext,
-        dataToEncryptHash: openrouterKeyDataToEncryptHash,
-        authSig: null,
-        chain: 'ethereum'
-      })
-    ]);
+    console.log('Genius key ACC:', JSON.stringify(geniusKeyAccessControlConditions).substring(0, 150));
+    console.log('OpenRouter key ACC:', JSON.stringify(openrouterKeyAccessControlConditions).substring(0, 150));
+    console.log('writeToBlockchain:', writeToBlockchain);
+
+    let geniusKey, openrouterKey;
+    try {
+      [geniusKey, openrouterKey] = await Promise.all([
+        Lit.Actions.decryptAndCombine({
+          accessControlConditions: geniusKeyAccessControlConditions,
+          ciphertext: geniusKeyCiphertext,
+          dataToEncryptHash: geniusKeyDataToEncryptHash,
+          authSig: null,
+          chain: 'ethereum'
+        }),
+        Lit.Actions.decryptAndCombine({
+          accessControlConditions: openrouterKeyAccessControlConditions,
+          ciphertext: openrouterKeyCiphertext,
+          dataToEncryptHash: openrouterKeyDataToEncryptHash,
+          authSig: null,
+          chain: 'ethereum'
+        })
+      ]);
+    } catch (decryptError) {
+      console.log('Decryption error:', decryptError.message);
+      console.log('Decryption error details:', JSON.stringify(decryptError).substring(0, 500));
+      throw new Error(`Failed to decrypt keys: ${decryptError.message}`);
+    }
     console.log('Keys decrypted');
     console.log('Genius key length:', geniusKey.length, 'first 10 chars:', geniusKey.substring(0, 10));
     console.log('OpenRouter key length:', openrouterKey.length, 'first 10 chars:', openrouterKey.substring(0, 10));
@@ -214,14 +225,13 @@ Instructions:
     console.log(`Match: ${result.isMatch} (${result.confidence} confidence)`);
     console.log(`Sections: ${result.sections.length}`);
 
-    // Step 5: Sign transaction for blockchain (if enabled and matched)
+    // Step 5: Sign and submit transaction for blockchain (if enabled and matched)
     let txHash = null;
     let contractError = null;
-    let signedTransaction = null;
 
     if (writeToBlockchain && result.isMatch && result.sections.length > 0) {
       try {
-        console.log('[5/5] Signing transaction for blockchain...');
+        console.log('[5/5] Signing and submitting transaction to blockchain...');
 
         // Validate contract params
         if (!contractAddress || !pkpAddress || !pkpTokenId) {
@@ -315,19 +325,31 @@ Instructions:
           sigName: 'segmentBatchTx'
         });
 
+        console.log('Raw signature:', signature.substring(0, 200));
+
         // Parse and format signature
         const jsonSignature = JSON.parse(signature);
+        console.log('Parsed signature keys:', Object.keys(jsonSignature));
+        console.log('Parsed signature values:', JSON.stringify({
+          r: jsonSignature.r?.substring(0, 20) + '...',
+          s: jsonSignature.s?.substring(0, 20) + '...',
+          recid: jsonSignature.recid,
+          v: jsonSignature.v
+        }));
 
         // Ensure r and s have 0x prefix
         const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
         const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
 
-        // Get recovery ID (Lit may return 'recid' or 'v')
-        const recid = jsonSignature.recid !== undefined ? jsonSignature.recid : jsonSignature.v;
+        // Get recovery ID with fallback logic
+        // Lit may return 'recid' (0 or 1) or 'v' (27/28 or EIP-155 format)
+        const recid = jsonSignature.recid ?? (jsonSignature.v ? jsonSignature.v - 27 : 0);
+        console.log('Extracted recid:', recid);
 
         // Calculate EIP-155 v value: v = chainId * 2 + 35 + recid
         const chainId = 84532; // Base Sepolia
         const v = chainId * 2 + 35 + recid;
+        console.log('Calculated EIP-155 v:', v);
 
         const sigObject = {
           r: rHex,
@@ -343,10 +365,32 @@ Instructions:
         console.log('✅ Transaction signed successfully');
         console.log('   Signed tx length:', signedTx.length);
 
-        // Return signed transaction for submission by caller
-        // (Submitting here causes timeouts due to total execution time)
-        signedTransaction = signedTx;
-        txHash = null; // Will be set by caller after submission
+        // Submit transaction using runOnce to avoid duplicates from multiple nodes
+        console.log('Submitting transaction with runOnce...');
+        const txHashResult = await Lit.Actions.runOnce(
+          { waitForResponse: true, name: "segmentBatchTx" },
+          async () => {
+            try {
+              const hash = await provider.send("eth_sendRawTransaction", [signedTx]);
+              return hash;
+            } catch (error) {
+              return `TX_SUBMIT_ERROR: ${error.message}`;
+            }
+          }
+        );
+
+        txHash = txHashResult;
+        signedTransaction = null; // Not needed - transaction already submitted
+
+        // Check if txHash is an error message
+        if (txHash && txHash.startsWith('TX_SUBMIT_ERROR:')) {
+          console.log('Transaction submission failed:', txHash);
+          contractError = txHash;
+          txHash = null;
+        } else {
+          console.log('✅ Transaction submitted:', txHash);
+          console.log('   (Not waiting for confirmation - fire and forget)');
+        }
       } catch (error) {
         console.error('Contract write failed:', error.message);
         contractError = error.message;
@@ -373,8 +417,7 @@ Instructions:
         isMatch: result.isMatch,
         confidence: result.confidence,
         sections: result.sections,
-        // Blockchain data
-        signedTransaction: signedTransaction, // Raw signed tx for submission by caller
+        // Blockchain data (fire-and-forget, no confirmation wait)
         txHash: txHash,
         contractError: contractError,
         contractAddress: contractAddress

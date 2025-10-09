@@ -59,8 +59,8 @@ const TEST_SONGS = [
   }
 ];
 
-// CID for match-and-segment-v2 (Added response logging for debugging)
-const MATCH_AND_SEGMENT_V2_CID = 'QmWg8Qb7WJbPTGrJL3WULvvzkf8LhMrJAsHk6udAbr5e2s';
+// CID for match-and-segment-v2 (Fire-and-forget with runOnce)
+const MATCH_AND_SEGMENT_V2_CID = 'QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
@@ -165,7 +165,7 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
     pkpAddress: pkpCreds.ethAddress,
     pkpTokenId: pkpCreds.tokenId,
     pkpPublicKey: pkpCreds.publicKey,
-    writeToBlockchain: false  // Disabled - investigating decryption failure
+    writeToBlockchain: true  // Enabled - testing with enhanced logging
   };
 
   console.log('\n🚀 Executing Lit Action...');
