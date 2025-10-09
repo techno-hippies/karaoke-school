@@ -92,16 +92,26 @@ const go = async () => {
 
     console.log(`✅ Segment ownership confirmed: ${segmentId}`);
 
-    // Step 2: Decrypt API keys (ElevenLabs only - Rendi no longer needed!)
-    console.log('[2/4] Decrypting API keys...');
-    const elevenlabsKey = await Lit.Actions.decryptAndCombine({
-      accessControlConditions: elevenlabsKeyAccessControlConditions,
-      ciphertext: elevenlabsKeyCiphertext,
-      dataToEncryptHash: elevenlabsKeyDataToEncryptHash,
-      authSig: null,
-      chain: 'ethereum'
-    });
-    console.log('ElevenLabs key decrypted');
+    // Step 2: Decrypt API keys (ElevenLabs - optional, for future alignment step)
+    console.log('[2/4] Checking API keys...');
+    let elevenlabsKey = null;
+    if (elevenlabsKeyAccessControlConditions && elevenlabsKeyCiphertext) {
+      try {
+        elevenlabsKey = await Lit.Actions.decryptAndCombine({
+          accessControlConditions: elevenlabsKeyAccessControlConditions,
+          ciphertext: elevenlabsKeyCiphertext,
+          dataToEncryptHash: elevenlabsKeyDataToEncryptHash,
+          authSig: null,
+          chain: 'ethereum'
+        });
+        console.log('✅ ElevenLabs key decrypted (for future use)');
+      } catch (error) {
+        console.log('⚠️  ElevenLabs key decryption failed (not needed for current processing)');
+        console.log('   Error:', error.message);
+      }
+    } else {
+      console.log('⚠️  ElevenLabs key not provided (not needed for current processing)');
+    }
 
     // Step 3: Construct audio URL and check for 30s snippet
     console.log('[3/4] Checking audio availability...');
