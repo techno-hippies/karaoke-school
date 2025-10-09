@@ -85,6 +85,7 @@ export function SongSelectPage({
   const [selectedSegment, setSelectedSegment] = useState<SongSegment | null>(null)
   const [drawerMode, setDrawerMode] = useState<'segment' | 'purchase'>('segment')
   const [hasSearched, setHasSearched] = useState(false)
+  const [isLocalSearching, setIsLocalSearching] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatingProgress, setGeneratingProgress] = useState(0)
 
@@ -96,6 +97,13 @@ export function SongSelectPage({
     { id: 'placeholder-2', displayName: 'Chorus', startTime: 0, endTime: 0, duration: 0 },
     { id: 'placeholder-3', displayName: 'Verse 2', startTime: 0, endTime: 0, duration: 0 },
   ]
+
+  // Clear local searching state when parent search completes
+  useEffect(() => {
+    if (!isSearching && isLocalSearching) {
+      setIsLocalSearching(false)
+    }
+  }, [isSearching, isLocalSearching])
 
   // Simulate progress bar for generation (10 seconds)
   useEffect(() => {
@@ -222,12 +230,14 @@ export function SongSelectPage({
     if (!searchQuery.trim()) return
 
     setHasSearched(true)
+    setIsLocalSearching(true)
     onSearch?.(searchQuery)
   }
 
   const handleClearSearch = () => {
     setSearchQuery('')
     setHasSearched(false)
+    setIsLocalSearching(false)
   }
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -293,7 +303,7 @@ export function SongSelectPage({
                   onKeyDown={handleSearchKeyDown}
                 />
                 <InputGroupAddon align="inline-end">
-                  {isSearching ? (
+                  {isSearching || isLocalSearching ? (
                     <div className="px-3">
                       <Spinner size="sm" />
                     </div>
@@ -324,7 +334,7 @@ export function SongSelectPage({
             <TabsContent value="trending" className="flex-1 mt-4 min-h-0">
               <ScrollArea className="h-full">
                 <div className="space-y-1 pr-4">
-                  {isSearching ? (
+                  {isSearching || isLocalSearching ? (
                     <div className="flex items-center justify-center py-12">
                       <Spinner size="md" />
                     </div>

@@ -59,8 +59,8 @@ const TEST_SONGS = [
   }
 ];
 
-// CID for match-and-segment-v2 (Debug version with extensive logging)
-const MATCH_AND_SEGMENT_V2_CID = 'QmW2MNJcE9PMjaMDjGRh3z8DMboaSxyaHUkHzWgGc4JDhK';
+// CID for match-and-segment-v2 (Fixed version - ignore album in matching)
+const MATCH_AND_SEGMENT_V2_CID = 'QmfGRQJVPE2AasSjwibww8NScEHM3wxAGqmKnhDYhofXr8';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');

@@ -14,19 +14,20 @@ import "../KaraokeCreditsV1.sol";
  * - Explorer: https://sepolia.basescan.org
  * - USDC (Mock): 0x036CbD53842c5426634e7929541eC2318f3dCF7e
  *
- * Usage:
- * forge script KaraokeCredits/script/DeployKaraokeCreditsV1.s.sol:DeployKaraokeCreditsV1 \
+ * Usage (with dotenvx):
+ * DOTENV_PRIVATE_KEY=<key> dotenvx run -f /path/to/contracts/.env -- \
+ *   forge script KaraokeCredits/script/DeployKaraokeCreditsV1.s.sol:DeployKaraokeCreditsV1 \
  *   --rpc-url https://sepolia.base.org \
- *   --private-key $PRIVATE_KEY \
  *   --broadcast \
  *   --verify \
- *   --etherscan-api-key $BASESCAN_API_KEY
+ *   --etherscan-api-key VTPV1IK2Y79NSGDUWT4R9KCJKZ2DI5MD3A
  *
- * Environment Variables Required:
- * - PRIVATE_KEY: Deployer private key
+ * Environment Variables Required (in .env):
+ * - PRIVATE_KEY: Deployer private key (encrypted)
  * - TREASURY_ADDRESS: Address to receive payments
  * - PKP_ADDRESS: Lit Protocol PKP address (for granting free credits)
- * - SONG_CATALOG_ADDRESS (optional): SongCatalogV1 address on Lens Testnet
+ * - BASESCAN_API_KEY: BaseScan API key for verification
+ * - SONG_CATALOG_ADDRESS (optional): KaraokeCatalogV1 address on Base Sepolia
  * - USDC_TOKEN_ADDRESS (optional): Defaults to Base Sepolia USDC mock
  */
 contract DeployKaraokeCreditsV1 is Script {
@@ -79,10 +80,9 @@ contract DeployKaraokeCreditsV1 is Script {
         }
 
         console.log("\n=== Next Steps ===");
-        console.log("1. Verify contract on BaseScan");
-        console.log("2. Set SongCatalog address (if not set)");
-        console.log("3. Update frontend with contract address");
-        console.log("4. Fund treasury with ETH for gas");
-        console.log("5. Test credit purchase with USDC");
+        console.log("1. Set KaraokeCatalog address (if not set)");
+        console.log("2. Update frontend with contract address");
+        console.log("3. Fund treasury with ETH for gas");
+        console.log("4. Test credit purchase with USDC");
     }
 }

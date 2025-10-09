@@ -28,6 +28,7 @@ export interface SongSegment {
   duration: number
   audioUrl?: string
   isOwned?: boolean
+  karaokeLines?: import('@/components/feed/types').KaraokeLine[]
 }
 
 interface SegmentPickerDrawerProps {
