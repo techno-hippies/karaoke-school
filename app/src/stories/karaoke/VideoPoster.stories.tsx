@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { VideoPoster } from '../../components/post/VideoPoster'
+import { VideoPoster } from '../../components/karaoke/VideoPoster'
 
 const meta: Meta<typeof VideoPoster> = {
   title: 'Karaoke/VideoPoster',

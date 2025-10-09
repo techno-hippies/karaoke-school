@@ -38,7 +38,8 @@ export function MediaPage({
   } = useAudioPlayer(audioUrl)
 
   return (
-    <div className={cn('relative w-full h-screen flex flex-col bg-neutral-900', className)}>
+    <div className={cn('relative w-full h-screen bg-neutral-900 flex items-center justify-center', className)}>
+      <div className="relative w-full h-full md:max-w-2xl flex flex-col">
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       {/* Header */}
@@ -78,6 +79,7 @@ export function MediaPage({
           showTimeLabels
           className="w-full"
         />
+      </div>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import { ConnectKitProvider, createConfig } from '@particle-network/connectkit'
 import { authWalletConnectors } from '@particle-network/auth-connectors'
 import { evmWalletConnectors } from '@particle-network/evm-connectors'
 import { baseSepolia } from 'viem/chains'
+import { lensTestnet } from '@/config/chains'
 import { PARTICLE_CONFIG } from './config'
 
 /**
@@ -16,12 +17,6 @@ let _particleConfig: ReturnType<typeof createConfig> | null = null
 
 export function getParticleConfig() {
   if (!_particleConfig) {
-    console.log('[Particle] Creating config with:', {
-      projectId: PARTICLE_CONFIG.projectId,
-      clientKey: PARTICLE_CONFIG.clientKey?.substring(0, 10) + '...',
-      appId: PARTICLE_CONFIG.appId,
-    })
-
     try {
       _particleConfig = createConfig({
         projectId: PARTICLE_CONFIG.projectId,
@@ -53,9 +48,8 @@ export function getParticleConfig() {
           }),
         ],
 
-        chains: [baseSepolia],
+        chains: [baseSepolia, lensTestnet],
       })
-      console.log('[Particle] Config created successfully')
     } catch (error) {
       console.error('[Particle] Failed to create config:', error)
       throw error

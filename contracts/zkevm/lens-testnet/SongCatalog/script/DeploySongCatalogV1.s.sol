@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "../SongCatalog/SongCatalogV1.sol";
+import "../SongCatalogV1.sol";
 
 contract DeploySongCatalogV1 is Script {
     function run() external {

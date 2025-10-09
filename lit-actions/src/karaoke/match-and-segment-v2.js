@@ -109,19 +109,22 @@ const go = async () => {
     console.log('[4/4] Asking Gemini 2.5 Flash Lite to match and segment...');
     console.log('Creating prompt...');
 
-    const prompt = `Compare these two songs and determine if they are the EXACT same song:
+    const prompt = `Compare these two songs by ARTIST and TITLE only (ignore album):
 
-Genius: ${artist} - ${title} (${album})
-LRClib: ${lrcMatch.artistName} - ${lrcMatch.trackName} (${lrcMatch.albumName || 'N/A'})
+Genius: ${artist} - ${title}
+LRClib: ${lrcMatch.artistName} - ${lrcMatch.trackName}
 
-If they ARE the same song, analyze these LRC-formatted lyrics and identify AT MOST 5 BEST song segments for karaoke practice:
+If the artist and title match, analyze these LRC-formatted lyrics and identify AT MOST 5 BEST song segments for karaoke practice:
 
 ${lyrics}
 
-Return AT MOST 5 segments. Prioritize verses, choruses, and bridge. Skip intros, outros, instrumentals.
-Label sections: Verse 1, Verse 2, Verse 3, Verse 4, Chorus 1, Chorus 2, Bridge.
-Use Chorus 1 for main chorus. Only use Chorus 2 if significantly different.
-Set confidence: high (exact match), medium (similar), low (uncertain).`;
+Instructions:
+1. Compare artist and title (case-insensitive). If both match, set isMatch=true.
+2. If matched, extract AT MOST 5 best segments for karaoke practice.
+3. Prioritize verses, choruses, bridge. Skip intros, outros, instrumentals.
+4. Labels: Verse 1, Verse 2, Verse 3, Verse 4, Chorus 1, Chorus 2, Bridge.
+5. Use Chorus 1 for main chorus. Only use Chorus 2 if vocals/melody differ significantly.
+6. Confidence: high (artist+title exact match), medium (close), low (different).`;
 
     console.log('Prompt created, length:', prompt.length);
     console.log('Calling OpenRouter API...');
