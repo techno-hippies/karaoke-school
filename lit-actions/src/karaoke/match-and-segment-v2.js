@@ -8,7 +8,12 @@
  * 4. Returns structured JSON with match decision + sections + txHash
  */
 
+console.log('=== LIT ACTION LOADED ===');
+console.log('Lit Actions API available:', typeof Lit !== 'undefined');
+console.log('ethers available:', typeof ethers !== 'undefined');
+
 const go = async () => {
+  console.log('=== STARTING EXECUTION ===');
   const {
     geniusId,
     geniusKeyAccessControlConditions,
@@ -23,6 +28,8 @@ const go = async () => {
     pkpTokenId,
     writeToBlockchain = true
   } = jsParams || {};
+
+  console.log('jsParams received, geniusId:', geniusId, 'writeToBlockchain:', writeToBlockchain);
 
   try {
     // Step 1: Decrypt keys
@@ -100,54 +107,24 @@ const go = async () => {
 
     // Step 4: Combined match + segment query
     console.log('[4/4] Asking Gemini 2.5 Flash Lite to match and segment...');
+    console.log('Creating prompt...');
 
     const prompt = `Compare these two songs and determine if they are the EXACT same song:
 
 Genius: ${artist} - ${title} (${album})
 LRClib: ${lrcMatch.artistName} - ${lrcMatch.trackName} (${lrcMatch.albumName || 'N/A'})
 
-If they ARE the same song, analyze these LRC-formatted lyrics and SELECT AT MOST 5 BEST SEGMENTS for karaoke practice:
+If they ARE the same song, analyze these LRC-formatted lyrics and identify AT MOST 5 BEST song segments for karaoke practice:
 
 ${lyrics}
 
-Instructions:
-1. Determine if the songs match (compare artist and title)
-2. If they match, SELECT AT MOST 5 BEST SEGMENTS for karaoke singing practice
-3. Prioritize sections with strong vocals: verses, choruses, bridge
-4. SKIP instrumental sections, intros, outros, interludes, breaks
-5. Label sections using ONLY these options: "Verse 1", "Verse 2", "Verse 3", "Verse 4", "Chorus 1", "Chorus 2", "Bridge"
-6. Use "Chorus 1" for the main chorus. Only use "Chorus 2" if a later chorus has different vocals, melody, harmonies, or structure worth practicing separately
-7. Set confidence based on match quality: high (exact match), medium (similar), low (uncertain)
+Return AT MOST 5 segments. Prioritize verses, choruses, and bridge. Skip intros, outros, instrumentals.
+Label sections: Verse 1, Verse 2, Verse 3, Verse 4, Chorus 1, Chorus 2, Bridge.
+Use Chorus 1 for main chorus. Only use Chorus 2 if significantly different.
+Set confidence: high (exact match), medium (similar), low (uncertain).`;
 
-WRONG (too many segments):
-{
-  "isMatch": true,
-  "confidence": "high",
-  "sections": [
-    { "type": "Intro", "startTime": 0, "endTime": 8, "duration": 8 },
-    { "type": "Verse 1", "startTime": 8, "endTime": 28, "duration": 20 },
-    { "type": "Pre-Chorus", "startTime": 28, "endTime": 38, "duration": 10 },
-    { "type": "Chorus 1", "startTime": 38, "endTime": 58, "duration": 20 },
-    { "type": "Verse 2", "startTime": 58, "endTime": 78, "duration": 20 },
-    { "type": "Chorus 2", "startTime": 88, "endTime": 108, "duration": 20 },
-    { "type": "Bridge", "startTime": 108, "endTime": 128, "duration": 20 },
-    { "type": "Outro", "startTime": 168, "endTime": 180, "duration": 12 }
-  ]
-}
-
-RIGHT (at most 5 best karaoke segments):
-{
-  "isMatch": true,
-  "confidence": "high",
-  "sections": [
-    { "type": "Verse 1", "startTime": 8, "endTime": 28, "duration": 20 },
-    { "type": "Verse 2", "startTime": 58, "endTime": 78, "duration": 20 },
-    { "type": "Chorus 1", "startTime": 38, "endTime": 58, "duration": 20 },
-    { "type": "Bridge", "startTime": 108, "endTime": 128, "duration": 20 }
-  ]
-}
-
-Focus on giving users the most valuable practice sections, not a complete song breakdown.`;
+    console.log('Prompt created, length:', prompt.length);
+    console.log('Calling OpenRouter API...');
 
     const apiResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -206,7 +183,9 @@ Focus on giving users the most valuable practice sections, not a complete song b
       })
     });
 
+    console.log('API call completed, status:', apiResp.status);
     const apiData = await apiResp.json();
+    console.log('API response parsed');
 
     // Check for API errors
     if (apiData.error) {
