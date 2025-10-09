@@ -31,10 +31,10 @@ export interface EncryptedKey {
 
 /**
  * Genius API Key (v6)
- * Bound to Match and Segment Lit Action: QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z
+ * Bound to Match and Segment Lit Action: QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2
  */
 export const GENIUS_API_KEY_V6: EncryptedKey = {
-  ciphertext: "rkZnOhFzdXcBcTb7DPo0xoU3kcL+P7KtK1tytpXwOpfytlBTkgEmbL5/HGvQ+jxQvXD6aygfG2WoJPf/DTEa18IEV07pRrl8toOROmEg9itBeA0PyMzTwP6RwvhsioUZLC1s/rL3yNi67m62Hht9CsCzge48Mut4qCDie2PrO/Pms+621iKLX/4Ic70YOeZqajYC",
+  ciphertext: "onX4FyQz+ej+a1yell1yoGlVfIYEQjolf0g7mKYviSsMNT2Q9TrDK6Ui+e8gOwkL/Y8hLDlfBVukJlTS2jh4QTkoUKlr1Kn8DfynuuajLutBiNvlZk4+4BYSYrtrotAo5d5OVMRMwwFqSb84QjhwiY/yfdENPd5Iimb95369gDr50LlD0ct+msIbgQFy5oCon3kC",
   dataToEncryptHash: "364e5c5764d520470a219b3550be8019abf9ec10025d4abe0fe90f0bb929d75d",
   accessControlConditions: [
     {
@@ -46,20 +46,20 @@ export const GENIUS_API_KEY_V6: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z"
+        value: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
       }
     }
   ],
-  encryptedAt: "2025-10-07T17:35:19.443Z",
-  cid: "QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z"
+  encryptedAt: "2025-10-09T15:34:23.418Z",
+  cid: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
 }
 
 /**
  * OpenRouter API Key (v6)
- * Bound to Match and Segment Lit Action: QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z
+ * Bound to Match and Segment Lit Action: QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2
  */
 export const OPENROUTER_API_KEY_V6: EncryptedKey = {
-  ciphertext: "i9z1vwOVovajKRFfLUIGaaN599DMZKM0QH+SKs+NOMqx4JPf6KqIyBXiOlcK06rIfLaDtkIIKZkw+3gknm+rPc2ems8wFj8lrLp77YW2gtJKMFf0BPmudOE3h09Qy11bgeGCPSEbPEdgUszlLKmd4m/i5lMjyb+IxiH5mMyxXzuNcfr/Q9FPYZvXj7/6Diel52Xz2mpp8x/pQd4C",
+  ciphertext: "tBKS57wfEkuR1uq6eSAARKK4yiMOdRQpoUyXROVLoVZT7sR1nxQTeqKTQnq3LdVK5c+0zt+xkpXPKFD0i9tfEUDNfIV8Yaj/xS2THqLHm8tKnGdBBbv8P+MtMWsOa9NST1T7JREeUTDBPWW99yltLZkxWTz+3Akpk5dSnHeBVgnH3yDgzgfQFPQS+U4ylQ+MsmL+XdTTLgrOOOwC",
   dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
   accessControlConditions: [
     {
@@ -71,12 +71,12 @@ export const OPENROUTER_API_KEY_V6: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z"
+        value: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
       }
     }
   ],
-  encryptedAt: "2025-10-07T17:35:16.987Z",
-  cid: "QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z"
+  encryptedAt: "2025-10-09T15:34:21.056Z",
+  cid: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
 }
 
 /**
