@@ -165,7 +165,7 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
     pkpAddress: pkpCreds.ethAddress,
     pkpTokenId: pkpCreds.tokenId,
     pkpPublicKey: pkpCreds.publicKey,
-    writeToBlockchain: false  // TEMP DISABLED FOR DEBUGGING
+    writeToBlockchain: false  // Disabled - investigating decryption failure
   };
 
   console.log('\n🚀 Executing Lit Action...');
