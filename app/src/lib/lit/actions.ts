@@ -180,12 +180,23 @@ export async function executeMatchAndSegment(
 /**
  * Execute Audio Processor Lit Action
  * Generates karaoke stems (paid operation - requires credits)
+ *
+ * IMPORTANT: User must own the segment before calling this function.
+ * Use checkSegmentOwnership() and unlockSegment() first if needed.
+ *
+ * @param geniusId - Genius song ID
+ * @param sectionIndex - Selected section (1-based index)
+ * @param sections - Array of all sections from match-and-segment
+ * @param soundcloudPermalink - SoundCloud track permalink
+ * @param userAddress - User's wallet address (for ownership verification)
+ * @param walletClient - Wallet client for Lit session
  */
 export async function executeKaraokeGeneration(
   geniusId: number,
   sectionIndex: number,
   sections: MatchSegmentResult['sections'],
   soundcloudPermalink: string,
+  userAddress: string,
   walletClient: WalletClient
 ): Promise<KaraokeGenerationResult> {
   const litClient = await getLitClient()
@@ -199,6 +210,7 @@ export async function executeKaraokeGeneration(
       sectionIndex,
       sections,
       soundcloudPermalink,
+      userAddress,
     },
   })
 
@@ -212,4 +224,12 @@ export function formatSection(section: MatchSegmentResult['sections'][0]): strin
   const minutes = Math.floor(section.startTime / 60)
   const seconds = Math.floor(section.startTime % 60)
   return `${section.type} (${minutes}:${seconds.toString().padStart(2, '0')} - ${section.duration}s)`
+}
+
+/**
+ * Generate segment ID from section (matches contract format)
+ * Example: "Chorus 1" -> "chorus-1"
+ */
+export function generateSegmentId(section: MatchSegmentResult['sections'][0]): string {
+  return section.type.toLowerCase().replace(/\s+/g, '-')
 }

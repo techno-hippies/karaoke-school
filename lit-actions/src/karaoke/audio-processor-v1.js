@@ -2,24 +2,25 @@
  * Audio Processor v2: Section-based karaoke audio processing (consolidated)
  *
  * Flow:
- * 1. Verify audio availability on maid.zone (SoundCloud)
- * 2. Process section with Modal (download → trim → separate stems) in one call
- * 3. Return base64-encoded stem ZIPs ready for karaoke
+ * 1. Verify segment ownership in KaraokeCreditsV1 contract (paid operation)
+ * 2. Verify audio availability on maid.zone (SoundCloud)
+ * 3. Process section with Modal (download → trim → separate stems) in one call
+ * 4. Return base64-encoded stem ZIPs ready for karaoke
  *
  * Improvements over v1:
  * - Eliminates Rendi API (no longer needed!)
  * - Single Modal endpoint does: download + FFmpeg trim + Demucs separation
  * - 51% faster (64s → 31s) by eliminating network hops
  * - Simpler code, fewer dependencies
+ * - **Credit validation** - requires segment ownership before processing
  *
- * Input from Lit Action 1 (match-and-segment-v2):
+ * Input:
  * - geniusId: Genius song ID
  * - sectionIndex: User-selected section (1-based, e.g., 2 for "Chorus")
  * - sections: Array of section objects with timestamps
- * - genius: {artist, title, album}
  * - soundcloudPermalink: SoundCloud URL permalink (from Genius media)
+ * - userAddress: User's wallet address (for ownership verification)
  * - elevenlabsKey* (encrypted, for future alignment step)
- * - rendiKey* (deprecated, ignored - kept for backward compatibility)
  *
  * Output:
  * - section: Selected section metadata
@@ -33,6 +34,7 @@ const go = async () => {
     sectionIndex,
     sections,
     soundcloudPermalink,
+    userAddress,
     elevenlabsKeyAccessControlConditions,
     elevenlabsKeyCiphertext,
     elevenlabsKeyDataToEncryptHash
@@ -41,8 +43,57 @@ const go = async () => {
   try {
     console.log(`[AUDIO-PROCESSOR] Processing section ${sectionIndex} for Genius ID ${geniusId}`);
 
-    // Step 1: Decrypt API keys (ElevenLabs only - Rendi no longer needed!)
-    console.log('[1/3] Decrypting API keys...');
+    // Validate required params
+    if (!userAddress) {
+      throw new Error('userAddress required for ownership verification');
+    }
+    if (!sectionIndex || sectionIndex < 1 || sectionIndex > sections.length) {
+      throw new Error(`Invalid section index ${sectionIndex}. Must be 1-${sections.length}`);
+    }
+
+    const selectedSection = sections[sectionIndex - 1];
+
+    // Generate segmentId (matches contract format: "chorus-1", "verse-2")
+    const segmentId = selectedSection.type.toLowerCase().replace(/\s+/g, '-');
+
+    console.log(`Selected: ${selectedSection.type} (${selectedSection.duration.toFixed(1)}s)`);
+    console.log(`Time range: ${selectedSection.startTime.toFixed(2)}s - ${selectedSection.endTime.toFixed(2)}s`);
+
+    // Step 1: Verify segment ownership (paid operation)
+    console.log('[1/4] Verifying segment ownership...');
+    const creditsContract = '0x6de183934E68051c407266F877fafE5C20F74653'; // Base Sepolia
+    const baseSepoliaRpc = 'https://sepolia.base.org';
+
+    const owned = await Lit.Actions.runOnce(
+      { waitForResponse: true, name: "checkOwnership" },
+      async () => {
+        try {
+          const provider = new ethers.JsonRpcProvider(baseSepoliaRpc);
+          const contract = new ethers.Contract(
+            creditsContract,
+            ['function ownsSegment(address,uint8,string,string) view returns (bool)'],
+            provider
+          );
+
+          // ContentSource.Genius = 1
+          return await contract.ownsSegment(userAddress, 1, geniusId.toString(), segmentId);
+        } catch (error) {
+          console.error('Ownership check failed:', error.message);
+          return false;
+        }
+      }
+    );
+
+    if (!owned) {
+      throw new Error(
+        `Segment not owned. Purchase credits and unlock segment "${segmentId}" (Genius ID ${geniusId}) before generating karaoke.`
+      );
+    }
+
+    console.log(`✅ Segment ownership confirmed: ${segmentId}`);
+
+    // Step 2: Decrypt API keys (ElevenLabs only - Rendi no longer needed!)
+    console.log('[2/4] Decrypting API keys...');
     const elevenlabsKey = await Lit.Actions.decryptAndCombine({
       accessControlConditions: elevenlabsKeyAccessControlConditions,
       ciphertext: elevenlabsKeyCiphertext,
@@ -52,17 +103,8 @@ const go = async () => {
     });
     console.log('ElevenLabs key decrypted');
 
-    // Validate section index
-    if (!sectionIndex || sectionIndex < 1 || sectionIndex > sections.length) {
-      throw new Error(`Invalid section index ${sectionIndex}. Must be 1-${sections.length}`);
-    }
-
-    const selectedSection = sections[sectionIndex - 1];
-    console.log(`Selected: ${selectedSection.type} (${selectedSection.duration.toFixed(1)}s)`);
-    console.log(`Time range: ${selectedSection.startTime.toFixed(2)}s - ${selectedSection.endTime.toFixed(2)}s`);
-
-    // Step 2: Construct audio URL and check for 30s snippet
-    console.log('[2/3] Checking audio availability...');
+    // Step 3: Construct audio URL and check for 30s snippet
+    console.log('[3/4] Checking audio availability...');
     const maidZoneUrl = `https://sc.maid.zone/${soundcloudPermalink}`;
 
     // Check for 30s snippet warning
@@ -79,8 +121,8 @@ const go = async () => {
     const audioUrl = `https://sc.maid.zone/_/restream/${soundcloudPermalink}`;
     console.log(`Audio URL verified: ${audioUrl}`);
 
-    // Step 3: Process karaoke section (trim + separate stems) in one Modal call
-    console.log('[3/3] Processing audio with Modal (trim + separate stems)...');
+    // Step 4: Process karaoke section (trim + separate stems) in one Modal call
+    console.log('[4/4] Processing audio with Modal (trim + separate stems)...');
     const processStartTime = Date.now();
 
     // Call consolidated Modal endpoint
