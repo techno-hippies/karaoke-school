@@ -16,7 +16,7 @@
 import { createLitClient } from '@lit-protocol/lit-client';
 import { nagaDev } from '@lit-protocol/networks';
 import { createAuthManager, storagePlugins } from '@lit-protocol/auth';
-import { LitActionResource } from '@lit-protocol/auth-helpers';
+import { LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -59,18 +59,59 @@ const TEST_SONGS = [
   }
 ];
 
-// CID for match-and-segment-v2 (Gemini 2.5 Flash Lite, no label field)
-const MATCH_AND_SEGMENT_V2_CID = 'QmYZepjJo4Undgjugjz5oMktQwK4QqjAoYnvAbySKrg15Z';
+// CID for match-and-segment-v2 (Full AI, at most 5 segments, fixed decimal timestamps)
+const MATCH_AND_SEGMENT_V2_CID = 'QmPsst65k7SnP4d1BHFAwH6Wiz35teMaJ9tZa5YjS2F9Ns';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
 const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v6.json');
+
+// Contract configuration
+const KARAOKE_CATALOG_ADDRESS = '0x0843DDB2F2ceCAB0644Ece0523328af2C7882032'; // Base Sepolia
+const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
   console.log('🔑 Loading PKP credentials...');
   const pkpData = JSON.parse(await readFile(PKP_CREDS_PATH, 'utf-8'));
   console.log(`✅ PKP loaded: ${pkpData.ethAddress}`);
   return pkpData;
+}
+
+async function checkPKPBalance(pkpAddress) {
+  console.log('\n💰 Checking PKP balance on Base Sepolia...');
+  try {
+    const response = await fetch('https://sepolia.base.org', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getBalance',
+        params: [pkpAddress, 'latest'],
+        id: 1
+      })
+    });
+    const data = await response.json();
+    const balanceWei = BigInt(data.result);
+    const balanceEth = Number(balanceWei) / 1e18;
+
+    console.log(`   Balance: ${balanceEth.toFixed(6)} ETH`);
+
+    if (balanceWei === 0n) {
+      console.log('   ⚠️  WARNING: PKP has no ETH on Base Sepolia!');
+      console.log('   ⚠️  Blockchain writes will fail without gas.');
+      console.log('   ⚠️  Fund the PKP at:', pkpAddress);
+      console.log('   ⚠️  Get testnet ETH from: https://www.coinbase.com/faucets');
+    } else if (balanceWei < 1000000000000000n) { // < 0.001 ETH
+      console.log('   ⚠️  Low balance - may not be enough for gas fees');
+    } else {
+      console.log('   ✅ Sufficient balance for gas fees');
+    }
+
+    return balanceEth;
+  } catch (error) {
+    console.log('   ❌ Failed to check balance:', error.message);
+    return null;
+  }
 }
 
 async function loadEncryptedKeys() {
@@ -96,9 +137,18 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
   const { openrouterKey, geniusKey } = encryptedKeys;
 
   // Prepare jsParams
+  // PKP public key should be the uncompressed public key (130 chars without 04 prefix)
+  // If not available, we'll need to query it from the Lit network
+  const pkpPublicKey = pkpCreds.publicKey;
+
+  if (!pkpPublicKey) {
+    console.log('   ⚠️  WARNING: PKP public key not found in credentials!');
+    console.log('   ⚠️  Please update pkp-credentials.json with the public key');
+  }
+
   const jsParams = {
     geniusId,
-    pkpPublicKey: pkpCreds.publicKey || pkpCreds.ethAddress,
+    pkpPublicKey: pkpPublicKey,
 
     // OpenRouter key encryption params
     openrouterKeyAccessControlConditions: openrouterKey.accessControlConditions,
@@ -108,7 +158,14 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
     // Genius key encryption params
     geniusKeyAccessControlConditions: geniusKey.accessControlConditions,
     geniusKeyCiphertext: geniusKey.ciphertext,
-    geniusKeyDataToEncryptHash: geniusKey.dataToEncryptHash
+    geniusKeyDataToEncryptHash: geniusKey.dataToEncryptHash,
+
+    // Contract write params
+    contractAddress: KARAOKE_CATALOG_ADDRESS,
+    pkpAddress: pkpCreds.ethAddress,
+    pkpTokenId: pkpCreds.tokenId,
+    pkpPublicKey: pkpCreds.publicKey,
+    writeToBlockchain: true  // Enabled - PKP will sign, test will submit
   };
 
   console.log('\n🚀 Executing Lit Action...');
@@ -193,14 +250,54 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
       }
     }
 
-    // Display metadata
+    // Submit signed transaction if available
+    let actualTxHash = null;
+    if (response.signedTransaction) {
+      console.log('\n--- Blockchain Write ---');
+      console.log('📝 Signed transaction received from Lit Action');
+      console.log('📤 Submitting transaction to Base Sepolia...');
+
+      try {
+        const { ethers } = await import('ethers');
+        const provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
+
+        const tx = await provider.sendTransaction(response.signedTransaction);
+        actualTxHash = tx.hash;
+
+        console.log('✅ Transaction submitted:', actualTxHash);
+        console.log('🔍 Explorer:', `${BASE_SEPOLIA_EXPLORER}/tx/${actualTxHash}`);
+        console.log('📝 Contract:', response.contractAddress);
+        console.log('⏳ Waiting for confirmation...');
+
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
+
+        // Update response with actual tx hash
+        response.txHash = actualTxHash;
+        await writeFile(outputFile, JSON.stringify(response, null, 2));
+      } catch (error) {
+        console.log('❌ Transaction submission failed:', error.message);
+        response.contractError = error.message;
+      }
+    } else if (response.contractError) {
+      console.log('\n--- Blockchain Write ---');
+      console.log('❌ Contract Error:', response.contractError);
+    } else if (!response.isMatch) {
+      console.log('\n--- Blockchain Write ---');
+      console.log('⏭️  Skipped (songs did not match)');
+    } else {
+      console.log('\n--- Blockchain Write ---');
+      console.log('⏭️  Skipped (disabled or no sections)');
+    }
+
+    // Display metadata (legacy fields)
     if (response.groveMetadataUri) {
       console.log('\n--- Grove Storage ---');
       console.log('Metadata URI:', response.groveMetadataUri);
     }
 
     if (response.contractTxHash) {
-      console.log('\n--- Contract Registration ---');
+      console.log('\n--- Contract Registration (Legacy) ---');
       console.log('TX Hash:', response.contractTxHash);
       console.log('Explorer:', `https://explorer.testnet.lens.xyz/tx/${response.contractTxHash}`);
     }
@@ -223,7 +320,9 @@ async function testSong(geniusId, songName, litClient, authContext, pkpCreds, en
       success: response.success,
       songId: response.songId,
       failureState: response.failureState,
-      executionTime: response.totalExecutionTime
+      executionTime: response.totalExecutionTime,
+      txHash: response.txHash,
+      contractError: response.contractError
     };
 
   } catch (error) {
@@ -256,6 +355,9 @@ async function main() {
     const pkpCreds = await loadPKPCredentials();
     const encryptedKeys = await loadEncryptedKeys();
 
+    // Check PKP balance for gas
+    await checkPKPBalance(pkpCreds.ethAddress);
+
     // Check if CID is set
     if (MATCH_AND_SEGMENT_V2_CID === 'QmPLACEHOLDER') {
       console.log('\n⚠️  WARNING: Lit Action CID not set!');
@@ -282,6 +384,65 @@ async function main() {
     const litClient = await createLitClient({ network: nagaDev });
     console.log('✅ Connected to Lit Network (nagaDev)');
 
+    // Fetch PKP public key if not in credentials
+    if (!pkpCreds.publicKey) {
+      console.log('\n🔑 Fetching PKP public key from Lit Protocol...');
+
+      // Log available litClient methods for debugging
+      console.log('   Available PKP-related methods:', Object.keys(litClient).filter(k => k.toLowerCase().includes('pkp')));
+
+      try {
+        // Use viewPKPsByAddress to get full PKP info including public key
+        // Note: Use ownerAddress (not address) - this is the address that owns the PKP
+        const pkpResponse = await litClient.viewPKPsByAddress({
+          ownerAddress: pkpCreds.owner, // Use owner address from credentials
+          pagination: { limit: 10, offset: 0 }
+        });
+
+        console.log('   Response type:', typeof pkpResponse);
+        console.log('   Response keys:', pkpResponse ? Object.keys(pkpResponse) : 'null/undefined');
+
+        // Handle different response formats
+        const pkps = Array.isArray(pkpResponse) ? pkpResponse : (pkpResponse?.pkps || []);
+
+        console.log(`✅ Found ${pkps.length} PKPs for owner ${pkpCreds.owner}`);
+
+        if (pkps.length > 0) {
+          // Find the PKP matching our token ID
+          const matchingPkp = pkps.find(p => p.tokenId === pkpCreds.tokenId);
+
+          if (matchingPkp && matchingPkp.publicKey) {
+            pkpCreds.publicKey = matchingPkp.publicKey;
+            console.log(`✅ Public key found: ${matchingPkp.publicKey.substring(0, 20)}...`);
+
+            // Update credentials file
+            await writeFile(PKP_CREDS_PATH, JSON.stringify(pkpCreds, null, 2));
+            console.log('✅ Updated pkp-credentials.json with public key');
+          } else if (pkps[0].publicKey) {
+            // Fallback: use first PKP if token ID doesn't match
+            pkpCreds.publicKey = pkps[0].publicKey;
+            console.log(`✅ Public key found (from first PKP): ${pkps[0].publicKey.substring(0, 20)}...`);
+            console.log(`   ⚠️  Token ID mismatch: expected ${pkpCreds.tokenId}, got ${pkps[0].tokenId}`);
+
+            // Update credentials file
+            await writeFile(PKP_CREDS_PATH, JSON.stringify(pkpCreds, null, 2));
+            console.log('✅ Updated pkp-credentials.json with public key');
+          } else {
+            console.log('⚠️  Public key not found in PKP data');
+            console.log('   PKP fields:', Object.keys(pkps[0]).join(', '));
+          }
+        } else {
+          console.log('❌ No PKPs found for this address');
+        }
+      } catch (error) {
+        console.log('❌ Failed to fetch PKP public key:', error.message);
+        console.log('   Will attempt to retrieve in Lit Action...');
+      }
+    } else {
+      console.log('\n✅ PKP public key already in credentials');
+      console.log(`   Public key (first 20 chars): ${pkpCreds.publicKey.substring(0, 20)}...`);
+    }
+
     // Create authentication context
     console.log('\n🔐 Creating authentication context...');
     const privateKey = process.env.PRIVATE_KEY;
@@ -300,6 +461,10 @@ async function main() {
           {
             resource: new LitActionResource('*'),
             ability: 'lit-action-execution'
+          },
+          {
+            resource: new LitPKPResource('*'),
+            ability: 'pkp-signing'
           }
         ]
       },
@@ -346,6 +511,13 @@ async function main() {
       console.log(`   Actual: ${result.success ? 'Success' : 'Failure'}`);
       if (result.songId) {
         console.log(`   Song ID: ${result.songId}`);
+      }
+      if (result.txHash) {
+        console.log(`   TX Hash: ${result.txHash}`);
+        console.log(`   Explorer: ${BASE_SEPOLIA_EXPLORER}/tx/${result.txHash}`);
+      }
+      if (result.contractError) {
+        console.log(`   Contract Error: ${result.contractError}`);
       }
       if (result.failureState) {
         console.log(`   Failure State: ${result.failureState}`);
