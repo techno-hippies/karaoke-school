@@ -56,39 +56,49 @@ bun run test:zksync
 
 ## 🎯 Current Production Lit Actions
 
-| Action | CID | Contract | Status |
-|--------|-----|----------|--------|
-| karaoke-scorer-v4 | `Qme5MZK7vyfEphzmgLJDMA9htkm9Xh37yA4SGfGLdtDStS` | KaraokeScoreboardV4 | ✅ Working |
-| study-session-recorder-v1 | `QmaesnxLXgyNDEpLm563xA4VcNsT2zqSysw6CtwDJgMw77` | StudyProgressV1 | ✅ Working |
+| Action | CID | Contract | Network | Status |
+|--------|-----|----------|---------|--------|
+| **match-and-segment-v2** | `QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2` | KaraokeCatalogV1 | Base Sepolia | ✅ Working |
+| karaoke-scorer-v4 | `Qme5MZK7vyfEphzmgLJDMA9htkm9Xh37yA4SGfGLdtDStS` | KaraokeScoreboardV4 | Lens Testnet | ⚠️ Archived |
+| study-session-recorder-v1 | `QmaesnxLXgyNDEpLm563xA4VcNsT2zqSysw6CtwDJgMw77` | StudyProgressV1 | Lens Testnet | ⚠️ Archived |
 
-### Karaoke Scorer v4
+### Match and Segment v2 (Active on Base Sepolia)
 
 **New Architecture:**
+- AI-powered song matching (Genius → LRClib)
+- Intelligent song segmentation (verse, chorus, etc.)
+- PKP-signed EIP-155 transactions
+- Fire-and-forget pattern with `Lit.Actions.runOnce()`
+
+**Flow:**
+1. Fetch song metadata from Genius API
+2. Search LRClib for synced lyrics
+3. AI validates match (artist + title comparison)
+4. AI segments lyrics into karaoke sections (5 max)
+5. Sign and submit batch transaction to KaraokeCatalogV1 on Base Sepolia
+
+**Deployed Contracts (Base Sepolia):**
+- KaraokeCatalogV1: `0x0843DDB2F2ceCAB0644Ece0523328af2C7882032`
+- KaraokeCredits: `0x6de183934E68051c407266F877fafE5C20F74653`
+
+**Test:**
+```bash
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 dotenvx run -- bash -c 'timeout 120 node src/test/test-match-and-segment-v2.mjs 2>&1 | head -n 250'
+```
+
+### Karaoke Scorer v4 (Archived - Lens Testnet)
+
+**Architecture:**
 - Uses `SongCatalogV1` for song metadata (replaces ClipRegistry)
 - Uses `KaraokeScoreboardV4` with multi-source support
 - Scores individual segments (verse-1, chorus-1, etc.)
 - **zkSync EIP-712 transactions** signed by PKP
 
-**Flow:**
-1. Query SongCatalogV1 for song metadata → Grove URI
-2. Fetch segment lyrics from metadataUri (word-level timestamps)
-3. Transcribe user audio using Voxstral STT API
-4. Calculate similarity score (transcript vs expected lyrics)
-5. Submit score to KaraokeScoreboardV4 via zkSync EIP-712 transaction
-
-**Deployed Contracts (Lens Testnet):**
+**Deployed Contracts (Lens Testnet - Deprecated):**
 - SongCatalogV1: `0x88996135809cc745E6d8966e3a7A01389C774910`
 - KaraokeScoreboardV4: `0x8301E4bbe0C244870a4BC44ccF0241A908293d36`
 
-**Test:**
-```bash
-bun run test:scorer-v4
-```
-
-**Critical Fix Applied:** [ZKSYNC_EIP712_DEBUGGING.md](./ZKSYNC_EIP712_DEBUGGING.md)
-- yParity encoding fix (v → yParity conversion)
-- Gas limit increased to 2M
-- 10+ hour debugging journey documented
+**Note:** This has been superseded by match-and-segment-v2 on Base Sepolia.
 
 ## 🔐 Secrets Management
 
