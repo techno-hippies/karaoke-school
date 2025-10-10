@@ -391,13 +391,22 @@ Instructions:
 
               const alignmentData = await elevenResp.json();
 
-              // Upload full alignment to Grove
+              // Optimize alignment data: remove loss, round timestamps to 2 decimals
+              const optimizedAlignment = {
+                words: alignmentData.words?.map(w => ({
+                  text: w.text,
+                  start: Math.round(w.start * 100) / 100,
+                  end: Math.round(w.end * 100) / 100
+                })) || []
+              };
+
+              // Upload optimized alignment to Grove
               const groveResp = await fetch('https://api.grove.storage/?chain_id=37111', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(alignmentData)
+                body: JSON.stringify(optimizedAlignment)
               });
 
               if (!groveResp.ok) {
@@ -412,15 +421,13 @@ Instructions:
               // Return alignment metadata with Grove storage info
               return JSON.stringify({
                 success: true,
-                wordCount: alignmentData.words?.length || 0,
-                characterCount: alignmentData.characters?.length || 0,
-                loss: alignmentData.loss,
+                wordCount: optimizedAlignment.words.length,
                 // Grove storage info
                 storageKey: groveData.storage_key,
                 uri: groveData.uri,
                 gatewayUrl: groveData.gateway_url,
-                // Return first 3 words as-is from ElevenLabs
-                preview: alignmentData.words?.slice(0, 3) || []
+                // Return first 3 words from optimized data
+                preview: optimizedAlignment.words.slice(0, 3)
               });
             } catch (e) {
               // Return error details instead of throwing
@@ -443,8 +450,6 @@ Instructions:
               uri: result.uri,
               gatewayUrl: result.gatewayUrl,
               wordCount: result.wordCount,
-              characterCount: result.characterCount,
-              loss: result.loss,
               preview: result.preview
             };
           } else {
@@ -475,7 +480,7 @@ Instructions:
     let txHash = null;
     let contractError = null;
 
-    if (writeToBlockchain && result.isMatch && sections.length > 0) {
+    if (writeToBlockchain && result.isMatch && alignment && alignment.uri) {
       try {
         console.log('[6/6] Signing and submitting transaction to blockchain...');
 
@@ -484,47 +489,58 @@ Instructions:
           throw new Error('Contract address, PKP address, and PKP token ID required for blockchain writes');
         }
 
-        // Prepare contract call data
+        // Prepare full song data with alignment metadata
         const maxDuration = Math.floor(Math.max(...sections.map(s => s.endTime)));
-        const segmentIds = sections.map((s, i) => `${s.type.toLowerCase().replace(/\s+/g, '-')}-${i}`);
-        const sectionTypes = sections.map(s => s.type);
-        const startTimes = sections.map(s => Math.floor(s.startTime));
-        const endTimes = sections.map(s => Math.floor(s.endTime));
+        const songId = `genius-${geniusId}`;
+        const geniusArtistId = 0; // TODO: Could extract from Genius API if needed
 
-        // ABI for createSegmentsBatch
+        // Song data struct for addFullSong
+        const songData = {
+          id: songId,
+          geniusId: geniusId,
+          geniusArtistId: geniusArtistId,
+          title: title,
+          artist: artist,
+          duration: maxDuration,
+          requiresPayment: false, // Free songs with alignment data
+          audioUri: '', // Could be added later
+          metadataUri: alignment.uri, // lens:// URI with word-level timing!
+          coverUri: '', // Could be added later
+          thumbnailUri: '', // Could be added later
+          musicVideoUri: '', // Optional
+          languages: 'en' // Default to English
+        };
+
+        // ABI for addFullSong
         const abi = [{
           "type": "function",
-          "name": "createSegmentsBatch",
-          "inputs": [
-            {"name": "geniusId", "type": "uint32"},
-            {"name": "songId", "type": "string"},
-            {"name": "title", "type": "string"},
-            {"name": "artist", "type": "string"},
-            {"name": "duration", "type": "uint32"},
-            {"name": "segmentIds", "type": "string[]"},
-            {"name": "sectionTypes", "type": "string[]"},
-            {"name": "startTimes", "type": "uint32[]"},
-            {"name": "endTimes", "type": "uint32[]"},
-            {"name": "createdBy", "type": "address"}
-          ],
+          "name": "addFullSong",
+          "inputs": [{
+            "name": "params",
+            "type": "tuple",
+            "components": [
+              { "name": "id", "type": "string" },
+              { "name": "geniusId", "type": "uint32" },
+              { "name": "geniusArtistId", "type": "uint32" },
+              { "name": "title", "type": "string" },
+              { "name": "artist", "type": "string" },
+              { "name": "duration", "type": "uint32" },
+              { "name": "requiresPayment", "type": "bool" },
+              { "name": "audioUri", "type": "string" },
+              { "name": "metadataUri", "type": "string" },
+              { "name": "coverUri", "type": "string" },
+              { "name": "thumbnailUri", "type": "string" },
+              { "name": "musicVideoUri", "type": "string" },
+              { "name": "languages", "type": "string" }
+            ]
+          }],
           "outputs": [],
           "stateMutability": "nonpayable"
         }];
 
         // Create contract interface
         const iface = new ethers.utils.Interface(abi);
-        const data = iface.encodeFunctionData('createSegmentsBatch', [
-          geniusId,
-          '', // songId (empty for Genius songs)
-          title,
-          artist,
-          maxDuration,
-          segmentIds,
-          sectionTypes,
-          startTimes,
-          endTimes,
-          pkpAddress
-        ]);
+        const data = iface.encodeFunctionData('addFullSong', [songData]);
 
         // Use hardcoded RPC URL for Base Sepolia
         const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
@@ -540,7 +556,7 @@ Instructions:
         const unsignedTx = {
           to: contractAddress,
           nonce: nonce,
-          gasLimit: 2000000,
+          gasLimit: 500000, // addFullSong (lower than batch create)
           gasPrice: gasPrice,
           data: data,
           chainId: 84532 // Base Sepolia
@@ -563,7 +579,7 @@ Instructions:
         const signature = await Lit.Actions.signAndCombineEcdsa({
           toSign: toSign,
           publicKey: pkpPublicKey,
-          sigName: 'segmentBatchTx'
+          sigName: 'addFullSongTx'
         });
 
         // Parse and format signature

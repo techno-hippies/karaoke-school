@@ -40,8 +40,8 @@ const TEST_SONG = {
   notes: 'Has SoundCloud link for ElevenLabs alignment test'
 };
 
-// CID for match-and-segment-v3 (with ElevenLabs + Grove upload)
-const MATCH_AND_SEGMENT_V3_CID = 'QmUXZ15dJGDCowBUAxiErTKqWz6DGCCf6A4UJy9Xno57XQ';
+// CID for match-and-segment-v3 (optimized alignment + addFullSong)
+const MATCH_AND_SEGMENT_V3_CID = 'QmYufUHy3pSTPA18vdwt2tt12WWHJ3PBnpExcrh5LqChcz';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
@@ -178,7 +178,7 @@ async function main() {
       pkpAddress: pkpCreds.ethAddress,
       pkpTokenId: pkpCreds.tokenId,
       pkpPublicKey: pkpCreds.publicKey,
-      writeToBlockchain: false,
+      writeToBlockchain: false, // Set to true to test contract write
       runAlignment: true
     };
 
@@ -250,15 +250,19 @@ async function main() {
       // Display ElevenLabs alignment
       console.log('\n--- ElevenLabs Alignment ---');
       if (response.alignment) {
-        console.log(`✅ Alignment completed`);
+        console.log(`✅ Alignment completed (optimized)`);
         console.log(`Grove Storage Key: ${response.alignment.storageKey || 'N/A'}`);
         console.log(`Grove URI: ${response.alignment.uri || 'N/A'}`);
         console.log(`Words: ${response.alignment.wordCount || 0}`);
-        console.log(`Characters: ${response.alignment.characterCount || 0}`);
-        console.log(`Average Loss: ${response.alignment.loss?.toFixed(4) || 'N/A'}`);
+        console.log(`Preview (first 3 words):`);
+        if (response.alignment.preview && response.alignment.preview.length > 0) {
+          response.alignment.preview.forEach((w, i) => {
+            console.log(`  ${i + 1}. "${w.text}" (${w.start}s - ${w.end}s)`);
+          });
+        }
 
         if (response.alignment.gatewayUrl) {
-          console.log(`\n🔗 View alignment: ${response.alignment.gatewayUrl}`);
+          console.log(`\n🔗 View full alignment: ${response.alignment.gatewayUrl}`);
         }
       } else if (response.alignmentError) {
         console.log(`❌ Alignment failed: ${response.alignmentError}`);
