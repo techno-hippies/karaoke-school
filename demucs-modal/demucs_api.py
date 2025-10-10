@@ -35,6 +35,8 @@ demucs_image = (
         "fastapi",
         "python-multipart",
         "requests",  # For downloading audio from maid.zone
+        "fal-client",  # For fal.ai drum enhancement
+        "eth-account",  # For verifying PKP signatures
         gpu="B200"  # B200-aware installation
     )
     # Pre-download htdemucs model to reduce cold start time
@@ -54,6 +56,7 @@ app = modal.App("demucs-v4-b200")
     image=demucs_image,
     scaledown_window=60,  # 1 min idle before scale-down (shorter for testing)
     timeout=600,  # 10 min max per request (for very long tracks)
+    secrets=[modal.Secret.from_name("fal-api-key")],  # Inject fal.ai API key
     # Uncomment for production with always-warm container:
     # allow_concurrent_inputs=10,
     # keep_warm=1,  # Always 1 warm container (adds idle cost but eliminates cold starts)
@@ -399,6 +402,238 @@ class DemucsSeparator:
                 }
             }
 
+    @modal.method()
+    def process_karaoke_with_grove(
+        self,
+        audio_url: str,
+        start_time: float,
+        duration: float,
+        chain_id: int = 37111,  # Lens testnet
+        shifts: int = 1,
+        overlap: float = 0.25,
+        mp3_bitrate: int = 192,
+        strength: float = 0.4,  # fal.ai strength: 0=identical, 0.4=light transform, 1=full transform
+    ) -> dict:
+        """
+        Complete karaoke processing pipeline with fal.ai enhancement and Grove upload.
+
+        Flow:
+        1. Download audio from maid.zone
+        2. Trim to segment
+        3. Demucs stem separation (vocals + drums)
+        4. fal.ai drum enhancement
+        5. Upload to Grove (vocals + enhanced-drums)
+        6. Return Grove URIs
+
+        Args:
+            audio_url: URL to audio file
+            start_time: Start time in seconds
+            duration: Duration in seconds
+            fal_api_key: fal.ai API key for drum enhancement
+            chain_id: Chain ID for Grove (37111=testnet, 7579=mainnet)
+            shifts: Demucs quality param (1=fast)
+            overlap: Demucs overlap param
+            mp3_bitrate: MP3 bitrate in kbps
+
+        Returns:
+            dict with Grove URIs and timing data
+        """
+        import requests
+        import subprocess
+        import zipfile
+        import time as time_module
+
+        print(f"[KARAOKE-GROVE] Processing: {audio_url}")
+        print(f"[KARAOKE-GROVE] Trim: {start_time}s → {start_time + duration}s ({duration}s)")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Step 1: Download + Trim + Demucs (reuse existing logic)
+            print("[1/5] Download + Trim + Demucs...")
+            pipeline_start = time_module.time()
+
+            # Download
+            resp = requests.get(audio_url, timeout=60)
+            resp.raise_for_status()
+            input_path = os.path.join(tmp_dir, "input.mp3")
+            with open(input_path, "wb") as f:
+                f.write(resp.content)
+
+            # Trim
+            trimmed_path = os.path.join(tmp_dir, "trimmed.wav")
+            subprocess.run([
+                "ffmpeg", "-i", input_path,
+                "-ss", str(start_time),
+                "-t", str(duration),
+                "-y", trimmed_path
+            ], check=True, capture_output=True)
+
+            # Demucs separation
+            import torch
+            from demucs.apply import apply_model
+            from demucs.audio import AudioFile, save_audio
+
+            wav = AudioFile(trimmed_path).read(
+                streams=0,
+                samplerate=self.model.samplerate,
+                channels=self.model.audio_channels
+            )
+
+            ref = wav.mean(0)
+            wav = (wav - ref.mean()) / ref.std()
+
+            with torch.no_grad():
+                sources = apply_model(
+                    self.model,
+                    wav[None],
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                    shifts=shifts,
+                    split=True,
+                    overlap=overlap,
+                    progress=False,
+                )[0]
+
+            sources = sources * ref.std() + ref.mean()
+
+            stem_names = self.model.sources
+            vocals_idx = stem_names.index("vocals")
+            drums_idx = stem_names.index("drums")
+
+            # Save vocals + drums as MP3
+            output_dir = os.path.join(tmp_dir, "stems")
+            os.makedirs(output_dir, exist_ok=True)
+
+            vocals_wav = os.path.join(output_dir, "vocals.wav")
+            drums_wav = os.path.join(output_dir, "drums.wav")
+
+            save_audio(sources[vocals_idx], vocals_wav, self.model.samplerate)
+            save_audio(sources[drums_idx], drums_wav, self.model.samplerate)
+
+            # Convert to MP3
+            vocals_mp3 = os.path.join(output_dir, "vocals.mp3")
+            drums_mp3 = os.path.join(output_dir, "drums.mp3")
+
+            for wav_file, mp3_file in [(vocals_wav, vocals_mp3), (drums_wav, drums_mp3)]:
+                subprocess.run([
+                    'ffmpeg', '-i', wav_file, '-b:a', f'{mp3_bitrate}k',
+                    '-y', mp3_file
+                ], check=True, capture_output=True)
+
+            demucs_time = time_module.time() - pipeline_start
+            print(f"✓ Demucs complete in {demucs_time:.1f}s")
+
+            # Step 2: fal.ai drum enhancement
+            print("[2/5] fal.ai drum enhancement...")
+            fal_start = time_module.time()
+
+            # Get fal.ai API key from environment (injected by Modal Secret)
+            fal_api_key = os.environ.get("FAL_KEY")
+            if not fal_api_key:
+                raise Exception("FAL_KEY not found in environment. Create Modal secret: modal secret create fal-api-key FAL_KEY=your_key")
+
+            # Read drums MP3
+            with open(drums_mp3, 'rb') as f:
+                drums_bytes = f.read()
+
+            # Convert to base64 for fal.ai
+            import base64
+            drums_base64 = base64.b64encode(drums_bytes).decode('utf-8')
+
+            # Call fal.ai with specified strength
+            fal_resp = requests.post(
+                'https://fal.run/fal-ai/stable-audio-25/audio-to-audio',
+                headers={
+                    'Authorization': f'Key {fal_api_key}',
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'audio_url': f'data:audio/mp3;base64,{drums_base64}',
+                    'prompt': 'high quality drums, enhanced clarity, professional mixing',
+                    'strength': strength,  # 0=identical to input, 1=ignore input completely
+                    'total_seconds': int(duration),
+                    'guidance_scale': 7
+                },
+                timeout=120
+            )
+
+            if not fal_resp.ok:
+                raise Exception(f"fal.ai error ({fal_resp.status_code}): {fal_resp.text}")
+
+            fal_result = fal_resp.json()
+            enhanced_drums_url = fal_result.get('audio', {}).get('url')
+            if not enhanced_drums_url:
+                raise Exception("fal.ai did not return enhanced drums URL")
+
+            # Download enhanced drums
+            enhanced_resp = requests.get(enhanced_drums_url)
+            enhanced_resp.raise_for_status()
+
+            enhanced_drums_path = os.path.join(output_dir, "drums-enhanced.mp3")
+            with open(enhanced_drums_path, 'wb') as f:
+                f.write(enhanced_resp.content)
+
+            fal_time = time_module.time() - fal_start
+            print(f"✓ fal.ai complete in {fal_time:.1f}s")
+
+            # Step 3: Upload to Grove
+            print("[3/5] Uploading to Grove...")
+            grove_start = time_module.time()
+
+            GROVE_API = "https://api.grove.storage/"
+
+            # Upload vocals
+            with open(vocals_mp3, 'rb') as f:
+                vocals_grove_resp = requests.post(
+                    f"{GROVE_API}?chain_id={chain_id}",
+                    data=f.read(),
+                    headers={'Content-Type': 'audio/mp3'}
+                )
+            vocals_grove_resp.raise_for_status()
+            vocals_grove = vocals_grove_resp.json()[0]
+
+            # Upload enhanced drums
+            with open(enhanced_drums_path, 'rb') as f:
+                drums_grove_resp = requests.post(
+                    f"{GROVE_API}?chain_id={chain_id}",
+                    data=f.read(),
+                    headers={'Content-Type': 'audio/mp3'}
+                )
+            drums_grove_resp.raise_for_status()
+            drums_grove = drums_grove_resp.json()[0]
+
+            grove_time = time_module.time() - grove_start
+            total_time = time_module.time() - pipeline_start
+
+            print(f"✓ Grove upload complete in {grove_time:.1f}s")
+            print(f"✓ Total pipeline: {total_time:.1f}s")
+
+            return {
+                "success": True,
+                "grove_uris": {
+                    "vocals": vocals_grove['uri'],
+                    "drums": drums_grove['uri']
+                },
+                "gateway_urls": {
+                    "vocals": vocals_grove['gateway_url'],
+                    "drums": drums_grove['gateway_url']
+                },
+                "storage_keys": {
+                    "vocals": vocals_grove['storage_key'],
+                    "drums": drums_grove['storage_key']
+                },
+                "timing": {
+                    "demucs": demucs_time,
+                    "fal_ai": fal_time,
+                    "grove_upload": grove_time,
+                    "total": total_time
+                },
+                "metadata": {
+                    "audio_url": audio_url,
+                    "start_time": start_time,
+                    "duration": duration,
+                    "chain_id": chain_id
+                }
+            }
+
 
 # FastAPI web endpoint
 @app.function(image=demucs_image)
@@ -561,6 +796,65 @@ def fastapi_app():
             print(f"API Error: {str(e)}")
             print(f"Full traceback:\n{error_details}")
             raise HTTPException(500, f"Karaoke processing failed: {str(e)}")
+
+    @web_app.post("/process-karaoke-grove")
+    async def process_karaoke_grove_endpoint(
+        audio_url: str = Form(..., description="Audio URL (e.g., https://sc.maid.zone/_/restream/...)"),
+        start_time: float = Form(..., description="Start time in seconds", ge=0),
+        duration: float = Form(..., description="Duration in seconds", ge=0.1, le=60),
+        chain_id: int = Form(37111, description="Chain ID for Grove (37111=testnet, 7579=mainnet)"),
+        shifts: int = Form(1, description="Quality param: 1=fast, 5+=better", ge=1, le=10),
+        overlap: float = Form(0.25, description="Overlap between prediction windows", ge=0.0, le=1.0),
+        mp3_bitrate: int = Form(192, description="MP3 bitrate in kbps", ge=128, le=320),
+        strength: float = Form(0.4, description="fal.ai strength (0=keep original, 0.4=light transform, 1=full transform)", ge=0.0, le=1.0)
+    ):
+        """
+        Complete karaoke processing with fal.ai enhancement and Grove upload.
+
+        Flow:
+        1. Download audio from URL
+        2. Trim to segment
+        3. Demucs stem separation
+        4. fal.ai drum enhancement
+        5. Upload to Grove
+        6. Return Grove URIs
+
+        **Parameters:**
+        - `audio_url`: URL to audio file (e.g., https://sc.maid.zone/_/restream/...)
+        - `start_time`: Start time in seconds
+        - `duration`: Duration in seconds (max 60s)
+        - `chain_id`: Grove chain ID (37111=testnet, 7579=mainnet)
+        - `shifts`: Demucs quality (1=fast, 5+=better)
+        - `overlap`: Demucs overlap
+        - `mp3_bitrate`: MP3 bitrate in kbps
+        - `strength`: fal.ai strength (0=keep drums identical, 1=transform completely, default 0.8)
+
+        **Note:** fal.ai API key must be set as Modal secret `fal-api-key`
+
+        **Returns:**
+        JSON with Grove URIs (vocals + enhanced drums) and timing data
+        """
+        separator = DemucsSeparator()
+        try:
+            result = separator.process_karaoke_with_grove.remote(
+                audio_url=audio_url,
+                start_time=start_time,
+                duration=duration,
+                chain_id=chain_id,
+                shifts=shifts,
+                overlap=overlap,
+                mp3_bitrate=mp3_bitrate,
+                strength=strength
+            )
+
+            return result
+
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"API Error: {str(e)}")
+            print(f"Full traceback:\n{error_details}")
+            raise HTTPException(500, f"Karaoke Grove processing failed: {str(e)}")
 
     return web_app
 

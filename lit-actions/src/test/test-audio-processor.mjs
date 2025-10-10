@@ -36,11 +36,12 @@ dotenv.config({ path: join(__dirname, '../../.env') });
 // Load PKP credentials
 const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 
-// Audio Processor v1 CID (with credit validation, optional ElevenLabs key)
-const AUDIO_PROCESSOR_V1_CID = 'QmdCAnGwe5gq3HrAFKh9t9JL8y7ekiwVLejjzVSAA7SRCJ';
+// Audio Processor v2 CID (complete pipeline: fal.ai + ElevenLabs + Grove)
+const AUDIO_PROCESSOR_V2_CID = 'QmNw4ZstYobT8bKKcgGUDxnnA89go9b55yNbtxzdXfqWJb';
 
-// Encrypted key path
-const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v1.json');
+// Encrypted key paths
+const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v2.json');
+const FAL_API_KEY_PATH = join(__dirname, '../karaoke/keys/fal_api_key_v1.json');
 
 // KaraokeCredits contract (Base Sepolia)
 const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
@@ -79,11 +80,16 @@ async function loadPKPCredentials() {
 }
 
 async function loadEncryptedKeys() {
-  console.log('🔐 Loading encrypted ElevenLabs key...');
+  console.log('🔐 Loading encrypted API keys...');
+
   const elevenlabsKey = JSON.parse(await readFile(ELEVENLABS_KEY_PATH, 'utf-8'));
-  console.log('✅ Encrypted key loaded');
+  console.log('✅ ElevenLabs key loaded');
   console.log(`   CID: ${elevenlabsKey.cid || 'N/A'}`);
-  return { elevenlabsKey };
+
+  const falApiKey = JSON.parse(await readFile(FAL_API_KEY_PATH, 'utf-8'));
+  console.log('✅ fal.ai key loaded');
+  console.log(`   CID: ${falApiKey.cid || 'N/A'}`);
+  return { elevenlabsKey, falApiKey };
 }
 
 async function testAudioProcessor() {
@@ -94,7 +100,7 @@ async function testAudioProcessor() {
 
   // Load credentials and keys
   const pkpCreds = await loadPKPCredentials();
-  const { elevenlabsKey } = await loadEncryptedKeys();
+  const { elevenlabsKey, falApiKey } = await loadEncryptedKeys();
 
   // Create auth manager
   const authManager = createAuthManager({
@@ -168,23 +174,31 @@ async function testAudioProcessor() {
     soundcloudPermalink: TEST_DATA.soundcloudPermalink,
     userAddress: userAddress, // Required for ownership verification
 
-    // ElevenLabs key (for future alignment step)
+    // ElevenLabs key (for vocal alignment)
     elevenlabsKeyAccessControlConditions: elevenlabsKey.accessControlConditions,
     elevenlabsKeyCiphertext: elevenlabsKey.ciphertext,
-    elevenlabsKeyDataToEncryptHash: elevenlabsKey.dataToEncryptHash
+    elevenlabsKeyDataToEncryptHash: elevenlabsKey.dataToEncryptHash,
+
+    // fal.ai key (for drum enhancement)
+    falApiKeyAccessControlConditions: falApiKey.accessControlConditions,
+    falApiKeyCiphertext: falApiKey.ciphertext,
+    falApiKeyDataToEncryptHash: falApiKey.dataToEncryptHash
   };
 
-  console.log('\n🚀 Executing Audio Processor Lit Action...');
-  console.log('⏱️  Expected time: ~31s for processing');
+  console.log('\n🚀 Executing Audio Processor Lit Action (v2 - Complete Pipeline)...');
+  console.log('⏱️  Expected time: ~45s for full pipeline');
   console.log('   Step 1: Verify segment ownership on-chain');
-  console.log('   Step 2: Decrypt API keys');
+  console.log('   Step 2: Decrypt API keys (ElevenLabs + fal.ai)');
   console.log('   Step 3: Verify audio availability');
   console.log('   Step 4: Process with Modal (download + trim + stems)');
+  console.log('   Step 5: Enhance drums with fal.ai');
+  console.log('   Step 6: Get vocal alignment from ElevenLabs');
+  console.log('   Step 7: Prepare for Grove upload and registry update');
   const startTime = Date.now();
 
   try {
     const result = await litClient.executeJs({
-      ipfsId: AUDIO_PROCESSOR_V1_CID,
+      ipfsId: AUDIO_PROCESSOR_V2_CID,
       authContext: authContext,
       jsParams: jsParams,
     });
@@ -219,21 +233,23 @@ async function testAudioProcessor() {
     console.log('Section:', response.section.type);
     console.log('Duration:', response.section.duration + 's');
     console.log('Time range:', `${response.section.startTime}s - ${response.section.endTime}s`);
+    console.log('Segment hash:', response.segmentHash);
 
-    console.log('\n--- Audio Output ---');
-    console.log('Audio URL:', response.audio.audioUrl);
-    console.log('Vocals ZIP:', (response.audio.vocalsZipSize / 1024 / 1024).toFixed(2) + 'MB');
-    console.log('Drums ZIP:', (response.audio.drumsZipSize / 1024 / 1024).toFixed(2) + 'MB');
+    console.log('\n--- Processed Assets ---');
+    console.log('Vocals MP3:', (response.assets.vocalsSize / 1024 / 1024).toFixed(2) + 'MB');
+    console.log('Enhanced Drums MP3:', (response.assets.drumsSize / 1024 / 1024).toFixed(2) + 'MB');
+    console.log('Alignment words:', response.assets.alignmentWords);
 
     console.log('\n--- Processing Time ---');
-    console.log('Download:', response.processing.downloadTime.toFixed(1) + 's');
-    console.log('Trim:', response.processing.trimTime.toFixed(1) + 's');
-    console.log('Separation:', response.processing.separationTime.toFixed(1) + 's');
-    console.log('Modal total:', response.processing.modalProcessingTime.toFixed(1) + 's');
-    console.log('Overall total:', response.processing.totalTime.toFixed(1) + 's');
+    console.log('Modal (download + trim + stems):', response.processing.modal.toFixed(1) + 's');
+    console.log('fal.ai (drum enhancement):', response.processing.falai.toFixed(1) + 's');
+    console.log('ElevenLabs (vocal alignment):', response.processing.elevenlabs.toFixed(1) + 's');
+    console.log('Grove (preparation):', response.processing.grove.toFixed(1) + 's');
+    console.log('Total pipeline:', response.processing.total.toFixed(1) + 's');
 
     console.log('\n--- Performance ---');
     console.log('Processing speedup ratio:', response.speedup.ratio);
+    console.log('Note:', response.assets._note);
 
     console.log('\n' + '━'.repeat(80));
     return true;
@@ -248,11 +264,14 @@ async function testAudioProcessor() {
 }
 
 // Run test
-console.log('🎹 Audio Processor v1 Test (with Credit Validation)\n');
+console.log('🎹 Audio Processor v2 Test (Complete Pipeline)\n');
 console.log('Testing:');
 console.log('  1. Segment ownership verification (KaraokeCreditsV1 on Base Sepolia)');
-console.log('  2. Consolidated Modal endpoint (download + trim + stems)');
-console.log('  3. Credit-gated karaoke generation\n');
+console.log('  2. Modal endpoint (download + trim + stems)');
+console.log('  3. fal.ai drum enhancement (audio-to-audio)');
+console.log('  4. ElevenLabs vocal alignment (word-level timestamps)');
+console.log('  5. Grove upload preparation');
+console.log('  6. KaraokeCatalog registry update preparation\n');
 
 const success = await testAudioProcessor();
 
