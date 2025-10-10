@@ -49,7 +49,7 @@ const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v6.json'
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v2.json');
 
 // Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0x0843DDB2F2ceCAB0644Ece0523328af2C7882032'; // Base Sepolia
+const KARAOKE_CATALOG_ADDRESS = '0x5AA8B71E835E0c5CCeCa6c4a1d98891839E416E6'; // Base Sepolia (with PKP processor permissions)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
