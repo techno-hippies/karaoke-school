@@ -186,7 +186,7 @@ contract KaraokeCatalogV1 {
      */
     function addFullSong(AddFullSongParams calldata params)
         external
-        onlyOwner
+        onlyOwnerOrProcessor
         whenNotPaused
     {
         string memory id = params.id;
