@@ -586,7 +586,15 @@ Instructions:
         const jsonSignature = JSON.parse(signature);
         const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
         const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
-        const recid = jsonSignature.recid ?? (jsonSignature.v ? jsonSignature.v - 27 : 0);
+
+        // Extract recovery ID - Lit returns recid (0 or 1)
+        let recid = 0;
+        if (jsonSignature.recid !== undefined) {
+          recid = jsonSignature.recid;
+        } else if (jsonSignature.v !== undefined) {
+          // Handle legacy v format (27/28)
+          recid = jsonSignature.v >= 27 ? jsonSignature.v - 27 : jsonSignature.v;
+        }
 
         // Calculate EIP-155 v value
         const chainId = 84532;

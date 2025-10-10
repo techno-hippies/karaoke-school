@@ -40,8 +40,8 @@ const TEST_SONG = {
   notes: 'Has SoundCloud link for ElevenLabs alignment test'
 };
 
-// CID for match-and-segment-v3 (optimized alignment + addFullSong)
-const MATCH_AND_SEGMENT_V3_CID = 'QmYufUHy3pSTPA18vdwt2tt12WWHJ3PBnpExcrh5LqChcz';
+// CID for match-and-segment-v3 (fixed recid extraction - handles legacy v format)
+const MATCH_AND_SEGMENT_V3_CID = 'QmXZJMdQBtrtsBT3wVx3aW3vtGk67dL31LjngpC9qf4X1H';
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
@@ -178,7 +178,7 @@ async function main() {
       pkpAddress: pkpCreds.ethAddress,
       pkpTokenId: pkpCreds.tokenId,
       pkpPublicKey: pkpCreds.publicKey,
-      writeToBlockchain: false, // Set to true to test contract write
+      writeToBlockchain: true, // Test complete pipeline with fixed v value
       runAlignment: true
     };
 
