@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { AuthDialog } from '@/components/layout/AuthDialog'
+import { AuthDialogV2 } from '@/components/layout/AuthDialog'
 
-const meta: Meta<typeof AuthDialog> = {
+const meta: Meta<typeof AuthDialogV2> = {
   title: 'Layout/AuthDialog',
-  component: AuthDialog,
+  component: AuthDialogV2,
   parameters: {
     layout: 'centered',
     backgrounds: {
@@ -14,38 +14,70 @@ const meta: Meta<typeof AuthDialog> = {
       }
     }
   },
-  tags: ['autodocs'],
-  args: {
-    open: true,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onSignIn: () => {},
-    onLoginLens: () => {},
-  }
+  tags: ['autodocs']
 }
 
 export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Initial state - needs passkey authentication
- * Shows two-button flow: Register or Sign In
+ * Initial state - user needs to choose between Create Account or Sign In
  */
-export const NeedsPasskey: Story = {
+export const Initial: Story = {
   args: {
+    open: true,
+    currentStep: 'idle',
+    isAuthenticating: false,
+    authMode: null,
+    statusMessage: '',
+    errorMessage: '',
     isPKPReady: false,
-    hasLensAccount: false,
-  }
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onLogin: () => {},
+    onConnectSocial: () => {},
+  },
 }
 
 /**
- * PKP authenticated, needs Lens account
+ * Authenticating (loading state)
  */
-export const NeedsLens: Story = {
+export const Authenticating: Story = {
   args: {
+    open: true,
+    currentStep: 'webauthn',
+    isAuthenticating: true,
+    authMode: 'register',
+    statusMessage: 'Please create a passkey using your device...',
+    errorMessage: '',
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onLogin: () => {},
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Need to connect social account
+ */
+export const NeedsSocial: Story = {
+  args: {
+    open: true,
+    currentStep: 'complete',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
     isPKPReady: true,
-    hasLensAccount: false,
-  }
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onLogin: () => {},
+    onConnectSocial: () => {},
+  },
 }
 
 /**
@@ -53,40 +85,17 @@ export const NeedsLens: Story = {
  */
 export const AllReady: Story = {
   args: {
+    open: true,
+    currentStep: 'complete',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
     isPKPReady: true,
-    hasLensAccount: true,
-  }
-}
-
-/**
- * Registering new account (loading state)
- */
-export const Registering: Story = {
-  args: {
-    isPKPReady: false,
-    hasLensAccount: false,
-    isAuthenticating: true,
-  }
-}
-
-/**
- * Signing in (loading state)
- */
-export const SigningIn: Story = {
-  args: {
-    isPKPReady: false,
-    hasLensAccount: false,
-    isAuthenticating: true,
-  }
-}
-
-/**
- * Connecting to Lens (loading state)
- */
-export const ConnectingLens: Story = {
-  args: {
-    isPKPReady: true,
-    hasLensAccount: false,
-    isAuthenticating: true,
-  }
+    hasSocialAccount: true,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onLogin: () => {},
+    onConnectSocial: () => {},
+  },
 }
