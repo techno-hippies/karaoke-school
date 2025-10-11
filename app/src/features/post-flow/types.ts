@@ -60,6 +60,38 @@ export interface PostFlowData {
 }
 
 /**
+ * Auth Capability Tiers
+ * Features unlock progressively as user completes auth steps
+ */
+export interface AuthCapabilities {
+  // Tier 1: PKP Only (zero signatures)
+  canBrowse: boolean        // View catalog, trending
+  canSearch: boolean        // Genius search via Lit Action
+  canMatchSegment: boolean  // Match & Segment Lit Action
+
+  // Tier 2: PKP + Credits (paid features)
+  canGenerate: boolean      // Audio processor Lit Action
+  canUnlock: boolean        // Segment ownership
+  canRecord: boolean        // Recording requires unlocked segment
+
+  // Tier 3: PKP + Lens (social features)
+  canPost: boolean          // Create Lens posts
+  canLike: boolean          // Like posts
+  canFollow: boolean        // Follow users
+  canComment: boolean       // Comment on posts
+
+  // Meta info
+  blockingIssues: string[]  // What's preventing next tier
+  capabilities: {
+    hasPKP: boolean
+    hasLensSession: boolean
+    hasLensAccount: boolean
+    hasCredits: boolean
+    creditBalance: number
+  }
+}
+
+/**
  * Auth Requirements Status
  */
 export interface PostFlowAuthStatus {
@@ -70,6 +102,9 @@ export interface PostFlowAuthStatus {
   credits: number
   isReady: boolean
   error: string | null
+
+  // Granular capabilities
+  capabilities: AuthCapabilities
 }
 
 /**

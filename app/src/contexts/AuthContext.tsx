@@ -28,8 +28,68 @@ import {
 import { authenticateUser, registerUser, loginUser } from '@/lib/lit-webauthn/auth-flow'
 import { createPKPWalletClient, createPKPAuthContext } from '@/lib/lit-webauthn'
 import type { PKPInfo, PKPAuthContext } from '@/lib/lit-webauthn'
+import type { AuthCapabilities } from '@/features/post-flow/types'
 
 const IS_DEV = import.meta.env.DEV
+
+/**
+ * Resolve what user can do based on current auth state
+ * Returns granular capabilities instead of single isReady flag
+ */
+function resolveCapabilities(
+  isPKPReady: boolean,
+  pkpAuthContext: PKPAuthContext | null,
+  hasLensSession: boolean,
+  hasLensAccount: boolean,
+  credits: number
+): AuthCapabilities {
+  // Tier 1: PKP features
+  const hasPKP = isPKPReady && !!pkpAuthContext
+  const canBrowse = hasPKP
+  const canSearch = hasPKP
+  const canMatchSegment = hasPKP
+
+  // Tier 2: Paid features
+  const hasCredits = credits > 0
+  const canGenerate = hasPKP && hasCredits
+  const canUnlock = hasPKP && hasCredits
+  const canRecord = hasPKP && hasCredits // Must own segment
+
+  // Tier 3: Social features
+  const hasSocial = hasPKP && hasLensAccount
+  const canPost = hasSocial
+  const canLike = hasSocial
+  const canFollow = hasSocial
+  const canComment = hasSocial
+
+  // Compute blocking issues
+  const blockingIssues: string[] = []
+  if (!hasPKP) blockingIssues.push('PKP_REQUIRED')
+  if (!hasLensSession && !hasLensAccount) blockingIssues.push('LENS_SESSION_REQUIRED')
+  if (hasLensSession && !hasLensAccount) blockingIssues.push('LENS_ACCOUNT_REQUIRED')
+  if (credits === 0) blockingIssues.push('CREDITS_REQUIRED')
+
+  return {
+    canBrowse,
+    canSearch,
+    canMatchSegment,
+    canGenerate,
+    canUnlock,
+    canRecord,
+    canPost,
+    canLike,
+    canFollow,
+    canComment,
+    blockingIssues,
+    capabilities: {
+      hasPKP,
+      hasLensSession,
+      hasLensAccount,
+      hasCredits,
+      creditBalance: credits,
+    },
+  }
+}
 
 /**
  * Authentication State
@@ -47,12 +107,17 @@ interface AuthState {
   lensAccount: Account | null
   hasLensAccount: boolean
 
+  // Credits & Capabilities
+  credits: number
+  capabilities: AuthCapabilities
+
   // Overall state
   isAuthenticating: boolean
   authError: Error | null
   authStep: 'idle' | 'webauthn' | 'session' | 'social' | 'complete'
   authMode: 'register' | 'login' | null
   authStatus: string
+  lensSetupStatus: 'pending' | 'complete' | 'failed'
 }
 
 /**
@@ -68,6 +133,7 @@ interface AuthActions {
   loginLens: () => Promise<void>
   createLensAccountWithUsername: (username: string, metadataUri: string) => Promise<void>
   refreshLensAccount: () => Promise<void>
+  ensureLensAccount: () => Promise<boolean>
 
   // Reset
   reset: () => void
@@ -88,38 +154,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { sessionClient, setSessionClient } = useLensSession()
   const { account, setAccount } = useLensAccount()
 
+  // Layer 3: Credits
+  const [credits, setCredits] = useState<number>(0)
+
   // Overall state
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [authError, setAuthError] = useState<Error | null>(null)
   const [authStep, setAuthStep] = useState<AuthState['authStep']>('idle')
   const [authMode, setAuthMode] = useState<AuthState['authMode']>(null)
   const [authStatus, setAuthStatus] = useState<string>('')
+  const [lensSetupStatus, setLensSetupStatus] = useState<'pending' | 'complete' | 'failed'>('pending')
+
+  /**
+   * Load credit balance from smart contract
+   */
+  const loadCredits = async () => {
+    if (!pkpWallet.isConnected || !pkpWallet.address) {
+      setCredits(0)
+      return
+    }
+
+    try {
+      const { createPublicClient, http } = await import('viem')
+      const { baseSepolia } = await import('viem/chains')
+
+      const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
+
+      const publicClient = createPublicClient({
+        chain: baseSepolia,
+        transport: http(),
+      })
+
+      const data = await publicClient.readContract({
+        address: contractAddress,
+        abi: [{
+          name: 'getCredits',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [{ name: 'user', type: 'address' }],
+          outputs: [{ name: '', type: 'uint256' }],
+        }],
+        functionName: 'getCredits',
+        args: [pkpWallet.address],
+      })
+
+      setCredits(Number(data))
+    } catch (err) {
+      console.error('[Auth] Failed to load credits:', err)
+      setCredits(0)
+    }
+  }
+
+  /**
+   * Auto-load credits when PKP wallet connects
+   */
+  useEffect(() => {
+    if (pkpWallet.isConnected && pkpWallet.address) {
+      loadCredits()
+    }
+  }, [pkpWallet.isConnected, pkpWallet.address])
 
   /**
    * Auto-restore Lens session if PKP is ready
    */
   useEffect(() => {
     const restoreSession = async () => {
-      if (IS_DEV) {
-        console.log('[Auth] Checking for existing session:', {
-          pkpReady: pkpWallet.isConnected,
-          pkpAddress: pkpWallet.address,
-          lensSession: !!sessionClient,
-        })
-      }
-
       // If PKP is ready and we have a Lens session, auto-restore account
       if (pkpWallet.isConnected && sessionClient && pkpWallet.address) {
         try {
           const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
           if (existingAccounts.length > 0 && !account) {
-            if (IS_DEV) console.log('[Auth] Restored Lens account')
             setAccount(existingAccounts[0])
             setAuthStep('complete')
+            setLensSetupStatus('complete')
+          } else if (existingAccounts.length === 0) {
+            setLensSetupStatus('failed')
+            // Don't block - user can still use PKP features
           }
         } catch (error) {
-          console.error('[Auth] Session restore error:', error)
+          console.error('[Auth] Session restore error (non-critical):', error)
+          setLensSetupStatus('failed')
+          // Don't block - user can still use PKP features
         }
       }
     }
@@ -138,8 +254,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthStatus('Starting registration...')
 
     try {
-      if (IS_DEV) console.log('[Auth] Starting registration flow...')
-
       // Use register flow with status callback
       const result = await registerUser((status) => {
         setAuthStatus(status)
@@ -151,12 +265,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      if (IS_DEV) {
-        console.log('[Auth] Registration complete:', {
-          address: result.pkpInfo.ethAddress,
-        })
-      }
-
       // Create PKP wallet client for immediate use
       const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
       const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
@@ -166,11 +274,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAuthStatus('Account created! Connecting social...')
 
-      // Auto-connect social account (second signature)
-      await loginLens(walletClient, result.pkpInfo.ethAddress)
+      // Auto-connect social account (second signature) - NON-CRITICAL
+      try {
+        await loginLens(walletClient, result.pkpInfo.ethAddress)
+        setLensSetupStatus('complete')
+      } catch (lensError) {
+        console.warn('[Auth] Lens connection failed (non-critical):', lensError)
+        setLensSetupStatus('failed')
+        // Don't throw - PKP still works for search/browse!
+      }
 
       setAuthStep('complete')
       setAuthStatus('All set!')
+      setAuthMode(null)
     } catch (error) {
       console.error('[Auth] Registration error:', error)
       setAuthError(error as Error)
@@ -194,8 +310,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthStatus('Starting sign in...')
 
     try {
-      if (IS_DEV) console.log('[Auth] Starting login flow...')
-
       // Use login flow with status callback
       const result = await loginUser((status) => {
         setAuthStatus(status)
@@ -209,12 +323,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      if (IS_DEV) {
-        console.log('[Auth] Login complete:', {
-          address: result.pkpInfo.ethAddress,
-        })
-      }
-
       // Create PKP wallet client for immediate use
       const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
       const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
@@ -224,11 +332,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAuthStatus('Welcome back! Connecting social...')
 
-      // Auto-connect social account (second signature)
-      await loginLens(walletClient, result.pkpInfo.ethAddress)
+      // Auto-connect social account (second signature) - NON-CRITICAL
+      try {
+        await loginLens(walletClient, result.pkpInfo.ethAddress)
+        setLensSetupStatus('complete')
+      } catch (lensError) {
+        console.warn('[Auth] Lens connection failed (non-critical):', lensError)
+        setLensSetupStatus('failed')
+        // Don't throw - PKP still works for search/browse!
+      }
 
       setAuthStep('complete')
       setAuthStatus('All set!')
+      setAuthMode(null)
     } catch (error) {
       console.error('[Auth] Login error:', error)
       setAuthError(error as Error)
@@ -259,14 +375,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError(null)
       setAuthStatus('Connecting to Lens Protocol...')
 
-      if (IS_DEV) console.log('[Auth] Logging into Lens...')
-
       // Login as onboarding user (Account Manager mode)
       const session = await loginAsOnboardingUser(client, addr)
 
       setSessionClient(session)
-
-      if (IS_DEV) console.log('[Auth] Lens session created')
 
       setAuthStatus('Finalizing...')
 
@@ -275,7 +387,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existingAccounts.length > 0) {
         setAccount(existingAccounts[0])
-        if (IS_DEV) console.log('[Auth] Lens account found:', existingAccounts[0].account?.username)
       }
 
       // Complete regardless of whether they have an account
@@ -306,8 +417,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticating(true)
       setAuthError(null)
 
-      if (IS_DEV) console.log('[Auth] Creating Lens account:', username)
-
       // Create account (gas sponsored by Lens app)
       const newAccount = await createLensAccount(
         sessionClient,
@@ -317,8 +426,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
 
       setAccount(newAccount)
-
-      if (IS_DEV) console.log('[Auth] Lens account created:', username)
     } catch (error) {
       console.error('[Auth] Create Lens account error:', error)
       setAuthError(error as Error)
@@ -345,7 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existingAccounts.length > 0) {
         setAccount(existingAccounts[0])
-        if (IS_DEV) console.log('[Auth] Account refreshed')
+        setLensSetupStatus('complete')
       }
     } catch (error) {
       console.error('[Auth] Refresh account error:', error)
@@ -357,11 +464,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
+   * Ensure Lens account is set up (just-in-time)
+   * Can be called when user attempts social features
+   * Returns true if account ready, false if setup needed
+   */
+  const ensureLensAccount = async (): Promise<boolean> => {
+    if (!pkpWallet.isConnected || !pkpWallet.address) {
+      throw new Error('PKP wallet not connected')
+    }
+
+    // Already have account
+    if (account) {
+      return true
+    }
+
+    try {
+      // Check if session exists
+      if (!sessionClient) {
+        await loginLens()
+      }
+
+      // Check if account exists
+      const existingAccounts = await getExistingAccounts(pkpWallet.address)
+
+      if (existingAccounts.length > 0) {
+        setAccount(existingAccounts[0])
+        setLensSetupStatus('complete')
+        return true
+      }
+
+      // No account - user needs to create one
+      setLensSetupStatus('failed')
+      return false
+    } catch (error) {
+      console.error('[Auth] Ensure Lens account error:', error)
+      setLensSetupStatus('failed')
+      return false
+    }
+  }
+
+  /**
    * Logout and reset all auth state
    */
   const logout = () => {
-    if (IS_DEV) console.log('[Auth] Logging out...')
-
     pkpWallet.reset()
     setSessionClient(null)
     setAccount(null)
@@ -376,6 +521,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const reset = logout
 
+  // Compute capabilities based on current state
+  const capabilities = resolveCapabilities(
+    pkpWallet.isConnected,
+    pkpWallet.authContext,
+    !!sessionClient,
+    !!account,
+    credits
+  )
+
   const value: AuthContextType = {
     // PKP State
     pkpInfo: pkpWallet.pkpInfo,
@@ -389,12 +543,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     lensAccount: account,
     hasLensAccount: !!account,
 
+    // Credits & Capabilities
+    credits,
+    capabilities,
+
     // Overall State
     isAuthenticating: isAuthenticating || pkpWallet.isInitializing,
     authError: authError || pkpWallet.error,
     authStep,
     authMode,
     authStatus,
+    lensSetupStatus,
 
     // Actions
     registerWithPasskey,
@@ -403,6 +562,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginLens,
     createLensAccountWithUsername,
     refreshLensAccount,
+    ensureLensAccount,
     reset,
   }
 
