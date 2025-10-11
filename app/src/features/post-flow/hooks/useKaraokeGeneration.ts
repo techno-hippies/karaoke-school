@@ -20,8 +20,8 @@ export function useKaraokeGeneration() {
    * Uses PKP auth context for zero-signature execution
    */
   const generateKaraoke = async (song: Song): Promise<SongSegment[] | null> => {
-    if (!pkpWalletClient || !pkpAuthContext) {
-      setError('PKP wallet not ready')
+    if (!pkpAuthContext) {
+      setError('PKP auth context not ready')
       return null
     }
 
@@ -32,7 +32,7 @@ export function useKaraokeGeneration() {
       console.log('[KaraokeGen] Executing Match and Segment for:', song.geniusId)
       console.log('[KaraokeGen] Using PKP auth context (zero signatures required)')
 
-      const result: MatchSegmentResult = await executeMatchAndSegment(song.geniusId, pkpWalletClient)
+      const result: MatchSegmentResult = await executeMatchAndSegment(song.geniusId, pkpAuthContext)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate karaoke')

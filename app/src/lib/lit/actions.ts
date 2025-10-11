@@ -155,10 +155,9 @@ export async function executeSearch(
  */
 export async function executeMatchAndSegment(
   geniusId: number,
-  walletClient: WalletClient
+  authContext: any
 ): Promise<MatchSegmentResult> {
   const litClient = await getLitClient()
-  const authContext = await getAuthContext(walletClient)
   const keyParams = getKaraokeKeyParams()
 
   const result = await litClient.executeJs({
