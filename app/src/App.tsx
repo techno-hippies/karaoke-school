@@ -1,11 +1,11 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import React, { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
-import { ConnectKitProvider, getParticleConfig } from './lib/particle/client'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
+import { AuthDialogV2 } from './components/layout/AuthDialog.v2'
 import { PostFlowContainer } from './features/post-flow/PostFlowContainer'
+import './i18n/config'
 
 // React Query client
 const queryClient = new QueryClient({
@@ -16,9 +16,6 @@ const queryClient = new QueryClient({
     },
   },
 })
-
-// Get Particle config (which includes wagmi config)
-const particleConfig = getParticleConfig()
 
 // Placeholder pages - we'll create these properly
 function HomePage() {
@@ -64,17 +61,15 @@ function InboxPage() {
 
 function ProfilePage() {
   const {
-    isWalletConnected,
-    walletAddress,
-    walletClient,
+    isPKPReady,
+    pkpAddress,
+    pkpWalletClient,
     lensAccount,
     hasLensAccount,
     lensSession,
-    litReady,
     loginLens,
     createLensAccountWithUsername,
     refreshLensAccount,
-    initializeLit,
     isAuthenticating,
     authError
   } = useAuth()
@@ -123,26 +118,15 @@ function ProfilePage() {
     }
   }
 
-  const handleInitializeLit = async () => {
-    try {
-      setStatus('Initializing Lit Protocol...')
-      await initializeLit()
-      setStatus('Lit Protocol initialized! ✅')
-    } catch (error) {
-      console.error('[ProfilePage] Lit init error:', error)
-      setStatus(`Lit init error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  // Load credit balance when wallet connects
+  // Load credit balance when PKP wallet connects
   React.useEffect(() => {
-    if (walletAddress && walletClient) {
+    if (pkpAddress && pkpWalletClient) {
       loadCredits()
     }
-  }, [walletAddress, walletClient])
+  }, [pkpAddress, pkpWalletClient])
 
   const loadCredits = async () => {
-    if (!walletAddress) return
+    if (!pkpAddress) return
 
     try {
       const { createPublicClient, http } = await import('viem')
@@ -166,7 +150,7 @@ function ProfilePage() {
           outputs: [{ name: '', type: 'uint256' }],
         }],
         functionName: 'getCredits',
-        args: [walletAddress],
+        args: [pkpAddress],
       })
 
       setCredits(Number(data))
@@ -179,7 +163,7 @@ function ProfilePage() {
   }
 
   const handlePurchaseCredits = async () => {
-    if (!walletClient || !walletAddress) return
+    if (!pkpWalletClient || !pkpAddress) return
 
     try {
       setStatus('Purchasing credits...')
@@ -187,7 +171,7 @@ function ProfilePage() {
       const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
 
       // Package 0: 1 credit for 0.0002 ETH (~$0.50)
-      const hash = await walletClient.writeContract({
+      const hash = await pkpWalletClient.writeContract({
         address: contractAddress,
         abi: [{
           name: 'purchaseCreditsETH',
@@ -214,7 +198,7 @@ function ProfilePage() {
   }
 
   const handleTestLitAction = async () => {
-    if (!walletClient) return
+    if (!pkpWalletClient) return
 
     try {
       setStatus('Testing Match & Segment for Sia - Chandelier (378195)...')
@@ -222,8 +206,8 @@ function ProfilePage() {
       // Import karaoke actions helper
       const { executeMatchAndSegment, formatSection } = await import('@/lib/lit/actions')
 
-      // Execute Lit Action
-      const result = await executeMatchAndSegment(378195, walletClient)
+      // Execute Lit Action (zero signatures with PKP!)
+      const result = await executeMatchAndSegment(378195, pkpWalletClient)
 
       if (result.success && result.isMatch) {
         const sectionsText = result.sections?.slice(0, 3).map(formatSection).join(', ') || 'None'
@@ -252,8 +236,8 @@ function ProfilePage() {
 
         <div className="bg-sidebar border border-border rounded-lg p-6 space-y-4">
           <div>
-            <p className="text-sm text-muted-foreground">Wallet:</p>
-            <p className="font-mono text-sm">{isWalletConnected ? walletAddress : 'Not connected'}</p>
+            <p className="text-sm text-muted-foreground">PKP Wallet:</p>
+            <p className="font-mono text-sm">{isPKPReady ? pkpAddress : 'Not connected'}</p>
           </div>
 
           <div>
@@ -274,19 +258,13 @@ function ProfilePage() {
           </div>
 
           <div>
-            <p className="text-sm text-muted-foreground">Lit Protocol:</p>
-            <p className="text-sm">{litReady ? '✅ Ready' : '❌ Not initialized'}</p>
-            <p className="text-xs text-muted-foreground">litReady: {String(litReady)}</p>
-          </div>
-
-          <div>
             <p className="text-sm text-muted-foreground">Karaoke Credits:</p>
             <p className="text-sm">{credits !== null ? `${credits} credits` : 'Loading...'}</p>
             <p className="text-xs text-muted-foreground">Contract: Base Sepolia</p>
           </div>
         </div>
 
-        {isWalletConnected && !lensSession && (
+        {isPKPReady && !lensSession && (
           <button
             onClick={handleLoginLens}
             disabled={isAuthenticating}
@@ -330,17 +308,7 @@ function ProfilePage() {
           </div>
         )}
 
-        {hasLensAccount && !litReady && (
-          <button
-            onClick={handleInitializeLit}
-            disabled={isAuthenticating}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            {isAuthenticating ? 'Initializing...' : 'Initialize Lit Protocol'}
-          </button>
-        )}
-
-        {litReady && (
+        {hasLensAccount && (
           <div className="space-y-3">
             <div className="text-center">
               <h3 className="text-lg font-semibold text-foreground">All Systems Ready! 🎉</h3>
@@ -390,9 +358,23 @@ function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home')
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // Get auth context
-  const { isWalletConnected, walletAddress, connectWallet, disconnectWallet } = useAuth()
+  const {
+    isPKPReady,
+    pkpAddress,
+    hasLensAccount,
+    isAuthenticating,
+    authStatus,
+    authStep,
+    authMode,
+    authError,
+    registerWithPasskey,
+    signInWithPasskey,
+    loginLens,
+    logout
+  } = useAuth()
 
   // Sync active tab with current route
   useEffect(() => {
@@ -419,39 +401,52 @@ function AppRouter() {
   }
 
   return (
-    <AppLayout
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-      isConnected={isWalletConnected}
-      walletAddress={walletAddress || undefined}
-      onConnectWallet={connectWallet}
-      onDisconnect={disconnectWallet}
-    >
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/class" element={<ClassPage />} />
-        <Route path="/karaoke" element={<KaraokePage />} />
-        <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/profile/:address" element={<ProfilePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppLayout>
+    <>
+      <AppLayout
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        isConnected={isPKPReady}
+        walletAddress={pkpAddress || undefined}
+        onConnectWallet={() => setShowAuthDialog(true)}
+        onDisconnect={logout}
+      >
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/class" element={<ClassPage />} />
+          <Route path="/karaoke" element={<KaraokePage />} />
+          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:address" element={<ProfilePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AppLayout>
+
+      <AuthDialogV2
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        currentStep={authStep}
+        isAuthenticating={isAuthenticating}
+        authMode={authMode}
+        statusMessage={authStatus}
+        errorMessage={authError?.message || ''}
+        isPKPReady={isPKPReady}
+        hasSocialAccount={hasLensAccount}
+        onRegister={registerWithPasskey}
+        onLogin={signInWithPasskey}
+        onConnectSocial={loginLens}
+      />
+    </>
   )
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ConnectKitProvider config={particleConfig}>
-        <WagmiProvider config={particleConfig}>
-          <AuthProvider>
-            <HashRouter>
-              <AppRouter />
-            </HashRouter>
-          </AuthProvider>
-        </WagmiProvider>
-      </ConnectKitProvider>
+      <AuthProvider>
+        <HashRouter>
+          <AppRouter />
+        </HashRouter>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

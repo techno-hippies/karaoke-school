@@ -20,12 +20,9 @@
     "@lens-chain/storage-client": "^1.0.6",
     "@lens-protocol/client": "^0.0.0-canary-20250430134539",
     "@lens-protocol/metadata": "^2.1.0",
-    "@lit-protocol/auth": "^8.0.0",
-    "@lit-protocol/lit-client": "^8.0.0-alpha.18",
-    "@lit-protocol/networks": "^8.0.0-alpha.27",
-    "@particle-network/auth-connectors": "^2.1.1",
-    "@particle-network/connectkit": "^2.1.3",
-    "@particle-network/evm-connectors": "^2.1.2",
+    "@lit-protocol/auth": "^8.0.2",
+    "@lit-protocol/lit-client": "8.0.2",
+    "@lit-protocol/networks": "8.0.2",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -49,8 +46,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "viem": "^2",
-    "wagmi": "^2"
+    "viem": "^2"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.1",

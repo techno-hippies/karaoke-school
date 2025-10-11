@@ -40,8 +40,10 @@ const TEST_SONG = {
   notes: 'Has SoundCloud link for ElevenLabs alignment test'
 };
 
-// CID for match-and-segment-v3 (fixed recid extraction - handles legacy v format)
-const MATCH_AND_SEGMENT_V3_CID = 'QmXZJMdQBtrtsBT3wVx3aW3vtGk67dL31LjngpC9qf4X1H';
+// CID for match-and-segment-v3 (line-based alignment with word-level timing per line)
+const MATCH_AND_SEGMENT_V3_CID_NEW = 'QmdDE2ARvYwUchM1GgL9fTWZkyjuLXg3Dv7jo3B1xuSXJX';
+// Old working version (word-level only)
+const MATCH_AND_SEGMENT_V3_CID = 'QmXZJMdQBtrtsBT3wVx3aW3vtGk67dL31LjngpC9qf4X1H'; // TEMP: test old version
 
 // Encrypted key paths
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');

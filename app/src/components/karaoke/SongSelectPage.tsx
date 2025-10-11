@@ -10,7 +10,6 @@ import {
   InputGroupButton,
 } from '@/components/ui/input-group'
 import { SegmentPickerDrawer, type SongSegment } from './SegmentPickerDrawer'
-import { PurchaseCreditsDialog } from './PurchaseCreditsDialog'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
@@ -83,7 +82,7 @@ export function SongSelectPage({
   const [showSheet, setShowSheet] = useState(false)
   const [selectedSong, setSelectedSong] = useState<Song | null>(null)
   const [selectedSegment, setSelectedSegment] = useState<SongSegment | null>(null)
-  const [drawerMode, setDrawerMode] = useState<'segment' | 'purchase'>('segment')
+  const [drawerMode, setDrawerMode] = useState<'segment'>('segment')
   const [hasSearched, setHasSearched] = useState(false)
   const [isLocalSearching, setIsLocalSearching] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -157,9 +156,8 @@ export function SongSelectPage({
 
     // Paid songs (requiresPayment=true in contract): Check credits FIRST
     if (!hasCredits) {
-      // No credits - show purchase dialog immediately (don't waste time generating)
-      setDrawerMode('purchase')
-      setShowSheet(true)
+      // No credits - trigger purchase flow (handled by parent)
+      onPurchaseCredits?.()
       return
     }
 
@@ -201,30 +199,12 @@ export function SongSelectPage({
       setShowSheet(false)
       onClose()
     } else {
-      // User needs to buy credits first
-      setDrawerMode('purchase')
-    }
-  }
-
-  const handlePurchase = () => {
-    onPurchaseCredits?.()
-
-    // After purchase, if selected song needs generation, start it
-    if (selectedSong && !selectedSong.isProcessed) {
-      setIsGenerating(true)
-      setGeneratingProgress(0)
-      onGenerateKaraoke?.(selectedSong)
-      setDrawerMode('segment')
-      // Keep drawer open, transition to segment picker with loading state
-    } else if (selectedSong && selectedSong.isProcessed) {
-      // Song already processed, just show segment picker
-      setDrawerMode('segment')
-    } else {
-      // No selected song, close everything
+      // User needs to buy credits - trigger purchase flow (handled by parent)
       setShowSheet(false)
-      onClose()
+      onPurchaseCredits?.()
     }
   }
+
 
   const handleSearch = () => {
     if (!searchQuery.trim()) return
@@ -403,15 +383,6 @@ export function SongSelectPage({
           generatingProgress={generatingProgress}
         />
       )}
-
-      {/* Purchase Credits Dialog */}
-      <PurchaseCreditsDialog
-        open={showSheet && drawerMode === 'purchase'}
-        onOpenChange={setShowSheet}
-        price="$10"
-        creditAmount={20}
-        onPurchase={handlePurchase}
-      />
     </>
   )
 }

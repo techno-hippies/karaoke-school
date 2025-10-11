@@ -9,13 +9,13 @@ import type { PostFlowAuthStatus } from '../types'
 
 export function usePostFlowAuth() {
   const {
-    isWalletConnected,
+    isPKPReady,
     hasLensAccount,
-    litReady,
-    walletClient,
-    connectWallet,
+    pkpWalletClient,
+    pkpAddress,
+    registerWithPasskey,
+    signInWithPasskey,
     loginLens,
-    initializeLit,
   } = useAuth()
 
   const [credits, setCredits] = useState<number>(0)
@@ -26,7 +26,7 @@ export function usePostFlowAuth() {
    * Load credit balance from smart contract
    */
   const loadCredits = async () => {
-    if (!isWalletConnected || !walletClient) {
+    if (!isPKPReady || !pkpWalletClient || !pkpAddress) {
       setCredits(0)
       return
     }
@@ -39,7 +39,7 @@ export function usePostFlowAuth() {
       const { baseSepolia } = await import('viem/chains')
 
       const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
-      const [address] = await walletClient.getAddresses()
+      const address = pkpAddress
 
       const publicClient = createPublicClient({
         chain: baseSepolia,
@@ -72,34 +72,26 @@ export function usePostFlowAuth() {
 
   /**
    * Initialize authentication (step by step)
+   * User must sign in or register first (handled by AuthDialog)
    */
   const initializeAuth = async (): Promise<boolean> => {
     setError(null)
 
     try {
-      // Step 1: Connect wallet
-      if (!isWalletConnected) {
-        console.log('[PostFlowAuth] Connecting wallet...')
-        await connectWallet()
-        // Wait for wallet to connect
-        await new Promise(resolve => setTimeout(resolve, 1000))
+      // Step 1: PKP should already be ready (user signed in/registered)
+      if (!isPKPReady) {
+        console.log('[PostFlowAuth] PKP not ready - user needs to sign in')
+        return false
       }
 
-      // Step 2: Login to Lens
+      // Step 2: Login to Lens if needed
       if (!hasLensAccount) {
         console.log('[PostFlowAuth] Logging in to Lens...')
         await loginLens()
-        // Wait for Lens login
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
-      // Step 3: Initialize Lit Protocol
-      if (!litReady) {
-        console.log('[PostFlowAuth] Initializing Lit Protocol...')
-        await initializeLit()
-      }
-
-      // Step 4: Load credits
+      // Step 3: Load credits
       await loadCredits()
 
       return true
@@ -112,14 +104,15 @@ export function usePostFlowAuth() {
 
   /**
    * Validate all auth requirements
+   * PKP auth context is automatically created, enabling zero-sig Lit Actions
    */
   const validateAuth = (): PostFlowAuthStatus => {
-    const isReady = isWalletConnected && hasLensAccount && litReady
+    const isReady = isPKPReady && hasLensAccount
 
     return {
-      isWalletConnected,
+      isWalletConnected: isPKPReady,
       hasLensAccount,
-      isLitReady: litReady,
+      isLitReady: true, // PKP auth context enables zero-sig Lit Actions
       hasCredits: credits > 0,
       credits,
       isReady,
@@ -134,12 +127,12 @@ export function usePostFlowAuth() {
     await loadCredits()
   }
 
-  // Load credits when wallet connects
+  // Load credits when PKP wallet connects
   useEffect(() => {
-    if (isWalletConnected && walletClient) {
+    if (isPKPReady && pkpWalletClient) {
       loadCredits()
     }
-  }, [isWalletConnected, walletClient])
+  }, [isPKPReady, pkpWalletClient])
 
   return {
     // Status
@@ -150,8 +143,8 @@ export function usePostFlowAuth() {
     initializeAuth,
     loadCredits,
     reloadCredits,
-    connectWallet,
+    registerWithPasskey,
+    signInWithPasskey,
     loginLens,
-    initializeLit,
   }
 }

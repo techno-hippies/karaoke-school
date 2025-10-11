@@ -10,17 +10,18 @@ import type { Song, SongSegment, PerformanceGrade } from '../types'
 import type { MatchSegmentResult } from '@/lib/lit/actions'
 
 export function useKaraokeGeneration() {
-  const { walletClient } = useAuth()
+  const { pkpWalletClient, pkpAuthContext } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGrading, setIsGrading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   /**
    * Generate karaoke segments for a song (Match and Segment Lit Action)
+   * Uses PKP auth context for zero-signature execution
    */
   const generateKaraoke = async (song: Song): Promise<SongSegment[] | null> => {
-    if (!walletClient) {
-      setError('Wallet not connected')
+    if (!pkpWalletClient || !pkpAuthContext) {
+      setError('PKP wallet not ready')
       return null
     }
 
@@ -29,8 +30,9 @@ export function useKaraokeGeneration() {
 
     try {
       console.log('[KaraokeGen] Executing Match and Segment for:', song.geniusId)
+      console.log('[KaraokeGen] Using PKP auth context (zero signatures required)')
 
-      const result: MatchSegmentResult = await executeMatchAndSegment(song.geniusId, walletClient)
+      const result: MatchSegmentResult = await executeMatchAndSegment(song.geniusId, pkpWalletClient)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate karaoke')

@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { SongSelectPage } from '@/components/karaoke/SongSelectPage'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
+import { useContractSongs } from '@/hooks/useContractSongs'
 import { executeSearch } from '@/lib/lit/actions'
 import type { PostFlowContext, Song } from '../types'
 
@@ -15,7 +16,8 @@ interface SongSelectStepProps {
 }
 
 export function SongSelectStep({ flow }: SongSelectStepProps) {
-  const [trendingSongs] = useState<Song[]>([])
+  // Load songs from KaraokeCatalogV1 contract on Base Sepolia
+  const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs()
   const [searchResults, setSearchResults] = useState<Song[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
@@ -23,11 +25,11 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   const [pendingSearch, setPendingSearch] = useState<string | null>(null)
 
   const {
-    isWalletConnected,
+    isPKPReady,
     hasLensAccount,
-    litReady,
-    walletClient,
-    connectWallet,
+    pkpWalletClient,
+    registerWithPasskey,
+    signInWithPasskey,
     loginLens,
   } = useAuth()
 
@@ -45,7 +47,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
     // Check basic auth (wallet + Lens)
-    if (!isWalletConnected || !hasLensAccount) {
+    if (!isPKPReady || !hasLensAccount) {
       setPendingSearch(query)
       setShowAuthDialog(true)
       return
@@ -53,7 +55,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
     setIsSearching(true)
     try {
-      const result = await executeSearch(query, 20, walletClient || undefined)
+      const result = await executeSearch(query, 20, pkpWalletClient || undefined)
 
       if (result.success && result.results) {
         const songs: Song[] = result.results.map(r => ({
@@ -80,7 +82,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   const handleSongClick = (song: Song) => {
     // Check auth before allowing song selection
-    if (!isWalletConnected || !hasLensAccount) {
+    if (!isPKPReady || !hasLensAccount) {
       setPendingSong(song)
       setShowAuthDialog(true)
       return
@@ -107,7 +109,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Handle auth completion - retry pending actions
   const handleAuthComplete = () => {
     setShowAuthDialog(false)
-    if (isWalletConnected && hasLensAccount) {
+    if (isPKPReady && hasLensAccount) {
       // Retry pending search
       if (pendingSearch) {
         handleSearch(pendingSearch)
@@ -133,7 +135,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
         onSearch={handleSearch}
         userCredits={flow.auth.credits}
         onSelectSong={(song, segment) => {
-          if (!isWalletConnected || !hasLensAccount) {
+          if (!isPKPReady || !hasLensAccount) {
             setPendingSong(song)
             setShowAuthDialog(true)
             return
@@ -144,7 +146,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
           flow.unlockSegment(song, segment)
         }}
         onGenerateKaraoke={async (song) => {
-          if (!isWalletConnected || !hasLensAccount) {
+          if (!isPKPReady || !hasLensAccount) {
             setPendingSong(song)
             setShowAuthDialog(true)
             return
@@ -166,14 +168,14 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
             setPendingSong(null)
             setPendingSearch(null)
           }
-          if (open && isWalletConnected && hasLensAccount) {
+          if (open && isPKPReady && hasLensAccount) {
             handleAuthComplete()
           }
         }}
-        isWalletConnected={isWalletConnected}
+        isPKPReady={isPKPReady}
         hasLensAccount={hasLensAccount}
-        isLitReady={litReady}
-        onConnectWallet={connectWallet}
+        onRegister={registerWithPasskey}
+        onSignIn={signInWithPasskey}
         onLoginLens={loginLens}
       />
     </>

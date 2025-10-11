@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { AuthDialog } from '@/components/layout/AuthDialog'
-import { fn } from 'storybook/test'
 
 const meta: Meta<typeof AuthDialog> = {
   title: 'Layout/AuthDialog',
@@ -18,9 +17,10 @@ const meta: Meta<typeof AuthDialog> = {
   tags: ['autodocs'],
   args: {
     open: true,
-    onOpenChange: fn(),
-    onConnectWallet: fn(),
-    onLoginLens: fn(),
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onSignIn: () => {},
+    onLoginLens: () => {},
   }
 }
 
@@ -28,35 +28,23 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Initial state - wallet not connected
+ * Initial state - needs passkey authentication
+ * Shows two-button flow: Register or Sign In
  */
-export const NeedsWallet: Story = {
+export const NeedsPasskey: Story = {
   args: {
-    isWalletConnected: false,
+    isPKPReady: false,
     hasLensAccount: false,
-    isLitReady: false,
   }
 }
 
 /**
- * Wallet connected, needs Lens login
+ * PKP authenticated, needs Lens account
  */
 export const NeedsLens: Story = {
   args: {
-    isWalletConnected: true,
+    isPKPReady: true,
     hasLensAccount: false,
-    isLitReady: false,
-  }
-}
-
-/**
- * Lens logged in, Lit initializing automatically
- */
-export const InitializingLit: Story = {
-  args: {
-    isWalletConnected: true,
-    hasLensAccount: true,
-    isLitReady: false,
   }
 }
 
@@ -65,20 +53,40 @@ export const InitializingLit: Story = {
  */
 export const AllReady: Story = {
   args: {
-    isWalletConnected: true,
+    isPKPReady: true,
     hasLensAccount: true,
-    isLitReady: true,
   }
 }
 
 /**
- * Currently authenticating (loading state)
+ * Registering new account (loading state)
  */
-export const Authenticating: Story = {
+export const Registering: Story = {
   args: {
-    isWalletConnected: false,
+    isPKPReady: false,
     hasLensAccount: false,
-    isLitReady: false,
+    isAuthenticating: true,
+  }
+}
+
+/**
+ * Signing in (loading state)
+ */
+export const SigningIn: Story = {
+  args: {
+    isPKPReady: false,
+    hasLensAccount: false,
+    isAuthenticating: true,
+  }
+}
+
+/**
+ * Connecting to Lens (loading state)
+ */
+export const ConnectingLens: Story = {
+  args: {
+    isPKPReady: true,
+    hasLensAccount: false,
     isAuthenticating: true,
   }
 }
