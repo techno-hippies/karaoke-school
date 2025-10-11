@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
-import { AuthDialogV2 } from './components/layout/AuthDialog.v2'
+import { AuthDialogV2 } from './components/layout/AuthDialog'
 import { PostFlowContainer } from './features/post-flow/PostFlowContainer'
 import './i18n/config'
 
