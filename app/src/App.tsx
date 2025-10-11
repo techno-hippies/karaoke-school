@@ -64,6 +64,7 @@ function ProfilePage() {
     isPKPReady,
     pkpAddress,
     pkpWalletClient,
+    pkpAuthContext,
     lensAccount,
     hasLensAccount,
     lensSession,
@@ -198,7 +199,7 @@ function ProfilePage() {
   }
 
   const handleTestLitAction = async () => {
-    if (!pkpWalletClient) return
+    if (!pkpAuthContext) return
 
     try {
       setStatus('Testing Match & Segment for Sia - Chandelier (378195)...')
@@ -207,7 +208,7 @@ function ProfilePage() {
       const { executeMatchAndSegment, formatSection } = await import('@/lib/lit/actions')
 
       // Execute Lit Action (zero signatures with PKP!)
-      const result = await executeMatchAndSegment(378195, pkpWalletClient)
+      const result = await executeMatchAndSegment(378195, pkpAuthContext)
 
       if (result.success && result.isMatch) {
         const sectionsText = result.sections?.slice(0, 3).map(formatSection).join(', ') || 'None'
