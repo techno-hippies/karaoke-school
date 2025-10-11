@@ -3,7 +3,7 @@
  * Wrapper for SongSelectPage with search integration
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SongSelectPage } from '@/components/karaoke/SongSelectPage'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -28,22 +28,36 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     isPKPReady,
     hasLensAccount,
     pkpWalletClient,
+    isAuthenticating,
+    authStep,
+    authMode,
+    authStatus,
+    authError,
     registerWithPasskey,
     signInWithPasskey,
     loginLens,
   } = useAuth()
 
-  // TODO: Load trending songs from GraphQL (public, no auth required)
-  // useEffect(() => {
-  //   const loadTrending = async () => {
-  //     const { data } = await lensClient.query({
-  //       query: GET_TRENDING_POSTS,
-  //       variables: { orderBy: 'ENGAGEMENT', limit: 20 }
-  //     })
-  //     setTrendingSongs(data.posts)
-  //   }
-  //   loadTrending()
-  // }, [])
+  // Auto-close dialog and retry pending actions when auth completes
+  useEffect(() => {
+    if (showAuthDialog && isPKPReady && hasLensAccount && !isAuthenticating) {
+      // Auth is complete - close dialog and retry pending actions
+      setShowAuthDialog(false)
+
+      // Retry pending search
+      if (pendingSearch) {
+        handleSearch(pendingSearch)
+        setPendingSearch(null)
+      }
+
+      // Retry pending song selection
+      if (pendingSong) {
+        handleSongClick(pendingSong)
+        setPendingSong(null)
+      }
+    }
+  }, [showAuthDialog, isPKPReady, hasLensAccount, isAuthenticating, pendingSearch, pendingSong])
+
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
     // Check basic auth (wallet + Lens)
@@ -106,22 +120,6 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     }
   }
 
-  // Handle auth completion - retry pending actions
-  const handleAuthComplete = () => {
-    setShowAuthDialog(false)
-    if (isPKPReady && hasLensAccount) {
-      // Retry pending search
-      if (pendingSearch) {
-        handleSearch(pendingSearch)
-        setPendingSearch(null)
-      }
-      // Retry pending song selection
-      if (pendingSong) {
-        handleSongClick(pendingSong)
-        setPendingSong(null)
-      }
-    }
-  }
 
   return (
     <>
@@ -168,15 +166,17 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
             setPendingSong(null)
             setPendingSearch(null)
           }
-          if (open && isPKPReady && hasLensAccount) {
-            handleAuthComplete()
-          }
         }}
+        currentStep={authStep}
+        isAuthenticating={isAuthenticating}
+        authMode={authMode}
+        statusMessage={authStatus}
+        errorMessage={authError?.message || ''}
         isPKPReady={isPKPReady}
-        hasLensAccount={hasLensAccount}
+        hasSocialAccount={hasLensAccount}
         onRegister={registerWithPasskey}
-        onSignIn={signInWithPasskey}
-        onLoginLens={loginLens}
+        onLogin={signInWithPasskey}
+        onConnectSocial={loginLens}
       />
     </>
   )
