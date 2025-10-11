@@ -96,7 +96,7 @@ export function AuthDialog({
 
         <div className="space-y-4 py-6">
           {/* Initial Choice: Register or Login */}
-          {needsPKP && !authMode && !isAuthenticating && (
+          {!authMode && !isAuthenticating && !isComplete && (
             <div className="space-y-4">
               <Button
                 onClick={onRegister}
@@ -129,8 +129,8 @@ export function AuthDialog({
             </div>
           )}
 
-          {/* Progress/Loading State */}
-          {(authMode || isAuthenticating) && needsPKP && (
+          {/* Progress/Loading State - show during any auth flow */}
+          {(authMode || isAuthenticating) && !isComplete && (
             <div className="space-y-4 py-8">
               <div className="flex flex-col items-center gap-4">
                 <Spinner className="w-12 h-12" />
