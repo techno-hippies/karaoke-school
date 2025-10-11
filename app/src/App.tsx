@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
-import { AuthDialogV2 } from './components/layout/AuthDialog'
+import { AuthDialog } from './components/layout/AuthDialog'
 import { PostFlowContainer } from './features/post-flow/PostFlowContainer'
 import './i18n/config'
 
@@ -421,7 +421,7 @@ function AppRouter() {
         </Routes>
       </AppLayout>
 
-      <AuthDialogV2
+      <AuthDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
         currentStep={authStep}

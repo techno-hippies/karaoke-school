@@ -1,5 +1,5 @@
 /**
- * AuthDialog v2
+ * AuthDialog
  * Clear two-button authentication with step indicators
  * Separates "Create Account" vs "Sign In" flows
  */
@@ -25,7 +25,7 @@ type AuthStep = 'idle' | 'webauthn' | 'session' | 'social' | 'complete'
  */
 type AuthMode = 'register' | 'login' | null
 
-export interface AuthDialogV2Props {
+export interface AuthDialogProps {
   /** Whether the dialog is open */
   open: boolean
   /** Called when the dialog should close */
@@ -52,7 +52,7 @@ export interface AuthDialogV2Props {
   hasSocialAccount?: boolean
 }
 
-export function AuthDialogV2({
+export function AuthDialog({
   open,
   onOpenChange,
   currentStep,
@@ -65,7 +65,7 @@ export function AuthDialogV2({
   onConnectSocial,
   isPKPReady = false,
   hasSocialAccount = false,
-}: AuthDialogV2Props) {
+}: AuthDialogProps) {
   // Determine current state
   const needsPKP = !isPKPReady
   const needsSocial = isPKPReady && !hasSocialAccount && currentStep !== 'complete'

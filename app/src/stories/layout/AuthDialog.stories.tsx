@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { AuthDialogV2 } from '@/components/layout/AuthDialog'
+import { AuthDialog } from '@/components/layout/AuthDialog'
 
-const meta: Meta<typeof AuthDialogV2> = {
+const meta: Meta<typeof AuthDialog> = {
   title: 'Layout/AuthDialog',
-  component: AuthDialogV2,
+  component: AuthDialog,
   parameters: {
     layout: 'centered',
     backgrounds: {
