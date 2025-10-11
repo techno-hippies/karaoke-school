@@ -28,6 +28,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     isPKPReady,
     hasLensAccount,
     pkpAuthContext,
+    capabilities,
     isAuthenticating,
     authStep,
     authMode,
@@ -40,29 +41,18 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Auto-close dialog and retry pending actions when auth completes
   useEffect(() => {
-    console.log('[SongSelectStep] useEffect auth check:', {
-      showAuthDialog,
-      isPKPReady,
-      hasLensAccount,
-      isAuthenticating,
-      hasPending: !!pendingSearch || !!pendingSong,
-    })
-
     if (showAuthDialog && isPKPReady && hasLensAccount && !isAuthenticating) {
-      console.log('[SongSelectStep] Auth complete - closing dialog and retrying pending actions')
       // Auth is complete - close dialog and retry pending actions
       setShowAuthDialog(false)
 
       // Retry pending search
       if (pendingSearch) {
-        console.log('[SongSelectStep] Retrying pending search:', pendingSearch)
         handleSearch(pendingSearch)
         setPendingSearch(null)
       }
 
       // Retry pending song selection
       if (pendingSong) {
-        console.log('[SongSelectStep] Retrying pending song:', pendingSong.title)
         handleSongClick(pendingSong)
         setPendingSong(null)
       }
@@ -71,16 +61,8 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
-    console.log('[SongSelectStep] handleSearch:', {
-      query,
-      isPKPReady,
-      hasLensAccount,
-      pkpAuthContext: !!pkpAuthContext,
-    })
-
-    // Check basic auth (wallet + Lens)
-    if (!isPKPReady || !hasLensAccount || !pkpAuthContext) {
-      console.log('[SongSelectStep] Opening auth dialog - auth not ready for search')
+    // Only need PKP for search (no Lens required)
+    if (!capabilities.canSearch || !pkpAuthContext) {
       setPendingSearch(query)
       setShowAuthDialog(true)
       return
@@ -114,16 +96,8 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   }
 
   const handleSongClick = (song: Song) => {
-    console.log('[SongSelectStep] handleSongClick:', {
-      isPKPReady,
-      hasLensAccount,
-      pkpAuthContext: !!pkpAuthContext,
-      song: song.title,
-    })
-
-    // Check auth before allowing song selection
-    if (!isPKPReady || !hasLensAccount) {
-      console.log('[SongSelectStep] Opening auth dialog - auth not ready')
+    // Only need PKP for browsing
+    if (!capabilities.canBrowse) {
       setPendingSong(song)
       setShowAuthDialog(true)
       return
@@ -139,10 +113,15 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     }
 
     if (song.isProcessed && song.segments) {
-      // Processed songs go to segment picker
+      // Processed songs go to segment picker (needs credits to unlock)
       flow.goToSegmentPicker(song)
     } else {
-      // Unprocessed songs need generation
+      // Unprocessed songs need generation (needs credits)
+      if (!capabilities.canGenerate) {
+        setPendingSong(song)
+        flow.goToPurchaseCredits()
+        return
+      }
       flow.goToGenerateKaraoke(song)
     }
   }
@@ -160,20 +139,43 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
         onSearch={handleSearch}
         userCredits={flow.auth.credits}
         onSelectSong={(song, segment) => {
-          if (!isPKPReady || !hasLensAccount) {
-            setPendingSong(song)
-            setShowAuthDialog(true)
+          // Need PKP for recording (segment already owned/unlocked)
+          if (!capabilities.canRecord) {
+            if (!capabilities.capabilities.hasPKP) {
+              setPendingSong(song)
+              setShowAuthDialog(true)
+              return
+            }
+            // Has PKP but no credits
+            flow.goToPurchaseCredits()
             return
           }
           flow.goToRecording(song, segment)
         }}
         onConfirmCredit={(song, segment) => {
+          // Unlock requires canUnlock (PKP + credits)
+          if (!capabilities.canUnlock) {
+            if (!capabilities.capabilities.hasPKP) {
+              setPendingSong(song)
+              setShowAuthDialog(true)
+              return
+            }
+            // Has PKP but no credits
+            flow.goToPurchaseCredits()
+            return
+          }
           flow.unlockSegment(song, segment)
         }}
         onGenerateKaraoke={async (song) => {
-          if (!isPKPReady || !hasLensAccount) {
-            setPendingSong(song)
-            setShowAuthDialog(true)
+          // Generation requires canGenerate (PKP + credits)
+          if (!capabilities.canGenerate) {
+            if (!capabilities.capabilities.hasPKP) {
+              setPendingSong(song)
+              setShowAuthDialog(true)
+              return
+            }
+            // Has PKP but no credits
+            flow.goToPurchaseCredits()
             return
           }
           // Trigger generation in background - don't transition flow state

@@ -13,62 +13,16 @@ export function usePostFlowAuth() {
     hasLensAccount,
     pkpWalletClient,
     pkpAddress,
+    credits,
+    capabilities,
     registerWithPasskey,
     signInWithPasskey,
     loginLens,
   } = useAuth()
 
-  const [credits, setCredits] = useState<number>(0)
   const [isLoadingCredits, setIsLoadingCredits] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /**
-   * Load credit balance from smart contract
-   */
-  const loadCredits = async () => {
-    if (!isPKPReady || !pkpWalletClient || !pkpAddress) {
-      setCredits(0)
-      return
-    }
-
-    setIsLoadingCredits(true)
-    setError(null)
-
-    try {
-      const { createPublicClient, http } = await import('viem')
-      const { baseSepolia } = await import('viem/chains')
-
-      const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
-      const address = pkpAddress
-
-      const publicClient = createPublicClient({
-        chain: baseSepolia,
-        transport: http(),
-      })
-
-      const data = await publicClient.readContract({
-        address: contractAddress,
-        abi: [{
-          name: 'getCredits',
-          type: 'function',
-          stateMutability: 'view',
-          inputs: [{ name: 'user', type: 'address' }],
-          outputs: [{ name: '', type: 'uint256' }],
-        }],
-        functionName: 'getCredits',
-        args: [address],
-      })
-
-      setCredits(Number(data))
-      console.log('[PostFlowAuth] Credits loaded:', data)
-    } catch (err) {
-      console.error('[PostFlowAuth] Failed to load credits:', err)
-      setError('Failed to load credit balance')
-      setCredits(0)
-    } finally {
-      setIsLoadingCredits(false)
-    }
-  }
 
   /**
    * Initialize authentication (step by step)
@@ -84,15 +38,17 @@ export function usePostFlowAuth() {
         return false
       }
 
-      // Step 2: Login to Lens if needed
+      // Step 2: Login to Lens if needed (optional - only for social features)
       if (!hasLensAccount) {
-        console.log('[PostFlowAuth] Logging in to Lens...')
-        await loginLens()
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        console.log('[PostFlowAuth] Logging in to Lens (optional for social features)...')
+        try {
+          await loginLens()
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (lensError) {
+          console.warn('[PostFlowAuth] Lens login failed (non-critical):', lensError)
+          // Don't fail - user can still use PKP features
+        }
       }
-
-      // Step 3: Load credits
-      await loadCredits()
 
       return true
     } catch (err) {
@@ -103,10 +59,11 @@ export function usePostFlowAuth() {
   }
 
   /**
-   * Validate all auth requirements
-   * PKP auth context is automatically created, enabling zero-sig Lit Actions
+   * Validate auth requirements
+   * Uses granular capabilities instead of single isReady flag
    */
   const validateAuth = (): PostFlowAuthStatus => {
+    // Legacy isReady for backward compatibility (PKP + Lens)
     const isReady = isPKPReady && hasLensAccount
 
     return {
@@ -117,22 +74,17 @@ export function usePostFlowAuth() {
       credits,
       isReady,
       error,
+      capabilities, // Granular capabilities from AuthContext
     }
   }
 
   /**
    * Reload credits (after purchase)
+   * Credits are managed in AuthContext, this is a no-op for compatibility
    */
   const reloadCredits = async () => {
-    await loadCredits()
+    console.log('[PostFlowAuth] Credits auto-reload from AuthContext')
   }
-
-  // Load credits when PKP wallet connects
-  useEffect(() => {
-    if (isPKPReady && pkpWalletClient) {
-      loadCredits()
-    }
-  }, [isPKPReady, pkpWalletClient])
 
   return {
     // Status
@@ -141,7 +93,6 @@ export function usePostFlowAuth() {
 
     // Actions
     initializeAuth,
-    loadCredits,
     reloadCredits,
     registerWithPasskey,
     signInWithPasskey,
