@@ -105,12 +105,12 @@ export interface PostFlowContext {
 export interface CreditPackage {
   id: number
   credits: number
-  price: string // ETH amount
-  priceUsd: string
+  priceUSDC: string // USDC amount (with 6 decimals)
+  priceDisplay: string
 }
 
 export const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: 0, credits: 1, price: '0.0002', priceUsd: '$0.50' },
-  { id: 1, credits: 5, price: '0.001', priceUsd: '$2.50' },
-  { id: 2, credits: 20, price: '0.004', priceUsd: '$10' },
+  { id: 0, credits: 1, priceUSDC: '500000', priceDisplay: '$0.50' },      // 0.50 USDC
+  { id: 1, credits: 5, priceUSDC: '2500000', priceDisplay: '$2.50' },     // 2.50 USDC
+  { id: 2, credits: 20, priceUSDC: '10000000', priceDisplay: '$10.00' },  // 10.00 USDC
 ]

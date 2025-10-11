@@ -1,4 +1,4 @@
-import { Address } from 'viem'
+import type { Address } from 'viem'
 
 /**
  * Contract addresses organized by network
@@ -11,8 +11,9 @@ export const BASE_SEPOLIA_CHAIN_ID = 84532
 
 export const BASE_SEPOLIA_CONTRACTS = {
   usdc: (import.meta.env.VITE_USDC_ADDRESS || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
-  karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_ADDRESS || '0x6de183934E68051c407266F877fafE5C20F74653') as Address,
+  karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_ADDRESS || '0xb072a10814eE18bafe9725F171450FD6188397B6') as Address,
   karaokeSegmentRegistry: (import.meta.env.VITE_KARAOKE_SEGMENT_REGISTRY_ADDRESS || '0xd74F1874B1346Ce1a4958FA5304c376bE0209Fa8') as Address,
+  karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_ADDRESS || '0x5AA8B71E835E0c5CCeCa6c4a1d98891839E416E6') as Address,
 } as const
 
 // === LENS TESTNET (Chain ID: 37111) ===

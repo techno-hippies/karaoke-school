@@ -144,7 +144,8 @@ export function usePostFlow(onComplete: () => void) {
   const purchaseCredits = useCallback(async (packageId: number) => {
     const success = await creditsHook.purchaseCredits(packageId)
     if (!success) {
-      throw new Error('Failed to purchase credits')
+      // Throw error with details from creditsHook
+      throw new Error(creditsHook.error || 'Failed to purchase credits')
     }
 
     // Reload credits
@@ -153,11 +154,9 @@ export function usePostFlow(onComplete: () => void) {
     // Wait for balance to update
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // Return to segment picker
-    if (data.selectedSong) {
-      goToSegmentPicker(data.selectedSong)
-    }
-  }, [creditsHook, authHook, data.selectedSong, goToSegmentPicker])
+    // Return to song select - user can pick song again with credits
+    goToSongSelect()
+  }, [creditsHook, authHook, goToSongSelect])
 
   /**
    * Action: Unlock Segment

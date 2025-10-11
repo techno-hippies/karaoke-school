@@ -6,19 +6,19 @@
 **Explorer**: https://sepolia.basescan.org
 
 ### KaraokeCreditsV1
-- **Address**: `0x6de183934E68051c407266F877fafE5C20F74653`
+- **Address**: `0xb072a10814eE18bafe9725F171450FD6188397B6`
 - **Deployer**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
 - **Owner**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
-- **Treasury**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Treasury**: `0x8aAc65DCC0E2CB4e3EF63DcF85Ce2A1Ff1b93E8B`
 - **Trusted PKP**: `0x254aAB1EF1ad6f95d93b557cA6dd3ef2E6f5ce52`
 - **USDC Token**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (Base Sepolia mock)
 - **SongCatalog**: `0x88996135809cc745E6d8966e3a7A01389C774910` (Lens Testnet - for deduplication)
+- **BaseScan**: https://sepolia.basescan.org/address/0xb072a10814ee18bafe9725f171450fd6188397b6
 
 #### Credit Packages
 - **Package 0**: 1 credit - $0.50 USDC / 0.0002 ETH
-- **Package 1**: 10 credits - $4.50 USDC / 0.0018 ETH (10% discount)
-- **Package 2**: 20 credits - $8.00 USDC / 0.0032 ETH (20% discount)
-- **Package 3**: 50 credits - $17.50 USDC / 0.007 ETH (30% discount)
+- **Package 1**: 5 credits - $2.50 USDC / 0.001 ETH
+- **Package 2**: 20 credits - $10.00 USDC / 0.004 ETH
 
 ### KaraokeSegmentRegistryV1
 - **Address**: `0xd74F1874B1346Ce1a4958FA5304c376bE0209Fa8`
@@ -49,9 +49,9 @@
 
 ## Deployment Details
 
-**Date**: 2025-10-08
+**Latest Deployment**: 2025-10-11
 **Gas Used**:
-- KaraokeCreditsV1: 2,698,725 gas (~0.0027 ETH)
+- KaraokeCreditsV1 (v2 - USDC $2.50 package): 2,581,450 gas (~0.0026 ETH)
 - KaraokeSegmentRegistryV1: 3,083,329 gas (~0.0031 ETH)
 
 **Broadcast Logs**:
@@ -60,25 +60,25 @@
 
 ## Next Steps
 
-1. **Verify Contracts on BaseScan**:
-   ```bash
-   cd /media/t42/th42/Code/karaoke-school-v1/contracts/evm/base-sepolia
-   forge verify-contract \
-     0x6de183934E68051c407266F877fafE5C20F74653 \
-     KaraokeCredits/KaraokeCreditsV1.sol:KaraokeCreditsV1 \
-     --chain-id 84532 \
-     --constructor-args $(cast abi-encode "constructor(address,address,address,address)" \
-       "0x036CbD53842c5426634e7929541eC2318f3dCF7e" \
-       "0x0C6433789d14050aF47198B2751f6689731Ca79C" \
-       "0x254aAB1EF1ad6f95d93b557cA6dd3ef2E6f5ce52" \
-       "0x88996135809cc745E6d8966e3a7A01389C774910")
-   ```
+1. **Contracts Verified**: ✅ Automatically verified on BaseScan during deployment
 
 2. **Test Credit Purchase** (via frontend or cast):
    ```bash
-   cast send 0x6de183934E68051c407266F877fafE5C20F74653 \
-     "purchaseCreditsETH(uint8)" 0 \
-     --value 0.0002ether \
+   # Test with ETH
+   cast send 0xb072a10814eE18bafe9725F171450FD6188397B6 \
+     "purchaseCreditsETH(uint8)" 1 \
+     --value 0.001ether \
+     --rpc-url https://sepolia.base.org
+
+   # Test with USDC (approve first)
+   cast send 0x036CbD53842c5426634e7929541eC2318f3dCF7e \
+     "approve(address,uint256)" \
+     0xb072a10814eE18bafe9725F171450FD6188397B6 \
+     2500000 \
+     --rpc-url https://sepolia.base.org
+
+   cast send 0xb072a10814eE18bafe9725F171450FD6188397B6 \
+     "purchaseCreditsUSDC(uint8)" 1 \
      --rpc-url https://sepolia.base.org
    ```
 

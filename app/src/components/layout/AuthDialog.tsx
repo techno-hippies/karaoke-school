@@ -1,6 +1,7 @@
 /**
  * AuthDialog
- * Shows authentication requirements and guides user through the flow
+ * Unified authentication (auto-detects new vs returning users)
+ * Uses Lit WebAuthn for biometric authentication
  */
 
 import {
@@ -18,126 +19,95 @@ export interface AuthDialogProps {
   open: boolean
   /** Called when the dialog should close */
   onOpenChange: (open: boolean) => void
-  /** Whether wallet is connected */
-  isWalletConnected: boolean
+  /** Whether PKP wallet is connected */
+  isPKPReady: boolean
   /** Whether Lens account exists */
   hasLensAccount: boolean
-  /** Whether Lit Protocol is ready */
-  isLitReady: boolean
   /** Whether currently authenticating */
   isAuthenticating?: boolean
-  /** Called when user clicks connect wallet */
-  onConnectWallet?: () => void
+  /** Auth status message */
+  authStatus?: string
+  /** Called when user clicks authenticate (unified flow) */
+  onAuthenticate?: () => void
   /** Called when user clicks login to Lens */
   onLoginLens?: () => void
+  // Backwards compat
+  onRegister?: () => void
+  onSignIn?: () => void
 }
 
 export function AuthDialog({
   open,
   onOpenChange,
-  isWalletConnected,
+  isPKPReady,
   hasLensAccount,
-  isLitReady,
   isAuthenticating = false,
-  onConnectWallet,
+  authStatus = '',
+  onAuthenticate,
   onLoginLens,
+  onRegister,
+  onSignIn,
 }: AuthDialogProps) {
   // Determine current state
-  const needsWallet = !isWalletConnected
-  const needsLens = isWalletConnected && !hasLensAccount
-  const needsLit = isWalletConnected && hasLensAccount && !isLitReady
+  const needsPKP = !isPKPReady
+  const needsLens = isPKPReady && !hasLensAccount
+  const isComplete = isPKPReady && hasLensAccount
+
+  // Use unified handler or fall back to register (both do the same thing now)
+  const handleAuth = onAuthenticate || onRegister || onSignIn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Login Required</DialogTitle>
-          <DialogDescription>
-            To create karaoke posts, you need to complete authentication
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="min-h-[200px]">
+        <div className="space-y-4 py-6">
+          {needsPKP && (
+            <>
+              <Button
+                onClick={handleAuth}
+                disabled={isAuthenticating}
+                className="w-full text-base h-12"
+                variant="default"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <Spinner className="mr-2" />
+                    Authenticating...
+                  </>
+                ) : (
+                  'Sign In / Create Account'
+                )}
+              </Button>
 
-        <div className="space-y-4 py-4">
-          {/* Wallet Status */}
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              isWalletConnected ? 'bg-green-500/20' : 'bg-muted'
-            }`}>
-              {isWalletConnected ? '✓' : '1'}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Connect Wallet</p>
-              <p className="text-xs text-muted-foreground">
-                {isWalletConnected ? 'Connected' : 'Required to continue'}
-              </p>
-            </div>
-          </div>
-
-          {/* Lens Status */}
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              hasLensAccount ? 'bg-green-500/20' : needsLens ? 'bg-primary/20' : 'bg-muted'
-            }`}>
-              {hasLensAccount ? '✓' : '2'}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Login to Lens</p>
-              <p className="text-xs text-muted-foreground">
-                {hasLensAccount ? 'Logged in' : 'Required to post content'}
-              </p>
-            </div>
-          </div>
-
-          {/* Lit Status */}
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              isLitReady ? 'bg-green-500/20' : needsLit ? 'bg-primary/20' : 'bg-muted'
-            }`}>
-              {isLitReady ? '✓' : needsLit ? <Spinner size="sm" /> : '3'}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Initialize Lit Protocol</p>
-              <p className="text-xs text-muted-foreground">
-                {isLitReady ? 'Ready' : needsLit ? 'Initializing...' : 'Automatic after login'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <div className="space-y-2">
-          {needsWallet && (
-            <Button
-              onClick={onConnectWallet}
-              disabled={isAuthenticating}
-              className="w-full"
-            >
-              {isAuthenticating ? 'Connecting...' : 'Connect Wallet'}
-            </Button>
+              {authStatus && (
+                <div className="text-sm text-center text-muted-foreground px-4">
+                  {authStatus}
+                </div>
+              )}
+            </>
           )}
 
           {needsLens && (
             <Button
               onClick={onLoginLens}
               disabled={isAuthenticating}
-              className="w-full"
+              className="w-full text-base h-12"
             >
-              {isAuthenticating ? 'Logging in...' : 'Login to Lens'}
+              {isAuthenticating ? (
+                <>
+                  <Spinner className="mr-2" />
+                  Connecting...
+                </>
+              ) : (
+                'Connect Social Account'
+              )}
             </Button>
           )}
 
-          {needsLit && (
-            <div className="text-center py-2">
-              <p className="text-sm text-muted-foreground">
-                Setting up your account...
-              </p>
-            </div>
-          )}
-
-          {!needsWallet && !needsLens && !needsLit && (
+          {isComplete && (
             <Button
               onClick={() => onOpenChange(false)}
-              className="w-full"
+              className="w-full text-base h-12"
+              variant="default"
             >
               Continue
             </Button>

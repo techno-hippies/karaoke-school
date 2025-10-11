@@ -1,0 +1,105 @@
+/**
+ * KaraokeCatalogV1 ABI
+ * Minimal ABI for reading song data from Base Sepolia
+ */
+
+export const KARAOKE_CATALOG_ABI = [
+  {
+    name: 'getAllSongs',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'id', type: 'string' },
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32' },
+          { name: 'title', type: 'string' },
+          { name: 'artist', type: 'string' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'hasFullAudio', type: 'bool' },
+          { name: 'requiresPayment', type: 'bool' },
+          { name: 'audioUri', type: 'string' },
+          { name: 'metadataUri', type: 'string' },
+          { name: 'coverUri', type: 'string' },
+          { name: 'thumbnailUri', type: 'string' },
+          { name: 'musicVideoUri', type: 'string' },
+          { name: 'segmentHashes', type: 'bytes32[]' },
+          { name: 'languages', type: 'string' },
+          { name: 'enabled', type: 'bool' },
+          { name: 'addedAt', type: 'uint64' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getTotalSongs',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getSegmentsForSong',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'songId', type: 'string' },
+          { name: 'segmentId', type: 'string' },
+          { name: 'sectionType', type: 'string' },
+          { name: 'startTime', type: 'uint32' },
+          { name: 'endTime', type: 'uint32' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'vocalsUri', type: 'string' },
+          { name: 'drumsUri', type: 'string' },
+          { name: 'audioSnippetUri', type: 'string' },
+          { name: 'processed', type: 'bool' },
+          { name: 'requiresPayment', type: 'bool' },
+          { name: 'createdAt', type: 'uint64' },
+          { name: 'processedAt', type: 'uint64' },
+          { name: 'createdBy', type: 'address' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'getSongByGeniusId',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'string' },
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32' },
+          { name: 'title', type: 'string' },
+          { name: 'artist', type: 'string' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'hasFullAudio', type: 'bool' },
+          { name: 'requiresPayment', type: 'bool' },
+          { name: 'audioUri', type: 'string' },
+          { name: 'metadataUri', type: 'string' },
+          { name: 'coverUri', type: 'string' },
+          { name: 'thumbnailUri', type: 'string' },
+          { name: 'musicVideoUri', type: 'string' },
+          { name: 'segmentHashes', type: 'bytes32[]' },
+          { name: 'languages', type: 'string' },
+          { name: 'enabled', type: 'bool' },
+          { name: 'addedAt', type: 'uint64' },
+        ],
+      },
+    ],
+  },
+] as const

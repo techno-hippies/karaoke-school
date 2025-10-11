@@ -155,31 +155,23 @@ contract KaraokeCreditsV1 {
             enabled: true
         });
 
-        // Package 1: 10 credits = $4.50 (10% discount)
+        // Package 1: 5 credits = $2.50
         packages[1] = CreditPackage({
-            credits: 10,
-            priceUSDC: 4500000,       // $4.50 USDC
-            priceETH: 0.0018 ether,   // ~$4.50 ETH
+            credits: 5,
+            priceUSDC: 2500000,       // $2.50 USDC
+            priceETH: 0.001 ether,    // ~$2.50 ETH
             enabled: true
         });
 
-        // Package 2: 20 credits = $8.00 (20% discount)
+        // Package 2: 20 credits = $10.00
         packages[2] = CreditPackage({
             credits: 20,
-            priceUSDC: 8000000,       // $8.00 USDC
-            priceETH: 0.0032 ether,   // ~$8.00 ETH
+            priceUSDC: 10000000,      // $10.00 USDC
+            priceETH: 0.004 ether,    // ~$10.00 ETH
             enabled: true
         });
 
-        // Package 3: 50 credits = $17.50 (30% discount)
-        packages[3] = CreditPackage({
-            credits: 50,
-            priceUSDC: 17500000,      // $17.50 USDC
-            priceETH: 0.007 ether,    // ~$17.50 ETH
-            enabled: true
-        });
-
-        packageCount = 4;
+        packageCount = 3;
     }
 
     modifier onlyOwner() {

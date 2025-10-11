@@ -1,20 +1,33 @@
 /**
- * Unified Authentication Context
- * Orchestrates Particle (wallet), Lens (social), and Lit (compute) authentication
+ * Unified Authentication Context (Lit WebAuthn + Lens)
+ * Orchestrates Lit WebAuthn (wallet) and Lens (social) authentication
+ *
+ * Auth Flow:
+ * 1. User creates account (2 signatures: WebAuthn + PKP mint) OR signs in (1 signature)
+ * 2. PKP wallet is initialized with auth context
+ * 3. User logs into Lens using PKP as signer
+ * 4. User creates Lens account if needed (PKP signs transaction)
+ *
+ * Benefits:
+ * - Zero signatures for Lit Actions (PKP auth context persists)
+ * - Native biometric auth (Face ID, Touch ID, Windows Hello)
+ * - No wallet extensions needed
+ * - Session persistence
  */
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
-import { useParticleWallet } from '@/lib/particle/hooks'
+import { usePKPWallet } from '@/hooks/usePKPWallet'
 import { useLensSession, useLensAccount } from '@/lib/lens/hooks'
 import {
   loginAsOnboardingUser,
   getExistingAccounts,
   createLensAccount,
-  switchToAccountOwner,
 } from '@/lib/lens/auth'
-import { initializeLitSessionWithWallet } from '@/lib/lit/client'
+import { authenticateUser, registerUser, loginUser } from '@/lib/lit-webauthn/auth-flow'
+import { createPKPWalletClient, createPKPAuthContext } from '@/lib/lit-webauthn'
+import type { PKPInfo, PKPAuthContext } from '@/lib/lit-webauthn'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -22,11 +35,13 @@ const IS_DEV = import.meta.env.DEV
  * Authentication State
  */
 interface AuthState {
-  // Particle (Layer 1: Wallet)
-  walletAddress: Address | null
-  walletClient: WalletClient | null
-  isWalletConnected: boolean
-  
+  // Lit WebAuthn (Layer 1: Identity + Wallet)
+  pkpInfo: PKPInfo | null
+  pkpAddress: Address | null
+  pkpWalletClient: WalletClient | null
+  pkpAuthContext: PKPAuthContext | null
+  isPKPReady: boolean
+
   // Lens (Layer 2: Social Identity)
   lensSession: SessionClient | null
   lensAccount: Account | null
@@ -35,24 +50,24 @@ interface AuthState {
   // Overall state
   isAuthenticating: boolean
   authError: Error | null
-  authStep: 'idle' | 'wallet' | 'lens' | 'complete'
+  authStep: 'idle' | 'webauthn' | 'session' | 'social' | 'complete'
+  authMode: 'register' | 'login' | null
+  authStatus: string
 }
 
 /**
  * Authentication Actions
  */
 interface AuthActions {
-  // Wallet
-  connectWallet: () => void
-  disconnectWallet: () => void
+  // WebAuthn (replaces wallet connection)
+  registerWithPasskey: () => Promise<void>
+  signInWithPasskey: () => Promise<void>
+  logout: () => void
 
   // Lens
   loginLens: () => Promise<void>
   createLensAccountWithUsername: (username: string, metadataUri: string) => Promise<void>
   refreshLensAccount: () => Promise<void>
-
-  // Full flow
-  authenticate: () => Promise<void>
 
   // Reset
   reset: () => void
@@ -66,41 +81,42 @@ const AuthContext = createContext<AuthContextType | null>(null)
  * Auth Provider Component
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Layer 1: Particle Wallet
-  const particleWallet = useParticleWallet()
-  
+  // Layer 1: Lit WebAuthn + PKP
+  const pkpWallet = usePKPWallet()
+
   // Layer 2: Lens Protocol
-  const { sessionClient, setSessionClient, isLoading: isLensLoading } = useLensSession()
+  const { sessionClient, setSessionClient } = useLensSession()
   const { account, setAccount } = useLensAccount()
 
   // Overall state
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [authError, setAuthError] = useState<Error | null>(null)
   const [authStep, setAuthStep] = useState<AuthState['authStep']>('idle')
+  const [authMode, setAuthMode] = useState<AuthState['authMode']>(null)
+  const [authStatus, setAuthStatus] = useState<string>('')
 
   /**
-   * Auto-restore session on mount
-   * Lens SDK handles session persistence via localStorage
+   * Auto-restore Lens session if PKP is ready
    */
   useEffect(() => {
     const restoreSession = async () => {
       if (IS_DEV) {
-        console.log('[Auth] Restoring session:', {
-          wallet: particleWallet.isConnected,
-          lens: !!sessionClient,
-          address: particleWallet.address,
+        console.log('[Auth] Checking for existing session:', {
+          pkpReady: pkpWallet.isConnected,
+          pkpAddress: pkpWallet.address,
+          lensSession: !!sessionClient,
         })
       }
 
-      // If wallet is connected and we have a Lens session, auto-restore account
-      if (particleWallet.isConnected && sessionClient && particleWallet.address) {
+      // If PKP is ready and we have a Lens session, auto-restore account
+      if (pkpWallet.isConnected && sessionClient && pkpWallet.address) {
         try {
-          // Check for existing accounts
-          const existingAccounts = await getExistingAccounts(particleWallet.address)
+          const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
           if (existingAccounts.length > 0 && !account) {
             if (IS_DEV) console.log('[Auth] Restored Lens account')
             setAccount(existingAccounts[0])
+            setAuthStep('complete')
           }
         } catch (error) {
           console.error('[Auth] Session restore error:', error)
@@ -109,62 +125,180 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     restoreSession()
-  }, [particleWallet.isConnected, particleWallet.address, particleWallet.walletClient, sessionClient, account])
+  }, [pkpWallet.isConnected, pkpWallet.address, sessionClient, account])
 
   /**
-   * Step 1: Connect wallet (Particle) - Just open the modal
+   * Register with passkey (create new account)
    */
-  const connectWallet = () => {
-    setAuthStep('wallet')
+  const registerWithPasskey = async () => {
+    setIsAuthenticating(true)
     setAuthError(null)
-    // Just open the modal - don't wait for connection
-    particleWallet.connect()
+    setAuthMode('register')
+    setAuthStep('webauthn')
+    setAuthStatus('Starting registration...')
+
+    try {
+      if (IS_DEV) console.log('[Auth] Starting registration flow...')
+
+      // Use register flow with status callback
+      const result = await registerUser((status) => {
+        setAuthStatus(status)
+        // Update step based on status message
+        if (status.includes('passkey')) {
+          setAuthStep('webauthn')
+        } else if (status.includes('session')) {
+          setAuthStep('session')
+        }
+      })
+
+      if (IS_DEV) {
+        console.log('[Auth] Registration complete:', {
+          address: result.pkpInfo.ethAddress,
+        })
+      }
+
+      // Create PKP wallet client for immediate use
+      const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
+      const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
+
+      // Initialize PKP wallet (for context state)
+      pkpWallet.initialize(result.pkpInfo, result.authData)
+
+      setAuthStatus('Account created! Connecting social...')
+
+      // Auto-connect social account (second signature)
+      await loginLens(walletClient, result.pkpInfo.ethAddress)
+
+      setAuthStep('complete')
+      setAuthStatus('All set!')
+    } catch (error) {
+      console.error('[Auth] Registration error:', error)
+      setAuthError(error as Error)
+      setAuthStep('idle')
+      setAuthMode(null)
+      setAuthStatus('')
+      throw error
+    } finally {
+      setIsAuthenticating(false)
+    }
   }
 
   /**
-   * Step 2: Login to Lens
+   * Sign in with passkey (existing account)
    */
-  const loginLens = async () => {
-    if (!particleWallet.walletClient || !particleWallet.address) {
-      throw new Error('Wallet not connected')
+  const signInWithPasskey = async () => {
+    setIsAuthenticating(true)
+    setAuthError(null)
+    setAuthMode('login')
+    setAuthStep('webauthn')
+    setAuthStatus('Starting sign in...')
+
+    try {
+      if (IS_DEV) console.log('[Auth] Starting login flow...')
+
+      // Use login flow with status callback
+      const result = await loginUser((status) => {
+        setAuthStatus(status)
+        // Update step based on status message
+        if (status.includes('authenticate') || status.includes('device')) {
+          setAuthStep('webauthn')
+        } else if (status.includes('account') || status.includes('Fetching')) {
+          setAuthStep('webauthn')
+        } else if (status.includes('session')) {
+          setAuthStep('session')
+        }
+      })
+
+      if (IS_DEV) {
+        console.log('[Auth] Login complete:', {
+          address: result.pkpInfo.ethAddress,
+        })
+      }
+
+      // Create PKP wallet client for immediate use
+      const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
+      const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
+
+      // Initialize PKP wallet (for context state)
+      pkpWallet.initialize(result.pkpInfo, result.authData)
+
+      setAuthStatus('Welcome back! Connecting social...')
+
+      // Auto-connect social account (second signature)
+      await loginLens(walletClient, result.pkpInfo.ethAddress)
+
+      setAuthStep('complete')
+      setAuthStatus('All set!')
+    } catch (error) {
+      console.error('[Auth] Login error:', error)
+      setAuthError(error as Error)
+      setAuthStep('idle')
+      setAuthMode(null)
+      setAuthStatus('')
+      throw error
+    } finally {
+      setIsAuthenticating(false)
+    }
+  }
+
+  /**
+   * Login to Lens Protocol
+   * Uses PKP as signer
+   */
+  const loginLens = async (walletClient?: WalletClient, address?: Address) => {
+    const client = walletClient || pkpWallet.walletClient
+    const addr = address || pkpWallet.address
+
+    if (!client || !addr) {
+      throw new Error('PKP wallet not ready')
     }
 
     try {
-      setAuthStep('lens')
+      setIsAuthenticating(true)
+      setAuthStep('social')
       setAuthError(null)
+      setAuthStatus('Connecting to Lens Protocol...')
+
+      if (IS_DEV) console.log('[Auth] Logging into Lens...')
 
       // Login as onboarding user (Account Manager mode)
-      const session = await loginAsOnboardingUser(
-        particleWallet.walletClient,
-        particleWallet.address
-      )
+      const session = await loginAsOnboardingUser(client, addr)
 
-      console.log('[AuthContext] loginLens - session received:', session)
       setSessionClient(session)
-      console.log('[AuthContext] loginLens - after setSessionClient')
+
+      if (IS_DEV) console.log('[Auth] Lens session created')
+
+      setAuthStatus('Finalizing...')
 
       // Check for existing accounts
-      const existingAccounts = await getExistingAccounts(particleWallet.address)
-      console.log('[AuthContext] loginLens - existing accounts:', existingAccounts)
+      const existingAccounts = await getExistingAccounts(addr)
 
       if (existingAccounts.length > 0) {
-        // Set the first account (stay in Account Manager mode for gas sponsorship)
         setAccount(existingAccounts[0])
-        console.log('[AuthContext] loginLens - set account:', existingAccounts[0])
+        if (IS_DEV) console.log('[Auth] Lens account found:', existingAccounts[0].account?.username)
       }
-      // If no accounts exist, user will need to create one later
+
+      // Complete regardless of whether they have an account
+      // Session is enough for now, account creation can happen later
+      setAuthStep('complete')
+      setAuthStatus('All set!')
+      setAuthMode(null)
     } catch (error) {
-      console.error('[AuthContext] loginLens error:', error)
+      console.error('[Auth] Lens login error:', error)
       setAuthError(error as Error)
+      setAuthStatus('')
       throw error
+    } finally {
+      setIsAuthenticating(false)
     }
   }
 
   /**
-   * Step 3: Create Lens account with username
+   * Create Lens account with username
+   * Uses PKP to sign transaction
    */
   const createLensAccountWithUsername = async (username: string, metadataUri: string) => {
-    if (!sessionClient || !particleWallet.walletClient) {
+    if (!sessionClient || !pkpWallet.walletClient) {
       throw new Error('Not ready to create account')
     }
 
@@ -172,23 +306,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticating(true)
       setAuthError(null)
 
-      console.log('[AuthContext] Creating account with:', { username, metadataUri })
+      if (IS_DEV) console.log('[Auth] Creating Lens account:', username)
 
-      // Create account (gas will be sponsored if configured in Lens dashboard)
+      // Create account (gas sponsored by Lens app)
       const newAccount = await createLensAccount(
         sessionClient,
-        particleWallet.walletClient,
+        pkpWallet.walletClient,
         username,
         metadataUri
       )
 
-      console.log('[AuthContext] Account created:', newAccount)
-
-      // Stay in Account Manager mode (don't switch to owner)
-      // This allows app to sponsor gas for all user actions
       setAccount(newAccount)
+
+      if (IS_DEV) console.log('[Auth] Lens account created:', username)
     } catch (error) {
-      console.error('[AuthContext] Create account error:', error)
+      console.error('[Auth] Create Lens account error:', error)
       setAuthError(error as Error)
       throw error
     } finally {
@@ -197,34 +329,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Refresh Lens account - check for newly created accounts
+   * Refresh Lens account
+   * Check for newly created accounts
    */
   const refreshLensAccount = async () => {
-    if (!particleWallet.address) {
-      throw new Error('Wallet not connected')
+    if (!pkpWallet.address) {
+      throw new Error('PKP wallet not connected')
     }
 
     try {
       setIsAuthenticating(true)
       setAuthError(null)
 
-      console.log('[AuthContext] Refreshing account for:', particleWallet.address)
-
-      // Check for existing accounts
-      const existingAccounts = await getExistingAccounts(particleWallet.address)
-      console.log('[AuthContext] Found accounts:', existingAccounts)
+      const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
       if (existingAccounts.length > 0) {
-        const firstAccount = existingAccounts[0]
-        setAccount(firstAccount)
-        console.log('[AuthContext] Account set:', firstAccount)
-        console.log('[AuthContext] Account.account:', firstAccount.account)
-        console.log('[AuthContext] Username:', firstAccount.account?.username)
-      } else {
-        console.log('[AuthContext] No accounts found')
+        setAccount(existingAccounts[0])
+        if (IS_DEV) console.log('[Auth] Account refreshed')
       }
     } catch (error) {
-      console.error('[AuthContext] Refresh account error:', error)
+      console.error('[Auth] Refresh account error:', error)
       setAuthError(error as Error)
       throw error
     } finally {
@@ -233,67 +357,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   /**
-   * Note: Lit is initialized lazily on first use (not part of auth flow)
+   * Logout and reset all auth state
    */
+  const logout = () => {
+    if (IS_DEV) console.log('[Auth] Logging out...')
 
-  /**
-   * Full authentication flow
-   */
-  const authenticate = async () => {
-    setIsAuthenticating(true)
-    setAuthError(null)
-
-    try {
-      // Step 1: Connect wallet
-      if (!particleWallet.isConnected) {
-        await connectWallet()
-      }
-
-      // Step 2: Login to Lens
-      if (!sessionClient) {
-        await loginLens()
-      }
-
-      setAuthStep('complete')
-    } catch (error) {
-      setAuthError(error as Error)
-      setAuthStep('idle')
-      throw error
-    } finally {
-      setIsAuthenticating(false)
-    }
-  }
-
-  /**
-   * Disconnect and reset all auth state
-   */
-  const reset = () => {
-    particleWallet.disconnect()
+    pkpWallet.reset()
     setSessionClient(null)
     setAccount(null)
     setAuthStep('idle')
+    setAuthMode(null)
     setAuthError(null)
+    setAuthStatus('')
   }
 
+  /**
+   * Reset (alias for logout)
+   */
+  const reset = logout
+
   const value: AuthContextType = {
-    // State
-    walletAddress: particleWallet.address || null,
-    walletClient: particleWallet.walletClient || null,
-    isWalletConnected: particleWallet.isConnected,
+    // PKP State
+    pkpInfo: pkpWallet.pkpInfo,
+    pkpAddress: pkpWallet.address,
+    pkpWalletClient: pkpWallet.walletClient,
+    pkpAuthContext: pkpWallet.authContext,
+    isPKPReady: pkpWallet.isConnected,
+
+    // Lens State
     lensSession: sessionClient,
     lensAccount: account,
     hasLensAccount: !!account,
-    isAuthenticating: isAuthenticating || particleWallet.isConnecting || isLensLoading,
-    authError,
+
+    // Overall State
+    isAuthenticating: isAuthenticating || pkpWallet.isInitializing,
+    authError: authError || pkpWallet.error,
     authStep,
+    authMode,
+    authStatus,
 
     // Actions
-    connectWallet,
-    disconnectWallet: particleWallet.disconnect,
+    registerWithPasskey,
+    signInWithPasskey,
+    logout,
     loginLens,
     createLensAccountWithUsername,
     refreshLensAccount,
-    authenticate,
     reset,
   }
 
