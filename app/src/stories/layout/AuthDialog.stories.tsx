@@ -41,7 +41,7 @@ export const Initial: Story = {
 }
 
 /**
- * Authenticating (loading state)
+ * Authenticating - first signature (WebAuthn + PKP)
  */
 export const Authenticating: Story = {
   args: {
@@ -61,15 +61,15 @@ export const Authenticating: Story = {
 }
 
 /**
- * Need to connect social account
+ * Finalizing - after 2nd signature, before completion
  */
-export const NeedsSocial: Story = {
+export const Finalizing: Story = {
   args: {
     open: true,
-    currentStep: 'complete',
-    isAuthenticating: false,
+    currentStep: 'social',
+    isAuthenticating: true,
     authMode: 'register',
-    statusMessage: '',
+    statusMessage: 'Finalizing...',
     errorMessage: '',
     isPKPReady: true,
     hasSocialAccount: false,
@@ -81,14 +81,14 @@ export const NeedsSocial: Story = {
 }
 
 /**
- * All authentication complete
+ * Complete - checkmark and "You're all set!" with Continue button
  */
-export const AllReady: Story = {
+export const Complete: Story = {
   args: {
     open: true,
     currentStep: 'complete',
     isAuthenticating: false,
-    authMode: 'register',
+    authMode: null,
     statusMessage: '',
     errorMessage: '',
     isPKPReady: true,
