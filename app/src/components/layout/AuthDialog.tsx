@@ -66,10 +66,22 @@ export function AuthDialog({
   isPKPReady = false,
   hasSocialAccount = false,
 }: AuthDialogProps) {
+  console.log('[AuthDialog] Render:', {
+    open,
+    currentStep,
+    isAuthenticating,
+    authMode,
+    isPKPReady,
+    hasSocialAccount,
+    statusMessage,
+  })
+
   // Determine current state
   const needsPKP = !isPKPReady
   const needsSocial = isPKPReady && !hasSocialAccount && currentStep !== 'complete'
   const isComplete = currentStep === 'complete' && authMode === null
+
+  console.log('[AuthDialog] State:', { needsPKP, needsSocial, isComplete })
 
   // Step status helper
   const getStepStatus = (stepId: AuthStep): 'complete' | 'current' | 'pending' => {

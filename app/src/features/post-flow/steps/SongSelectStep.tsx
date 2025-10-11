@@ -40,18 +40,29 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Auto-close dialog and retry pending actions when auth completes
   useEffect(() => {
+    console.log('[SongSelectStep] useEffect auth check:', {
+      showAuthDialog,
+      isPKPReady,
+      hasLensAccount,
+      isAuthenticating,
+      hasPending: !!pendingSearch || !!pendingSong,
+    })
+
     if (showAuthDialog && isPKPReady && hasLensAccount && !isAuthenticating) {
+      console.log('[SongSelectStep] Auth complete - closing dialog and retrying pending actions')
       // Auth is complete - close dialog and retry pending actions
       setShowAuthDialog(false)
 
       // Retry pending search
       if (pendingSearch) {
+        console.log('[SongSelectStep] Retrying pending search:', pendingSearch)
         handleSearch(pendingSearch)
         setPendingSearch(null)
       }
 
       // Retry pending song selection
       if (pendingSong) {
+        console.log('[SongSelectStep] Retrying pending song:', pendingSong.title)
         handleSongClick(pendingSong)
         setPendingSong(null)
       }
@@ -60,8 +71,16 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
+    console.log('[SongSelectStep] handleSearch:', {
+      query,
+      isPKPReady,
+      hasLensAccount,
+      pkpAuthContext: !!pkpAuthContext,
+    })
+
     // Check basic auth (wallet + Lens)
     if (!isPKPReady || !hasLensAccount || !pkpAuthContext) {
+      console.log('[SongSelectStep] Opening auth dialog - auth not ready for search')
       setPendingSearch(query)
       setShowAuthDialog(true)
       return
@@ -95,8 +114,16 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   }
 
   const handleSongClick = (song: Song) => {
+    console.log('[SongSelectStep] handleSongClick:', {
+      isPKPReady,
+      hasLensAccount,
+      pkpAuthContext: !!pkpAuthContext,
+      song: song.title,
+    })
+
     // Check auth before allowing song selection
     if (!isPKPReady || !hasLensAccount) {
+      console.log('[SongSelectStep] Opening auth dialog - auth not ready')
       setPendingSong(song)
       setShowAuthDialog(true)
       return
