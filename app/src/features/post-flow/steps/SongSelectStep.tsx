@@ -27,7 +27,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   const {
     isPKPReady,
     hasLensAccount,
-    pkpWalletClient,
+    pkpAuthContext,
     isAuthenticating,
     authStep,
     authMode,
@@ -61,7 +61,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
     // Check basic auth (wallet + Lens)
-    if (!isPKPReady || !hasLensAccount) {
+    if (!isPKPReady || !hasLensAccount || !pkpAuthContext) {
       setPendingSearch(query)
       setShowAuthDialog(true)
       return
@@ -69,7 +69,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
     setIsSearching(true)
     try {
-      const result = await executeSearch(query, 20, pkpWalletClient || undefined)
+      const result = await executeSearch(query, 20, pkpAuthContext)
 
       if (result.success && result.results) {
         const songs: Song[] = result.results.map(r => ({
