@@ -120,11 +120,10 @@ async function getAuthContext(walletClient?: WalletClient) {
 export async function executeSearch(
   query: string,
   limit: number = 10,
-  walletClient?: WalletClient
+  authContext: any
 ): Promise<SearchResponse> {
   try {
     const litClient = await getLitClient()
-    const authContext = await getAuthContext(walletClient)
 
     const result = await litClient.executeJs({
       ipfsId: import.meta.env.VITE_LIT_ACTION_SEARCH,
