@@ -48,12 +48,12 @@ function KaraokePage() {
   return <PostFlowContainer open={true} onClose={() => navigate('/')} />
 }
 
-function InboxPage() {
+function WalletPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-foreground mb-4">Inbox</h1>
-        <p className="text-muted-foreground">Messages coming soon</p>
+        <h1 className="text-4xl font-bold text-foreground mb-4">Wallet</h1>
+        <p className="text-muted-foreground">Wallet features coming soon</p>
       </div>
     </div>
   )
@@ -358,7 +358,7 @@ function ProfilePage() {
 function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'wallet' | 'profile'>('home')
   const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // Get auth context
@@ -379,23 +379,23 @@ function AppRouter() {
 
   // Sync active tab with current route
   useEffect(() => {
-    const pathToTab: Record<string, 'home' | 'study' | 'post' | 'inbox' | 'profile'> = {
+    const pathToTab: Record<string, 'home' | 'study' | 'post' | 'wallet' | 'profile'> = {
       '/': 'home',
       '/class': 'study',
       '/karaoke': 'post',
-      '/inbox': 'inbox',
+      '/wallet': 'wallet',
       '/profile': 'profile'
     }
     const tab = pathToTab[location.pathname] || 'home'
     setActiveTab(tab)
   }, [location.pathname])
 
-  const handleTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
+  const handleTabChange = (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => {
     const routes = {
       home: '/',
       study: '/class',
       post: '/karaoke',
-      inbox: '/inbox',
+      wallet: '/wallet',
       profile: '/profile'
     }
     navigate(routes[tab])
@@ -415,7 +415,7 @@ function AppRouter() {
           <Route path="/" element={<HomePage />} />
           <Route path="/class" element={<ClassPage />} />
           <Route path="/karaoke" element={<KaraokePage />} />
-          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:address" element={<ProfilePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

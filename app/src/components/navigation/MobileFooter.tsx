@@ -1,9 +1,9 @@
 import React from 'react'
-import { House, Exam, MicrophoneStage, ChatCenteredText, User } from '@phosphor-icons/react'
+import { House, Exam, MicrophoneStage, Wallet, User } from '@phosphor-icons/react'
 
 interface MobileFooterProps {
-  activeTab: 'home' | 'study' | 'post' | 'inbox' | 'profile'
-  onTabChange: (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => void
+  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile'
+  onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
 }
 
 export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChange }) => {
@@ -46,14 +46,14 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
         </button>
 
         <button
-          onClick={() => onTabChange('inbox')}
+          onClick={() => onTabChange('wallet')}
           className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
-            activeTab === 'inbox' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+            activeTab === 'wallet' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
-          aria-label="Inbox"
+          aria-label="Wallet"
         >
-          <ChatCenteredText className="w-6 h-6" weight={activeTab === 'inbox' ? 'fill' : 'regular'} />
-          <span className="text-xs mt-1">Inbox</span>
+          <Wallet className="w-6 h-6" weight={activeTab === 'wallet' ? 'fill' : 'regular'} />
+          <span className="text-xs mt-1">Wallet</span>
         </button>
 
         <button

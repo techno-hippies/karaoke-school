@@ -1,10 +1,10 @@
 import React from 'react'
-import { House, Exam, User, MicrophoneStage, ChatCenteredText } from '@phosphor-icons/react'
+import { House, Exam, User, MicrophoneStage, Wallet } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'study' | 'post' | 'inbox' | 'profile'
-  onTabChange: (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => void
+  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile'
+  onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
   onCreatePost: () => void
   isConnected?: boolean
   walletAddress?: string
@@ -74,16 +74,16 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </Button>
 
           <Button
-            onClick={() => onTabChange('inbox')}
+            onClick={() => onTabChange('wallet')}
             variant="ghost"
             className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
-              activeTab === 'inbox'
+              activeTab === 'wallet'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <ChatCenteredText className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Inbox</span>
+            <Wallet className="w-6 h-6 flex-shrink-0" />
+            <span className="text-lg">Wallet</span>
           </Button>
 
           <Button

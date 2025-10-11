@@ -21,7 +21,7 @@ const meta: Meta<typeof DesktopSidebar> = {
   argTypes: {
     activeTab: {
       control: 'select',
-      options: ['home', 'study', 'post', 'inbox', 'profile']
+      options: ['home', 'study', 'post', 'wallet', 'profile']
     },
     onTabChange: { action: 'tab changed' },
     onCreatePost: { action: 'create post clicked' },
@@ -67,9 +67,9 @@ export const StudyTab: Story = {
   ]
 }
 
-export const InboxTab: Story = {
+export const WalletTab: Story = {
   args: {
-    activeTab: 'inbox',
+    activeTab: 'wallet',
     isConnected: false
   },
   decorators: [
@@ -77,7 +77,7 @@ export const InboxTab: Story = {
       <div className="h-screen bg-background flex">
         <Story />
         <div className="flex-1 ml-64 flex items-center justify-center">
-          <p className="text-muted-foreground">Inbox page content</p>
+          <p className="text-muted-foreground">Wallet page content</p>
         </div>
       </div>
     )
@@ -169,7 +169,7 @@ export const WithContent: Story = {
 
 export const AllTabs: Story = {
   render: () => {
-    const [activeTab, setActiveTab] = React.useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('home')
+    const [activeTab, setActiveTab] = React.useState<'home' | 'study' | 'post' | 'wallet' | 'profile'>('home')
 
     return (
       <div className="h-screen bg-background flex">
