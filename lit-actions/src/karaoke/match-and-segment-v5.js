@@ -578,11 +578,10 @@ Instructions:
         const songId = `genius-${geniusId}`;
         const geniusArtistId = 0; // TODO: Could extract from Genius API if needed
 
-        // Song data struct for addFullSong
+        // Song data struct for addFullSong (V2 OPTIMIZED - removed geniusArtistId and languages)
         const songData = {
           id: songId,
           geniusId: geniusId,
-          geniusArtistId: geniusArtistId,
           title: title,
           artist: artist,
           duration: maxDuration,
@@ -591,11 +590,10 @@ Instructions:
           metadataUri: alignment.uri, // lens:// URI with word-level timing + translations!
           coverUri: '', // Could be added later
           thumbnailUri: '', // Could be added later
-          musicVideoUri: '', // Optional
-          languages: 'en,zh,vi' // English + Simplified Chinese + Vietnamese
+          musicVideoUri: '' // Optional
         };
 
-        // ABI for addFullSong
+        // ABI for addFullSong (V2 OPTIMIZED - 11 fields, no geniusArtistId/languages)
         const abi = [{
           "type": "function",
           "name": "addFullSong",
@@ -605,7 +603,6 @@ Instructions:
             "components": [
               { "name": "id", "type": "string" },
               { "name": "geniusId", "type": "uint32" },
-              { "name": "geniusArtistId", "type": "uint32" },
               { "name": "title", "type": "string" },
               { "name": "artist", "type": "string" },
               { "name": "duration", "type": "uint32" },
@@ -614,8 +611,7 @@ Instructions:
               { "name": "metadataUri", "type": "string" },
               { "name": "coverUri", "type": "string" },
               { "name": "thumbnailUri", "type": "string" },
-              { "name": "musicVideoUri", "type": "string" },
-              { "name": "languages", "type": "string" }
+              { "name": "musicVideoUri", "type": "string" }
             ]
           }],
           "outputs": [],

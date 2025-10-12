@@ -24,6 +24,7 @@ const INITIAL_DATA: PostFlowData = {
   recordedVideoUrl: null,
   grade: null,
   postUrl: null,
+  searchResults: [],
 }
 
 export function usePostFlow(onComplete: () => void) {
@@ -51,10 +52,24 @@ export function usePostFlow(onComplete: () => void) {
 
   /**
    * Navigation: Segment Picker
+   * Processed songs should already have segments loaded from contract metadata
    */
-  const goToSegmentPicker = useCallback((song: Song) => {
+  const goToSegmentPicker = useCallback(async (song: Song) => {
+    // If segments already loaded, go directly to picker
+    if (song.segments && song.segments.length > 0) {
+      updateData({ selectedSong: song })
+      setState('SEGMENT_PICKER')
+      return
+    }
+
+    // Fallback: if processed but no segments, run match-and-segment to populate
+    // This shouldn't happen if search properly loaded from contract
+    if (song.isProcessed) {
+      console.warn('[PostFlow] Processed song missing segments, falling back to generateKaraoke')
+    }
+
     updateData({ selectedSong: song })
-    setState('SEGMENT_PICKER')
+    setState('GENERATE_KARAOKE')
   }, [updateData])
 
   /**
@@ -115,21 +130,23 @@ export function usePostFlow(onComplete: () => void) {
   }, [onComplete])
 
   /**
-   * Action: Generate Karaoke
+   * Action: Generate Karaoke (Match and Segment only)
    */
   const generateKaraoke = useCallback(async (song: Song) => {
     if (!song) return
 
-    const segments = await karaokeHook.generateKaraoke(song)
-    if (!segments) {
+    const result = await karaokeHook.generateKaraoke(song)
+    if (!result) {
       throw new Error('Failed to generate karaoke segments')
     }
 
-    // Update song with segments
+    // Update song with segments + metadata for audio processing
     const updatedSong: Song = {
       ...song,
       isProcessed: true,
-      segments,
+      segments: result.segments,
+      soundcloudPermalink: result.soundcloudPermalink,
+      songDuration: result.songDuration,
     }
 
     updateData({ selectedSong: updatedSong })
@@ -159,9 +176,10 @@ export function usePostFlow(onComplete: () => void) {
   }, [creditsHook, authHook, goToSongSelect])
 
   /**
-   * Action: Unlock Segment
+   * Action: Unlock Segment (and trigger audio processing)
    */
   const unlockSegment = useCallback(async (song: Song, segment: SongSegment) => {
+    // Step 1: Unlock segment (spend 1 credit)
     const success = await creditsHook.unlockSegment(song, segment)
     if (!success) {
       throw new Error('Failed to unlock segment')
@@ -170,9 +188,34 @@ export function usePostFlow(onComplete: () => void) {
     // Reload credits
     await authHook.reloadCredits()
 
-    // Proceed to recording
+    // Step 2: Trigger audio processing (for ALL segments)
+    if (song.soundcloudPermalink && song.segments && song.songDuration) {
+      console.log('[PostFlow] Triggering audio processing after unlock...')
+      const jobId = await karaokeHook.processAudio(
+        song,
+        segment,
+        song.segments,
+        song.soundcloudPermalink,
+        song.songDuration
+      )
+
+      if (jobId) {
+        console.log('[PostFlow] Audio processing started, job ID:', jobId)
+        // TODO: Store jobId and poll for completion
+      } else {
+        console.warn('[PostFlow] Audio processing failed to start')
+      }
+    } else {
+      console.warn('[PostFlow] Missing data for audio processing:', {
+        hasPermalink: !!song.soundcloudPermalink,
+        hasSegments: !!song.segments,
+        hasDuration: !!song.songDuration
+      })
+    }
+
+    // Proceed to recording (audio will process in background)
     goToRecording(song, segment)
-  }, [creditsHook, authHook, goToRecording])
+  }, [creditsHook, authHook, karaokeHook, goToRecording])
 
   /**
    * Action: Grade Performance
@@ -234,14 +277,19 @@ export function usePostFlow(onComplete: () => void) {
     unlockSegment,
     gradePerformance,
     createPost,
+
+    // Data management
+    updateData,
   }
 
   return {
     ...context,
     isGenerating: karaokeHook.isGenerating,
+    isProcessing: karaokeHook.isProcessing,
     isGrading: karaokeHook.isGrading,
     isPurchasing: creditsHook.isPurchasing,
     isUnlocking: creditsHook.isUnlocking,
+    currentJobId: karaokeHook.currentJobId,
     error: authHook.auth.error || creditsHook.error || karaokeHook.error,
   }
 }

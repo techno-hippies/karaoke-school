@@ -59,6 +59,9 @@ contract KaraokeCreditsV1 {
     // Segment ownership: user => segmentHash => owned
     mapping(address => mapping(bytes32 => bool)) public ownedSegments;
 
+    // Song-level ownership (OPTIMIZED): user => geniusId => owned
+    mapping(address => mapping(uint32 => bool)) public ownedSongs;
+
     // Credit packages (packageId => CreditPackage)
     mapping(uint8 => CreditPackage) public packages;
     uint8 public packageCount;
@@ -112,6 +115,13 @@ contract KaraokeCreditsV1 {
         uint8 source,
         string songId,
         string segmentId
+    );
+
+    event SongUnlocked(
+        address indexed user,
+        uint32 indexed geniusId,
+        uint8 segmentCount,
+        uint64 timestamp
     );
 
     event PackageUpdated(
@@ -244,6 +254,66 @@ contract KaraokeCreditsV1 {
     }
 
     /**
+     * @notice Purchase credits with USDC using ERC-2612 permit (single transaction)
+     * @dev Uses permit to avoid separate approve transaction - ideal for PKP automation
+     * @param packageId Package to purchase (0-2)
+     * @param deadline Permit expiration timestamp
+     * @param v ECDSA signature parameter
+     * @param r ECDSA signature parameter
+     * @param s ECDSA signature parameter
+     */
+    function purchaseCreditsWithPermit(
+        uint8 packageId,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external whenNotPaused {
+        require(packageId < packageCount, "Invalid package");
+        CreditPackage memory pkg = packages[packageId];
+        require(pkg.enabled, "Package disabled");
+
+        // Call permit on USDC token to approve this contract
+        (bool permitSuccess, ) = usdcToken.call(
+            abi.encodeWithSignature(
+                "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+                msg.sender,
+                address(this),
+                pkg.priceUSDC,
+                deadline,
+                v,
+                r,
+                s
+            )
+        );
+        require(permitSuccess, "Permit call failed");
+
+        // Transfer USDC from user to treasury
+        (bool transferSuccess, bytes memory data) = usdcToken.call(
+            abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)",
+                msg.sender,
+                treasury,
+                pkg.priceUSDC
+            )
+        );
+        require(transferSuccess && (data.length == 0 || abi.decode(data, (bool))), "USDC transfer failed");
+
+        // Mint credits
+        credits[msg.sender] += pkg.credits;
+
+        emit CreditsPurchased(
+            msg.sender,
+            packageId,
+            pkg.credits,
+            pkg.priceUSDC,
+            0,
+            "USDC-Permit",
+            uint64(block.timestamp)
+        );
+    }
+
+    /**
      * @notice Purchase credits with ETH (fallback option)
      * @param packageId Package to purchase (0-3)
      */
@@ -296,8 +366,43 @@ contract KaraokeCreditsV1 {
     // ========================================================================
 
     /**
-     * @notice Use 1 credit to unlock a segment (permanent ownership)
-     * @dev Called by user when clicking "Unlock" button
+     * @notice Unlock entire song (all segments) - OPTIMIZED
+     * @dev Deducts credits based on segment count, grants song-level ownership
+     * @param geniusId Genius song ID
+     * @param segmentCount Number of segments in the song
+     */
+    function unlockSong(uint32 geniusId, uint8 segmentCount)
+        external
+        whenNotPaused
+    {
+        require(geniusId > 0, "Invalid geniusId");
+        require(segmentCount > 0 && segmentCount <= 20, "Invalid segment count");
+        require(credits[msg.sender] >= segmentCount, "Insufficient credits");
+        require(!ownedSongs[msg.sender][geniusId], "Song already owned");
+
+        // DEDUPLICATION: Check if song exists in SongCatalogV1 (free full songs)
+        if (songCatalog != address(0)) {
+            (bool success, bytes memory data) = songCatalog.staticcall(
+                abi.encodeWithSignature("songExistsByGeniusId(uint32)", geniusId)
+            );
+            if (success && data.length > 0) {
+                bool existsInCatalog = abi.decode(data, (bool));
+                require(!existsInCatalog, "Song available for free in Native catalog - no credits needed");
+            }
+        }
+
+        // Deduct credits
+        credits[msg.sender] -= segmentCount;
+
+        // Grant song-level ownership
+        ownedSongs[msg.sender][geniusId] = true;
+
+        emit SongUnlocked(msg.sender, geniusId, segmentCount, uint64(block.timestamp));
+    }
+
+    /**
+     * @notice Use 1 credit to unlock a segment (permanent ownership) - DEPRECATED
+     * @dev Use unlockSong() for optimized song-based unlocking
      * @param source ContentSource (0=Native, 1=Genius)
      * @param songId Song identifier (e.g., geniusId as string)
      * @param segmentId Segment identifier (e.g., "verse-1", "chorus-1")
@@ -380,13 +485,23 @@ contract KaraokeCreditsV1 {
     }
 
     /**
-     * @notice Check if user owns a segment
+     * @notice Check if user owns a segment (with song-level ownership inheritance)
+     * @dev Checks song ownership first, then falls back to individual segment ownership
      */
     function ownsSegment(address user, uint8 source, string calldata songId, string calldata segmentId)
         external
         view
         returns (bool)
     {
+        // Check song-level ownership first (Genius songs only)
+        if (source == uint8(ContentSource.Genius)) {
+            uint32 geniusId = _parseUint32(songId);
+            if (geniusId > 0 && ownedSongs[user][geniusId]) {
+                return true; // User owns entire song, so owns this segment
+            }
+        }
+
+        // Fallback: check individual segment ownership
         bytes32 segmentHash = getSegmentHash(source, songId, segmentId);
         return ownedSegments[user][segmentHash];
     }
@@ -400,6 +515,20 @@ contract KaraokeCreditsV1 {
         returns (bool)
     {
         return ownedSegments[user][segmentHash];
+    }
+
+    /**
+     * @notice Check if user owns an entire song (song-level ownership)
+     * @param user User address
+     * @param geniusId Genius song ID
+     * @return True if user owns the entire song
+     */
+    function ownsSong(address user, uint32 geniusId)
+        external
+        view
+        returns (bool)
+    {
+        return ownedSongs[user][geniusId];
     }
 
     /**
@@ -419,6 +548,33 @@ contract KaraokeCreditsV1 {
             allPackages[i] = packages[i];
         }
         return allPackages;
+    }
+
+    /**
+     * @notice Calculate optimal package to purchase based on USDC balance
+     * @dev Returns the largest package the user can afford (maximizes credits)
+     * @param usdcBalance User's USDC balance (6 decimals)
+     * @return packageId Best package to buy (or type(uint8).max if balance insufficient)
+     * @return packagePrice Price of the recommended package
+     * @return creditsEarned Credits user will receive
+     */
+    function getOptimalPackage(uint256 usdcBalance)
+        external
+        view
+        returns (uint8 packageId, uint256 packagePrice, uint16 creditsEarned)
+    {
+        // Find the largest affordable package (iterate backwards for best value)
+        for (uint8 i = packageCount; i > 0; i--) {
+            uint8 pkgId = i - 1;
+            CreditPackage memory pkg = packages[pkgId];
+
+            if (pkg.enabled && usdcBalance >= pkg.priceUSDC) {
+                return (pkgId, pkg.priceUSDC, pkg.credits);
+            }
+        }
+
+        // No affordable package
+        return (type(uint8).max, 0, 0);
     }
 
     // ========================================================================

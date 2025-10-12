@@ -45,6 +45,7 @@ export function SegmentPickerStep({ flow }: SegmentPickerStepProps) {
       songArtwork={selectedSong.artworkUrl}
       segments={selectedSong.segments}
       onSelectSegment={handleSegmentSelect}
+      isFree={selectedSong.isFree}
     />
   )
 }

@@ -89,8 +89,12 @@ function createPKPAccount(
       const litClient = await getLitClient()
 
       // Serialize transaction for signing
-      const { serializeTransaction } = await import('viem')
+      const { serializeTransaction, keccak256 } = await import('viem')
       const serializedTx = serializeTransaction(transaction as any)
+
+      // Hash the serialized transaction (Lit requires exactly 32 bytes)
+      const txHash = keccak256(serializedTx)
+      if (IS_DEV) console.log('[PKPSigner] Transaction hash (32 bytes):', txHash)
 
       // Lit Action to sign transaction
       const litActionCode = `(async () => {
@@ -106,7 +110,7 @@ function createPKPAccount(
           code: litActionCode,
           authContext: authContext,
           jsParams: {
-            toSign: Array.from(Buffer.from(serializedTx.slice(2), 'hex')),
+            toSign: Array.from(Buffer.from(txHash.slice(2), 'hex')),
             publicKey: pkpInfo.publicKey,
           },
         })
@@ -115,12 +119,29 @@ function createPKPAccount(
           const sig = result.signatures.sig
 
           if (sig.signature && sig.recoveryId !== undefined) {
-            const v = (sig.recoveryId + 27).toString(16).padStart(2, '0')
-            const signature = `${sig.signature}${v}` as Hex
+            // Extract r and s from signature (signature is 64 bytes: 32 bytes r + 32 bytes s)
+            // Remove 0x prefix if present before slicing
+            const sigHex = sig.signature.startsWith('0x') ? sig.signature.slice(2) : sig.signature
+            const r = `0x${sigHex.slice(0, 64)}` as Hex
+            const s = `0x${sigHex.slice(64, 128)}` as Hex
 
-            // Serialize signed transaction
+            // For EIP-1559, use yParity (0 or 1)
+            // For legacy, use v (27 or 28)
+            const isEIP1559 = transaction.type === 'eip1559'
+            const yParity = sig.recoveryId
+            const v = isEIP1559 ? BigInt(yParity) : BigInt(yParity + 27)
+
+            if (IS_DEV) console.log('[PKPSigner] Signature:', { r, s, v: v.toString(), yParity, isEIP1559 })
+
+            // Serialize signed transaction with signature components
             const { serializeTransaction } = await import('viem')
-            return serializeTransaction(transaction as any, signature)
+            const signedTx = {
+              ...transaction,
+              r,
+              s,
+              ...(isEIP1559 ? { yParity } : { v }),
+            }
+            return serializeTransaction(signedTx as any)
           }
         }
 

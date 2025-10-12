@@ -215,33 +215,27 @@ export const Interactive: Story = {
 }
 
 /**
- * No Credits - Shows purchase sheet when song is selected
+ * No Credits - Shows insufficient balance dialog when paid song is selected
  */
 export const NoCredits: Story = {
   render: () => {
     const [open, setOpen] = useState(false)
-    const [purchased, setPurchased] = useState(false)
 
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
         <Button onClick={() => setOpen(true)}>
           Select a song (0 credits)
         </Button>
-        {purchased && (
-          <div className="text-center p-4 bg-green-500/20 rounded-lg">
-            <p className="text-lg font-semibold">Credits purchased!</p>
-          </div>
-        )}
         <SongSelectPage
           open={open}
           onClose={() => setOpen(false)}
           trendingSongs={trendingSongs}
           favoriteSongs={favoriteSongs}
           userCredits={0}
-          onPurchaseCredits={() => {
-            setPurchased(true)
-            console.log('Credits purchased!')
-            setTimeout(() => setPurchased(false), 3000)
+          walletAddress="0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30"
+          walletBalance="0.00"
+          onPurchaseCredits={(packageId) => {
+            console.log('Purchase credits package:', packageId)
           }}
         />
       </div>

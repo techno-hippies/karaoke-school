@@ -1,0 +1,404 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+/**
+ * @title KaraokeCatalogV2
+ * @notice V2: Adds batch processing function for optimized Lit Action execution
+ *
+ * Changes from V1:
+ * - Added processSegmentsBatch() to process multiple segments in single transaction
+ * - Reduces Lit Action execution time: 5 txs × 10s = 50s → 1 tx × 10s = 10s
+ * - Prevents Lit Network timeout (30s limit)
+ */
+contract KaraokeCatalogV2 {
+
+    // ============ CUSTOM ERRORS ============
+
+    error InvalidProcessorAddress();
+    error NotOwner();
+    error NotAuthorized();
+    error ContractPaused();
+    error EmptyID();
+    error SongIDExists();
+    error GeniusIDExists();
+    error GeniusIDRequired();
+    error InvalidSongIdentifier();
+    error EmptySegmentID();
+    error InvalidTimeRange();
+    error InvalidCreator();
+    error SegmentExists();
+    error ParentSongRequired();
+    error NoSegmentsProvided();
+    error ArrayLengthMismatch();
+    error TooManySegments();
+    error SegmentNotFound();
+    error InvalidSegmentData();
+    error SegmentAlreadyProcessed();
+    error ParentSongNotFound();
+    error SongNotFound();
+    error InvalidAddress();
+    error AlreadyPaused();
+    error NotPaused();
+
+    // ============ STRUCTS ============
+
+    /**
+     * @notice Song entry (full song or segment container)
+     */
+    struct Song {
+        // Core Identification
+        string id;                  // Unique ID: "heat-of-the-night" or "genius-123456"
+        uint32 geniusId;           // 0 = not linked to Genius, >0 = Genius song ID
+
+        // Metadata
+        string title;
+        string artist;
+        uint32 duration;            // Total duration in seconds
+
+        // Capabilities
+        bool hasFullAudio;          // true = complete song available, false = segments only
+        bool requiresPayment;       // true = costs credits, false = free access
+
+        // Full Song Assets (only if hasFullAudio=true)
+        string audioUri;            // grove://full_song.mp3
+        string metadataUri;         // grove://word_timestamps.json (lyrics with timing)
+        string coverUri;            // grove://cover.jpg
+        string thumbnailUri;        // grove://thumb_300x300.jpg
+        string musicVideoUri;       // grove://video.mp4 (optional)
+
+        // Metadata
+        bool enabled;               // Soft delete flag
+        uint64 addedAt;             // When song was added
+    }
+
+    /**
+     * @notice Generated segment metadata
+     */
+    struct GeneratedSegment {
+        uint32 geniusId;            // Parent song Genius ID (0 if custom song)
+        string songId;              // Parent song ID (for non-Genius songs)
+        string segmentId;           // "verse-1", "chorus-1", etc.
+        string sectionType;         // "Verse 1", "Chorus", "Bridge"
+
+        uint32 startTime;           // Start time in seconds
+        uint32 endTime;             // End time in seconds
+        uint32 duration;            // Duration (calculated)
+
+        string vocalsUri;           // grove://encrypted_vocals_xyz.zip
+        string drumsUri;            // grove://encrypted_drums_xyz.zip
+        string audioSnippetUri;     // grove://snippet_30s.mp3 (preview)
+
+        bool processed;             // false = metadata only, true = stems uploaded
+        bool requiresPayment;       // Inherited from parent or set independently
+        uint64 createdAt;           // When segment was created
+        uint64 processedAt;         // When stems were uploaded (0 = not processed)
+        address createdBy;          // PKP or user who generated
+    }
+
+    // ============ STORAGE ============
+
+    Song[] private songs;
+    mapping(string => uint256) private songIdToIndex;     // id => index+1 (0 = not exists)
+    mapping(uint32 => uint256) private geniusIdToIndex;   // geniusId => index+1 (0 = not exists)
+    mapping(bytes32 => GeneratedSegment) public segments; // segmentHash => Segment
+
+    address public owner;
+    address public trustedProcessor;  // Lit Protocol PKP for automated operations
+    bool public paused;
+
+    // ============ EVENTS ============
+
+    event SongAdded(
+        string indexed id,
+        uint32 indexed geniusId,
+        string title,
+        string artist,
+        bool hasFullAudio,
+        bool requiresPayment
+    );
+
+    event SegmentCreated(
+        bytes32 indexed segmentHash,
+        uint32 indexed geniusId,
+        string segmentId,
+        string sectionType,
+        uint32 startTime,
+        uint32 endTime,
+        address createdBy
+    );
+
+    event SegmentProcessed(
+        bytes32 indexed segmentHash,
+        string vocalsUri,
+        string drumsUri,
+        string audioSnippetUri,
+        uint64 timestamp
+    );
+
+    event SegmentsBatchProcessed(
+        uint256 segmentCount,
+        uint64 timestamp
+    );
+
+    event SongUpdated(string indexed id, bool enabled);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event ProcessorUpdated(address indexed previousProcessor, address indexed newProcessor);
+    event Paused(address indexed by);
+    event Unpaused(address indexed by);
+
+    // ============ CONSTRUCTOR ============
+
+    constructor(address _trustedProcessor) {
+        if (_trustedProcessor == address(0)) revert InvalidProcessorAddress();
+        owner = msg.sender;
+        trustedProcessor = _trustedProcessor;
+        paused = false;
+    }
+
+    // ============ MODIFIERS ============
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    modifier onlyOwnerOrProcessor() {
+        if (msg.sender != owner && msg.sender != trustedProcessor) revert NotAuthorized();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
+        _;
+    }
+
+    // ============ FULL SONG FUNCTIONS ============
+
+    struct AddFullSongParams {
+        string id;
+        uint32 geniusId;
+        string title;
+        string artist;
+        uint32 duration;
+        bool requiresPayment;
+        string audioUri;
+        string metadataUri;
+        string coverUri;
+        string thumbnailUri;
+        string musicVideoUri;
+    }
+
+    /**
+     * @notice Add a full song to the catalog
+     * @dev Used for public domain songs, licensed content, etc.
+     */
+    function addFullSong(AddFullSongParams calldata params)
+        external
+        onlyOwnerOrProcessor
+        whenNotPaused
+    {
+        string memory id = params.id;
+        uint32 geniusId = params.geniusId;
+
+        if (bytes(id).length == 0) revert EmptyID();
+        if (songIdToIndex[id] != 0) revert SongIDExists();
+
+        if (geniusId > 0) {
+            if (geniusIdToIndex[geniusId] != 0) revert GeniusIDExists();
+        }
+
+        songs.push();
+        Song storage newSong = songs[songs.length - 1];
+
+        newSong.id = params.id;
+        newSong.geniusId = params.geniusId;
+        newSong.title = params.title;
+        newSong.artist = params.artist;
+        newSong.duration = params.duration;
+        newSong.hasFullAudio = true;
+        newSong.requiresPayment = params.requiresPayment;
+        newSong.audioUri = params.audioUri;
+        newSong.metadataUri = params.metadataUri;
+        newSong.coverUri = params.coverUri;
+        newSong.thumbnailUri = params.thumbnailUri;
+        newSong.musicVideoUri = params.musicVideoUri;
+        newSong.enabled = true;
+        newSong.addedAt = uint64(block.timestamp);
+
+        songIdToIndex[id] = songs.length;
+        if (geniusId > 0) {
+            geniusIdToIndex[geniusId] = songs.length;
+        }
+
+        emit SongAdded(id, geniusId, params.title, params.artist, true, params.requiresPayment);
+    }
+
+    /**
+     * @notice Add a segment-only song entry (copyrighted works)
+     * @dev Creates minimal song entry for Genius songs with no full audio
+     */
+    function addSegmentOnlySong(
+        uint32 geniusId,
+        string calldata id,
+        string calldata title,
+        string calldata artist,
+        uint32 duration
+    ) external onlyOwnerOrProcessor whenNotPaused {
+        if (geniusId == 0) revert GeniusIDRequired();
+        if (geniusIdToIndex[geniusId] != 0) revert GeniusIDExists();
+
+        Song memory newSong;
+        newSong.id = id;
+        newSong.geniusId = geniusId;
+        newSong.title = title;
+        newSong.artist = artist;
+        newSong.duration = duration;
+        newSong.hasFullAudio = false;
+        newSong.requiresPayment = true;
+        newSong.enabled = true;
+        newSong.addedAt = uint64(block.timestamp);
+
+        songs.push(newSong);
+        songIdToIndex[id] = songs.length;
+        geniusIdToIndex[geniusId] = songs.length;
+
+        emit SongAdded(id, geniusId, title, artist, false, true);
+    }
+
+    // ============ SEGMENT FUNCTIONS ============
+
+    /**
+     * @notice Batch process multiple segments (V2 OPTIMIZED - Create + Process in one TX)
+     * @dev Creates segments if they don't exist, then fills with audio URIs
+     */
+    function processSegmentsBatch(
+        uint32 geniusId,
+        string calldata songId,
+        string[] calldata segmentIds,
+        string[] calldata sectionTypes,
+        string[] calldata vocalsUris,
+        string[] calldata drumsUris,
+        string[] calldata audioSnippetUris,
+        uint32[] calldata startTimes,
+        uint32[] calldata endTimes
+    ) external onlyOwnerOrProcessor whenNotPaused {
+        if (segmentIds.length == 0) revert NoSegmentsProvided();
+        if (segmentIds.length != sectionTypes.length || segmentIds.length != vocalsUris.length || segmentIds.length != drumsUris.length || segmentIds.length != audioSnippetUris.length || segmentIds.length != startTimes.length || segmentIds.length != endTimes.length) revert ArrayLengthMismatch();
+        if (segmentIds.length > 50) revert TooManySegments();
+        if (geniusIdToIndex[geniusId] == 0) revert ParentSongNotFound();
+
+        uint64 timestamp = uint64(block.timestamp);
+        Song storage parentSong = songs[geniusIdToIndex[geniusId] - 1];
+
+        for (uint256 i = 0; i < segmentIds.length; i++) {
+            if (bytes(vocalsUris[i]).length == 0 || bytes(drumsUris[i]).length == 0 || endTimes[i] <= startTimes[i]) revert InvalidSegmentData();
+
+            bytes32 segmentHash = getSegmentHash(geniusId, "", segmentIds[i]);
+            GeneratedSegment storage segment = segments[segmentHash];
+
+            bool isNew = segment.createdAt == 0;
+            if (isNew) {
+                segment.geniusId = geniusId;
+                segment.songId = songId;
+                segment.segmentId = segmentIds[i];
+                segment.sectionType = sectionTypes[i];
+                segment.startTime = startTimes[i];
+                segment.endTime = endTimes[i];
+                segment.duration = endTimes[i] - startTimes[i];
+                segment.requiresPayment = parentSong.requiresPayment;
+                segment.createdAt = timestamp;
+                segment.createdBy = msg.sender;
+                emit SegmentCreated(segmentHash, geniusId, segmentIds[i], sectionTypes[i], startTimes[i], endTimes[i], msg.sender);
+            } else {
+                if (segment.processed) revert SegmentAlreadyProcessed();
+            }
+
+            segment.vocalsUri = vocalsUris[i];
+            segment.drumsUri = drumsUris[i];
+            segment.audioSnippetUri = audioSnippetUris[i];
+            segment.processed = true;
+            segment.processedAt = timestamp;
+
+            emit SegmentProcessed(segmentHash, vocalsUris[i], drumsUris[i], audioSnippetUris[i], timestamp);
+        }
+
+        emit SegmentsBatchProcessed(segmentIds.length, timestamp);
+    }
+
+    // ============ QUERY FUNCTIONS ============
+
+    function getSongById(string memory id) external view returns (Song memory) {
+        uint256 index = songIdToIndex[id];
+        if (index == 0) revert SongNotFound();
+        return songs[index - 1];
+    }
+
+    function getSongByGeniusId(uint32 geniusId) external view returns (Song memory) {
+        uint256 index = geniusIdToIndex[geniusId];
+        if (index == 0) revert SongNotFound();
+        return songs[index - 1];
+    }
+
+    function songExistsById(string memory id) external view returns (bool) {
+        return songIdToIndex[id] > 0;
+    }
+
+    function songExistsByGeniusId(uint32 geniusId) external view returns (bool) {
+        return geniusIdToIndex[geniusId] > 0;
+    }
+
+    function getSegmentHash(uint32 geniusId, string memory songId, string memory segmentId)
+        public
+        pure
+        returns (bytes32)
+    {
+        if (geniusId > 0) {
+            return keccak256(abi.encodePacked(geniusId, segmentId));
+        }
+        return keccak256(abi.encodePacked(songId, segmentId));
+    }
+
+    function getSegment(bytes32 segmentHash) external view returns (GeneratedSegment memory) {
+        if (segments[segmentHash].createdAt == 0) revert SegmentNotFound();
+        return segments[segmentHash];
+    }
+
+    function getTotalSongs() external view returns (uint256) {
+        return songs.length;
+    }
+
+    // ============ ADMIN FUNCTIONS ============
+
+    function toggleSong(string memory id, bool enabled) external onlyOwner {
+        uint256 index = songIdToIndex[id];
+        if (index == 0) revert SongNotFound();
+        songs[index - 1].enabled = enabled;
+        emit SongUpdated(id, enabled);
+    }
+
+    function setTrustedProcessor(address newProcessor) external onlyOwner {
+        if (newProcessor == address(0)) revert InvalidAddress();
+        address oldProcessor = trustedProcessor;
+        trustedProcessor = newProcessor;
+        emit ProcessorUpdated(oldProcessor, newProcessor);
+    }
+
+    function pause() external onlyOwner {
+        if (paused) revert AlreadyPaused();
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    function unpause() external onlyOwner {
+        if (!paused) revert NotPaused();
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert InvalidAddress();
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}

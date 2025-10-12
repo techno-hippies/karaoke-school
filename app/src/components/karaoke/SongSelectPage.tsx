@@ -10,6 +10,7 @@ import {
   InputGroupButton,
 } from '@/components/ui/input-group'
 import { SegmentPickerDrawer, type SongSegment } from './SegmentPickerDrawer'
+import { CreditFlowDialog } from './CreditFlowDialog'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
@@ -45,8 +46,14 @@ export interface SongSelectPageProps {
   onSelectSong?: (song: Song, segment: SongSegment) => void
   /** Number of credits user currently has */
   userCredits?: number
+  /** User's wallet address (for insufficient balance dialog) */
+  walletAddress?: string
+  /** User's wallet balance in USDC (for credit flow dialog) */
+  walletBalance?: string
   /** Called when user purchases credits */
-  onPurchaseCredits?: () => void
+  onPurchaseCredits?: (packageId: number) => void
+  /** Is credit purchase in progress? */
+  isPurchasingCredits?: boolean
   /** Called when user confirms credit usage */
   onConfirmCredit?: (song: Song, segment: SongSegment) => void
   /** Called when user initiates karaoke generation for a song */
@@ -73,7 +80,10 @@ export function SongSelectPage({
   onSearch,
   onSelectSong,
   userCredits = 0,
+  walletAddress = '',
+  walletBalance,
   onPurchaseCredits,
+  isPurchasingCredits = false,
   onConfirmCredit,
   onGenerateKaraoke,
   className,
@@ -87,6 +97,7 @@ export function SongSelectPage({
   const [isLocalSearching, setIsLocalSearching] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatingProgress, setGeneratingProgress] = useState(0)
+  const [showInsufficientBalance, setShowInsufficientBalance] = useState(false)
 
   const hasCredits = userCredits > 0
 
@@ -156,8 +167,10 @@ export function SongSelectPage({
 
     // Paid songs (requiresPayment=true in contract): Check credits FIRST
     if (!hasCredits) {
-      // No credits - trigger purchase flow (handled by parent)
-      onPurchaseCredits?.()
+      // No credits - show insufficient balance dialog
+      console.log('[SongSelectPage] Opening insufficient balance dialog for song:', song.title)
+      console.log('[SongSelectPage] Wallet address to display:', walletAddress)
+      setShowInsufficientBalance(true)
       return
     }
 
@@ -189,7 +202,17 @@ export function SongSelectPage({
       return
     }
 
-    // For locked segments, check if user has credits
+    // If song is free, proceed without payment
+    if (selectedSong?.isFree) {
+      if (selectedSong) {
+        onSelectSong?.(selectedSong, segment)
+      }
+      setShowSheet(false)
+      onClose()
+      return
+    }
+
+    // For paid songs with locked segments, check if user has credits
     if (hasCredits) {
       // User has credits - trigger payment/confirm directly
       if (selectedSong) {
@@ -199,9 +222,11 @@ export function SongSelectPage({
       setShowSheet(false)
       onClose()
     } else {
-      // User needs to buy credits - trigger purchase flow (handled by parent)
+      // User needs to buy credits - show insufficient balance dialog
+      console.log('[SongSelectPage] Opening insufficient balance dialog for segment:', segment.displayName)
+      console.log('[SongSelectPage] Wallet address to display:', walletAddress)
       setShowSheet(false)
-      onPurchaseCredits?.()
+      setShowInsufficientBalance(true)
     }
   }
 
@@ -226,16 +251,10 @@ export function SongSelectPage({
     }
   }
 
-  // Local filtering for trending/favorites when not using search Lit Action
+  // Don't filter while typing - only show search results after user triggers search
   const filterSongs = (songs: Song[]) => {
     if (hasSearched) return [] // Don't show local results when showing search results
-    return searchQuery && !hasSearched
-      ? songs.filter(
-          (song) =>
-            song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            song.artist.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      : songs
+    return songs // Show all songs until user actually searches
   }
 
   const filteredTrending = filterSongs(trendingSongs)
@@ -381,6 +400,25 @@ export function SongSelectPage({
           onSelectSegment={handleSegmentSelect}
           isGenerating={isGenerating}
           generatingProgress={generatingProgress}
+          isFree={selectedSong.isFree}
+        />
+      )}
+
+      {/* Credit Flow Dialog */}
+      {selectedSong && (
+        <CreditFlowDialog
+          open={showInsufficientBalance}
+          onOpenChange={setShowInsufficientBalance}
+          songTitle={selectedSong.title}
+          songArtist={selectedSong.artist}
+          walletAddress={walletAddress}
+          usdcBalance={walletBalance || '0.00'}
+          onPurchaseCredits={(packageId) => {
+            if (onPurchaseCredits) {
+              onPurchaseCredits(packageId)
+            }
+          }}
+          isPurchasing={isPurchasingCredits}
         />
       )}
     </>
