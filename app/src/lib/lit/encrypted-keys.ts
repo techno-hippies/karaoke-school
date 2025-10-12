@@ -30,11 +30,11 @@ export interface EncryptedKey {
 }
 
 /**
- * Genius API Key (v6)
- * Bound to Match and Segment Lit Action: QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2
+ * Genius API Key (v7)
+ * Bound to Match and Segment Lit Action: QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF
  */
-export const GENIUS_API_KEY_V6: EncryptedKey = {
-  ciphertext: "onX4FyQz+ej+a1yell1yoGlVfIYEQjolf0g7mKYviSsMNT2Q9TrDK6Ui+e8gOwkL/Y8hLDlfBVukJlTS2jh4QTkoUKlr1Kn8DfynuuajLutBiNvlZk4+4BYSYrtrotAo5d5OVMRMwwFqSb84QjhwiY/yfdENPd5Iimb95369gDr50LlD0ct+msIbgQFy5oCon3kC",
+export const GENIUS_API_KEY_V7: EncryptedKey = {
+  ciphertext: "jU2Ug35jdJgsN1PQAvH7v84SFMefYr3NcF16rSJk6CDPegFHkU6R2owAikmEpOVvJnLxVCU5uLAIMBhc0bMxS8J0Y5lgUzvZR36I84DeXKRBjL6d2LGE20EV/7asranunqURmKJUcDqlfus05BguHKr8QftTx5kuo7b/7n4cO4FAEb2fLF72+clacgl08Q7nA7cC",
   dataToEncryptHash: "364e5c5764d520470a219b3550be8019abf9ec10025d4abe0fe90f0bb929d75d",
   accessControlConditions: [
     {
@@ -46,20 +46,20 @@ export const GENIUS_API_KEY_V6: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
+        value: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
       }
     }
   ],
-  encryptedAt: "2025-10-09T15:34:23.418Z",
-  cid: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
+  encryptedAt: "2025-10-12T09:02:12.422Z",
+  cid: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
 }
 
 /**
- * OpenRouter API Key (v6)
- * Bound to Match and Segment Lit Action: QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2
+ * OpenRouter API Key (v7)
+ * Bound to Match and Segment Lit Action: QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF
  */
-export const OPENROUTER_API_KEY_V6: EncryptedKey = {
-  ciphertext: "tBKS57wfEkuR1uq6eSAARKK4yiMOdRQpoUyXROVLoVZT7sR1nxQTeqKTQnq3LdVK5c+0zt+xkpXPKFD0i9tfEUDNfIV8Yaj/xS2THqLHm8tKnGdBBbv8P+MtMWsOa9NST1T7JREeUTDBPWW99yltLZkxWTz+3Akpk5dSnHeBVgnH3yDgzgfQFPQS+U4ylQ+MsmL+XdTTLgrOOOwC",
+export const OPENROUTER_API_KEY_V7: EncryptedKey = {
+  ciphertext: "jrxeS+t9ioLVgUShWR+KdS2doP1FUXAy47dsHIWLIka83hF+BPKIZDfDAQDmtg0QAjryeYUq3CUkByT87u+NTkS8t+2u0WQWjvNQJ1BIa8FKdWbCGJaKLE2nl5W2BbUGOKIGSNHa7bRabqt/sOAcY02RCZCBDn24YQVVRMivd1MrLAuvYGwXL1G4YaQ1bQgze18WCP43ruTZo1sC",
   dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
   accessControlConditions: [
     {
@@ -71,12 +71,37 @@ export const OPENROUTER_API_KEY_V6: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
+        value: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
       }
     }
   ],
-  encryptedAt: "2025-10-09T15:34:21.056Z",
-  cid: "QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2"
+  encryptedAt: "2025-10-12T09:02:10.234Z",
+  cid: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
+}
+
+/**
+ * ElevenLabs API Key (v3)
+ * Bound to Match and Segment Lit Action: QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF
+ */
+export const ELEVENLABS_API_KEY_V3: EncryptedKey = {
+  ciphertext: "gqjh6y/O1wbycIpBvJ77m11NR+S/XVQk5/E86VmZv3DcswW9lgOkR7WksShd1rTGFsUuwwaPChst0NvhDs0jpy9DlB0Ti1ZizC8Bhct3VoQ0/MttFaNp+KcefNA83SQYqylaD7wZ+beH5qAC/56gQiW7JrVisJkghXwxsAy/jq2JAcbmEgI=",
+  dataToEncryptHash: "2869bb248aca9a1de7506a6ddae12981cb83e454c0eecc3dd1bf9c47ab22e69b",
+  accessControlConditions: [
+    {
+      conditionType: "evmBasic",
+      contractAddress: "",
+      standardContractType: "",
+      chain: "ethereum",
+      method: "",
+      parameters: [":currentActionIpfsId"],
+      returnValueTest: {
+        comparator: "=",
+        value: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
+      }
+    }
+  ],
+  encryptedAt: "2025-10-12T09:02:14.623Z",
+  cid: "QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF"
 }
 
 /**
@@ -84,9 +109,9 @@ export const OPENROUTER_API_KEY_V6: EncryptedKey = {
  */
 export function getGeniusKeyParams() {
   return {
-    geniusKeyAccessControlConditions: GENIUS_API_KEY_V6.accessControlConditions,
-    geniusKeyCiphertext: GENIUS_API_KEY_V6.ciphertext,
-    geniusKeyDataToEncryptHash: GENIUS_API_KEY_V6.dataToEncryptHash,
+    geniusKeyAccessControlConditions: GENIUS_API_KEY_V7.accessControlConditions,
+    geniusKeyCiphertext: GENIUS_API_KEY_V7.ciphertext,
+    geniusKeyDataToEncryptHash: GENIUS_API_KEY_V7.dataToEncryptHash,
   }
 }
 
@@ -95,9 +120,20 @@ export function getGeniusKeyParams() {
  */
 export function getOpenRouterKeyParams() {
   return {
-    openrouterKeyAccessControlConditions: OPENROUTER_API_KEY_V6.accessControlConditions,
-    openrouterKeyCiphertext: OPENROUTER_API_KEY_V6.ciphertext,
-    openrouterKeyDataToEncryptHash: OPENROUTER_API_KEY_V6.dataToEncryptHash,
+    openrouterKeyAccessControlConditions: OPENROUTER_API_KEY_V7.accessControlConditions,
+    openrouterKeyCiphertext: OPENROUTER_API_KEY_V7.ciphertext,
+    openrouterKeyDataToEncryptHash: OPENROUTER_API_KEY_V7.dataToEncryptHash,
+  }
+}
+
+/**
+ * Get encrypted key parameters for Lit Action execution
+ */
+export function getElevenlabsKeyParams() {
+  return {
+    elevenlabsKeyAccessControlConditions: ELEVENLABS_API_KEY_V3.accessControlConditions,
+    elevenlabsKeyCiphertext: ELEVENLABS_API_KEY_V3.ciphertext,
+    elevenlabsKeyDataToEncryptHash: ELEVENLABS_API_KEY_V3.dataToEncryptHash,
   }
 }
 
@@ -108,5 +144,6 @@ export function getKaraokeKeyParams() {
   return {
     ...getGeniusKeyParams(),
     ...getOpenRouterKeyParams(),
+    ...getElevenlabsKeyParams(),
   }
 }

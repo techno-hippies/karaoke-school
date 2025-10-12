@@ -4,15 +4,12 @@
   "type": "module",
   "description": "Lit Actions for karaoke scoring with Voxstral API",
   "scripts": {
-    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs",
+    "test:match-segment-v5": "dotenvx run -- node src/test/test-match-and-segment-v5.mjs",
+    "test:match-segment-v6": "dotenvx run -- node src/test/test-match-and-segment-v6.mjs",
+    "test:audio-processor-v4": "dotenvx run -- node src/test/test-audio-processor-v4.mjs",
+    "test:auto-purchase": "dotenvx run -- node src/test/test-auto-purchase-credits.mjs",
     "test:trivia-gen": "node src/test/test-trivia-generator-v1.mjs",
-    "test:match-segment": "node src/test/test-match-and-segment-v2.mjs",
-    "test:audio-processor": "dotenvx run -- node src/test/test-audio-processor.mjs",
-    "test:zksync": "node src/test/test-zksync-sig.mjs",
-    "test:step0-consolidated": "node src/test/test-step0-consolidated-modal.mjs",
-    "test:step1-audio": "node src/test/test-step1-audio-fetch.mjs",
-    "test:step2-rendi": "dotenvx run -- node src/test/test-step2-rendi-trim.mjs",
-    "test:step3-modal": "node src/test/test-step3-modal-demucs.mjs",
+    "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs",
     "mint-pkp": "bun run scripts/mint-pkp.ts",
     "update-pkp-permissions": "bun run scripts/update-pkp-permissions.ts",
     "upload-action": "node scripts/upload-lit-action.mjs",
@@ -25,6 +22,7 @@
     "@lit-protocol/lit-node-client": "^7.3.1",
     "@lit-protocol/networks": "^8.0.0",
     "dotenv": "^16.4.7",
+    "ethers": "^6.15.0",
     "viem": "^2.21.54"
   },
   "devDependencies": {

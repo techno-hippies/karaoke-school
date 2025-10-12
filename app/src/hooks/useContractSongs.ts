@@ -1,6 +1,11 @@
 /**
  * useContractSongs
- * Hook to load songs from KaraokeCatalogV1 contract on Base Sepolia
+ * Hook to load songs from KaraokeCatalogV2 contract on Base Sepolia
+ *
+ * NOTE: V2 contract removed getAllSongs() to reduce size.
+ * For now, returns empty array - use search to find songs.
+ *
+ * TODO: Add trending song IDs to config or implement pagination.
  */
 
 import { useState, useEffect } from 'react'
@@ -13,7 +18,6 @@ import type { Song } from '@/features/post-flow/types'
 interface ContractSong {
   id: string
   geniusId: number
-  geniusArtistId: number
   title: string
   artist: string
   duration: number
@@ -24,8 +28,6 @@ interface ContractSong {
   coverUri: string
   thumbnailUri: string
   musicVideoUri: string
-  segmentHashes: `0x${string}`[]
-  languages: string
   enabled: boolean
   addedAt: bigint
 }
@@ -64,11 +66,19 @@ function capitalizeSection(sectionType: string): string {
 }
 
 /**
- * Load all songs from KaraokeCatalogV1 contract
+ * Load songs from KaraokeCatalogV2 contract
+ *
+ * NOTE: V2 contract optimization removed getAllSongs() to fit under 24KB limit.
+ * For now, returns empty trending list - users must search for songs.
+ *
+ * Future options:
+ * 1. Hardcode popular song IDs in config (load via getSongByGeniusId)
+ * 2. Add back pagination to contract (getSongAtIndex)
+ * 3. Use off-chain indexer (The Graph, etc.)
  */
 export function useContractSongs(): UseContractSongsResult {
   const [songs, setSongs] = useState<Song[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   const loadSongs = async () => {
@@ -76,80 +86,25 @@ export function useContractSongs(): UseContractSongsResult {
       setIsLoading(true)
       setError(null)
 
-      // Create public client for Base Sepolia
+      // V2 contract has no getAllSongs() - would need to iterate via known IDs
+      // For now, return empty array - use search to discover songs
+      console.log('[useContractSongs] V2 contract - trending list disabled, use search')
+
+      // Get total song count for info
       const publicClient = createPublicClient({
         chain: baseSepolia,
         transport: http(),
       })
 
-      // Query contract
-      const rawSongs = (await publicClient.readContract({
+      const totalSongs = await publicClient.readContract({
         address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
         abi: KARAOKE_CATALOG_ABI,
-        functionName: 'getAllSongs',
-      })) as ContractSong[]
-
-      console.log('[useContractSongs] Raw songs from contract:', rawSongs)
-
-      // Map to frontend Song interface and load segments for each song
-      const mapped: Song[] = []
-
-      for (const s of rawSongs.filter((s) => s.enabled)) {
-        let segments: any[] = []
-
-        // Load segments if song has them
-        if (s.segmentHashes.length > 0) {
-          try {
-            const rawSegments = (await publicClient.readContract({
-              address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
-              abi: KARAOKE_CATALOG_ABI,
-              functionName: 'getSegmentsForSong',
-              args: [s.geniusId],
-            })) as any[]
-
-            segments = rawSegments.map((seg: any) => ({
-              id: seg.segmentId,
-              displayName: capitalizeSection(seg.sectionType),
-              startTime: Number(seg.startTime),
-              endTime: Number(seg.endTime),
-              duration: Number(seg.duration),
-              isOwned: false, // TODO: Check ownership
-            }))
-
-            console.log(`[useContractSongs] Loaded ${segments.length} segments for ${s.title}`)
-
-            // NOTE: This only loads segments that were created in the contract.
-            // To load ALL sections from match-and-segment (verse-1, verse-2, chorus-1, etc.),
-            // we need to either:
-            // 1. Store all sections in metadataUri JSON
-            // 2. Have Lit Action write all segments to contract (not just processed ones)
-            // 3. Re-run match-and-segment Lit Action on-demand (expensive)
-          } catch (err) {
-            console.warn(`[useContractSongs] Failed to load segments for ${s.title}:`, err)
-          }
-        }
-
-        mapped.push({
-          id: s.id,
-          geniusId: Number(s.geniusId),
-          title: s.title,
-          artist: s.artist,
-          artworkUrl: s.coverUri ? lensToGroveUrl(s.coverUri) : undefined,
-          isFree: !s.requiresPayment,
-          isProcessed: s.hasFullAudio || s.segmentHashes.length > 0,
-          segments,
-        })
-      }
-
-      // Sort by addedAt (newest first)
-      mapped.sort((a, b) => {
-        const aTime = rawSongs.find((r) => r.id === a.id)?.addedAt || 0n
-        const bTime = rawSongs.find((r) => r.id === b.id)?.addedAt || 0n
-        return Number(bTime - aTime)
+        functionName: 'getTotalSongs',
       })
 
-      console.log('[useContractSongs] Mapped songs:', mapped)
-      setSongs(mapped)
+      console.log('[useContractSongs] Total songs in catalog:', Number(totalSongs))
+
+      setSongs([])
     } catch (err) {
       console.error('[useContractSongs] Error loading songs:', err)
       setError(err instanceof Error ? err : new Error('Failed to load songs'))

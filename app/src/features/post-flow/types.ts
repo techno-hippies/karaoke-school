@@ -32,6 +32,7 @@ export interface Song {
   isProcessed?: boolean
   segments?: SongSegment[]
   soundcloudPermalink?: string
+  songDuration?: number
 }
 
 /**
@@ -57,6 +58,7 @@ export interface PostFlowData {
   recordedVideoUrl: string | null
   grade: PerformanceGrade | null
   postUrl: string | null
+  searchResults: Song[] // Persist search results
 }
 
 /**
@@ -132,6 +134,9 @@ export interface PostFlowContext {
   unlockSegment: (song: Song, segment: SongSegment) => Promise<void>
   gradePerformance: (videoBlob: Blob, segment: SongSegment) => Promise<PerformanceGrade>
   createPost: (videoUrl: string, grade: PerformanceGrade) => Promise<string>
+
+  // Data management
+  updateData: (updates: Partial<PostFlowData>) => void
 }
 
 /**

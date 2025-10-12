@@ -1,22 +1,27 @@
 /**
- * KaraokeCatalogV1 ABI
- * Minimal ABI for reading song data from Base Sepolia
+ * KaraokeCatalogV2 ABI
+ * Optimized contract for Base Sepolia (17.5KB, under 24KB limit)
+ *
+ * Changes from V1:
+ * - Removed: getAllSongs(), getSegmentsForSong()
+ * - Removed from Song struct: geniusArtistId, segmentHashes[], languages
+ * - Added: getSegment(), getSegmentHash()
  */
 
 export const KARAOKE_CATALOG_ABI = [
+  // === Song Read Functions ===
   {
-    name: 'getAllSongs',
+    name: 'getSongById',
     type: 'function',
     stateMutability: 'view',
-    inputs: [],
+    inputs: [{ name: 'id', type: 'string' }],
     outputs: [
       {
         name: '',
-        type: 'tuple[]',
+        type: 'tuple',
         components: [
           { name: 'id', type: 'string' },
           { name: 'geniusId', type: 'uint32' },
-          { name: 'geniusArtistId', type: 'uint32' },
           { name: 'title', type: 'string' },
           { name: 'artist', type: 'string' },
           { name: 'duration', type: 'uint32' },
@@ -27,13 +32,53 @@ export const KARAOKE_CATALOG_ABI = [
           { name: 'coverUri', type: 'string' },
           { name: 'thumbnailUri', type: 'string' },
           { name: 'musicVideoUri', type: 'string' },
-          { name: 'segmentHashes', type: 'bytes32[]' },
-          { name: 'languages', type: 'string' },
           { name: 'enabled', type: 'bool' },
           { name: 'addedAt', type: 'uint64' },
         ],
       },
     ],
+  },
+  {
+    name: 'getSongByGeniusId',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'string' },
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'title', type: 'string' },
+          { name: 'artist', type: 'string' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'hasFullAudio', type: 'bool' },
+          { name: 'requiresPayment', type: 'bool' },
+          { name: 'audioUri', type: 'string' },
+          { name: 'metadataUri', type: 'string' },
+          { name: 'coverUri', type: 'string' },
+          { name: 'thumbnailUri', type: 'string' },
+          { name: 'musicVideoUri', type: 'string' },
+          { name: 'enabled', type: 'bool' },
+          { name: 'addedAt', type: 'uint64' },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'songExistsById',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'id', type: 'string' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'songExistsByGeniusId',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'getTotalSongs',
@@ -42,15 +87,28 @@ export const KARAOKE_CATALOG_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
+
+  // === Segment Read Functions ===
   {
-    name: 'getSegmentsForSong',
+    name: 'getSegmentHash',
+    type: 'function',
+    stateMutability: 'pure',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'songId', type: 'string' },
+      { name: 'segmentId', type: 'string' },
+    ],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    name: 'getSegment',
     type: 'function',
     stateMutability: 'view',
-    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    inputs: [{ name: 'segmentHash', type: 'bytes32' }],
     outputs: [
       {
         name: '',
-        type: 'tuple[]',
+        type: 'tuple',
         components: [
           { name: 'geniusId', type: 'uint32' },
           { name: 'songId', type: 'string' },
@@ -71,35 +129,50 @@ export const KARAOKE_CATALOG_ABI = [
       },
     ],
   },
+
+  // === Events ===
   {
-    name: 'getSongByGeniusId',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'geniusId', type: 'uint32' }],
-    outputs: [
-      {
-        name: '',
-        type: 'tuple',
-        components: [
-          { name: 'id', type: 'string' },
-          { name: 'geniusId', type: 'uint32' },
-          { name: 'geniusArtistId', type: 'uint32' },
-          { name: 'title', type: 'string' },
-          { name: 'artist', type: 'string' },
-          { name: 'duration', type: 'uint32' },
-          { name: 'hasFullAudio', type: 'bool' },
-          { name: 'requiresPayment', type: 'bool' },
-          { name: 'audioUri', type: 'string' },
-          { name: 'metadataUri', type: 'string' },
-          { name: 'coverUri', type: 'string' },
-          { name: 'thumbnailUri', type: 'string' },
-          { name: 'musicVideoUri', type: 'string' },
-          { name: 'segmentHashes', type: 'bytes32[]' },
-          { name: 'languages', type: 'string' },
-          { name: 'enabled', type: 'bool' },
-          { name: 'addedAt', type: 'uint64' },
-        ],
-      },
+    name: 'SongAdded',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'id', type: 'string' },
+      { indexed: true, name: 'geniusId', type: 'uint32' },
+      { indexed: false, name: 'title', type: 'string' },
+      { indexed: false, name: 'artist', type: 'string' },
+      { indexed: false, name: 'hasFullAudio', type: 'bool' },
+      { indexed: false, name: 'requiresPayment', type: 'bool' },
+    ],
+  },
+  {
+    name: 'SegmentCreated',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'segmentHash', type: 'bytes32' },
+      { indexed: true, name: 'geniusId', type: 'uint32' },
+      { indexed: false, name: 'segmentId', type: 'string' },
+      { indexed: false, name: 'sectionType', type: 'string' },
+      { indexed: false, name: 'startTime', type: 'uint32' },
+      { indexed: false, name: 'endTime', type: 'uint32' },
+      { indexed: false, name: 'createdBy', type: 'address' },
+    ],
+  },
+  {
+    name: 'SegmentProcessed',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'segmentHash', type: 'bytes32' },
+      { indexed: false, name: 'vocalsUri', type: 'string' },
+      { indexed: false, name: 'drumsUri', type: 'string' },
+      { indexed: false, name: 'audioSnippetUri', type: 'string' },
+      { indexed: false, name: 'timestamp', type: 'uint64' },
+    ],
+  },
+  {
+    name: 'SegmentsBatchProcessed',
+    type: 'event',
+    inputs: [
+      { indexed: false, name: 'segmentCount', type: 'uint256' },
+      { indexed: false, name: 'timestamp', type: 'uint64' },
     ],
   },
 ] as const

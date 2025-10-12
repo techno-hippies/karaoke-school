@@ -4,6 +4,12 @@ lit-auth-storage/
 # Sensitive - contains PKP credentials
 output/
 
+# Test outputs
+test-results/
+
+# Dependencies
+node_modules/
+
 # Environment variables
 .env
 .env.*

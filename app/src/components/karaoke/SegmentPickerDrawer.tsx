@@ -39,13 +39,16 @@ interface SegmentPickerDrawerProps {
   songArtwork?: string
   segments: SongSegment[]
   onSelectSegment: (segment: SongSegment) => void
+  onUnlockAll?: () => void
   isGenerating?: boolean
   generatingProgress?: number // 0-100
+  isFree?: boolean // Is this a free song (no credits required)?
+  isUnlocking?: boolean
 }
 
 /**
  * SegmentPickerDrawer - Select a song segment for karaoke
- * Action button per row: "Start" (owned) or "Unlock" (locked)
+ * Shows "Unlock" button at bottom to unlock all segments, then "Start" buttons appear per segment
  */
 export function SegmentPickerDrawer({
   open,
@@ -55,8 +58,11 @@ export function SegmentPickerDrawer({
   songArtwork,
   segments,
   onSelectSegment,
+  onUnlockAll,
   isGenerating = false,
   generatingProgress = 0,
+  isFree = false,
+  isUnlocking = false,
 }: SegmentPickerDrawerProps) {
   const [playingSegmentId, setPlayingSegmentId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -200,20 +206,37 @@ export function SegmentPickerDrawer({
                   )}
                 </ItemDescription>
               </ItemContent>
-              <ItemActions>
-                <Button
-                  size="sm"
-                  variant={segment.isOwned ? "default" : "secondary"}
-                  onClick={() => onSelectSegment(segment)}
-                  className="w-20"
-                  disabled={isGenerating}
-                >
-                  {segment.isOwned ? "Start" : "1 Credit"}
-                </Button>
-              </ItemActions>
+              {(segment.isOwned || isFree) && (
+                <ItemActions>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => onSelectSegment(segment)}
+                    className="w-20"
+                    disabled={isGenerating}
+                  >
+                    Start
+                  </Button>
+                </ItemActions>
+              )}
             </Item>
           ))}
         </div>
+
+        {/* Unlock button - show when any segment is not owned and not free */}
+        {!isFree && segments.length > 0 && segments.some(seg => !seg.isOwned) && (
+          <div className="p-4 pt-2">
+            <Button
+              size="lg"
+              variant="default"
+              onClick={onUnlockAll}
+              className="w-full"
+              disabled={isGenerating || isUnlocking}
+            >
+              {isUnlocking ? 'Unlocking...' : 'Unlock (1 credit)'}
+            </Button>
+          </div>
+        )}
       </DrawerContent>
     </Drawer>
   )

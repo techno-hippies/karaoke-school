@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { AuthDialog } from './components/layout/AuthDialog'
 import { PostFlowContainer } from './features/post-flow/PostFlowContainer'
+import { Toaster } from './components/ui/sonner'
 import './i18n/config'
 
 // React Query client
@@ -436,6 +437,8 @@ function AppRouter() {
         onLogin={signInWithPasskey}
         onConnectSocial={loginLens}
       />
+
+      <Toaster />
     </>
   )
 }

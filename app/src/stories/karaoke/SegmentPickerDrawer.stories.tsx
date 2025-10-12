@@ -29,7 +29,7 @@ const sampleSegments: SongSegment[] = [
 ]
 
 /**
- * Default segment picker
+ * Default segment picker - Mix of owned and unowned
  */
 export const Default: Story = {
   args: {
@@ -39,6 +39,7 @@ export const Default: Story = {
     songArtwork: 'https://placebear.com/400/400',
     segments: sampleSegments,
     onSelectSegment: (segment) => console.log('Selected:', segment),
+    onUnlockAll: () => console.log('Unlock all segments'),
   },
 }
 
@@ -139,7 +140,7 @@ export const AllOwned: Story = {
 }
 
 /**
- * All segments locked
+ * All segments locked - Shows unlock button
  */
 export const AllLocked: Story = {
   args: {
@@ -153,6 +154,90 @@ export const AllLocked: Story = {
       { id: 'verse-2', displayName: 'Verse 2', startTime: 45, endTime: 60, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
       { id: 'bridge', displayName: 'Bridge', startTime: 90, endTime: 105, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
     ],
+    onSelectSegment: (segment) => console.log('Selected:', segment),
+    onUnlockAll: () => console.log('Unlock all segments'),
+  },
+}
+
+/**
+ * Unlock flow - Click unlock to see all segments become owned
+ */
+export const UnlockFlow: Story = {
+  render: () => {
+    const [open, setOpen] = useState(false)
+    const [segments, setSegments] = useState<SongSegment[]>([
+      { id: 'verse-1', displayName: 'Verse 1', startTime: 0, endTime: 18, duration: 18, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'chorus-1', displayName: 'Chorus', startTime: 18, endTime: 38, duration: 20, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'verse-2', displayName: 'Verse 2', startTime: 38, endTime: 56, duration: 18, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'bridge', displayName: 'Bridge', startTime: 56, endTime: 71, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+    ])
+    const [isUnlocking, setIsUnlocking] = useState(false)
+
+    const handleUnlock = () => {
+      setIsUnlocking(true)
+      // Simulate unlock delay
+      setTimeout(() => {
+        setSegments(prev => prev.map(seg => ({ ...seg, isOwned: true })))
+        setIsUnlocking(false)
+        console.log('All segments unlocked')
+      }, 1500)
+    }
+
+    const handleReset = () => {
+      setOpen(false)
+      setSegments([
+        { id: 'verse-1', displayName: 'Verse 1', startTime: 0, endTime: 18, duration: 18, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+        { id: 'chorus-1', displayName: 'Chorus', startTime: 18, endTime: 38, duration: 20, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+        { id: 'verse-2', displayName: 'Verse 2', startTime: 38, endTime: 56, duration: 18, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+        { id: 'bridge', displayName: 'Bridge', startTime: 56, endTime: 71, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      ])
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 p-4">
+        <Button onClick={() => setOpen(true)}>
+          Open Segment Picker
+        </Button>
+        {open && segments[0].isOwned && (
+          <Button variant="secondary" onClick={handleReset}>
+            Reset Demo
+          </Button>
+        )}
+        <SegmentPickerDrawer
+          open={open}
+          onOpenChange={setOpen}
+          songTitle="Breathe Deeper"
+          songArtist="Tame Impala"
+          songArtwork="https://placebear.com/400/400"
+          segments={segments}
+          onSelectSegment={(segment) => {
+            console.log('Selected segment:', segment)
+            setOpen(false)
+          }}
+          onUnlockAll={handleUnlock}
+          isUnlocking={isUnlocking}
+        />
+      </div>
+    )
+  },
+}
+
+/**
+ * Free song - All segments show "Start" button
+ */
+export const FreeSong: Story = {
+  args: {
+    open: true,
+    songTitle: 'Shape of You',
+    songArtist: 'Ed Sheeran',
+    songArtwork: 'https://placebear.com/g/400/400',
+    segments: [
+      { id: 'verse-1', displayName: 'Verse 1', startTime: 0, endTime: 15, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'chorus', displayName: 'Chorus', startTime: 15, endTime: 30, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'verse-2', displayName: 'Verse 2', startTime: 45, endTime: 60, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+      { id: 'bridge', displayName: 'Bridge', startTime: 90, endTime: 105, duration: 15, audioUrl: DEMO_AUDIO_URL, isOwned: false },
+    ],
+    isFree: true,
     onSelectSegment: (segment) => console.log('Selected:', segment),
   },
 }

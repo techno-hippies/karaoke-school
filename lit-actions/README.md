@@ -7,26 +7,40 @@ Decentralized serverless functions for the karaoke app, powered by [Lit Protocol
 ```
 lit-actions/
 ├── src/
-│   ├── stt/                          # Speech-to-Text actions
-│   │   ├── karaoke-scorer-v4.js      # ✅ PRODUCTION - zkSync EIP-712 scoring
-│   │   ├── free-v8.js                # Basic STT (no scoring)
-│   │   └── keys/                     # Encrypted API keys
-│   ├── study/                        # Study/progress tracking
-│   │   ├── study-session-recorder-v1.js
-│   │   └── test-*.js                 # Debug helpers
-│   └── test/                         # Integration tests
-│       ├── test-karaoke-scorer-v4.mjs
-│       ├── zksync-sig-test.js        # ⭐ zkSync signing reference
-│       └── test-zksync-sig.mjs
+│   ├── karaoke/                    # Karaoke pipeline actions
+│   │   ├── match-and-segment-v5.js # ✅ PRODUCTION - Genius + LRClib lyrics
+│   │   ├── match-and-segment-v6.js # ✅ PRODUCTION - Fast (no alignment)
+│   │   ├── audio-processor-v4.js   # ✅ PRODUCTION - Song-based Demucs
+│   │   ├── update-karaoke-contract-batch.js  # ✅ PRODUCTION - Batch updates
+│   │   ├── auto-purchase-credits.js # ✅ PRODUCTION - Auto credit purchase
+│   │   ├── contracts.config.js     # Contract addresses
+│   │   ├── keys/                   # Encrypted API keys (CID-locked)
+│   │   └── archive/                # Old versions (v1-v4)
+│   ├── genius/                     # Genius API helpers
+│   ├── quiz/                       # Quiz features
+│   ├── stt/                        # Speech-to-text
+│   ├── study/                      # Study features
+│   └── test/                       # Integration tests
+│       ├── test-match-and-segment-v5.mjs
+│       ├── test-match-and-segment-v6.mjs
+│       ├── test-audio-processor-v4.mjs
+│       ├── test-auto-purchase-credits.mjs
+│       └── archive/                # Old test files
 ├── scripts/
-│   ├── upload-lit-action.mjs         # Upload to IPFS
-│   ├── encrypt-keys-v8.mjs           # Encrypt secrets
-│   └── update-pkp-permissions.ts     # Grant PKP permissions
-├── output/                           # PKP credentials
-└── docs/
-    ├── DEPLOYMENT.md                 # Deployment guide
-    ├── STUDY_SESSION_RECORDER_README.md
-    └── ZKSYNC_EIP712_DEBUGGING.md   # zkSync deep dive
+│   ├── upload-lit-action.mjs       # Upload to IPFS
+│   ├── encrypt-keys-v8.mjs         # Encrypt secrets
+│   ├── add-pkp-permission.mjs      # Grant PKP permissions
+│   └── mint-pkp.ts                 # Mint new PKP
+├── docs/
+│   ├── DEPLOYMENT.md               # Deployment guide
+│   ├── AUTO_PURCHASE_CREDITS.md    # Auto credit purchase flow
+│   ├── PIPELINE_ANALYSIS.md        # Pipeline architecture
+│   ├── README-AUDIO-PROCESSOR-V2.md
+│   └── archive/                    # Deprecated docs
+├── test-fixtures/                  # Test audio files
+├── output/                         # PKP credentials (gitignored)
+├── test-results/                   # Test logs (gitignored)
+└── README.md                       # This file
 ```
 
 ## 🚀 Quick Start
@@ -47,66 +61,103 @@ cp .env.example .env
 ### 3. Run Tests
 
 ```bash
-# Test karaoke scorer v4 (end-to-end)
-bun run test:scorer-v4
+# Test match and segment v5 (with lyrics alignment)
+bun run test:match-segment-v5
 
-# Test zkSync signing only (minimal)
-bun run test:zksync
+# Test match and segment v6 (fast - no alignment)
+bun run test:match-segment-v6
+
+# Test audio processor v4 (Demucs separation)
+bun run test:audio-processor-v4
+
+# Test auto credit purchase
+bun run test:auto-purchase
 ```
 
 ## 🎯 Current Production Lit Actions
 
-| Action | CID | Contract | Network | Status |
-|--------|-----|----------|---------|--------|
-| **match-and-segment-v2** | `QmPkTKZjcvTZs74B6RdABGxiz9kcGaBWJGQjhH1Zw9wZj2` | KaraokeCatalogV1 | Base Sepolia | ✅ Working |
-| karaoke-scorer-v4 | `Qme5MZK7vyfEphzmgLJDMA9htkm9Xh37yA4SGfGLdtDStS` | KaraokeScoreboardV4 | Lens Testnet | ⚠️ Archived |
-| study-session-recorder-v1 | `QmaesnxLXgyNDEpLm563xA4VcNsT2zqSysw6CtwDJgMw77` | StudyProgressV1 | Lens Testnet | ⚠️ Archived |
+| Action | Version | CID | Contract | Network | Status |
+|--------|---------|-----|----------|---------|--------|
+| **match-and-segment** | v6 | `QmeEcXsV6F43NKSbfeqAfCismHWUpjmPo642SHikTyG2FX` | KaraokeCatalogV2 | Base Sepolia | ✅ Latest |
+| match-and-segment | v5 | `QmWkjzoKzsqJHTsC6npQJR1Dk2dmWa5p88nTBCSEtVArdN` | KaraokeCatalogV2 | Base Sepolia | ✅ Active |
+| audio-processor | v4 | `[Latest CID]` | KaraokeCatalogV2 | Base Sepolia | ✅ Active |
+| update-contract-batch | v1 | `[Latest CID]` | KaraokeCatalogV2 | Base Sepolia | ✅ Active |
+| auto-purchase-credits | v1 | `[Latest CID]` | KaraokeCreditsV1 | Base Sepolia | ✅ Active |
 
-### Match and Segment v2 (Active on Base Sepolia)
+### Match and Segment (v5 & v6)
 
-**New Architecture:**
+**Architecture:**
 - AI-powered song matching (Genius → LRClib)
 - Intelligent song segmentation (verse, chorus, etc.)
 - PKP-signed EIP-155 transactions
 - Fire-and-forget pattern with `Lit.Actions.runOnce()`
 
+**v5 vs v6:**
+- v5: With lyrics alignment (slower, more accurate)
+- v6: Without lyrics alignment (faster, uses LRClib directly)
+
 **Flow:**
 1. Fetch song metadata from Genius API
 2. Search LRClib for synced lyrics
-3. AI validates match (artist + title comparison)
+3. AI validates match (artist + title comparison) [v5 only]
 4. AI segments lyrics into karaoke sections (5 max)
-5. Sign and submit batch transaction to KaraokeCatalogV1 on Base Sepolia
+5. Sign and submit batch transaction to KaraokeCatalogV2 on Base Sepolia
 
 **Deployed Contracts (Base Sepolia):**
-- KaraokeCatalogV1: `0x0843DDB2F2ceCAB0644Ece0523328af2C7882032`
-- KaraokeCredits: `0x6de183934E68051c407266F877fafE5C20F74653`
+- KaraokeCatalogV2: `0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa`
+- KaraokeCreditsV1: `[Address TBD]`
 
 **Test:**
 ```bash
-DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 dotenvx run -- bash -c 'timeout 120 node src/test/test-match-and-segment-v2.mjs 2>&1 | head -n 250'
+# Test v5 (with alignment)
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -- timeout 120 bun run src/test/test-match-and-segment-v5.mjs 378195
+
+# Test v6 (fast, no alignment)
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -- timeout 120 bun run src/test/test-match-and-segment-v6.mjs 378195
 ```
 
-### Karaoke Scorer v4 (Archived - Lens Testnet)
+### Audio Processor v4
 
 **Architecture:**
-- Uses `SongCatalogV1` for song metadata (replaces ClipRegistry)
-- Uses `KaraokeScoreboardV4` with multi-source support
-- Scores individual segments (verse-1, chorus-1, etc.)
-- **zkSync EIP-712 transactions** signed by PKP
+- Song-based Demucs audio separation
+- Modal deployment for GPU processing
+- Processes full songs (not individual segments)
 
-**Deployed Contracts (Lens Testnet - Deprecated):**
-- SongCatalogV1: `0x88996135809cc745E6d8966e3a7A01389C774910`
-- KaraokeScoreboardV4: `0x8301E4bbe0C244870a4BC44ccF0241A908293d36`
+**Test:**
+```bash
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -- timeout 240 bun run src/test/test-audio-processor-v4.mjs
+```
 
-**Note:** This has been superseded by match-and-segment-v2 on Base Sepolia.
+### Auto Purchase Credits
+
+**Architecture:**
+- Automatically purchases karaoke credits using USDC
+- Monitors credit balance and auto-tops up when low
+- Integrates with KaraokeCreditsV1 contract
+
+**Documentation:** See [docs/AUTO_PURCHASE_CREDITS.md](./docs/AUTO_PURCHASE_CREDITS.md)
+
+**Test:**
+```bash
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -- node src/test/test-auto-purchase-credits.mjs
+```
 
 ## 🔐 Secrets Management
 
-### Encrypted Secrets (Voxstral API Key)
+### Encrypted Secrets
 
-Stored in: `src/stt/keys/voxstral_api_key.json`
+Secrets are stored encrypted and CID-locked to specific Lit Actions.
 
-**Access Control:** CID-locked to specific Lit Action
+**Current keys:**
+- `openrouter_api_key` - For AI models (Claude, GPT-4)
+- `genius_api_key` - For Genius API
+- `elevenlabs_api_key` - For voice synthesis
+
+**Location:** `src/karaoke/keys/`
 
 **Re-encrypt when:**
 - New Lit Action version uploaded (new CID)
@@ -114,10 +165,19 @@ Stored in: `src/stt/keys/voxstral_api_key.json`
 - Access control changes
 
 ```bash
-VOXSTRAL_API_KEY=your-key node scripts/encrypt-keys-v8.mjs \
-  --cid QmNewCID \
-  --key voxstral_api_key \
-  --output src/stt/keys/voxstral_api_key.json
+# Encrypt all keys for a new CID
+DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 \
+  dotenvx run -- bash -c '
+    node scripts/encrypt-keys-v8.mjs \
+      --cid QmNewCID \
+      --key openrouter_api_key \
+      --output src/karaoke/keys/openrouter_api_key_v9.json >/dev/null 2>&1 && \
+    node scripts/encrypt-keys-v8.mjs \
+      --cid QmNewCID \
+      --key genius_api_key \
+      --output src/karaoke/keys/genius_api_key_v9.json >/dev/null 2>&1 && \
+    echo "✅ All keys encrypted for QmNewCID"
+  '
 ```
 
 ### PKP Permissions
@@ -125,36 +185,33 @@ VOXSTRAL_API_KEY=your-key node scripts/encrypt-keys-v8.mjs \
 After uploading new Lit Action, grant PKP permission:
 
 ```bash
-PRIVATE_KEY=your-key timeout 90 bun run scripts/update-pkp-permissions.ts QmNewCID
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -- bun run scripts/add-pkp-permission.mjs QmNewCID
 ```
 
 ## 🧪 Testing
 
-### End-to-End Tests
+### Available Test Scripts
 
 ```bash
-# Karaoke scorer v4 (full flow: audio → transcript → score → blockchain)
-bun run test:scorer-v4
+# Main karaoke tests
+bun run test:match-segment-v5    # Match and segment with alignment
+bun run test:match-segment-v6    # Match and segment (fast)
+bun run test:audio-processor-v4  # Audio processing with Demucs
+bun run test:auto-purchase       # Auto credit purchase
 
-# Study session recorder
-bun run test:study-recorder-v1
+# Other features
+bun run test:trivia-gen          # Trivia generator
+bun run test:scorer-v4           # Karaoke scorer (archived)
 ```
 
-### zkSync Reference Tests
+### Test Song IDs
 
-**⭐ Important:** `src/test/zksync-sig-test.js` is a **critical reference** for zkSync EIP-712 signing.
-
-This minimal test proved essential during debugging:
-- Tests ONLY zkSync transaction signing (no audio, no API keys)
-- Demonstrates correct yParity encoding (v → yParity conversion)
-- Shows proper RLP structure for zkSync transactions
-- Validates signature recovery before submission
-
-**Do not delete** - saved 10+ hours of debugging!
-
-```bash
-bun run test:zksync
-```
+Common test songs:
+- `378195` - Chandelier by Sia
+- `5108762` - Breathe Deeper by Tame Impala
+- `2165830` - Another test song
+- `12325692` - Another test song
 
 ## 📦 Deployment
 
@@ -163,35 +220,43 @@ bun run test:zksync
 ```bash
 DOTENV_PRIVATE_KEY='your-key' npx dotenvx run -- \
   node scripts/upload-lit-action.mjs \
-  src/stt/karaoke-scorer-v4.js \
-  "Karaoke Scorer v4"
+  src/karaoke/match-and-segment-v6.js \
+  "Match and Segment V6 (Fast)"
 ```
+
+**Output:** New IPFS CID (e.g., `QmeEcXsV6F43NKSbfeqAfCismHWUpjmPo642SHikTyG2FX`)
 
 ### 2. Re-encrypt Secrets
 
 ```bash
-VOXSTRAL_API_KEY=your-key node scripts/encrypt-keys-v8.mjs \
-  --cid QmNewCID \
-  --key voxstral_api_key \
-  --output src/stt/keys/voxstral_api_key.json
+# Use the new CID from step 1
+DOTENV_PRIVATE_KEY='your-key' npx dotenvx run -- bash -c '
+  node scripts/encrypt-keys-v8.mjs \
+    --cid QmNewCID \
+    --key openrouter_api_key \
+    --output src/karaoke/keys/openrouter_api_key_v10.json && \
+  node scripts/encrypt-keys-v8.mjs \
+    --cid QmNewCID \
+    --key genius_api_key \
+    --output src/karaoke/keys/genius_api_key_v10.json
+'
 ```
 
 ### 3. Update PKP Permissions
 
 ```bash
-PRIVATE_KEY=your-key timeout 90 bun run scripts/update-pkp-permissions.ts QmNewCID
+DOTENV_PRIVATE_KEY='your-key' npx dotenvx run -- \
+  bun run scripts/add-pkp-permission.mjs QmNewCID
 ```
 
 ### 4. Update Frontend Config
 
 ```typescript
-// site/src/config/lit-actions.ts
+// app/src/lib/lit/actions.ts
 export const LIT_ACTIONS = {
-  karaoke: {
-    scorer: {
-      cid: 'QmNewCID',
-      version: 'v4',
-    },
+  matchAndSegment: {
+    cid: 'QmNewCID',
+    version: 'v6',
   },
 };
 ```
@@ -199,21 +264,21 @@ export const LIT_ACTIONS = {
 ### 5. Test Integration
 
 ```bash
-bun run test:scorer-v4
+bun run test:match-segment-v6
 ```
 
 ## 📚 Documentation
 
 - [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Full deployment guide
-- [ZKSYNC_EIP712_DEBUGGING.md](./docs/ZKSYNC_EIP712_DEBUGGING.md) - zkSync EIP-712 deep dive
-- [STUDY_SESSION_RECORDER_README.md](./docs/STUDY_SESSION_RECORDER_README.md) - Study session recorder docs
+- [AUTO_PURCHASE_CREDITS.md](./docs/AUTO_PURCHASE_CREDITS.md) - Auto credit purchase flow
+- [PIPELINE_ANALYSIS.md](./docs/PIPELINE_ANALYSIS.md) - Pipeline architecture deep dive
+- [README-AUDIO-PROCESSOR-V2.md](./docs/README-AUDIO-PROCESSOR-V2.md) - Audio processor details
 
 ## 🔗 Resources
 
 - [Lit Protocol Docs](https://developer.litprotocol.com/)
-- [zkSync EIP-712 Spec](https://github.com/matter-labs/zksync-era/blob/main/docs/specs/zk_evm/eip712.md)
 - [Pinata IPFS](https://docs.pinata.cloud/)
-- [Lens Testnet Explorer](https://explorer.testnet.lens.xyz/)
+- [Base Sepolia Explorer](https://sepolia.basescan.org/)
 
 ## 🛠️ Development Scripts
 
@@ -221,43 +286,49 @@ bun run test:scorer-v4
 # Install dependencies
 bun install
 
-# Run tests
-bun run test:scorer-v4
-bun run test:zksync
-bun run test:study-recorder-v1
+# Run tests (see Testing section above)
+bun run test:match-segment-v6
+bun run test:audio-processor-v4
 
 # Upload to IPFS
 DOTENV_PRIVATE_KEY='...' npx dotenvx run -- \
   node scripts/upload-lit-action.mjs <file> <name>
 
 # Encrypt secrets
-API_KEY=... node scripts/encrypt-keys-v8.mjs --cid <cid> --key <name> --output <path>
+DOTENV_PRIVATE_KEY='...' npx dotenvx run -- \
+  node scripts/encrypt-keys-v8.mjs --cid <cid> --key <name> --output <path>
 
 # Update PKP permissions
-PRIVATE_KEY=... timeout 90 bun run scripts/update-pkp-permissions.ts <cid>
+DOTENV_PRIVATE_KEY='...' npx dotenvx run -- \
+  bun run scripts/add-pkp-permission.mjs <cid>
 ```
 
 ## ⚠️ Important Notes
-
-### zkSync EIP-712 Transactions
-
-- Use **yParity (0/1)** in RLP field 7, NOT v (27/28)
-- Gas limit must be generous (2M for scoreboard contract)
-- See [ZKSYNC_EIP712_DEBUGGING.md](./ZKSYNC_EIP712_DEBUGGING.md) for details
 
 ### IPFS CID Management
 
 - Each code change requires new IPFS upload → new CID
 - Re-encrypt ALL secrets for new CID
 - Update PKP permissions for new CID
-- Update all test files with new CID
+- Update frontend config with new CID
+- Update test files with new CID (if needed)
 
-### Test Files to Keep
+### Contract Addresses
 
-- `zksync-sig-test.js` - Critical reference for zkSync signing
-- `test-karaoke-scorer-v4.mjs` - End-to-end production test
-- Study test files - Minimal debug helpers (< 3KB each)
+All contracts deployed on **Base Sepolia** testnet:
+- KaraokeCatalogV2: `0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa`
+- KaraokeCreditsV1: `[TBD]`
+- PKP Address: `0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30`
+
+### Archive Strategy
+
+Old versions are preserved in `archive/` folders:
+- `src/karaoke/archive/` - Old Lit Action versions
+- `src/test/archive/` - Old test files
+- `docs/archive/` - Deprecated documentation
+
+**Do not delete archives** - they contain valuable reference code and debugging history.
 
 ---
 
-**Status:** ✅ karaoke-scorer-v4 fully operational on Lens Testnet with zkSync EIP-712 PKP-signed transactions
+**Status:** ✅ All production actions operational on Base Sepolia with EIP-155 PKP-signed transactions

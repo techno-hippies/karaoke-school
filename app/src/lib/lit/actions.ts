@@ -41,6 +41,7 @@ export interface MatchSegmentResult {
     artist: string
     title: string
     album: string
+    soundcloudPermalink: string
   }
   lrclib?: {
     artist: string
@@ -57,42 +58,51 @@ export interface MatchSegmentResult {
     endTime: number
     duration: number
   }>
+  alignment?: {
+    storageKey: string
+    uri: string
+    gatewayUrl: string
+    lineCount: number
+    wordCount: number
+  }
   error?: string
   stack?: string
 }
 
 /**
- * Karaoke Generation Result
+ * Audio Processor Result (v4 - Song-Based Demucs)
  */
-export interface KaraokeGenerationResult {
+export interface AudioProcessorResult {
   success: boolean
   geniusId: number
-  section: {
+  jobId: string
+  status: 'processing'
+  selectedSegment: {
     index: number
+    id: string
     type: string
     startTime: number
     endTime: number
     duration: number
   }
-  audio: {
-    audioUrl: string
-    vocalsZipSize: number
-    drumsZipSize: number
-    _note: string
-  }
+  allSegments: string[]
+  segmentCount: number
+  songDuration: number
+  pollUrl: string
+  webhookUrl: string
+  estimatedTime: string
   processing: {
-    downloadTime: number
-    trimTime: number
-    separationTime: number
-    modalProcessingTime: number
-    totalTime: number
+    demucs_trigger: number
+    total: number
   }
-  speedup: {
-    sectionDuration: number
-    processingTime: number
-    ratio: string
+  optimization: {
+    method: string
+    model: string
+    cost: string
+    savings: string
   }
   error?: string
+  stack?: string
 }
 
 /**
@@ -176,32 +186,39 @@ export async function executeMatchAndSegment(
 }
 
 /**
- * Execute Audio Processor Lit Action
- * Generates karaoke stems (paid operation - requires credits)
+ * Execute Audio Processor Lit Action (v4 - Song-Based Demucs)
+ * Triggers song-based karaoke generation (paid operation - requires credits)
  *
  * IMPORTANT: User must own the segment before calling this function.
  * Use checkSegmentOwnership() and unlockSegment() first if needed.
+ *
+ * Flow:
+ * 1. Verifies segment ownership in KaraokeCreditsV1 contract
+ * 2. Triggers Demucs /process-song-async (processes ALL segments)
+ * 3. Returns jobId for frontend to poll
+ * 4. Demucs processes in background → webhook → updates contract
  *
  * @param geniusId - Genius song ID
  * @param sectionIndex - Selected section (1-based index)
  * @param sections - Array of all sections from match-and-segment
  * @param soundcloudPermalink - SoundCloud track permalink
  * @param userAddress - User's wallet address (for ownership verification)
- * @param walletClient - Wallet client for Lit session
+ * @param songDuration - Full song duration in seconds (from max section endTime)
+ * @param authContext - PKP auth context
  */
-export async function executeKaraokeGeneration(
+export async function executeAudioProcessor(
   geniusId: number,
   sectionIndex: number,
   sections: MatchSegmentResult['sections'],
   soundcloudPermalink: string,
   userAddress: string,
-  walletClient: WalletClient
-): Promise<KaraokeGenerationResult> {
+  songDuration: number,
+  authContext: any
+): Promise<AudioProcessorResult> {
   const litClient = await getLitClient()
-  const authContext = await getAuthContext(walletClient)
 
   const result = await litClient.executeJs({
-    ipfsId: import.meta.env.VITE_LIT_ACTION_AUDIO_PROCESSOR || '',
+    ipfsId: import.meta.env.VITE_LIT_ACTION_AUDIO_PROCESSOR,
     authContext,
     jsParams: {
       geniusId,
@@ -209,6 +226,7 @@ export async function executeKaraokeGeneration(
       sections,
       soundcloudPermalink,
       userAddress,
+      songDuration,
     },
   })
 

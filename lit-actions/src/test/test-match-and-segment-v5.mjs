@@ -41,16 +41,16 @@ const TEST_SONG = {
   notes: 'Has SoundCloud link for ElevenLabs alignment test'
 };
 
-// CID for match-and-segment-v5 (with translations in zh + vi)
-const MATCH_AND_SEGMENT_V5_CID = 'QmWUicJAFvVfhNBHgyHfB3kLzXdBHwKTkzkA974ddsATj4';
+// CID for match-and-segment-v5 (V2 contract struct fix - removed geniusArtistId/languages)
+const MATCH_AND_SEGMENT_V5_CID = 'QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF';
 
-// Encrypted key paths
-const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v6.json');
-const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v6.json');
-const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v2.json');
+// Encrypted key paths (v7 = encrypted for QmU6P1eJXSzFoeGTjaB2MLixH2hAMAN1ephTDeNokZHjUF)
+const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v7.json');
+const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v7.json');
+const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v3.json');
 
 // Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0x5AA8B71E835E0c5CCeCa6c4a1d98891839E416E6'; // Base Sepolia (with PKP processor permissions)
+const KARAOKE_CATALOG_ADDRESS = '0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa'; // Base Sepolia (V2 OPTIMIZED - Custom Errors)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
