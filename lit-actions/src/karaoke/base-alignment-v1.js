@@ -42,7 +42,6 @@ const go = async () => {
   console.log('=== STARTING EXECUTION ===');
   const {
     geniusId,
-    soundcloudPermalink,
     plainLyrics,
     elevenlabsKeyAccessControlConditions,
     elevenlabsKeyCiphertext,
@@ -59,11 +58,26 @@ const go = async () => {
   try {
     // Validate required params
     if (!geniusId) throw new Error('geniusId is required');
-    if (!soundcloudPermalink) throw new Error('soundcloudPermalink is required');
     if (!plainLyrics) throw new Error('plainLyrics is required');
     if (!contractAddress || !pkpAddress || !pkpTokenId || !pkpPublicKey) {
       throw new Error('Contract params (contractAddress, pkpAddress, pkpTokenId, pkpPublicKey) are required');
     }
+
+    // Step 0: Read soundcloudPath from contract
+    console.log('[0/4] Reading soundcloudPath from contract...');
+    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+    const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+    const catalogAbi = [
+      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    ];
+    const catalog = new ethers.Contract(contractAddress, catalogAbi, provider);
+    const songData = await catalog.getSongByGeniusId(geniusId);
+
+    const soundcloudPath = songData.soundcloudPath;
+    if (!soundcloudPath) {
+      throw new Error('Song has no soundcloudPath in contract. Cannot download audio.');
+    }
+    console.log(`✅ SoundCloud path from contract: ${soundcloudPath}`);
 
     // Step 1: Decrypt ElevenLabs key
     console.log('[1/4] Decrypting ElevenLabs key...');
@@ -88,10 +102,11 @@ const go = async () => {
       { waitForResponse: true, name: "elevenlabsAlignment" },
       async () => {
         try {
-          console.log('Downloading audio from:', soundcloudPermalink);
+          console.log('Downloading audio from:', soundcloudPath);
 
-          // Download audio from sc.maid.zone
-          const audioUrl = `https://sc.maid.zone/api/download?url=${encodeURIComponent(soundcloudPermalink)}`;
+          // Use restream endpoint with soundcloudPath from contract
+          const audioUrl = `https://sc.maid.zone/_/restream/${soundcloudPath}`;
+          console.log('Fetching from:', audioUrl);
           const audioResp = await fetch(audioUrl);
           if (!audioResp.ok) {
             return JSON.stringify({
@@ -112,7 +127,7 @@ const go = async () => {
 
           // Add audio file part
           body.push(textEncoder.encode(`--${boundary}\r\n`));
-          body.push(textEncoder.encode('Content-Disposition: form-data; name="audio"; filename="audio.mp3"\r\n'));
+          body.push(textEncoder.encode('Content-Disposition: form-data; name="file"; filename="audio.mp3"\r\n'));
           body.push(textEncoder.encode('Content-Type: audio/mpeg\r\n\r\n'));
           body.push(audioBytes);
           body.push(textEncoder.encode('\r\n'));
@@ -121,12 +136,6 @@ const go = async () => {
           body.push(textEncoder.encode(`--${boundary}\r\n`));
           body.push(textEncoder.encode('Content-Disposition: form-data; name="text"\r\n\r\n'));
           body.push(textEncoder.encode(plainLyrics));
-          body.push(textEncoder.encode('\r\n'));
-
-          // Add language part
-          body.push(textEncoder.encode(`--${boundary}\r\n`));
-          body.push(textEncoder.encode('Content-Disposition: form-data; name="language"\r\n\r\n'));
-          body.push(textEncoder.encode('en'));
           body.push(textEncoder.encode('\r\n'));
 
           // End boundary
@@ -145,8 +154,8 @@ const go = async () => {
             offset += part.length;
           }
 
-          console.log('Calling ElevenLabs API...');
-          const alignResp = await fetch('https://api.elevenlabs.io/v1/audio-native/alignments', {
+          console.log('Calling ElevenLabs Forced Alignment API...');
+          const alignResp = await fetch('https://api.elevenlabs.io/v1/forced-alignment', {
             method: 'POST',
             headers: {
               'xi-api-key': elevenlabsKey,
@@ -166,7 +175,7 @@ const go = async () => {
           const alignData = await alignResp.json();
           console.log('ElevenLabs response received');
 
-          if (!alignData.alignment || !alignData.alignment.characters) {
+          if (!alignData.characters || !Array.isArray(alignData.characters)) {
             return JSON.stringify({
               success: false,
               error: 'Invalid alignment response format'
@@ -174,7 +183,7 @@ const go = async () => {
           }
 
           // Parse alignment into lines with words
-          const characters = alignData.alignment.characters;
+          const characters = alignData.characters;
           const lyricsLines = plainLyrics.split('\n').filter(l => l.trim());
 
           const lines = [];
@@ -194,20 +203,20 @@ const go = async () => {
               // Collect characters for this word
               for (let i = 0; i < word.length && charIndex < characters.length; i++) {
                 const char = characters[charIndex];
-                if (char.character && char.character.trim()) {
+                if (char.text && char.text.trim()) {
                   wordChars.push(char);
                 }
                 charIndex++;
               }
 
               // Skip whitespace
-              while (charIndex < characters.length && !characters[charIndex].character.trim()) {
+              while (charIndex < characters.length && !characters[charIndex].text.trim()) {
                 charIndex++;
               }
 
               if (wordChars.length > 0) {
-                const wordStart = wordChars[0].start_time_ms / 1000;
-                const wordEnd = wordChars[wordChars.length - 1].end_time_ms / 1000;
+                const wordStart = wordChars[0].start;
+                const wordEnd = wordChars[wordChars.length - 1].end;
 
                 lineWords.push({
                   text: word,
@@ -275,8 +284,8 @@ const go = async () => {
           const metadataJson = JSON.stringify(metadata);
           console.log(`Metadata size: ${metadataJson.length} bytes`);
 
-          // Upload to Grove
-          const groveResp = await fetch('https://api.grove.storage/create', {
+          // Upload to Grove (one-step immutable upload - use Lens Testnet chain_id)
+          const groveResp = await fetch('https://api.grove.storage/?chain_id=37111', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -292,15 +301,16 @@ const go = async () => {
             });
           }
 
-          const groveData = await groveResp.json();
-          console.log('Grove upload successful, key:', groveData.key);
-
-          const groveUri = `lens://${groveData.key}`;
+          const groveResult = await groveResp.json();
+          // Grove can return array or object
+          const groveData = Array.isArray(groveResult) ? groveResult[0] : groveResult;
+          console.log('Grove upload successful, key:', groveData.storage_key);
 
           return JSON.stringify({
             success: true,
-            uri: groveUri,
-            key: groveData.key
+            storageKey: groveData.storage_key,
+            uri: groveData.uri,
+            gatewayUrl: groveData.gateway_url
           });
 
         } catch (error) {
@@ -323,96 +333,95 @@ const go = async () => {
     const metadataUri = groveResult.uri;
     console.log('Metadata URI:', metadataUri);
 
-    // Step 4: Update contract metadataUri (using runOnce for transaction)
+    // Step 4: Update contract metadataUri (sign outside runOnce, submit inside)
     let txHash = null;
     let contractError = null;
 
     if (updateContract) {
       console.log('[4/4] Updating contract metadataUri...');
 
-      const contractUpdateResult = await Lit.Actions.runOnce(
-        { waitForResponse: true, name: "contractUpdate" },
-        async () => {
-          try {
-            // ABI for updateSongMetadata function
-            const abi = [
-              'function updateSongMetadata(uint32 geniusId, string memory newMetadataUri) external'
-            ];
+      try {
+        // ABI for updateSongMetadata function
+        const abi = [
+          'function updateSongMetadata(uint32 geniusId, string memory newMetadataUri) external'
+        ];
 
-            const iface = new ethers.utils.Interface(abi);
-            const data = iface.encodeFunctionData('updateSongMetadata', [geniusId, metadataUri]);
+        const iface = new ethers.utils.Interface(abi);
+        const data = iface.encodeFunctionData('updateSongMetadata', [geniusId, metadataUri]);
 
-            const provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
-            const nonce = await provider.getTransactionCount(pkpAddress);
-            const feeData = await provider.getFeeData();
+        const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+        const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
 
-            const tx = {
-              to: contractAddress,
-              nonce: nonce,
-              data: data,
-              gasLimit: 200000,
-              maxFeePerGas: feeData.maxFeePerGas,
-              maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-              chainId: 84532,
-              type: 2,
-            };
+        const [nonce, gasPrice] = await Promise.all([
+          provider.getTransactionCount(pkpAddress),
+          provider.getGasPrice()
+        ]);
 
-            console.log('Signing transaction with PKP...');
-            const serializedTx = ethers.utils.serializeTransaction(tx);
-            const txHash = ethers.utils.keccak256(serializedTx);
-            const txHashBytes = ethers.utils.arrayify(txHash);
+        const unsignedTx = {
+          to: contractAddress,
+          nonce: nonce,
+          gasLimit: 300000,
+          gasPrice: gasPrice,
+          data: data,
+          chainId: 84532
+        };
 
-            const signature = await Lit.Actions.signAndCombineEcdsa({
-              toSign: txHashBytes,
-              publicKey: pkpPublicKey,
-              sigName: 'contractUpdateSig'
-            });
-
-            const signatureBytes = ethers.utils.arrayify('0x' + signature);
-            const r = signatureBytes.slice(0, 32);
-            const s = signatureBytes.slice(32, 64);
-            let v = signatureBytes[64];
-
-            // EIP-155 v value calculation for Base Sepolia (chainId 84532)
-            if (v < 27) {
-              v = v + 27;
-            }
-            v = v + (84532 * 2) + 8;
-
-            const signedTx = ethers.utils.serializeTransaction(tx, {
-              r: ethers.utils.hexlify(r),
-              s: ethers.utils.hexlify(s),
-              v: v
-            });
-
-            console.log('Broadcasting transaction...');
-            const txResponse = await provider.sendTransaction(signedTx);
-            console.log('Transaction hash:', txResponse.hash);
-
-            return JSON.stringify({
-              success: true,
-              txHash: txResponse.hash
-            });
-
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-              stack: error.stack
-            });
-          }
+        console.log('Signing transaction with PKP...');
+        let cleanPkpPublicKey = pkpPublicKey;
+        if (cleanPkpPublicKey.startsWith('0x')) {
+          cleanPkpPublicKey = cleanPkpPublicKey.substring(2);
         }
-      );
 
-      const contractResult = JSON.parse(contractUpdateResult);
-      console.log('Contract result:', contractResult.success ? 'SUCCESS' : 'FAILED');
+        const transactionHash = ethers.utils.keccak256(ethers.utils.serializeTransaction(unsignedTx));
+        const toSign = ethers.utils.arrayify(transactionHash);
 
-      if (contractResult.success) {
-        txHash = contractResult.txHash;
-        console.log('Contract updated successfully, tx:', txHash);
-      } else {
-        contractError = contractResult.error;
-        console.log('Contract update failed:', contractError);
+        const signature = await Lit.Actions.signAndCombineEcdsa({
+          toSign: toSign,
+          publicKey: cleanPkpPublicKey,
+          sigName: 'updateMetadataTx'
+        });
+
+        const jsonSignature = JSON.parse(signature);
+        const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
+        const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
+
+        let recid = 0;
+        if (jsonSignature.recid !== undefined) {
+          recid = jsonSignature.recid;
+        } else if (jsonSignature.v !== undefined) {
+          recid = jsonSignature.v >= 27 ? jsonSignature.v - 27 : jsonSignature.v;
+        }
+
+        const chainId = 84532;
+        const v = chainId * 2 + 35 + recid;
+        const sigObject = { r: rHex, s: sHex, v: v };
+
+        const signedTx = ethers.utils.serializeTransaction(unsignedTx, sigObject);
+        console.log('✅ Transaction signed');
+
+        // Submit transaction using runOnce
+        const txHashResult = await Lit.Actions.runOnce(
+          { waitForResponse: true, name: "updateMetadataTx" },
+          async () => {
+            try {
+              const hash = await provider.send("eth_sendRawTransaction", [signedTx]);
+              return hash;
+            } catch (error) {
+              return `TX_SUBMIT_ERROR: ${error.message}`;
+            }
+          }
+        );
+
+        if (txHashResult && txHashResult.startsWith('TX_SUBMIT_ERROR:')) {
+          console.log('Transaction submission failed:', txHashResult);
+          contractError = txHashResult;
+        } else {
+          txHash = txHashResult;
+          console.log('✅ Transaction submitted:', txHash);
+        }
+      } catch (error) {
+        console.error('Contract write failed:', error.message);
+        contractError = error.message;
       }
     } else {
       console.log('[4/4] Skipping contract update (updateContract=false)');
@@ -423,8 +432,8 @@ const go = async () => {
       success: true,
       geniusId: geniusId,
       metadataUri: metadataUri,
-      storageKey: groveResult.key,
-      gatewayUrl: `https://api.grove.storage/${groveResult.key}`,
+      storageKey: groveResult.storageKey,
+      gatewayUrl: groveResult.gatewayUrl,
       lineCount: alignment.linesCount,
       wordCount: alignment.wordsCount,
       txHash: txHash,

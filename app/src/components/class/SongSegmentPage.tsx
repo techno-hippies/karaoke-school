@@ -41,11 +41,11 @@ function SegmentLyricLine({
 
   return (
     <div className="transition-all duration-300">
-      <p className="text-xl font-semibold leading-relaxed text-foreground">
+      <p className="text-xl md:text-3xl font-semibold leading-relaxed text-foreground">
         {line.originalText}
       </p>
       {translation && (
-        <p className="text-base mt-2 text-muted-foreground leading-relaxed">
+        <p className="text-base md:text-xl mt-2 text-muted-foreground leading-relaxed">
           {translation}
         </p>
       )}
@@ -75,7 +75,7 @@ export function SongSegmentPage({
 
   return (
     <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-2xl">
+      <div className="relative w-full h-full md:max-w-6xl">
         {/* Header - Back | Title | Spacer */}
         <div className="absolute top-0 left-0 right-0 z-50 bg-background border-b border-neutral-800">
           <div className="flex items-center justify-between px-4 py-4">
@@ -83,7 +83,7 @@ export function SongSegmentPage({
             <BackButton onClick={onBack} />
 
             {/* Center: Segment name */}
-            <h1 className="text-center font-semibold text-base text-foreground flex-1">
+            <h1 className="text-center font-semibold text-base md:text-xl text-foreground flex-1">
               {segmentName}
             </h1>
 
@@ -101,12 +101,12 @@ export function SongSegmentPage({
                 {topScore !== undefined ? (
                   <>
                     <div className="text-xl md:text-2xl font-bold text-primary">{topScore}%</div>
-                    <div className="text-neutral-500 text-base font-medium mt-1">Top Score</div>
+                    <div className="text-neutral-500 text-base md:text-lg font-medium mt-1">Top Score</div>
                   </>
                 ) : (
                   <>
                     <div className="text-xl md:text-2xl font-bold text-neutral-600">—</div>
-                    <div className="text-neutral-500 text-base font-medium mt-1">No Score</div>
+                    <div className="text-neutral-500 text-base md:text-lg font-medium mt-1">No Score</div>
                   </>
                 )}
               </div>

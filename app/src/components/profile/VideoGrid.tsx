@@ -18,8 +18,8 @@ export interface VideoGridProps {
 
 /**
  * VideoGrid - Clean responsive grid for profile videos
- * 3 columns on mobile, 6 columns on desktop
- * No inline styles, no !important, no data attributes
+ * 3 columns on mobile, 4-6 columns on desktop based on viewport width
+ * Caps at 6 columns max (like TikTok)
  */
 export function VideoGrid({
   videos,
@@ -31,7 +31,7 @@ export function VideoGrid({
   if (isLoading) {
     return (
       <div className={cn('px-4 md:px-6', className)}>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-1 md:gap-2">
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
           {Array.from({ length: 12 }).map((_, i) => (
             <div
               key={i}
@@ -72,7 +72,7 @@ export function VideoGrid({
   // Video grid
   return (
     <div className={cn('px-4 md:px-6', className)}>
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-1 md:gap-2">
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
         {videos.map((video) => (
           <VideoThumbnail
             key={video.id}

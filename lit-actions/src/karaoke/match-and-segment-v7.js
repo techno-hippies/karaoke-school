@@ -111,6 +111,36 @@ const go = async () => {
     console.log(`Genius: ${artist} - ${title} (Album: ${album || 'N/A'})`);
     console.log(`SoundCloud: ${soundcloudPermalink || 'NOT FOUND'}`);
 
+    // Extract soundcloudPath (last 2 parts: "artist/track-name")
+    let soundcloudPath = '';
+    let hasFullAudio = false;
+    if (soundcloudPermalink) {
+      // Extract path from full URL: https://soundcloud.com/artist/track → artist/track
+      const pathParts = soundcloudPermalink.split('/').filter(p => p && p !== 'https:' && p !== 'soundcloud.com');
+      soundcloudPath = pathParts.slice(-2).join('/');
+      console.log(`SoundCloud path: ${soundcloudPath}`);
+
+      // Check for 30-second snippet by fetching from sc.maid.zone
+      try {
+        console.log('Checking if full audio available...');
+        const maidZoneUrl = `https://sc.maid.zone/${soundcloudPath}`;
+        const pageResp = await fetch(maidZoneUrl);
+        if (pageResp.ok) {
+          const pageHtml = await pageResp.text();
+          hasFullAudio = !pageHtml.includes('Only a 30-second snippet is available');
+          console.log(`Has full audio: ${hasFullAudio}`);
+        } else {
+          console.log('⚠️  Could not check audio availability, assuming full audio');
+          hasFullAudio = true; // Assume full if check fails
+        }
+      } catch (checkError) {
+        console.log('⚠️  Audio check failed:', checkError.message);
+        hasFullAudio = true; // Assume full if check fails
+      }
+    } else {
+      console.log('⚠️  No SoundCloud link found - cannot process audio');
+    }
+
     // Step 3: Fetch LRClib (try with album, then without if no matches)
     console.log('[3/4] Fetching LRClib...');
     console.log('About to fetch from LRClib API...');
@@ -405,14 +435,16 @@ Instructions:
         const maxDuration = Math.floor(Math.max(...sections.map(s => s.endTime)));
         const songId = `genius-${geniusId}`;
 
-        // Song data struct for addFullSong (V2 OPTIMIZED - removed geniusArtistId and languages)
+        // Song data struct for addFullSong (V3 - Added soundcloudPath and hasFullAudio)
         const songData = {
           id: songId,
           geniusId: geniusId,
           title: title,
           artist: artist,
           duration: maxDuration,
-          requiresPayment: false, // Free songs
+          soundcloudPath: soundcloudPath,
+          hasFullAudio: hasFullAudio,
+          requiresPayment: false, // Free songs for now
           audioUri: '', // Could be added later
           metadataUri: metadataUri, // Grove URI with sections
           coverUri: '', // Could be added later
@@ -420,7 +452,7 @@ Instructions:
           musicVideoUri: '' // Optional
         };
 
-        // ABI for addFullSong (V2 OPTIMIZED - 11 fields, no geniusArtistId/languages)
+        // ABI for addFullSong (V3 - 13 fields with soundcloudPath and hasFullAudio)
         const abi = [{
           "type": "function",
           "name": "addFullSong",
@@ -433,6 +465,8 @@ Instructions:
               { "name": "title", "type": "string" },
               { "name": "artist", "type": "string" },
               { "name": "duration", "type": "uint32" },
+              { "name": "soundcloudPath", "type": "string" },
+              { "name": "hasFullAudio", "type": "bool" },
               { "name": "requiresPayment", "type": "bool" },
               { "name": "audioUri", "type": "string" },
               { "name": "metadataUri", "type": "string" },
@@ -548,7 +582,8 @@ Instructions:
     Lit.Actions.setResponse({
       response: JSON.stringify({
         success: true,
-        genius: { artist, title, album, soundcloudPermalink },
+        genius: { artist, title, album, soundcloudPermalink, soundcloudPath },
+        hasFullAudio: hasFullAudio,
         lrclib: {
           artist: lrcMatch.artistName,
           title: lrcMatch.trackName,

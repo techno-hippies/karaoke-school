@@ -78,7 +78,7 @@ const go = async () => {
     // Step 4: Build batch contract transaction (V2 - single transaction for all segments)
     console.log('[Lit Action 2 Batch] Building batch contract transaction (V2)...');
 
-    const catalogContract = '0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa'; // KaraokeCatalogV2 on Base Sepolia (V2 OPTIMIZED - Custom Errors)
+    const catalogContract = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // KaraokeCatalogV2 on Base Sepolia (V2 OPTIMIZED - Custom Errors)
     const baseSepoliaRpc = 'https://sepolia.base.org';
 
     // ABI for processSegmentsBatch (V2 OPTIMIZED - Create + Process)

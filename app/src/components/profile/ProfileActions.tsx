@@ -43,7 +43,8 @@ export function ProfileActions({
         <Button
           onClick={onEditClick}
           variant="default"
-          className="flex-1 md:flex-initial px-6 py-3"
+          size="lg"
+          className="flex-1 md:flex-initial"
         >
           Edit profile
         </Button>
@@ -53,13 +54,15 @@ export function ProfileActions({
           <Button
             onClick={onMessageClick}
             variant="default"
-            className="flex-1 md:flex-initial px-6 py-3"
+            size="lg"
+            className="flex-1 md:flex-initial"
           >
             Message
           </Button>
           <Button
             variant="secondary"
-            className="flex-1 md:flex-initial px-6 py-3"
+            size="lg"
+            className="flex-1 md:flex-initial"
             disabled
           >
             Subscribed ✓
@@ -68,8 +71,9 @@ export function ProfileActions({
             onClick={onMoreClick}
             variant="secondary"
             size="icon"
+            className="h-12 w-12"
           >
-            <DotsThree className="w-5 h-5 md:w-6 md:h-6" weight="bold" />
+            <DotsThree className="w-6 h-6" weight="bold" />
           </Button>
         </>
       ) : (
@@ -79,14 +83,16 @@ export function ProfileActions({
             onClick={onFollowClick}
             disabled={isFollowLoading}
             variant="secondary"
-            className="flex-1 md:flex-initial px-6 py-3"
+            size="lg"
+            className="flex-1 md:flex-initial"
           >
             {isFollowLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
           </Button>
           <Button
             onClick={onSubscribeClick}
             variant="default"
-            className="flex-1 md:flex-initial px-6 py-3"
+            size="lg"
+            className="flex-1 md:flex-initial"
           >
             Subscribe
           </Button>
@@ -94,8 +100,9 @@ export function ProfileActions({
             onClick={onMoreClick}
             variant="secondary"
             size="icon"
+            className="h-12 w-12"
           >
-            <DotsThree className="w-5 h-5 md:w-6 md:h-6" weight="bold" />
+            <DotsThree className="w-6 h-6" weight="bold" />
           </Button>
         </>
       )}

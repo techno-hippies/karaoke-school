@@ -3,15 +3,27 @@
  * Centralized type definitions for the karaoke post flow
  */
 
-import type { SongSegment } from '@/components/karaoke/SegmentPickerDrawer'
 import type { KaraokeLine } from '@/components/feed/types'
+
+/**
+ * Song Segment
+ */
+export interface SongSegment {
+  id: string
+  displayName: string
+  startTime: number
+  endTime: number
+  duration: number
+  audioUrl?: string
+  isOwned?: boolean
+  karaokeLines?: KaraokeLine[]
+}
 
 /**
  * Post Flow State Machine States
  */
 export type PostFlowState =
   | 'SONG_SELECT'
-  | 'SEGMENT_PICKER'
   | 'GENERATE_KARAOKE'
   | 'PURCHASE_CREDITS'
   | 'RECORDING'
@@ -32,6 +44,11 @@ export interface Song {
   isProcessed?: boolean
   segments?: SongSegment[]
   soundcloudPermalink?: string
+  // Listening platform URLs from Genius API
+  youtubeUrl?: string
+  spotifyUuid?: string
+  appleMusicId?: string
+  appleMusicPlayerUrl?: string
   songDuration?: number
   metadataUri?: string // Base alignment URI (word timing)
   availableLanguages?: string[] // Translation languages available
@@ -121,7 +138,6 @@ export interface PostFlowContext {
 
   // Navigation
   goToSongSelect: () => void
-  goToSegmentPicker: (song: Song) => void
   goToGenerateKaraoke: (song: Song) => void
   goToPurchaseCredits: () => void
   goToRecording: (song: Song, segment: SongSegment) => void

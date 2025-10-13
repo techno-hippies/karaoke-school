@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { ProfilePageView } from './ProfilePageView'
 import type { Video } from './VideoGrid'
 
 // TODO: Replace with actual Lens hooks when available
 // import { useLensProfile } from '@/hooks/lens/useLensProfile'
 // import { useLensFollow } from '@/hooks/lens/useLensFollow'
-// import { useLensAuth } from '@/hooks/lens/useLensAuth'
 
 /**
  * ProfilePage - Container component for profile page
@@ -16,11 +16,11 @@ import type { Video } from './VideoGrid'
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const navigate = useNavigate()
+  const { isPKPReady, pkpAddress, logout } = useAuth()
 
   // TODO: Replace with actual Lens hooks
   // const { profile, videos, isLoading } = useLensProfile(username)
   // const { isFollowing, isLoading: followLoading, toggleFollow } = useLensFollow(profile?.address)
-  // const { isAuthenticated, currentUser } = useLensAuth()
 
   // Placeholder data for now - replace with real Lens data
   const [isFollowing, setIsFollowing] = useState(false)
@@ -44,7 +44,6 @@ export function ProfilePage() {
   }))
 
   const isLoading = false
-  const isAuthenticated = false
 
   // Navigation state
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
@@ -52,26 +51,32 @@ export function ProfilePage() {
 
   // Handlers
   const handleDesktopTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
-    if (tab === 'home') {
-      navigate('/')
-    } else if (tab === 'profile') {
+    const routes = {
+      home: '/',
+      study: '/class',
+      post: '/karaoke',
+      wallet: '/wallet',
+      profile: '/profile'
+    }
+
+    if (tab === 'profile' && !profile.isOwnProfile) {
       // Navigate to current user's profile if clicking from another user's profile
       // TODO: Use currentUser from Lens auth
-      if (!profile.isOwnProfile) {
-        navigate(`/profile/currentuser.lens`)
-      }
+      navigate(`/profile/currentuser.lens`)
     } else {
-      setActiveTab(tab)
+      navigate(routes[tab])
     }
   }
 
   const handleMobileTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
-    if (tab === 'home') {
-      navigate('/')
-    } else if (tab === 'post') {
-      console.log('Create post')
+    const routes = {
+      home: '/',
+      study: '/class',
+      post: '/karaoke',
+      wallet: '/wallet',
+      profile: '/profile'
     }
-    setMobileTab(tab)
+    navigate(routes[tab])
   }
 
   const handleEditProfile = () => {
@@ -131,10 +136,10 @@ export function ProfilePage() {
       mobileTab={mobileTab}
       onDesktopTabChange={handleDesktopTabChange}
       onMobileTabChange={handleMobileTabChange}
-      isConnected={isAuthenticated}
-      walletAddress={undefined}
+      isConnected={isPKPReady && !!pkpAddress}
+      walletAddress={pkpAddress || undefined}
       onConnectWallet={() => console.log('Connect wallet')}
-      onDisconnect={() => console.log('Disconnect')}
+      onDisconnect={logout}
       onEditProfile={handleEditProfile}
       onFollowClick={handleFollowClick}
       onMessageClick={() => console.log('Message')}

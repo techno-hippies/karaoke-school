@@ -99,7 +99,7 @@ export function SongItem({
         {/* Free Badge */}
         {isFree && (
           <div className="flex-shrink-0 self-center">
-            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+            <span className="text-xs md:text-sm font-semibold px-2 py-1 rounded-full bg-green-500/20 text-green-400">
               FREE
             </span>
           </div>

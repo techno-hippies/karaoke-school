@@ -1,17 +1,18 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { SongSegmentPage } from '@/components/class/SongSegmentPage'
 import { useSongData } from '@/hooks/useSongData'
+import { useSegmentLyrics } from '@/hooks/useSegmentLyrics'
 
 /**
  * KaraokeSegmentPage - Container for individual segment practice page
  *
  * Responsibilities:
  * - Load song data and find the selected segment
+ * - Load lyrics from base-alignment metadata
  * - Handle navigation back to song page
  * - Trigger study/karaoke modes
  *
  * TODO:
- * - Load lyrics from metadataUri for this specific segment
  * - Integrate with PostFlow hooks for audio processing
  * - Load study stats (new/learning/due counts)
  *
@@ -25,6 +26,13 @@ export function KaraokeSegmentPage() {
 
   // Find the selected segment
   const segment = segments.find(s => s.id === segmentId)
+
+  // Load lyrics for this segment
+  const { lyrics, isLoading: lyricsLoading, error: lyricsError } = useSegmentLyrics(
+    song?.metadataUri,
+    segment?.startTime,
+    segment?.endTime
+  )
 
   if (isLoading) {
     return (
@@ -58,14 +66,19 @@ export function KaraokeSegmentPage() {
     )
   }
 
+  console.log('[KaraokeSegmentPage] Rendering segment:', {
+    segmentId,
+    segmentName: segment.displayName,
+    hasMetadata: !!song.metadataUri,
+    lyricsLoading,
+    lyricsCount: lyrics.length,
+    lyricsError: lyricsError?.message
+  })
+
   return (
     <SongSegmentPage
-      songTitle={song.title}
-      artist={song.artist}
       segmentName={segment.displayName}
-      artworkUrl={song.artworkUrl}
-      lyrics={[]} // TODO: Load actual lyrics from metadataUri
-      audioUrl={segment.audioUrl}
+      lyrics={lyrics}
       newCount={0} // TODO: Load from study system
       learningCount={0}
       dueCount={0}

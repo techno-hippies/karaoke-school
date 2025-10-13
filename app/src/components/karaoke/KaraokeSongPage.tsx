@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { SongPage } from '@/components/class/SongPage'
 import { useAuth } from '@/contexts/AuthContext'
+import { useCredits } from '@/contexts/CreditsContext'
 import { useSongData } from '@/hooks/useSongData'
+import { useUnlockFlow } from '@/hooks/useUnlockFlow'
 import { buildExternalSongLinks, buildExternalLyricsLinks } from '@/lib/karaoke/externalLinks'
 import type { Song } from '@/features/post-flow/types'
 
@@ -21,8 +23,8 @@ export function KaraokeSongPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { geniusId } = useParams<{ geniusId: string }>()
-  const { isPKPReady, pkpAuthContext } = useAuth()
-  const [isUnlocking, setIsUnlocking] = useState(false)
+  const { isPKPReady, pkpAuthContext, pkpAddress } = useAuth()
+  const { credits } = useCredits()
 
   // Fetch song metadata from Genius as fallback (for direct URL navigation)
   const [isFetchingSong, setIsFetchingSong] = useState(false)
@@ -64,6 +66,10 @@ export function KaraokeSongPage() {
             isFree: false,
             segments: [],
             soundcloudPermalink: result.song.soundcloud_url || undefined,
+            youtubeUrl: result.song.youtube_url || undefined,
+            spotifyUuid: result.song.spotify_uuid || undefined,
+            appleMusicId: result.song.apple_music_id || undefined,
+            appleMusicPlayerUrl: result.song.apple_music_player_url || undefined,
           })
         } else {
           console.error('[KaraokeSongPage] ❌ Failed to fetch song metadata:', result.error)
@@ -82,83 +88,128 @@ export function KaraokeSongPage() {
     title: song?.title
   })
 
-  // TODO: Load leaderboard entries from contract
-  // TODO: Check credit balance
-  // TODO: Trigger audio processing + base alignment after unlock
+  // Initialize unlock flow state machine (memoized to prevent re-renders)
+  const unlockFlowInput = useMemo(() => ({
+    geniusId: displaySong?.geniusId || parseInt(geniusId || '0'),
+    pkpAuthContext: pkpAuthContext || null,
+    pkpAddress: pkpAddress || null,
+    artist: displaySong?.artist || '',
+    title: displaySong?.title || '',
+    creditBalance: credits,
+    isAlreadyCataloged: isProcessed,
+    isFree: displaySong?.isFree || false,
+    // Pre-populate segments if already cataloged
+    sections: segments.length > 0 ? segments.map(s => ({
+      type: s.displayName,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      duration: s.duration
+    })) : null,
+    soundcloudPermalink: displaySong?.soundcloudPermalink || null,
+    songDuration: segments.length > 0 ? Math.max(...segments.map(s => s.endTime)) : null,
+    hasFullAudio: null, // Will be set by machine after catalog
+  }), [displaySong?.geniusId, displaySong?.artist, displaySong?.title, displaySong?.soundcloudPermalink, displaySong?.isFree, geniusId, credits, segments, isProcessed])
 
-  const handleSegmentClick = (segment: any) => {
+  const unlockFlow = useUnlockFlow(unlockFlowInput)
+
+  const handleSegmentClick = useCallback((segment: any) => {
     navigate(`/karaoke/song/${geniusId}/segment/${segment.id}`)
-  }
+  }, [navigate, geniusId])
 
-  const handleUnlock = async () => {
-    console.log('[Unlock] Starting unlock flow...', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
+  // Update machine auth context when it becomes available
+  useEffect(() => {
+    if (pkpAuthContext && pkpAddress) {
+      console.log('[KaraokeSongPage] Updating machine auth context...')
+      unlockFlow.updateAuth(pkpAuthContext, pkpAddress)
+    }
+  }, [pkpAuthContext, pkpAddress]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update machine credit balance when it changes
+  useEffect(() => {
+    unlockFlow.updateCredits(credits)
+  }, [credits]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-catalog: Start machine on mount if song not already cataloged
+  useEffect(() => {
+    if (!isProcessed && displaySong && isPKPReady && pkpAuthContext && unlockFlow.isIdle) {
+      console.log('[Catalog] Starting auto-catalog via XState machine...')
+      unlockFlow.startAutoCatalog()
+    }
+  }, [isProcessed, displaySong, isPKPReady, pkpAuthContext, unlockFlow.isIdle]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUnlock = useCallback(() => {
+    console.log('[Unlock] Starting unlock flow via XState...', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
 
     if (!isPKPReady || !pkpAuthContext || !geniusId) {
       console.error('[Unlock] Missing auth or geniusId', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
       return
     }
 
-    try {
-      setIsUnlocking(true)
+    unlockFlow.startUnlock()
+  }, [isPKPReady, pkpAuthContext, geniusId, unlockFlow])
 
-      // Execute match-and-segment-v7 (3-4 seconds)
-      // Uses system PKP hardcoded in Lit Action (not user's PKP)
-      console.log('[Unlock] Executing match-and-segment for genius ID:', geniusId)
+  // Refetch song data when catalog completes (only once per song)
+  const hasRefetchedRef = useRef(false)
+  const prevGeniusIdRef = useRef(geniusId)
 
-      const { executeMatchAndSegment } = await import('@/lib/lit/actions')
-      const result = await executeMatchAndSegment(
-        parseInt(geniusId),
-        pkpAuthContext
-      )
-
-      console.log('[Unlock] Match & Segment result:', {
-        success: result.success,
-        isMatch: result.isMatch,
-        sectionsCount: result.sections?.length,
-        txHash: result.txHash,
-        error: result.error
-      })
-
-      if (result.success && result.isMatch && result.sections) {
-        console.log('[Unlock] ✅ Match & Segment complete:', result.sections.length, 'sections')
-        console.log('[Unlock] Sections:', result.sections)
-
-        // Wait for transaction to be mined if txHash exists
-        if (result.txHash) {
-          console.log('[Unlock] ⏳ Waiting for transaction to be mined:', result.txHash)
-          const { waitForTransactionReceipt } = await import('viem/actions')
-          const { publicClient } = await import('@/config/contracts')
-
-          const receipt = await waitForTransactionReceipt(publicClient, {
-            hash: result.txHash as `0x${string}`,
-            confirmations: 1
-          })
-          console.log('[Unlock] ✅ Transaction confirmed!', { blockNumber: receipt.blockNumber, status: receipt.status })
-        } else {
-          console.warn('[Unlock] ⚠️ No txHash returned - contract write may have failed')
-        }
-
-        // Reload song data to get updated segments from contract
-        console.log('[Unlock] Refetching song data from contract...')
-        await refetch()
-        console.log('[Unlock] Refetch complete - song should now show segments')
-
-        // Stay on song page - user can click segments to practice
-        // TODO: Trigger base-alignment + audio-processor in parallel
-      } else {
-        console.error('[Unlock] ❌ Match & Segment failed:', {
-          success: result.success,
-          isMatch: result.isMatch,
-          error: result.error,
-          contractError: result.contractError
-        })
-      }
-    } catch (err) {
-      console.error('[Unlock] ❌ Error during unlock:', err)
-    } finally {
-      setIsUnlocking(false)
+  // Reset refetch flag when song changes
+  useEffect(() => {
+    if (prevGeniusIdRef.current !== geniusId) {
+      hasRefetchedRef.current = false
+      prevGeniusIdRef.current = geniusId
     }
-  }
+  }, [geniusId])
+
+  useEffect(() => {
+    if (unlockFlow.hasCatalogCompleted && !hasRefetchedRef.current) {
+      console.log('[Catalog] ✅ Catalog complete! Refetching song data...')
+      hasRefetchedRef.current = true
+
+      // Retry refetch until song appears in contract (up to 5 attempts)
+      let attempts = 0
+      const maxAttempts = 5
+      const retryInterval = 2000
+
+      const tryRefetch = async () => {
+        attempts++
+        console.log(`[Catalog] Refetch attempt ${attempts}/${maxAttempts}`)
+        await refetch()
+
+        // Check if we got segments
+        if (segments.length === 0 && attempts < maxAttempts) {
+          console.log('[Catalog] No segments yet, retrying...')
+          setTimeout(tryRefetch, retryInterval)
+        } else if (segments.length > 0) {
+          console.log(`[Catalog] ✅ Loaded ${segments.length} segments!`)
+        } else {
+          console.warn('[Catalog] ⚠️ Max refetch attempts reached, segments not loaded')
+        }
+      }
+
+      setTimeout(tryRefetch, retryInterval)
+    }
+  }, [unlockFlow.hasCatalogCompleted, refetch, segments.length])
+
+  // Construct external links from song metadata (memoized to prevent re-renders)
+  // MUST be before early returns to satisfy Rules of Hooks
+  const externalSongLinks = useMemo(() => {
+    if (!displaySong) return []
+    return buildExternalSongLinks({
+      geniusId: displaySong.geniusId,
+      title: displaySong.title,
+      artist: displaySong.artist,
+      soundcloudPermalink: displaySong.soundcloudPermalink,
+    })
+  }, [displaySong])
+
+  const externalLyricsLinks = useMemo(() => {
+    if (!displaySong) return []
+    return buildExternalLyricsLinks({
+      geniusId: displaySong.geniusId,
+      title: displaySong.title,
+      artist: displaySong.artist,
+    })
+  }, [displaySong])
 
   // Show loading state only if we're loading and don't have state data
   if (isLoading && !songFromState && !fetchedSong) {
@@ -208,25 +259,13 @@ export function KaraokeSongPage() {
     )
   }
 
-  // Construct external links from song metadata
-  const externalSongLinks = buildExternalSongLinks({
-    geniusId: displaySong.geniusId,
-    title: displaySong.title,
-    artist: displaySong.artist,
-    soundcloudPermalink: displaySong.soundcloudPermalink,
-  })
-
-  const externalLyricsLinks = buildExternalLyricsLinks({
-    geniusId: displaySong.geniusId,
-    title: displaySong.title,
-    artist: displaySong.artist,
-  })
-
   console.log('[KaraokeSongPage] Rendering SongPage:', {
     songTitle: displaySong.title,
     isFree: displaySong.isFree,
     segmentsLength: segments.length,
-    isUnlocking,
+    machineState: unlockFlow.state.value,
+    isCataloging: unlockFlow.isCataloging,
+    isUnlocking: unlockFlow.isUnlocking,
     isAuthenticated: isPKPReady,
     soundcloudPermalink: displaySong.soundcloudPermalink,
     externalSongLinksCount: externalSongLinks.length,
@@ -251,7 +290,10 @@ export function KaraokeSongPage() {
       leaderboardEntries={[]} // TODO: Load from contract
       segments={segments}
       isFree={displaySong.isFree || false}
-      isUnlocking={isUnlocking}
+      isUnlocking={unlockFlow.isCataloging}
+      isProcessing={unlockFlow.isProcessing}
+      catalogError={unlockFlow.catalogError}
+      hasFullAudio={unlockFlow.hasFullAudio}
       onBack={() => navigate('/karaoke')}
       onPlay={() => console.log('Play')} // TODO: Open external links sheet
       onSelectSegment={handleSegmentClick}

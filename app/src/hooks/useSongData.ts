@@ -67,6 +67,8 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
       })
 
       // Check if song exists
+      console.log('[useSongData] Checking if song exists for geniusId:', geniusId)
+      console.log('[useSongData] Contract address:', BASE_SEPOLIA_CONTRACTS.karaokeCatalog)
       const songExists = await publicClient.readContract({
         address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
         abi: KARAOKE_CATALOG_ABI,
@@ -74,8 +76,11 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
         args: [geniusId],
       }) as boolean
 
+      console.log('[useSongData] Song exists check result:', songExists)
+
       if (!songExists) {
         // Song not in catalog yet - this is expected for unprocessed songs
+        console.log('[useSongData] Song not found in catalog, returning null')
         setSong(null)
         setSegments([])
         return

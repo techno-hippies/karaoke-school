@@ -5,7 +5,6 @@
 
 import { useState, useEffect } from 'react'
 import { PurchaseCreditsDialog } from '@/components/karaoke/PurchaseCreditsDialog'
-import { useOnRamp } from '@/hooks/useOnRamp'
 import { useCredits } from '../hooks/useCredits'
 import { CREDIT_PACKAGES } from '../types'
 import type { PostFlowContext } from '../types'
@@ -15,7 +14,6 @@ interface PurchaseCreditsStepProps {
 }
 
 export function PurchaseCreditsStep({ flow }: PurchaseCreditsStepProps) {
-  const { openBuyUSDC } = useOnRamp()
   const { checkUSDCBalance } = useCredits()
   const [showOnRampPrompt, setShowOnRampPrompt] = useState(false)
   const [isCheckingBalance, setIsCheckingBalance] = useState(true)
@@ -57,8 +55,9 @@ export function PurchaseCreditsStep({ flow }: PurchaseCreditsStepProps) {
   }
 
   const handleBuyUSDC = () => {
-    openBuyUSDC()
-    // Close dialog - user will return after buying USDC
+    // TODO: Implement on-ramp provider (e.g., Coinbase On-Ramp, Transak, etc.)
+    console.warn('[PurchaseCreditsStep] On-ramp not implemented')
+    alert('USDC on-ramp coming soon! Please deposit USDC directly to your wallet for now.')
     flow.goToSongSelect()
   }
 

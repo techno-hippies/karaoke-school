@@ -54,9 +54,10 @@ contract KaraokeCatalogV2 {
         string title;
         string artist;
         uint32 duration;            // Total duration in seconds
+        string soundcloudPath;      // SoundCloud path: "artist/track-name" (for audio download)
 
         // Capabilities
-        bool hasFullAudio;          // true = complete song available, false = segments only
+        bool hasFullAudio;          // true = complete song available, false = 30s snippet only
         bool requiresPayment;       // true = costs credits, false = free access
 
         // Full Song Assets (only if hasFullAudio=true)
@@ -186,6 +187,8 @@ contract KaraokeCatalogV2 {
         string title;
         string artist;
         uint32 duration;
+        string soundcloudPath;
+        bool hasFullAudio;
         bool requiresPayment;
         string audioUri;
         string metadataUri;
@@ -221,7 +224,8 @@ contract KaraokeCatalogV2 {
         newSong.title = params.title;
         newSong.artist = params.artist;
         newSong.duration = params.duration;
-        newSong.hasFullAudio = true;
+        newSong.soundcloudPath = params.soundcloudPath;
+        newSong.hasFullAudio = params.hasFullAudio;
         newSong.requiresPayment = params.requiresPayment;
         newSong.audioUri = params.audioUri;
         newSong.metadataUri = params.metadataUri;
@@ -236,7 +240,7 @@ contract KaraokeCatalogV2 {
             geniusIdToIndex[geniusId] = songs.length;
         }
 
-        emit SongAdded(id, geniusId, params.title, params.artist, true, params.requiresPayment);
+        emit SongAdded(id, geniusId, params.title, params.artist, params.hasFullAudio, params.requiresPayment);
     }
 
     /**
