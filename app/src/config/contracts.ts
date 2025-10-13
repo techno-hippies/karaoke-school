@@ -1,4 +1,6 @@
 import type { Address } from 'viem'
+import { createPublicClient, http } from 'viem'
+import { baseSepolia } from 'viem/chains'
 
 /**
  * Contract addresses for Base Sepolia
@@ -12,10 +14,16 @@ import type { Address } from 'viem'
 // === BASE SEPOLIA (Chain ID: 84532) ===
 export const BASE_SEPOLIA_CHAIN_ID = 84532
 
+// === PUBLIC CLIENT ===
+export const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
+})
+
 export const BASE_SEPOLIA_CONTRACTS = {
   usdc: (import.meta.env.VITE_BASE_SEPOLIA_USDC || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
   karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT || '0x6de183934E68051c407266F877fafE5C20F74653') as Address,
-  karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT || '0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa') as Address,
+  karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT || '0x17D3BB01ACe342Fa85A5B9a439feEa65e2f1D726') as Address,
 } as const
 
 // === HELPER FUNCTIONS ===

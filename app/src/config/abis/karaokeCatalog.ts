@@ -88,6 +88,35 @@ export const KARAOKE_CATALOG_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
 
+  // === Translation Read Functions ===
+  {
+    name: 'getTranslation',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'languageCode', type: 'string' },
+    ],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'hasTranslation',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'languageCode', type: 'string' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'getAvailableLanguages',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [{ name: '', type: 'string[]' }],
+  },
+
   // === Segment Read Functions ===
   {
     name: 'getSegmentHash',

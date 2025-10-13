@@ -1,0 +1,42 @@
+{
+  "ciphertext": "iGTAXV5G+goWunj/eOA7fHkqM+K3TEU+KYUdg+8+KJUKT5+1N7ZjGTahVg0qosYxTYhh81te4hbqmbyVVpcLJIZ3uxWu8FrA1NuR9mP+dRFBoY4b/8hjTSogBcttcJuvp6iZBWfqP1yq4nT+BpK1fpZaEa1sdgjEMY9chONbP9VDfn5wEeyk0apzfD0u4h6BtxoC",
+  "dataToEncryptHash": "364e5c5764d520470a219b3550be8019abf9ec10025d4abe0fe90f0bb929d75d",
+  "accessControlConditions": [
+    {
+      "conditionType": "evmContract",
+      "contractAddress": "0x6de183934E68051c407266F877fafE5C20F74653",
+      "chain": "baseSepolia",
+      "functionName": "credits",
+      "functionParams": [
+        ":userAddress"
+      ],
+      "functionAbi": {
+        "type": "function",
+        "name": "credits",
+        "inputs": [
+          {
+            "name": "user",
+            "type": "address"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "balance",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view"
+      },
+      "returnValueTest": {
+        "key": "",
+        "comparator": ">",
+        "value": "0"
+      }
+    }
+  ],
+  "encryptedAt": "2025-10-12T19:05:39.972Z",
+  "accessType": "contract-based",
+  "contractAddress": "0x6de183934E68051c407266F877fafE5C20F74653",
+  "chain": "baseSepolia",
+  "rule": "User must have at least 1 credit"
+}

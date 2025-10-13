@@ -40,6 +40,7 @@
         "tailwindcss-animate": "^1.0.7",
         "vaul": "^1.1.2",
         "viem": "^2",
+        "wavesurfer.js": "^7.11.0",
       },
       "devDependencies": {
         "@chromatic-com/storybook": "^4.1.1",
@@ -1758,6 +1759,8 @@
     "void-elements": ["void-elements@3.1.0", "", {}, "sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w=="],
 
     "walker": ["walker@1.0.8", "", { "dependencies": { "makeerror": "1.0.12" } }, "sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ=="],
+
+    "wavesurfer.js": ["wavesurfer.js@7.11.0", "", {}, "sha512-LOGdIBIKv/roYuQYClhoqhwbIdQL1GfobLnS2vx0heoLD9lu57OUHWE2DIsCNXBvCsmmbkUvJq9W8bPLPbikGw=="],
 
     "web-streams-polyfill": ["web-streams-polyfill@3.3.3", "", {}, "sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw=="],
 

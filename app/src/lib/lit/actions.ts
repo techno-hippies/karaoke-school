@@ -33,7 +33,41 @@ export interface SearchResponse {
 }
 
 /**
+ * Song Metadata Result (from Genius API)
+ */
+export interface SongMetadataResult {
+  success: boolean
+  song?: {
+    id: number
+    title: string
+    title_with_featured: string
+    artist: string
+    artist_id?: number
+    path: string
+    url: string
+    song_art_image_url?: string
+    song_art_image_thumbnail_url?: string
+    header_image_url?: string
+    header_image_thumbnail_url?: string
+    release_date_for_display?: string
+    description?: string
+    youtube_url?: string
+    soundcloud_url?: string
+    spotify_uuid?: string
+    apple_music_id?: string
+    apple_music_player_url?: string
+    media?: Array<{ provider: string; url: string; type: string }>
+    featured_artists?: Array<{ id: number; name: string; url: string }>
+    producer_artists?: Array<{ id: number; name: string; url: string }>
+    writer_artists?: Array<{ id: number; name: string; url: string }>
+  }
+  error?: string
+}
+
+/**
  * Match and Segment Result
+ * V6 returns sections WITHOUT alignment (fast ~5-10s)
+ * V5 returned sections WITH alignment (slow ~30-60s) - deprecated
  */
 export interface MatchSegmentResult {
   success: boolean
@@ -64,7 +98,9 @@ export interface MatchSegmentResult {
     gatewayUrl: string
     lineCount: number
     wordCount: number
-  }
+  } // V5 only - not returned by V6
+  txHash?: string
+  contractError?: string
   error?: string
   stack?: string
 }
@@ -101,6 +137,38 @@ export interface AudioProcessorResult {
     cost: string
     savings: string
   }
+  error?: string
+  stack?: string
+}
+
+/**
+ * Base Alignment Result (v1 - Word Timing Only)
+ */
+export interface BaseAlignmentResult {
+  success: boolean
+  geniusId?: number
+  metadataUri?: string
+  gatewayUrl?: string
+  lineCount?: number
+  wordCount?: number
+  txHash?: string
+  contractError?: string
+  error?: string
+  stack?: string
+}
+
+/**
+ * Translate Lyrics Result (v1 - Per-Language Translation)
+ */
+export interface TranslateResult {
+  success: boolean
+  geniusId?: number
+  language?: string
+  translationUri?: string
+  gatewayUrl?: string
+  lineCount?: number
+  txHash?: string
+  contractError?: string
   error?: string
   stack?: string
 }
@@ -159,8 +227,60 @@ export async function executeSearch(
 }
 
 /**
- * Execute Match and Segment Lit Action
+ * Execute Song Metadata Lit Action
+ * Fetches full song metadata from Genius API (free, no auth required)
+ */
+export async function executeSongMetadata(
+  songId: number,
+  authContext: any
+): Promise<SongMetadataResult> {
+  try {
+    const litClient = await getLitClient()
+
+    const result = await litClient.executeJs({
+      ipfsId: import.meta.env.VITE_LIT_ACTION_SONG,
+      authContext,
+      jsParams: { songId },
+    })
+
+    const response: SongMetadataResult = JSON.parse(result.response)
+
+    if (IS_DEV && response.success && response.song) {
+      console.log(`[Song] ${response.song.artist} - ${response.song.title}`)
+    }
+
+    return response
+  } catch (err) {
+    console.error('[Song] Failed:', err)
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Song metadata fetch failed',
+    }
+  }
+}
+
+/**
+ * Execute Match and Segment Lit Action (v7 - Hardcoded System PKP)
  * Matches Genius song with LRCLib and extracts song sections
+ *
+ * Flow:
+ * 1. Fetch song metadata from Genius
+ * 2. Get synced lyrics from LRClib
+ * 3. Match + segment with AI (NO alignment, NO translations)
+ * 4. Write to blockchain using SYSTEM PKP (hardcoded in Lit Action)
+ *
+ * Expected time: ~5-10s (was ~30-60s with v5 alignment)
+ * Expected cost: ~$0.01 (was ~$0.05 with v5)
+ *
+ * Security:
+ * - System PKP credentials hardcoded in IPFS code (immutable, can't be spoofed)
+ * - User's PKP only for authentication, system PKP signs transactions
+ * - Contract only allows system PKP as trustedProcessor
+ *
+ * Note: Alignment and translations are done separately via base-alignment-v1 and translate-lyrics-v1
+ *
+ * @param geniusId - Genius song ID
+ * @param authContext - PKP auth context (user's PKP for authentication)
  */
 export async function executeMatchAndSegment(
   geniusId: number,
@@ -169,10 +289,28 @@ export async function executeMatchAndSegment(
   const litClient = await getLitClient()
   const keyParams = getKaraokeKeyParams()
 
+  const jsParams: any = {
+    geniusId,
+    ...keyParams,
+    contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
+    writeToBlockchain: true
+  }
+
+  if (IS_DEV) {
+    console.log('[Match] jsParams:', {
+      geniusId,
+      hasGeniusACC: !!jsParams.geniusKeyAccessControlConditions,
+      hasOpenRouterACC: !!jsParams.openrouterKeyAccessControlConditions,
+      hasElevenlabsACC: !!jsParams.elevenlabsKeyAccessControlConditions,
+      contractAddress: jsParams.contractAddress,
+      ipfsId: import.meta.env.VITE_LIT_ACTION_MATCH_SEGMENT
+    })
+  }
+
   const result = await litClient.executeJs({
     ipfsId: import.meta.env.VITE_LIT_ACTION_MATCH_SEGMENT,
     authContext,
-    jsParams: { geniusId, ...keyParams },
+    jsParams,
   })
 
   const response: MatchSegmentResult = JSON.parse(result.response)
@@ -231,6 +369,117 @@ export async function executeAudioProcessor(
   })
 
   return JSON.parse(result.response)
+}
+
+/**
+ * Execute Base Alignment Lit Action (v1 - Word Timing Only)
+ * Generates word-level timing for karaoke WITHOUT translations
+ *
+ * Flow:
+ * 1. Downloads audio from SoundCloud
+ * 2. ElevenLabs forced alignment → word-level timing
+ * 3. Uploads to Grove → song-{geniusId}-base.json
+ * 4. Updates contract metadataUri
+ *
+ * Expected time: ~15-30s
+ * Expected cost: ~$0.03 (ElevenLabs only)
+ *
+ * @param geniusId - Genius song ID
+ * @param soundcloudPermalink - SoundCloud track permalink
+ * @param plainLyrics - Plain text lyrics (no timestamps)
+ * @param authContext - PKP auth context
+ */
+export async function executeBaseAlignment(
+  geniusId: number,
+  soundcloudPermalink: string,
+  plainLyrics: string,
+  authContext: any
+): Promise<BaseAlignmentResult> {
+  try {
+    const litClient = await getLitClient()
+    const keyParams = getKaraokeKeyParams()
+
+    const result = await litClient.executeJs({
+      ipfsId: import.meta.env.VITE_LIT_ACTION_BASE_ALIGNMENT,
+      authContext,
+      jsParams: {
+        geniusId,
+        soundcloudPermalink,
+        plainLyrics,
+        ...keyParams,
+        updateContract: true,
+      },
+    })
+
+    const response: BaseAlignmentResult = JSON.parse(result.response)
+
+    if (IS_DEV && response.success) {
+      console.log(`[BaseAlignment] Generated word timing for song ${geniusId}`,
+        `(${response.lineCount} lines, ${response.wordCount} words)`)
+    }
+
+    return response
+  } catch (err) {
+    console.error('[BaseAlignment] Failed:', err)
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Base alignment failed',
+    }
+  }
+}
+
+/**
+ * Execute Translate Lyrics Lit Action (v1 - Per-Language Translation)
+ * Generates per-language translation WITHOUT timing (uses base alignment timing)
+ *
+ * Flow:
+ * 1. Loads base alignment from contract metadataUri
+ * 2. OpenRouter translation to target language
+ * 3. Uploads to Grove → song-{geniusId}-{lang}.json
+ * 4. Updates contract via setTranslation(geniusId, languageCode, uri)
+ *
+ * Expected time: ~5-15s
+ * Expected cost: ~$0.02 (OpenRouter only)
+ *
+ * @param geniusId - Genius song ID
+ * @param targetLanguage - Target language code (e.g. 'zh', 'vi', 'tr')
+ * @param authContext - PKP auth context
+ */
+export async function executeTranslate(
+  geniusId: number,
+  targetLanguage: string,
+  authContext: any
+): Promise<TranslateResult> {
+  try {
+    const litClient = await getLitClient()
+    const keyParams = getKaraokeKeyParams()
+
+    const result = await litClient.executeJs({
+      ipfsId: import.meta.env.VITE_LIT_ACTION_TRANSLATE,
+      authContext,
+      jsParams: {
+        geniusId,
+        targetLanguage,
+        ...keyParams,
+        updateContract: true,
+      },
+    })
+
+    const response: TranslateResult = JSON.parse(result.response)
+
+    if (IS_DEV && response.success) {
+      console.log(`[Translate] Generated translation for song ${geniusId}`,
+        `(language: ${targetLanguage}, ${response.lineCount} lines)`)
+    }
+
+    return response
+  } catch (err) {
+    console.error('[Translate] Failed:', err)
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Translation failed',
+    }
+  }
 }
 
 /**

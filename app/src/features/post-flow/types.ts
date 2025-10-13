@@ -33,6 +33,8 @@ export interface Song {
   segments?: SongSegment[]
   soundcloudPermalink?: string
   songDuration?: number
+  metadataUri?: string // Base alignment URI (word timing)
+  availableLanguages?: string[] // Translation languages available
 }
 
 /**

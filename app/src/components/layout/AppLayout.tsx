@@ -10,6 +10,7 @@ export interface AppLayoutProps {
   walletAddress?: string
   onConnectWallet?: () => void
   onDisconnect?: () => void
+  hideMobileFooter?: boolean // Hide mobile footer for full-screen pages
 }
 
 export function AppLayout({
@@ -19,7 +20,8 @@ export function AppLayout({
   isConnected = false,
   walletAddress,
   onConnectWallet,
-  onDisconnect
+  onDisconnect,
+  hideMobileFooter = false
 }: AppLayoutProps) {
   const handleCreatePost = () => {
     // Post navigation is handled by onTabChange
@@ -40,17 +42,19 @@ export function AppLayout({
 
       {/* Main content area */}
       <div className="md:pl-64">
-        {/* Content with bottom padding for mobile footer */}
-        <div className="pb-16 md:pb-0">
+        {/* Content with bottom padding for mobile footer (unless hidden) */}
+        <div className={hideMobileFooter ? "" : "pb-16 md:pb-0"}>
           {children}
         </div>
       </div>
 
-      {/* Mobile Footer - hidden on desktop */}
-      <MobileFooter
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-      />
+      {/* Mobile Footer - hidden on desktop and full-screen pages */}
+      {!hideMobileFooter && (
+        <MobileFooter
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+      )}
     </div>
   )
 }

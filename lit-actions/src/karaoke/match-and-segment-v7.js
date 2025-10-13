@@ -1,27 +1,32 @@
 /**
- * Match and Segment v6: Fast Song Structure Extraction
+ * Match and Segment v7: Fast Song Structure Extraction (Hardcoded System PKP)
  *
- * OPTIMIZED: Removes ElevenLabs alignment for faster contract writes.
+ * SECURITY: System PKP credentials hardcoded in IPFS code (can't be spoofed)
  * Alignment and translations will be done separately per-language when user starts recording.
  *
  * Single Lit Action that:
  * 1. Determines if Genius and LRClib songs match
  * 2. If they match, segments the song into sections (verse, chorus, etc.)
- * 3. Writes segments to KaraokeCatalogV2 contract IMMEDIATELY (no alignment required)
+ * 3. Writes segments to KaraokeCatalogV2 contract using SYSTEM PKP (not user's PKP)
  * 4. Returns structured JSON with match decision + sections + txHash
  *
- * Changes from v5:
- * - Removed ElevenLabs forced alignment (moved to lyrics-alignment-v1.js)
- * - Removed translations (zh, vi) from LLM prompt (moved to per-language action)
- * - Contract write no longer requires alignment success
- * - Fast execution: ~5-10s (was ~30-60s with alignment)
- * - Robust: Always writes to contract if match succeeds
+ * Changes from v6:
+ * - Hardcoded system PKP credentials (0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30)
+ * - System PKP is the authorized trustedProcessor on contract
+ * - User's PKP only for authentication, not transaction signing
  *
  * Time: ~5-10s
  * Cost: ~$0.01 (OpenRouter LLM only)
  */
 
-console.log('=== LIT ACTION v6 LOADED ===');
+// Hardcoded system PKP credentials (deployed as trustedProcessor on KaraokeCatalogV2)
+const SYSTEM_PKP = {
+  publicKey: '043a5f87717daafe9972ee37154786845a74368d269645685ef51d7ac32c59a20df5340b8adb154b1ac137a8f2c0a6aedbcdbc46448cc545ea7f5233918d324939',
+  address: '0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30',
+  tokenId: '18495970405190900970517221272825216094387884724482470185691150662171839015831'
+};
+
+console.log('=== LIT ACTION v7 LOADED ===');
 console.log('Lit Actions API available:', typeof Lit !== 'undefined');
 console.log('ethers available:', typeof ethers !== 'undefined');
 
@@ -37,12 +42,11 @@ const go = async () => {
     openrouterKeyDataToEncryptHash,
     // Contract write params (optional)
     contractAddress,
-    pkpAddress,
-    pkpTokenId,
     writeToBlockchain = true
   } = jsParams || {};
 
   console.log('jsParams received, geniusId:', geniusId, 'writeToBlockchain:', writeToBlockchain);
+  console.log('Using system PKP:', SYSTEM_PKP.address);
 
   try {
     // Step 1: Decrypt keys
@@ -53,18 +57,18 @@ const go = async () => {
       console.log('Creating decrypt promises for Genius and OpenRouter...');
       const decryptPromises = [
         Lit.Actions.decryptAndCombine({
-          unifiedAccessControlConditions: geniusKeyAccessControlConditions,
+          accessControlConditions: geniusKeyAccessControlConditions,
           ciphertext: geniusKeyCiphertext,
           dataToEncryptHash: geniusKeyDataToEncryptHash,
           authSig: null,
-          chain: 'baseSepolia'
+          chain: 'ethereum'
         }),
         Lit.Actions.decryptAndCombine({
-          unifiedAccessControlConditions: openrouterKeyAccessControlConditions,
+          accessControlConditions: openrouterKeyAccessControlConditions,
           ciphertext: openrouterKeyCiphertext,
           dataToEncryptHash: openrouterKeyDataToEncryptHash,
           authSig: null,
-          chain: 'baseSepolia'
+          chain: 'ethereum'
         })
       ];
 
@@ -331,20 +335,73 @@ Instructions:
 
     console.log(`Converted ${sections.length} sections to timestamps`);
 
-    // Step 5: Sign and submit transaction for blockchain (if enabled and matched)
+    // Step 5: Upload sections metadata to Grove (if matched)
+    let metadataUri = '';
+    if (result.isMatch && sections.length > 0) {
+      try {
+        console.log('[5a/6] Uploading sections metadata to Grove...');
+
+        const metadata = {
+          sections: sections,
+          title: title,
+          artist: artist,
+          geniusId: geniusId
+        };
+
+        const groveUpload = await Lit.Actions.runOnce(
+          { waitForResponse: true, name: "groveMetadataUpload" },
+          async () => {
+            try {
+              const groveResp = await fetch('https://api.grove.storage/?chain_id=37111', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(metadata)
+              });
+
+              if (!groveResp.ok) {
+                const err = await groveResp.text();
+                return JSON.stringify({ error: `Grove upload failed: ${err}` });
+              }
+
+              const groveResult = await groveResp.json();
+              const groveData = Array.isArray(groveResult) ? groveResult[0] : groveResult;
+              return JSON.stringify({ success: true, uri: groveData.uri });
+            } catch (e) {
+              return JSON.stringify({ error: e.message });
+            }
+          }
+        );
+
+        const uploadResult = JSON.parse(groveUpload);
+        if (uploadResult.success) {
+          metadataUri = uploadResult.uri;
+          console.log('✅ Metadata uploaded to Grove:', metadataUri);
+        } else {
+          console.error('⚠️ Grove upload failed:', uploadResult.error);
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to upload metadata:', error.message);
+      }
+    }
+
+    // Step 6: Sign and submit transaction for blockchain (if enabled and matched)
     let txHash = null;
     let contractError = null;
 
     if (writeToBlockchain && result.isMatch && sections.length > 0) {
       try {
-        console.log('[5/5] Signing and submitting transaction to blockchain...');
+        console.log('[5b/6] Signing and submitting transaction to blockchain...');
 
         // Validate contract params
-        if (!contractAddress || !pkpAddress || !pkpTokenId) {
-          throw new Error('Contract address, PKP address, and PKP token ID required for blockchain writes');
+        if (!contractAddress) {
+          throw new Error('Contract address required for blockchain writes');
         }
 
-        // Prepare full song data WITHOUT alignment metadata (will be added later)
+        // Use hardcoded system PKP credentials
+        const pkpAddress = SYSTEM_PKP.address;
+        const pkpPublicKey = SYSTEM_PKP.publicKey;
+
+        // Prepare full song data with metadata URI
         const maxDuration = Math.floor(Math.max(...sections.map(s => s.endTime)));
         const songId = `genius-${geniusId}`;
 
@@ -355,9 +412,9 @@ Instructions:
           title: title,
           artist: artist,
           duration: maxDuration,
-          requiresPayment: false, // Free songs (alignment will be added per-language later)
+          requiresPayment: false, // Free songs
           audioUri: '', // Could be added later
-          metadataUri: '', // EMPTY - will be populated by lyrics-alignment-v1.js per language
+          metadataUri: metadataUri, // Grove URI with sections
           coverUri: '', // Could be added later
           thumbnailUri: '', // Could be added later
           musicVideoUri: '' // Optional
@@ -412,14 +469,11 @@ Instructions:
           chainId: 84532 // Base Sepolia
         };
 
-        // Get PKP public key
-        let pkpPublicKey = jsParams.pkpPublicKey;
-        if (!pkpPublicKey) {
-          throw new Error('pkpPublicKey is required in jsParams');
-        }
-
-        if (pkpPublicKey.startsWith('0x')) {
-          pkpPublicKey = pkpPublicKey.substring(2);
+        // Sign transaction hash using system PKP
+        // (publicKey already set from SYSTEM_PKP, strip 0x prefix if present)
+        let publicKeyForSigning = pkpPublicKey;
+        if (publicKeyForSigning.startsWith('0x')) {
+          publicKeyForSigning = publicKeyForSigning.substring(2);
         }
 
         // Sign transaction hash
@@ -428,7 +482,7 @@ Instructions:
 
         const signature = await Lit.Actions.signAndCombineEcdsa({
           toSign: toSign,
-          publicKey: pkpPublicKey,
+          publicKey: publicKeyForSigning,
           sigName: 'addFullSongTx'
         });
 
@@ -505,6 +559,7 @@ Instructions:
         isMatch: result.isMatch,
         confidence: result.confidence,
         sections: sections,
+        metadataUri: metadataUri,
         txHash: txHash,
         contractError: contractError,
         contractAddress: contractAddress

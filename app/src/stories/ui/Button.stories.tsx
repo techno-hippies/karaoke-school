@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { MusicNotes, GitBranch, ArrowRight, Download, Plus } from '@phosphor-icons/react';
 
 const meta = {
@@ -94,6 +95,28 @@ export const Disabled: Story = {
     disabled: true,
     children: 'Disabled',
   },
+};
+
+/**
+ * Button with loading spinner - automatically disabled
+ */
+export const Loading: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      <Button variant="default" disabled>
+        <Spinner size="sm" />
+        Loading
+      </Button>
+      <Button variant="outline" disabled>
+        <Spinner size="sm" />
+        Processing
+      </Button>
+      <Button variant="secondary" size="lg" disabled>
+        <Spinner />
+        Unlocking
+      </Button>
+    </div>
+  ),
 };
 
 export const LeftAligned: Story = {
