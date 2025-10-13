@@ -1,18 +1,35 @@
 import { useState } from 'react'
-import { Play, MusicNotes } from '@phosphor-icons/react'
-import { StudyStats } from './StudyStats'
+import { Play, MusicNotes, LockKey } from '@phosphor-icons/react'
 import { Leaderboard } from './Leaderboard'
 import { ExternalLinksSheet } from './ExternalLinksSheet'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/ui/back-button'
-import { Spinner } from '@/components/ui/spinner'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Progress } from '@/components/ui/progress'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+} from '@/components/ui/item'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
 
 interface ExternalLink {
   label: string
   url: string
+}
+
+export interface SongSegment {
+  id: string
+  displayName: string
+  startTime: number
+  endTime: number
+  duration: number
+  audioUrl?: string
+  isOwned?: boolean
 }
 
 export interface SongPageProps {
@@ -24,18 +41,19 @@ export interface SongPageProps {
   isExternal?: boolean // true = external song (opens sheet), false = local (plays directly)
   externalSongLinks?: ExternalLink[]
   externalLyricsLinks?: ExternalLink[]
-  // Study stats
-  newCount: number
-  learningCount: number
-  dueCount: number
   // Leaderboard
   leaderboardEntries: LeaderboardEntry[]
   currentUser?: LeaderboardEntry
-  // Actions
-  onStudy?: () => void
-  onKaraoke?: () => void
-  isStudyLoading?: boolean
-  isKaraokeLoading?: boolean
+  // Karaoke segments
+  segments?: SongSegment[]
+  onSelectSegment?: (segment: SongSegment) => void
+  onUnlockAll?: () => void
+  isGenerating?: boolean
+  generatingProgress?: number // 0-100
+  isFree?: boolean // Is this a free song (no credits required)?
+  isUnlocking?: boolean
+  onAuthRequired?: () => void // Called when user needs to authenticate
+  isAuthenticated?: boolean
   className?: string
 }
 
@@ -49,18 +67,60 @@ export function SongPage({
   isExternal = false,
   externalSongLinks = [],
   externalLyricsLinks = [],
-  newCount,
-  learningCount,
-  dueCount,
   leaderboardEntries,
   currentUser,
-  onStudy,
-  onKaraoke,
-  isStudyLoading = false,
-  isKaraokeLoading = false,
+  segments = [],
+  onSelectSegment,
+  onUnlockAll,
+  isGenerating = false,
+  generatingProgress = 0,
+  isFree = false,
+  isUnlocking = false,
+  onAuthRequired,
+  isAuthenticated = false,
   className,
 }: SongPageProps) {
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${String(secs).padStart(2, '0')}`
+  }
+
+  const handleSegmentAction = (segment: SongSegment) => {
+    if (!isAuthenticated && onAuthRequired) {
+      onAuthRequired()
+      return
+    }
+    if (onSelectSegment) {
+      onSelectSegment(segment)
+    }
+  }
+
+  const handleUnlockAction = () => {
+    if (!isAuthenticated && onAuthRequired) {
+      onAuthRequired()
+      return
+    }
+    if (onUnlockAll) {
+      onUnlockAll()
+    }
+  }
+
+  // Check if unlock button should be shown
+  // Show unlock button if not free AND either:
+  // - segments is empty (unprocessed song)
+  // - OR segments has at least one unowned segment
+  const showUnlockButton = !isFree && (segments.length === 0 || segments.some(seg => !seg.isOwned))
+
+  console.log('[SongPage] Unlock button logic:', {
+    isFree,
+    segmentsLength: segments.length,
+    hasUnownedSegments: segments.some(seg => !seg.isOwned),
+    showUnlockButton
+  })
+
   return (
     <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
       <div className="relative w-full h-full md:max-w-2xl">
@@ -72,7 +132,7 @@ export function SongPage({
       </div>
 
       {/* Main content */}
-      <ScrollArea className="absolute top-0 left-0 right-0 bottom-0">
+      <ScrollArea className={cn("absolute top-0 left-0 right-0", showUnlockButton ? "bottom-24" : "bottom-0")}>
         {/* Album Art Hero */}
         <div className="relative w-full" style={{ height: 'min(384px, 40vh)' }}>
           {artworkUrl && (
@@ -121,50 +181,87 @@ export function SongPage({
           </div>
         </div>
 
-        <div className="px-4 mt-4 space-y-4 pb-32">
-          {/* Study Stats */}
-          <StudyStats
-            newCount={newCount}
-            learningCount={learningCount}
-            dueCount={dueCount}
-          />
-
-          {/* Top Fans */}
-          <div>
-            <h2 className="text-foreground text-lg font-semibold mb-3">Top Fans</h2>
-            <Leaderboard
-              entries={leaderboardEntries}
-              currentUser={currentUser}
-            />
+        {/* Progress bar - positioned below hero image */}
+        {isGenerating && (
+          <div className="w-full">
+            <Progress value={generatingProgress} className="h-1 rounded-none bg-black/30" />
           </div>
+        )}
+
+        <div className="px-4 mt-4 space-y-4 pb-8">
+          {/* Tabs: Segments | Leaderboard */}
+          <Tabs defaultValue="clips" className="w-full">
+            <TabsList className="w-full grid grid-cols-2 bg-muted/50">
+              <TabsTrigger value="clips">Segments</TabsTrigger>
+              <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="clips" className="mt-4">
+              {showUnlockButton ? (
+                // Locked state - show lock icon and message (for unprocessed or locked songs)
+                <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                  <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                    <LockKey className="w-10 h-10 text-muted-foreground" weight="duotone" />
+                  </div>
+                  <p className="text-muted-foreground text-base">
+                    Once unlocked, anyone can karaoke to the song.
+                  </p>
+                </div>
+              ) : segments.length > 0 ? (
+                // Unlocked state - show segment list
+                <div className="space-y-4">
+                  <ScrollArea className="max-h-[50vh]">
+                    <div className="space-y-1">
+                      {segments.map((segment) => (
+                        <Item
+                          key={segment.id}
+                          variant="default"
+                          className="gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => !isGenerating && handleSegmentAction(segment)}
+                        >
+                          <ItemContent>
+                            <ItemTitle className={isGenerating ? "text-muted-foreground" : ""}>
+                              {segment.displayName}
+                            </ItemTitle>
+                            <ItemDescription>
+                              {segment.startTime === 0 && segment.endTime === 0
+                                ? '\u00A0'
+                                : `${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}`}
+                              </ItemDescription>
+                          </ItemContent>
+                        </Item>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            <TabsContent value="leaderboard" className="mt-4">
+              <Leaderboard
+                entries={leaderboardEntries}
+                currentUser={currentUser}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </ScrollArea>
 
-      {/* Sticky Footer with Study and Karaoke Buttons */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
-        <div className="flex gap-3">
+      {/* Sticky Footer with Unlock Button */}
+      {showUnlockButton && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
           <Button
-            onClick={onStudy}
-            disabled={isStudyLoading}
             size="lg"
-            variant="secondary"
-            className="flex-1"
+            variant="default"
+            onClick={handleUnlockAction}
+            className="w-full"
+            disabled={isGenerating || isUnlocking}
           >
-            {isStudyLoading && <Spinner />}
-            Study
-          </Button>
-
-          <Button
-            onClick={onKaraoke}
-            disabled={isKaraokeLoading}
-            size="lg"
-            className="flex-1"
-          >
-            {isKaraokeLoading && <Spinner />}
-            Karaoke
+            {isUnlocking && <Spinner size="sm" />}
+            {isUnlocking ? 'Unlocking...' : 'Unlock (1 credit)'}
           </Button>
         </div>
-      </div>
+      )}
 
       {/* External Links Sheet */}
       <ExternalLinksSheet

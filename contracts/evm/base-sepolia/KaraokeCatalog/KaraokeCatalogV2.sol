@@ -102,6 +102,11 @@ contract KaraokeCatalogV2 {
     mapping(uint32 => uint256) private geniusIdToIndex;   // geniusId => index+1 (0 = not exists)
     mapping(bytes32 => GeneratedSegment) public segments; // segmentHash => Segment
 
+    // Translation URIs: geniusId => languageCode => grove URI
+    mapping(uint32 => mapping(string => string)) public translationUris;
+    // Track available languages per song
+    mapping(uint32 => string[]) public availableLanguages;
+
     address public owner;
     address public trustedProcessor;  // Lit Protocol PKP for automated operations
     bool public paused;
@@ -141,6 +146,7 @@ contract KaraokeCatalogV2 {
     );
 
     event SongUpdated(string indexed id, bool enabled);
+    event TranslationAdded(uint32 indexed geniusId, string languageCode, string uri);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ProcessorUpdated(address indexed previousProcessor, address indexed newProcessor);
     event Paused(address indexed by);
@@ -365,6 +371,63 @@ contract KaraokeCatalogV2 {
 
     function getTotalSongs() external view returns (uint256) {
         return songs.length;
+    }
+
+    // ============ TRANSLATION FUNCTIONS ============
+
+    /**
+     * @notice Set translation URI for a specific language
+     * @dev Called by Lit Action after uploading language-specific translation file
+     */
+    function setTranslation(
+        uint32 geniusId,
+        string calldata languageCode,
+        string calldata uri
+    ) external onlyOwnerOrProcessor whenNotPaused {
+        if (geniusIdToIndex[geniusId] == 0) revert SongNotFound();
+        if (bytes(languageCode).length == 0) revert InvalidSongIdentifier();
+        if (bytes(uri).length == 0) revert InvalidSongIdentifier();
+
+        // Add to available languages if first time
+        if (bytes(translationUris[geniusId][languageCode]).length == 0) {
+            availableLanguages[geniusId].push(languageCode);
+        }
+
+        translationUris[geniusId][languageCode] = uri;
+        emit TranslationAdded(geniusId, languageCode, uri);
+    }
+
+    /**
+     * @notice Get translation URI for a specific language
+     */
+    function getTranslation(uint32 geniusId, string calldata languageCode)
+        external
+        view
+        returns (string memory)
+    {
+        return translationUris[geniusId][languageCode];
+    }
+
+    /**
+     * @notice Get all available languages for a song
+     */
+    function getAvailableLanguages(uint32 geniusId)
+        external
+        view
+        returns (string[] memory)
+    {
+        return availableLanguages[geniusId];
+    }
+
+    /**
+     * @notice Check if translation exists for a specific language
+     */
+    function hasTranslation(uint32 geniusId, string calldata languageCode)
+        external
+        view
+        returns (bool)
+    {
+        return bytes(translationUris[geniusId][languageCode]).length > 0;
     }
 
     // ============ ADMIN FUNCTIONS ============

@@ -52,7 +52,7 @@ export function usePostFlow(onComplete: () => void) {
 
   /**
    * Navigation: Segment Picker
-   * Processed songs should already have segments loaded from contract metadata
+   * For processed songs, segments are loaded on-demand via match-and-segment-v6
    */
   const goToSegmentPicker = useCallback(async (song: Song) => {
     // If segments already loaded, go directly to picker
@@ -62,12 +62,9 @@ export function usePostFlow(onComplete: () => void) {
       return
     }
 
-    // Fallback: if processed but no segments, run match-and-segment to populate
-    // This shouldn't happen if search properly loaded from contract
-    if (song.isProcessed) {
-      console.warn('[PostFlow] Processed song missing segments, falling back to generateKaraoke')
-    }
-
+    // For processed songs without segments loaded, run match-and-segment-v6 to populate
+    // This is fast (~5s) since song already exists in contract - just returns segments
+    console.log('[PostFlow] Processed song missing segments, loading via match-and-segment-v6')
     updateData({ selectedSong: song })
     setState('GENERATE_KARAOKE')
   }, [updateData])
@@ -149,11 +146,19 @@ export function usePostFlow(onComplete: () => void) {
       songDuration: result.songDuration,
     }
 
-    updateData({ selectedSong: updatedSong })
+    // Update both selectedSong AND search results to cache segments
+    const updatedSearchResults = data.searchResults.map(s =>
+      s.geniusId === updatedSong.geniusId ? updatedSong : s
+    )
+
+    updateData({
+      selectedSong: updatedSong,
+      searchResults: updatedSearchResults,
+    })
 
     // Auto-advance to segment picker
     goToSegmentPicker(updatedSong)
-  }, [karaokeHook, updateData, goToSegmentPicker])
+  }, [karaokeHook, updateData, goToSegmentPicker, data.searchResults])
 
   /**
    * Action: Purchase Credits
@@ -176,7 +181,7 @@ export function usePostFlow(onComplete: () => void) {
   }, [creditsHook, authHook, goToSongSelect])
 
   /**
-   * Action: Unlock Segment (and trigger audio processing)
+   * Action: Unlock Segment (and trigger base alignment + audio processing)
    */
   const unlockSegment = useCallback(async (song: Song, segment: SongSegment) => {
     // Step 1: Unlock segment (spend 1 credit)
@@ -188,7 +193,17 @@ export function usePostFlow(onComplete: () => void) {
     // Reload credits
     await authHook.reloadCredits()
 
-    // Step 2: Trigger audio processing (for ALL segments)
+    // Step 2: Generate base alignment (word timing) if not already done
+    // This runs once per song and is required for karaoke timing
+    // Expected time: ~15-30s, Cost: ~$0.03 (ElevenLabs)
+    console.log('[PostFlow] Checking base alignment after unlock...')
+    const alignmentSuccess = await karaokeHook.generateBaseAlignment(song)
+    if (!alignmentSuccess) {
+      console.warn('[PostFlow] Base alignment failed, but continuing...')
+      // Don't block the flow - alignment can be retried
+    }
+
+    // Step 3: Trigger audio processing (for ALL segments)
     if (song.soundcloudPermalink && song.segments && song.songDuration) {
       console.log('[PostFlow] Triggering audio processing after unlock...')
       const jobId = await karaokeHook.processAudio(
@@ -213,7 +228,7 @@ export function usePostFlow(onComplete: () => void) {
       })
     }
 
-    // Proceed to recording (audio will process in background)
+    // Proceed to recording (audio + alignment will process in background)
     goToRecording(song, segment)
   }, [creditsHook, authHook, karaokeHook, goToRecording])
 
@@ -286,10 +301,14 @@ export function usePostFlow(onComplete: () => void) {
     ...context,
     isGenerating: karaokeHook.isGenerating,
     isProcessing: karaokeHook.isProcessing,
+    isAligning: karaokeHook.isAligning,
+    isTranslating: karaokeHook.isTranslating,
     isGrading: karaokeHook.isGrading,
     isPurchasing: creditsHook.isPurchasing,
     isUnlocking: creditsHook.isUnlocking,
     currentJobId: karaokeHook.currentJobId,
+    generateBaseAlignment: karaokeHook.generateBaseAlignment,
+    generateTranslation: karaokeHook.generateTranslation,
     error: authHook.auth.error || creditsHook.error || karaokeHook.error,
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { SongSelectPage } from '@/components/karaoke/SongSelectPage'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +21,8 @@ interface SongSelectStepProps {
 }
 
 export function SongSelectStep({ flow }: SongSelectStepProps) {
+  const navigate = useNavigate()
+
   // Load songs from KaraokeCatalogV1 contract on Base Sepolia
   const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs()
   const [isSearching, setIsSearching] = useState(false)
@@ -148,6 +151,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
                 title: r.title,
                 artist: r.artist,
                 artworkUrl: r.artwork_thumbnail || undefined,
+                soundcloudPermalink: r.soundcloud_permalink || undefined,
                 isProcessed: false,
                 isFree: false,
               }
@@ -236,44 +240,17 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   }
 
   const handleSongClick = (song: Song) => {
-    console.log('[SongSelect] Song clicked:', {
+    console.log('[SongSelectStep] Song clicked:', {
       geniusId: song.geniusId,
       title: song.title,
       isProcessed: song.isProcessed,
-      hasSegments: !!song.segments,
-      segmentCount: song.segments?.length || 0
     })
 
-    // Only need PKP for browsing
-    if (!capabilities.canBrowse) {
-      setPendingSong(song)
-      setShowAuthDialog(true)
-      return
-    }
+    const targetPath = `/karaoke/song/${song.geniusId}`
+    console.log('[SongSelectStep] Navigating to:', targetPath)
 
-    // Auth complete - proceed with flow
-    if (song.isFree) {
-      // Free songs skip to recording
-      if (song.segments && song.segments.length > 0) {
-        flow.goToRecording(song, song.segments[0])
-      }
-      return
-    }
-
-    if (song.isProcessed) {
-      // Processed songs go to segment picker (load segments from contract on-demand)
-      console.log('[SongSelect] Going to segment picker for processed song')
-      flow.goToSegmentPicker(song)
-    } else {
-      // Unprocessed songs need generation (needs credits)
-      console.log('[SongSelect] Going to generate karaoke for unprocessed song')
-      if (!capabilities.canGenerate) {
-        setPendingSong(song)
-        flow.goToPurchaseCredits()
-        return
-      }
-      flow.goToGenerateKaraoke(song)
-    }
+    // Navigate to song detail page, pass song data in state for unprocessed songs
+    navigate(targetPath, { state: { song } })
   }
 
 
@@ -287,65 +264,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
         searchResults={flow.data.searchResults}
         isSearching={isSearching}
         onSearch={handleSearch}
-        userCredits={flow.auth.credits}
-        walletAddress={pkpAddress || ''}
-        walletBalance={usdcBalance}
-        onSelectSong={(song, segment) => {
-          // Need PKP for recording (segment already owned/unlocked)
-          if (!capabilities.canRecord) {
-            if (!capabilities.capabilities.hasPKP) {
-              setPendingSong(song)
-              setShowAuthDialog(true)
-              return
-            }
-            // Has PKP but no credits
-            flow.goToPurchaseCredits()
-            return
-          }
-          flow.goToRecording(song, segment)
-        }}
-        onConfirmCredit={(song, segment) => {
-          // Unlock requires canUnlock (PKP + credits)
-          if (!capabilities.canUnlock) {
-            if (!capabilities.capabilities.hasPKP) {
-              setPendingSong(song)
-              setShowAuthDialog(true)
-              return
-            }
-            // Has PKP but no credits
-            flow.goToPurchaseCredits()
-            return
-          }
-          flow.unlockSegment(song, segment)
-        }}
-        onGenerateKaraoke={async (song) => {
-          // Generation requires canGenerate (PKP + credits)
-          if (!capabilities.canGenerate) {
-            if (!capabilities.capabilities.hasPKP) {
-              setPendingSong(song)
-              setShowAuthDialog(true)
-              return
-            }
-            // Has PKP but no credits
-            flow.goToPurchaseCredits()
-            return
-          }
-          // Trigger generation in background - don't transition flow state
-          // The drawer shows loading state while we process
-          await flow.generateKaraoke(song)
-        }}
-        onPurchaseCredits={async (packageId) => {
-          const success = await purchaseCredits(packageId)
-          if (success) {
-            // Reload credits after successful purchase
-            // Credits will auto-refresh via AuthContext
-            console.log('[SongSelectStep] Credits purchased successfully')
-            toast.success('Credits purchased successfully!')
-          } else {
-            toast.error('Failed to purchase credits. Please try again.')
-          }
-        }}
-        isPurchasingCredits={isPurchasing}
+        onSongClick={handleSongClick}
       />
 
       <AuthDialog

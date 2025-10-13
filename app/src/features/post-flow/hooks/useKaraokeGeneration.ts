@@ -5,22 +5,44 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { executeMatchAndSegment, executeAudioProcessor } from '@/lib/lit/actions'
+import { executeMatchAndSegment, executeAudioProcessor, executeBaseAlignment, executeTranslate } from '@/lib/lit/actions'
 import type { Song, SongSegment, PerformanceGrade } from '../types'
-import type { MatchSegmentResult, AudioProcessorResult } from '@/lib/lit/actions'
+import type { MatchSegmentResult, AudioProcessorResult, BaseAlignmentResult, TranslateResult } from '@/lib/lit/actions'
+import { createPublicClient, http } from 'viem'
+import { baseSepolia } from 'viem/chains'
+import { KARAOKE_CATALOG_ABI } from '@/config/abis/karaokeCatalog'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
+
+// Create viem public client for contract reads
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http(),
+})
 
 export function useKaraokeGeneration() {
   const { pkpWalletClient, pkpAuthContext, pkpAddress } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isAligning, setIsAligning] = useState(false)
+  const [isTranslating, setIsTranslating] = useState(false)
   const [isGrading, setIsGrading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
 
   /**
-   * Generate karaoke segments for a song (Match and Segment Lit Action)
+   * Generate karaoke segments for a song (Match and Segment v6 - Fast)
    * Uses PKP auth context for zero-signature execution
    * Returns segments + soundcloudPermalink for audio processing
+   *
+   * Flow:
+   * 1. Match song metadata (Genius + LRClib)
+   * 2. Extract song sections (NO alignment, NO translations)
+   * 3. Write song to blockchain immediately
+   *
+   * Expected time: ~5-10s (fast!)
+   * Expected cost: ~$0.01
+   *
+   * Note: Alignment and translations are done separately after unlock
    */
   const generateKaraoke = async (song: Song): Promise<{ segments: SongSegment[], soundcloudPermalink: string, songDuration: number } | null> => {
     if (!pkpAuthContext) {
@@ -32,7 +54,7 @@ export function useKaraokeGeneration() {
     setError(null)
 
     try {
-      console.log('[KaraokeGen] Executing Match and Segment for:', song.geniusId)
+      console.log('[KaraokeGen] Executing Match and Segment v6 (fast) for:', song.geniusId)
       console.log('[KaraokeGen] Using PKP auth context (zero signatures required)')
 
       const result: MatchSegmentResult = await executeMatchAndSegment(song.geniusId, pkpAuthContext)
@@ -155,6 +177,153 @@ export function useKaraokeGeneration() {
   }
 
   /**
+   * Generate base alignment for a song (if not already done)
+   * Called after unlock to prepare word timing for karaoke
+   * Uses runOnce() to prevent duplicate processing
+   */
+  const generateBaseAlignment = async (song: Song): Promise<boolean> => {
+    if (!pkpAuthContext) {
+      setError('PKP auth context not ready')
+      return false
+    }
+
+    setIsAligning(true)
+    setError(null)
+
+    try {
+      console.log('[KaraokeGen] Checking base alignment for:', song.geniusId)
+
+      // Check if base alignment already exists in contract
+      const songData = await publicClient.readContract({
+        address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+        abi: KARAOKE_CATALOG_ABI,
+        functionName: 'getSongByGeniusId',
+        args: [song.geniusId],
+      }) as any
+
+      if (songData.metadataUri && songData.metadataUri !== '') {
+        console.log('[KaraokeGen] Base alignment already exists:', songData.metadataUri)
+        return true
+      }
+
+      console.log('[KaraokeGen] Base alignment not found, generating...')
+
+      // Fetch plain lyrics from LRClib
+      const lrcResp = await fetch(
+        'https://lrclib.net/api/search?' +
+        new URLSearchParams({
+          artist_name: song.artist,
+          track_name: song.title
+        })
+      )
+
+      const lrcResults = await lrcResp.json()
+      if (!lrcResults || lrcResults.length === 0) {
+        throw new Error('No lyrics found on LRClib')
+      }
+
+      const lrcData = lrcResults[0]
+      const syncedLyrics = lrcData.syncedLyrics
+
+      // Parse synced lyrics to extract plain text
+      const lines = syncedLyrics.split('\n').filter((l: string) => l.trim())
+      const plainLyrics = lines
+        .map((line: string) => {
+          const match = line.match(/\[[\d:.]+\]\s*(.+)/)
+          return match ? match[1] : ''
+        })
+        .filter((l: string) => l)
+        .join('\n')
+
+      if (!song.soundcloudPermalink) {
+        throw new Error('SoundCloud permalink required for base alignment')
+      }
+
+      console.log('[KaraokeGen] Triggering base alignment...')
+      console.log('[KaraokeGen] Lyrics lines:', plainLyrics.split('\n').length)
+
+      const result: BaseAlignmentResult = await executeBaseAlignment(
+        song.geniusId,
+        song.soundcloudPermalink,
+        plainLyrics,
+        pkpAuthContext
+      )
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate base alignment')
+      }
+
+      console.log('[KaraokeGen] Base alignment completed')
+      console.log('[KaraokeGen] Metadata URI:', result.metadataUri)
+      console.log('[KaraokeGen] Word count:', result.wordCount)
+
+      return true
+    } catch (err) {
+      console.error('[KaraokeGen] Base alignment failed:', err)
+      setError(err instanceof Error ? err.message : 'Base alignment failed')
+      return false
+    } finally {
+      setIsAligning(false)
+    }
+  }
+
+  /**
+   * Generate translation for a song (if not already done)
+   * Called before recording to prepare translated lyrics
+   * Uses runOnce() to prevent duplicate processing
+   */
+  const generateTranslation = async (song: Song, targetLanguage: string): Promise<boolean> => {
+    if (!pkpAuthContext) {
+      setError('PKP auth context not ready')
+      return false
+    }
+
+    setIsTranslating(true)
+    setError(null)
+
+    try {
+      console.log('[KaraokeGen] Checking translation for:', song.geniusId, targetLanguage)
+
+      // Check if translation already exists in contract
+      const hasTranslation = await publicClient.readContract({
+        address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+        abi: KARAOKE_CATALOG_ABI,
+        functionName: 'hasTranslation',
+        args: [song.geniusId, targetLanguage],
+      }) as boolean
+
+      if (hasTranslation) {
+        console.log('[KaraokeGen] Translation already exists for:', targetLanguage)
+        return true
+      }
+
+      console.log('[KaraokeGen] Translation not found, generating...')
+
+      const result: TranslateResult = await executeTranslate(
+        song.geniusId,
+        targetLanguage,
+        pkpAuthContext
+      )
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate translation')
+      }
+
+      console.log('[KaraokeGen] Translation completed')
+      console.log('[KaraokeGen] Translation URI:', result.translationUri)
+      console.log('[KaraokeGen] Line count:', result.lineCount)
+
+      return true
+    } catch (err) {
+      console.error('[KaraokeGen] Translation failed:', err)
+      setError(err instanceof Error ? err.message : 'Translation failed')
+      return false
+    } finally {
+      setIsTranslating(false)
+    }
+  }
+
+  /**
    * Grade performance (placeholder - will use Lit Action in future)
    * For now, returns mock grade
    */
@@ -199,11 +368,15 @@ export function useKaraokeGeneration() {
   return {
     isGenerating,
     isProcessing,
+    isAligning,
+    isTranslating,
     isGrading,
     error,
     currentJobId,
     generateKaraoke,
     processAudio,
+    generateBaseAlignment,
+    generateTranslation,
     gradePerformance,
   }
 }
