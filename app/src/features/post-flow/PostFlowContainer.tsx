@@ -6,7 +6,6 @@
 import { usePostFlow } from './hooks/usePostFlow'
 import {
   SongSelectStep,
-  SegmentPickerStep,
   PurchaseCreditsStep,
   RecordingStep,
   GradingStep,
@@ -30,12 +29,9 @@ export function PostFlowContainer({ open, onClose }: PostFlowContainerProps) {
     case 'SONG_SELECT':
       return <SongSelectStep flow={flow} />
 
-    case 'SEGMENT_PICKER':
-      return <SegmentPickerStep flow={flow} />
-
     case 'GENERATE_KARAOKE':
-      // Generation is now handled inline in SegmentPickerStep with loading state
-      return <SegmentPickerStep flow={flow} />
+      // Generation is now handled by redirecting to song page
+      return <SongSelectStep flow={flow} />
 
     case 'PURCHASE_CREDITS':
       return <PurchaseCreditsStep flow={flow} />

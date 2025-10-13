@@ -90,7 +90,7 @@ function AppRouter() {
       <AppLayout
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        isConnected={isPKPReady}
+        isConnected={isPKPReady && !!pkpAddress}
         walletAddress={pkpAddress || undefined}
         onConnectWallet={() => setShowAuthDialog(true)}
         onDisconnect={logout}

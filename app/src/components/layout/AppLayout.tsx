@@ -41,7 +41,7 @@ export function AppLayout({
       />
 
       {/* Main content area */}
-      <div className="md:pl-64">
+      <div className="md:pl-80">
         {/* Content with bottom padding for mobile footer (unless hidden) */}
         <div className={hideMobileFooter ? "" : "pb-16 md:pb-0"}>
           {children}

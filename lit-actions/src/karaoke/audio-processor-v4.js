@@ -36,7 +36,6 @@ const go = async () => {
       geniusId,
       sectionIndex,
       sections,
-      soundcloudPermalink,
       userAddress,
       songDuration
     } = jsParams || {};
@@ -60,12 +59,26 @@ const go = async () => {
     if (!sectionIndex || sectionIndex < 1 || sectionIndex > sections.length) {
       throw new Error(`Invalid section index ${sectionIndex}. Must be 1-${sections.length}`);
     }
-    if (!soundcloudPermalink) {
-      throw new Error('soundcloudPermalink is required');
-    }
     if (!songDuration) {
       throw new Error('songDuration is required (from LRClib)');
     }
+
+    // Step 0: Read soundcloudPath from contract
+    console.log('[Audio Processor v4 - Step 0] Reading soundcloudPath from contract...');
+    const catalogContract = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // Base Sepolia
+    const baseSepoliaRpc = 'https://sepolia.base.org';
+    const provider = new ethers.JsonRpcProvider(baseSepoliaRpc);
+    const catalogAbi = [
+      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    ];
+    const catalog = new ethers.Contract(catalogContract, catalogAbi, provider);
+    const songData = await catalog.getSongByGeniusId(geniusId);
+
+    const soundcloudPath = songData.soundcloudPath;
+    if (!soundcloudPath) {
+      throw new Error('Song has no soundcloudPath in contract. Cannot download audio.');
+    }
+    console.log(`✅ SoundCloud path from contract: ${soundcloudPath}`);
 
     const selectedSection = sections[sectionIndex - 1];
 
@@ -112,17 +125,8 @@ const go = async () => {
 
     const pipelineStartTime = Date.now();
 
-    // Extract permalink from full URL if needed
-    // Input: "https://soundcloud.com/siamusic/sia-chandelier" OR "siamusic/sia-chandelier"
-    // Output: "siamusic/sia-chandelier"
-    let permalink = soundcloudPermalink;
-    if (soundcloudPermalink.startsWith('http')) {
-      const url = new URL(soundcloudPermalink);
-      permalink = url.pathname.substring(1); // Remove leading slash
-    }
-
-    // Construct audio URL
-    const audioUrl = `https://sc.maid.zone/_/restream/${permalink}`;
+    // Construct audio URL using soundcloudPath from contract
+    const audioUrl = `https://sc.maid.zone/_/restream/${soundcloudPath}`;
     console.log(`[Audio Processor v4] Audio URL: ${audioUrl}`);
 
     // Build segments array for Demucs (ALL segments, not just selected one)

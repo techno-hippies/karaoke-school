@@ -22,94 +22,91 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onDisconnect
 }) => {
   return (
-    <div className="max-md:hidden fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-border z-50">
+    <div className="max-md:hidden fixed left-0 top-0 h-full w-80 bg-sidebar border-r border-border z-50">
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="p-6 px-8">
-          <h1 className="text-foreground font-bold text-2xl">KSchool</h1>
+          <h1 className="text-foreground font-bold text-3xl">KSchool</h1>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1">
+        <nav className="flex-1 px-6 space-y-2">
           <Button
             onClick={() => onTabChange('home')}
             variant="ghost"
-            className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
               activeTab === 'home'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <House className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Home</span>
+            <House className="w-7 h-7 flex-shrink-0" />
+            <span className="text-xl">Home</span>
           </Button>
 
           <Button
             onClick={() => onTabChange('study')}
             variant="ghost"
-            className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
               activeTab === 'study'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <Exam className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Class</span>
+            <Exam className="w-7 h-7 flex-shrink-0" />
+            <span className="text-xl">Class</span>
           </Button>
 
           <Button
-            onClick={() => {
-              onTabChange('post')
-              onCreatePost()
-            }}
+            onClick={() => onTabChange('post')}
             variant="ghost"
-            className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
               activeTab === 'post'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <MicrophoneStage className="w-6 h-6 flex-shrink-0" weight="duotone" />
-            <span className="text-lg">Karaoke</span>
+            <MicrophoneStage className="w-7 h-7 flex-shrink-0" weight="duotone" />
+            <span className="text-xl">Karaoke</span>
           </Button>
 
           <Button
             onClick={() => onTabChange('wallet')}
             variant="ghost"
-            className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
               activeTab === 'wallet'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <Wallet className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Wallet</span>
+            <Wallet className="w-7 h-7 flex-shrink-0" />
+            <span className="text-xl">Wallet</span>
           </Button>
 
           <Button
             onClick={() => onTabChange('profile')}
             variant="ghost"
-            className={`w-full justify-start gap-4 px-4 py-3 h-auto ${
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
               activeTab === 'profile'
                 ? 'bg-secondary text-foreground'
                 : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
             }`}
           >
-            <User className="w-6 h-6 flex-shrink-0" />
-            <span className="text-lg">Profile</span>
+            <User className="w-7 h-7 flex-shrink-0" />
+            <span className="text-xl">Profile</span>
           </Button>
         </nav>
 
         {/* Auth section */}
-        <div className="p-4 border-t border-border">
+        <div className="p-6 border-t border-border">
           {isConnected && walletAddress ? (
             <Button
               onClick={() => onTabChange('profile')}
               variant="ghost"
-              className="w-full justify-start gap-3 hover:bg-secondary p-2 h-auto"
+              className="w-full justify-start gap-3 hover:bg-secondary p-3 h-auto min-h-[64px]"
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex-shrink-0" />
-              <p className="text-foreground text-base font-medium truncate">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex-shrink-0" />
+              <p className="text-foreground text-lg font-medium truncate flex-1">
                 {walletAddress.length > 15
                   ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
                   : walletAddress
@@ -120,7 +117,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <Button
               onClick={onConnectWallet}
               variant="default"
-              className="w-full"
+              className="w-full min-h-[64px] text-lg"
             >
               Connect
             </Button>

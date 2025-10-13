@@ -47,9 +47,26 @@ export async function executeTranslate(
 
     const response: TranslateResult = JSON.parse(result.response)
 
-    if (IS_DEV && response.success) {
-      console.log(`[Translate] Generated translation for song ${geniusId}`,
-        `(language: ${targetLanguage}, ${response.lineCount} lines)`)
+    if (IS_DEV) {
+      if (response.success) {
+        console.log(`[Translate] ✅ Success:`, {
+          geniusId,
+          targetLanguage,
+          lineCount: response.lineCount,
+          translationUri: response.translationUri,
+          txHash: response.txHash,
+          contractError: response.contractError
+        })
+
+        if (!response.txHash) {
+          console.warn('[Translate] ⚠️ No transaction hash - contract not updated!')
+        }
+        if (response.contractError) {
+          console.error('[Translate] ❌ Contract update failed:', response.contractError)
+        }
+      } else {
+        console.error('[Translate] ❌ Failed:', response.error)
+      }
     }
 
     return response

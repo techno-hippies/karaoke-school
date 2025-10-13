@@ -129,7 +129,7 @@ export const WithSearchButton: Story = {
   render: () => (
     <div className="w-80">
       <InputGroup>
-        <InputGroupInput placeholder="Type to search..." />
+        <InputGroupInput placeholder="Search songs..." />
         <InputGroupAddon align="inline-end">
           <InputGroupButton variant="secondary">Search</InputGroupButton>
         </InputGroupAddon>

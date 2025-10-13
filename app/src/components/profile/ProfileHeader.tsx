@@ -47,7 +47,7 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   return (
     <div className={cn(
-      'w-full bg-neutral-900 text-foreground px-4 md:px-6 py-4 md:py-6',
+      'w-full text-foreground px-4 md:px-6 py-4 md:py-6',
       className
     )}>
       {/* Single responsive layout - flex-col on mobile, flex-row on desktop */}
@@ -57,7 +57,7 @@ export function ProfileHeader({
         <ProfileAvatar
           src={avatarUrl}
           alt={displayName || username}
-          size="lg"
+          size="xl"
         />
 
         {/* Info, Stats, Actions - centered on mobile, left-aligned on desktop */}

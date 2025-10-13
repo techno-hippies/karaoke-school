@@ -13,6 +13,10 @@ export interface SongMetadata {
   title: string
   artist: string
   soundcloudPermalink?: string
+  youtubeUrl?: string
+  spotifyUuid?: string
+  appleMusicId?: string
+  appleMusicPlayerUrl?: string
 }
 
 /**
@@ -38,6 +42,27 @@ function createLyricsSlug(artist: string, title: string): string {
  */
 export function buildExternalSongLinks(song: SongMetadata): ExternalLink[] {
   const links: ExternalLink[] = []
+
+  if (song.youtubeUrl) {
+    links.push({
+      label: 'YouTube',
+      url: song.youtubeUrl
+    })
+  }
+
+  if (song.spotifyUuid) {
+    links.push({
+      label: 'Spotify',
+      url: `https://open.spotify.com/track/${song.spotifyUuid}`
+    })
+  }
+
+  if (song.appleMusicId || song.appleMusicPlayerUrl) {
+    links.push({
+      label: 'Apple Music',
+      url: song.appleMusicPlayerUrl || `https://music.apple.com/us/album/${song.appleMusicId}`
+    })
+  }
 
   if (song.soundcloudPermalink) {
     links.push({

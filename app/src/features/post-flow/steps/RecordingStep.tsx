@@ -56,7 +56,7 @@ export function RecordingStep({ flow }: RecordingStepProps) {
       segmentEndTime={selectedSegment.endTime}
       karaokeLines={selectedSong.segments?.find(s => s.id === selectedSegment.id)?.karaokeLines}
       onRecordingComplete={handleRecordingComplete}
-      onClose={() => flow.goToSegmentPicker(selectedSong)}
+      onClose={() => flow.goToSongSelect()}
       onSelectSong={() => flow.goToSongSelect()}
     />
   )

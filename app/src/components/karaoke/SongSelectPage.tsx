@@ -111,14 +111,14 @@ export function SongSelectPage({
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
           <div className="w-12" />
-          <h1 className="text-center font-semibold text-base text-foreground flex-1">
+          <h1 className="text-center font-semibold text-base md:text-xl text-foreground flex-1">
             Select a song
           </h1>
           <div className="w-12" />
         </div>
 
         {/* Content area */}
-        <div className="flex-1 flex flex-col min-h-0 p-4 max-w-2xl mx-auto w-full">
+        <div className="flex-1 flex flex-col min-h-0 p-4 max-w-6xl mx-auto w-full">
           <Tabs defaultValue="trending" className="flex-1 flex flex-col min-h-0">
             {/* Tabs */}
             <TabsList className="w-full flex-shrink-0">
@@ -148,7 +148,6 @@ export function SongSelectPage({
                   ) : hasSearched ? (
                     <InputGroupButton
                       variant="ghost"
-                      size="sm"
                       onClick={handleClearSearch}
                     >
                       <X className="w-4 h-4 mr-1" />
@@ -157,7 +156,6 @@ export function SongSelectPage({
                   ) : (
                     <InputGroupButton
                       variant="secondary"
-                      size="sm"
                       onClick={handleSearch}
                       disabled={!searchQuery.trim()}
                     >
@@ -189,7 +187,7 @@ export function SongSelectPage({
                     ))
                   ) : (
                     <div className="flex items-center justify-center py-12">
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-sm md:text-base">
                         {hasSearched ? 'No songs found' : searchQuery ? 'No songs found' : 'No songs available'}
                       </p>
                     </div>
@@ -215,7 +213,7 @@ export function SongSelectPage({
                     ))
                   ) : (
                     <div className="flex items-center justify-center py-12">
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-sm md:text-base">
                         {searchQuery ? 'No songs found' : 'No songs available'}
                       </p>
                     </div>

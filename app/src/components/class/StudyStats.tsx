@@ -25,7 +25,7 @@ export function StudyStats({
           <div className="text-xl md:text-2xl font-bold text-neutral-300">
             {newCount}
           </div>
-          <div className="text-neutral-500 text-base font-medium mt-1">
+          <div className="text-neutral-500 text-base md:text-lg font-medium mt-1">
             New
           </div>
         </div>
@@ -37,7 +37,7 @@ export function StudyStats({
           <div className="text-xl md:text-2xl font-bold text-neutral-300">
             {learningCount}
           </div>
-          <div className="text-neutral-500 text-base font-medium mt-1">
+          <div className="text-neutral-500 text-base md:text-lg font-medium mt-1">
             Learning
           </div>
         </div>
@@ -54,7 +54,7 @@ export function StudyStats({
           >
             {dueCount}
           </div>
-          <div className="text-neutral-500 text-base font-medium mt-1">
+          <div className="text-neutral-500 text-base md:text-lg font-medium mt-1">
             Due
           </div>
         </div>

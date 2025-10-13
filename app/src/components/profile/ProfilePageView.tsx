@@ -2,13 +2,10 @@ import { useState } from 'react'
 import { SignOut } from '@phosphor-icons/react'
 import { ProfileHeader } from './ProfileHeader'
 import { VideoGrid, type Video } from './VideoGrid'
-import { DesktopSidebar } from '../navigation/DesktopSidebar'
-import { MobileFooter } from '../navigation/MobileFooter'
 import { BackButton } from '@/components/ui/back-button'
 import { SubscriptionDialog } from './SubscriptionDialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Leaderboard, type LeaderboardEntry } from '@/components/class/Leaderboard'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 export interface ProfilePageViewProps {
   // Profile data
@@ -84,36 +81,23 @@ export function ProfilePageView({
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
 
   return (
-    <div className="h-screen bg-neutral-900">
-      {/* Desktop Sidebar - fixed, removed from flow */}
-      <DesktopSidebar
-        activeTab={activeTab}
-        onTabChange={onDesktopTabChange}
-        onCreatePost={() => console.log('Create post')}
-        isConnected={isConnected}
-        walletAddress={walletAddress}
-        onConnectWallet={onConnectWallet}
-        onDisconnect={onDisconnect}
-      />
+    <>
+      {/* Desktop Logout - top right */}
+      {isConnected && profile.isOwnProfile && (
+        <div className="hidden md:block absolute top-4 right-4 z-50">
+          <button
+            onClick={onDisconnect}
+            className="p-2 hover:bg-neutral-800 rounded-full transition-colors"
+          >
+            <SignOut className="h-5 w-5 text-neutral-400" />
+          </button>
+        </div>
+      )}
 
-      {/* Main Content - margin pushes content right of fixed sidebar */}
-      <ScrollArea className="h-full md:ml-64">
-        <div className="min-h-screen bg-neutral-900 pb-20 md:pb-0">
-
-          {/* Desktop Logout - top right */}
-          {isConnected && profile.isOwnProfile && (
-            <div className="hidden md:block absolute top-4 right-4 z-50">
-              <button
-                onClick={onDisconnect}
-                className="p-2 hover:bg-neutral-800 rounded-full transition-colors"
-              >
-                <SignOut className="h-5 w-5 text-neutral-400" />
-              </button>
-            </div>
-          )}
-
-          {/* Mobile Header */}
-          <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-neutral-800">
+      {/* Container for profile content */}
+      <div className="max-w-6xl mx-auto">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
             {/* Left: Back button or spacer */}
             {!profile.isOwnProfile ? (
               <BackButton onClick={onNavigateHome} />
@@ -187,15 +171,6 @@ export function ProfilePageView({
             </Tabs>
           </div>
         </div>
-      </ScrollArea>
-
-      {/* Mobile Footer - only for own profile */}
-      {profile.isOwnProfile && (
-        <MobileFooter
-          activeTab={mobileTab}
-          onTabChange={onMobileTabChange}
-        />
-      )}
 
       {/* Subscription Dialog */}
       <SubscriptionDialog
@@ -208,6 +183,6 @@ export function ProfilePageView({
           setSubscriptionDialogOpen(false)
         }}
       />
-    </div>
+    </>
   )
 }

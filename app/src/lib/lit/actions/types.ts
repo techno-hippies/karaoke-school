@@ -59,6 +59,7 @@ export interface SongMetadataResult {
 
 /**
  * Match and Segment Result
+ * V7 includes soundcloudPath and hasFullAudio checks
  * V6 returns sections WITHOUT alignment (fast ~5-10s)
  * V5 returned sections WITH alignment (slow ~30-60s) - deprecated
  */
@@ -69,7 +70,9 @@ export interface MatchSegmentResult {
     title: string
     album: string
     soundcloudPermalink: string
+    soundcloudPath: string
   }
+  hasFullAudio?: boolean
   lrclib?: {
     artist: string
     title: string

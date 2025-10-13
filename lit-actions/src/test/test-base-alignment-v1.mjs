@@ -39,7 +39,7 @@ const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 const TEST_SONG = {
   geniusId: 378195,
   name: 'Sia - Chandelier',
-  soundcloudPermalink: 'https://soundcloud.com/sia/chandelier',
+  soundcloudPermalink: 'https://soundcloud.com/siamusic/sia-chandelier',
   notes: 'Has SoundCloud link + synced lyrics'
 };
 
@@ -47,7 +47,7 @@ const TEST_SONG = {
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v5.json');
 
 // Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0x17D3BB01ACe342Fa85A5B9a439feEa65e2f1D726'; // Base Sepolia (V2 with translations)
+const KARAOKE_CATALOG_ADDRESS = '0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa'; // Base Sepolia (CURRENT)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
@@ -239,7 +239,7 @@ async function main() {
     const startTime = Date.now();
 
     // Use IPFS CID for production
-    const BASE_ALIGNMENT_V1_CID = 'QmSDMGX4dVEsWrxUXgYHMEkxG3cwJKFHT51vm7JQS3yUJs';
+    const BASE_ALIGNMENT_V1_CID = 'QmT7pEXV4gsxRFa9ZEDUqao4YhQr8H9Wfwq9kxP5fKKJgF'; // FINAL WORKING
 
     try {
       const result = await litClient.executeJs({

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Play, MusicNotes, LockKey } from '@phosphor-icons/react'
 import { Leaderboard } from './Leaderboard'
-import { ExternalLinksSheet } from './ExternalLinksSheet'
+import { ExternalLinksDrawer } from './ExternalLinksDrawer'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/ui/back-button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Item,
   ItemContent,
@@ -51,10 +52,14 @@ export interface SongPageProps {
   isGenerating?: boolean
   generatingProgress?: number // 0-100
   isFree?: boolean // Is this a free song (no credits required)?
-  isUnlocking?: boolean
+  isUnlocking?: boolean // Cataloging in progress (match-and-segment)
+  isProcessing?: boolean // Paid processing in progress (audio/alignment/translation)
   onAuthRequired?: () => void // Called when user needs to authenticate
   isAuthenticated?: boolean
   className?: string
+  // Cataloging
+  catalogError?: string | null
+  hasFullAudio?: boolean | null // true = full audio, false = 30s snippet only, null = not yet checked
 }
 
 // Song detail page with stats, leaderboard, and study/karaoke actions
@@ -76,9 +81,12 @@ export function SongPage({
   generatingProgress = 0,
   isFree = false,
   isUnlocking = false,
+  isProcessing = false,
   onAuthRequired,
   isAuthenticated = false,
   className,
+  catalogError,
+  hasFullAudio,
 }: SongPageProps) {
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
 
@@ -109,21 +117,24 @@ export function SongPage({
   }
 
   // Check if unlock button should be shown
-  // Show unlock button if not free AND either:
-  // - segments is empty (unprocessed song)
-  // - OR segments has at least one unowned segment
-  const showUnlockButton = !isFree && (segments.length === 0 || segments.some(seg => !seg.isOwned))
+  // Show button if:
+  // 1. No segments yet (not cataloged)
+  // 2. OR segments exist but not processed (no audioUrl) - cataloged but not unlocked
+  const hasUnprocessedSegments = segments.length > 0 && segments.every(seg => !seg.audioUrl)
+  const showUnlockButton = segments.length === 0 || hasUnprocessedSegments
 
   console.log('[SongPage] Unlock button logic:', {
     isFree,
     segmentsLength: segments.length,
-    hasUnownedSegments: segments.some(seg => !seg.isOwned),
-    showUnlockButton
+    hasUnprocessedSegments,
+    showUnlockButton,
+    isUnlocking,
+    isProcessing
   })
 
   return (
     <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-2xl">
+      <div className="relative w-full h-full md:max-w-6xl">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-16 px-4">
@@ -151,10 +162,10 @@ export function SongPage({
           <div className="absolute bottom-0 left-0 right-0 p-6">
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h1 className="text-foreground text-2xl font-bold mb-1">
+                <h1 className="text-foreground text-2xl md:text-4xl font-bold mb-1">
                   {songTitle}
                 </h1>
-                <p className="text-muted-foreground text-base">
+                <p className="text-muted-foreground text-base md:text-xl">
                   {artist}
                 </p>
               </div>
@@ -188,6 +199,34 @@ export function SongPage({
           </div>
         )}
 
+        {/* Warning: 30-second snippet only */}
+        {hasFullAudio === false && (
+          <div className="mx-4 mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="text-yellow-500 mt-0.5">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-yellow-500 font-semibold mb-1">Limited Audio Available</h3>
+                <p className="text-muted-foreground text-sm">
+                  This song only has a 30-second preview. Karaoke generation may be limited in quality.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error: Cataloging failed */}
+        {catalogError && (
+          <div className="mx-4 mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="text-destructive mt-0.5">❌</div>
+              <div className="flex-1">
+                <h3 className="text-destructive font-semibold mb-1">Catalog Failed</h3>
+                <p className="text-muted-foreground text-sm">{catalogError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="px-4 mt-4 space-y-4 pb-8">
           {/* Tabs: Segments | Leaderboard */}
           <Tabs defaultValue="clips" className="w-full">
@@ -197,15 +236,19 @@ export function SongPage({
             </TabsList>
 
             <TabsContent value="clips" className="mt-4">
-              {showUnlockButton ? (
-                // Locked state - show lock icon and message (for unprocessed or locked songs)
-                <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                  <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                    <LockKey className="w-10 h-10 text-muted-foreground" weight="duotone" />
-                  </div>
-                  <p className="text-muted-foreground text-base">
-                    Once unlocked, anyone can karaoke to the song.
-                  </p>
+              {isUnlocking || (showUnlockButton && segments.length === 0) ? (
+                // Cataloging state OR waiting for segments to load - show skeleton
+                <div className="space-y-4">
+                  <ScrollArea className="max-h-[50vh]">
+                    <div className="space-y-1">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="px-4 py-3 space-y-2">
+                          <Skeleton className="h-5 w-24" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
               ) : segments.length > 0 ? (
                 // Unlocked state - show segment list
@@ -248,23 +291,23 @@ export function SongPage({
       </ScrollArea>
 
       {/* Sticky Footer with Unlock Button */}
-      {showUnlockButton && (
+      {showUnlockButton && !isUnlocking && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
           <Button
             size="lg"
             variant="default"
             onClick={handleUnlockAction}
             className="w-full"
-            disabled={isGenerating || isUnlocking}
+            disabled={isGenerating || isProcessing}
           >
-            {isUnlocking && <Spinner size="sm" />}
-            {isUnlocking ? 'Unlocking...' : 'Unlock (1 credit)'}
+            {isProcessing && <Spinner size="sm" />}
+            {isProcessing ? 'Processing...' : 'Unlock (1 credit)'}
           </Button>
         </div>
       )}
 
-      {/* External Links Sheet */}
-      <ExternalLinksSheet
+      {/* External Links Drawer */}
+      <ExternalLinksDrawer
         open={isExternalSheetOpen}
         onOpenChange={setIsExternalSheetOpen}
         songLinks={externalSongLinks}

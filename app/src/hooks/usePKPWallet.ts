@@ -1,7 +1,6 @@
 /**
  * PKP Wallet Hook
  * React hook for PKP wallet management
- * Drop-in replacement for useParticleWallet
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react'

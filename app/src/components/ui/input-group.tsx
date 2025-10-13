@@ -14,7 +14,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       role="group"
       className={cn(
         "group/input-group border-input bg-background dark:bg-input/30 relative flex w-full items-center rounded-md border transition-colors outline-none",
-        "h-11",
+        "h-11 md:h-12",
 
         // Variants based on alignment.
         "has-[>[data-align=inline-start]]:[&>input]:pl-2",
@@ -43,7 +43,7 @@ const inputGroupAddonVariants = cva(
         "inline-start":
           "order-first pl-3 has-[>button]:ml-[-0.45rem] has-[>kbd]:ml-[-0.35rem]",
         "inline-end":
-          "order-last pr-3 has-[>button]:mr-[-0.45rem] has-[>kbd]:mr-[-0.35rem]",
+          "order-last pr-3 has-[>button]:mr-[-0.5rem] has-[>kbd]:mr-[-0.35rem]",
         "block-start":
           "order-first w-full justify-start px-3 pt-3 [.border-b]:pb-3 group-has-[>input]/input-group:pt-2.5",
         "block-end":
@@ -79,19 +79,21 @@ function InputGroupAddon({
 }
 
 const inputGroupButtonVariants = cva(
-  "text-sm shadow-none flex gap-2 items-center",
+  "text-base shadow-none flex gap-2 items-center md:text-sm",
   {
     variants: {
       size: {
-        xs: "h-6 gap-1 px-2 rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
-        sm: "h-8 px-2.5 gap-1.5 rounded-md has-[>svg]:px-2.5",
+        xs: "h-6 gap-1 px-2 rounded-[calc(var(--radius)-5px)] text-sm [&>svg:not([class*='size-'])]:size-3.5 has-[>svg]:px-2",
+        sm: "h-8 px-2.5 gap-1.5 rounded-md text-sm has-[>svg]:px-2.5",
+        default: "h-9 md:h-10 px-3 rounded-md [&>svg:not([class*='size-'])]:size-4",
         "icon-xs":
           "size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0",
         "icon-sm": "size-8 p-0 has-[>svg]:p-0",
+        icon: "size-9 md:size-10 p-0 has-[>svg]:p-0",
       },
     },
     defaultVariants: {
-      size: "xs",
+      size: "default",
     },
   }
 )
@@ -100,7 +102,7 @@ function InputGroupButton({
   className,
   type = "button",
   variant = "ghost",
-  size = "xs",
+  size = "default",
   ...props
 }: Omit<React.ComponentProps<typeof Button>, "size"> &
   VariantProps<typeof inputGroupButtonVariants>) {

@@ -50,24 +50,6 @@ export function usePostFlow(onComplete: () => void) {
     setState('SONG_SELECT')
   }, [])
 
-  /**
-   * Navigation: Segment Picker
-   * For processed songs, segments are loaded on-demand via match-and-segment-v6
-   */
-  const goToSegmentPicker = useCallback(async (song: Song) => {
-    // If segments already loaded, go directly to picker
-    if (song.segments && song.segments.length > 0) {
-      updateData({ selectedSong: song })
-      setState('SEGMENT_PICKER')
-      return
-    }
-
-    // For processed songs without segments loaded, run match-and-segment-v6 to populate
-    // This is fast (~5s) since song already exists in contract - just returns segments
-    console.log('[PostFlow] Processed song missing segments, loading via match-and-segment-v6')
-    updateData({ selectedSong: song })
-    setState('GENERATE_KARAOKE')
-  }, [updateData])
 
   /**
    * Navigation: Generate Karaoke (cold start)
@@ -156,9 +138,10 @@ export function usePostFlow(onComplete: () => void) {
       searchResults: updatedSearchResults,
     })
 
-    // Auto-advance to segment picker
-    goToSegmentPicker(updatedSong)
-  }, [karaokeHook, updateData, goToSegmentPicker, data.searchResults])
+    // Song is now processed - stay on search page
+    // User will click song to navigate to song page
+    goToSongSelect()
+  }, [karaokeHook, updateData, goToSongSelect, data.searchResults])
 
   /**
    * Action: Purchase Credits
@@ -277,7 +260,6 @@ export function usePostFlow(onComplete: () => void) {
 
     // Navigation
     goToSongSelect,
-    goToSegmentPicker,
     goToGenerateKaraoke,
     goToPurchaseCredits,
     goToRecording,
