@@ -53,7 +53,7 @@ const TEST_SONG = {
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v8.json');
 
 // Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // Base Sepolia V2
+const KARAOKE_CATALOG_ADDRESS = '0x420Fd6e49Cb672cfbe9649B556807E6b0BafA341'; // Base Sepolia V2
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
@@ -81,7 +81,7 @@ async function verifySongInContract(geniusId) {
   const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
   const catalogAbi = [
     'function songExistsByGeniusId(uint32) view returns (bool)',
-    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, string sectionsUri, string alignmentUri, bool enabled, uint64 addedAt))'
   ];
   const catalog = new ethers.Contract(KARAOKE_CATALOG_ADDRESS, catalogAbi, provider);
 
