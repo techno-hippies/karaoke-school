@@ -41,9 +41,10 @@ export interface UseUnlockSongOptions {
   pkpAuthContext: PKPAuthContext | null
   pkpInfo: any | null
   isFree?: boolean
+  isOwned?: boolean
 }
 
-export function useUnlockSong({ geniusId, pkpAuthContext, pkpInfo, isFree }: UseUnlockSongOptions) {
+export function useUnlockSong({ geniusId, pkpAuthContext, pkpInfo, isFree, isOwned }: UseUnlockSongOptions) {
   const { credits, loadCredits } = useCredits()
   const [isUnlocking, setIsUnlocking] = useState(false)
   const [unlockError, setUnlockError] = useState<string | null>(null)
@@ -71,50 +72,45 @@ export function useUnlockSong({ geniusId, pkpAuthContext, pkpInfo, isFree }: Use
     setUnlockError(null)
 
     try {
-      // 1. Wait for contract indexing (if song was just cataloged)
-      // Base Sepolia needs time to index new catalog entries before unlock can be called
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      let txHash: string | undefined
+      let creditsSpent = 0
+      let remainingBalance = credits
 
-      // 2. Unlock song in contract (will throw InsufficientCreditsError if no credits)
-      console.log('[useUnlockSong] Unlocking song in contract...', { geniusId })
-      const { unlockSong: unlockSongInContract } = await import('@/lib/credits/spend')
-      const unlockResult = await unlockSongInContract({
-        geniusId,
-        segmentCount: 1, // 1 credit per song unlock
-        pkpAuthContext,
-        pkpInfo,
-      })
+      // If song is already owned, skip the contract call and just run base-alignment
+      if (!isOwned) {
+        // 1. Wait for contract indexing (if song was just cataloged)
+        // Base Sepolia needs time to index new catalog entries before unlock can be called
+        await new Promise(resolve => setTimeout(resolve, 5000))
 
-      if (!unlockResult.success) {
-        throw new Error(unlockResult.error || 'Failed to unlock song in contract')
-      }
+        // 2. Unlock song in contract (will throw InsufficientCreditsError if no credits)
+        console.log('[useUnlockSong] Unlocking song in contract...', { geniusId })
+        const { unlockSong: unlockSongInContract } = await import('@/lib/credits/spend')
+        const unlockResult = await unlockSongInContract({
+          geniusId,
+          segmentCount: 1, // 1 credit per song unlock
+          pkpAuthContext,
+          pkpInfo,
+        })
 
-      // Check if song was already owned (idempotent case)
-      const wasAlreadyOwned = unlockResult.error === 'Song already unlocked'
-
-      const txHash = unlockResult.txHash
-      const creditsSpent = unlockResult.creditsSpent || 0
-      const remainingBalance = unlockResult.remainingBalance || 0
-
-      if (wasAlreadyOwned) {
-        console.log('[useUnlockSong] ✅ Song already owned, skipping base-alignment')
-        const successResult: UnlockSongResult = {
-          success: true,
-          creditsSpent: 0,
-          remainingBalance,
+        if (!unlockResult.success) {
+          throw new Error(unlockResult.error || 'Failed to unlock song in contract')
         }
-        setResult(successResult)
-        return successResult
+
+        txHash = unlockResult.txHash
+        creditsSpent = unlockResult.creditsSpent || 0
+        remainingBalance = unlockResult.remainingBalance || 0
+
+        console.log('[useUnlockSong] ✅ Credits deducted', {
+          spent: creditsSpent,
+          remaining: remainingBalance,
+          txHash,
+        })
+
+        // Refresh credits context
+        await loadCredits()
+      } else {
+        console.log('[useUnlockSong] Song already owned, running base-alignment only (free retry)')
       }
-
-      console.log('[useUnlockSong] ✅ Credits deducted', {
-        spent: creditsSpent,
-        remaining: remainingBalance,
-        txHash,
-      })
-
-      // Refresh credits context
-      await loadCredits()
 
       // 3. Run base-alignment
       console.log('[useUnlockSong] Running base-alignment...', { geniusId })
@@ -164,7 +160,7 @@ export function useUnlockSong({ geniusId, pkpAuthContext, pkpInfo, isFree }: Use
       // This ensures cache stays in sync with contract state
       await loadCredits()
     }
-  }, [geniusId, pkpAuthContext, pkpInfo, isFree, loadCredits])
+  }, [geniusId, pkpAuthContext, pkpInfo, isFree, isOwned, credits, loadCredits])
 
   return {
     unlockSong,

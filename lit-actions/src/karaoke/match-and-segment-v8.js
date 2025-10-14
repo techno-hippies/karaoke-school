@@ -125,16 +125,23 @@ const go = async () => {
         const audioUrl = `https://sc.maid.zone/_/restream/${soundcloudPath}`;
         const audioResp = await fetch(audioUrl);
         if (audioResp.ok) {
-          const contentLength = parseInt(audioResp.headers.get('content-length') || '0');
-          const fileSizeKB = Math.round(contentLength / 1024);
-          const fileSizeMB = (contentLength / 1024 / 1024).toFixed(2);
+          const contentLengthHeader = audioResp.headers.get('content-length');
 
-          // 30-second clips: ~465KB, Full songs: ~5MB+, Threshold: 600KB
-          hasFullAudio = contentLength >= 600000;
+          if (contentLengthHeader && contentLengthHeader !== '0') {
+            const contentLength = parseInt(contentLengthHeader);
+            const fileSizeKB = Math.round(contentLength / 1024);
+            const fileSizeMB = (contentLength / 1024 / 1024).toFixed(2);
 
-          console.log(`Audio size: ${fileSizeKB}KB (${fileSizeMB}MB) - Full audio: ${hasFullAudio}`);
-          if (!hasFullAudio) {
-            console.log('⚠️  30-second snippet detected - marking hasFullAudio=false');
+            // 30-second clips: ~465KB, Full songs: ~5MB+, Threshold: 600KB
+            hasFullAudio = contentLength >= 600000;
+
+            console.log(`Audio size: ${fileSizeKB}KB (${fileSizeMB}MB) - Full audio: ${hasFullAudio}`);
+            if (!hasFullAudio) {
+              console.log('⚠️  30-second snippet detected - marking hasFullAudio=false');
+            }
+          } else {
+            console.log('⚠️  No Content-Length header, assuming full audio');
+            hasFullAudio = true; // Assume full if header missing
           }
         } else {
           console.log('⚠️  Could not check audio size, assuming full audio');
@@ -451,7 +458,7 @@ Instructions:
           duration: maxDuration,
           soundcloudPath: soundcloudPath,
           hasFullAudio: hasFullAudio,
-          requiresPayment: false, // Free songs for now
+          requiresPayment: true, // Genius songs require unlock (1 credit)
           audioUri: '', // Could be added later
           metadataUri: '', // DEPRECATED: use sectionsUri + alignmentUri
           coverUri: '', // Could be added later

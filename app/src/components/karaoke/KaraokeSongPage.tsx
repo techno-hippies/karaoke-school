@@ -102,6 +102,7 @@ export function KaraokeSongPage() {
     pkpAuthContext: pkpAuthContext || null,
     pkpInfo: pkpInfo || null,
     isFree: displaySong?.isFree || false,
+    isOwned: displaySong?.isOwned || false,
   })
 
   // Credit dialog state
@@ -190,39 +191,23 @@ export function KaraokeSongPage() {
       return
     }
 
-    // Special case: If song is owned but base-alignment hasn't run, just run base-alignment
-    if (displaySong?.isOwned && !songFromContract?.hasBaseAlignment) {
-      console.log('[KaraokeSongPage] Song owned but missing base-alignment, running alignment only...')
-      try {
-        const { executeBaseAlignment } = await import('@/lib/lit/actions')
-        const alignmentResult = await executeBaseAlignment(parseInt(geniusId), pkpAuthContext)
-
-        if (alignmentResult.success) {
-          console.log('[KaraokeSongPage] ✅ Base-alignment complete! Refetching...')
-          setBaseAlignmentComplete(true) // Hide button immediately
-          setTimeout(() => refetch(), 2000)
-        } else {
-          console.error('[KaraokeSongPage] ❌ Base-alignment failed:', alignmentResult.error)
-        }
-      } catch (err) {
-        console.error('[KaraokeSongPage] ❌ Base-alignment error:', err)
+    // Only check credits if song is not already owned (retrying base-alignment is free)
+    if (!displaySong?.isOwned) {
+      console.log('[KaraokeSongPage] Checking credits...', { credits })
+      if (credits < 1) {
+        console.log('[KaraokeSongPage] Insufficient credits, showing dialog')
+        // Load USDC balance
+        const { getUSDCBalance } = await import('@/lib/credits/queries')
+        const balance = await getUSDCBalance(pkpAddress || '')
+        setUsdcBalance(balance)
+        setShowCreditDialog(true)
+        return
       }
-      return
+    } else {
+      console.log('[KaraokeSongPage] Song already owned, retrying base-alignment for free')
     }
 
-    // Check credits BEFORE attempting transaction (better UX)
-    console.log('[KaraokeSongPage] Checking credits...', { credits })
-    if (credits < 1) {
-      console.log('[KaraokeSongPage] Insufficient credits, showing dialog')
-      // Load USDC balance
-      const { getUSDCBalance } = await import('@/lib/credits/queries')
-      const balance = await getUSDCBalance(pkpAddress || '')
-      setUsdcBalance(balance)
-      setShowCreditDialog(true)
-      return
-    }
-
-    // Have credits, proceed with unlock transaction
+    // Proceed with unlock transaction
     try {
       const result = await unlock.unlockSong()
 
