@@ -35,6 +35,13 @@
  * Cost: ~$0.02 (OpenRouter only)
  */
 
+// Hardcoded system PKP credentials (deployed as trustedProcessor on KaraokeCatalogV2)
+const SYSTEM_PKP = {
+  publicKey: '043a5f87717daafe9972ee37154786845a74368d269645685ef51d7ac32c59a20df5340b8adb154b1ac137a8f2c0a6aedbcdbc46448cc545ea7f5233918d324939',
+  address: '0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30',
+  tokenId: '18495970405190900970517221272825216094387884724482470185691150662171839015831'
+};
+
 console.log('=== TRANSLATE LYRICS v1 LOADED ===');
 console.log('Lit Actions API available:', typeof Lit !== 'undefined');
 console.log('ethers available:', typeof ethers !== 'undefined');
@@ -48,9 +55,6 @@ const go = async () => {
     openrouterKeyCiphertext,
     openrouterKeyDataToEncryptHash,
     contractAddress,
-    pkpAddress,
-    pkpTokenId,
-    pkpPublicKey,
     updateContract = true,
   } = jsParams || {};
 
@@ -60,8 +64,8 @@ const go = async () => {
     // Validate required params
     if (!geniusId) throw new Error('geniusId is required');
     if (!targetLanguage) throw new Error('targetLanguage is required');
-    if (!contractAddress || !pkpAddress || !pkpTokenId || !pkpPublicKey) {
-      throw new Error('Contract params (contractAddress, pkpAddress, pkpTokenId, pkpPublicKey) are required');
+    if (!contractAddress) {
+      throw new Error('contractAddress is required');
     }
 
     // Step 1: Read song data from contract (ALL NODES)
@@ -374,7 +378,7 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
 
             // Get gas price and nonce
             const gasPrice = await provider.getGasPrice();
-            const nonce = await provider.getTransactionCount(pkpAddress);
+            const nonce = await provider.getTransactionCount(SYSTEM_PKP.address);
 
             // Build unsigned transaction (no "from" field before serialization)
             const unsignedTx = {
@@ -408,7 +412,7 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
         // Sign the transaction (ALL NODES for threshold signature)
         const signature = await Lit.Actions.signAndCombineEcdsa({
           toSign,
-          publicKey: pkpPublicKey,
+          publicKey: SYSTEM_PKP.publicKey,
           sigName: 'contractUpdateSig',
         });
 

@@ -25,11 +25,28 @@ export const resources = {
   },
 } as const
 
+// Detect browser language
+const getBrowserLanguage = (): string => {
+  const browserLang = navigator.language || navigator.languages?.[0] || 'en'
+  console.log('[i18n] Browser language:', browserLang)
+  // Map browser locale to supported languages
+  if (browserLang.startsWith('zh')) {
+    console.log('[i18n] Detected Chinese, using zh-CN')
+    return 'zh-CN'
+  }
+  if (browserLang.startsWith('vi')) {
+    console.log('[i18n] Detected Vietnamese, using vi')
+    return 'vi'
+  }
+  console.log('[i18n] Using default language: en')
+  return 'en'
+}
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en', // Default language
+    lng: getBrowserLanguage(),
     fallbackLng: 'en',
     defaultNS,
     interpolation: {

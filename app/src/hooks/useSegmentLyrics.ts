@@ -1,9 +1,14 @@
 /**
  * useSegmentLyrics
  * Hook to load word-level lyrics for a specific segment from base-alignment metadata
+ * and merge translations if available
  */
 
 import { useState, useEffect } from 'react'
+import { createPublicClient, http } from 'viem'
+import { baseSepolia } from 'viem/chains'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
+import { KARAOKE_CATALOG_ABI } from '@/config/abis/karaokeCatalog'
 import type { LyricLine } from '@/types/karaoke'
 
 interface BaseAlignmentLine {
@@ -37,15 +42,22 @@ function lensToGroveUrl(lensUri: string): string {
 
 /**
  * Load lyrics for a specific segment from base-alignment metadata
+ * and merge translations if available
  *
  * @param metadataUri - lens:// URI pointing to base-alignment metadata
  * @param segmentStartTime - Segment start time in seconds
  * @param segmentEndTime - Segment end time in seconds
+ * @param geniusId - Genius song ID (for fetching translations)
+ * @param targetLanguage - Target language code (e.g. 'zh', 'vi', 'es')
+ * @param translationVersion - Version number that increments when translations update (forces refetch)
  */
 export function useSegmentLyrics(
   metadataUri: string | undefined,
   segmentStartTime: number | undefined,
-  segmentEndTime: number | undefined
+  segmentEndTime: number | undefined,
+  geniusId?: number,
+  targetLanguage?: string,
+  translationVersion?: number
 ): UseSegmentLyricsResult {
   const [lyrics, setLyrics] = useState<LyricLine[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -104,13 +116,70 @@ export function useSegmentLyrics(
           })
 
           // Transform to expected LyricLine format
-          const segmentLyrics: LyricLine[] = filteredLines.map((line: BaseAlignmentLine, index: number) => ({
+          let segmentLyrics: LyricLine[] = filteredLines.map((line: BaseAlignmentLine, index: number) => ({
             lineIndex: index,
             originalText: line.text,
             start: line.start,
             end: line.end,
             words: line.words || [],
           }))
+
+          // Fetch and merge translations if target language is specified
+          if (geniusId && targetLanguage) {
+            try {
+              console.log('[useSegmentLyrics] Fetching translation for:', { geniusId, targetLanguage })
+
+              const publicClient = createPublicClient({
+                chain: baseSepolia,
+                transport: http(),
+              })
+
+              // Get translation URI from contract
+              const translationUri = await publicClient.readContract({
+                address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+                abi: KARAOKE_CATALOG_ABI,
+                functionName: 'getTranslation',
+                args: [geniusId, targetLanguage],
+              }) as string
+
+              if (translationUri && translationUri !== '') {
+                console.log('[useSegmentLyrics] Found translation URI:', translationUri)
+
+                // Fetch translation data
+                const translationUrl = lensToGroveUrl(translationUri)
+                const translationResp = await fetch(translationUrl)
+                const translationData = await translationResp.json()
+
+                if (translationData.lines && Array.isArray(translationData.lines)) {
+                  console.log('[useSegmentLyrics] Merging translations:', translationData.lines.length, 'lines')
+                  console.log('[useSegmentLyrics] First translation line:', translationData.lines[0])
+                  console.log('[useSegmentLyrics] First segment lyric:', segmentLyrics[0])
+
+                  // Merge translations into lyrics by matching text field
+                  segmentLyrics = segmentLyrics.map(lyric => {
+                    const match = translationData.lines.find((t: any) => t.text === lyric.originalText)
+                    if (match && match.translation) {
+                      return {
+                        ...lyric,
+                        translations: {
+                          [targetLanguage]: match.translation
+                        }
+                      }
+                    }
+                    return lyric
+                  })
+
+                  console.log('[useSegmentLyrics] Merged translations successfully')
+                  console.log('[useSegmentLyrics] First lyric after merge:', segmentLyrics[0])
+                }
+              } else {
+                console.log('[useSegmentLyrics] No translation found for language:', targetLanguage)
+              }
+            } catch (translationErr) {
+              console.warn('[useSegmentLyrics] Failed to fetch translations:', translationErr)
+              // Continue without translations
+            }
+          }
 
           console.log(`[useSegmentLyrics] Loaded ${segmentLyrics.length} lines for segment (${segmentStartTime}s - ${segmentEndTime}s)`)
           setLyrics(segmentLyrics)
@@ -130,7 +199,7 @@ export function useSegmentLyrics(
     }
 
     fetchLyrics()
-  }, [metadataUri, segmentStartTime, segmentEndTime])
+  }, [metadataUri, segmentStartTime, segmentEndTime, geniusId, targetLanguage, translationVersion])
 
   return { lyrics, isLoading, error }
 }

@@ -212,7 +212,7 @@ export function SongPage({
               <div className="flex-1">
                 <h3 className="text-yellow-500 font-semibold mb-1">30-Second Preview Only</h3>
                 <p className="text-muted-foreground text-sm">
-                  This song only has a 30-second preview available and cannot be unlocked for karaoke. Please try a different song with full audio.
+                  Not all segments will be available for karaoke after unlock. This song only has a 30-second preview audio available.
                 </p>
               </div>
             </div>
@@ -311,7 +311,7 @@ export function SongPage({
             variant="default"
             onClick={handleUnlockAction}
             className="w-full"
-            disabled={isGenerating || isProcessing || hasFullAudio === false}
+            disabled={isGenerating || isProcessing}
           >
             {isProcessing && <Spinner size="sm" />}
             {isProcessing
