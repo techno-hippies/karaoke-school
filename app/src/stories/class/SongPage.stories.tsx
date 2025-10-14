@@ -22,12 +22,12 @@ type Story = StoryObj<typeof meta>
 // Free audio sample for demo purposes
 const DEMO_AUDIO_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 
-// Locked segments - no timestamps shown yet
-const lockedSegments: SongSegment[] = [
-  { id: 'verse-1', displayName: 'Verse 1', startTime: 0, endTime: 0, duration: 0, isOwned: false },
-  { id: 'chorus', displayName: 'Chorus', startTime: 0, endTime: 0, duration: 0, isOwned: false },
-  { id: 'verse-2', displayName: 'Verse 2', startTime: 0, endTime: 0, duration: 0, isOwned: false },
-  { id: 'bridge', displayName: 'Bridge', startTime: 0, endTime: 0, duration: 0, isOwned: false },
+// Cataloged segments - timestamps shown but locked (needs base-alignment)
+const catalogedSegments: SongSegment[] = [
+  { id: 'verse-1', displayName: 'Verse 1', startTime: 0, endTime: 15, duration: 15, isOwned: false },
+  { id: 'chorus', displayName: 'Chorus', startTime: 15, endTime: 30, duration: 15, isOwned: false },
+  { id: 'verse-2', displayName: 'Verse 2', startTime: 45, endTime: 60, duration: 15, isOwned: false },
+  { id: 'bridge', displayName: 'Bridge', startTime: 90, endTime: 105, duration: 15, isOwned: false },
 ]
 
 // Unlocked segments - all owned with timestamps
@@ -99,7 +99,9 @@ export const LocalSong: Story = {
 }
 
 /**
- * External song - locked state with musical icon, shows lock icon and unlock button
+ * External song - cataloged but locked state
+ * Segments have timestamps + lock icons, shows unlock button
+ * This is the state after match-and-segment completes, before base-alignment runs
  */
 export const ExternalSongLocked: Story = {
   args: {
@@ -118,7 +120,8 @@ export const ExternalSongLocked: Story = {
       { label: 'Intellectual', url: 'https://intellectual.insprill.net/Scarlett-x-heat-of-the-night-lyrics?id=123456' },
       { label: 'Dumb', url: 'https://dm.vern.cc/Scarlett-x-heat-of-the-night-lyrics' },
     ],
-    segments: lockedSegments,
+    segments: catalogedSegments,
+    isLocked: true,
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
@@ -128,7 +131,8 @@ export const ExternalSongLocked: Story = {
 }
 
 /**
- * External song - unlocking state, shows spinner in unlock button with progress
+ * External song - cataloging state (match-and-segment running)
+ * Shows skeleton loading segments
  */
 export const ExternalSongUnlocking: Story = {
   args: {
@@ -147,7 +151,7 @@ export const ExternalSongUnlocking: Story = {
       { label: 'Intellectual', url: 'https://intellectual.insprill.net/Scarlett-x-heat-of-the-night-lyrics?id=123456' },
       { label: 'Dumb', url: 'https://dm.vern.cc/Scarlett-x-heat-of-the-night-lyrics' },
     ],
-    segments: lockedSegments,
+    segments: [],
     isAuthenticated: true,
     isUnlocking: true,
     onBack: () => console.log('Back clicked'),
@@ -158,7 +162,8 @@ export const ExternalSongUnlocking: Story = {
 }
 
 /**
- * External song - unlocked state with musical icon, shows segment list, no unlock button
+ * External song - unlocked state (base-alignment complete)
+ * Segments have timestamps WITHOUT lock icons, no unlock button, segments are clickable
  */
 export const ExternalSongUnlocked: Story = {
   args: {
@@ -178,6 +183,7 @@ export const ExternalSongUnlocked: Story = {
       { label: 'Dumb', url: 'https://dm.vern.cc/Scarlett-x-heat-of-the-night-lyrics' },
     ],
     segments: unlockedSegments,
+    isLocked: false,
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
@@ -227,7 +233,8 @@ export const NotAuthenticated: Story = {
       { label: 'Intellectual', url: 'https://intellectual.insprill.net/Scarlett-x-heat-of-the-night-lyrics?id=123456' },
       { label: 'Dumb', url: 'https://dm.vern.cc/Scarlett-x-heat-of-the-night-lyrics' },
     ],
-    segments: lockedSegments,
+    segments: catalogedSegments,
+    isLocked: true,
     isAuthenticated: false,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),

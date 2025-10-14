@@ -4,7 +4,6 @@
  * Separates "Create Account" vs "Sign In" flows
  */
 
-import React from 'react'
 import {
   Dialog,
   DialogContent,
@@ -40,16 +39,16 @@ export interface AuthDialogProps {
   statusMessage?: string
   /** Error message */
   errorMessage?: string
+  /** Whether PKP is ready */
+  isPKPReady?: boolean
+  /** Whether user has connected social account */
+  hasSocialAccount?: boolean
   /** Called when user clicks "Create Account" */
   onRegister?: () => void
   /** Called when user clicks "Sign In" */
   onLogin?: () => void
   /** Called when user clicks "Connect Social Account" */
   onConnectSocial?: () => void
-  /** Whether PKP is ready (session complete) */
-  isPKPReady?: boolean
-  /** Whether social account is connected */
-  hasSocialAccount?: boolean
 }
 
 export function AuthDialog({
@@ -60,27 +59,14 @@ export function AuthDialog({
   authMode = null,
   statusMessage = '',
   errorMessage = '',
+  isPKPReady,
+  hasSocialAccount,
   onRegister,
   onLogin,
   onConnectSocial,
-  isPKPReady = false,
-  hasSocialAccount = false,
 }: AuthDialogProps) {
   // Determine current state
-  const needsPKP = !isPKPReady
-  const needsSocial = isPKPReady && !hasSocialAccount && currentStep !== 'complete'
   const isComplete = currentStep === 'complete' && authMode === null
-
-  // Step status helper
-  const getStepStatus = (stepId: AuthStep): 'complete' | 'current' | 'pending' => {
-    const stepOrder = ['webauthn', 'session', 'social']
-    const currentIndex = stepOrder.indexOf(currentStep)
-    const thisIndex = stepOrder.indexOf(stepId)
-
-    if (thisIndex < currentIndex) return 'complete'
-    if (thisIndex === currentIndex) return 'current'
-    return 'pending'
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

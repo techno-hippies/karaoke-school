@@ -3,7 +3,7 @@
  * Searches for songs on Genius using free tier
  */
 
-import { getLitClient } from '../client'
+import { getLitClient } from '../../lit-webauthn/client'
 import type { SearchResponse } from './types'
 
 const IS_DEV = import.meta.env.DEV

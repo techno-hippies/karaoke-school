@@ -42,6 +42,7 @@ export interface Song {
   artworkUrl?: string
   isFree?: boolean
   isProcessed?: boolean
+  isOwned?: boolean // True if user owns this song (has unlocked/purchased access)
   segments?: SongSegment[]
   soundcloudPermalink?: string
   // Listening platform URLs from Genius API
@@ -52,6 +53,7 @@ export interface Song {
   songDuration?: number
   metadataUri?: string // Base alignment URI (word timing)
   availableLanguages?: string[] // Translation languages available
+  hasBaseAlignment?: boolean // True if base-alignment has been run (metadata contains word-level timing)
 }
 
 /**

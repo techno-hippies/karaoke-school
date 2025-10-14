@@ -3,7 +3,7 @@
  * React hook for PKP wallet management
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type { Address, WalletClient } from 'viem'
 import {
   createPKPWalletClient,
@@ -99,12 +99,19 @@ export function usePKPWallet(): UsePKPWalletResult {
   }, [])
 
   /**
-   * Auto-initialize from stored session on mount
+   * Auto-initialize from stored session on mount (only once)
+   * Uses both ref (for normal case) and isInitializing (for strict mode double-invoke)
    */
+  const hasAutoInitializedRef = useRef(false)
+
   useEffect(() => {
     const autoInitialize = async () => {
-      // Check if already initialized
-      if (walletClient) return
+      // Check if already initialized, currently initializing, or auto-init already attempted
+      // isInitializing check prevents race condition in React Strict Mode
+      if (walletClient || isInitializing || hasAutoInitializedRef.current) return
+
+      // Mark as attempted (prevents multiple runs)
+      hasAutoInitializedRef.current = true
 
       // Check for stored session
       const status = getAuthStatus()
@@ -121,9 +128,10 @@ export function usePKPWallet(): UsePKPWalletResult {
     }
 
     autoInitialize()
-  }, []) // Only run on mount
+  }, [walletClient, isInitializing, initialize])
 
-  return {
+  // Memoize return value to prevent unnecessary re-renders
+  return useMemo(() => ({
     address,
     walletClient,
     authContext,
@@ -133,7 +141,7 @@ export function usePKPWallet(): UsePKPWalletResult {
     pkpInfo,
     initialize,
     reset,
-  }
+  }), [address, walletClient, authContext, isConnected, isInitializing, error, pkpInfo, initialize, reset])
 }
 
 /**

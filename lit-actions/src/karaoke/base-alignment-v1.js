@@ -10,15 +10,16 @@
  * - Translations are lazy-loaded per language
  *
  * Flow:
- * 1. Download audio from SoundCloud
- * 2. ElevenLabs forced alignment → word-level timing
- * 3. Build base metadata JSON (NO translations)
- * 4. Upload to Grove storage as song-{geniusId}-base.json
- * 5. Update contract metadataUri
+ * 1. Extract soundcloudPath from soundcloudPermalink input
+ * 2. Download audio from SoundCloud via sc.maid.zone
+ * 3. ElevenLabs forced alignment → word-level timing
+ * 4. Build base metadata JSON (NO translations)
+ * 5. Upload to Grove storage as song-{geniusId}-base.json
+ * 6. Update contract metadataUri
  *
- * Input:
+ * Input (REQUIRED):
  * - geniusId: Genius song ID
- * - soundcloudPermalink: SoundCloud URL
+ * - soundcloudPermalink: Full SoundCloud URL (e.g., https://soundcloud.com/artist/track)
  * - plainLyrics: Plain text lyrics (from LRClib)
  * - elevenlabsKeyAccessControlConditions, elevenlabsKeyCiphertext, elevenlabsKeyDataToEncryptHash
  * - contractAddress, pkpAddress, pkpTokenId, pkpPublicKey
@@ -43,6 +44,7 @@ const go = async () => {
   const {
     geniusId,
     plainLyrics,
+    soundcloudPermalink,
     elevenlabsKeyAccessControlConditions,
     elevenlabsKeyCiphertext,
     elevenlabsKeyDataToEncryptHash,
@@ -59,25 +61,23 @@ const go = async () => {
     // Validate required params
     if (!geniusId) throw new Error('geniusId is required');
     if (!plainLyrics) throw new Error('plainLyrics is required');
+    if (!soundcloudPermalink) throw new Error('soundcloudPermalink is required');
     if (!contractAddress || !pkpAddress || !pkpTokenId || !pkpPublicKey) {
       throw new Error('Contract params (contractAddress, pkpAddress, pkpTokenId, pkpPublicKey) are required');
     }
 
-    // Step 0: Read soundcloudPath from contract
-    console.log('[0/4] Reading soundcloudPath from contract...');
-    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
-    const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-    const catalogAbi = [
-      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
-    ];
-    const catalog = new ethers.Contract(contractAddress, catalogAbi, provider);
-    const songData = await catalog.getSongByGeniusId(geniusId);
+    // Step 0: Extract soundcloudPath from permalink
+    console.log('[0/4] Extracting soundcloudPath from permalink...');
+    console.log(`SoundCloud permalink: ${soundcloudPermalink}`);
 
-    const soundcloudPath = songData.soundcloudPath;
-    if (!soundcloudPath) {
-      throw new Error('Song has no soundcloudPath in contract. Cannot download audio.');
+    // Extract path from full URL: https://soundcloud.com/artist/track → artist/track
+    const pathParts = soundcloudPermalink.split('/').filter(p => p && p !== 'https:' && p !== 'soundcloud.com');
+    const soundcloudPath = pathParts.slice(-2).join('/');
+
+    if (!soundcloudPath || !soundcloudPath.includes('/')) {
+      throw new Error(`Invalid SoundCloud permalink format: ${soundcloudPermalink}`);
     }
-    console.log(`✅ SoundCloud path from contract: ${soundcloudPath}`);
+    console.log(`✅ SoundCloud path: ${soundcloudPath}`);
 
     // Step 1: Decrypt ElevenLabs key
     console.log('[1/4] Decrypting ElevenLabs key...');

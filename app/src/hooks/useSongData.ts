@@ -3,7 +3,7 @@
  * Hook to load a single song from KaraokeCatalogV2 contract by Genius ID
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
@@ -44,20 +44,34 @@ export interface UseSongDataResult {
 /**
  * Load song data by Genius ID from contract
  * Fetches song metadata including segments from metadataUri
+ *
+ * @param geniusId - Genius song ID
+ * @param userAddress - Optional user address to check song ownership
  */
-export function useSongData(geniusId: number | undefined): UseSongDataResult {
+export function useSongData(geniusId: number | undefined, userAddress?: string): UseSongDataResult {
   const [song, setSong] = useState<Song | null>(null)
   const [segments, setSegments] = useState<SongSegment[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [refreshCount, setRefreshCount] = useState(0)
 
-  const loadSong = async () => {
+  // Use ref to track loading state for strict mode guard
+  const isLoadingRef = useRef(false)
+
+  const loadSong = useCallback(async () => {
     if (!geniusId) {
       setError(new Error('Genius ID is required'))
       return
     }
 
+    // Prevent duplicate loads (React Strict Mode guard)
+    if (isLoadingRef.current) {
+      console.log('[useSongData] Already loading, skipping duplicate call')
+      return
+    }
+
     try {
+      isLoadingRef.current = true
       setIsLoading(true)
       setError(null)
 
@@ -96,16 +110,20 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
 
       console.log('[useSongData] Loaded song:', songData.title, 'by', songData.artist)
 
-      // Load segments from metadata URI
+      // Load segments and alignment from separate URIs (V2: Decoupled storage)
       let loadedSegments: SongSegment[] = []
-      if (songData.metadataUri) {
-        try {
-          const metadataUrl = lensToGroveUrl(songData.metadataUri)
-          const metadataResp = await fetch(metadataUrl)
-          const metadata = await metadataResp.json()
+      let hasBaseAlignment = false
 
-          if (metadata.sections && Array.isArray(metadata.sections)) {
-            loadedSegments = metadata.sections.map((section: any, index: number) => ({
+      // Try new sectionsUri first, fall back to old metadataUri for backwards compatibility
+      const sectionsSource = songData.sectionsUri || songData.metadataUri
+      if (sectionsSource) {
+        try {
+          const sectionsUrl = lensToGroveUrl(sectionsSource)
+          const sectionsResp = await fetch(sectionsUrl)
+          const sectionsData = await sectionsResp.json()
+
+          if (sectionsData.sections && Array.isArray(sectionsData.sections)) {
+            loadedSegments = sectionsData.sections.map((section: any, index: number) => ({
               id: `${section.type.toLowerCase().replace(/\s+/g, '-')}-${index}`,
               displayName: capitalizeSection(section.type),
               startTime: section.startTime,
@@ -113,10 +131,44 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
               duration: section.duration,
               isOwned: false, // TODO: Check ownership from contract
             }))
-            console.log('[useSongData] Loaded', loadedSegments.length, 'segments from metadata')
+            console.log('[useSongData] Loaded', loadedSegments.length, 'segments from sectionsUri')
           }
-        } catch (metaError) {
-          console.error('[useSongData] Failed to load metadata:', metaError)
+        } catch (sectionsError) {
+          console.error('[useSongData] Failed to load sections:', sectionsError)
+        }
+      }
+
+      // Check for base-alignment from alignmentUri (or fall back to metadataUri)
+      const alignmentSource = songData.alignmentUri || songData.metadataUri
+      if (alignmentSource) {
+        try {
+          const alignmentUrl = lensToGroveUrl(alignmentSource)
+          const alignmentResp = await fetch(alignmentUrl)
+          const alignmentData = await alignmentResp.json()
+
+          // Check if base-alignment has been run (metadata contains lines array)
+          hasBaseAlignment = !!(alignmentData.lines && Array.isArray(alignmentData.lines) && alignmentData.lines.length > 0)
+          console.log('[useSongData] Base-alignment detection:', {
+            hasLines: !!alignmentData.lines,
+            lineCount: alignmentData.lines?.length || 0,
+            hasBaseAlignment
+          })
+        } catch (alignmentError) {
+          console.error('[useSongData] Failed to load alignment:', alignmentError)
+        }
+      }
+
+      // Check song ownership if user address provided
+      let isOwned = false
+      if (userAddress) {
+        try {
+          const { checkSongOwnership } = await import('@/lib/credits/queries')
+          isOwned = await checkSongOwnership(userAddress, geniusId)
+          if (isOwned) {
+            console.log('[useSongData] User owns this song')
+          }
+        } catch (ownershipError) {
+          console.error('[useSongData] Failed to check ownership:', ownershipError)
         }
       }
 
@@ -128,9 +180,19 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
         artworkUrl: songData.thumbnailUri ? lensToGroveUrl(songData.thumbnailUri) : undefined,
         isProcessed: true,
         isFree: !songData.requiresPayment,
+        isOwned,
         segments: loadedSegments,
         metadataUri: songData.metadataUri,
+        soundcloudPermalink: songData.soundcloudPath || undefined,
+        hasBaseAlignment,
       }
+
+      console.log('[useSongData] Final song state:', {
+        hasBaseAlignment,
+        isOwned,
+        segmentCount: loadedSegments.length,
+        metadataUri: songData.metadataUri
+      })
 
       setSong(loadedSong)
       setSegments(loadedSegments)
@@ -138,19 +200,27 @@ export function useSongData(geniusId: number | undefined): UseSongDataResult {
       console.error('[useSongData] Error loading song:', err)
       setError(err instanceof Error ? err : new Error('Failed to load song'))
     } finally {
+      isLoadingRef.current = false
       setIsLoading(false)
     }
-  }
+  }, [geniusId, userAddress])
 
   useEffect(() => {
     loadSong()
-  }, [geniusId])
+  }, [loadSong])
 
-  return {
+  // Memoize refetch to trigger controlled re-loads
+  const refetch = useCallback(async () => {
+    setRefreshCount(c => c + 1)
+    await loadSong()
+  }, [loadSong])
+
+  // Memoize return values to prevent unnecessary re-renders downstream
+  return useMemo(() => ({
     song,
     segments,
     isLoading,
     error,
-    refetch: loadSong,
-  }
+    refetch,
+  }), [song, segments, isLoading, error, refetch])
 }

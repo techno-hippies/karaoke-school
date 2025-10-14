@@ -20,7 +20,7 @@ const publicClient = createPublicClient({
 })
 
 export function useKaraokeGeneration() {
-  const { pkpWalletClient, pkpAuthContext, pkpAddress } = useAuth()
+  const { pkpAuthContext, pkpAddress } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isAligning, setIsAligning] = useState(false)
@@ -76,7 +76,7 @@ export function useKaraokeGeneration() {
       }
 
       // Convert Lit Action sections to SongSegment format
-      const segments: SongSegment[] = result.sections.map((section, index) => ({
+      const segments: SongSegment[] = result.sections.map((section) => ({
         id: section.type.toLowerCase().replace(/\s+/g, '-'),
         displayName: section.type,
         startTime: section.startTime,
@@ -328,7 +328,6 @@ export function useKaraokeGeneration() {
    * For now, returns mock grade
    */
   const gradePerformance = async (
-    videoBlob: Blob,
     segment: SongSegment
   ): Promise<PerformanceGrade | null> => {
     setIsGrading(true)

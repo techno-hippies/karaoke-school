@@ -3,7 +3,6 @@ import { useAutoScroll } from '@/hooks/useAutoScroll'
 import { KaraokeLyricLine } from './KaraokeLyricLine'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LyricLine } from '@/types/karaoke'
-import { cn } from '@/lib/utils'
 
 export interface LyricsDisplayProps {
   lyrics: LyricLine[]

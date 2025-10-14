@@ -58,9 +58,10 @@ export function buildExternalSongLinks(song: SongMetadata): ExternalLink[] {
   }
 
   if (song.appleMusicId || song.appleMusicPlayerUrl) {
+    const appleUrl = song.appleMusicPlayerUrl || `https://music.apple.com/us/album/${song.appleMusicId}`
     links.push({
       label: 'Apple Music',
-      url: song.appleMusicPlayerUrl || `https://music.apple.com/us/album/${song.appleMusicId}`
+      url: appleUrl
     })
   }
 

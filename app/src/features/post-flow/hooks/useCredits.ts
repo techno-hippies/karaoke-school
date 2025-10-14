@@ -6,7 +6,6 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { encodeFunctionData } from 'viem'
 import type { Song, SongSegment } from '../types'
 import { CREDIT_PACKAGES } from '../types'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'

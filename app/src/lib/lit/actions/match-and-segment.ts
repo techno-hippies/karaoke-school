@@ -19,7 +19,7 @@
  * Note: Alignment and translations are done separately via base-alignment-v1 and translate-lyrics-v1
  */
 
-import { getLitClient } from '../client'
+import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
 import type { MatchSegmentResult } from './types'
 

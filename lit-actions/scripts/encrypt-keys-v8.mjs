@@ -65,7 +65,7 @@ const accessControlConditions = [
 // Encrypt the API key (v8 SDK)
 console.log('🔐 Encrypting data...');
 const { ciphertext, dataToEncryptHash } = await litClient.encrypt({
-  unifiedAccessControlConditions: accessControlConditions,
+  accessControlConditions: accessControlConditions,
   dataToEncrypt: new TextEncoder().encode(apiKey),
 });
 

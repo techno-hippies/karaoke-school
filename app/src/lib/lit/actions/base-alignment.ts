@@ -12,44 +12,51 @@
  * Expected cost: ~$0.03 (ElevenLabs only)
  */
 
-import { getLitClient } from '../client'
+import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
 import type { BaseAlignmentResult } from './types'
 
 const IS_DEV = import.meta.env.DEV
 
 /**
- * Execute Base Alignment Lit Action
+ * Execute Base Alignment Lit Action V2
  *
- * @param geniusId - Genius song ID
- * @param plainLyrics - Plain text lyrics (no timestamps)
- * @param authContext - PKP auth context (contains pkpTokenId, pkpPublicKey, pkpEthAddress)
+ * Reads ALL data from contract (soundcloudPath, title, artist)
+ * Fetches lyrics from LRClib
+ * Runs ElevenLabs alignment
+ * Writes back to contract using SYSTEM PKP (hardcoded in Lit Action)
+ *
+ * @param geniusId - Genius song ID (ONLY required input)
+ * @param authContext - PKP auth context for authentication
  */
 export async function executeBaseAlignment(
   geniusId: number,
-  plainLyrics: string,
   authContext: any
 ): Promise<BaseAlignmentResult> {
   try {
+    if (IS_DEV) {
+      console.log('[BaseAlignment] authContext:', authContext)
+      console.log('[BaseAlignment] authContext keys:', Object.keys(authContext || {}))
+    }
+
     const litClient = await getLitClient()
     const keyParams = getKaraokeKeyParams()
 
-    // Extract PKP details from authContext
-    const pkpAddress = authContext.getSessionSigs().pkpEthAddress || authContext.pkpEthAddress
-    const pkpPublicKey = authContext.getSessionSigs().pkpPublicKey || authContext.pkpPublicKey
-    const pkpTokenId = authContext.resourceAbilityRequests?.[0]?.resource?.getResourceKey() || ''
+    if (IS_DEV) {
+      console.log('[BaseAlignment] Calling executeJs with:', {
+        ipfsId: import.meta.env.VITE_LIT_ACTION_BASE_ALIGNMENT,
+        hasAuthContext: !!authContext,
+        geniusId
+      })
+    }
 
     const result = await litClient.executeJs({
       ipfsId: import.meta.env.VITE_LIT_ACTION_BASE_ALIGNMENT,
       authContext,
       jsParams: {
         geniusId,
-        plainLyrics,
         ...keyParams,
         contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
-        pkpAddress,
-        pkpTokenId,
-        pkpPublicKey,
         updateContract: true,
       },
     })

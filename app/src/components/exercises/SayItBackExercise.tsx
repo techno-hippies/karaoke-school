@@ -45,16 +45,7 @@ export interface SayItBackExerciseProps {
 export function SayItBackExercise({
   expectedText,
   transcript,
-  score = null,
-  attempts = 0,
-  isRecording = false,
-  isProcessing = false,
-  canRecord = true,
-  statusMessage,
-  onStartRecording,
-  onStopRecording,
 }: SayItBackExerciseProps) {
-  const isCorrect = score !== null && score >= 70
   const showResults = transcript !== undefined
 
   const handlePlayAudio = () => {

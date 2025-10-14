@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { SongSelectPage } from '@/components/karaoke/SongSelectPage'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,8 +20,38 @@ interface SongSelectStepProps {
   flow: PostFlowContext
 }
 
+const SEARCH_CACHE_KEY = 'karaoke_search_results'
+const SEARCH_QUERY_KEY = 'karaoke_search_query'
+
+// Check for cached results synchronously before component renders
+function loadCachedResults(urlSearchQuery: string): Song[] | null {
+  if (!urlSearchQuery) return null
+
+  const cachedQuery = sessionStorage.getItem(SEARCH_QUERY_KEY)
+  const cachedResults = sessionStorage.getItem(SEARCH_CACHE_KEY)
+
+  if (cachedQuery === urlSearchQuery && cachedResults) {
+    try {
+      return JSON.parse(cachedResults)
+    } catch (e) {
+      console.error('[SongSelectStep] Failed to parse cached results:', e)
+      sessionStorage.removeItem(SEARCH_CACHE_KEY)
+      sessionStorage.removeItem(SEARCH_QUERY_KEY)
+    }
+  }
+  return null
+}
+
 export function SongSelectStep({ flow }: SongSelectStepProps) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Read URL parameters for persistent state
+  const urlSearchQuery = searchParams.get('q') || ''
+  const urlActiveTab = (searchParams.get('tab') || 'trending') as 'trending' | 'favorites'
+
+  // Check for cached results synchronously
+  const cachedResults = loadCachedResults(urlSearchQuery)
 
   // Load songs from KaraokeCatalogV1 contract on Base Sepolia
   const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs()
@@ -29,6 +59,18 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [pendingSong, setPendingSong] = useState<Song | null>(null)
   const [pendingSearch, setPendingSearch] = useState<string | null>(null)
+
+  // Initialize flow data with cached results if available
+  useEffect(() => {
+    if (cachedResults) {
+      console.log('[SongSelectStep] 📦 Using cached search results:', cachedResults.length, 'songs')
+      flow.updateData({ searchResults: cachedResults })
+    } else if (!urlSearchQuery) {
+      // Clear cache if no search query in URL
+      sessionStorage.removeItem(SEARCH_CACHE_KEY)
+      sessionStorage.removeItem(SEARCH_QUERY_KEY)
+    }
+  }, [])
 
   // Poll audio processing status (if job is running)
   const { status: audioProcessingStatus } = useAudioProcessingStatus((flow as any).currentJobId || null)
@@ -98,6 +140,9 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
+    // Update URL parameters
+    setSearchParams({ q: query, tab: urlActiveTab })
+
     // Only need PKP for search (no Lens required)
     if (!capabilities.canSearch || !pkpAuthContext) {
       setPendingSearch(query)
@@ -226,6 +271,11 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
           })
         )
 
+        // Save to sessionStorage for persistence
+        sessionStorage.setItem(SEARCH_QUERY_KEY, query)
+        sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(songsWithData))
+        console.log('[SongSelectStep] Cached', songsWithData.length, 'search results for:', query)
+
         flow.updateData({ searchResults: songsWithData })
       } else {
         console.error('[Search] Failed:', result.error)
@@ -253,6 +303,23 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     navigate(targetPath, { state: { song } })
   }
 
+  // Handle tab change - update URL parameters
+  const handleTabChange = (tab: 'trending' | 'favorites') => {
+    if (urlSearchQuery) {
+      setSearchParams({ q: urlSearchQuery, tab })
+    } else {
+      setSearchParams({ tab })
+    }
+  }
+
+  // Handle clear search - clear URL params, cache, and results
+  const handleClearSearch = () => {
+    setSearchParams({ tab: urlActiveTab })
+    sessionStorage.removeItem(SEARCH_CACHE_KEY)
+    sessionStorage.removeItem(SEARCH_QUERY_KEY)
+    flow.updateData({ searchResults: [] })
+  }
+
 
   return (
     <>
@@ -261,10 +328,15 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
         onClose={flow.cancel}
         trendingSongs={trendingSongs}
         favoriteSongs={[]} // TODO: Add favorites support
-        searchResults={flow.data.searchResults}
+        searchResults={cachedResults || flow.data.searchResults}
         isSearching={isSearching}
         onSearch={handleSearch}
+        onClearSearch={handleClearSearch}
         onSongClick={handleSongClick}
+        initialSearchQuery={urlSearchQuery}
+        initialActiveTab={urlActiveTab}
+        onTabChange={handleTabChange}
+        skipAutoSearch={!!cachedResults}
       />
 
       <AuthDialog

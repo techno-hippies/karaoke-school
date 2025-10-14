@@ -71,31 +71,32 @@ export function useSegmentLyrics(
 
         const metadata = await response.json()
 
-        // Check if this is base-alignment metadata (has lines with words)
-        if (!metadata.lines || !Array.isArray(metadata.lines)) {
-          console.warn('[useSegmentLyrics] Metadata does not contain lyrics lines')
-          setLyrics([])
+        // Check if metadata has lines array (new format)
+        if (metadata.lines && Array.isArray(metadata.lines)) {
+          console.log('[useSegmentLyrics] Loading lyrics from lines array')
+
+          // Filter lines that overlap with the segment time range
+          const filteredLines = metadata.lines.filter((line: BaseAlignmentLine) => {
+            return line.end > segmentStartTime && line.start < segmentEndTime
+          })
+
+          // Transform to expected LyricLine format
+          const segmentLyrics: LyricLine[] = filteredLines.map((line: BaseAlignmentLine, index: number) => ({
+            lineIndex: index,
+            originalText: line.text,
+            start: line.start,
+            end: line.end,
+            words: line.words || [],
+          }))
+
+          console.log(`[useSegmentLyrics] Loaded ${segmentLyrics.length} lines for segment (${segmentStartTime}s - ${segmentEndTime}s)`)
+          setLyrics(segmentLyrics)
           return
         }
 
-        // Filter lines that overlap with the segment time range
-        const filteredLines = metadata.lines.filter((line: BaseAlignmentLine) => {
-          // Include line if it overlaps with segment at all
-          return line.end > segmentStartTime && line.start < segmentEndTime
-        })
-
-        // Transform to expected LyricLine format
-        const segmentLyrics: LyricLine[] = filteredLines.map((line: BaseAlignmentLine, index: number) => ({
-          lineIndex: index,
-          originalText: line.text,
-          start: line.start,
-          end: line.end,
-          words: line.words || [],
-          // translations will be loaded separately by translation hook
-        }))
-
-        console.log(`[useSegmentLyrics] Loaded ${segmentLyrics.length} lines for segment (${segmentStartTime}s - ${segmentEndTime}s)`)
-        setLyrics(segmentLyrics)
+        // Legacy: sections only (match-and-segment data, no alignment)
+        console.warn('[useSegmentLyrics] Metadata does not contain lyrics lines (base-alignment not run yet)')
+        setLyrics([])
       } catch (err) {
         console.error('[useSegmentLyrics] Failed to load lyrics:', err)
         setError(err instanceof Error ? err : new Error('Failed to load lyrics'))

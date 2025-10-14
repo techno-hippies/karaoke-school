@@ -6,6 +6,7 @@
 
 import { getLitClient, getAuthManager } from './client'
 import { LIT_WEBAUTHN_CONFIG } from './config'
+import { LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers'
 import type { PKPInfo, AuthData, PKPAuthContext } from './types'
 
 const IS_DEV = import.meta.env.DEV
@@ -55,13 +56,17 @@ export async function createPKPAuthContext(
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
-        resources: [
-          ['pkp-signing', '*'],
-          ['lit-action-execution', '*'],
-        ],
         expiration: getConsistentExpiration(),
-        statement: 'Karaoke School',
-        domain: window.location.origin,
+        resources: [
+          {
+            resource: new LitActionResource('*'),
+            ability: 'lit-action-execution'
+          },
+          {
+            resource: new LitPKPResource('*'),
+            ability: 'pkp-signing'
+          },
+        ],
       },
       litClient: litClient,
     })

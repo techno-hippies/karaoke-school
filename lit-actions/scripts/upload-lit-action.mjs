@@ -58,6 +58,11 @@ async function uploadLitAction() {
       }
     }));
 
+    // Disable directory wrapping (important for Lit Protocol)
+    formData.append('pinataOptions', JSON.stringify({
+      wrapWithDirectory: false
+    }));
+
     const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
       method: 'POST',
       headers: {

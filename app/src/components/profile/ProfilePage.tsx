@@ -46,8 +46,8 @@ export function ProfilePage() {
   const isLoading = false
 
   // Navigation state
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
-  const [mobileTab, setMobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
+  const [activeTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
+  const [mobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
 
   // Handlers
   const handleDesktopTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {

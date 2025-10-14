@@ -12,7 +12,7 @@
  * 4. Demucs processes in background → webhook → updates contract
  */
 
-import { getLitClient } from '../client'
+import { getLitClient } from '../../lit-webauthn/client'
 import type { AudioProcessorResult, MatchSegmentResult } from './types'
 
 /**

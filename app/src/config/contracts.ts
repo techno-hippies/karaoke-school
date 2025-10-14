@@ -22,8 +22,8 @@ export const publicClient = createPublicClient({
 
 export const BASE_SEPOLIA_CONTRACTS = {
   usdc: (import.meta.env.VITE_BASE_SEPOLIA_USDC || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
-  karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT || '0x6de183934E68051c407266F877fafE5C20F74653') as Address,
-  karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT || '0x17D3BB01ACe342Fa85A5B9a439feEa65e2f1D726') as Address,
+  karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT || '0xf897bf9246abb53477b9986940b46e5db886a27f') as Address,
+  karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT || '0x8e57ce8FdBc727C65235E322E0F46D07235ca37c') as Address, // V2: Added sectionsUri + alignmentUri
 } as const
 
 // === HELPER FUNCTIONS ===

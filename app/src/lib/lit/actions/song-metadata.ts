@@ -3,7 +3,7 @@
  * Fetches full song metadata from Genius API (free, no auth required)
  */
 
-import { getLitClient } from '../client'
+import { getLitClient } from '../../lit-webauthn/client'
 import type { SongMetadataResult } from './types'
 
 const IS_DEV = import.meta.env.DEV
@@ -18,6 +18,12 @@ export async function executeSongMetadata(
 ): Promise<SongMetadataResult> {
   try {
     const litClient = await getLitClient()
+
+    console.log('[executeSongMetadata] Calling with:', {
+      songId,
+      ipfsId: import.meta.env.VITE_LIT_ACTION_SONG,
+      jsParams: { songId }
+    })
 
     const result = await litClient.executeJs({
       ipfsId: import.meta.env.VITE_LIT_ACTION_SONG,
