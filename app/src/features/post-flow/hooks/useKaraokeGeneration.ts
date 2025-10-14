@@ -242,12 +242,7 @@ export function useKaraokeGeneration() {
       console.log('[KaraokeGen] Triggering base alignment...')
       console.log('[KaraokeGen] Lyrics lines:', plainLyrics.split('\n').length)
 
-      const result: BaseAlignmentResult = await executeBaseAlignment(
-        song.geniusId,
-        song.soundcloudPermalink,
-        plainLyrics,
-        pkpAuthContext
-      )
+      const result: BaseAlignmentResult = await executeBaseAlignment(song.geniusId, pkpAuthContext)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate base alignment')

@@ -53,6 +53,12 @@ export function useSegmentLyrics(
 
   useEffect(() => {
     if (!metadataUri || segmentStartTime === undefined || segmentEndTime === undefined) {
+      console.log('[useSegmentLyrics] Missing required params:', {
+        hasMetadataUri: !!metadataUri,
+        metadataUri,
+        segmentStartTime,
+        segmentEndTime
+      })
       setLyrics([])
       return
     }
@@ -63,6 +69,7 @@ export function useSegmentLyrics(
     const fetchLyrics = async () => {
       try {
         const url = lensToGroveUrl(metadataUri)
+        console.log('[useSegmentLyrics] Fetching from:', url)
         const response = await fetch(url)
 
         if (!response.ok) {
@@ -76,8 +83,24 @@ export function useSegmentLyrics(
           console.log('[useSegmentLyrics] Loading lyrics from lines array')
 
           // Filter lines that overlap with the segment time range
+          console.log('[useSegmentLyrics] Filtering lines:', {
+            totalLines: metadata.lines.length,
+            segmentStartTime,
+            segmentEndTime,
+            firstLineStart: metadata.lines[0]?.start,
+            firstLineEnd: metadata.lines[0]?.end,
+            lastLineStart: metadata.lines[metadata.lines.length - 1]?.start,
+            lastLineEnd: metadata.lines[metadata.lines.length - 1]?.end
+          })
+
           const filteredLines = metadata.lines.filter((line: BaseAlignmentLine) => {
             return line.end > segmentStartTime && line.start < segmentEndTime
+          })
+
+          console.log('[useSegmentLyrics] Filtered result:', {
+            matchedLines: filteredLines.length,
+            firstMatch: filteredLines[0]?.text,
+            lastMatch: filteredLines[filteredLines.length - 1]?.text
           })
 
           // Transform to expected LyricLine format
