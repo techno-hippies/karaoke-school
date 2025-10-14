@@ -2,7 +2,7 @@ import React from 'react'
 import { House, Exam, MicrophoneStage, Wallet, User } from '@phosphor-icons/react'
 
 interface MobileFooterProps {
-  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile'
+  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'
   onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
 }
 

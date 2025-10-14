@@ -54,7 +54,7 @@ contract KaraokeCatalogV2 {
         string title;
         string artist;
         uint32 duration;            // Total duration in seconds
-        string soundcloudPath;      // SoundCloud path: "artist/track-name" (for audio download)
+        string soundcloudPath;      // SoundCloud path: "artist/track-name"
 
         // Capabilities
         bool hasFullAudio;          // true = complete song available, false = 30s snippet only
@@ -62,10 +62,14 @@ contract KaraokeCatalogV2 {
 
         // Full Song Assets (only if hasFullAudio=true)
         string audioUri;            // grove://full_song.mp3
-        string metadataUri;         // grove://word_timestamps.json (lyrics with timing)
+        string metadataUri;         // grove://word_timestamps.json (DEPRECATED: use sectionsUri + alignmentUri)
         string coverUri;            // grove://cover.jpg
         string thumbnailUri;        // grove://thumb_300x300.jpg
         string musicVideoUri;       // grove://video.mp4 (optional)
+
+        // Decoupled Metadata URIs (V2: Additive writes, no overwrites)
+        string sectionsUri;         // grove://sections.json (from match-and-segment)
+        string alignmentUri;        // grove://alignment.json (from base-alignment, lines+words)
 
         // Metadata
         bool enabled;               // Soft delete flag
@@ -191,10 +195,12 @@ contract KaraokeCatalogV2 {
         bool hasFullAudio;
         bool requiresPayment;
         string audioUri;
-        string metadataUri;
+        string metadataUri;     // DEPRECATED: use sectionsUri + alignmentUri
         string coverUri;
         string thumbnailUri;
         string musicVideoUri;
+        string sectionsUri;     // V2: Sections from match-and-segment
+        string alignmentUri;    // V2: Word-level alignment from base-alignment
     }
 
     /**
@@ -232,6 +238,8 @@ contract KaraokeCatalogV2 {
         newSong.coverUri = params.coverUri;
         newSong.thumbnailUri = params.thumbnailUri;
         newSong.musicVideoUri = params.musicVideoUri;
+        newSong.sectionsUri = params.sectionsUri;
+        newSong.alignmentUri = params.alignmentUri;
         newSong.enabled = true;
         newSong.addedAt = uint64(block.timestamp);
 
@@ -273,6 +281,69 @@ contract KaraokeCatalogV2 {
         geniusIdToIndex[geniusId] = songs.length;
 
         emit SongAdded(id, geniusId, title, artist, false, true);
+    }
+
+    /**
+     * @notice Update song metadata URI (DEPRECATED: use setSectionsUri/setAlignmentUri)
+     * @dev Only trustedProcessor can update (prevents unauthorized modifications)
+     */
+    function updateSongMetadata(uint32 geniusId, string calldata metadataUri)
+        external
+        onlyOwnerOrProcessor
+        whenNotPaused
+        returns (bool)
+    {
+        if (geniusId == 0) revert GeniusIDRequired();
+
+        uint256 index = geniusIdToIndex[geniusId];
+        if (index == 0) revert SongNotFound();
+
+        Song storage song = songs[index - 1];
+        song.metadataUri = metadataUri;
+
+        return true;
+    }
+
+    /**
+     * @notice Set sections URI (from match-and-segment Lit Action)
+     * @dev Additive operation - does not overwrite other metadata
+     */
+    function setSectionsUri(uint32 geniusId, string calldata sectionsUri)
+        external
+        onlyOwnerOrProcessor
+        whenNotPaused
+        returns (bool)
+    {
+        if (geniusId == 0) revert GeniusIDRequired();
+
+        uint256 index = geniusIdToIndex[geniusId];
+        if (index == 0) revert SongNotFound();
+
+        Song storage song = songs[index - 1];
+        song.sectionsUri = sectionsUri;
+
+        return true;
+    }
+
+    /**
+     * @notice Set alignment URI (from base-alignment Lit Action)
+     * @dev Additive operation - does not overwrite sections data
+     */
+    function setAlignmentUri(uint32 geniusId, string calldata alignmentUri)
+        external
+        onlyOwnerOrProcessor
+        whenNotPaused
+        returns (bool)
+    {
+        if (geniusId == 0) revert GeniusIDRequired();
+
+        uint256 index = geniusIdToIndex[geniusId];
+        if (index == 0) revert SongNotFound();
+
+        Song storage song = songs[index - 1];
+        song.alignmentUri = alignmentUri;
+
+        return true;
     }
 
     // ============ SEGMENT FUNCTIONS ============

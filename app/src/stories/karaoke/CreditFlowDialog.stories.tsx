@@ -31,6 +31,7 @@ export const FundWallet_ZeroBalance: Story = {
     songArtist: 'The Weeknd',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '0.00',
+    creditsBalance: 0,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -48,6 +49,7 @@ export const FundWallet_InsufficientBalance: Story = {
     songArtist: 'Ed Sheeran',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '0.25',
+    creditsBalance: 0,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -65,6 +67,7 @@ export const PurchaseCredits_EnoughForOne: Story = {
     songArtist: 'Taylor Swift',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '0.75',
+    creditsBalance: 5,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -82,6 +85,7 @@ export const PurchaseCredits_EnoughForFive: Story = {
     songArtist: 'Glass Animals',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '3.50',
+    creditsBalance: 5,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -99,6 +103,7 @@ export const PurchaseCredits_EnoughForAll: Story = {
     songArtist: 'Queen',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '15.00',
+    creditsBalance: 5,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -146,6 +151,7 @@ export const Interactive_BalanceIncrease: Story = {
           songArtist="Tame Impala"
           walletAddress={SAMPLE_WALLET_ADDRESS}
           usdcBalance={balance}
+          creditsBalance={5}
           onPurchaseCredits={(packageId) => {
             console.log('Purchase package:', packageId)
             alert(`Purchasing package ${packageId}`)
@@ -166,6 +172,7 @@ export const Mobile_FundWallet: Story = {
     songArtist: 'Dua Lipa',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '0.00',
+    creditsBalance: 5,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -187,6 +194,7 @@ export const Mobile_PurchaseCredits: Story = {
     songArtist: 'Dua Lipa',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '5.00',
+    creditsBalance: 5,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)
     },
@@ -208,6 +216,7 @@ export const PurchaseCredits_Loading: Story = {
     songArtist: 'The Weeknd',
     walletAddress: SAMPLE_WALLET_ADDRESS,
     usdcBalance: '10.00',
+    creditsBalance: 5,
     isPurchasing: true,
     onPurchaseCredits: (packageId: number) => {
       console.log('Purchase package:', packageId)

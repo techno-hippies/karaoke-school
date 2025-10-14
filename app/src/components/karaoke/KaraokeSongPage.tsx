@@ -1,21 +1,24 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { SongPage } from '@/components/class/SongPage'
+import { CreditFlowDialog } from '@/components/karaoke/CreditFlowDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCredits } from '@/contexts/CreditsContext'
 import { useSongData } from '@/hooks/useSongData'
-import { useUnlockFlow } from '@/hooks/useUnlockFlow'
+import { useCatalogSong } from '@/hooks/useCatalogSong'
+import { useUnlockSong, InsufficientCreditsError } from '@/hooks/useUnlockSong'
 import { buildExternalSongLinks, buildExternalLyricsLinks } from '@/lib/karaoke/externalLinks'
 import type { Song } from '@/features/post-flow/types'
 
 /**
  * KaraokeSongPage - Container for individual song detail page
  *
- * Responsibilities:
- * - Load song data from contract (if processed) or navigation state (if unprocessed)
- * - Construct external links for song and lyrics
- * - Handle unlock flow (match-and-segment-v6)
- * - Navigate to first segment after unlock
+ * Simplified Flow:
+ * 1. Page Load (if authenticated) → Auto-catalog (match-and-segment, FREE)
+ *    - Shows skeleton → segments with lock icons
+ * 2. User clicks "Unlock" → Run base-alignment (PAID, requires credits)
+ *    - If no credits → Show CreditFlowDialog
+ *    - If success → Segments become clickable (locks removed)
  *
  * Renders: <SongPage /> from /components/class/SongPage.tsx
  */
@@ -23,8 +26,8 @@ export function KaraokeSongPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { geniusId } = useParams<{ geniusId: string }>()
-  const { isPKPReady, pkpAuthContext, pkpAddress } = useAuth()
-  const { credits } = useCredits()
+  const { isPKPReady, pkpAuthContext, pkpInfo, pkpAddress } = useAuth()
+  const { credits, loadCredits } = useCredits()
 
   // Fetch song metadata from Genius as fallback (for direct URL navigation)
   const [isFetchingSong, setIsFetchingSong] = useState(false)
@@ -34,18 +37,24 @@ export function KaraokeSongPage() {
   const songFromState = location.state?.song as Song | undefined
 
   // Load from contract (will return null for unprocessed songs)
-  const { song: songFromContract, segments, isLoading, error, refetch } = useSongData(geniusId ? parseInt(geniusId) : undefined)
+  const { song: songFromContract, segments, isLoading, error, refetch } = useSongData(
+    geniusId ? parseInt(geniusId) : undefined,
+    pkpAddress || undefined
+  )
 
   // Merge song data: contract data (with segments) + state data (with artwork)
-  const song = songFromContract ? {
-    ...songFromContract,
-    // Preserve artwork from state data if contract doesn't have it
-    artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl || fetchedSong?.artworkUrl
-  } : songFromState
-  const isProcessed = !!songFromContract
-  const displaySong = song || fetchedSong
+  const song = useMemo(() => {
+    if (!songFromContract) return songFromState
+    return {
+      ...songFromContract,
+      artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl || fetchedSong?.artworkUrl
+    }
+  }, [songFromContract, songFromState, fetchedSong?.artworkUrl])
 
-  // Fetch song metadata from Genius if no song data available
+  const isProcessed = !!songFromContract
+  const displaySong = useMemo(() => song || fetchedSong, [song, fetchedSong])
+
+  // Fetch song metadata from Genius if no song data available (FAST, for display only)
   useEffect(() => {
     if (!song && geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong) {
       setIsFetchingSong(true)
@@ -80,79 +89,56 @@ export function KaraokeSongPage() {
     }
   }, [song, geniusId, isPKPReady, pkpAuthContext, isFetchingSong, fetchedSong])
 
-  console.log('[KaraokeSongPage] Song data:', {
-    geniusId,
-    hasStateData: !!songFromState,
-    hasContractData: !!songFromContract,
-    isProcessed,
-    title: song?.title
-  })
-
-  // Initialize unlock flow state machine (memoized to prevent re-renders)
-  const unlockFlowInput = useMemo(() => ({
+  // Initialize catalog and unlock hooks
+  const catalog = useCatalogSong({
     geniusId: displaySong?.geniusId || parseInt(geniusId || '0'),
     pkpAuthContext: pkpAuthContext || null,
-    pkpAddress: pkpAddress || null,
     artist: displaySong?.artist || '',
     title: displaySong?.title || '',
-    creditBalance: credits,
-    isAlreadyCataloged: isProcessed,
+  })
+
+  const unlock = useUnlockSong({
+    geniusId: displaySong?.geniusId || parseInt(geniusId || '0'),
+    pkpAuthContext: pkpAuthContext || null,
+    pkpInfo: pkpInfo || null,
     isFree: displaySong?.isFree || false,
-    // Pre-populate segments if already cataloged
-    sections: segments.length > 0 ? segments.map(s => ({
-      type: s.displayName,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      duration: s.duration
-    })) : null,
-    soundcloudPermalink: displaySong?.soundcloudPermalink || null,
-    songDuration: segments.length > 0 ? Math.max(...segments.map(s => s.endTime)) : null,
-    hasFullAudio: null, // Will be set by machine after catalog
-  }), [displaySong?.geniusId, displaySong?.artist, displaySong?.title, displaySong?.soundcloudPermalink, displaySong?.isFree, geniusId, credits, segments, isProcessed])
+  })
 
-  const unlockFlow = useUnlockFlow(unlockFlowInput)
+  // Credit dialog state
+  const [showCreditDialog, setShowCreditDialog] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState('0.00')
+  const [isPurchasingCredits, setIsPurchasingCredits] = useState(false)
 
-  const handleSegmentClick = useCallback((segment: any) => {
-    navigate(`/karaoke/song/${geniusId}/segment/${segment.id}`)
-  }, [navigate, geniusId])
+  // Track base-alignment success in this session (for immediate UI update)
+  const [baseAlignmentComplete, setBaseAlignmentComplete] = useState(false)
 
-  // Update machine auth context when it becomes available
+  // Auto-catalog: Run match-and-segment on page load (if authenticated and not already cataloged)
+  const hasStartedAutoCatalogRef = useRef(false)
+
   useEffect(() => {
-    if (pkpAuthContext && pkpAddress) {
-      console.log('[KaraokeSongPage] Updating machine auth context...')
-      unlockFlow.updateAuth(pkpAuthContext, pkpAddress)
+    // Wait for displaySong (from metadata fetch) then auto-catalog in background
+    if (displaySong && isPKPReady && pkpAuthContext && !hasStartedAutoCatalogRef.current && !isProcessed) {
+      console.log('[KaraokeSongPage] Auto-cataloging song...', { geniusId })
+      hasStartedAutoCatalogRef.current = true
+      catalog.catalogSong()
     }
-  }, [pkpAuthContext, pkpAddress]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displaySong, isPKPReady, pkpAuthContext, isProcessed, geniusId, catalog.catalogSong])
 
-  // Update machine credit balance when it changes
+  // Reset auto-catalog flag and base-alignment flag when song changes
   useEffect(() => {
-    unlockFlow.updateCredits(credits)
-  }, [credits]) // eslint-disable-line react-hooks/exhaustive-deps
+    hasStartedAutoCatalogRef.current = false
+    setBaseAlignmentComplete(false)
+  }, [geniusId])
 
-  // Auto-catalog: Start machine on mount if song not already cataloged
-  useEffect(() => {
-    if (!isProcessed && displaySong && isPKPReady && pkpAuthContext && unlockFlow.isIdle) {
-      console.log('[Catalog] Starting auto-catalog via XState machine...')
-      unlockFlow.startAutoCatalog()
-    }
-  }, [isProcessed, displaySong, isPKPReady, pkpAuthContext, unlockFlow.isIdle]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleUnlock = useCallback(() => {
-    console.log('[Unlock] Starting unlock flow via XState...', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
-
-    if (!isPKPReady || !pkpAuthContext || !geniusId) {
-      console.error('[Unlock] Missing auth or geniusId', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
-      return
-    }
-
-    unlockFlow.startUnlock()
-  }, [isPKPReady, pkpAuthContext, geniusId, unlockFlow])
-
-  // Refetch song data when catalog completes (only once per song)
+  // Refetch song data after catalog completes
   const hasRefetchedRef = useRef(false)
   const prevGeniusIdRef = useRef(geniusId)
+  const segmentsRef = useRef(segments)
 
-  // Reset refetch flag when song changes
+  useEffect(() => {
+    segmentsRef.current = segments
+  }, [segments])
+
   useEffect(() => {
     if (prevGeniusIdRef.current !== geniusId) {
       hasRefetchedRef.current = false
@@ -161,37 +147,172 @@ export function KaraokeSongPage() {
   }, [geniusId])
 
   useEffect(() => {
-    if (unlockFlow.hasCatalogCompleted && !hasRefetchedRef.current) {
-      console.log('[Catalog] ✅ Catalog complete! Refetching song data...')
+    if (catalog.result?.success && !hasRefetchedRef.current && !catalog.isCataloging) {
+      console.log('[KaraokeSongPage] ✅ Catalog complete! Refetching song data...')
       hasRefetchedRef.current = true
 
       // Retry refetch until song appears in contract (up to 5 attempts)
       let attempts = 0
       const maxAttempts = 5
       const retryInterval = 2000
+      let timeoutId: NodeJS.Timeout | null = null
 
       const tryRefetch = async () => {
         attempts++
-        console.log(`[Catalog] Refetch attempt ${attempts}/${maxAttempts}`)
+        console.log(`[KaraokeSongPage] Refetch attempt ${attempts}/${maxAttempts}`)
         await refetch()
 
-        // Check if we got segments
-        if (segments.length === 0 && attempts < maxAttempts) {
-          console.log('[Catalog] No segments yet, retrying...')
-          setTimeout(tryRefetch, retryInterval)
-        } else if (segments.length > 0) {
-          console.log(`[Catalog] ✅ Loaded ${segments.length} segments!`)
+        const currentSegments = segmentsRef.current
+        if (currentSegments.length === 0 && attempts < maxAttempts) {
+          console.log('[KaraokeSongPage] No segments yet, retrying...')
+          timeoutId = setTimeout(tryRefetch, retryInterval)
+        } else if (currentSegments.length > 0) {
+          console.log(`[KaraokeSongPage] ✅ Loaded ${currentSegments.length} segments!`)
         } else {
-          console.warn('[Catalog] ⚠️ Max refetch attempts reached, segments not loaded')
+          console.warn('[KaraokeSongPage] ⚠️ Max refetch attempts reached, segments not loaded')
         }
       }
 
-      setTimeout(tryRefetch, retryInterval)
-    }
-  }, [unlockFlow.hasCatalogCompleted, refetch, segments.length])
+      timeoutId = setTimeout(tryRefetch, retryInterval)
 
-  // Construct external links from song metadata (memoized to prevent re-renders)
-  // MUST be before early returns to satisfy Rules of Hooks
+      return () => {
+        if (timeoutId) clearTimeout(timeoutId)
+      }
+    }
+  }, [catalog.result, catalog.isCataloging, refetch])
+
+  // Handle unlock button click
+  const handleUnlock = useCallback(async () => {
+    console.log('[KaraokeSongPage] Unlock button clicked', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
+
+    if (!isPKPReady || !pkpAuthContext || !geniusId) {
+      console.error('[KaraokeSongPage] Missing auth or geniusId', { isPKPReady, hasAuthContext: !!pkpAuthContext, geniusId })
+      return
+    }
+
+    // Special case: If song is owned but base-alignment hasn't run, just run base-alignment
+    if (displaySong?.isOwned && !songFromContract?.hasBaseAlignment) {
+      console.log('[KaraokeSongPage] Song owned but missing base-alignment, running alignment only...')
+      try {
+        const { executeBaseAlignment } = await import('@/lib/lit/actions')
+        const alignmentResult = await executeBaseAlignment(parseInt(geniusId), pkpAuthContext)
+
+        if (alignmentResult.success) {
+          console.log('[KaraokeSongPage] ✅ Base-alignment complete! Refetching...')
+          setBaseAlignmentComplete(true) // Hide button immediately
+          setTimeout(() => refetch(), 2000)
+        } else {
+          console.error('[KaraokeSongPage] ❌ Base-alignment failed:', alignmentResult.error)
+        }
+      } catch (err) {
+        console.error('[KaraokeSongPage] ❌ Base-alignment error:', err)
+      }
+      return
+    }
+
+    // Check credits BEFORE attempting transaction (better UX)
+    console.log('[KaraokeSongPage] Checking credits...', { credits })
+    if (credits < 1) {
+      console.log('[KaraokeSongPage] Insufficient credits, showing dialog')
+      // Load USDC balance
+      const { getUSDCBalance } = await import('@/lib/credits/queries')
+      const balance = await getUSDCBalance(pkpAddress || '')
+      setUsdcBalance(balance)
+      setShowCreditDialog(true)
+      return
+    }
+
+    // Have credits, proceed with unlock transaction
+    try {
+      const result = await unlock.unlockSong()
+
+      if (!result.success) {
+        console.error('[KaraokeSongPage] ❌ Unlock failed:', result.error)
+        // TODO: Show error toast/message to user
+        return
+      }
+
+      // Success! Refetch song data to get updated hasBaseAlignment flag
+      console.log('[KaraokeSongPage] ✅ Unlock successful! Refetching song data...')
+      setBaseAlignmentComplete(true) // Base-alignment runs as part of unlock
+      setTimeout(() => refetch(), 2000)
+
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        // Contract disagreed with our cached credits, refresh and show dialog
+        console.log('[KaraokeSongPage] Contract reported insufficient credits (cache was stale), refreshing...')
+        await loadCredits()
+        const { getUSDCBalance } = await import('@/lib/credits/queries')
+        const balance = await getUSDCBalance(pkpAddress || '')
+        setUsdcBalance(balance)
+        setShowCreditDialog(true)
+      } else {
+        console.error('[KaraokeSongPage] ❌ Unlock error:', err)
+      }
+    }
+  }, [isPKPReady, pkpAuthContext, geniusId, unlock.unlockSong, refetch, pkpAddress, displaySong, songFromContract, credits, loadCredits])
+
+  // Handle segment click
+  const handleSegmentClick = useCallback((segment: any) => {
+    navigate(`/karaoke/song/${geniusId}/segment/${segment.id}`)
+  }, [navigate, geniusId])
+
+  // Handle credit purchase
+  const handlePurchaseCredits = useCallback(async (packageId: number) => {
+    console.log('[KaraokeSongPage] Purchasing credits, package ID:', packageId)
+    setIsPurchasingCredits(true)
+
+    try {
+      const { purchaseCredits } = await import('@/lib/credits/purchase')
+      await purchaseCredits({
+        packageId,
+        pkpAuthContext: pkpAuthContext!,
+        pkpInfo: pkpInfo!,
+      })
+      console.log('[KaraokeSongPage] ✅ Credits purchased!')
+
+      // Refresh credits (purchase function already waited for confirmation + indexing)
+      await loadCredits()
+
+      // Give a moment for state to propagate
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Now proceed with unlock WITHOUT closing dialog first
+      // This way dialog stays open during entire flow
+      console.log('[KaraokeSongPage] Proceeding with unlock after purchase...')
+
+      // Re-check credits directly from context
+      // Note: Credits are updated in context by loadCredits above
+      if (!displaySong?.isOwned && !songFromContract?.hasBaseAlignment) {
+        try {
+          const result = await unlock.unlockSong()
+
+          if (result.success) {
+            console.log('[KaraokeSongPage] ✅ Unlock successful after purchase!')
+            setBaseAlignmentComplete(true)
+            setShowCreditDialog(false) // Close on success
+            setTimeout(() => refetch(), 2000)
+          } else {
+            console.error('[KaraokeSongPage] ❌ Unlock failed after purchase:', result.error)
+            setShowCreditDialog(false)
+          }
+        } catch (err) {
+          console.error('[KaraokeSongPage] ❌ Unlock error after purchase:', err)
+          setShowCreditDialog(false)
+        }
+      } else {
+        // Just close if already owned/aligned
+        setShowCreditDialog(false)
+      }
+    } catch (err) {
+      console.error('[KaraokeSongPage] ❌ Failed to purchase credits:', err)
+      setShowCreditDialog(false)
+    } finally {
+      setIsPurchasingCredits(false)
+    }
+  }, [pkpAuthContext, pkpInfo, unlock, loadCredits, displaySong, songFromContract, refetch])
+
+  // Construct external links
   const externalSongLinks = useMemo(() => {
     if (!displaySong) return []
     return buildExternalSongLinks({
@@ -199,6 +320,10 @@ export function KaraokeSongPage() {
       title: displaySong.title,
       artist: displaySong.artist,
       soundcloudPermalink: displaySong.soundcloudPermalink,
+      youtubeUrl: displaySong.youtubeUrl,
+      spotifyUuid: displaySong.spotifyUuid,
+      appleMusicId: displaySong.appleMusicId,
+      appleMusicPlayerUrl: displaySong.appleMusicPlayerUrl,
     })
   }, [displaySong])
 
@@ -211,7 +336,7 @@ export function KaraokeSongPage() {
     })
   }, [displaySong])
 
-  // Show loading state only if we're loading and don't have state data
+  // Show loading state
   if (isLoading && !songFromState && !fetchedSong) {
     return (
       <SongPage
@@ -219,13 +344,12 @@ export function KaraokeSongPage() {
         artist="Loading..."
         leaderboardEntries={[]}
         segments={[]}
-        onBack={() => navigate('/karaoke')}
+        onBack={() => navigate(-1)}
         onPlay={() => console.log('Play')}
       />
     )
   }
 
-  // Show loading while fetching song metadata
   if (!displaySong && geniusId && (isFetchingSong || isPKPReady)) {
     return (
       <SongPage
@@ -233,13 +357,12 @@ export function KaraokeSongPage() {
         artist="Loading..."
         leaderboardEntries={[]}
         segments={[]}
-        onBack={() => navigate('/karaoke')}
+        onBack={() => navigate(-1)}
         isAuthenticated={isPKPReady}
       />
     )
   }
 
-  // If no song data at all, show error
   if (!displaySong) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -249,7 +372,7 @@ export function KaraokeSongPage() {
             {error?.message || 'This song could not be loaded. Try searching again.'}
           </p>
           <button
-            onClick={() => navigate('/karaoke')}
+            onClick={() => navigate(-1)}
             className="text-primary hover:underline"
           >
             Back to Search
@@ -259,46 +382,52 @@ export function KaraokeSongPage() {
     )
   }
 
-  console.log('[KaraokeSongPage] Rendering SongPage:', {
-    songTitle: displaySong.title,
-    isFree: displaySong.isFree,
-    segmentsLength: segments.length,
-    machineState: unlockFlow.state.value,
-    isCataloging: unlockFlow.isCataloging,
-    isUnlocking: unlockFlow.isUnlocking,
-    isAuthenticated: isPKPReady,
-    soundcloudPermalink: displaySong.soundcloudPermalink,
-    externalSongLinksCount: externalSongLinks.length,
-    externalLyricsLinksCount: externalLyricsLinks.length,
+  // Log state for debugging
+  console.log('[KaraokeSongPage] Render state:', {
+    hasSegments: segments.length > 0,
+    segmentCount: segments.length,
+    hasBaseAlignment: songFromContract?.hasBaseAlignment,
+    baseAlignmentComplete,
+    isOwned: displaySong.isOwned,
+    isLocked: segments.length > 0 && !songFromContract?.hasBaseAlignment && !baseAlignmentComplete
   })
 
-  if (externalSongLinks.length > 0) {
-    console.log('[KaraokeSongPage] External song links:', externalSongLinks)
-  }
-  if (externalLyricsLinks.length > 0) {
-    console.log('[KaraokeSongPage] External lyrics links:', externalLyricsLinks)
-  }
-
   return (
-    <SongPage
-      songTitle={displaySong.title}
-      artist={displaySong.artist}
-      artworkUrl={displaySong.artworkUrl}
-      isExternal={true}
-      externalSongLinks={externalSongLinks}
-      externalLyricsLinks={externalLyricsLinks}
-      leaderboardEntries={[]} // TODO: Load from contract
-      segments={segments}
-      isFree={displaySong.isFree || false}
-      isUnlocking={unlockFlow.isCataloging}
-      isProcessing={unlockFlow.isProcessing}
-      catalogError={unlockFlow.catalogError}
-      hasFullAudio={unlockFlow.hasFullAudio}
-      onBack={() => navigate('/karaoke')}
-      onPlay={() => console.log('Play')} // TODO: Open external links sheet
-      onSelectSegment={handleSegmentClick}
-      onUnlockAll={handleUnlock}
-      isAuthenticated={isPKPReady}
-    />
+    <>
+      <SongPage
+        songTitle={displaySong.title}
+        artist={displaySong.artist}
+        artworkUrl={displaySong.artworkUrl}
+        isExternal={true}
+        externalSongLinks={externalSongLinks}
+        externalLyricsLinks={externalLyricsLinks}
+        leaderboardEntries={[]}
+        segments={segments}
+        isFree={displaySong.isFree || false}
+        isOwned={displaySong.isOwned || false}
+        isUnlocking={catalog.isCataloging}
+        isProcessing={unlock.isUnlocking}
+        catalogError={catalog.catalogError || undefined}
+        hasFullAudio={catalog.result?.hasFullAudio}
+        isLocked={segments.length > 0 && !songFromContract?.hasBaseAlignment && !baseAlignmentComplete}
+        onBack={() => navigate(-1)}
+        onPlay={() => console.log('Play')}
+        onSelectSegment={handleSegmentClick}
+        onUnlockAll={handleUnlock}
+        isAuthenticated={isPKPReady}
+      />
+
+      <CreditFlowDialog
+        open={showCreditDialog}
+        onOpenChange={setShowCreditDialog}
+        songTitle={displaySong.title}
+        songArtist={displaySong.artist}
+        walletAddress={pkpAddress || ''}
+        usdcBalance={usdcBalance}
+        creditsBalance={credits}
+        onPurchaseCredits={handlePurchaseCredits}
+        isPurchasing={isPurchasingCredits}
+      />
+    </>
   )
 }

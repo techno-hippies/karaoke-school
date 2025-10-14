@@ -17,6 +17,7 @@ interface CreditFlowDialogProps {
   songArtist: string
   walletAddress: string
   usdcBalance: string
+  creditsBalance: number
   onPurchaseCredits: (packageId: number) => void
   isPurchasing?: boolean
 }
@@ -47,6 +48,7 @@ export function CreditFlowDialog({
   songArtist,
   walletAddress,
   usdcBalance,
+  creditsBalance,
   onPurchaseCredits,
   isPurchasing = false,
 }: CreditFlowDialogProps) {
@@ -99,10 +101,19 @@ export function CreditFlowDialog({
                 </p>
               </div>
 
-              {/* Balance */}
-              <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
-                <p className="text-5xl font-bold">${usdcBalance}</p>
-                <p className="text-base text-muted-foreground mt-2">USDC on Base</p>
+              {/* Balances */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* USDC Balance */}
+                <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
+                  <p className="text-4xl font-bold">${usdcBalance}</p>
+                  <p className="text-sm text-muted-foreground mt-2">USDC on Base</p>
+                </div>
+
+                {/* Song Credits Balance */}
+                <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
+                  <p className="text-4xl font-bold">{creditsBalance}</p>
+                  <p className="text-sm text-muted-foreground mt-2">Song Credits</p>
+                </div>
               </div>
 
               {/* Wallet Address */}
@@ -159,10 +170,19 @@ export function CreditFlowDialog({
                 </p>
               </div>
 
-              {/* Balance */}
-              <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
-                <p className="text-5xl font-bold">${usdcBalance}</p>
-                <p className="text-base text-muted-foreground mt-2">USDC on Base</p>
+              {/* Balances */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* USDC Balance */}
+                <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
+                  <p className="text-4xl font-bold">${usdcBalance}</p>
+                  <p className="text-sm text-muted-foreground mt-2">USDC on Base</p>
+                </div>
+
+                {/* Song Credits Balance */}
+                <div className="text-center py-6 px-4 rounded-lg border-2 border-border">
+                  <p className="text-4xl font-bold">{creditsBalance}</p>
+                  <p className="text-sm text-muted-foreground mt-2">Song Credits</p>
+                </div>
               </div>
 
               {/* Credit Packages */}

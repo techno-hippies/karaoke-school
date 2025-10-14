@@ -3,8 +3,9 @@
 /**
  * Test Script for Translate Lyrics v1 Lit Action
  *
- * Tests per-language translation (NO timing generation):
- * - Load base alignment from contract metadataUri
+ * Tests self-contained per-language translation (DECOUPLED from base alignment):
+ * - Read song data from contract (title, artist)
+ * - Fetch lyrics independently from LRClib
  * - OpenRouter translation for target language
  * - Upload to Grove → song-{geniusId}-{lang}.json
  * - Update contract via setTranslation(geniusId, languageCode, uri)
@@ -35,19 +36,19 @@ dotenv.config({ path: join(__dirname, '../../.env') });
 // Load PKP credentials
 const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 
-// Test song (The Less I Know the Better - should have base alignment from previous test)
+// Test song (Song that exists in the app contract)
 const TEST_SONG = {
-  geniusId: 2165830,
-  name: 'Tame Impala - The Less I Know the Better',
+  geniusId: 4419431,
+  name: 'Test Song (4419431)',
   targetLanguage: 'vi',  // Test Vietnamese translation
-  notes: 'Should have base alignment from base-alignment-v1'
+  notes: 'Should be cataloged by match-and-segment-v7 (no base alignment required)'
 };
 
 // Encrypted key paths (will be created after uploading Lit Action)
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v12.json');
 
-// Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0x17D3BB01ACe342Fa85A5B9a439feEa65e2f1D726'; // Base Sepolia (V2 with translations)
+// Contract configuration (MUST match app/.env.local)
+const KARAOKE_CATALOG_ADDRESS = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // Base Sepolia (V2 with translations)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
@@ -68,39 +69,39 @@ async function loadEncryptedKeys() {
   return { openrouterKey };
 }
 
-async function checkBaseAlignment(geniusId) {
-  console.log('🔍 Checking if base alignment exists...');
+async function checkSongCataloged(geniusId) {
+  console.log('🔍 Checking if song is cataloged in contract...');
 
   const { ethers } = await import('ethers');
   const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
   const catalogAbi = [
     'function songExistsByGeniusId(uint32) view returns (bool)',
-    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
   ];
   const catalog = new ethers.Contract(KARAOKE_CATALOG_ADDRESS, catalogAbi, provider);
 
   const exists = await catalog.songExistsByGeniusId(geniusId);
   if (!exists) {
-    throw new Error(`Song ${geniusId} not found in contract. Run match-and-segment-v6 first!`);
+    throw new Error(`Song ${geniusId} not found in contract. Run match-and-segment-v7 first!`);
   }
 
   const songData = await catalog.getSongByGeniusId(geniusId);
   console.log(`✅ Song found: ${songData.artist} - ${songData.title}`);
 
-  if (!songData.metadataUri || songData.metadataUri === '') {
-    throw new Error('Song has no base alignment. Run base-alignment-v1 first!');
+  if (!songData.title || !songData.artist) {
+    throw new Error('Song missing title/artist. Contract data may be corrupt.');
   }
 
-  console.log(`✅ Base alignment exists: ${songData.metadataUri}`);
+  console.log(`✅ Song is cataloged (title: ${songData.title}, artist: ${songData.artist})`);
   return songData;
 }
 
 async function main() {
-  console.log('🌍 Translate Lyrics v1 Test (Per-Language Translation)\n');
+  console.log('🌍 Translate Lyrics v1 Test (Self-Contained Translation)\n');
   console.log('━'.repeat(80));
   console.log('\nThis test will:');
-  console.log('1. Check that base alignment exists in contract');
-  console.log('2. Load base alignment from Grove');
+  console.log('1. Check that song is cataloged in contract (from match-and-segment)');
+  console.log('2. Fetch lyrics independently from LRClib');
   console.log('3. Translate lyrics to target language with OpenRouter');
   console.log('4. Upload translation to Grove (language-specific file)');
   console.log('5. Update contract via setTranslation()');
@@ -118,8 +119,8 @@ async function main() {
     const pkpCreds = await loadPKPCredentials();
     const encryptedKeys = await loadEncryptedKeys();
 
-    // Check base alignment exists
-    const songData = await checkBaseAlignment(geniusId);
+    // Check song is cataloged (title/artist exists in contract)
+    const songData = await checkSongCataloged(geniusId);
 
     // Set up Auth Manager
     console.log('\n🔐 Setting up Auth Manager...');
@@ -197,13 +198,13 @@ async function main() {
       updateContract: true
     };
 
-    console.log('\n🚀 Executing Lit Action v1...');
-    console.log('⏱️  Expected time: ~5-15s (OpenRouter + Grove + contract)');
-    console.log('💰 Expected cost: ~$0.02');
+    console.log('\n🚀 Executing Lit Action v1 (Self-Contained)...');
+    console.log('⏱️  Expected time: ~5-15s (LRClib + OpenRouter + Grove + contract)');
+    console.log('💰 Expected cost: ~$0.02 (OpenRouter only)');
     const startTime = Date.now();
 
-    // Use IPFS CID for production
-    const TRANSLATE_LYRICS_V1_CID = 'QmcLk7vnPJj8vNikqzaKY6x3yZes8kYmaH3f8hDRNS5HP3';
+    // Use IPFS CID for production (Self-Contained version)
+    const TRANSLATE_LYRICS_V1_CID = 'QmUY8xCVvk85ZwxWeUpA1jBzHCsfHm12uVwVUrFsyvhdWk';
 
     try {
       const result = await litClient.executeJs({

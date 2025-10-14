@@ -13,11 +13,11 @@
 import type { EncryptedKey } from './types'
 
 /**
- * Genius API Key (v13) - CID-locked version
- * Bound to Match and Segment Lit Action v7 (with hasFullAudio check): QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e
+ * Genius API Key (v16) - CID-locked version
+ * Bound to Match and Segment Lit Action v8 (V4 ABI): QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6
  */
 export const GENIUS_API_KEY: EncryptedKey = {
-  ciphertext: "uD0+HpeT4Bsi0rMGdmkbo85fxBx2xjeBMNKZprutt/nLAD1+Vk6zayQaIRD2s3pU0EKOjRIrCEB2egUs5hzRJTos65dv/F/O1IQOOkmZM/tB+8GOW8Bde6KtN9RT13w5iXzUkrR5Hd8ymlLMEWo8w63DX3JZ6/rqNBsYfYCnlk+0vIqRMKmY3RDl3ghMEe6m5x4C",
+  ciphertext: "rhyBs/oXDnhRe3v+GqJuhRqq/+iU5ovIge486NMCaH9Gee6B0aYzMWSeo0Ih3Vp2r7lKQU8pKGED9CTUgsxVeU82zvyQOgudmtVjcEZXVzJBwfShh33xsAcuJMDKuC/9gSm1LTF/m1y4AmvNc6aFuYKf1uX5fuRYSRIXGLru2u7T73Pg56fvtdgRlc8+1kq9/14C",
   dataToEncryptHash: "364e5c5764d520470a219b3550be8019abf9ec10025d4abe0fe90f0bb929d75d",
   accessControlConditions: [
     {
@@ -29,20 +29,20 @@ export const GENIUS_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e"
+        value: "QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6"
       }
     }
   ],
-  encryptedAt: "2025-10-13T13:58:24.239Z",
-  cid: "QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e"
+  encryptedAt: "2025-10-14T13:57:43.758Z",
+  cid: "QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6"
 }
 
 /**
- * OpenRouter API Key (v13) - CID-locked version
- * Bound to Match and Segment Lit Action v7 (with hasFullAudio check): QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e
+ * OpenRouter API Key (v16) - CID-locked version
+ * Bound to Match and Segment Lit Action v8 (V4 ABI): QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6
  */
 export const OPENROUTER_API_KEY: EncryptedKey = {
-  ciphertext: "kstri8LrcXUglnNw/WLoiMM6DMdS4rM0xEh63aA7p3/XYbv0NmlWna8XAQKbN99ysuiJnK4SssWX+gycJq7kZaRQ3nTz9Dhmww8eyYB3cytKnFqpQ+lwPuBc6nZh7uVoyiGu8J6MavKX/w5cFZ55uUv2lzh1ymtFoR2CNcJdOFZxHX2CpzTvPyPqBwCYgFIvV2N159J+jeB+wFYC",
+  ciphertext: "potcVwujw+1Er6s5tRoZSj6aKKYp4cFXocYbXpDHM5jBIsS+l/1UCdrttuuk2D5FnsB9ehXHJRhZjuRc3OISQvQamd/RzGO7HGHJkUG+I21KANk+xMrhVIeEF0syRsiImpcjQ0HHcMUKTn5miwSaehnWgURBSbGUcJmtiUrQh4d9UlviWigXGEgEUgQXSI1sfpFrFMC8/nnplEUC",
   dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
   accessControlConditions: [
     {
@@ -54,21 +54,21 @@ export const OPENROUTER_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e"
+        value: "QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6"
       }
     }
   ],
-  encryptedAt: "2025-10-13T13:58:22.027Z",
-  cid: "QmWh1BhvziAXVgxqp6n1EoqfVxbq8FkmBx5we6XBoH7Y1e"
+  encryptedAt: "2025-10-14T13:57:56.545Z",
+  cid: "QmQWDN66ky5rxgCCXUboxaWKQ1L5XfHP4iiXzxHLeyACh6"
 }
 
 /**
- * ElevenLabs API Key (v5)
- * Bound to Base Alignment Lit Action v1 (FINAL WORKING): QmT7pEXV4gsxRFa9ZEDUqao4YhQr8H9Wfwq9kxP5fKKJgF
+ * ElevenLabs API Key (v9)
+ * Bound to Base Alignment Lit Action v2: QmP2yVNPf4FhzVuvQhwxdxPAvszRqoMTSmNMFJkwtiEiHA
  */
 export const ELEVENLABS_API_KEY: EncryptedKey = {
-  ciphertext: "jFBzL1tl+9CKAIkUjOi+jpIx1OO+A2/gGFoHbMDPP4UQWCWKowrMRbhwcNSvyT8oqSOCM5Gjc5AqFGKDd6h6WJLkG1IvQC6gvFuVOPlJioE05qiwMNVJ+Lpt2jKOG40v93oznsLeJWcImPzqw4Yfh8c7rad1VOeeqnAEvRmcoUKA1teHggI=",
-  dataToEncryptHash: "2869bb248aca9a1de7506a6ddae12981cb83e454c0eecc3dd1bf9c47ab22e69b",
+  ciphertext: "oHNqEIQPmHAp2dQZRaPJtO5Iq7jMDauhSO3DoPnP0utNz4z6NRO55sA5DFUsCcZ0X1XiR+DtS2nqpzVabu3xEURe1AhuDdk4jMqgbxtL0dM0ISkT8FGQvWLMLC86WQY4/2vKYTdU74NAoJmlVkTJgwi4GZjIHFThFjxHVgWyazksed8qZAI=",
+  dataToEncryptHash: "da26dea27c14ab04063640c69fda349cfcd7a97cb0f6d318139a57e14c50b69a",
   accessControlConditions: [
     {
       conditionType: "evmBasic",
@@ -79,10 +79,10 @@ export const ELEVENLABS_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmT7pEXV4gsxRFa9ZEDUqao4YhQr8H9Wfwq9kxP5fKKJgF"
+        value: "QmP2yVNPf4FhzVuvQhwxdxPAvszRqoMTSmNMFJkwtiEiHA"
       }
     }
   ],
-  encryptedAt: "2025-10-13T12:02:25.033Z",
-  cid: "QmT7pEXV4gsxRFa9ZEDUqao4YhQr8H9Wfwq9kxP5fKKJgF"
+  encryptedAt: "2025-10-14T13:22:13.917Z",
+  cid: "QmP2yVNPf4FhzVuvQhwxdxPAvszRqoMTSmNMFJkwtiEiHA"
 }

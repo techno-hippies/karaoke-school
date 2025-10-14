@@ -89,7 +89,6 @@ const go = async () => {
 
     // Step 1: Verify segment ownership (paid operation)
     const creditsContract = '0x6de183934E68051c407266F877fafE5C20F74653'; // Base Sepolia
-    const baseSepoliaRpc = 'https://sepolia.base.org';
 
     console.log('[Audio Processor v4] Verifying ownership...');
     const owned = await Lit.Actions.runOnce(

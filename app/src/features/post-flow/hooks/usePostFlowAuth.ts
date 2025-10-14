@@ -3,7 +3,7 @@
  * Validates and manages authentication requirements for the post flow
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import type { PostFlowAuthStatus } from '../types'
 
@@ -11,8 +11,6 @@ export function usePostFlowAuth() {
   const {
     isPKPReady,
     hasLensAccount,
-    pkpWalletClient,
-    pkpAddress,
     credits,
     capabilities,
     registerWithPasskey,
@@ -20,7 +18,7 @@ export function usePostFlowAuth() {
     loginLens,
   } = useAuth()
 
-  const [isLoadingCredits, setIsLoadingCredits] = useState(false)
+  const [isLoadingCredits] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
 

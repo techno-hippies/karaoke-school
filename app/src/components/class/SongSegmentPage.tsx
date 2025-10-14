@@ -19,8 +19,11 @@ export interface SongSegmentPageProps {
   onBack?: () => void
   onStudy?: () => void
   onKaraoke?: () => void
+  onTranslate?: () => void // Trigger translation if not done
   isStudyLoading?: boolean
   isKaraokeLoading?: boolean
+  isTranslating?: boolean
+  hasTranslations?: boolean // Whether translations exist for selected language
   className?: string
 }
 
@@ -66,8 +69,11 @@ export function SongSegmentPage({
   onBack,
   onStudy,
   onKaraoke,
+  onTranslate,
   isStudyLoading = false,
   isKaraokeLoading = false,
+  isTranslating = false,
+  hasTranslations = false,
   className,
 }: SongSegmentPageProps) {
   // Filter out section markers
@@ -133,28 +139,43 @@ export function SongSegmentPage({
           </ScrollArea>
         </div>
 
-        {/* Sticky Footer with Study and Karaoke Buttons */}
+        {/* Sticky Footer with Translate or Study/Karaoke Buttons */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
-          <div className="grid grid-cols-2 gap-3">
+          {!hasTranslations && onTranslate ? (
+            // Show translate button if translations don't exist
             <Button
-              onClick={onStudy}
-              disabled={isStudyLoading}
+              onClick={onTranslate}
+              disabled={isTranslating}
               size="lg"
-              variant="secondary"
+              variant="default"
+              className="w-full"
             >
-              {isStudyLoading && <Spinner />}
-              Study
+              {isTranslating && <Spinner />}
+              {isTranslating ? 'Translating...' : 'Translate to Chinese'}
             </Button>
+          ) : (
+            // Show Study/Karaoke buttons after translation
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={onStudy}
+                disabled={isStudyLoading}
+                size="lg"
+                variant="secondary"
+              >
+                {isStudyLoading && <Spinner />}
+                Study
+              </Button>
 
-            <Button
-              onClick={onKaraoke}
-              disabled={isKaraokeLoading}
-              size="lg"
-            >
-              {isKaraokeLoading && <Spinner />}
-              Karaoke
-            </Button>
-          </div>
+              <Button
+                onClick={onKaraoke}
+                disabled={isKaraokeLoading}
+                size="lg"
+              >
+                {isKaraokeLoading && <Spinner />}
+                Karaoke
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

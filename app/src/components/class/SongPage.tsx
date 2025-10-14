@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, MusicNotes, LockKey } from '@phosphor-icons/react'
+import { Play, MusicNotes, Lock } from '@phosphor-icons/react'
 import { Leaderboard } from './Leaderboard'
 import { ExternalLinksDrawer } from './ExternalLinksDrawer'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ export interface SongPageProps {
   isGenerating?: boolean
   generatingProgress?: number // 0-100
   isFree?: boolean // Is this a free song (no credits required)?
+  isOwned?: boolean // Is this song already owned by the user?
   isUnlocking?: boolean // Cataloging in progress (match-and-segment)
   isProcessing?: boolean // Paid processing in progress (audio/alignment/translation)
   onAuthRequired?: () => void // Called when user needs to authenticate
@@ -60,6 +61,7 @@ export interface SongPageProps {
   // Cataloging
   catalogError?: string | null
   hasFullAudio?: boolean | null // true = full audio, false = 30s snippet only, null = not yet checked
+  isLocked?: boolean // true = segments are locked (cataloged but not aligned yet)
 }
 
 // Song detail page with stats, leaderboard, and study/karaoke actions
@@ -80,6 +82,7 @@ export function SongPage({
   isGenerating = false,
   generatingProgress = 0,
   isFree = false,
+  isOwned = false,
   isUnlocking = false,
   isProcessing = false,
   onAuthRequired,
@@ -87,6 +90,7 @@ export function SongPage({
   className,
   catalogError,
   hasFullAudio,
+  isLocked = false,
 }: SongPageProps) {
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
 
@@ -107,30 +111,31 @@ export function SongPage({
   }
 
   const handleUnlockAction = () => {
+    console.log('[SongPage] handleUnlockAction called', {
+      isAuthenticated,
+      hasOnUnlockAll: !!onUnlockAll,
+      hasOnAuthRequired: !!onAuthRequired
+    })
+
     if (!isAuthenticated && onAuthRequired) {
+      console.log('[SongPage] Not authenticated, calling onAuthRequired')
       onAuthRequired()
       return
     }
     if (onUnlockAll) {
+      console.log('[SongPage] Calling onUnlockAll')
       onUnlockAll()
+    } else {
+      console.warn('[SongPage] onUnlockAll is not defined!')
     }
   }
 
   // Check if unlock button should be shown
   // Show button if:
-  // 1. No segments yet (not cataloged)
-  // 2. OR segments exist but not processed (no audioUrl) - cataloged but not unlocked
-  const hasUnprocessedSegments = segments.length > 0 && segments.every(seg => !seg.audioUrl)
-  const showUnlockButton = segments.length === 0 || hasUnprocessedSegments
-
-  console.log('[SongPage] Unlock button logic:', {
-    isFree,
-    segmentsLength: segments.length,
-    hasUnprocessedSegments,
-    showUnlockButton,
-    isUnlocking,
-    isProcessing
-  })
+  // 1. No segments yet (not cataloged) - will show skeleton
+  // 2. OR segments are locked (cataloged but not aligned yet)
+  // 3. Show even if owned IF segments are locked (need to run base-alignment)
+  const showUnlockButton = segments.length === 0 || isLocked
 
   return (
     <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
@@ -205,9 +210,9 @@ export function SongPage({
             <div className="flex items-start gap-3">
               <div className="text-yellow-500 mt-0.5">⚠️</div>
               <div className="flex-1">
-                <h3 className="text-yellow-500 font-semibold mb-1">Limited Audio Available</h3>
+                <h3 className="text-yellow-500 font-semibold mb-1">30-Second Preview Only</h3>
                 <p className="text-muted-foreground text-sm">
-                  This song only has a 30-second preview. Karaoke generation may be limited in quality.
+                  This song only has a 30-second preview available and cannot be unlocked for karaoke. Please try a different song with full audio.
                 </p>
               </div>
             </div>
@@ -251,7 +256,7 @@ export function SongPage({
                   </ScrollArea>
                 </div>
               ) : segments.length > 0 ? (
-                // Unlocked state - show segment list
+                // Show segment list (locked or unlocked)
                 <div className="space-y-4">
                   <ScrollArea className="max-h-[50vh]">
                     <div className="space-y-1">
@@ -259,8 +264,13 @@ export function SongPage({
                         <Item
                           key={segment.id}
                           variant="default"
-                          className="gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => !isGenerating && handleSegmentAction(segment)}
+                          className={cn(
+                            "gap-3 px-4 py-3 transition-colors",
+                            isLocked || isGenerating
+                              ? "opacity-60 cursor-not-allowed"
+                              : "cursor-pointer hover:bg-muted/50"
+                          )}
+                          onClick={() => !isGenerating && !isLocked && handleSegmentAction(segment)}
                         >
                           <ItemContent>
                             <ItemTitle className={isGenerating ? "text-muted-foreground" : ""}>
@@ -272,6 +282,9 @@ export function SongPage({
                                 : `${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}`}
                               </ItemDescription>
                           </ItemContent>
+                          {isLocked && (
+                            <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" weight="regular" />
+                          )}
                         </Item>
                       ))}
                     </div>
@@ -298,10 +311,16 @@ export function SongPage({
             variant="default"
             onClick={handleUnlockAction}
             className="w-full"
-            disabled={isGenerating || isProcessing}
+            disabled={isGenerating || isProcessing || hasFullAudio === false}
           >
             {isProcessing && <Spinner size="sm" />}
-            {isProcessing ? 'Processing...' : 'Unlock (1 credit)'}
+            {isProcessing
+              ? 'Processing...'
+              : isOwned && isLocked
+                ? 'Complete Setup (Free)'
+                : isOwned
+                  ? 'Unlocked'
+                  : 'Unlock (1 credit)'}
           </Button>
         </div>
       )}

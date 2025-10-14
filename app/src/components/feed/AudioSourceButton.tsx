@@ -8,7 +8,6 @@ import type { AudioSourceButtonProps } from './types'
  */
 export function AudioSourceButton({
   musicTitle,
-  musicAuthor,
   musicImageUrl,
   onClick,
   className

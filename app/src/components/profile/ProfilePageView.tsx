@@ -33,15 +33,10 @@ export interface ProfilePageViewProps {
   }
 
   // Navigation
-  activeTab: 'home' | 'study' | 'post' | 'inbox' | 'profile'
-  mobileTab: 'home' | 'post' | 'profile'
-  onDesktopTabChange: (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => void
-  onMobileTabChange: (tab: 'home' | 'post' | 'profile') => void
+  onNavigateHome: () => void
 
   // Wallet
   isConnected?: boolean
-  walletAddress?: string
-  onConnectWallet?: () => void
   onDisconnect?: () => void
 
   // Handlers
@@ -50,7 +45,6 @@ export interface ProfilePageViewProps {
   onMessageClick: () => void
   onShareProfile: () => void
   onVideoClick: (video: Video) => void
-  onNavigateHome: () => void
 }
 
 /**
@@ -63,13 +57,7 @@ export function ProfilePageView({
   videosLoading,
   favoriteArtists = [],
   followState,
-  activeTab,
-  mobileTab,
-  onDesktopTabChange,
-  onMobileTabChange,
   isConnected,
-  walletAddress,
-  onConnectWallet,
   onDisconnect,
   onEditProfile,
   onFollowClick,

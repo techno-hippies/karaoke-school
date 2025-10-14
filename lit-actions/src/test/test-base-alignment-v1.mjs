@@ -47,7 +47,7 @@ const TEST_SONG = {
 const ELEVENLABS_KEY_PATH = join(__dirname, '../karaoke/keys/elevenlabs_api_key_v5.json');
 
 // Contract configuration
-const KARAOKE_CATALOG_ADDRESS = '0x422f686f5CdFB48d962E1D7E0F5035D286a1ccAa'; // Base Sepolia (CURRENT)
+const KARAOKE_CATALOG_ADDRESS = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // Base Sepolia (CURRENT V2)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
@@ -76,7 +76,7 @@ async function fetchSongLyrics(geniusId) {
   const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
   const catalogAbi = [
     'function songExistsByGeniusId(uint32) view returns (bool)',
-    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
   ];
   const catalog = new ethers.Contract(KARAOKE_CATALOG_ADDRESS, catalogAbi, provider);
 
@@ -87,6 +87,7 @@ async function fetchSongLyrics(geniusId) {
 
   const songData = await catalog.getSongByGeniusId(geniusId);
   console.log(`✅ Song found: ${songData.artist} - ${songData.title}`);
+  console.log(`   SoundCloud path: ${songData.soundcloudPath || 'N/A'}`);
 
   // Fetch lyrics from LRClib (we'll use the synced lyrics as plain lyrics)
   const artist = songData.artist;
@@ -120,7 +121,7 @@ async function fetchSongLyrics(geniusId) {
 
   console.log(`✅ Lyrics loaded (${plainLyrics.split('\n').length} lines)`);
 
-  return plainLyrics;
+  return { plainLyrics, soundcloudPath: songData.soundcloudPath };
 }
 
 async function main() {
@@ -146,16 +147,15 @@ async function main() {
     const pkpCreds = await loadPKPCredentials();
     const encryptedKeys = await loadEncryptedKeys();
 
-    // Fetch song lyrics
-    const plainLyrics = await fetchSongLyrics(geniusId);
+    // Fetch song lyrics and soundcloud path
+    const { plainLyrics, soundcloudPath } = await fetchSongLyrics(geniusId);
 
-    // Get soundcloud permalink if not provided
-    let scPermalink = soundcloudPermalink;
+    // Use soundcloud path from contract
+    const scPermalink = soundcloudPath ? `https://soundcloud.com/${soundcloudPath}` : soundcloudPermalink;
     if (!scPermalink) {
-      console.log('🔍 Need to get SoundCloud permalink from contract metadata...');
-      // TODO: Fetch from contract metadata if available
-      throw new Error('SoundCloud permalink required. Provide it as an argument or ensure it\'s in contract metadata.');
+      throw new Error('SoundCloud permalink not found in contract. Run match-and-segment-v7 first to catalog the song.');
     }
+    console.log(`✅ Using SoundCloud: ${scPermalink}`);
 
     // Set up Auth Manager
     console.log('\n🔐 Setting up Auth Manager...');

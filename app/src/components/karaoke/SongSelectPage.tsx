@@ -38,8 +38,18 @@ export interface SongSelectPageProps {
   isSearching?: boolean
   /** Called when user searches */
   onSearch?: (query: string) => void
+  /** Called when user clears search */
+  onClearSearch?: () => void
   /** Called when a song is clicked (for navigation) */
   onSongClick?: (song: Song) => void
+  /** Initial search query from URL params */
+  initialSearchQuery?: string
+  /** Initial active tab from URL params */
+  initialActiveTab?: 'trending' | 'favorites'
+  /** Called when tab changes */
+  onTabChange?: (tab: 'trending' | 'favorites') => void
+  /** Skip auto-search on mount (when we have cached results) */
+  skipAutoSearch?: boolean
   /** Optional className */
   className?: string
 }
@@ -54,17 +64,38 @@ export interface SongSelectPageProps {
  */
 export function SongSelectPage({
   open,
-  onClose,
   trendingSongs = [],
   favoriteSongs = [],
   searchResults = [],
   isSearching = false,
   onSearch,
+  onClearSearch,
   onSongClick,
+  initialSearchQuery = '',
+  initialActiveTab = 'trending',
+  onTabChange,
+  skipAutoSearch = false,
   className,
 }: SongSelectPageProps) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [hasSearched, setHasSearched] = useState(false)
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
+  const [hasSearched, setHasSearched] = useState(!!initialSearchQuery)
+  const [activeTab, setActiveTab] = useState<'trending' | 'favorites'>(initialActiveTab)
+
+  // Notify parent when tab changes
+  const handleTabChange = (tab: 'trending' | 'favorites') => {
+    setActiveTab(tab)
+    onTabChange?.(tab)
+  }
+
+  // Trigger search on mount ONLY if we have a query and no cached results
+  useEffect(() => {
+    if (initialSearchQuery && onSearch && !skipAutoSearch) {
+      console.log('[SongSelectPage] Auto-triggering search for:', initialSearchQuery)
+      onSearch(initialSearchQuery)
+    } else if (skipAutoSearch) {
+      console.log('[SongSelectPage] ✅ Using cached results, skipping search')
+    }
+  }, []) // Empty deps - only run on mount
 
   const handleSongClick = (song: Song) => {
     console.log('[SongSelectPage] handleSongClick called for:', song.title, 'geniusId:', song.id)
@@ -82,6 +113,8 @@ export function SongSelectPage({
   const handleClearSearch = () => {
     setSearchQuery('')
     setHasSearched(false)
+    // Notify parent to clear URL params and cache
+    onClearSearch?.()
   }
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -119,7 +152,7 @@ export function SongSelectPage({
 
         {/* Content area */}
         <div className="flex-1 flex flex-col min-h-0 p-4 max-w-6xl mx-auto w-full">
-          <Tabs defaultValue="trending" className="flex-1 flex flex-col min-h-0">
+          <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as 'trending' | 'favorites')} className="flex-1 flex flex-col min-h-0">
             {/* Tabs */}
             <TabsList className="w-full flex-shrink-0">
               <TabsTrigger value="trending" className="flex-1">

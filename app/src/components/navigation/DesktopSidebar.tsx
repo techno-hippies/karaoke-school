@@ -3,23 +3,19 @@ import { House, Exam, User, MicrophoneStage, Wallet } from '@phosphor-icons/reac
 import { Button } from '@/components/ui/button'
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile'
+  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'
   onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
-  onCreatePost: () => void
   isConnected?: boolean
   walletAddress?: string
-  onDisconnect?: () => void
   onConnectWallet?: () => void
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   activeTab,
   onTabChange,
-  onCreatePost,
   isConnected,
   walletAddress,
-  onConnectWallet,
-  onDisconnect
+  onConnectWallet
 }) => {
   return (
     <div className="max-md:hidden fixed left-0 top-0 h-full w-80 bg-sidebar border-r border-border z-50">

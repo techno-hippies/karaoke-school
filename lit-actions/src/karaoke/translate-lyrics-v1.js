@@ -1,24 +1,26 @@
 /**
- * Translate Lyrics v1: Per-Language Translation (NO Timing)
+ * Translate Lyrics v1: Self-Contained Translation
  *
- * Called on-demand when user needs a specific language.
- * Reuses base alignment from base-alignment-v1.js (no ElevenLabs needed).
+ * PHILOSOPHY: Decoupled from base alignment - fetches lyrics independently
+ * - No dependency on base-alignment running first
+ * - Can run in parallel with base-alignment
+ * - Simplifies state management in frontend
  *
  * Benefits:
  * - Cheap operation (~$0.02 per language)
- * - Lazy-loaded (only create translations users need)
- * - No ElevenLabs cost (reuses existing word timing)
- * - Parallel execution (multiple users can translate simultaneously)
+ * - Parallel execution with alignment (faster unlock flow)
+ * - Independent translation updates (can retranslate without re-aligning)
  *
  * Flow:
- * 1. Load base alignment from contract metadataUri
- * 2. OpenRouter translation for target language
- * 3. Build translation-only JSON
- * 4. Upload to Grove storage as song-{geniusId}-{lang}.json
- * 5. Update contract via setTranslation(geniusId, languageCode, uri)
+ * 1. Read song data from contract (title, artist) - validates song was cataloged
+ * 2. Fetch synced lyrics from LRClib (same source as base-alignment)
+ * 3. OpenRouter translation for target language
+ * 4. Build translation-only JSON with line IDs
+ * 5. Upload to Grove storage as song-{geniusId}-{lang}.json
+ * 6. Update contract via setTranslation(geniusId, languageCode, uri)
  *
  * Input:
- * - geniusId: Genius song ID
+ * - geniusId: Genius song ID (ONLY required input)
  * - targetLanguage: 'zh' | 'vi' | 'es' | 'ja' | 'ko' | 'tr' (ISO 639-1 code)
  * - openrouterKeyAccessControlConditions, openrouterKeyCiphertext, openrouterKeyDataToEncryptHash
  * - contractAddress, pkpAddress, pkpTokenId, pkpPublicKey
@@ -29,7 +31,7 @@
  * - lineCount: Number of translated lines
  * - txHash: Contract update transaction (if updateContract=true)
  *
- * Time: ~5-15s (OpenRouter + Grove + contract write)
+ * Time: ~5-15s (LRClib + OpenRouter + Grove + contract write)
  * Cost: ~$0.02 (OpenRouter only)
  */
 
@@ -62,39 +64,84 @@ const go = async () => {
       throw new Error('Contract params (contractAddress, pkpAddress, pkpTokenId, pkpPublicKey) are required');
     }
 
-    // Step 1: Load base alignment from contract
-    console.log('[1/4] Loading base alignment from contract...');
-
-    const provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
+    // Step 1: Read song data from contract (ALL NODES)
+    console.log('[1/5] Reading song data from contract...');
+    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+    const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
     const catalogAbi = [
-      'function getSongByGeniusId(uint32 geniusId) external view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
     ];
     const catalog = new ethers.Contract(contractAddress, catalogAbi, provider);
-
     const songData = await catalog.getSongByGeniusId(geniusId);
-    console.log('Song found:', songData.title, '-', songData.artist);
 
-    if (!songData.metadataUri || songData.metadataUri === '') {
-      throw new Error('Song has no base alignment. Run base-alignment-v1 first!');
+    const title = songData.title;
+    const artist = songData.artist;
+
+    if (!title || !artist) {
+      throw new Error('Song has no title/artist in contract. Run match-and-segment first to catalog the song.');
     }
 
-    console.log('Base alignment URI:', songData.metadataUri);
+    console.log(`✅ Song data from contract:`);
+    console.log(`   Title: ${title}`);
+    console.log(`   Artist: ${artist}`);
 
-    // Download base alignment from Grove
-    const metadataUrl = songData.metadataUri.startsWith('lens://')
-      ? `https://api.grove.storage/${songData.metadataUri.replace('lens://', '')}`
-      : songData.metadataUri;
+    // Step 2: Fetch lyrics from LRClib (SINGLE NODE via runOnce)
+    console.log('[2/5] Fetching lyrics from LRClib...');
+    const lyricsResult = await Lit.Actions.runOnce(
+      { waitForResponse: true, name: 'fetchLyrics' },
+      async () => {
+        try {
+          const lrcResp = await fetch(
+            'https://lrclib.net/api/search?' +
+            new URLSearchParams({
+              artist_name: artist,
+              track_name: title
+            })
+          );
 
-    const metadataResp = await fetch(metadataUrl);
-    if (!metadataResp.ok) {
-      throw new Error(`Failed to fetch base alignment: ${metadataResp.status}`);
+          const lrcResults = await lrcResp.json();
+          if (lrcResults.length === 0) {
+            return JSON.stringify({ error: 'No lyrics found on LRClib' });
+          }
+
+          const lrcData = lrcResults[0];
+          const syncedLyrics = lrcData.syncedLyrics;
+
+          if (!syncedLyrics) {
+            return JSON.stringify({ error: 'No synced lyrics available' });
+          }
+
+          // Parse synced lyrics to extract plain text lines with IDs
+          const lines = syncedLyrics.split('\n').filter(l => l.trim());
+          const lyricsLines = [];
+
+          for (let i = 0; i < lines.length; i++) {
+            const match = lines[i].match(/\[[\d:.]+\]\s*(.+)/);
+            if (match && match[1]) {
+              lyricsLines.push({
+                id: i,
+                text: match[1]
+              });
+            }
+          }
+
+          return JSON.stringify({ lyricsLines, lineCount: lyricsLines.length });
+        } catch (error) {
+          return JSON.stringify({ error: `LRClib fetch failed: ${error.message}` });
+        }
+      }
+    );
+
+    const lyricsData = JSON.parse(lyricsResult);
+    if (lyricsData.error) {
+      throw new Error(lyricsData.error);
     }
 
-    const baseAlignment = await metadataResp.json();
-    console.log('Base alignment loaded:', baseAlignment.lines.length, 'lines');
+    const lyricsLines = lyricsData.lyricsLines;
+    console.log(`✅ Lyrics fetched (${lyricsData.lineCount} lines)`);
 
-    // Step 2: Decrypt OpenRouter key
-    console.log('[2/4] Decrypting OpenRouter key...');
+    // Step 3: Decrypt OpenRouter key (ALL NODES for threshold decryption)
+    console.log('[3/5] Decrypting OpenRouter key...');
     let openrouterKey;
     try {
       openrouterKey = await Lit.Actions.decryptAndCombine({
@@ -109,8 +156,8 @@ const go = async () => {
       throw new Error(`Failed to decrypt OpenRouter key: ${decryptError.message}`);
     }
 
-    // Step 3: Translate lyrics with OpenRouter (using runOnce)
-    console.log('[3/4] Translating lyrics...');
+    // Step 4: Translate lyrics with OpenRouter (SINGLE NODE via runOnce)
+    console.log('[4/5] Translating lyrics...');
 
     // Language names for better LLM understanding
     const languageNames = {
@@ -137,7 +184,7 @@ const go = async () => {
       async () => {
         try {
           // Build lyrics text for translation
-          const lyricsText = baseAlignment.lines.map(line => line.text).join('\n');
+          const lyricsText = lyricsLines.map(line => line.text).join('\n');
 
           const prompt = `You are a professional song translator. Translate these English song lyrics to ${languageName}.
 
@@ -202,12 +249,13 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
 
           // Match with original lines
           const translations = [];
-          for (let i = 0; i < baseAlignment.lines.length; i++) {
-            const originalLine = baseAlignment.lines[i];
+          for (let i = 0; i < lyricsLines.length; i++) {
+            const originalLine = lyricsLines[i];
             const translatedLine = translatedLines[i] || '';
 
             translations.push({
               id: originalLine.id,
+              text: originalLine.text,
               translation: translatedLine.trim()
             });
           }
@@ -236,8 +284,8 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
 
     console.log(`Translated ${translationResult.translations.length} lines`);
 
-    // Step 4: Upload translation to Grove (using runOnce)
-    console.log('[4/4] Uploading translation to Grove...');
+    // Step 5: Upload translation to Grove (SINGLE NODE via runOnce)
+    console.log('[5/5] Uploading translation to Grove...');
 
     const groveUploadResult = await Lit.Actions.runOnce(
       { waitForResponse: true, name: "groveUpload" },
@@ -255,8 +303,8 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
           const metadataJson = JSON.stringify(metadata);
           console.log(`Metadata size: ${metadataJson.length} bytes`);
 
-          // Upload to Grove
-          const groveResp = await fetch('https://api.grove.storage/create', {
+          // Upload to Grove (Lens Testnet chain_id: 37111)
+          const groveResp = await fetch('https://api.grove.storage/?chain_id=37111', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -272,15 +320,17 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
             });
           }
 
-          const groveData = await groveResp.json();
-          console.log('Grove upload successful, key:', groveData.key);
+          const groveResult = await groveResp.json();
+          // Grove can return array or object
+          const groveData = Array.isArray(groveResult) ? groveResult[0] : groveResult;
+          console.log('Grove upload successful, key:', groveData.storage_key);
 
-          const groveUri = `lens://${groveData.key}`;
+          const groveUri = `lens://${groveData.storage_key}`;
 
           return JSON.stringify({
             success: true,
             uri: groveUri,
-            key: groveData.key
+            key: groveData.storage_key
           });
 
         } catch (error) {
@@ -303,12 +353,12 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
     const translationUri = groveResult.uri;
     console.log('Translation URI:', translationUri);
 
-    // Step 5: Update contract via setTranslation (using runOnce for transaction)
+    // Step 6: Update contract via setTranslation (SINGLE NODE via runOnce)
     let txHash = null;
     let contractError = null;
 
     if (updateContract) {
-      console.log('[5/5] Updating contract with setTranslation...');
+      console.log('[6/6] Updating contract with setTranslation...');
 
       const contractUpdateResult = await Lit.Actions.runOnce(
         { waitForResponse: true, name: "contractUpdate" },
@@ -320,82 +370,91 @@ TRANSLATE TO ${languageName.toUpperCase()}:`;
             ];
 
             const iface = new ethers.utils.Interface(abi);
-            const data = iface.encodeFunctionData('setTranslation', [geniusId, targetLanguage, translationUri]);
+            const calldata = iface.encodeFunctionData('setTranslation', [geniusId, targetLanguage, translationUri]);
 
-            const provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
+            // Get gas price and nonce
+            const gasPrice = await provider.getGasPrice();
             const nonce = await provider.getTransactionCount(pkpAddress);
-            const feeData = await provider.getFeeData();
 
-            const tx = {
+            // Build unsigned transaction (no "from" field before serialization)
+            const unsignedTx = {
               to: contractAddress,
-              nonce: nonce,
-              data: data,
+              data: calldata,
               gasLimit: 200000,
-              maxFeePerGas: feeData.maxFeePerGas,
-              maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-              chainId: 84532,
-              type: 2,
+              gasPrice: gasPrice.toHexString(),
+              nonce,
+              chainId: 84532, // Base Sepolia
             };
 
-            console.log('Signing transaction with PKP...');
-            const serializedTx = ethers.utils.serializeTransaction(tx);
-            const txHash = ethers.utils.keccak256(serializedTx);
-            const txHashBytes = ethers.utils.arrayify(txHash);
+            // Hash the transaction for signing (return as hex string for JSON serialization)
+            const txHash = ethers.utils.keccak256(ethers.utils.serializeTransaction(unsignedTx));
 
-            const signature = await Lit.Actions.signAndCombineEcdsa({
-              toSign: txHashBytes,
-              publicKey: pkpPublicKey,
-              sigName: 'contractUpdateSig'
-            });
-
-            const signatureBytes = ethers.utils.arrayify('0x' + signature);
-            const r = signatureBytes.slice(0, 32);
-            const s = signatureBytes.slice(32, 64);
-            let v = signatureBytes[64];
-
-            // EIP-155 v value calculation for Base Sepolia (chainId 84532)
-            if (v < 27) {
-              v = v + 27;
-            }
-            v = v + (84532 * 2) + 8;
-
-            const signedTx = ethers.utils.serializeTransaction(tx, {
-              r: ethers.utils.hexlify(r),
-              s: ethers.utils.hexlify(s),
-              v: v
-            });
-
-            console.log('Broadcasting transaction...');
-            const txResponse = await provider.sendTransaction(signedTx);
-            console.log('Transaction hash:', txResponse.hash);
-
-            return JSON.stringify({
-              success: true,
-              txHash: txResponse.hash
-            });
+            return JSON.stringify({ unsignedTx, txHashHex: txHash });
 
           } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-              stack: error.stack
-            });
+            return JSON.stringify({ error: `Contract update prep failed: ${error.message}` });
           }
         }
       );
 
-      const contractResult = JSON.parse(contractUpdateResult);
-      console.log('Contract result:', contractResult.success ? 'SUCCESS' : 'FAILED');
-
-      if (contractResult.success) {
-        txHash = contractResult.txHash;
-        console.log('Contract updated successfully, tx:', txHash);
+      const txData = JSON.parse(contractUpdateResult);
+      if (txData.error) {
+        contractError = txData.error;
+        console.error(`❌ Contract update failed: ${contractError}`);
       } else {
-        contractError = contractResult.error;
-        console.log('Contract update failed:', contractError);
+        // Convert hex hash to Uint8Array for signing
+        const toSign = ethers.utils.arrayify(txData.txHashHex);
+
+        // Sign the transaction (ALL NODES for threshold signature)
+        const signature = await Lit.Actions.signAndCombineEcdsa({
+          toSign,
+          publicKey: pkpPublicKey,
+          sigName: 'contractUpdateSig',
+        });
+
+        // Submit transaction (SINGLE NODE via runOnce)
+        const submitResult = await Lit.Actions.runOnce(
+          { waitForResponse: true, name: 'txSubmit' },
+          async () => {
+            try {
+              // Parse signature from Lit Actions
+              const sig = JSON.parse(signature);
+              const r = sig.r.startsWith('0x') ? sig.r : '0x' + sig.r;
+              const s = sig.s.startsWith('0x') ? sig.s : '0x' + sig.s;
+
+              // Extract recovery ID
+              let recid = 0;
+              if (sig.recid !== undefined) {
+                recid = sig.recid;
+              } else if (sig.v !== undefined) {
+                recid = sig.v >= 27 ? sig.v - 27 : sig.v;
+              }
+
+              // Calculate EIP-155 v value (chainId = 84532 for Base Sepolia)
+              const v = 84532 * 2 + 35 + recid;
+
+              // Serialize with signature
+              const signedTx = ethers.utils.serializeTransaction(txData.unsignedTx, { r, s, v });
+              const txResp = await provider.sendTransaction(signedTx);
+
+              return JSON.stringify({ txHash: txResp.hash });
+            } catch (error) {
+              return JSON.stringify({ error: `Transaction submission failed: ${error.message}` });
+            }
+          }
+        );
+
+        const submitData = JSON.parse(submitResult);
+        if (submitData.error) {
+          contractError = submitData.error;
+          console.error(`❌ Transaction submission failed: ${contractError}`);
+        } else {
+          txHash = submitData.txHash;
+          console.log(`✅ Contract updated, tx: ${txHash}`);
+        }
       }
     } else {
-      console.log('[5/5] Skipping contract update (updateContract=false)');
+      console.log('[6/6] Skipping contract update (updateContract=false)');
     }
 
     // Return final result

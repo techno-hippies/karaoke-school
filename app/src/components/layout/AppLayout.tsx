@@ -1,10 +1,10 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { MobileFooter } from '../navigation/MobileFooter'
 import { DesktopSidebar } from '../navigation/DesktopSidebar'
 
 export interface AppLayoutProps {
   children: ReactNode
-  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile'
+  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'
   onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
   isConnected?: boolean
   walletAddress?: string

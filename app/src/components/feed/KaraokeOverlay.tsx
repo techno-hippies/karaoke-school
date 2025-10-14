@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import type { KaraokeOverlayProps, KaraokeLine } from './types'
+import type { KaraokeOverlayProps } from './types'
 
 /**
  * KaraokeOverlay - TikTok-style karaoke lyrics at top-center

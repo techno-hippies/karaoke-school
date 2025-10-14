@@ -56,10 +56,10 @@ function AppRouter() {
   } = useAuth()
 
   // Map routes to active tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'wallet' | 'profile'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'>('home')
 
   useEffect(() => {
-    const pathToTab: Record<string, 'home' | 'study' | 'post' | 'wallet' | 'profile'> = {
+    const pathToTab: Record<string, 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'> = {
       '/': 'home',
       '/class': 'study',
       '/karaoke': 'post',
@@ -67,8 +67,14 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    const tab = pathToTab[location.pathname] || 'home'
-    setActiveTab(tab)
+    // Deep routes in karaoke or profile sections should have no tab selected
+    if (location.pathname.startsWith('/karaoke/') ||
+        (location.pathname.startsWith('/profile/') && location.pathname !== '/profile')) {
+      setActiveTab('none')
+    } else {
+      const tab = pathToTab[location.pathname] || 'home'
+      setActiveTab(tab)
+    }
   }, [location.pathname])
 
   const handleTabChange = (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => {

@@ -39,8 +39,6 @@ import {
 import type { PKPInfo, PKPAuthContext } from '@/lib/lit-webauthn'
 import type { AuthCapabilities } from '@/features/post-flow/types'
 
-const IS_DEV = import.meta.env.DEV
-
 /**
  * Authentication State
  */

@@ -4,7 +4,7 @@
  */
 
 import { WebAuthnAuthenticator } from '@lit-protocol/auth'
-import { getLitClient, getAuthManager } from './client'
+import { getLitClient } from './client'
 import { LIT_WEBAUTHN_CONFIG } from './config'
 import { saveSession } from './storage'
 import { createPKPAuthContext } from './auth-pkp'
@@ -52,37 +52,29 @@ export async function registerUser(
 
   // Create auth context (session signature)
   onStatusUpdate('Creating secure session...')
-  const authManager = await getAuthManager()
 
-  const authContext = await authManager.createPkpAuthContext({
-    authData: authData,
-    pkpPublicKey: pkpInfo.pubkey,
-    authConfig: {
-      resources: [
-        ['pkp-signing', '*'],
-        ['lit-action-execution', '*'],
-      ],
-      expiration: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
-      statement: 'Karaoke School',
-      domain: window.location.origin,
-    },
-    litClient: litClient,
-  })
+  // Convert PKP info to our types first
+  const pkpInfoTyped: PKPInfo = {
+    publicKey: pkpInfo.pubkey,
+    ethAddress: pkpInfo.ethAddress as `0x${string}`,
+    tokenId: pkpInfo.tokenId.toString(),
+  }
+
+  const authDataTyped: AuthData = {
+    authMethodType: authData.authMethodType,
+    authMethodId: authData.authMethodId,
+    accessToken: authData.accessToken,
+  }
+
+  // Use centralized auth context creation
+  const authContext = await createPKPAuthContext(pkpInfoTyped, authDataTyped)
 
   console.log('✅ Auth context created')
 
-  // Convert to our types
+  // Build result
   const result: AuthFlowResult = {
-    pkpInfo: {
-      publicKey: pkpInfo.pubkey,
-      ethAddress: pkpInfo.ethAddress as `0x${string}`,
-      tokenId: pkpInfo.tokenId.toString(),
-    },
-    authData: {
-      authMethodType: authData.authMethodType,
-      authMethodId: authData.authMethodId,
-      accessToken: authData.accessToken,
-    },
+    pkpInfo: pkpInfoTyped,
+    authData: authDataTyped,
     authContext,
     isNewUser: true,
   }
@@ -133,37 +125,29 @@ export async function loginUser(
 
   // Create auth context (session signature)
   onStatusUpdate('Creating secure session...')
-  const authManager = await getAuthManager()
 
-  const authContext = await authManager.createPkpAuthContext({
-    authData: authData,
-    pkpPublicKey: pkpInfo.pubkey,
-    authConfig: {
-      resources: [
-        ['pkp-signing', '*'],
-        ['lit-action-execution', '*'],
-      ],
-      expiration: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
-      statement: 'Karaoke School',
-      domain: window.location.origin,
-    },
-    litClient: litClient,
-  })
+  // Convert PKP info to our types first
+  const pkpInfoTyped: PKPInfo = {
+    publicKey: pkpInfo.pubkey,
+    ethAddress: pkpInfo.ethAddress as `0x${string}`,
+    tokenId: pkpInfo.tokenId.toString(),
+  }
+
+  const authDataTyped: AuthData = {
+    authMethodType: authData.authMethodType,
+    authMethodId: authData.authMethodId,
+    accessToken: authData.accessToken,
+  }
+
+  // Use centralized auth context creation
+  const authContext = await createPKPAuthContext(pkpInfoTyped, authDataTyped)
 
   console.log('✅ Auth context created')
 
-  // Convert to our types
+  // Build result
   const result: AuthFlowResult = {
-    pkpInfo: {
-      publicKey: pkpInfo.pubkey,
-      ethAddress: pkpInfo.ethAddress as `0x${string}`,
-      tokenId: pkpInfo.tokenId.toString(),
-    },
-    authData: {
-      authMethodType: authData.authMethodType,
-      authMethodId: authData.authMethodId,
-      accessToken: authData.accessToken,
-    },
+    pkpInfo: pkpInfoTyped,
+    authData: authDataTyped,
     authContext,
     isNewUser: false,
   }
