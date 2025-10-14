@@ -2,6 +2,7 @@ import { BackButton } from '@/components/ui/back-button'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import { StudyStats } from './StudyStats'
 import { cn } from '@/lib/utils'
 import type { LyricLine } from '@/types/karaoke'
@@ -27,16 +28,27 @@ export interface SongSegmentPageProps {
   className?: string
 }
 
+// Map language codes to display names
+const LANGUAGE_NAMES: Record<string, string> = {
+  'zh': 'Chinese',
+  'vi': 'Vietnamese',
+  'es': 'Spanish',
+  'ja': 'Japanese',
+  'ko': 'Korean',
+  'tr': 'Turkish',
+}
 
 // Lyric line component with smaller text size for segment page
 function SegmentLyricLine({
   line,
   showTranslation,
   selectedLanguage = 'cn',
+  isTranslating = false,
 }: {
   line: LyricLine
   showTranslation: boolean
   selectedLanguage?: string
+  isTranslating?: boolean
 }) {
   const translation = showTranslation
     ? line.translations?.[selectedLanguage]
@@ -51,6 +63,12 @@ function SegmentLyricLine({
         <p className="text-base md:text-xl mt-2 text-muted-foreground leading-relaxed">
           {translation}
         </p>
+      )}
+      {!translation && isTranslating && (
+        <div className="mt-2 space-y-2">
+          <Skeleton className="h-5 w-full" />
+          <Skeleton className="h-5 w-3/4" />
+        </div>
       )}
     </div>
   )
@@ -132,6 +150,7 @@ export function SongSegmentPage({
                     line={line}
                     showTranslation={showTranslations}
                     selectedLanguage={selectedLanguage}
+                    isTranslating={isTranslating}
                   />
                 ))}
               </div>
@@ -151,7 +170,10 @@ export function SongSegmentPage({
               className="w-full"
             >
               {isTranslating && <Spinner />}
-              {isTranslating ? 'Translating...' : 'Translate to Chinese'}
+              {isTranslating
+                ? 'Translating...'
+                : `Translate to ${LANGUAGE_NAMES[selectedLanguage] || 'Chinese'}`
+              }
             </Button>
           ) : (
             // Show Study/Karaoke buttons after translation

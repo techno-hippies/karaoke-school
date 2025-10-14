@@ -123,6 +123,19 @@ export const KARAOKE_CATALOG_ABI = [
     outputs: [{ name: '', type: 'string[]' }],
   },
 
+  // === Translation Write Functions ===
+  {
+    name: 'setTranslation',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'languageCode', type: 'string' },
+      { name: 'uri', type: 'string' },
+    ],
+    outputs: [],
+  },
+
   // === Segment Read Functions ===
   {
     name: 'getSegmentHash',

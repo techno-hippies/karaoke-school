@@ -76,8 +76,20 @@ export function useCatalogSong({ geniusId, pkpAuthContext, artist, title }: UseC
       }) as boolean
 
       if (songExists) {
-        console.log('[useCatalogSong] ✅ Song already cataloged, skipping')
-        const result: CatalogSongResult = { success: true }
+        console.log('[useCatalogSong] ✅ Song already cataloged, fetching hasFullAudio...')
+
+        // Fetch song data to get hasFullAudio value
+        const songData = await publicClient.readContract({
+          address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+          abi: KARAOKE_CATALOG_ABI,
+          functionName: 'getSongByGeniusId',
+          args: [geniusId],
+        }) as any
+
+        const result: CatalogSongResult = {
+          success: true,
+          hasFullAudio: songData.hasFullAudio
+        }
         setResult(result)
         return result
       }

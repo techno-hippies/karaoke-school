@@ -40,7 +40,7 @@ export async function executeTranslate(
     const litClient = await getLitClient()
     // Translate only needs OpenRouter key (no ElevenLabs or Genius)
     const openrouterKey = {
-      ciphertext: "i4yKB3gFLNusBp0w8jMH0IxS1gJdYJTXWlTAfpCwKzVIsyee2+qgJmvULeueCRhXScIRNPE5Po+17L3cfmv3BWNWLi8QiOS7gCsyTn0kBiNKY0pWWI/q5tddiuN1yibzYtc0YIcrcTV0ynXviwRYpkaU7DFwIR1FCbIqrWlxhzwpdxUBSe2p7eY0qmL3WmeKy5DD/WjjmOPkQ7cC",
+      ciphertext: "jBd/beLP9iyDHmjLZnn+RWM+R0sQp1A9bKaBX1bDI+5BfFOzBvAsGgxSYnTGvVjKQYki6p3e6/XcOQtwHNoHK3JH6ACMcWeUpRSTLnJ1OMFKv/mgF+TVfYxCcLQf0r1tLGU9Cewa+z2PSGOxAGozydWKi1lvPjyvDgf/nzyizB6j0u4BnQgrkVVemmq1CopNEpwGGVvfXBapTwcC",
       dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
       accessControlConditions: [
         {
@@ -52,7 +52,7 @@ export async function executeTranslate(
           parameters: [":currentActionIpfsId"],
           returnValueTest: {
             comparator: "=",
-            value: "QmUY8xCVvk85ZwxWeUpA1jBzHCsfHm12uVwVUrFsyvhdWk"
+            value: "QmWSCNhGtoXJTnaetuNEzpSt9AAVEsjwpak6DP1wvUkVLc"
           }
         }
       ]
@@ -68,9 +68,6 @@ export async function executeTranslate(
         openrouterKeyCiphertext: openrouterKey.ciphertext,
         openrouterKeyDataToEncryptHash: openrouterKey.dataToEncryptHash,
         contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
-        pkpAddress,
-        pkpTokenId,
-        pkpPublicKey,
         updateContract: true,
       },
     })
