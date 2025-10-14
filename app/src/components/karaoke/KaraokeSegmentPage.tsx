@@ -34,8 +34,23 @@ export function KaraokeSegmentPage() {
   const segment = segments.find(s => s.id === segmentId)
 
   // Load lyrics for this segment
+  // Use alignmentUri (V2 architecture) or fall back to metadataUri (legacy)
+  const alignmentUriToUse = song?.alignmentUri || song?.metadataUri
+  console.log('[KaraokeSegmentPage] Loading lyrics:', {
+    segmentId,
+    segment: segment ? {
+      id: segment.id,
+      name: segment.displayName,
+      startTime: segment.startTime,
+      endTime: segment.endTime
+    } : null,
+    alignmentUri: song?.alignmentUri,
+    metadataUri: song?.metadataUri,
+    usingUri: alignmentUriToUse
+  })
+
   const { lyrics, isLoading: lyricsLoading, error: lyricsError } = useSegmentLyrics(
-    song?.metadataUri,
+    alignmentUriToUse,
     segment?.startTime,
     segment?.endTime
   )

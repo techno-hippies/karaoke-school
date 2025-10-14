@@ -109,6 +109,12 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
       }) as any
 
       console.log('[useSongData] Loaded song:', songData.title, 'by', songData.artist)
+      console.log('[useSongData] Raw songData:', {
+        metadataUri: songData.metadataUri,
+        sectionsUri: songData.sectionsUri,
+        alignmentUri: songData.alignmentUri,
+        keys: Object.keys(songData)
+      })
 
       // Load segments and alignment from separate URIs (V2: Decoupled storage)
       let loadedSegments: SongSegment[] = []
@@ -183,6 +189,8 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
         isOwned,
         segments: loadedSegments,
         metadataUri: songData.metadataUri,
+        alignmentUri: songData.alignmentUri,
+        sectionsUri: songData.sectionsUri,
         soundcloudPermalink: songData.soundcloudPath || undefined,
         hasBaseAlignment,
       }

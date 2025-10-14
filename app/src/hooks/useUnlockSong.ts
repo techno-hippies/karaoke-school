@@ -115,10 +115,7 @@ export function useUnlockSong({ geniusId, pkpAuthContext, pkpInfo, isFree, isOwn
       // 3. Run base-alignment
       console.log('[useUnlockSong] Running base-alignment...', { geniusId })
       const { executeBaseAlignment } = await import('@/lib/lit/actions')
-      const alignmentResult = await executeBaseAlignment(
-        geniusId,
-        pkpAuthContext
-      )
+      const alignmentResult = await executeBaseAlignment(geniusId, pkpAuthContext)
 
       if (!alignmentResult.success) {
         throw new Error(alignmentResult.error || 'Base alignment failed')

@@ -27,18 +27,13 @@ const IS_DEV = import.meta.env.DEV
  * Writes back to contract using SYSTEM PKP (hardcoded in Lit Action)
  *
  * @param geniusId - Genius song ID (ONLY required input)
- * @param authContext - PKP auth context for authentication
+ * @param authContext - PKP auth context (user's PKP for authentication)
  */
 export async function executeBaseAlignment(
   geniusId: number,
   authContext: any
 ): Promise<BaseAlignmentResult> {
   try {
-    if (IS_DEV) {
-      console.log('[BaseAlignment] authContext:', authContext)
-      console.log('[BaseAlignment] authContext keys:', Object.keys(authContext || {}))
-    }
-
     const litClient = await getLitClient()
     const keyParams = getKaraokeKeyParams()
 

@@ -48,7 +48,7 @@ const TEST_SONG = {
 const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v12.json');
 
 // Contract configuration (MUST match app/.env.local)
-const KARAOKE_CATALOG_ADDRESS = '0xd7e442f4aA8da4CaCd786896d8Fd60A7B5DA0E3e'; // Base Sepolia (V2 with translations)
+const KARAOKE_CATALOG_ADDRESS = '0x420Fd6e49Cb672cfbe9649B556807E6b0BafA341'; // Base Sepolia (V2 with translations)
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {

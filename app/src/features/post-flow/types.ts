@@ -51,7 +51,9 @@ export interface Song {
   appleMusicId?: string
   appleMusicPlayerUrl?: string
   songDuration?: number
-  metadataUri?: string // Base alignment URI (word timing)
+  metadataUri?: string // Legacy: combined metadata (deprecated, use sectionsUri + alignmentUri)
+  alignmentUri?: string // Base alignment URI (word-level timing)
+  sectionsUri?: string // Song sections/segments URI
   availableLanguages?: string[] // Translation languages available
   hasBaseAlignment?: boolean // True if base-alignment has been run (metadata contains word-level timing)
 }
