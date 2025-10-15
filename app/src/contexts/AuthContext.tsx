@@ -20,10 +20,10 @@
  * - Auth flows extracted to auth-services
  */
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
-import { usePKPWallet } from '@/hooks/usePKPWallet'
+import { usePKPWallet, type UsePKPWalletResult } from '@/hooks/usePKPWallet'
 import { useLensSession, useLensAccount } from '@/lib/lens/hooks'
 import { useAuthCapabilities } from '@/hooks/useAuthCapabilities'
 import { CreditsProvider, useCredits } from '@/contexts/CreditsContext'
@@ -95,9 +95,8 @@ const AuthContext = createContext<AuthContextType | null>(null)
  * Auth Provider Core Component
  * Contains all auth logic, wrapped by CreditsProvider
  */
-function AuthProviderCore({ children }: { children: ReactNode }) {
-  // Layer 1: Lit WebAuthn + PKP
-  const pkpWallet = usePKPWallet()
+function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWallet: UsePKPWalletResult }) {
+  // Layer 1: Lit WebAuthn + PKP (passed as prop to avoid duplicate hook call)
 
   // Layer 2: Lens Protocol
   const { sessionClient, setSessionClient } = useLensSession()
@@ -144,7 +143,7 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
    * Register with passkey (create new account)
    * Uses extracted auth service for cleaner flow
    */
-  const registerWithPasskey = async () => {
+  const registerWithPasskey = useCallback(async () => {
     setIsAuthenticating(true)
     setAuthError(null)
     setAuthMode('register')
@@ -188,13 +187,13 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false)
     }
-  }
+  }, [pkpWallet, setSessionClient, setAccount])
 
   /**
    * Sign in with passkey (existing account)
    * Uses extracted auth service for cleaner flow
    */
-  const signInWithPasskey = async () => {
+  const signInWithPasskey = useCallback(async () => {
     setIsAuthenticating(true)
     setAuthError(null)
     setAuthMode('login')
@@ -238,13 +237,13 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false)
     }
-  }
+  }, [pkpWallet, setSessionClient, setAccount])
 
   /**
    * Login to Lens Protocol
    * Uses PKP as signer (standalone - for just-in-time Lens connection)
    */
-  const loginLens = async (walletClient?: WalletClient, address?: Address) => {
+  const loginLens = useCallback(async (walletClient?: WalletClient, address?: Address) => {
     const client = walletClient || pkpWallet.walletClient
     const addr = address || pkpWallet.address
 
@@ -280,13 +279,13 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false)
     }
-  }
+  }, [pkpWallet.walletClient, pkpWallet.address, setSessionClient, setAccount])
 
   /**
    * Create Lens account with username
    * Uses PKP to sign transaction
    */
-  const createLensAccountWithUsername = async (username: string, metadataUri: string) => {
+  const createLensAccountWithUsername = useCallback(async (username: string, metadataUri: string) => {
     if (!sessionClient || !pkpWallet.walletClient) {
       throw new Error('Not ready to create account')
     }
@@ -311,13 +310,13 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false)
     }
-  }
+  }, [sessionClient, pkpWallet.walletClient, setAccount])
 
   /**
    * Refresh Lens account
    * Check for newly created accounts
    */
-  const refreshLensAccount = async () => {
+  const refreshLensAccount = useCallback(async () => {
     if (!pkpWallet.address) {
       throw new Error('PKP wallet not connected')
     }
@@ -339,14 +338,14 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthenticating(false)
     }
-  }
+  }, [pkpWallet.address, setAccount])
 
   /**
    * Ensure Lens account is set up (just-in-time)
    * Can be called when user attempts social features
    * Returns true if account ready, false if setup needed
    */
-  const ensureLensAccount = async (): Promise<boolean> => {
+  const ensureLensAccount = useCallback(async (): Promise<boolean> => {
     if (!pkpWallet.isConnected || !pkpWallet.address) {
       throw new Error('PKP wallet not connected')
     }
@@ -379,12 +378,12 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
       setLensSetupStatus('failed')
       return false
     }
-  }
+  }, [pkpWallet.isConnected, pkpWallet.address, account, sessionClient, loginLens, setAccount])
 
   /**
    * Logout and reset all auth state
    */
-  const logout = () => {
+  const logout = useCallback(() => {
     pkpWallet.reset()
     setSessionClient(null)
     setAccount(null)
@@ -392,7 +391,7 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     setAuthMode(null)
     setAuthError(null)
     setAuthStatus('')
-  }
+  }, [pkpWallet, setSessionClient, setAccount])
 
   /**
    * Reset (alias for logout)
@@ -411,7 +410,7 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     credits,
   })
 
-  const value: AuthContextType = {
+  const value: AuthContextType = useMemo(() => ({
     // PKP State
     pkpInfo: pkpWallet.pkpInfo,
     pkpAddress: pkpWallet.address,
@@ -445,7 +444,33 @@ function AuthProviderCore({ children }: { children: ReactNode }) {
     refreshLensAccount,
     ensureLensAccount,
     reset,
-  }
+  }), [
+    pkpWallet.pkpInfo,
+    pkpWallet.address,
+    pkpWallet.walletClient,
+    pkpWallet.authContext,
+    pkpWallet.isConnected,
+    pkpWallet.isInitializing,
+    pkpWallet.error,
+    sessionClient,
+    account,
+    credits,
+    capabilities,
+    isAuthenticating,
+    authError,
+    authStep,
+    authMode,
+    authStatus,
+    lensSetupStatus,
+    registerWithPasskey,
+    signInWithPasskey,
+    logout,
+    loginLens,
+    createLensAccountWithUsername,
+    refreshLensAccount,
+    ensureLensAccount,
+    reset,
+  ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -459,7 +484,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <CreditsProvider pkpAddress={pkpWallet.address} isConnected={pkpWallet.isConnected}>
-      <AuthProviderCore>{children}</AuthProviderCore>
+      <AuthProviderCore pkpWallet={pkpWallet}>{children}</AuthProviderCore>
     </CreditsProvider>
   )
 }

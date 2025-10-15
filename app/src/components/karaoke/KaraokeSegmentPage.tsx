@@ -60,12 +60,20 @@ export function KaraokeSegmentPage() {
     pkpAddress || undefined
   )
 
-  // Find the selected segment
-  const segment = segments.find(s => s.id === segmentId)
+  // Find the selected segment (memoized to prevent new reference on each render)
+  const segment = useMemo(() =>
+    segments.find(s => s.id === segmentId),
+    [segments, segmentId]
+  )
 
   // Load lyrics for this segment
   // Use alignmentUri (V2 architecture) or fall back to metadataUri (legacy)
-  const alignmentUriToUse = song?.alignmentUri || song?.metadataUri
+  // Memoize to prevent refetch when song object changes (e.g., ownership update)
+  const alignmentUriToUse = useMemo(() =>
+    song?.alignmentUri || song?.metadataUri,
+    [song?.alignmentUri, song?.metadataUri]
+  )
+
   console.log('[KaraokeSegmentPage] Loading lyrics:', {
     segmentId,
     segment: segment ? {

@@ -164,20 +164,6 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
         }
       }
 
-      // Check song ownership if user address provided
-      let isOwned = false
-      if (userAddress) {
-        try {
-          const { checkSongOwnership } = await import('@/lib/credits/queries')
-          isOwned = await checkSongOwnership(userAddress, geniusId)
-          if (isOwned) {
-            console.log('[useSongData] User owns this song')
-          }
-        } catch (ownershipError) {
-          console.error('[useSongData] Failed to check ownership:', ownershipError)
-        }
-      }
-
       const loadedSong: Song = {
         id: geniusId.toString(),
         geniusId,
@@ -186,7 +172,7 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
         artworkUrl: songData.thumbnailUri ? lensToGroveUrl(songData.thumbnailUri) : undefined,
         isProcessed: true,
         isFree: !songData.requiresPayment,
-        isOwned,
+        isOwned: false, // Will be checked separately if userAddress is provided
         segments: loadedSegments,
         metadataUri: songData.metadataUri,
         alignmentUri: songData.alignmentUri,
@@ -197,7 +183,7 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
 
       console.log('[useSongData] Final song state:', {
         hasBaseAlignment,
-        isOwned,
+        isOwned: false,
         segmentCount: loadedSegments.length,
         metadataUri: songData.metadataUri
       })
@@ -211,11 +197,33 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
       isLoadingRef.current = false
       setIsLoading(false)
     }
-  }, [geniusId, userAddress])
+  }, [geniusId])
 
   useEffect(() => {
     loadSong()
   }, [loadSong])
+
+  // Separate effect to check ownership when user address becomes available
+  // This prevents full song refetch just to update ownership status
+  useEffect(() => {
+    if (!song || !userAddress || !geniusId) return
+
+    const checkOwnership = async () => {
+      try {
+        const { checkSongOwnership } = await import('@/lib/credits/queries')
+        const isOwned = await checkSongOwnership(userAddress, geniusId)
+
+        if (isOwned) {
+          console.log('[useSongData] User owns this song')
+          setSong(prev => prev ? { ...prev, isOwned: true } : null)
+        }
+      } catch (ownershipError) {
+        console.error('[useSongData] Failed to check ownership:', ownershipError)
+      }
+    }
+
+    checkOwnership()
+  }, [userAddress, song?.id, geniusId])
 
   // Memoize refetch to trigger controlled re-loads
   const refetch = useCallback(async () => {

@@ -152,8 +152,6 @@ export function useSegmentLyrics(
 
                 if (translationData.lines && Array.isArray(translationData.lines)) {
                   console.log('[useSegmentLyrics] Merging translations:', translationData.lines.length, 'lines')
-                  console.log('[useSegmentLyrics] First translation line:', translationData.lines[0])
-                  console.log('[useSegmentLyrics] First segment lyric:', segmentLyrics[0])
 
                   // Merge translations into lyrics by matching text field
                   segmentLyrics = segmentLyrics.map(lyric => {
@@ -170,7 +168,6 @@ export function useSegmentLyrics(
                   })
 
                   console.log('[useSegmentLyrics] Merged translations successfully')
-                  console.log('[useSegmentLyrics] First lyric after merge:', segmentLyrics[0])
                 }
               } else {
                 console.log('[useSegmentLyrics] No translation found for language:', targetLanguage)
