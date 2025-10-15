@@ -13,11 +13,11 @@
 import type { EncryptedKey } from './types'
 
 /**
- * Genius API Key (v20) - CID-locked version
- * Bound to Match and Segment Lit Action v8 (FIXED hasFullAudio): QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu
+ * Genius API Key (v16) - CID-locked version
+ * Bound to Match and Segment Lit Action v8 (No audio fail-early): QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH
  */
 export const GENIUS_API_KEY: EncryptedKey = {
-  ciphertext: "siZ/MtB6Zxedkc4wXholPjsjy2LSxKuIKoB5n3aFgsdJv7bNBt5S0h9+iOc/OEUzc5BTmcgI2XiYChg8fOL+3Zj9TuT2C3xqkkStJlJsRvJB6hLZsf2jPuFdEf2d5Ztxt5abVqDuNe6i8DuPHmnXY0cT7o0F9JyWzPe7SFcpDPGv5/MJrgRFXWocX781Hd9dh3EC",
+  ciphertext: "jWplt47OT6p6ticXhy4iYLmwXEyG3vzLcEwA0xV1aVkkXL/zwacRfuI100Fw9LS0g/6b6mzisknRTErmijdftT4aDqBqJuwApEiKErOVFPpBN4jQS2JKOdNMERwENUU8XGrlMN3up50j4xNTSNoRDT9fLw98JxYw3UDzo+Znd/ZVE9sr6IaqPVQQLM46vpiuaIQC",
   dataToEncryptHash: "364e5c5764d520470a219b3550be8019abf9ec10025d4abe0fe90f0bb929d75d",
   accessControlConditions: [
     {
@@ -29,20 +29,20 @@ export const GENIUS_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu"
+        value: "QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH"
       }
     }
   ],
-  encryptedAt: "2025-10-14T16:35:27.732Z",
-  cid: "QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu"
+  encryptedAt: "2025-10-14T20:28:21.620Z",
+  cid: "QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH"
 }
 
 /**
- * OpenRouter API Key (v20) - CID-locked version
- * Bound to Match and Segment Lit Action v8 (FIXED hasFullAudio): QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu
+ * OpenRouter API Key (v16) - CID-locked version
+ * Bound to Match and Segment Lit Action v8 (No audio fail-early): QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH
  */
 export const OPENROUTER_API_KEY: EncryptedKey = {
-  ciphertext: "oJbb81qE9/QcWdAMQ/BEZOIElMtz+/wcZ+srmTx0EQc8M26GjXGl7FxMz/JciEzVIVeTc4/T5CAQhWd6ISbIYEQ4DxYmsE6rIl7uhHnpp91KatBMmskWCIjAsfUnDJgvxDOBWtBI+R+aEpslmlGCg3+09C+d34RU7/UdHQEFCB/9PWDnNbE2WG7ULNyHZ+Ht1/lmB77GLMJHvsoC",
+  ciphertext: "lq60HhNNXIacwXUgi4is710UWlzSpGCFJLWtZB2pkBaF1zpp2u6zYYqMmUujJ6ibzer2daFd5FMHi0TXtF+jT1HktdHmWLACvH/WgCXbUnZKUHGMj+5943up7xJaKlLLWIYwk7/c/BnDzjbjN6/J/9AxgJQnYSjBbWQAr2dbiLgSLkIxqh43b592o3K0Knahlb9XIldz5fuzDX4C",
   dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
   accessControlConditions: [
     {
@@ -54,12 +54,12 @@ export const OPENROUTER_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu"
+        value: "QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH"
       }
     }
   ],
-  encryptedAt: "2025-10-14T16:35:30.788Z",
-  cid: "QmbpPewZ7VWRyJaju5LoJk3xEqdPW5aQd3hNNB9AFHhLhu"
+  encryptedAt: "2025-10-14T20:28:24.115Z",
+  cid: "QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH"
 }
 
 /**

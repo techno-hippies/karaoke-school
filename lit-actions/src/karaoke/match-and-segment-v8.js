@@ -153,6 +153,7 @@ const go = async () => {
       }
     } else {
       console.log('⚠️  No SoundCloud link found - cannot process audio');
+      throw new Error('No SoundCloud audio available - song cannot be used for karaoke');
     }
 
     // Step 3: Fetch LRClib (try with album, then without if no matches)
