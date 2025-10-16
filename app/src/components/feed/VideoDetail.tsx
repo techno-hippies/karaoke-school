@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, CaretUp, CaretDown, Play, MusicNote, Heart, ChatCircle, ShareFat } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -69,6 +69,15 @@ export function VideoDetail({
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // Memoize callbacks to prevent HLS player re-initialization
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time)
+  }, [])
+
+  const handleHLSError = useCallback((error: Error) => {
+    console.error('[VideoDetail] HLS playback error:', error)
+  }, [])
 
   // Format engagement counts
   const formatCount = (count: number): string => {
@@ -242,10 +251,8 @@ export function VideoDetail({
               muted={isMuted}
               controls={false}
               className="absolute inset-0 w-full h-full object-cover"
-              onError={(error) => {
-                console.error('[VideoDetail] HLS playback error:', error)
-              }}
-              onTimeUpdate={setCurrentTime}
+              onError={handleHLSError}
+              onTimeUpdate={handleTimeUpdate}
             />
           ) : (
             <VideoPlayer

@@ -38,6 +38,7 @@ export function useSubscription({
   pkpInfo,
 }: UseSubscriptionOptions) {
   const [isSubscribed, setIsSubscribed] = useState(false)
+  // Start as true to prevent subscription panel flash while checking
   const [isLoading, setIsLoading] = useState(true)
   const [isPurchasing, setIsPurchasing] = useState(false)
   const [lockInfo, setLockInfo] = useState<LockInfo | null>(null)

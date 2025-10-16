@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { VideoPlayer } from './VideoPlayer'
+import { HLSPlayer } from '../video/HLSPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { VideoActions } from './VideoActions'
 import { VideoInfo } from './VideoInfo'
@@ -47,6 +48,10 @@ export function VideoPost({
   userIsSubscribed = false,
   isSubscribing = false,
   isSubscriptionLoading = false,
+  encryption,
+  hlsMetadata,
+  pkpInfo,
+  authData,
   onLikeClick,
   onCommentClick,
   onShareClick,
@@ -63,6 +68,15 @@ export function VideoPost({
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // Memoize callbacks to prevent HLS player re-initialization
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time)
+  }, [])
+
+  const handleHLSError = useCallback((error: Error) => {
+    console.error('[VideoPost] HLS playback error:', error)
+  }, [])
 
   const handleCommentClick = () => {
     setCommentSheetOpen(true)
@@ -96,36 +110,58 @@ export function VideoPost({
         ref={videoContainerRef}
         className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-neutral-900 md:rounded-lg overflow-hidden"
       >
-        {/* Video Player */}
-        <VideoPlayer
-          videoUrl={videoUrl}
-          thumbnailUrl={thumbnailUrl}
-          isPlaying={isPlaying}
-          isMuted={isMuted}
-          onTogglePlay={() => {
-            // If playing but muted, unmute instead of pausing
-            if (isPlaying && isMuted) {
-              setIsMuted(false)
-              return
-            }
+        {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
+        {isPremium &&
+         userIsSubscribed &&
+         encryption &&
+         hlsMetadata &&
+         pkpInfo &&
+         authData ? (
+          <HLSPlayer
+            playlistUrl={videoUrl || ''}
+            thumbnailUrl={thumbnailUrl}
+            hlsMetadata={hlsMetadata}
+            encryption={encryption}
+            pkpInfo={pkpInfo}
+            authData={authData}
+            autoPlay={isPlaying}
+            muted={isMuted}
+            controls={false}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={handleHLSError}
+            onTimeUpdate={handleTimeUpdate}
+          />
+        ) : (
+          <VideoPlayer
+            videoUrl={videoUrl}
+            thumbnailUrl={thumbnailUrl}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            onTogglePlay={() => {
+              // If playing but muted, unmute instead of pausing
+              if (isPlaying && isMuted) {
+                setIsMuted(false)
+                return
+              }
 
-            // Otherwise, toggle play state
-            const newPlayingState = !isPlaying
-            setIsPlaying(newPlayingState)
+              // Otherwise, toggle play state
+              const newPlayingState = !isPlaying
+              setIsPlaying(newPlayingState)
 
-            // Unmute when starting to play
-            if (newPlayingState && isMuted) {
-              setIsMuted(false)
-            }
-          }}
-          onPlayFailed={() => {
-            // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
-            // so the play button overlay appears
-            console.log('[VideoPost] Autoplay failed, showing play button')
-            setIsPlaying(false)
-          }}
-          forceShowThumbnail={isPremium && !userIsSubscribed}
-        />
+              // Unmute when starting to play
+              if (newPlayingState && isMuted) {
+                setIsMuted(false)
+              }
+            }}
+            onPlayFailed={() => {
+              // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
+              // so the play button overlay appears
+              console.log('[VideoPost] Autoplay failed, showing play button')
+              setIsPlaying(false)
+            }}
+            forceShowThumbnail={isPremium && !userIsSubscribed}
+          />
+        )}
 
         {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}
         {isPremium && !userIsSubscribed && !isSubscriptionLoading && (
