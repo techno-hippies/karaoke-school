@@ -16,6 +16,7 @@ export interface VideoPostProps extends VideoPostData {
   onFollowClick?: () => void
   onProfileClick?: () => void
   onAudioClick?: () => void
+  onSubscribe?: () => void | Promise<void>
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
 }
@@ -50,6 +51,7 @@ export function VideoPost({
   onFollowClick,
   onProfileClick,
   onAudioClick,
+  onSubscribe,
   className,
   karaokeClassName
 }: VideoPostProps) {
@@ -129,10 +131,7 @@ export function VideoPost({
             <SubscribeCard
               username={username}
               userAvatar={userAvatar}
-              onSubscribe={() => {
-                console.log('[VideoPost] Subscribe clicked for', username)
-                // Handle subscription logic here
-              }}
+              onSubscribe={onSubscribe}
               className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
             />
           </div>
