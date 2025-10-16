@@ -1,30 +1,36 @@
 #!/usr/bin/env bun
 /**
- * Step 3: Encrypt Videos with Lit Protocol (Hybrid Encryption)
+ * Step 3: Encrypt HLS Segments with Lit Protocol (Hybrid Encryption)
  *
- * Uses symmetric encryption for videos (AES-256-GCM), then encrypts
+ * Uses symmetric encryption for video segments (AES-256-GCM), then encrypts
  * the symmetric key with Lit Protocol access control conditions.
  *
  * Flow:
- * 1. Generate random AES-256 key per video
- * 2. Encrypt video locally with symmetric key
+ * 1. Generate ONE AES-256 key per video (shared across all segments)
+ * 2. Encrypt each segment with unique IV but same key
  * 3. Use Lit Protocol to encrypt the symmetric key with Unlock ACC
- * 4. Store encrypted video + encrypted key metadata
+ * 4. Store encrypted segments + per-segment metadata (IV, authTag)
+ *
+ * This enables streaming decryption:
+ * - Frontend decrypts symmetric key ONCE via Lit Protocol
+ * - Frontend decrypts each segment on-the-fly with unique IV
+ * - HLS.js handles progressive loading and playback
  *
  * Prerequisites:
  * - Unlock lock deployed (from step 2.5)
- * - Videos downloaded locally (from crawler)
+ * - Videos segmented to HLS (from step 2.9)
  * - data/videos/{handle}/manifest.json exists
  *
  * Usage:
  *   bun run local/3-encrypt-videos.ts --creator @charlidamelio
  *
  * Output:
- *   - Encrypted video files (replaces plaintext videos)
- *   - Updated manifest with encryption metadata
+ *   - Encrypted segment files (replaces plaintext .ts files)
+ *   - Updated manifest with encryption metadata + segment IVs
  */
 
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, readdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import { parseArgs } from 'util';
 import path from 'path';
 import { createLitClient } from '@lit-protocol/lit-client';
@@ -50,6 +56,12 @@ interface LensData {
   };
 }
 
+interface SegmentEncryption {
+  filename: string;
+  iv: string; // base64
+  authTag: string; // base64
+}
+
 interface VideoData {
   postId: string;
   copyrightType: string;
@@ -57,12 +69,19 @@ interface VideoData {
     video: string | null;
     thumbnail: string | null;
   };
+  hls?: {
+    segmented: boolean;
+    segmentedAt: string;
+    segmentDuration: number;
+    segmentCount: number;
+    playlistFile: string;
+    segmentsDir: string;
+  };
   encryption?: {
     encryptedSymmetricKey: string; // Lit-encrypted symmetric key (base64)
     dataToEncryptHash: string; // Hash for Lit decrypt verification
-    iv: string; // AES-GCM IV (base64)
-    authTag: string; // AES-GCM auth tag (base64)
     unifiedAccessControlConditions: any[]; // v8 unified format
+    segments: SegmentEncryption[]; // Per-segment IV and authTag
     encryptedAt: string;
   };
 }
@@ -99,8 +118,8 @@ interface Manifest {
 }
 
 async function encryptVideos(tiktokHandle: string): Promise<void> {
-  console.log('\n🔐 Step 3: Encrypting Videos with Lit Protocol');
-  console.log('═══════════════════════════════════════════════════\n');
+  console.log('\n🔐 Step 3: Encrypting HLS Segments with Lit Protocol');
+  console.log('═══════════════════════════════════════════════════════\n');
 
   const cleanHandle = tiktokHandle.replace('@', '');
 
@@ -126,7 +145,7 @@ async function encryptVideos(tiktokHandle: string): Promise<void> {
 
   // Only encrypt copyrighted videos (copyright-free videos remain public)
   const videosToEncrypt = manifest.videos.filter(v =>
-    v.localFiles.video && v.copyrightType === 'copyrighted'
+    v.hls?.segmented && v.copyrightType === 'copyrighted'
   );
   const copyrightFreeCount = manifest.videos.filter(v => v.copyrightType === 'copyright-free').length;
 
@@ -134,7 +153,7 @@ async function encryptVideos(tiktokHandle: string): Promise<void> {
   console.log(`📹 Found ${copyrightFreeCount} copyright-free videos (will remain unencrypted)\n`);
 
   if (videosToEncrypt.length === 0) {
-    console.log('⚠️  No videos found. Run crawler first.\n');
+    console.log('⚠️  No HLS segments found. Run step 2.9 first (bun run convert-videos).\n');
     return;
   }
 
@@ -175,7 +194,7 @@ async function encryptVideos(tiktokHandle: string): Promise<void> {
   console.log('   Function: getHasValidKey(address)');
   console.log('   Condition: must return true\n');
 
-  // 5. Encrypt each video
+  // 5. Encrypt segments for each video
   for (let i = 0; i < videosToEncrypt.length; i++) {
     const video = videosToEncrypt[i];
 
@@ -186,56 +205,83 @@ async function encryptVideos(tiktokHandle: string): Promise<void> {
       continue;
     }
 
-    let relativePath = video.localFiles.video!;
-
-    // Manifest stores paths relative to crawler directory (../../data/...)
-    // Strip the ../../ prefix to get path relative to project root
-    if (relativePath.startsWith('../../')) {
-      relativePath = relativePath.substring(6);
+    if (!video.hls) {
+      console.log(`⏭️  Skipping video ${i + 1}/${videosToEncrypt.length} (not segmented)`);
+      console.log(`   Post ID: ${video.postId}\n`);
+      continue;
     }
 
-    // Convert to absolute path from project root
-    const videoPath = path.join(process.cwd(), relativePath);
+    const segmentsDir = path.join(manifestDir, video.hls.segmentsDir);
+
+    if (!existsSync(segmentsDir)) {
+      console.log(`⏭️  Skipping video ${i + 1}/${videosToEncrypt.length} (segments dir not found)`);
+      console.log(`   Post ID: ${video.postId}`);
+      console.log(`   Expected: ${segmentsDir}\n`);
+      continue;
+    }
 
     console.log(`🔐 Encrypting video ${i + 1}/${videosToEncrypt.length}`);
     console.log(`   Post ID: ${video.postId}`);
     console.log(`   Type: ${video.copyrightType}`);
-    console.log(`   File: ${videoPath}`);
+    console.log(`   Segments dir: ${segmentsDir}`);
 
     try {
-      // Read video file
-      const videoBuffer = await readFile(videoPath);
-      console.log(`   Size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+      // Get list of .ts segment files
+      const files = await readdir(segmentsDir);
+      const segmentFiles = files.filter(f => f.endsWith('.ts')).sort();
 
-      // Step 1: Generate random AES-256 key
+      console.log(`   Found ${segmentFiles.length} segments to encrypt`);
+
+      // Step 1: Generate ONE symmetric key for ALL segments
       console.log('   🔑 Generating symmetric key...');
       const symmetricKey = crypto.randomBytes(32); // 256 bits
 
-      // Step 2: Encrypt video locally with AES-256-GCM
-      console.log('   🔒 Encrypting video with AES-256-GCM...');
-      const { ciphertext, iv, authTag } = encryptWithSymmetricKey(videoBuffer, symmetricKey);
-      console.log('   ✅ Video encrypted locally');
+      // Step 2: Encrypt each segment with unique IV but same key
+      const segments: SegmentEncryption[] = [];
 
-      // Step 3: Encrypt the symmetric key with Lit Protocol
+      for (let j = 0; j < segmentFiles.length; j++) {
+        const filename = segmentFiles[j];
+        const segmentPath = path.join(segmentsDir, filename);
+
+        // Read plaintext segment
+        const segmentBuffer = await readFile(segmentPath);
+
+        // Encrypt with unique IV
+        const { ciphertext, iv, authTag } = encryptWithSymmetricKey(segmentBuffer, symmetricKey);
+
+        // Overwrite with encrypted version
+        await writeFile(segmentPath, ciphertext);
+
+        // Store segment metadata
+        segments.push({
+          filename,
+          iv: iv.toString('base64'),
+          authTag: authTag.toString('base64'),
+        });
+
+        // Progress indicator
+        if ((j + 1) % 5 === 0 || j === segmentFiles.length - 1) {
+          console.log(`   🔒 Encrypted ${j + 1}/${segmentFiles.length} segments`);
+        }
+      }
+
+      console.log('   ✅ All segments encrypted locally');
+
+      // Step 3: Encrypt the symmetric key with Lit Protocol (ONCE per video)
       console.log('   🌐 Encrypting symmetric key with Lit Protocol...');
       const encryptedKeyData = await litClient.encrypt({
         dataToEncrypt: symmetricKey,
         unifiedAccessControlConditions: unifiedAccessControlConditions as any,
         chain: lockChain === 'base-sepolia' ? 'baseSepolia' : lockChain,
       });
-      console.log('   ✅ Symmetric key encrypted with Lit');
-
-      // Step 4: Save encrypted video
-      await writeFile(videoPath, ciphertext);
-      console.log('   💾 Saved encrypted video\n');
+      console.log('   ✅ Symmetric key encrypted with Lit\n');
 
       // Store encryption metadata in manifest
       video.encryption = {
         encryptedSymmetricKey: encryptedKeyData.ciphertext, // Base64 Lit-encrypted key
         dataToEncryptHash: encryptedKeyData.dataToEncryptHash, // Hash for decrypt verification
-        iv: iv.toString('base64'),
-        authTag: authTag.toString('base64'),
         unifiedAccessControlConditions,
+        segments, // Per-segment IV and authTag
         encryptedAt: new Date().toISOString(),
       };
 
@@ -257,12 +303,13 @@ async function encryptVideos(tiktokHandle: string): Promise<void> {
   console.log('📊 Summary:');
   console.log(`   Videos encrypted: ${videosToEncrypt.length}`);
   console.log(`   Lock address: ${lockAddress}`);
-  console.log(`   Access control: Unlock key holders only\n`);
+  console.log(`   Access control: Unlock key holders only`);
+  console.log(`   Encryption strategy: One key per video, unique IV per segment\n`);
 
   console.log('📱 Next Steps:');
-  console.log('   1. Upload encrypted videos to Grove (bun run upload-grove)');
+  console.log('   1. Upload encrypted segments to Grove (bun run upload-grove)');
   console.log('   2. Users must own a valid Unlock key to decrypt');
-  console.log('   3. Decryption requires Lit Protocol v8 authentication (nagaDev)\n');
+  console.log('   3. Frontend will decrypt key once, then decrypt segments on-the-fly\n');
 }
 
 async function main() {

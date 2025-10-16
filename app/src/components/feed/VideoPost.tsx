@@ -45,6 +45,7 @@ export function VideoPost({
   canInteract = false,
   isPremium = false,
   userIsSubscribed = false,
+  isSubscribing = false,
   onLikeClick,
   onCommentClick,
   onShareClick,
@@ -132,6 +133,7 @@ export function VideoPost({
               username={username}
               userAvatar={userAvatar}
               onSubscribe={onSubscribe}
+              isLoading={isSubscribing}
               className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
             />
           </div>

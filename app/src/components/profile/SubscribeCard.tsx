@@ -1,11 +1,13 @@
 import { Check } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 
 export interface SubscribeCardProps {
   username: string
   userAvatar?: string
   price?: string
   onSubscribe?: () => void
+  isLoading?: boolean
   className?: string
 }
 
@@ -19,6 +21,7 @@ export function SubscribeCard({
   userAvatar,
   price = '$1.99/month',
   onSubscribe,
+  isLoading = false,
   className,
 }: SubscribeCardProps) {
   return (
@@ -72,9 +75,17 @@ export function SubscribeCard({
         <Button
           size="lg"
           onClick={onSubscribe}
+          disabled={isLoading}
           className="w-full mt-2"
         >
-          Subscribe
+          {isLoading ? (
+            <>
+              <Spinner size="sm" />
+              Subscribing...
+            </>
+          ) : (
+            'Subscribe'
+          )}
         </Button>
       </div>
     </div>

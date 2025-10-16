@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useMemo } from 'react'
 import { usePost, postId, useAccount } from '@lens-protocol/react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/hooks/useSubscription'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import type { VideoPostData } from '@/components/feed/types'
+import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
 
 /**
  * Converts lens:// URI to Grove storage URL
@@ -40,7 +42,8 @@ function lensToGroveUrl(lensUri: string): string {
 export function VideoDetailPage() {
   const { username, postId: postIdParam } = useParams<{ username: string; postId: string }>()
   const navigate = useNavigate()
-  const { isPKPReady, pkpAddress, pkpAuthContext, pkpInfo } = useAuth()
+  const { i18n } = useTranslation()
+  const { isPKPReady, pkpAddress, pkpAuthContext, pkpInfo, authData } = useAuth()
 
   // Fetch the specific post
   const {
@@ -63,13 +66,13 @@ export function VideoDetailPage() {
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
 
-  // Memoize encryption metadata extraction to prevent re-renders
-  const { copyrightType, unlockLock, encryption, isPremium } = useMemo(() => {
+  // Memoize encryption and HLS metadata extraction to prevent re-renders
+  const { copyrightType, unlockLock, encryption, hlsMetadata, isPremium } = useMemo(() => {
     if (!post || post.metadata?.__typename !== 'VideoMetadata') {
-      return { copyrightType: 'copyright-free', unlockLock: null, encryption: null, isPremium: false }
+      return { copyrightType: 'copyright-free', unlockLock: null, encryption: null, hlsMetadata: null, isPremium: false }
     }
 
-    // Extract encryption metadata from post attributes
+    // Extract metadata from post attributes
     const extractAttribute = (key: string): string | null => {
       const attr = post.metadata.attributes?.find(a => a.key === key)
       return attr?.value || null
@@ -78,22 +81,24 @@ export function VideoDetailPage() {
     const copyrightType = extractAttribute('copyright_type') || 'copyright-free'
     const unlockLock = extractAttribute('unlock_lock')
     const encryptionData = extractAttribute('encryption') // JSON string
+    const hlsData = extractAttribute('hls') // JSON string
 
     console.log('===== VideoDetailPage Debug =====')
     console.log('Post ID:', postIdParam)
     console.log('Copyright Type:', copyrightType)
     console.log('Has encryption data:', !!encryptionData)
+    console.log('Has HLS data:', !!hlsData)
     console.log('Unlock Lock:', unlockLock)
 
     // Parse encryption metadata if available
-    let encryption = null
+    let encryption: EncryptionMetadata | null = null
     if (encryptionData) {
       try {
         encryption = JSON.parse(encryptionData)
         console.log('Encryption metadata:', {
           hasKey: !!encryption.encryptedSymmetricKey,
-          hasIV: !!encryption.iv,
-          hasAuthTag: !!encryption.authTag,
+          hasSegments: !!encryption.segments,
+          segmentCount: encryption.segments?.length || 0,
           hasConditions: !!encryption.unifiedAccessControlConditions,
         })
       } catch (err) {
@@ -101,14 +106,29 @@ export function VideoDetailPage() {
       }
     }
 
-    // Determine if video is premium (encrypted)
-    const isPremium = copyrightType === 'copyrighted' && !!encryption
+    // Parse HLS metadata if available
+    let hlsMetadata: HLSMetadata | null = null
+    if (hlsData) {
+      try {
+        hlsMetadata = JSON.parse(hlsData)
+        console.log('HLS metadata:', {
+          segmented: hlsMetadata.segmented,
+          segmentCount: hlsMetadata.segmentCount,
+          segmentDuration: hlsMetadata.segmentDuration,
+        })
+      } catch (err) {
+        console.error('Failed to parse HLS data:', err)
+      }
+    }
+
+    // Determine if video is premium (encrypted HLS)
+    const isPremium = copyrightType === 'copyrighted' && !!encryption && !!hlsMetadata
 
     console.log('isPremium:', isPremium)
     console.log('Video URL:', post.metadata.video?.item || 'N/A')
     console.log('==================================\n')
 
-    return { copyrightType, unlockLock, encryption, isPremium }
+    return { copyrightType, unlockLock, encryption, hlsMetadata, isPremium }
   }, [post, postIdParam])
 
   // Check subscription status (only if there's a lock address)
@@ -135,34 +155,71 @@ export function VideoDetailPage() {
     const videoMetadata = post.metadata
 
     // Resolve lens:// URIs to Grove storage URLs
-    const rawVideoUrl = videoMetadata.video?.item || ''
+    const rawVideoUrl = videoMetadata.video?.item || '' // This is the playlist URI for HLS
     const rawThumbnailUrl = videoMetadata.video?.cover || ''
 
     const videoUrl = lensToGroveUrl(rawVideoUrl)
     const thumbnailUrl = lensToGroveUrl(rawThumbnailUrl) || `https://picsum.photos/400/711?random=${post.id}`
 
     console.log('Resolved URLs:')
-    console.log('  Raw video:', rawVideoUrl)
-    console.log('  Resolved video:', videoUrl)
+    console.log('  Raw video/playlist:', rawVideoUrl)
+    console.log('  Resolved video/playlist:', videoUrl)
+    console.log('  Is HLS:', !!hlsMetadata)
     console.log('  Raw thumbnail:', rawThumbnailUrl)
     console.log('  Resolved thumbnail:', thumbnailUrl)
+
+    // Get translated description based on i18n language
+    const extractAttribute = (key: string): string | null => {
+      const attr = post.metadata.attributes?.find(a => a.key === key)
+      return attr?.value || null
+    }
+
+    let description = videoMetadata.content || ''
+    const descriptionTranslationsData = extractAttribute('description_translations')
+
+    if (descriptionTranslationsData) {
+      try {
+        const translations = JSON.parse(descriptionTranslationsData)
+        const currentLang = i18n.language
+        const langMap: Record<string, string> = {
+          'en': 'en',
+          'zh-CN': 'zh',
+          'zh': 'zh',
+          'vi': 'vi'
+        }
+        const translationLang = langMap[currentLang]
+
+        if (translationLang && translations[translationLang]) {
+          description = translations[translationLang]
+          console.log(`[VideoDetailPage] Using ${translationLang} description for i18n language: ${currentLang}`)
+        }
+      } catch (err) {
+        console.error('Failed to parse description translations:', err)
+      }
+    }
 
     return {
       id: post.id,
       username: account?.username?.localName || username || 'user',
       userHandle: account?.metadata?.name || account?.username?.localName || 'User',
       userAvatar: account?.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-      description: videoMetadata.content || '',
+      description,
       videoUrl,
       thumbnailUrl,
       isPremium,
       userIsSubscribed: isSubscribed,
+      isSubscribing: isPurchasing,
       likes: 0, // TODO: Add from post stats
       comments: 0, // TODO: Add from post stats
       shares: 0, // TODO: Add from post stats
       createdAt: post.timestamp,
+      // HLS-specific fields
+      encryption: encryption || undefined,
+      hlsMetadata: hlsMetadata || undefined,
+      pkpInfo: pkpInfo || undefined,
+      authData: authData || undefined,
     }
-  }, [post, account, username, isPremium, isSubscribed])
+  }, [post, account, username, isPremium, isSubscribed, isPurchasing, encryption, hlsMetadata, pkpInfo, authData, i18n.language])
 
   // Memoize karaoke lines extraction
   const karaokeLines = useMemo(() => {
@@ -181,9 +238,29 @@ export function VideoDetailPage() {
 
     try {
       const transcriptions = JSON.parse(transcriptionsData)
-      // For now, use English transcription
-      // TODO: Add language selector
-      const segments = transcriptions.languages?.en?.segments || []
+
+      // Map i18n language to transcription language key
+      // i18n uses 'zh-CN', but transcriptions use 'zh'
+      const currentLang = i18n.language
+      const transcriptionLangMap: Record<string, string> = {
+        'en': 'en',
+        'zh-CN': 'zh',
+        'zh': 'zh',
+        'vi': 'vi'
+      }
+
+      // Get the appropriate language, fall back to English
+      const transcriptionLang = transcriptionLangMap[currentLang] || 'en'
+      const languageData = transcriptions.languages?.[transcriptionLang] || transcriptions.languages?.en
+
+      if (!languageData?.segments) {
+        console.warn(`No transcription segments found for language: ${transcriptionLang}`)
+        return undefined
+      }
+
+      console.log(`[VideoDetailPage] Using ${transcriptionLang} transcription for i18n language: ${currentLang}`)
+
+      const segments = languageData.segments
 
       // Convert segments to KaraokeLine format
       return segments.map((segment: any) => ({
@@ -192,7 +269,7 @@ export function VideoDetailPage() {
         start: segment.start,
         end: segment.end,
         words: segment.words?.map((word: any) => ({
-          text: word.text,
+          text: word.word || word.text, // Support both 'word' and 'text' field names
           start: word.start,
           end: word.end,
         })),
@@ -201,7 +278,7 @@ export function VideoDetailPage() {
       console.error('Failed to parse transcriptions:', err)
       return undefined
     }
-  }, [post])
+  }, [post, i18n.language])
 
   // NOW we can do conditional returns
 

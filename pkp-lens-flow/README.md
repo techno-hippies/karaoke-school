@@ -57,19 +57,23 @@ STORAGE
    Example: --creator @billieeilish → Lens handle: billieeilish
             --creator @charlidamelio --lens-handle charli → Lens handle: charli
 
-2.9. Convert Videos to H.264           (local/2.9-convert-videos.ts) ✅
+2.9. Convert Videos to H.264 + HLS Segments (local/2.9-convert-videos.ts) ✅
    Input:  data/videos/{handle}/manifest.json + video files
-   Output: Converted H.264 videos + .hevc backups
+   Output: Converted H.264 videos + HLS segments + .hevc backups
 
    CRITICAL: Must run BEFORE encryption!
-   Converts TikTok videos from HEVC/H.265 to H.264 using ffmpeg
-   Ensures browser compatibility (Chrome doesn't support HEVC)
-   Backs up original HEVC files with .hevc extension
-   Updates manifest with conversion metadata
+   Two-step process:
+   1. Convert TikTok videos from HEVC/H.265 to H.264 (browser compat)
+   2. Segment H.264 videos to HLS format (.m3u8 + .ts segments)
 
-   Why needed: TikTok videos are often HEVC-encoded. Chrome, Safari,
-   and many browsers don't support HEVC playback (videos show black
-   screen with audio only). H.264 is universally supported.
+   Backs up original HEVC files with .hevc extension
+   Creates segments directory per video with playlist + segments
+   Updates manifest with conversion & HLS metadata
+
+   Why needed:
+   - HEVC not supported in Chrome/Safari (black screen)
+   - H.264 is universally supported
+   - HLS segments enable streaming playback (better UX)
 
 3. Upload Profile Avatar to Grove      (local/1.5-upload-profile-avatar.ts) ✅
    Input:  data/videos/{handle}/manifest.json + avatar.jpg
@@ -136,21 +140,36 @@ STORAGE
    Distributes translated word timing proportionally to original segments
    Supports custom language selection via --languages flag
 
-8. Encrypt Videos with Lit Protocol    (local/3-encrypt-videos.ts) ✅
-   Input:  data/videos/{handle}/manifest.json + lock address
-   Output: Encrypted video files + updated manifest
+8. Encrypt HLS Segments with Lit Protocol (local/3-encrypt-videos.ts) ✅
+   Input:  data/videos/{handle}/manifest.json + HLS segments + lock address
+   Output: Encrypted segment files + updated manifest
 
-   Encrypts each video using Lit Protocol
-   Access control: requires valid Unlock subscription key
-   Overwrites plaintext videos with encrypted ciphertext
-   Stores encryption metadata (dataToEncryptHash, accessControlConditions)
+   Hybrid encryption strategy for streaming:
+   1. Generate ONE symmetric key per video (AES-256)
+   2. Encrypt each segment with UNIQUE IV but SAME key
+   3. Encrypt symmetric key ONCE with Lit Protocol (Unlock ACC)
 
-9. Upload Videos to Grove Storage      (local/4-upload-grove.ts) ✅
-   Input:  data/videos/{handle}/manifest.json (with encrypted videos)
+   Overwrites plaintext segments with encrypted ciphertext
+   Stores per-segment metadata (filename, iv, authTag)
+   Stores Lit-encrypted symmetric key in manifest
+
+   Benefits:
+   - Frontend decrypts key once via Lit Protocol
+   - Frontend decrypts segments on-the-fly with Web Crypto API
+   - Enables streaming playback with HLS.js
+
+9. Upload HLS Segments to Grove Storage (local/4-upload-grove.ts) ✅
+   Input:  data/videos/{handle}/manifest.json (with encrypted segments)
    Output: Updated manifest with Grove URIs (lens://...)
 
-   Uploads all encrypted videos, thumbnails, metadata to Grove
+   Uploads all encrypted content to Grove:
+   - HLS playlists (.m3u8 files)
+   - Encrypted segments (.ts files)
+   - Thumbnails (jpg/png)
+   - Video metadata (json with encryption info)
+
    ACL: lensAccountOnly (gated by subscription)
+   Stores segment URIs as map: filename → Grove URI
    Includes bio translations in profile metadata
 
 10. Fetch ISRCs from Spotify           (local/5-fetch-isrc.ts) ✅
@@ -245,9 +264,9 @@ pkp-lens-flow/
 - [x] Step 12: Metadata Re-upload (enriched with licensing)
 
 **Next Steps:**
-- [ ] Frontend karaoke-style caption rendering (word-level highlighting)
+- [ ] Frontend HLS playback with custom DecryptingLoader
 - [ ] Frontend subscription purchase flow (Unlock integration)
-- [ ] Frontend decryption flow (Lit Protocol authentication)
+- [ ] Frontend karaoke-style caption rendering (word-level highlighting)
 - [ ] Lens feed posting integration
 
 ## Prerequisites
@@ -331,13 +350,13 @@ bun run translate-transcriptions --creator @charlidamelio
 # Output: manifest.json with Vietnamese + Mandarin translations (bio + transcriptions)
 # Optional: Use --languages flag to specify languages (default: vi,zh)
 
-# Step 8: Encrypt Videos with Lit Protocol
+# Step 8: Encrypt HLS Segments with Lit Protocol
 bun run encrypt-videos --creator @charlidamelio
-# Output: Encrypted videos + manifest with encryption metadata
+# Output: Encrypted segments + manifest with encryption metadata (per-segment IVs)
 
-# Step 9: Upload Videos to Grove Storage
+# Step 9: Upload HLS Segments to Grove Storage
 bun run upload-grove --creator @charlidamelio
-# Output: manifest.json with Grove URIs (lens://...)
+# Output: manifest.json with Grove URIs for playlists + segments (lens://...)
 
 # Step 10: Fetch ISRCs from Spotify
 bun run fetch-isrc --creator @charlidamelio
@@ -381,6 +400,95 @@ cd services/crawler
 python3 test_filters.py handle
 python3 test_dual_filter.py handle --copyrighted 2 --copyright-free 2
 ```
+
+## Frontend Integration (HLS Decryption)
+
+Once the pipeline is complete, the frontend implements streaming decryption with HLS.js:
+
+### Flow
+
+1. **Fetch video metadata** from Grove (includes encryption info + segment URIs)
+2. **Decrypt symmetric key** via Lit Protocol (once per video)
+3. **Setup HLS.js** with custom DecryptingLoader
+4. **Decrypt segments on-the-fly** as they load
+5. **Stream playback** immediately (no waiting for full download)
+
+### Implementation Example
+
+```typescript
+// 1. Fetch metadata from Grove
+const metadata = await fetchVideoMetadata(groveMetadataUri);
+const { encryption, groveUris } = metadata;
+
+// 2. Decrypt symmetric key via Lit Protocol
+const litClient = await createLitClient({ network: nagaDev });
+const decryptResult = await litClient.decrypt({
+  ciphertext: encryption.encryptedSymmetricKey,
+  dataToEncryptHash: encryption.dataToEncryptHash,
+  unifiedAccessControlConditions: encryption.unifiedAccessControlConditions,
+  chain: 'baseSepolia',
+  authContext: pkpAuthContext,
+});
+const symmetricKey = decryptResult.decryptedData;
+
+// 3. Setup HLS.js with custom DecryptingLoader
+const hls = new Hls();
+hls.config.loader = class DecryptingLoader extends Hls.DefaultConfig.loader {
+  async load(context, config, callbacks) {
+    const filename = context.url.split('/').pop();
+
+    // Skip decryption for playlist file
+    if (filename.endsWith('.m3u8')) {
+      return super.load(context, config, callbacks);
+    }
+
+    // Find segment metadata
+    const segmentMeta = encryption.segments.find(s => s.filename === filename);
+
+    // Fetch encrypted segment from Grove
+    const encrypted = await fetch(groveUris.segments[filename]);
+    const encryptedData = await encrypted.arrayBuffer();
+
+    // Decrypt with Web Crypto API
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      symmetricKey,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    const iv = base64Decode(segmentMeta.iv);
+    const authTag = base64Decode(segmentMeta.authTag);
+
+    // Append auth tag to ciphertext (required for AES-GCM)
+    const ciphertextWithTag = new Uint8Array(encryptedData.byteLength + authTag.byteLength);
+    ciphertextWithTag.set(new Uint8Array(encryptedData), 0);
+    ciphertextWithTag.set(authTag, encryptedData.byteLength);
+
+    // Decrypt
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      cryptoKey,
+      ciphertextWithTag
+    );
+
+    // Return to HLS.js for playback
+    callbacks.onSuccess({ url: context.url, data: decrypted }, { code: 200, text: 'OK' }, context);
+  }
+};
+
+// 4. Load playlist and play
+hls.loadSource(groveUris.playlist);
+hls.attachMedia(videoElement);
+```
+
+### Benefits
+
+- ✅ **Fast playback**: Starts in ~1-2 seconds (vs 10-30s for full file)
+- ✅ **Memory efficient**: Only decrypts segments as needed
+- ✅ **Smooth seeking**: Fetches only required segments
+- ✅ **Same security**: Unlock NFT still required to decrypt
+- ✅ **Better UX**: Instant playback, progress bar works correctly
 
 ### Example Output
 
@@ -458,8 +566,41 @@ python3 test_dual_filter.py handle --copyrighted 2 --copyright-free 2
           "fetchedAt": "2025-10-15T15:50:02.307Z"
         }
       },
+      "hls": {
+        "segmented": true,
+        "segmentedAt": "2025-10-16T20:45:00.000Z",
+        "segmentDuration": 4,
+        "segmentCount": 8,
+        "playlistFile": "playlist.m3u8",
+        "segmentsDir": "segments/7445733962606603563"
+      },
+      "encryption": {
+        "encryptedSymmetricKey": "gwoKEgeHa8QkEjiBJLS84BqeF4x2...",
+        "dataToEncryptHash": "05b046b23275aae33b846b8b6452ff21...",
+        "unifiedAccessControlConditions": [
+          {
+            "conditionType": "evmContract",
+            "contractAddress": "0x3ed620cd13a71f35f90e296a78853b5e7bdbceaf",
+            "chain": "baseSepolia",
+            "functionName": "getHasValidKey",
+            "functionParams": [":userAddress"],
+            "returnValueTest": { "comparator": "=", "value": "true" }
+          }
+        ],
+        "segments": [
+          { "filename": "playlist0.ts", "iv": "BUKpFlVGWWtukyWP", "authTag": "pt8MPso/R9ykxBVhn3B9Rg==" },
+          { "filename": "playlist1.ts", "iv": "KK2n5OK3G6g8GTg5", "authTag": "SlLB+zn3xx0/y/xesZSycQ==" },
+          { "filename": "playlist2.ts", "iv": "cXPKYMF6JgMRlN3z", "authTag": "rmcSoTZbO1eWi752+iCLfw==" }
+        ],
+        "encryptedAt": "2025-10-16T21:00:00.000Z"
+      },
       "groveUris": {
-        "video": "lens://f486be2d3c...",
+        "playlist": "lens://a1b2c3d4e5...",
+        "segments": {
+          "playlist0.ts": "lens://f486be2d3c...",
+          "playlist1.ts": "lens://3d229c35d5...",
+          "playlist2.ts": "lens://958f63a3f1..."
+        },
         "thumbnail": "lens://3d229c35d5...",
         "metadata": "lens://958f63a3f1..."
       },
@@ -522,16 +663,18 @@ python3 test_dual_filter.py handle --copyrighted 2 --copyright-free 2
 
 1. **Local-first**: Everything works locally before thinking about deployment
 2. **Cold wallet controls everything**: Master EOA owns PKPs, manages locks, withdraws subscription payments
-3. **Multilingual karaoke captions**: English transcription → Vietnamese + Mandarin translation with word-level timestamps
-4. **Lit Protocol encryption**: Videos encrypted with access control conditions (requires valid Unlock key)
-5. **Grove for content storage**: Decentralized storage with ACL (lensAccountOnly) for encrypted content
-6. **Lens metadata for discovery**: Lock address stored in Lens account attributes (no backend API needed)
-7. **Dual content filtering**: Both copyrighted (with licensing) and copyright-free (original audio) videos
-8. **Licensing data enrichment**: ISRC → MLC song codes → writers/publishers for royalty tracking
-9. **Unlock for subscriptions**: ERC721 locks on Base Sepolia (0.01 ETH/month, master EOA beneficiary)
-10. **V1 simplicity**: No splits contracts yet, manual withdrawals, can upgrade later
-11. **Timestamp everything**: fetchedAt timestamps on ISRC/MLC data for staleness tracking
-12. **Transcribe before encrypt**: Audio transcription happens before encryption to ensure plaintext access
+3. **HLS streaming encryption**: Videos segmented + encrypted for streaming playback (better UX)
+4. **Hybrid encryption strategy**: AES-256-GCM per segment + Lit Protocol wraps symmetric key
+5. **Multilingual karaoke captions**: English transcription → Vietnamese + Mandarin translation with word-level timestamps
+6. **Lit Protocol access control**: Symmetric key encrypted with Unlock subscription check
+7. **Grove for content storage**: Decentralized storage with ACL (lensAccountOnly) for encrypted segments
+8. **Lens metadata for discovery**: Lock address stored in Lens account attributes (no backend API needed)
+9. **Dual content filtering**: Both copyrighted (with licensing) and copyright-free (original audio) videos
+10. **Licensing data enrichment**: ISRC → MLC song codes → writers/publishers for royalty tracking
+11. **Unlock for subscriptions**: ERC721 locks on Base Sepolia (0.01 ETH/month, master EOA beneficiary)
+12. **V1 simplicity**: No splits contracts yet, manual withdrawals, can upgrade later
+13. **Timestamp everything**: fetchedAt timestamps on ISRC/MLC data for staleness tracking
+14. **Transcribe before encrypt**: Audio transcription happens before encryption to ensure plaintext access
 
 ## Tech Stack
 
