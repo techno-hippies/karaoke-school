@@ -147,7 +147,7 @@ export function VideoPlayer({
           ref={videoRef}
           className={cn(
             "absolute inset-0 w-full h-full object-cover",
-            hasStartedPlaying ? "z-20 bg-red-500" : "z-0 bg-transparent"
+            hasStartedPlaying ? "z-20" : "z-0"
           )}
           loop
           playsInline
