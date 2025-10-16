@@ -7,6 +7,7 @@ import type { Video } from './VideoGrid'
 import type { ArtistSong } from './ProfilePageView'
 import { APP_ADDRESS } from '@/lens/config'
 import { useArtistData } from '@/hooks/useArtistData'
+import { lensToGroveUrl } from '@/lib/lens/utils'
 
 /**
  * ProfilePage - Container component for profile page
@@ -91,7 +92,7 @@ export function ProfilePage() {
   const profile = account ? {
     username: account.username?.localName || username || 'user',
     displayName: account.metadata?.name || account.username?.localName || 'User',
-    avatarUrl: account.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    avatarUrl: lensToGroveUrl(account.metadata?.picture) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
     bio: account.metadata?.bio || '',
     following: 0, // TODO: Add following count from graph
     followers: 0, // TODO: Add followers count from graph

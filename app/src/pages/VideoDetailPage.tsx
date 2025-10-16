@@ -7,25 +7,7 @@ import { useSubscription } from '@/hooks/useSubscription'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import type { VideoPostData } from '@/components/feed/types'
 import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
-
-/**
- * Converts lens:// URI to Grove storage URL
- * Handles formats like:
- * - lens://hash
- * - lens://hash:1 (Lens protocol version/ID)
- */
-function lensToGroveUrl(lensUri: string): string {
-  if (!lensUri) return ''
-  const lower = lensUri.toLowerCase()
-  if (!lower.startsWith('lens') && !lower.startsWith('glen')) return lensUri
-
-  // Remove lens:// prefix and any trailing :number suffix
-  const hash = lensUri
-    .replace(/^(lens|glens?):\/\//i, '')
-    .replace(/:\d+$/, '') // Strip trailing :1, :2, etc.
-
-  return `https://api.grove.storage/${hash}`
-}
+import { lensToGroveUrl } from '@/lib/lens/utils'
 
 /**
  * VideoDetailPage - Container for single video viewing
@@ -202,7 +184,7 @@ export function VideoDetailPage() {
       id: post.id,
       username: account?.username?.localName || username || 'user',
       userHandle: account?.metadata?.name || account?.username?.localName || 'User',
-      userAvatar: account?.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+      userAvatar: lensToGroveUrl(account?.metadata?.picture) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
       description,
       videoUrl,
       thumbnailUrl,

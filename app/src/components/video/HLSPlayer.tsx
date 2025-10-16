@@ -64,6 +64,7 @@ export function HLSPlayer({
   const [error, setError] = useState<string | null>(null)
   const symmetricKeyRef = useRef<Uint8Array | null>(null)
   const isInitializedRef = useRef(false)
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
     const video = videoRef.current
@@ -89,7 +90,7 @@ export function HLSPlayer({
     }
 
     isInitializedRef.current = true
-    let cancelled = false
+    cancelledRef.current = false
 
     // Initialize: Decrypt symmetric key ONCE
     const init = async () => {
@@ -97,7 +98,7 @@ export function HLSPlayer({
         console.log('[HLSPlayer] Decrypting symmetric key...')
         const symmetricKey = await decryptSymmetricKey(encryption, pkpInfo, authData)
 
-        if (cancelled) return
+        if (cancelledRef.current) return
 
         symmetricKeyRef.current = symmetricKey
         console.log('[HLSPlayer] ✅ Symmetric key decrypted, ready to play')
@@ -160,10 +161,20 @@ export function HLSPlayer({
                 return response.arrayBuffer()
               })
               .then(async encryptedData => {
+                // Check if component was unmounted during fetch
+                if (cancelledRef.current) {
+                  throw new Error('Component unmounted, aborting decryption')
+                }
+
+                // Check if symmetric key is still available
+                if (!symmetricKeyRef.current) {
+                  throw new Error('Decryption key not available')
+                }
+
                 // Decrypt segment with symmetric key
                 const decryptedData = await decryptSegment(
                   encryptedData,
-                  symmetricKeyRef.current!,
+                  symmetricKeyRef.current,
                   segmentMeta.iv,
                   segmentMeta.authTag
                 )
@@ -277,12 +288,15 @@ export function HLSPlayer({
 
     // Cleanup
     return () => {
-      cancelled = true
+      console.log('[HLSPlayer] Cleanup: Destroying HLS instance')
+      cancelledRef.current = true
+
       if (hlsRef.current) {
-        console.log('[HLSPlayer] Destroying HLS instance')
         hlsRef.current.destroy()
         hlsRef.current = null
       }
+
+      // Reset refs to allow re-initialization on next mount
       symmetricKeyRef.current = null
       isInitializedRef.current = false
     }
