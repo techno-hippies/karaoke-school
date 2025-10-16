@@ -6,12 +6,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
+import { Spinner } from '@/components/ui/spinner'
 import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
 import { decryptSymmetricKey, decryptSegment } from '@/lib/lit/decrypt-video'
 import type { PKPInfo, AuthData } from '@/lib/lit-webauthn/types'
 
 interface HLSPlayerProps {
   playlistUrl: string
+  thumbnailUrl?: string
   hlsMetadata: HLSMetadata
   encryption: EncryptionMetadata
   pkpInfo: PKPInfo
@@ -41,6 +43,7 @@ function lensToGroveUrl(lensUri: string): string {
 
 export function HLSPlayer({
   playlistUrl,
+  thumbnailUrl,
   hlsMetadata,
   encryption,
   pkpInfo,
@@ -54,7 +57,8 @@ export function HLSPlayer({
 }: HLSPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
-  const [isReady, setIsReady] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const symmetricKeyRef = useRef<Uint8Array | null>(null)
   const isInitializedRef = useRef(false)
@@ -223,8 +227,19 @@ export function HLSPlayer({
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log('[HLSPlayer] ✅ Manifest parsed, video ready')
-          setIsReady(true)
+          setIsLoading(false)
         })
+
+        // Track play/pause state
+        const handlePlay = () => setIsPlaying(true)
+        const handlePause = () => setIsPlaying(false)
+        const handleWaiting = () => setIsLoading(true)
+        const handleCanPlay = () => setIsLoading(false)
+
+        video.addEventListener('play', handlePlay)
+        video.addEventListener('pause', handlePause)
+        video.addEventListener('waiting', handleWaiting)
+        video.addEventListener('canplay', handleCanPlay)
 
         // Load playlist (will be fetched without decryption, segments will be decrypted)
         const resolvedPlaylistUrl = lensToGroveUrl(playlistUrl)
@@ -233,6 +248,14 @@ export function HLSPlayer({
         hls.attachMedia(video)
 
         hlsRef.current = hls
+
+        // Cleanup event listeners
+        return () => {
+          video.removeEventListener('play', handlePlay)
+          video.removeEventListener('pause', handlePause)
+          video.removeEventListener('waiting', handleWaiting)
+          video.removeEventListener('canplay', handleCanPlay)
+        }
 
       } catch (error: any) {
         console.error('[HLSPlayer] ❌ Initialization failed:', error)
@@ -268,14 +291,36 @@ export function HLSPlayer({
   }
 
   return (
-    <video
-      ref={videoRef}
-      className={className}
-      autoPlay={autoPlay}
-      muted={muted}
-      loop={loop}
-      controls={controls}
-      playsInline
-    />
+    <div className={`relative ${className}`}>
+      {/* Video element */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        autoPlay={autoPlay}
+        muted={muted}
+        loop={loop}
+        controls={controls}
+        playsInline
+        poster={thumbnailUrl}
+      />
+
+      {/* Thumbnail overlay when loading or paused */}
+      {(isLoading || !isPlaying) && thumbnailUrl && (
+        <div className="absolute inset-0 bg-black">
+          <img
+            src={thumbnailUrl}
+            alt="Video thumbnail"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      {/* Loading spinner overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
+          <Spinner size="lg" className="text-white" />
+        </div>
+      )}
+    </div>
   )
 }

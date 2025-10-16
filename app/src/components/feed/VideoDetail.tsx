@@ -233,6 +233,7 @@ export function VideoDetail({
            videoPostProps.authData ? (
             <HLSPlayer
               playlistUrl={videoPostProps.videoUrl || ''}
+              thumbnailUrl={videoPostProps.thumbnailUrl}
               hlsMetadata={videoPostProps.hlsMetadata}
               encryption={videoPostProps.encryption}
               pkpInfo={videoPostProps.pkpInfo}
@@ -271,8 +272,8 @@ export function VideoDetail({
             </div>
           )}
 
-          {/* Premium Lock Overlay - show when video is locked */}
-          {videoPostProps.isPremium && !videoPostProps.userIsSubscribed && (
+          {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}
+          {videoPostProps.isPremium && !videoPostProps.userIsSubscribed && !videoPostProps.isSubscriptionLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
               <SubscribeCard
                 username={videoPostProps.username}
