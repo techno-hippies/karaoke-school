@@ -245,6 +245,7 @@ export function VideoDetail({
               onError={(error) => {
                 console.error('[VideoDetail] HLS playback error:', error)
               }}
+              onTimeUpdate={setCurrentTime}
             />
           ) : (
             <VideoPlayer
