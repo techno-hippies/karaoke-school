@@ -275,22 +275,54 @@ async function main() {
 
     const englishData = video.transcription.languages.en;
 
-    // Check if already translated
-    const needsTranslation = targetLanguages.some(
+    // Check if transcription needs translation
+    const needsTranscriptionTranslation = targetLanguages.some(
       (lang) => !video.transcription.languages[lang]
     );
 
-    if (!needsTranslation) {
+    // Check if description needs translation
+    const needsDescriptionTranslation = video.description && targetLanguages.some(
+      (lang) => !video.descriptionTranslations?.[lang]
+    );
+
+    if (!needsTranscriptionTranslation && !needsDescriptionTranslation) {
       console.log("   ⏭️  Already translated to all target languages, skipping");
       skipped++;
       continue;
     }
 
     try {
-      // Translate to each target language
+      // Translate description if needed
+      if (video.description && needsDescriptionTranslation) {
+        console.log(`   📝 Translating description: "${video.description.slice(0, 50)}..."`);
+
+        if (!video.descriptionTranslations) {
+          video.descriptionTranslations = {};
+        }
+
+        for (const targetLang of targetLanguages) {
+          if (video.descriptionTranslations[targetLang]) {
+            console.log(`      ⏭️  Description already translated to ${targetLang}`);
+            continue;
+          }
+
+          const translatedDesc = await translateWithOpenRouter(
+            video.description,
+            targetLang,
+            apiKey
+          );
+          video.descriptionTranslations[targetLang] = translatedDesc;
+          console.log(`      ✅ ${targetLang}: "${translatedDesc.slice(0, 50)}..."`);
+
+          // Rate limit
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Translate transcription to each target language
       for (const targetLang of targetLanguages) {
         if (video.transcription.languages[targetLang]) {
-          console.log(`   ⏭️  Already translated to ${targetLang}, skipping`);
+          console.log(`   ⏭️  Transcription already translated to ${targetLang}, skipping`);
           continue;
         }
 
@@ -301,7 +333,7 @@ async function main() {
         );
 
         video.transcription.languages[targetLang] = translatedData;
-        console.log(`   ✅ Translated to ${targetLang}`);
+        console.log(`   ✅ Transcription translated to ${targetLang}`);
       }
 
       // Update metadata

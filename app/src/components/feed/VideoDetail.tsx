@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { VideoPost } from './VideoPost'
 import { VideoPlayer } from './VideoPlayer'
+import { HLSPlayer } from '../video/HLSPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
@@ -223,21 +224,43 @@ export function VideoDetail({
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
           onClick={videoPostProps.isPremium && !videoPostProps.userIsSubscribed ? undefined : togglePlayPause}
         >
-          {/* Video Player */}
-          <VideoPlayer
-            videoUrl={videoPostProps.videoUrl}
-            thumbnailUrl={videoPostProps.thumbnailUrl}
-            isPlaying={isPlaying}
-            isMuted={isMuted}
-            onTogglePlay={togglePlayPause}
-            onPlayFailed={() => {
-              // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
-              // so the play button overlay appears
-              console.log('[VideoDetail] Autoplay failed, showing play button')
-              setIsPlaying(false)
-            }}
-            forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
-          />
+          {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
+          {videoPostProps.isPremium &&
+           videoPostProps.userIsSubscribed &&
+           videoPostProps.encryption &&
+           videoPostProps.hlsMetadata &&
+           videoPostProps.pkpInfo &&
+           videoPostProps.authData ? (
+            <HLSPlayer
+              playlistUrl={videoPostProps.videoUrl || ''}
+              hlsMetadata={videoPostProps.hlsMetadata}
+              encryption={videoPostProps.encryption}
+              pkpInfo={videoPostProps.pkpInfo}
+              authData={videoPostProps.authData}
+              autoPlay={isPlaying}
+              muted={isMuted}
+              controls={false}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(error) => {
+                console.error('[VideoDetail] HLS playback error:', error)
+              }}
+            />
+          ) : (
+            <VideoPlayer
+              videoUrl={videoPostProps.videoUrl}
+              thumbnailUrl={videoPostProps.thumbnailUrl}
+              isPlaying={isPlaying}
+              isMuted={isMuted}
+              onTogglePlay={togglePlayPause}
+              onPlayFailed={() => {
+                // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
+                // so the play button overlay appears
+                console.log('[VideoDetail] Autoplay failed, showing play button')
+                setIsPlaying(false)
+              }}
+              forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
+            />
+          )}
 
           {/* Play/Pause Overlay - only show when paused and not locked */}
           {videoPostProps.videoUrl && !isPlaying && !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && (
@@ -255,6 +278,7 @@ export function VideoDetail({
                 username={videoPostProps.username}
                 userAvatar={videoPostProps.userAvatar}
                 onSubscribe={videoPostProps.onSubscribe}
+                isLoading={videoPostProps.isSubscribing}
                 className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
               />
             </div>

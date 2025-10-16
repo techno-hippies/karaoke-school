@@ -51,21 +51,18 @@ export async function createPKPAuthContext(
     const litClient = await getLitClient()
     const authManager = getAuthManager()
 
-    // Create PKP auth context - matches working example format
+    // Create PKP auth context - matches working EOA test format
     const authContext = await authManager.createPkpAuthContext({
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
+        domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
+        statement: 'Decrypt subscription content',
         expiration: getConsistentExpiration(),
         resources: [
-          {
-            resource: new LitActionResource('*'),
-            ability: 'lit-action-execution'
-          },
-          {
-            resource: new LitPKPResource('*'),
-            ability: 'pkp-signing'
-          },
+          ['lit-action-execution', '*'],
+          ['pkp-signing', '*'],
+          ['access-control-condition-decryption', '*'],
         ],
       },
       litClient: litClient,
@@ -103,4 +100,48 @@ export function clearAuthContext(): void {
   if (IS_DEV) console.log('[LitWebAuthn] Clearing cached auth context')
   cachedAuthContext = null
   cachedPKPPublicKey = null
+}
+
+/**
+ * Create PKP auth context for decrypting specific encrypted data
+ * IMPORTANT: Each encrypted piece of data has a unique resource ID
+ * Cannot use cached context - must create new context per resource
+ */
+export async function createPKPDecryptionAuthContext(
+  pkpInfo: PKPInfo,
+  authData: AuthData,
+  dataToEncryptHash?: string
+): Promise<PKPAuthContext> {
+  if (IS_DEV) console.log('[LitWebAuthn] Creating PKP decryption auth context')
+
+  try {
+    const litClient = await getLitClient()
+    const authManager = getAuthManager()
+
+    // Create auth context with wildcard for decryption
+    // In Lit Protocol v8, we don't need to pre-register specific resources for decryption
+    const authContext = await authManager.createPkpAuthContext({
+      authData: authData,
+      pkpPublicKey: pkpInfo.publicKey,
+      authConfig: {
+        domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
+        statement: 'Decrypt subscription content',
+        expiration: getConsistentExpiration(),
+        resources: [
+          ['lit-action-execution', '*'],
+          ['pkp-signing', '*'],
+          // Use wildcard for decryption to allow any encrypted content
+          ['access-control-condition-decryption', '*'],
+        ],
+      },
+      litClient: litClient,
+    })
+
+    if (IS_DEV) console.log('[LitWebAuthn] Decryption auth context created')
+
+    return authContext
+  } catch (error) {
+    console.error('[LitWebAuthn] Failed to create decryption auth context:', error)
+    throw new Error(`Failed to create decryption auth context: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }

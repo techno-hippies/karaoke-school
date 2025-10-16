@@ -69,10 +69,20 @@ interface VideoData {
     video: string | null;
     thumbnail: string | null;
   };
+  hls?: {
+    segmented: boolean;
+    segmentedAt: string;
+    segmentDuration: number;
+    segmentCount: number;
+    playlistFile: string;
+    segmentsDir: string;
+  };
   groveUris: {
     video: string | null;
     thumbnail: string | null;
     metadata: string | null;
+    playlist?: string; // HLS playlist URI
+    segments?: { [filename: string]: string }; // Map of segment filename → URI
   };
   transcription?: {
     languages: {
@@ -87,8 +97,9 @@ interface VideoData {
   encryption?: {
     encryptedSymmetricKey: string;
     dataToEncryptHash: string;
-    iv: string;
-    authTag: string;
+    iv?: string; // Single-file encryption
+    authTag?: string; // Single-file encryption
+    segments?: Array<{ filename: string; iv: string; authTag: string }>; // HLS segment encryption
     unifiedAccessControlConditions: any[];
     encryptedAt: string;
   };
@@ -236,11 +247,17 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
       continue;
     }
 
-    // Ensure we have Grove URIs
-    if (!videoData.groveUris.video || !videoData.groveUris.thumbnail) {
-      console.log(`   ⚠️  Missing Grove URIs, skipping\n`);
+    // Ensure we have Grove URIs (either single video or HLS playlist)
+    const hasVideo = videoData.groveUris.video || videoData.groveUris.playlist;
+    if (!hasVideo || !videoData.groveUris.thumbnail) {
+      console.log(`   ⚠️  Missing Grove URIs (video/playlist: ${hasVideo}, thumbnail: ${!!videoData.groveUris.thumbnail}), skipping\n`);
       continue;
     }
+
+    // Determine video URI (playlist for HLS, single file for non-HLS)
+    const videoUri = videoData.groveUris.playlist || videoData.groveUris.video!;
+    const isHLS = !!videoData.groveUris.playlist;
+    console.log(`   Format: ${isHLS ? 'HLS (streaming)' : 'Single file'}`);
 
     try {
       // Build content text with transcription
@@ -287,8 +304,8 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
         title: `${manifest.profile.nickname} - ${videoData.music.title}`,
         content: contentText,
         video: {
-          item: videoData.groveUris.video,
-          type: MediaVideoMimeType.MP4,
+          item: videoUri, // Use playlist URI for HLS, video URI for single file
+          type: isHLS ? MediaVideoMimeType.MP4 : MediaVideoMimeType.MP4, // HLS playlists still served as MP4
           cover: videoData.groveUris.thumbnail,
           altTag: videoData.description || videoData.music.title,
         },
@@ -332,6 +349,18 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
             key: 'metadata_uri',
             value: videoData.groveUris.metadata || '',
           },
+          // Include HLS metadata if applicable
+          ...(isHLS && videoData.hls ? [{
+            type: 'JSON' as const,
+            key: 'hls',
+            value: JSON.stringify({
+              segmented: true,
+              segmentDuration: videoData.hls.segmentDuration,
+              segmentCount: videoData.hls.segmentCount,
+              playlistUri: videoData.groveUris.playlist,
+              segmentUris: videoData.groveUris.segments,
+            }),
+          }] : []),
           // Include full transcription data as JSON
           ...(videoData.transcription ? [{
             type: 'JSON' as const,
@@ -343,6 +372,12 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
               translationModel: videoData.transcription.translationModel,
             }),
           }] : []),
+          // Include description translations if available
+          ...(videoData.descriptionTranslations ? [{
+            type: 'JSON' as const,
+            key: 'description_translations',
+            value: JSON.stringify(videoData.descriptionTranslations),
+          }] : []),
           // Include encryption metadata as JSON
           ...(videoData.encryption ? [{
             type: 'JSON' as const,
@@ -350,8 +385,15 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
             value: JSON.stringify({
               encryptedSymmetricKey: videoData.encryption.encryptedSymmetricKey,
               dataToEncryptHash: videoData.encryption.dataToEncryptHash,
-              iv: videoData.encryption.iv,
-              authTag: videoData.encryption.authTag,
+              // Single-file encryption (one IV/authTag)
+              ...(videoData.encryption.iv && videoData.encryption.authTag ? {
+                iv: videoData.encryption.iv,
+                authTag: videoData.encryption.authTag,
+              } : {}),
+              // HLS segment encryption (multiple IVs/authTags)
+              ...(videoData.encryption.segments ? {
+                segments: videoData.encryption.segments,
+              } : {}),
               unifiedAccessControlConditions: videoData.encryption.unifiedAccessControlConditions,
             }),
           }] : []),

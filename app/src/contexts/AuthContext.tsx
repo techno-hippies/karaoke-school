@@ -48,6 +48,7 @@ interface AuthState {
   pkpAddress: Address | null
   pkpWalletClient: WalletClient | null
   pkpAuthContext: PKPAuthContext | null
+  authData: any | null
   isPKPReady: boolean
 
   // Lens (Layer 2: Social Identity)
@@ -416,6 +417,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
     pkpAddress: pkpWallet.address,
     pkpWalletClient: pkpWallet.walletClient,
     pkpAuthContext: pkpWallet.authContext,
+    authData: pkpWallet.authData,
     isPKPReady: pkpWallet.isConnected,
 
     // Lens State
@@ -449,6 +451,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
     pkpWallet.address,
     pkpWallet.walletClient,
     pkpWallet.authContext,
+    pkpWallet.authData,
     pkpWallet.isConnected,
     pkpWallet.isInitializing,
     pkpWallet.error,

@@ -24,6 +24,7 @@ export interface UsePKPWalletResult {
 
   // PKP Info
   pkpInfo: PKPInfo | null
+  authData: AuthData | null
 
   // Methods
   initialize: (pkpInfo: PKPInfo, authData: AuthData) => Promise<void>
@@ -38,6 +39,7 @@ export function usePKPWallet(): UsePKPWalletResult {
   const [walletClient, setWalletClient] = useState<WalletClient | null>(null)
   const [authContext, setAuthContext] = useState<PKPAuthContext | null>(null)
   const [pkpInfo, setPkpInfo] = useState<PKPInfo | null>(null)
+  const [authData, setAuthData] = useState<AuthData | null>(null)
   const [isInitializing, setIsInitializing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
@@ -49,7 +51,7 @@ export function usePKPWallet(): UsePKPWalletResult {
    * Initialize PKP wallet with auth data
    * Creates auth context and wallet client
    */
-  const initialize = useCallback(async (info: PKPInfo, authData: AuthData) => {
+  const initialize = useCallback(async (info: PKPInfo, data: AuthData) => {
     setIsInitializing(true)
     setError(null)
 
@@ -62,7 +64,7 @@ export function usePKPWallet(): UsePKPWalletResult {
       // Create new auth context if not cached
       if (!context) {
         console.log('[usePKPWallet] Creating PKP auth context...')
-        context = await createPKPAuthContext(info, authData)
+        context = await createPKPAuthContext(info, data)
       }
 
       // Create wallet client
@@ -73,6 +75,7 @@ export function usePKPWallet(): UsePKPWalletResult {
       setAuthContext(context)
       setWalletClient(client)
       setPkpInfo(info)
+      setAuthData(data)
 
       console.log('[usePKPWallet] PKP wallet initialized:', {
         address: info.ethAddress,
@@ -95,6 +98,7 @@ export function usePKPWallet(): UsePKPWalletResult {
     setWalletClient(null)
     setAuthContext(null)
     setPkpInfo(null)
+    setAuthData(null)
     setError(null)
   }, [])
 
@@ -139,9 +143,10 @@ export function usePKPWallet(): UsePKPWalletResult {
     isInitializing,
     error,
     pkpInfo,
+    authData,
     initialize,
     reset,
-  }), [address, walletClient, authContext, isConnected, isInitializing, error, pkpInfo, initialize, reset])
+  }), [address, walletClient, authContext, isConnected, isInitializing, error, pkpInfo, authData, initialize, reset])
 }
 
 /**

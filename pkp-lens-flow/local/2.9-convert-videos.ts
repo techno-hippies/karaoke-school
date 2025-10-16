@@ -1,14 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Step 2.9: Convert Videos to H.264 for Browser Compatibility
+ * Step 2.9: Convert Videos to H.264 + Generate HLS Segments
  *
- * Converts downloaded TikTok videos from HEVC/H.265 to H.264 using ffmpeg
- * This ensures videos play correctly in Chrome and all modern browsers.
+ * Converts downloaded TikTok videos from HEVC/H.265 to H.264 using ffmpeg,
+ * then segments them into HLS format for streaming playback.
  *
  * Why this is needed:
  * - TikTok videos are often encoded in HEVC/H.265
  * - Chrome doesn't support HEVC (shows black screen)
  * - H.264 is universally supported across all browsers
+ * - HLS segments enable streaming playback (better UX)
+ *
+ * Flow:
+ * 1. Convert HEVC → H.264 (browser compatibility)
+ * 2. Segment H.264 → HLS (.m3u8 + .ts segments) (streaming)
  *
  * Prerequisites:
  * - Videos downloaded from crawler (data/videos/{handle}/video_*.mp4)
@@ -18,11 +23,13 @@
  *   bun run convert-videos --creator @charlidamelio
  *
  * Output:
- *   - Videos converted to H.264 in place
+ *   - Videos converted to H.264 + HLS segments
  *   - Original HEVC videos backed up with .hevc extension
+ *   - Segments stored in data/videos/{handle}/segments/{postId}/
  */
 
-import { readFile, writeFile, rename } from 'fs/promises';
+import { readFile, writeFile, rename, mkdir, readdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import { parseArgs } from 'util';
 import { spawn } from 'child_process';
 import path from 'path';
@@ -45,6 +52,14 @@ interface VideoData {
   converted?: {
     originalCodec?: string;
     convertedAt?: string;
+  };
+  hls?: {
+    segmented: boolean;
+    segmentedAt: string;
+    segmentDuration: number;
+    segmentCount: number;
+    playlistFile: string;
+    segmentsDir: string;
   };
 }
 
@@ -123,9 +138,58 @@ async function convertToH264(inputPath: string, outputPath: string): Promise<boo
   });
 }
 
+/**
+ * Segment video into HLS format
+ */
+async function segmentToHLS(
+  inputPath: string,
+  outputDir: string,
+  segmentDuration: number = 4
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const playlistPath = path.join(outputDir, 'playlist.m3u8');
+
+    const ffmpeg = spawn('ffmpeg', [
+      '-i', inputPath,
+      '-c:v', 'copy',             // Don't re-encode (already H.264)
+      '-c:a', 'copy',             // Don't re-encode audio
+      '-start_number', '0',
+      '-hls_time', segmentDuration.toString(),
+      '-hls_list_size', '0',      // Include all segments in playlist
+      '-f', 'hls',
+      playlistPath
+    ]);
+
+    let errorOutput = '';
+
+    ffmpeg.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    ffmpeg.on('close', async (code) => {
+      if (code === 0) {
+        // Count generated segments
+        try {
+          const files = await readdir(outputDir);
+          const segments = files.filter(f => f.endsWith('.ts'));
+          resolve(segments.length);
+        } catch (error) {
+          reject(error);
+        }
+      } else {
+        reject(new Error(`ffmpeg HLS segmentation failed with code ${code}: ${errorOutput}`));
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      reject(error);
+    });
+  });
+}
+
 async function convertVideos(tiktokHandle: string, skipBackup: boolean = false): Promise<void> {
-  console.log('\n🎬 Step 2.9: Converting Videos to H.264');
-  console.log('═══════════════════════════════════════════════════\n');
+  console.log('\n🎬 Step 2.9: Converting Videos to H.264 + HLS Segments');
+  console.log('═══════════════════════════════════════════════════════════\n');
 
   const cleanHandle = tiktokHandle.replace('@', '');
 
@@ -137,7 +201,7 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
   const manifestDir = path.dirname(manifestPath);
 
   const videosToCheck = manifest.videos.filter(v => v.localFiles.video);
-  console.log(`📹 Found ${videosToCheck.length} videos to check\n`);
+  console.log(`📹 Found ${videosToCheck.length} videos to process\n`);
 
   if (videosToCheck.length === 0) {
     console.log('⚠️  No videos found. Run crawler first.\n');
@@ -145,8 +209,11 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
   }
 
   let converted = 0;
+  let segmented = 0;
   let skipped = 0;
   let failed = 0;
+
+  const SEGMENT_DURATION = 4; // 4 seconds per segment
 
   for (let i = 0; i < videosToCheck.length; i++) {
     const video = videosToCheck[i];
@@ -157,7 +224,7 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
     console.log(`   File: ${videoFilename}`);
 
     try {
-      // Check current codec
+      // Step 1: Check current codec and convert if needed
       const codec = await getVideoCodec(videoPath);
       console.log(`   Current codec: ${codec || 'unknown'}`);
 
@@ -167,63 +234,94 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
         continue;
       }
 
-      // Skip if already H.264
-      if (codec === 'h264') {
-        console.log('   ✅ Already H.264, skipping conversion');
+      let needsConversion = codec !== 'h264';
+
+      if (needsConversion) {
+        // Convert to H.264
+        console.log(`   🔄 Converting ${codec} → H.264...`);
+        const tempPath = videoPath + '.converting.mp4';
+
+        await convertToH264(videoPath, tempPath);
+        console.log('   ✅ Conversion complete');
+
+        // Backup original if requested
+        if (!skipBackup) {
+          const backupPath = videoPath + '.hevc';
+          await rename(videoPath, backupPath);
+          console.log(`   💾 Original backed up: ${path.basename(backupPath)}`);
+        }
+
+        // Replace with converted version
+        await rename(tempPath, videoPath);
+        console.log('   ✅ Replaced with H.264 version');
+
+        // Update manifest
+        video.converted = {
+          originalCodec: codec,
+          convertedAt: new Date().toISOString(),
+        };
+
+        converted++;
+      } else {
+        console.log('   ✅ Already H.264');
         skipped++;
-        continue;
       }
 
-      // Convert to H.264
-      console.log(`   🔄 Converting ${codec} → H.264...`);
-      const tempPath = videoPath + '.converting.mp4';
+      // Step 2: Create HLS segments (always do this, even if already H.264)
+      if (!video.hls?.segmented) {
+        console.log('   📦 Creating HLS segments...');
 
-      await convertToH264(videoPath, tempPath);
-      console.log('   ✅ Conversion complete');
+        // Create segments directory
+        const segmentsDir = path.join(manifestDir, 'segments', video.postId);
+        if (!existsSync(segmentsDir)) {
+          await mkdir(segmentsDir, { recursive: true });
+        }
 
-      // Backup original if requested
-      if (!skipBackup) {
-        const backupPath = videoPath + '.hevc';
-        await rename(videoPath, backupPath);
-        console.log(`   💾 Original backed up: ${path.basename(backupPath)}`);
+        // Segment the video
+        const segmentCount = await segmentToHLS(videoPath, segmentsDir, SEGMENT_DURATION);
+        console.log(`   ✅ Created ${segmentCount} segments (${SEGMENT_DURATION}s each)`);
+
+        // Update manifest
+        video.hls = {
+          segmented: true,
+          segmentedAt: new Date().toISOString(),
+          segmentDuration: SEGMENT_DURATION,
+          segmentCount,
+          playlistFile: 'playlist.m3u8',
+          segmentsDir: `segments/${video.postId}`,
+        };
+
+        segmented++;
+      } else {
+        console.log('   ✅ Already segmented');
       }
-
-      // Replace with converted version
-      await rename(tempPath, videoPath);
-      console.log('   ✅ Replaced with H.264 version');
-
-      // Update manifest
-      video.converted = {
-        originalCodec: codec,
-        convertedAt: new Date().toISOString(),
-      };
-
-      converted++;
 
     } catch (error: any) {
-      console.error(`   ❌ Conversion failed: ${error.message}`);
+      console.error(`   ❌ Processing failed: ${error.message}`);
       failed++;
     }
   }
 
   // Save updated manifest
-  if (converted > 0) {
+  if (converted > 0 || segmented > 0) {
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-    console.log('\n💾 Updated manifest with conversion metadata');
+    console.log('\n💾 Updated manifest with conversion & segmentation metadata');
   }
 
   // Final summary
   console.log('\n' + '═'.repeat(60));
-  console.log('📊 Conversion Summary:');
-  console.log(`   ✅ Converted: ${converted}`);
+  console.log('📊 Processing Summary:');
+  console.log(`   🔄 Converted to H.264: ${converted}`);
+  console.log(`   📦 Segmented to HLS: ${segmented}`);
   console.log(`   ⏭️  Skipped (already H.264): ${skipped}`);
   console.log(`   ❌ Failed: ${failed}`);
   console.log(`   📄 Total: ${videosToCheck.length}`);
   console.log('═'.repeat(60));
 
-  if (converted > 0) {
-    console.log(`\n✅ Videos converted to H.264!`);
-    console.log(`   All modern browsers (Chrome, Firefox, Safari, Edge) will now play these videos correctly.`);
+  if (converted > 0 || segmented > 0) {
+    console.log(`\n✅ Videos processed successfully!`);
+    console.log(`   - H.264 encoding: browser-compatible ✓`);
+    console.log(`   - HLS segments: streaming-ready ✓`);
     console.log(`\n📱 Next Steps:`);
     console.log(`   1. Run encryption: bun run encrypt-videos --creator ${tiktokHandle}`);
     console.log(`   2. Upload to Grove: bun run upload-grove --creator ${tiktokHandle}\n`);

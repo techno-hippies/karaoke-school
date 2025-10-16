@@ -1,24 +1,27 @@
 #!/usr/bin/env bun
 /**
- * Step 3: Upload TikTok Content to Grove Storage
+ * Step 4: Upload HLS Segments + Content to Grove Storage
  *
- * Uploads videos, thumbnails, and metadata to Grove with lensAccountOnly ACL
- * Updates manifest with Grove URIs
+ * Uploads HLS segments, playlists, thumbnails, and metadata to Grove
+ * with lensAccountOnly ACL. Updates manifest with Grove URIs.
  *
  * Prerequisites:
- * - Manifest from Step 2 (data/videos/{handle}/manifest.json)
+ * - Videos converted & segmented (step 2.9)
+ * - Videos encrypted (step 3)
+ * - Manifest from crawler (data/videos/{handle}/manifest.json)
  * - Lens account data (data/lens/{handle}.json)
  *
  * Usage:
  *   bun run upload-grove --creator @charlidamelio
  *
  * Output:
- *   Updated manifest with Grove URIs
+ *   Updated manifest with Grove URIs for segments, playlists, metadata
  */
 
 import { StorageClient, lensAccountOnly } from '@lens-chain/storage-client';
 import { chains } from '@lens-chain/sdk/viem';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, readdir } from 'fs/promises';
+import { existsSync } from 'fs';
 import { parseArgs } from 'util';
 import path from 'path';
 
@@ -49,10 +52,27 @@ interface VideoData {
     video: string | null;
     thumbnail: string | null;
   };
+  hls?: {
+    segmented: boolean;
+    segmentedAt: string;
+    segmentDuration: number;
+    segmentCount: number;
+    playlistFile: string;
+    segmentsDir: string;
+  };
+  encryption?: {
+    encryptedSymmetricKey: string;
+    dataToEncryptHash: string;
+    unifiedAccessControlConditions: any[];
+    segments: Array<{ filename: string; iv: string; authTag: string }>;
+    encryptedAt: string;
+  };
   groveUris: {
-    video: string | null;
+    video: string | null; // Deprecated - use playlist instead
     thumbnail: string | null;
     metadata: string | null;
+    playlist?: string; // HLS playlist URI
+    segments?: { [filename: string]: string }; // Map of segment filename → URI
   };
 }
 
@@ -77,8 +97,8 @@ interface Manifest {
 }
 
 async function uploadToGrove(tiktokHandle: string): Promise<void> {
-  console.log('\n☁️  Step 3: Uploading to Grove Storage');
-  console.log('═══════════════════════════════════════════\n');
+  console.log('\n☁️  Step 4: Uploading HLS Segments to Grove Storage');
+  console.log('═══════════════════════════════════════════════════════\n');
 
   const cleanHandle = tiktokHandle.replace('@', '');
 
@@ -147,16 +167,75 @@ async function uploadToGrove(tiktokHandle: string): Promise<void> {
     console.log('⚠️  Avatar file not found but listed in manifest\n');
   }
 
-  // 6. Upload videos
+  // 6. Upload videos (HLS segments or single files)
   console.log(`🎬 Uploading ${manifest.videos.length} videos...\n`);
 
   for (let i = 0; i < manifest.videos.length; i++) {
     const video = manifest.videos[i];
     console.log(`   Video ${i + 1}/${manifest.videos.length}: ${video.music.title}`);
 
-    // Upload video file
-    if (video.localFiles.video) {
-      // Fix path - remove ../../ prefix and use absolute path
+    // Check if video has HLS segments
+    if (video.hls?.segmented) {
+      const segmentsDir = path.join(process.cwd(), 'data', 'videos', cleanHandle, video.hls.segmentsDir);
+
+      if (!existsSync(segmentsDir)) {
+        console.log(`      ⚠️  Segments directory not found: ${segmentsDir}\n`);
+        continue;
+      }
+
+      console.log(`      📦 Uploading HLS segments...`);
+
+      // Upload playlist file
+      const playlistPath = path.join(segmentsDir, video.hls.playlistFile);
+      try {
+        const playlistFile = Bun.file(playlistPath);
+        if (await playlistFile.exists()) {
+          const playlistResult = await storageClient.uploadFile(playlistFile, {
+            name: `${video.postId}-playlist.m3u8`,
+            acl,
+          });
+          video.groveUris.playlist = playlistResult.uri;
+          console.log(`         ✅ Playlist: ${playlistResult.uri}`);
+        }
+      } catch (e) {
+        console.log(`         ⚠️  Playlist upload failed: ${e}`);
+      }
+
+      // Upload all .ts segments
+      try {
+        const files = await readdir(segmentsDir);
+        const segmentFiles = files.filter(f => f.endsWith('.ts')).sort();
+
+        if (!video.groveUris.segments) {
+          video.groveUris.segments = {};
+        }
+
+        for (let j = 0; j < segmentFiles.length; j++) {
+          const filename = segmentFiles[j];
+          const segmentPath = path.join(segmentsDir, filename);
+          const segmentFile = Bun.file(segmentPath);
+
+          if (await segmentFile.exists()) {
+            const segmentResult = await storageClient.uploadFile(segmentFile, {
+              name: `${video.postId}-${filename}`,
+              acl,
+            });
+            video.groveUris.segments[filename] = segmentResult.uri;
+
+            // Progress indicator
+            if ((j + 1) % 5 === 0 || j === segmentFiles.length - 1) {
+              console.log(`         🔗 Uploaded ${j + 1}/${segmentFiles.length} segments`);
+            }
+          }
+        }
+
+        console.log(`         ✅ All segments uploaded`);
+      } catch (e) {
+        console.log(`         ⚠️  Segment upload failed: ${e}`);
+      }
+
+    } else if (video.localFiles.video) {
+      // Fallback: Upload single video file (for non-segmented videos)
       const videoFilename = path.basename(video.localFiles.video);
       const videoPath = path.join(process.cwd(), 'data', 'videos', cleanHandle, videoFilename);
 
@@ -179,7 +258,6 @@ async function uploadToGrove(tiktokHandle: string): Promise<void> {
 
     // Upload thumbnail
     if (video.localFiles.thumbnail) {
-      // Fix path - remove ../../ prefix and use absolute path
       const thumbFilename = path.basename(video.localFiles.thumbnail);
       const thumbPath = path.join(process.cwd(), 'data', 'videos', cleanHandle, thumbFilename);
 
@@ -200,7 +278,7 @@ async function uploadToGrove(tiktokHandle: string): Promise<void> {
       }
     }
 
-    // Upload video metadata
+    // Upload video metadata (including encryption info)
     const videoMetadata = {
       postId: video.postId,
       postUrl: video.postUrl,
@@ -208,6 +286,8 @@ async function uploadToGrove(tiktokHandle: string): Promise<void> {
       stats: video.stats,
       music: video.music,
       groveUris: video.groveUris,
+      hls: video.hls,
+      encryption: video.encryption,
       uploadedAt: new Date().toISOString(),
     };
 
@@ -227,14 +307,17 @@ async function uploadToGrove(tiktokHandle: string): Promise<void> {
 
   // 8. Summary
   console.log('═══════════════════════════════════════════');
-  console.log('[bold green]✨ Upload Complete![/bold green]');
-  console.log(`\n📊 Summary:`);
+  console.log('✨ Upload Complete!\n');
+  console.log(`📊 Summary:`);
   console.log(`   Profile metadata: ${manifest.profile.groveUris.metadata}`);
-  console.log(`   Videos uploaded: ${manifest.videos.filter(v => v.groveUris.video).length}/${manifest.videos.length}`);
-  console.log(`\n⚠️  Next Steps:`);
-  console.log(`   • Run MLC scraper to get song codes`);
-  console.log(`   • Create Lens posts with Grove URIs`);
-  console.log('');
+  console.log(`   Videos with HLS: ${manifest.videos.filter(v => v.hls?.segmented).length}/${manifest.videos.length}`);
+  console.log(`   Videos with playlists: ${manifest.videos.filter(v => v.groveUris.playlist).length}/${manifest.videos.length}`);
+  console.log(`   Total segments uploaded: ${manifest.videos.reduce((sum, v) => sum + Object.keys(v.groveUris.segments || {}).length, 0)}`);
+  console.log(`\n📱 Next Steps:`);
+  console.log(`   1. Run ISRC fetcher: bun run fetch-isrc --creator ${tiktokHandle}`);
+  console.log(`   2. Run MLC scraper: bun run fetch-mlc --creator ${tiktokHandle}`);
+  console.log(`   3. Re-upload metadata: bun run reupload-metadata --creator ${tiktokHandle}`);
+  console.log(`   4. Create Lens posts: bun run create-lens-posts --creator ${tiktokHandle}\n`);
 }
 
 async function main() {
