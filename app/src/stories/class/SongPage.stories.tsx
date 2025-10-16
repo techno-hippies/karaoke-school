@@ -86,6 +86,7 @@ export const LocalSong: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -94,6 +95,7 @@ export const LocalSong: Story = {
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
   },
 }
@@ -107,6 +109,7 @@ export const ExternalSongLocked: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -125,6 +128,7 @@ export const ExternalSongLocked: Story = {
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
     onUnlockAll: () => console.log('Unlock all segments'),
   },
@@ -138,6 +142,7 @@ export const ExternalSongUnlocking: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -156,6 +161,7 @@ export const ExternalSongUnlocking: Story = {
     isUnlocking: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
     onUnlockAll: () => console.log('Unlock all segments'),
   },
@@ -169,6 +175,7 @@ export const ExternalSongUnlocked: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -187,6 +194,7 @@ export const ExternalSongUnlocked: Story = {
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
   },
 }
@@ -198,6 +206,7 @@ export const GeneratingSegments: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -208,6 +217,7 @@ export const GeneratingSegments: Story = {
     isAuthenticated: true,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
     onUnlockAll: () => console.log('Unlock all segments'),
   },
@@ -220,6 +230,7 @@ export const NotAuthenticated: Story = {
   args: {
     songTitle: 'Heat of the Night',
     artist: 'Scarlett X',
+    geniusArtistId: 12345,
     artworkUrl: 'https://placebear.com/800/800',
     leaderboardEntries: sampleLeaderboard,
     currentUser: currentUser,
@@ -230,7 +241,7 @@ export const NotAuthenticated: Story = {
     ],
     externalLyricsLinks: [
       { label: 'Genius', url: 'https://genius.com/Scarlett-x-heat-of-the-night-lyrics' },
-      { label: 'Intellectual', url: 'https://intellectual.insprill.net/Scarlett-x-heat-of-the-night-lyrics?id=123456' },
+      { label: 'Intellectual', url: 'https://intellectual.insprill.net/Scarlett-x-heart-of-the-night-lyrics?id=123456' },
       { label: 'Dumb', url: 'https://dm.vern.cc/Scarlett-x-heat-of-the-night-lyrics' },
     ],
     segments: catalogedSegments,
@@ -238,6 +249,7 @@ export const NotAuthenticated: Story = {
     isAuthenticated: false,
     onBack: () => console.log('Back clicked'),
     onPlay: () => console.log('Play clicked (external)'),
+    onArtistClick: () => console.log('Artist clicked'),
     onSelectSegment: (segment) => console.log('Selected segment:', segment),
     onUnlockAll: () => console.log('Unlock all segments'),
     onAuthRequired: () => console.log('Auth required - open auth modal'),

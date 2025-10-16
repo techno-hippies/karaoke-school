@@ -49,6 +49,8 @@ export interface VideoPlayerProps {
   isPlaying: boolean
   isMuted: boolean
   onTogglePlay: () => void
+  onPlayFailed?: () => void // Called when autoplay fails
+  forceShowThumbnail?: boolean // Keep thumbnail visible even when playing (for locked videos)
   className?: string
 }
 

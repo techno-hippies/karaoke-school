@@ -9,6 +9,7 @@ export interface ProfileActionsProps {
   isFollowLoading?: boolean
   onEditClick?: () => void
   onFollowClick?: () => void
+  onStudyClick?: () => void
   onSubscribeClick?: () => void
   onMessageClick?: () => void
   onMoreClick?: () => void
@@ -20,8 +21,8 @@ export interface ProfileActionsProps {
  *
  * States:
  * - Own profile: [Edit profile]
- * - Not following: [Follow] [Subscribe - $6.99/month]
- * - Following, not subscribed: [Following ✓] [Subscribe - $6.99/month]
+ * - Not following: [Follow] [Subscribe]
+ * - Following, not subscribed: [Study] [Subscribe]
  * - Subscribed: [Message] [Subscribed ✓]
  */
 export function ProfileActions({
@@ -31,6 +32,7 @@ export function ProfileActions({
   isFollowLoading = false,
   onEditClick,
   onFollowClick,
+  onStudyClick,
   onSubscribeClick,
   onMessageClick,
   onMoreClick,
@@ -77,20 +79,20 @@ export function ProfileActions({
           </Button>
         </>
       ) : (
-        // Not subscribed - Follow/Following and Subscribe
+        // Not subscribed - Follow/Study and Subscribe
         <>
           <Button
-            onClick={onFollowClick}
+            onClick={isFollowing ? onStudyClick : onFollowClick}
             disabled={isFollowLoading}
-            variant="secondary"
+            variant={isFollowing ? 'default' : 'secondary'}
             size="lg"
             className="flex-1 md:flex-initial"
           >
-            {isFollowLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
+            {isFollowLoading ? 'Loading...' : isFollowing ? 'Study' : 'Follow'}
           </Button>
           <Button
             onClick={onSubscribeClick}
-            variant="default"
+            variant={isFollowing ? 'secondary' : 'default'}
             size="lg"
             className="flex-1 md:flex-initial"
           >

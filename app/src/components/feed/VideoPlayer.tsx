@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Play } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import type { VideoPlayerProps } from './types'
@@ -13,71 +13,56 @@ export function VideoPlayer({
   isPlaying,
   isMuted,
   onTogglePlay,
+  onPlayFailed,
+  forceShowThumbnail = false,
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
+
+  // Handle play/pause with direct video control for better browser compatibility
+  const handlePlayPause = () => {
+    if (!videoRef.current || !videoUrl) return
+
+    if (videoRef.current.paused) {
+      // Directly call play() to ensure Chrome recognizes the user gesture
+      videoRef.current.play()
+        .then(() => {
+          console.log('[VideoPlayer] Play succeeded, updating parent state')
+          // Only update parent state after play succeeds
+          onTogglePlay()
+        })
+        .catch(e => {
+          console.error('[VideoPlayer] Play failed on user click:', e.name)
+          if (e.name === 'NotAllowedError' && onPlayFailed) {
+            onPlayFailed()
+          }
+        })
+    } else {
+      // For pause, we can just call the parent handler
+      onTogglePlay()
+    }
+  }
 
   // Set video source when URL changes
   useEffect(() => {
     if (!videoRef.current || !videoUrl) return
 
-    console.log('[VideoPlayer] Setting video source:', videoUrl)
+    // Reset playing state when video URL changes
+    setHasStartedPlaying(false)
 
-    // Clear existing sources first
-    videoRef.current.innerHTML = ''
-
-    // Try to set video source directly for better browser compatibility
+    // Set video source directly - let browser auto-detect codec
     videoRef.current.src = videoUrl
-
-    // Also try adding source element with codec info for fallback
-    const source = document.createElement('source')
-    source.src = videoUrl
-    source.type = 'video/mp4; codecs="hvc1"' // HEVC codec hint
-    videoRef.current.appendChild(source)
-
     videoRef.current.load()
 
-    // Log when video is ready
-    const handleLoadedMetadata = () => {
-      console.log('[VideoPlayer] Video metadata loaded, duration:', videoRef.current?.duration)
-    }
-    const handleLoadedData = () => {
-      console.log('[VideoPlayer] Video data loaded (can start playing)')
-    }
-    const handleCanPlay = () => {
-      console.log('[VideoPlayer] Video can play through')
-    }
-    const handlePlaying = () => {
-      console.log('[VideoPlayer] Video is now playing!')
-      if (videoRef.current) {
-        console.log('[VideoPlayer] Video dimensions:', {
-          videoWidth: videoRef.current.videoWidth,
-          videoHeight: videoRef.current.videoHeight,
-          clientWidth: videoRef.current.clientWidth,
-          clientHeight: videoRef.current.clientHeight
-        })
-      }
-    }
+    // Only log errors
     const handleError = (e: Event) => {
-      console.error('[VideoPlayer] Video load error:', e)
-      console.error('[VideoPlayer] Error details:', videoRef.current?.error)
-      if (videoRef.current?.error) {
-        console.error('[VideoPlayer] Error code:', videoRef.current.error.code)
-        console.error('[VideoPlayer] Error message:', videoRef.current.error.message)
-      }
+      console.error('[VideoPlayer] Video load error:', videoRef.current?.error)
     }
 
-    videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
-    videoRef.current.addEventListener('loadeddata', handleLoadedData)
-    videoRef.current.addEventListener('canplay', handleCanPlay)
-    videoRef.current.addEventListener('playing', handlePlaying)
     videoRef.current.addEventListener('error', handleError)
 
     return () => {
-      videoRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      videoRef.current?.removeEventListener('loadeddata', handleLoadedData)
-      videoRef.current?.removeEventListener('canplay', handleCanPlay)
-      videoRef.current?.removeEventListener('playing', handlePlaying)
       videoRef.current?.removeEventListener('error', handleError)
     }
   }, [videoUrl])
@@ -87,23 +72,24 @@ export function VideoPlayer({
     if (!videoRef.current || !videoUrl) return
 
     if (isPlaying) {
-      console.log('[VideoPlayer] Attempting to play video')
-      console.log('[VideoPlayer] Video readyState:', videoRef.current.readyState)
-      console.log('[VideoPlayer] Video networkState:', videoRef.current.networkState)
-      console.log('[VideoPlayer] Video paused:', videoRef.current.paused)
-
-      videoRef.current.play()
-        .then(() => {
-          console.log('[VideoPlayer] Play succeeded!')
-        })
-        .catch(e => {
-          console.error('[VideoPlayer] Play failed:', e.name, e.message)
-        })
+      // Only call play() if video is not already playing (to avoid redundant calls)
+      if (videoRef.current.paused) {
+        videoRef.current.play()
+          .catch(e => {
+            console.error('[VideoPlayer] Play failed:', e.name)
+            // Notify parent that autoplay failed so it can show the play button
+            if (e.name === 'NotAllowedError' && onPlayFailed) {
+              onPlayFailed()
+            }
+          })
+      }
     } else {
-      console.log('[VideoPlayer] Pausing video')
-      videoRef.current.pause()
+      // Only pause if video is actually playing
+      if (!videoRef.current.paused) {
+        videoRef.current.pause()
+      }
     }
-  }, [isPlaying, videoUrl])
+  }, [isPlaying, videoUrl, onPlayFailed])
 
   // Sync isMuted prop with video element
   useEffect(() => {
@@ -111,38 +97,62 @@ export function VideoPlayer({
     videoRef.current.muted = isMuted
   }, [isMuted])
 
-  // Log rendering state
-  const showThumbnail = thumbnailUrl && (!videoUrl || !isPlaying)
-  const showVideo = !!videoUrl
+  // Track when video actually starts playing (not just when play() is called)
+  useEffect(() => {
+    if (!videoRef.current) return
 
-  console.log('[VideoPlayer] Render state:', {
-    isPlaying,
-    hasVideoUrl: !!videoUrl,
-    hasThumbnailUrl: !!thumbnailUrl,
-    showThumbnail,
-    showVideo
-  })
+    const handlePlaying = () => {
+      console.log('[VideoPlayer] Video started playing')
+      setHasStartedPlaying(true)
+    }
+
+    const handlePause = () => {
+      console.log('[VideoPlayer] Video paused')
+      setHasStartedPlaying(false)
+    }
+
+    const handleEnded = () => {
+      console.log('[VideoPlayer] Video ended')
+      setHasStartedPlaying(false)
+    }
+
+    videoRef.current.addEventListener('playing', handlePlaying)
+    videoRef.current.addEventListener('pause', handlePause)
+    videoRef.current.addEventListener('ended', handleEnded)
+
+    return () => {
+      videoRef.current?.removeEventListener('playing', handlePlaying)
+      videoRef.current?.removeEventListener('pause', handlePause)
+      videoRef.current?.removeEventListener('ended', handleEnded)
+    }
+  }, [])
+
+  const showThumbnail = !!thumbnailUrl
+  const showVideo = !!videoUrl
 
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
-      {/* Thumbnail - show only when video hasn't started or no video URL */}
+      {/* Thumbnail - always show when available, z-10 to appear above video until it has visible frames */}
       {showThumbnail && (
         <img
           src={thumbnailUrl}
           alt="Video thumbnail"
-          className="absolute inset-0 w-full h-full object-cover z-0"
+          className="absolute inset-0 w-full h-full object-cover z-10"
         />
       )}
 
-      {/* Video element */}
+      {/* Video element - z-20 when playing (above thumbnail), z-0 when paused (below thumbnail) */}
       {showVideo && (
         <video
           ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover z-10 bg-transparent"
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover",
+            hasStartedPlaying ? "z-20 bg-red-500" : "z-0 bg-transparent"
+          )}
           loop
           playsInline
           muted={isMuted}
-          onClick={onTogglePlay}
+          onClick={handlePlayPause}
         />
       )}
 
@@ -153,11 +163,11 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Play/Pause Overlay - only show when paused */}
+      {/* Play/Pause Overlay - only show when paused, z-30 to be above everything */}
       {videoUrl && !isPlaying && (
         <div
-          className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-20"
-          onClick={onTogglePlay}
+          className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
+          onClick={handlePlayPause}
         >
           <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
             <Play className="w-10 h-10 text-foreground fill-white ml-1" weight="fill" />

@@ -264,20 +264,23 @@ class TikTokCrawler:
             console.print(f"[red]Error downloading video:[/red] {e}")
             return False
 
-    def crawl_creator(self, tiktok_handle: str, num_copyrighted: int = 3, num_copyright_free: int = 3) -> Dict:
+    def crawl_creator(self, tiktok_handle: str, lens_handle: str, num_copyrighted: int = 3, num_copyright_free: int = 3) -> Dict:
         """Main crawl function"""
         console.print("\n[bold cyan]🎬 TikTok Crawler - PKP-Lens Flow[/bold cyan]")
         console.print("═" * 60)
 
         clean_handle = tiktok_handle.replace('@', '')
 
-        # 1. Load Lens account data
-        console.print(f"\n📂 Loading Lens account data for {tiktok_handle}...")
-        lens_data = self.load_lens_account(tiktok_handle)
+        # 1. Load PKP data (Lens account created later in pipeline)
+        console.print(f"\n📂 Loading PKP data for {tiktok_handle}...")
         pkp_data = self.load_pkp_data(tiktok_handle)
 
-        console.print(f"   Lens Handle: {lens_data['lensHandle']}")
         console.print(f"   PKP Address: {pkp_data['pkpEthAddress']}")
+
+        # Use provided Lens handle
+        lens_handle_clean = lens_handle.replace('@', '')
+        lens_handle_formatted = f"@{lens_handle_clean}"
+        console.print(f"   Lens Handle (to be created): {lens_handle_formatted}")
 
         # 2. Fetch TikTok profile
         console.print(f"\n🔍 Fetching TikTok profile...")
@@ -397,7 +400,7 @@ class TikTokCrawler:
         # 8. Create manifest
         manifest = {
             'tiktokHandle': tiktok_handle,
-            'lensHandle': lens_data['lensHandle'],
+            'lensHandle': lens_handle_formatted,
             'lensAccountAddress': pkp_data['pkpEthAddress'],
             'scrapedAt': datetime.now().isoformat(),
             'profile': {
@@ -437,16 +440,21 @@ class TikTokCrawler:
 def main():
     parser = argparse.ArgumentParser(description='TikTok Crawler for PKP-Lens Flow')
     parser.add_argument('--creator', '-c', required=True, help='TikTok handle (e.g., @charlidamelio)')
+    parser.add_argument('--lens-handle', required=False, help='Desired Lens handle (e.g., charli). Defaults to TikTok handle without @ prefix.')
     parser.add_argument('--data-dir', default='../../data', help='Data directory')
     parser.add_argument('--copyrighted', type=int, default=3, help='Number of copyrighted videos to fetch (default: 3)')
     parser.add_argument('--copyright-free', type=int, default=3, help='Number of copyright-free videos to fetch (default: 3)')
 
     args = parser.parse_args()
 
+    # Default lens handle to TikTok handle (without @ prefix) if not provided
+    lens_handle = args.lens_handle if args.lens_handle else args.creator.replace('@', '')
+
     try:
         crawler = TikTokCrawler(data_dir=args.data_dir)
         crawler.crawl_creator(
             args.creator,
+            lens_handle=lens_handle,
             num_copyrighted=args.copyrighted,
             num_copyright_free=args.copyright_free
         )

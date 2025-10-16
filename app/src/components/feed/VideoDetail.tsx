@@ -229,6 +229,13 @@ export function VideoDetail({
             isPlaying={isPlaying}
             isMuted={isMuted}
             onTogglePlay={togglePlayPause}
+            onPlayFailed={() => {
+              // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
+              // so the play button overlay appears
+              console.log('[VideoDetail] Autoplay failed, showing play button')
+              setIsPlaying(false)
+            }}
+            forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
           />
 
           {/* Play/Pause Overlay - only show when paused and not locked */}

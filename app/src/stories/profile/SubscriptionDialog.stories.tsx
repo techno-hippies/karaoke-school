@@ -66,7 +66,7 @@ export const Interactive: Story = {
     return (
       <>
         <Button onClick={() => setOpen(true)}>
-          Subscribe - $6.99/month
+          Subscribe - $1.99/month
         </Button>
         <SubscriptionDialog
           open={open}

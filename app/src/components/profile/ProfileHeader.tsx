@@ -17,6 +17,7 @@ export interface ProfileHeaderProps {
   isFollowLoading?: boolean
   onEditClick?: () => void
   onFollowClick?: () => void
+  onStudyClick?: () => void
   onSubscribeClick?: () => void
   onMessageClick?: () => void
   onMoreClick?: () => void
@@ -40,6 +41,7 @@ export function ProfileHeader({
   isFollowLoading = false,
   onEditClick,
   onFollowClick,
+  onStudyClick,
   onSubscribeClick,
   onMessageClick,
   onMoreClick,
@@ -81,6 +83,7 @@ export function ProfileHeader({
             isFollowLoading={isFollowLoading}
             onEditClick={onEditClick}
             onFollowClick={onFollowClick}
+            onStudyClick={onStudyClick}
             onSubscribeClick={onSubscribeClick}
             onMessageClick={onMessageClick}
             onMoreClick={onMoreClick}

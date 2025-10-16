@@ -8,20 +8,23 @@
 LOCAL ONLY (Cold Wallet - Never Deployed)
 ┌──────────────────────────────────────────────────────────┐
 │  Step 1: PKP Minting (Chronicle Yellowstone)            │
-│  Step 2: Lens Account Creation (Lens testnet + Grove)   │
-│  Step 2.5: Deploy Unlock Lock (Base Sepolia)            │
+│  Step 3.5: Add Genius Artist ID (Manual Edit)           │
+│  Step 4: Create Lens Account (Lens testnet + Grove)     │
+│  Step 5: Deploy Unlock Lock (Base Sepolia)              │
 └──────────────────────────────────────────────────────────┘
 
 SERVICES (Local-first, can deploy later)
 ┌──────────────────────────────────────────────────────────┐
-│  Step 3: TikTok Crawler (Python - hrequests)            │
-│  Step 3.5: Audio Transcription (Voxtral API)            │
-│  Step 3.6: Multilingual Translation (OpenRouter/Gemini) │
-│  Step 4: Encrypt Videos (Lit Protocol)                  │
-│  Step 5: Grove Upload (TypeScript)                      │
-│  Step 6: ISRC Fetcher (Spotify API)                     │
-│  Step 7: MLC Scraper (Public API)                       │
-│  Step 8: Metadata Re-upload (Grove)                     │
+│  Step 2: TikTok Crawler (Python - hrequests)            │
+│  Step 2.9: Video Conversion (ffmpeg - HEVC→H.264) ⚠️     │
+│  Step 3: Upload Profile Avatar (Grove)                  │
+│  Step 6: Audio Transcription (Voxtral API)              │
+│  Step 7: Multilingual Translation (OpenRouter/Gemini)   │
+│  Step 8: Encrypt Videos (Lit Protocol)                  │
+│  Step 9: Grove Upload (TypeScript)                      │
+│  Step 10: ISRC Fetcher (Spotify API)                    │
+│  Step 11: MLC Scraper (Public API)                      │
+│  Step 12: Metadata Re-upload (Grove)                    │
 └──────────────────────────────────────────────────────────┘
 
 STORAGE
@@ -41,14 +44,72 @@ STORAGE
 
    Mints PKP on Chronicle Yellowstone testnet
 
-2. Create Lens Account                 (local/2-create-lens-account.ts) ✅
-   Input:  data/pkps/{handle}.json
+2. Crawl TikTok Profile + Videos       (services/crawler/tiktok_crawler.py) ✅
+   Input:  CLI --creator @handle [--lens-handle desired_handle] --copyrighted N --copyright-free N
+   Output: data/videos/{handle}/manifest.json + video files
+
+   Fetches TikTok profile (nickname, bio, avatar)
+   Fetches top N copyrighted videos (with Spotify tracks)
+   Fetches top N copyright-free videos (original audio)
+   Downloads videos, thumbnails, profile picture
+
+   Lens handle defaults to TikTok handle (without @) if not specified.
+   Example: --creator @billieeilish → Lens handle: billieeilish
+            --creator @charlidamelio --lens-handle charli → Lens handle: charli
+
+2.9. Convert Videos to H.264           (local/2.9-convert-videos.ts) ✅
+   Input:  data/videos/{handle}/manifest.json + video files
+   Output: Converted H.264 videos + .hevc backups
+
+   CRITICAL: Must run BEFORE encryption!
+   Converts TikTok videos from HEVC/H.265 to H.264 using ffmpeg
+   Ensures browser compatibility (Chrome doesn't support HEVC)
+   Backs up original HEVC files with .hevc extension
+   Updates manifest with conversion metadata
+
+   Why needed: TikTok videos are often HEVC-encoded. Chrome, Safari,
+   and many browsers don't support HEVC playback (videos show black
+   screen with audio only). H.264 is universally supported.
+
+3. Upload Profile Avatar to Grove      (local/1.5-upload-profile-avatar.ts) ✅
+   Input:  data/videos/{handle}/manifest.json + avatar.jpg
+   Output: Updated manifest with Grove avatar URI
+
+   Uploads profile avatar to Grove with immutable ACL (public)
+   Updates manifest with lens:// URI for use in Lens account creation
+   Must run before Lens account creation for proper metadata
+
+3.5. Add Genius Artist ID (MANUAL STEP) ⚠️
+   Input:  data/videos/{handle}/manifest.json
+   Output: Updated manifest with geniusArtistId in profile
+
+   FOR ARTISTS ONLY: If the creator has music on Genius.com, manually add
+   their Genius artist ID to manifest.json under profile.geniusArtistId
+
+   Example:
+   {
+     "profile": {
+       "nickname": "Addison Rae",
+       "bio": "...",
+       "geniusArtistId": 1177  // ← Add this line
+     }
+   }
+
+   This enables the artist profile view with Songs tab in the frontend
+   Find artist ID: https://genius.com/artists/{artist-name}
+   If not an artist, skip this step
+
+4. Create Lens Account                 (local/2-create-lens-account.ts) ✅
+   Input:  data/pkps/{handle}.json + data/videos/{handle}/manifest.json
    Output: data/lens/{handle}.json
 
-   Creates Lens account on testnet, uploads metadata to Grove storage
-   Metadata includes TikTok handle and PKP address
+   Creates Lens account on testnet with real TikTok profile data
+   Uses nickname, bio, avatar URI, and bio translations from manifest
+   Uploads enriched metadata to Grove storage
+   Metadata includes TikTok handle, PKP address, bio translations, and
+   Genius artist ID (if provided) for artist profiles
 
-2.5. Deploy Unlock Lock                (local/2.5-deploy-lock.ts) ✅
+5. Deploy Unlock Lock                  (local/2.5-deploy-lock.ts) ✅
    Input:  data/pkps/ + data/lens/
    Output: Updated data/lens/{handle}.json with lock address
 
@@ -56,15 +117,7 @@ STORAGE
    Updates Lens metadata with lock address for discovery
    Lock beneficiary = master EOA (holds subscription payments)
 
-3. Crawl TikTok Videos                 (services/crawler/tiktok_crawler.py) ✅
-   Input:  CLI --creator @handle --copyrighted N --copyright-free N
-   Output: data/videos/{handle}/manifest.json + video files
-
-   Fetches top N copyrighted videos (with Spotify tracks)
-   Fetches top N copyright-free videos (original audio)
-   Downloads videos, thumbnails, profile picture
-
-3.5. Transcribe Audio                 (local/3.5-transcribe-audio.ts) ✅
+6. Transcribe Audio                    (local/3.5-transcribe-audio.ts) ✅
    Input:  data/videos/{handle}/manifest.json + video files
    Output: Updated manifest with English transcriptions + word-level timestamps
 
@@ -73,16 +126,17 @@ STORAGE
    Generates word-level timestamps for karaoke-style captions
    Distributes timing proportionally across words within segments
 
-3.6. Translate Transcriptions         (local/3.6-translate-transcriptions.ts) ✅
+7. Translate Transcriptions + Bio      (local/3.6-translate-transcriptions.ts) ✅
    Input:  data/videos/{handle}/manifest.json with English transcriptions
    Output: Updated manifest with Vietnamese + Mandarin translations
 
+   Translates profile bio to multiple languages
    Translates English transcriptions via OpenRouter (Gemini Flash 2.5 Lite)
    Preserves word-level timing for multilingual karaoke rendering
    Distributes translated word timing proportionally to original segments
    Supports custom language selection via --languages flag
 
-4. Encrypt Videos with Lit Protocol   (local/3-encrypt-videos.ts) ✅
+8. Encrypt Videos with Lit Protocol    (local/3-encrypt-videos.ts) ✅
    Input:  data/videos/{handle}/manifest.json + lock address
    Output: Encrypted video files + updated manifest
 
@@ -91,28 +145,39 @@ STORAGE
    Overwrites plaintext videos with encrypted ciphertext
    Stores encryption metadata (dataToEncryptHash, accessControlConditions)
 
-5. Upload to Grove Storage             (local/4-upload-grove.ts) ✅
+9. Upload Videos to Grove Storage      (local/4-upload-grove.ts) ✅
    Input:  data/videos/{handle}/manifest.json (with encrypted videos)
    Output: Updated manifest with Grove URIs (lens://...)
 
    Uploads all encrypted videos, thumbnails, metadata to Grove
    ACL: lensAccountOnly (gated by subscription)
+   Includes bio translations in profile metadata
 
-6. Fetch ISRCs from Spotify            (local/5-fetch-isrc.ts) ✅
+10. Fetch ISRCs from Spotify           (local/5-fetch-isrc.ts) ✅
    Input:  data/videos/{handle}/manifest.json (Spotify track IDs)
    Output: Updated manifest with ISRC codes
 
    Uses Spotify Web API to get ISRCs for copyrighted tracks
    Skips copyright-free videos
 
-7. Fetch MLC Licensing Data            (local/6-fetch-mlc.ts) ✅
+10.5. Map Spotify → Genius              (local/8-map-spotify-to-genius.ts) ✅
+   Input:  data/videos/{handle}/manifest.json (Spotify metadata)
+   Output: Updated manifest with Genius song IDs + metadata
+
+   Two-phase matching system:
+   - Phase 1: Direct Spotify ID match from Genius media (100% confidence)
+   - Phase 2: Fuzzy metadata matching (title + artist similarity)
+   Adds Genius ID, URL, and match confidence to each video
+   Enables frontend linking: /song/{geniusId}
+
+11. Fetch MLC Licensing Data           (local/6-fetch-mlc.ts) ✅
    Input:  data/videos/{handle}/manifest.json (ISRCs)
    Output: Updated manifest with MLC song codes, writers, publishers
 
    Queries MLC Public API for licensing information
    Extracts writers, publishers, shares, IPI numbers
 
-8. Re-upload Enriched Metadata         (local/7-reupload-metadata.ts) ✅
+12. Re-upload Enriched Metadata        (local/7-reupload-metadata.ts) ✅
    Input:  data/videos/{handle}/manifest.json (with ISRC + MLC data)
    Output: Updated Grove URIs with enriched metadata
 
@@ -126,9 +191,13 @@ STORAGE
 pkp-lens-flow/
 ├── local/                              # LOCAL ONLY - Cold wallet operations
 │   ├── 1-mint-pkp.ts                  # ✅ Mint PKPs (Chronicle Yellowstone)
+│   ├── 1.5-upload-profile-avatar.ts   # ✅ Upload avatar to Grove (before Lens)
 │   ├── 2-create-lens-account.ts       # ✅ Create Lens accounts (Lens testnet)
 │   ├── 2.5-deploy-lock.ts             # ✅ Deploy Unlock locks (Base Sepolia)
+│   ├── 2.9-convert-videos.ts          # ✅ Convert HEVC→H.264 (browser compat)
 │   ├── 3-encrypt-videos.ts            # ✅ Encrypt videos with Lit Protocol
+│   ├── 3.5-transcribe-audio.ts        # ✅ Transcribe audio with Voxtral
+│   ├── 3.6-translate-transcriptions.ts # ✅ Translate transcriptions + bio
 │   ├── 4-upload-grove.ts              # ✅ Upload encrypted content to Grove
 │   ├── 5-fetch-isrc.ts                # ✅ Fetch ISRCs from Spotify
 │   ├── 6-fetch-mlc.ts                 # ✅ Fetch MLC licensing data
@@ -161,16 +230,19 @@ pkp-lens-flow/
 **All core pipeline steps complete!** ✅
 
 - [x] Step 1: PKP Minting (Chronicle Yellowstone)
-- [x] Step 2: Lens Account Creation (Lens testnet)
-- [x] Step 2.5: Unlock Lock Deployment (Base Sepolia)
-- [x] Step 3: TikTok Crawler (dual filtering: copyrighted + copyright-free)
-- [x] Step 3.5: Audio Transcription (Voxtral API with word-level timestamps)
-- [x] Step 3.6: Multilingual Translation (Vietnamese + Mandarin via OpenRouter)
-- [x] Step 4: Lit Protocol Encryption (access control via Unlock keys)
-- [x] Step 5: Grove Upload (encrypted videos + metadata with ACL)
-- [x] Step 6: ISRC Fetching (Spotify Web API)
-- [x] Step 7: MLC Licensing Data (MLC Public API)
-- [x] Step 8: Metadata Re-upload (enriched with licensing)
+- [x] Step 2: TikTok Crawler (dual filtering: copyrighted + copyright-free, profile data)
+- [x] Step 3: Upload Profile Avatar to Grove (immutable ACL for public access)
+- [x] Step 3.5: Add Genius Artist ID (MANUAL - for artists only)
+- [x] Step 4: Lens Account Creation (Lens testnet with real TikTok profile data + Genius ID)
+- [x] Step 5: Unlock Lock Deployment (Base Sepolia)
+- [x] Step 6: Audio Transcription (Voxtral API with word-level timestamps)
+- [x] Step 7: Multilingual Translation (Vietnamese + Mandarin via OpenRouter, bio + transcriptions)
+- [x] Step 8: Lit Protocol Encryption (access control via Unlock keys)
+- [x] Step 9: Grove Upload (encrypted videos + metadata with ACL)
+- [x] Step 10: ISRC Fetching (Spotify Web API)
+- [x] Step 10.5: Spotify → Genius Mapping (fuzzy matching + direct ID match)
+- [x] Step 11: MLC Licensing Data (MLC Public API)
+- [x] Step 12: Metadata Re-upload (enriched with licensing)
 
 **Next Steps:**
 - [ ] Frontend karaoke-style caption rendering (word-level highlighting)
@@ -223,45 +295,59 @@ bun install
 bun run mint-pkp --creator @charlidamelio
 # Output: data/pkps/charlidamelio.json
 
-# Step 2: Create Lens Account
-bun run create-lens --creator @charlidamelio
-# Output: data/lens/charlidamelio.json
+# Step 2: Crawl TikTok (setup Python environment first)
+cd services/crawler && bash setup.sh && cd ../..
+bun run crawl-tiktok -- --creator @charlidamelio --copyrighted 3 --copyright-free 3
+# Output: data/videos/charlidamelio/manifest.json + 6 videos + profile picture
 
-# Step 2.5: Deploy Unlock Subscription Lock
+# Step 3: Upload Profile Avatar to Grove
+bun run upload-profile-avatar --creator @charlidamelio
+# Output: manifest.json with Grove avatar URI (lens://...)
+
+# Step 3.5: Add Genius Artist ID (MANUAL - for artists only)
+# Open data/videos/charlidamelio/manifest.json and add:
+# "profile": {
+#   "nickname": "charli d'amelio",
+#   "bio": "...",
+#   "geniusArtistId": 1177  // ← Add this if creator is a music artist
+# }
+# Find artist ID at: https://genius.com/artists/charli-damelio
+# Skip this step if not an artist
+
+# Step 4: Create Lens Account
+bun run create-lens --creator @charlidamelio
+# Output: data/lens/charlidamelio.json (with real TikTok profile data + Genius ID)
+
+# Step 5: Deploy Unlock Subscription Lock
 bun run deploy-lock --creator @charlidamelio
 # Output: Lock contract on Base Sepolia, updated Lens metadata
 
-# Step 3: Crawl TikTok (setup Python environment first)
-cd services/crawler && bash setup.sh && cd ../..
-bun run crawl-tiktok -- --creator @charlidamelio --copyrighted 3 --copyright-free 3
-# Output: data/videos/charlidamelio/manifest.json + 6 videos
-
-# Step 3.5: Transcribe Audio with Voxtral
+# Step 6: Transcribe Audio with Voxtral
 bun run transcribe-audio --creator @charlidamelio
 # Output: manifest.json with English transcriptions + word-level timestamps
 
-# Step 3.6: Translate Transcriptions
+# Step 7: Translate Transcriptions + Bio
 bun run translate-transcriptions --creator @charlidamelio
-# Output: manifest.json with Vietnamese + Mandarin translations
+# Output: manifest.json with Vietnamese + Mandarin translations (bio + transcriptions)
 # Optional: Use --languages flag to specify languages (default: vi,zh)
 
-# Step 4: Encrypt Videos with Lit Protocol
+# Step 8: Encrypt Videos with Lit Protocol
 bun run encrypt-videos --creator @charlidamelio
 # Output: Encrypted videos + manifest with encryption metadata
 
-# Step 5: Upload to Grove Storage
+# Step 9: Upload Videos to Grove Storage
 bun run upload-grove --creator @charlidamelio
 # Output: manifest.json with Grove URIs (lens://...)
 
-# Step 6: Fetch ISRCs from Spotify
+# Step 10: Fetch ISRCs from Spotify
 bun run fetch-isrc --creator @charlidamelio
 # Output: manifest.json with ISRC codes
 
-# Step 7: Fetch MLC Licensing Data
+# Step 11: Fetch MLC Licensing Data
 bun run fetch-mlc --creator @charlidamelio
 # Output: manifest.json with song codes, writers, publishers
 
-# Step 8: Re-upload Enriched Metadata
+# Step 12: Re-upload Enriched Metadata
 bun run reupload-metadata --creator @charlidamelio
 # Output: Updated Grove URIs with licensing data
 ```
@@ -272,19 +358,22 @@ bun run reupload-metadata --creator @charlidamelio
 # Mint PKP only
 bun run mint-pkp --creator @handle
 
-# Create Lens account only (requires PKP)
-bun run create-lens --creator @handle
-
-# Deploy lock only (requires PKP + Lens)
-bun run deploy-lock --creator @handle
-
 # Crawl TikTok with custom counts
 bun run crawl-tiktok -- --creator @handle --copyrighted 5 --copyright-free 2
 
-# Transcribe audio only
+# Upload profile avatar to Grove
+bun run upload-profile-avatar --creator @handle
+
+# Create Lens account (requires PKP + manifest with avatar)
+bun run create-lens --creator @handle
+
+# Deploy lock (requires PKP + Lens)
+bun run deploy-lock --creator @handle
+
+# Transcribe audio
 bun run transcribe-audio --creator @handle
 
-# Translate transcriptions with custom languages
+# Translate transcriptions + bio with custom languages
 bun run translate-transcriptions --creator @handle --languages vi,zh,es
 
 # Test copyright filters without downloading
@@ -314,7 +403,7 @@ python3 test_dual_filter.py handle --copyrighted 2 --copyright-free 2
 {
   "tiktokHandle": "@charlidamelio",
   "pkpEthAddress": "0xD25C5a638D108d222b5622f0DDBBF763A5AAa3fe",
-  "lensHandle": "@charlidameliotiktok",
+  "lensHandle": "@charlidamelio",
   "lensAccountAddress": "0x...",
   "lensAccountId": "0x...",
   "network": "lens-testnet",
@@ -333,7 +422,7 @@ python3 test_dual_filter.py handle --copyrighted 2 --copyright-free 2
 ```json
 {
   "tiktokHandle": "@charlidamelio",
-  "lensHandle": "@charlidameliotiktok",
+  "lensHandle": "@charlidamelio",
   "lensAccountAddress": "0xD25C5a638D108d222b5622f0DDBBF763A5AAa3fe",
   "scrapedAt": "2025-10-15T15:30:00.000Z",
   "profile": {
@@ -482,7 +571,7 @@ The system uses Lens account metadata for discovery, eliminating the need for a 
 
 ```typescript
 // 1. User visits frontend, searches for creator
-const creator = "charlidameliotiktok"
+const creator = "charlidamelio"
 
 // 2. Frontend fetches Lens account by username
 const { data: account } = useAccount({
