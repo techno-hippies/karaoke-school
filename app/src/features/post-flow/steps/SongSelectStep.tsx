@@ -10,10 +10,10 @@ import { AuthDialog } from '@/components/layout/AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useContractSongs } from '@/hooks/useContractSongs'
 import { useUSDCBalance } from '@/hooks/useUSDCBalance'
-import { useCredits } from '../hooks/useCredits'
+// import { useCredits } from '../hooks/useCredits' // TODO: Use for credit purchases
 import { useAudioProcessingStatus } from '../hooks/useAudioProcessingStatus'
 import { executeSearch } from '@/lib/lit/actions'
-import { toast } from 'sonner'
+// import { toast } from 'sonner' // TODO: Use for error notifications
 import type { PostFlowContext, Song } from '../types'
 
 interface SongSelectStepProps {
@@ -54,7 +54,8 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   const cachedResults = loadCachedResults(urlSearchQuery)
 
   // Load songs from KaraokeCatalogV1 contract on Base Sepolia
-  const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs()
+  const { songs: trendingSongs } = useContractSongs()
+  // const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs() // TODO: Use isLoading for loading state
   const [isSearching, setIsSearching] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [pendingSong, setPendingSong] = useState<Song | null>(null)
@@ -94,8 +95,8 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Read USDC balance for PKP wallet
   const { balance: usdcBalance } = useUSDCBalance(pkpAddress as `0x${string}` | undefined)
 
-  // Credit purchase
-  const { purchaseCredits, isPurchasing } = useCredits()
+  // Credit purchase - TODO: Implement purchase flow
+  // const { purchaseCredits, isPurchasing } = useCredits()
 
   // Log PKP address and USDC balance for debugging
   useEffect(() => {
@@ -251,7 +252,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
                 geniusId: r.genius_id,
                 title: songData.title || r.title,
                 artist: songData.artist || r.artist,
-                artworkUrl: songData.thumbnailUri || r.artwork_thumbnail || undefined,
+                artworkUrl: r.artwork_thumbnail || undefined, // Use Genius artwork (always HTTPS)
                 isProcessed: true,
                 isFree: false,
                 segments,
@@ -296,7 +297,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
       isProcessed: song.isProcessed,
     })
 
-    const targetPath = `/karaoke/song/${song.geniusId}`
+    const targetPath = `/song/${song.geniusId}`
     console.log('[SongSelectStep] Navigating to:', targetPath)
 
     // Navigate to song detail page, pass song data in state for unprocessed songs

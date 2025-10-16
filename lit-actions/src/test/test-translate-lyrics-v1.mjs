@@ -36,19 +36,27 @@ dotenv.config({ path: join(__dirname, '../../.env') });
 // Load PKP credentials
 const PKP_CREDS_PATH = join(__dirname, '../../output/pkp-credentials.json');
 
-// Test song (Song that exists in the app contract)
-const TEST_SONG = {
-  geniusId: 4419431,
-  name: 'Test Song (4419431)',
-  targetLanguage: 'vi',  // Test Vietnamese translation
-  notes: 'Should be cataloged by match-and-segment-v7 (no base alignment required)'
+// Test songs
+const TEST_SONGS = {
+  native: {
+    geniusId: 12554411,
+    name: 'Genesis Again (Native)',
+    targetLanguage: 'zh',  // Test Chinese translation
+    notes: 'Native song with alignmentUri - should read from alignmentUri'
+  },
+  genius: {
+    geniusId: 2843978,
+    name: 'Heat Waves (Genius)',
+    targetLanguage: 'vi',  // Test Vietnamese translation
+    notes: 'Genius song without alignmentUri - should fall back to LRClib'
+  }
 };
 
 // Encrypted key paths (will be created after uploading Lit Action)
-const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v12.json');
+const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_translate_v1.json');
 
 // Contract configuration (MUST match app/.env.local)
-const KARAOKE_CATALOG_ADDRESS = '0x420Fd6e49Cb672cfbe9649B556807E6b0BafA341'; // Base Sepolia (V2 with translations)
+const KARAOKE_CATALOG_ADDRESS = '0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454'; // Base Sepolia V2.1
 const BASE_SEPOLIA_EXPLORER = 'https://sepolia.basescan.org';
 
 async function loadPKPCredentials() {
@@ -76,13 +84,13 @@ async function checkSongCataloged(geniusId) {
   const provider = new ethers.JsonRpcProvider('https://sepolia.base.org');
   const catalogAbi = [
     'function songExistsByGeniusId(uint32) view returns (bool)',
-    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+    'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, string sectionsUri, string alignmentUri, bool enabled, uint64 addedAt))'
   ];
   const catalog = new ethers.Contract(KARAOKE_CATALOG_ADDRESS, catalogAbi, provider);
 
   const exists = await catalog.songExistsByGeniusId(geniusId);
   if (!exists) {
-    throw new Error(`Song ${geniusId} not found in contract. Run match-and-segment-v7 first!`);
+    throw new Error(`Song ${geniusId} not found in contract. Upload song first!`);
   }
 
   const songData = await catalog.getSongByGeniusId(geniusId);
@@ -92,7 +100,12 @@ async function checkSongCataloged(geniusId) {
     throw new Error('Song missing title/artist. Contract data may be corrupt.');
   }
 
-  console.log(`✅ Song is cataloged (title: ${songData.title}, artist: ${songData.artist})`);
+  const songType = songData.alignmentUri ? 'NATIVE (has alignmentUri)' : 'GENIUS (no alignmentUri)';
+  console.log(`✅ Song is cataloged (${songType})`);
+  console.log(`   Title: ${songData.title}`);
+  console.log(`   Artist: ${songData.artist}`);
+  console.log(`   AlignmentUri: ${songData.alignmentUri || '(none - will use LRClib)'}`);
+
   return songData;
 }
 
@@ -100,19 +113,40 @@ async function main() {
   console.log('🌍 Translate Lyrics v1 Test (Self-Contained Translation)\n');
   console.log('━'.repeat(80));
   console.log('\nThis test will:');
-  console.log('1. Check that song is cataloged in contract (from match-and-segment)');
-  console.log('2. Fetch lyrics independently from LRClib');
-  console.log('3. Translate lyrics to target language with OpenRouter');
-  console.log('4. Upload translation to Grove (language-specific file)');
-  console.log('5. Update contract via setTranslation()');
+  console.log('1. Check that song is cataloged in contract');
+  console.log('2. Detect if song is NATIVE (alignmentUri) or GENIUS (LRClib)');
+  console.log('3. Fetch lyrics from appropriate source');
+  console.log('4. Translate lyrics to target language with OpenRouter');
+  console.log('5. Upload translation to Grove (language-specific file)');
+  console.log('6. Update contract via setTranslation()');
   console.log('\n━'.repeat(80));
 
-  // Check if specific genius ID and language provided
-  const customGeniusId = parseInt(process.argv[2]);
-  const customLanguage = process.argv[3];
-  const geniusId = customGeniusId || TEST_SONG.geniusId;
-  const targetLanguage = customLanguage || TEST_SONG.targetLanguage;
-  const songName = customGeniusId ? 'Custom Song' : TEST_SONG.name;
+  // Parse command line arguments
+  const arg1 = process.argv[2];
+  let testSong;
+  let customLanguage = process.argv[3];
+
+  // Determine which song to test
+  if (arg1 === 'native') {
+    testSong = TEST_SONGS.native;
+  } else if (arg1 === 'genius') {
+    testSong = TEST_SONGS.genius;
+  } else if (arg1 && !isNaN(parseInt(arg1))) {
+    // Custom genius ID provided
+    testSong = {
+      geniusId: parseInt(arg1),
+      name: `Custom Song (${arg1})`,
+      targetLanguage: customLanguage || 'zh',
+      notes: 'Custom song'
+    };
+  } else {
+    // Default to native song
+    testSong = TEST_SONGS.native;
+  }
+
+  const geniusId = testSong.geniusId;
+  const targetLanguage = customLanguage || testSong.targetLanguage;
+  const songName = testSong.name;
 
   try {
     // Load credentials and keys
@@ -204,7 +238,7 @@ async function main() {
     const startTime = Date.now();
 
     // Use IPFS CID for production (Self-Contained version)
-    const TRANSLATE_LYRICS_V1_CID = 'QmUY8xCVvk85ZwxWeUpA1jBzHCsfHm12uVwVUrFsyvhdWk';
+    const TRANSLATE_LYRICS_V1_CID = 'QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop';
 
     try {
       const result = await litClient.executeJs({

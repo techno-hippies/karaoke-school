@@ -28,7 +28,7 @@ export interface UseCameraReturn {
   /** Camera + mic stream */
   stream: MediaStream | null
   /** Ref to attach to video element for preview */
-  videoRef: React.RefObject<HTMLVideoElement>
+  videoRef: React.RefObject<HTMLVideoElement | null>
   /** Structured error information */
   error: CameraError | null
   /** Whether stream is ready */

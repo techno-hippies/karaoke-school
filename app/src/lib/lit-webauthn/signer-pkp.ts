@@ -30,6 +30,7 @@ function createPKPAccount(
 
   return {
     address,
+    publicKey: pkpInfo.publicKey as Hex,
     type: 'local',
     source: 'custom',
 

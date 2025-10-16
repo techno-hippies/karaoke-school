@@ -46,7 +46,7 @@ async function connectLensSession(
 
   // Check for existing accounts
   const existingAccounts = await getExistingAccounts(address)
-  const account = existingAccounts.length > 0 ? existingAccounts[0] : null
+  const account = existingAccounts.length > 0 ? existingAccounts[0].account : null
 
   return { session, account }
 }

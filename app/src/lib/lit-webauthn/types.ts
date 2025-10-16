@@ -17,7 +17,7 @@ export interface PKPInfo {
  * WebAuthn Authentication Data
  */
 export interface AuthData {
-  authMethodType: number
+  authMethodType: 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13
   authMethodId: string
   accessToken: string
 }

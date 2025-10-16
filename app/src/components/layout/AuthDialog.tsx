@@ -59,11 +59,11 @@ export function AuthDialog({
   authMode = null,
   statusMessage = '',
   errorMessage = '',
-  isPKPReady,
-  hasSocialAccount,
+  // isPKPReady, // TODO: Use when adding PKP status indicator
+  // hasSocialAccount, // TODO: Use when showing social account status
   onRegister,
   onLogin,
-  onConnectSocial,
+  // onConnectSocial, // TODO: Use when adding social account connection
 }: AuthDialogProps) {
   // Determine current state
   const isComplete = currentStep === 'complete' && authMode === null

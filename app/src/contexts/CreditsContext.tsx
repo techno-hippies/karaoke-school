@@ -12,6 +12,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Address } from 'viem'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
 interface CreditsContextType {
   credits: number
@@ -53,7 +54,7 @@ export function CreditsProvider({ children, pkpAddress, isConnected }: CreditsPr
       const { createPublicClient, http } = await import('viem')
       const { baseSepolia } = await import('viem/chains')
 
-      const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
+      const contractAddress = BASE_SEPOLIA_CONTRACTS.karaokeCredits
 
       const publicClient = createPublicClient({
         chain: baseSepolia,

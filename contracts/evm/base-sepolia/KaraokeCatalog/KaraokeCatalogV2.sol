@@ -514,6 +514,30 @@ contract KaraokeCatalogV2 {
         emit SongUpdated(id, enabled);
     }
 
+    /**
+     * @notice Delete a song completely (testnet only - use with caution)
+     * @dev Removes all mappings and clears storage
+     * @param id Song ID to delete
+     */
+    function deleteSong(string memory id) external onlyOwner {
+        uint256 index = songIdToIndex[id];
+        if (index == 0) revert SongNotFound();
+
+        Song storage song = songs[index - 1];
+        uint32 geniusId = song.geniusId;
+
+        // Clear mappings
+        delete songIdToIndex[id];
+        if (geniusId > 0) {
+            delete geniusIdToIndex[geniusId];
+        }
+
+        // Clear the song data (set to default values)
+        delete songs[index - 1];
+
+        emit SongUpdated(id, false);
+    }
+
     function setTrustedProcessor(address newProcessor) external onlyOwner {
         if (newProcessor == address(0)) revert InvalidAddress();
         address oldProcessor = trustedProcessor;

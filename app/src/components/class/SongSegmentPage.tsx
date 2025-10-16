@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { BackButton } from '@/components/ui/back-button'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -24,7 +25,7 @@ export interface SongSegmentPageProps {
   isStudyLoading?: boolean
   isKaraokeLoading?: boolean
   isTranslating?: boolean
-  hasTranslations?: boolean // Whether translations exist for selected language
+  hasTranslations?: boolean | undefined // true = has translations, false = no translations, undefined = still loading/checking
   className?: string
 }
 
@@ -39,7 +40,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 }
 
 // Lyric line component with smaller text size for segment page
-function SegmentLyricLine({
+const SegmentLyricLine = memo(function SegmentLyricLine({
   line,
   showTranslation,
   selectedLanguage = 'cn',
@@ -72,10 +73,10 @@ function SegmentLyricLine({
       )}
     </div>
   )
-}
+})
 
 // Song segment detail page with lyrics and study/karaoke actions
-export function SongSegmentPage({
+export const SongSegmentPage = memo(function SongSegmentPage({
   segmentName,
   lyrics,
   selectedLanguage = 'cn',
@@ -160,7 +161,13 @@ export function SongSegmentPage({
 
         {/* Sticky Footer with Translate or Study/Karaoke Buttons */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
-          {!hasTranslations && onTranslate ? (
+          {hasTranslations === undefined ? (
+            // Still checking for translations - show skeleton buttons
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton className="h-12 w-full rounded-lg" />
+              <Skeleton className="h-12 w-full rounded-lg" />
+            </div>
+          ) : !hasTranslations && onTranslate ? (
             // Show translate button if translations don't exist
             <Button
               onClick={onTranslate}
@@ -202,4 +209,4 @@ export function SongSegmentPage({
       </div>
     </div>
   )
-}
+})

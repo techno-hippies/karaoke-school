@@ -13,8 +13,9 @@
  */
 
 import { getLitClient } from '../../lit-webauthn/client'
-import { getKaraokeKeyParams } from '../keys'
+// import { getKaraokeKeyParams } from '../keys' // TODO: Use for dynamic key loading
 import type { TranslateResult } from './types'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -31,16 +32,17 @@ const IS_DEV = import.meta.env.DEV
 export async function executeTranslate(
   geniusId: number,
   targetLanguage: string,
-  authContext: any,
-  pkpAddress: string,
-  pkpPublicKey: string,
-  pkpTokenId: string
+  authContext: any
+  // pkpAddress: string, // TODO: Use for authorization
+  // pkpPublicKey: string, // TODO: Use for verification
+  // pkpTokenId: string // TODO: Use for session management
 ): Promise<TranslateResult> {
   try {
     const litClient = await getLitClient()
     // Translate only needs OpenRouter key (no ElevenLabs or Genius)
+    // Updated for translate-lyrics-v1 with native + Genius song support (fixed regex)
     const openrouterKey = {
-      ciphertext: "jBd/beLP9iyDHmjLZnn+RWM+R0sQp1A9bKaBX1bDI+5BfFOzBvAsGgxSYnTGvVjKQYki6p3e6/XcOQtwHNoHK3JH6ACMcWeUpRSTLnJ1OMFKv/mgF+TVfYxCcLQf0r1tLGU9Cewa+z2PSGOxAGozydWKi1lvPjyvDgf/nzyizB6j0u4BnQgrkVVemmq1CopNEpwGGVvfXBapTwcC",
+      ciphertext: "lSTepzyfv3fzQDpB+BsX48nOO0BP2pVmXomet8CynAHw9QgyaobcUNcz0bz4EQ6K49e/F13ulcinKwPM7Dytg/aFFe7byRoP3wHYHVZtGaFKmk8dYgdKqkS58PDFA4At8ecZR+676i424hycv12oje+r8nJ5aNSHrZ2ti1HylVTtOEbdosXtVTTYcbAmcsQ5rda1hcn4RQ/DGG8C",
       dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
       accessControlConditions: [
         {
@@ -52,7 +54,7 @@ export async function executeTranslate(
           parameters: [":currentActionIpfsId"],
           returnValueTest: {
             comparator: "=",
-            value: "QmWSCNhGtoXJTnaetuNEzpSt9AAVEsjwpak6DP1wvUkVLc"
+            value: "QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop"
           }
         }
       ]
@@ -67,12 +69,14 @@ export async function executeTranslate(
         openrouterKeyAccessControlConditions: openrouterKey.accessControlConditions,
         openrouterKeyCiphertext: openrouterKey.ciphertext,
         openrouterKeyDataToEncryptHash: openrouterKey.dataToEncryptHash,
-        contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
+        contractAddress: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
         updateContract: true,
       },
     })
 
-    const response: TranslateResult = JSON.parse(result.response)
+    const response: TranslateResult = typeof result.response === 'string'
+      ? JSON.parse(result.response)
+      : result.response
 
     if (IS_DEV) {
       if (response.success) {

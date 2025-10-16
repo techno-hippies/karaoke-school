@@ -62,7 +62,7 @@ export function VideoDetail({
   ...videoPostProps
 }: VideoDetailProps) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
@@ -108,8 +108,12 @@ export function VideoDetail({
   // Auto-play when component mounts
   useEffect(() => {
     setIsPlaying(true)
+    // Try to unmute (will work if user clicked to navigate here)
+    // If blocked by browser, user's first click will unmute
+    setIsMuted(false)
   }, [])
 
+  // Handlers must be defined BEFORE any conditional returns
   const handleCommentClick = () => {
     setCommentSheetOpen(true)
     videoPostProps.onCommentClick?.()
@@ -121,7 +125,25 @@ export function VideoDetail({
   }
 
   const togglePlayPause = () => {
-    setIsPlaying(!isPlaying)
+    console.log('[VideoDetail] togglePlayPause called, current isPlaying:', isPlaying, 'isMuted:', isMuted)
+
+    // If playing but muted, unmute instead of pausing
+    if (isPlaying && isMuted) {
+      console.log('[VideoDetail] Video is muted, unmuting instead of pausing')
+      setIsMuted(false)
+      return
+    }
+
+    // Otherwise, toggle play state
+    const newPlayingState = !isPlaying
+    setIsPlaying(newPlayingState)
+    console.log('[VideoDetail] Setting isPlaying to:', newPlayingState)
+
+    // Unmute when starting to play
+    if (newPlayingState && isMuted) {
+      console.log('[VideoDetail] Unmuting video on play')
+      setIsMuted(false)
+    }
   }
 
   // Mobile: Use VideoPost for full-screen TikTok experience

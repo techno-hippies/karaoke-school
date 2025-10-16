@@ -4,24 +4,19 @@
  */
 
 import { executeTransactionWithPKP } from '@/lib/lit/pkp-transaction'
-import type { PKPAuthContext } from '@/lib/lit-webauthn/types'
+import type { PKPAuthContext, PKPInfo } from '@/lib/lit-webauthn/types'
 import type { Hash } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { getCreditBalance } from './queries'
 import { InsufficientCreditsError } from '@/hooks/useUnlockSong'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
-const KARAOKE_CREDITS_CONTRACT = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
+const KARAOKE_CREDITS_CONTRACT = BASE_SEPOLIA_CONTRACTS.karaokeCredits
 
 export interface SpendResult {
   txHash: Hash
   creditsSpent: number
   remainingBalance: number
-}
-
-export interface PKPInfo {
-  ethAddress: string
-  publicKey: string
-  tokenId: string
 }
 
 /**

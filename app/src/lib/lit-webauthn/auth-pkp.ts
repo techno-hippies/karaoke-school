@@ -5,7 +5,7 @@
  */
 
 import { getLitClient, getAuthManager } from './client'
-import { LIT_WEBAUTHN_CONFIG } from './config'
+// import { LIT_WEBAUTHN_CONFIG } from './config' // TODO: Use for configuration
 import { LitActionResource, LitPKPResource } from '@lit-protocol/auth-helpers'
 import type { PKPInfo, AuthData, PKPAuthContext } from './types'
 

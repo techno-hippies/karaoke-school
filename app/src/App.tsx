@@ -1,19 +1,31 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { LensProvider } from '@lens-protocol/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { AuthDialog } from './components/layout/AuthDialog'
 import { Toaster } from './components/ui/sonner'
+import { lensClient } from './lens/client'
 
 // Page imports
 import { HomePage } from './pages/HomePage'
 import { ClassPage } from './pages/ClassPage'
+import { ClassArtistPage } from './pages/ClassArtistPage'
 import { WalletPage } from './pages/WalletPage'
 import { KaraokePage } from './components/karaoke/KaraokePage'
 import { KaraokeSongPage } from './components/karaoke/KaraokeSongPage'
 import { KaraokeSegmentPage } from './components/karaoke/KaraokeSegmentPage'
 import { ProfilePage } from './components/profile/ProfilePage'
+import { VideoDetailPage } from './pages/VideoDetailPage'
+import { useParams } from 'react-router-dom'
+
+// Wrapper to ensure ProfilePage remounts when username changes
+function ProfilePageWrapper() {
+  const { username, address } = useParams<{ username?: string; address?: string }>()
+  const key = username || address || 'default'
+  return <ProfilePage key={key} />
+}
 
 import './i18n/config'
 
@@ -56,19 +68,22 @@ function AppRouter() {
   } = useAuth()
 
   // Map routes to active tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
 
   useEffect(() => {
-    const pathToTab: Record<string, 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'> = {
+    const pathToTab: Record<string, 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'> = {
       '/': 'home',
       '/class': 'study',
-      '/karaoke': 'post',
+      '/search': 'search',
       '/wallet': 'wallet',
       '/profile': 'profile',
     }
 
-    // Deep routes in karaoke or profile sections should have no tab selected
-    if (location.pathname.startsWith('/karaoke/') ||
+    // Deep routes (song, artist, segment pages) should have no tab selected
+    if (location.pathname.startsWith('/song/') ||
+        location.pathname.startsWith('/artist/') ||
+        location.pathname.startsWith('/class/') ||
+        location.pathname.startsWith('/u/') ||
         (location.pathname.startsWith('/profile/') && location.pathname !== '/profile')) {
       setActiveTab('none')
     } else {
@@ -77,11 +92,11 @@ function AppRouter() {
     }
   }, [location.pathname])
 
-  const handleTabChange = (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => {
+  const handleTabChange = (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => {
     const routes = {
       home: '/',
       study: '/class',
-      post: '/karaoke',
+      search: '/search',
       wallet: '/wallet',
       profile: '/profile'
     }
@@ -89,7 +104,7 @@ function AppRouter() {
   }
 
   // Hide mobile footer on full-screen pages (song detail, segment pages)
-  const hideMobileFooter = location.pathname.match(/^\/karaoke\/song\/\d+/)
+  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/)
 
   return (
     <>
@@ -104,13 +119,19 @@ function AppRouter() {
       >
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<KaraokePage />} />
+          <Route path="/song/:geniusId" element={<KaraokeSongPage />} />
+          <Route path="/song/:geniusId/segment/:segmentId" element={<KaraokeSegmentPage />} />
+          <Route path="/artist/:geniusArtistId" element={<ClassArtistPage />} />
           <Route path="/class" element={<ClassPage />} />
-          <Route path="/karaoke" element={<KaraokePage />} />
-          <Route path="/karaoke/song/:geniusId" element={<KaraokeSongPage />} />
-          <Route path="/karaoke/song/:geniusId/segment/:segmentId" element={<KaraokeSegmentPage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/:address" element={<ProfilePage />} />
+          {/* Lens v3 style username routing */}
+          <Route path="/u/:username" element={<ProfilePageWrapper />} />
+          {/* Video detail page */}
+          <Route path="/u/:username/video/:postId" element={<VideoDetailPage />} />
+          {/* Legacy address-based routing (fallback) */}
+          <Route path="/profile/:address" element={<ProfilePageWrapper />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>
@@ -140,13 +161,15 @@ function AppRouter() {
  */
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <HashRouter>
-          <AppRouter />
-        </HashRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+    <LensProvider client={lensClient}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <HashRouter>
+            <AppRouter />
+          </HashRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </LensProvider>
   )
 }
 

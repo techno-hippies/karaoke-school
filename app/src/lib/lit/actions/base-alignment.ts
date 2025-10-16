@@ -15,6 +15,7 @@
 import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
 import type { BaseAlignmentResult } from './types'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -51,12 +52,14 @@ export async function executeBaseAlignment(
       jsParams: {
         geniusId,
         ...keyParams,
-        contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
+        contractAddress: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
         updateContract: true,
       },
     })
 
-    const response: BaseAlignmentResult = JSON.parse(result.response)
+    const response: BaseAlignmentResult = typeof result.response === 'string'
+      ? JSON.parse(result.response)
+      : result.response
 
     if (IS_DEV) {
       if (response.success) {

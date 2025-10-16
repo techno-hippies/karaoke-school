@@ -8,6 +8,7 @@ export type {
   SearchResult,
   SearchResponse,
   SongMetadataResult,
+  ArtistMetadataResult,
   MatchSegmentResult,
   AudioProcessorResult,
   BaseAlignmentResult,
@@ -17,6 +18,7 @@ export type {
 // Re-export all action executors
 export { executeSearch } from './search'
 export { executeSongMetadata } from './song-metadata'
+export { executeArtistMetadata } from './artist-metadata'
 export { executeMatchAndSegment } from './match-and-segment'
 export { executeAudioProcessor } from './audio-processor'
 export { executeBaseAlignment } from './base-alignment'

@@ -14,13 +14,13 @@ import { cn } from '@/lib/utils'
 
 export interface Song {
   id: string
+  geniusId: number
   title: string
   artist: string
   artworkUrl?: string
   isFree?: boolean           // Maps to !requiresPayment in contract
   isProcessed?: boolean      // Has karaoke segments been generated?
   soundcloudPermalink?: string // For external links
-  geniusId?: number          // For external links
 }
 
 export interface SongSelectPageProps {

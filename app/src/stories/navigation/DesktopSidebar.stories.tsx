@@ -21,10 +21,9 @@ const meta: Meta<typeof DesktopSidebar> = {
   argTypes: {
     activeTab: {
       control: 'select',
-      options: ['home', 'study', 'post', 'wallet', 'profile']
+      options: ['home', 'study', 'search', 'wallet', 'profile']
     },
     onTabChange: { action: 'tab changed' },
-    onCreatePost: { action: 'create post clicked' },
     onDisconnect: { action: 'disconnect clicked' },
     onConnectWallet: { action: 'connect wallet clicked' }
   }
@@ -169,14 +168,13 @@ export const WithContent: Story = {
 
 export const AllTabs: Story = {
   render: () => {
-    const [activeTab, setActiveTab] = React.useState<'home' | 'study' | 'post' | 'wallet' | 'profile'>('home')
+    const [activeTab, setActiveTab] = React.useState<'home' | 'study' | 'search' | 'wallet' | 'profile'>('home')
 
     return (
       <div className="h-screen bg-background flex">
         <DesktopSidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onCreatePost={() => console.log('Create post')}
           isConnected={true}
           walletAddress="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
         />

@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 // Auto-scroll container to active element
 export function useAutoScroll(
   activeIndex: number,
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   dataAttribute = 'data-line-index'
 ) {
   useEffect(() => {

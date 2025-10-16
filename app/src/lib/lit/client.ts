@@ -83,10 +83,16 @@ export async function initializeLitSessionWithWallet(walletClient: WalletClient)
 
   if (IS_DEV) console.log('[Lit] Initializing session for:', address)
 
+  // Ensure wallet client has an account
+  if (!walletClient.account) {
+    throw new Error('Wallet client must have an account')
+  }
+
   // Create auth context - SDK will check localStorage for session keys
+  // Type assertion needed due to viem version conflicts between app and Lit SDK
   const authContext = await litAuthManager.createEoaAuthContext({
-    litClient: client,
-    config: { account: walletClient },
+    litClient: client as any,
+    config: { account: walletClient.account as any },
     authConfig: {
       expiration: getConsistentExpiration(),
       resources: [['lit-action-execution', '*']],

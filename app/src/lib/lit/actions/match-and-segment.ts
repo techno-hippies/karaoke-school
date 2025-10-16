@@ -22,6 +22,7 @@
 import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
 import type { MatchSegmentResult } from './types'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -41,7 +42,7 @@ export async function executeMatchAndSegment(
   const jsParams: any = {
     geniusId,
     ...keyParams,
-    contractAddress: import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT,
+    contractAddress: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
     writeToBlockchain: true
   }
 
@@ -62,7 +63,9 @@ export async function executeMatchAndSegment(
     jsParams,
   })
 
-  const response: MatchSegmentResult = JSON.parse(result.response)
+  const response: MatchSegmentResult = typeof result.response === 'string'
+    ? JSON.parse(result.response)
+    : result.response
 
   if (IS_DEV && response.success && response.isMatch) {
     console.log(`[Match] ${response.genius?.artist} - ${response.genius?.title}`,

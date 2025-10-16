@@ -7,7 +7,7 @@ export interface UseAudioPlayerOptions {
 }
 
 export interface UseAudioPlayerReturn {
-  audioRef: React.RefObject<HTMLAudioElement>
+  audioRef: React.RefObject<HTMLAudioElement | null>
   isPlaying: boolean
   isMuted: boolean
   currentTime: number
@@ -22,7 +22,7 @@ export interface UseAudioPlayerReturn {
 
 // Audio player hook with playback controls and state management
 export function useAudioPlayer(
-  audioUrl?: string,
+  _audioUrl?: string, // TODO: Use for setting audio source
   options: UseAudioPlayerOptions = {}
 ): UseAudioPlayerReturn {
   const { autoplay = false, startMuted = false, onEnded } = options

@@ -27,27 +27,23 @@ export async function registerUser(
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
   onStatusUpdate('Initializing Lit Protocol...')
-  const litClient = await getLitClient()
+  await getLitClient()
 
   // Register new WebAuthn credential and mint PKP
   onStatusUpdate('Please create a passkey using your device...')
   const registerResult = await WebAuthnAuthenticator.registerAndMintPKP({
     authServiceBaseUrl: AUTH_SERVICE_URL,
     scopes: ['sign-anything'],
-  })
+  }) as { pkpInfo: any; webAuthnPublicKey: string; authData?: any }
 
   console.log('✅ Registered new credential and minted PKP')
 
   const pkpInfo = registerResult.pkpInfo
-  let authData = registerResult.authData
+  const authData = registerResult.authData
 
-  // If authData not included, authenticate with the newly created credential
+  // Note: authData should be included in registerResult from SDK v7+
   if (!authData) {
-    onStatusUpdate('Authenticating with your new passkey...')
-    authData = await WebAuthnAuthenticator.authenticate({
-      authServiceBaseUrl: AUTH_SERVICE_URL,
-    })
-    console.log('✅ Authenticated with new credential')
+    throw new Error('Registration failed: authData not returned from registerAndMintPKP')
   }
 
   // Create auth context (session signature)
@@ -97,9 +93,7 @@ export async function loginUser(
 
   // Authenticate with existing WebAuthn credential
   onStatusUpdate('Please authenticate with your device...')
-  const authData = await WebAuthnAuthenticator.authenticate({
-    authServiceBaseUrl: AUTH_SERVICE_URL,
-  })
+  const authData = await WebAuthnAuthenticator.authenticate()
 
   console.log('✅ Authenticated with existing credential')
 

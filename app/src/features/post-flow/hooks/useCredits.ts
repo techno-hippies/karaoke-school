@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react'
+import { baseSepolia } from 'viem/chains'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Song, SongSegment } from '../types'
 import { CREDIT_PACKAGES } from '../types'
@@ -97,6 +98,8 @@ export function useCredits() {
         }],
         functionName: 'approve',
         args: [creditsContract, amount],
+        account: pkpAddress!,
+        chain: baseSepolia,
       })
       console.log('[Credits] Approval transaction:', approveHash)
 
@@ -116,6 +119,8 @@ export function useCredits() {
         }],
         functionName: 'purchaseCreditsUSDC',
         args: [packageId],
+        account: pkpAddress!,
+        chain: baseSepolia,
       })
 
       console.log('[Credits] Purchase transaction:', purchaseHash)
@@ -149,7 +154,7 @@ export function useCredits() {
     setError(null)
 
     try {
-      const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
+      const contractAddress = BASE_SEPOLIA_CONTRACTS.karaokeCredits
 
       console.log('[Credits] Unlocking segment:', segment.id, 'for song:', song.id)
 
@@ -167,6 +172,8 @@ export function useCredits() {
         }],
         functionName: 'unlockSegment',
         args: [segmentIdentifier],
+        account: pkpAddress!,
+        chain: baseSepolia,
       })
 
       console.log('[Credits] Unlock transaction:', hash)
@@ -190,7 +197,7 @@ export function useCredits() {
       const { createPublicClient, http } = await import('viem')
       const { baseSepolia } = await import('viem/chains')
 
-      const contractAddress = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
+      const contractAddress = BASE_SEPOLIA_CONTRACTS.karaokeCredits
       const address = pkpAddress
       const segmentIdentifier = `${song.geniusId}-${segment.id}`
 

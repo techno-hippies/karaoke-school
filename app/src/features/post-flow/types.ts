@@ -37,6 +37,7 @@ export type PostFlowState =
 export interface Song {
   id: string
   geniusId: number
+  geniusArtistId?: number // Genius artist ID for linking to artist page
   title: string
   artist: string
   artworkUrl?: string

@@ -13,9 +13,10 @@ import {
   http
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
+import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
-const KARAOKE_CREDITS_CONTRACT = import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT as `0x${string}`
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`
+const KARAOKE_CREDITS_CONTRACT = BASE_SEPOLIA_CONTRACTS.karaokeCredits
+const USDC_ADDRESS = BASE_SEPOLIA_CONTRACTS.usdc
 
 export interface PurchaseResult {
   txHash: Hash

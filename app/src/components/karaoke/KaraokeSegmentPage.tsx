@@ -61,10 +61,11 @@ export function KaraokeSegmentPage() {
   )
 
   // Find the selected segment (memoized to prevent new reference on each render)
-  const segment = useMemo(() =>
-    segments.find(s => s.id === segmentId),
-    [segments, segmentId]
-  )
+  // Use stable dependencies to avoid recreating segment object
+  const segment = useMemo(() => {
+    const found = segments.find(s => s.id === segmentId)
+    return found
+  }, [segments.length, segmentId])
 
   // Load lyrics for this segment
   // Use alignmentUri (V2 architecture) or fall back to metadataUri (legacy)
@@ -73,6 +74,10 @@ export function KaraokeSegmentPage() {
     song?.alignmentUri || song?.metadataUri,
     [song?.alignmentUri, song?.metadataUri]
   )
+
+  // Extract stable values from segment for dependencies
+  const segmentStartTime = segment?.startTime
+  const segmentEndTime = segment?.endTime
 
   console.log('[KaraokeSegmentPage] Loading lyrics:', {
     segmentId,
@@ -89,20 +94,24 @@ export function KaraokeSegmentPage() {
 
   const { lyrics, isLoading: lyricsLoading, error: lyricsError } = useSegmentLyrics(
     alignmentUriToUse,
-    segment?.startTime,
-    segment?.endTime,
+    segmentStartTime,
+    segmentEndTime,
     geniusId ? parseInt(geniusId) : undefined,
     isEnglish ? undefined : targetLanguage,
     translationVersion
   )
 
   // Check if translations exist for user's language
+  // Keep loading state stable to prevent button flashing
   const hasTranslations = useMemo(() => {
     // If English, we don't need translations
     if (isEnglish) return true
 
-    // If still loading lyrics, assume no translations yet (don't flash to Study/Karaoke)
-    if (lyricsLoading || lyrics.length === 0) return false
+    // Keep loading state: don't determine translation status until lyrics are fully loaded
+    // This prevents flashing from "Translate" → "Study/Karaoke" during initial load
+    if (lyricsLoading) return undefined // undefined = still determining
+
+    if (lyrics.length === 0) return false
 
     // Check if at least one line has translation for target language
     const hasAnyTranslation = lyrics.some(line => line.translations?.[targetLanguage])
@@ -114,6 +123,19 @@ export function KaraokeSegmentPage() {
     })
     return hasAnyTranslation
   }, [lyrics, targetLanguage, isEnglish, lyricsLoading])
+
+  // Memoize callbacks to prevent SongSegmentPage re-renders
+  const handleBack = useCallback(() => {
+    navigate(`/song/${geniusId}`)
+  }, [navigate, geniusId])
+
+  const handleStudy = useCallback(() => {
+    console.log('Study mode')
+  }, [])
+
+  const handleKaraoke = useCallback(() => {
+    console.log('Karaoke mode')
+  }, [])
 
   // Handle translate button click (explicit user action)
   const handleTranslate = useCallback(async () => {
@@ -135,10 +157,7 @@ export function KaraokeSegmentPage() {
       const result = await executeTranslate(
         parseInt(geniusId),
         targetLanguage,
-        pkpAuthContext,
-        pkpInfo.ethAddress,
-        pkpInfo.publicKey,
-        pkpInfo.tokenId
+        pkpAuthContext
       )
 
       if (result.success) {
@@ -165,14 +184,12 @@ export function KaraokeSegmentPage() {
   if (isLoading) {
     return (
       <SongSegmentPage
-        songTitle="Loading..."
-        artist="Loading..."
         segmentName="Loading..."
         lyrics={[]}
         newCount={0}
         learningCount={0}
         dueCount={0}
-        onBack={() => navigate(`/karaoke/song/${geniusId}`)}
+        onBack={() => navigate(`/song/${geniusId}`)}
       />
     )
   }
@@ -184,7 +201,7 @@ export function KaraokeSegmentPage() {
           <h1 className="text-2xl font-bold text-foreground mb-2">Segment Not Found</h1>
           <p className="text-muted-foreground mb-4">{error?.message || 'This segment could not be loaded.'}</p>
           <button
-            onClick={() => navigate(`/karaoke/song/${geniusId}`)}
+            onClick={() => navigate(`/song/${geniusId}`)}
             className="text-primary hover:underline"
           >
             Back to Song
@@ -212,9 +229,9 @@ export function KaraokeSegmentPage() {
       newCount={0} // TODO: Load from study system
       learningCount={0}
       dueCount={0}
-      onBack={() => navigate(`/karaoke/song/${geniusId}`)}
-      onStudy={() => console.log('Study mode')}
-      onKaraoke={() => console.log('Karaoke mode')}
+      onBack={handleBack}
+      onStudy={handleStudy}
+      onKaraoke={handleKaraoke}
       onTranslate={handleTranslate}
       isTranslating={isTranslating}
       hasTranslations={hasTranslations}

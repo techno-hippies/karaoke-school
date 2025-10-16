@@ -1,84 +1,114 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useAccount, usePosts, evmAddress } from '@lens-protocol/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ProfilePageView } from './ProfilePageView'
 import type { Video } from './VideoGrid'
-
-// TODO: Replace with actual Lens hooks when available
-// import { useLensProfile } from '@/hooks/lens/useLensProfile'
-// import { useLensFollow } from '@/hooks/lens/useLensFollow'
+import { APP_ADDRESS } from '@/lens/config'
 
 /**
  * ProfilePage - Container component for profile page
- * Handles Lens data fetching and state management
- * Presentation logic delegated to ProfilePageView
+ * Fetches Lens account and posts, maps to ProfilePageView
  */
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const navigate = useNavigate()
   const { isPKPReady, pkpAddress, logout } = useAuth()
 
-  // TODO: Replace with actual Lens hooks
-  // const { profile, videos, isLoading } = useLensProfile(username)
-  // const { isFollowing, isLoading: followLoading, toggleFollow } = useLensFollow(profile?.address)
+  // Fetch Lens account by username
+  const {
+    data: account,
+    loading: accountLoading,
+    error: accountError
+  } = useAccount({
+    username: username ? {
+      localName: username.replace('@', '')
+    } : undefined
+  })
 
-  // Placeholder data for now - replace with real Lens data
+  // Fetch posts by author (filtered to your app)
+  // Only fetch posts after account is loaded
+  const {
+    data: postsData,
+    loading: postsLoading
+  } = usePosts({
+    filter: {
+      authors: account ? [evmAddress(account.address)] : undefined,
+      apps: [evmAddress(APP_ADDRESS)]
+    },
+    // Disable query until we have an account
+    suspense: false,
+  })
+
+  // Debug: Log when account or username changes
+  useEffect(() => {
+    console.log('===== ProfilePage Update =====')
+    console.log('URL username:', username)
+    console.log('Account username:', account?.username?.localName)
+    console.log('Account address:', account?.address)
+    console.log('Posts count:', postsData?.items.length)
+    console.log('Posts loading:', postsLoading)
+    console.log('Account loading:', accountLoading)
+    if (postsData?.items.length) {
+      console.log('First post ID:', postsData.items[0].id)
+    }
+    console.log('==============================')
+  }, [username, account?.address, account?.username?.localName, postsData?.items.length, postsLoading, accountLoading])
+
+  // Follow state (placeholder for now)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
 
-  const profile = {
-    username: username || 'user.lens',
-    displayName: 'User Name',
-    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-    bio: 'Bio goes here',
-    following: 892,
-    followers: 1250,
+  // Show loading if account is loading, OR if we have posts but they're for a different account
+  const isLoading = accountLoading || postsLoading || (account && !postsData)
+
+  // Map Lens account to profile format
+  const profile = account ? {
+    username: account.username?.localName || username || 'user',
+    displayName: account.metadata?.name || account.username?.localName || 'User',
+    avatarUrl: account.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    bio: account.metadata?.bio || '',
+    following: 0, // TODO: Add following count from graph
+    followers: 0, // TODO: Add followers count from graph
     isVerified: false,
-    isOwnProfile: false, // TODO: Compare with currentUser
+    isOwnProfile: pkpAddress ? account.address === pkpAddress : false,
+  } : {
+    username: username || 'user',
+    displayName: 'User',
+    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    bio: '',
+    following: 0,
+    followers: 0,
+    isVerified: false,
+    isOwnProfile: false,
   }
 
-  const videos: Video[] = Array.from({ length: 18 }, (_, i) => ({
-    id: `video-${i}`,
-    thumbnailUrl: `https://picsum.photos/400/711?random=${i}`,
-    playCount: Math.floor(Math.random() * 5000000),
-  }))
+  // Map Lens posts to videos format (deduplicate just in case)
+  // IMPORTANT: Only show posts if we have a valid account AND posts are for that account
+  const videos: Video[] = account && postsData?.items ? Array.from(
+    new Map(
+      postsData.items.map(post => {
+        const isVideo = post.metadata?.__typename === 'VideoMetadata'
+        const videoMetadata = isVideo ? post.metadata : null
 
-  const isLoading = false
+        // Extract copyright type to determine if encrypted
+        const copyrightType = videoMetadata?.attributes?.find(a => a.key === 'copyright_type')?.value || 'copyright-free'
+        const isPremium = copyrightType === 'copyrighted'
 
-  // Navigation state
-  const [activeTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
-  const [mobileTab] = useState<'home' | 'study' | 'post' | 'inbox' | 'profile'>('profile')
+        return [
+          post.id,
+          {
+            id: post.id,
+            thumbnailUrl: videoMetadata?.video?.cover || `https://picsum.photos/400/711?random=${post.id}`,
+            playCount: 0, // TODO: Add view count from post stats
+            isPremium,
+          }
+        ]
+      })
+    ).values()
+  ) : []
 
   // Handlers
-  const handleDesktopTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
-    const routes = {
-      home: '/',
-      study: '/class',
-      post: '/karaoke',
-      wallet: '/wallet',
-      profile: '/profile'
-    }
-
-    if (tab === 'profile' && !profile.isOwnProfile) {
-      // Navigate to current user's profile if clicking from another user's profile
-      // TODO: Use currentUser from Lens auth
-      navigate(`/profile/currentuser.lens`)
-    } else {
-      navigate(routes[tab])
-    }
-  }
-
-  const handleMobileTabChange = (tab: 'home' | 'study' | 'post' | 'inbox' | 'profile') => {
-    const routes = {
-      home: '/',
-      study: '/class',
-      post: '/karaoke',
-      wallet: '/wallet',
-      profile: '/profile'
-    }
-    navigate(routes[tab])
-  }
-
   const handleEditProfile = () => {
     navigate('/edit-profile')
   }
@@ -111,10 +141,22 @@ export function ProfilePage() {
   }
 
   const handleVideoClick = (video: Video) => {
-    navigate(`/profile/${username}/video/${video.id}`)
+    navigate(`/u/${username}/video/${video.id}`)
   }
 
-  // Loading state - could be a separate component
+  // Error state
+  if (accountError) {
+    return (
+      <div className="h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-foreground text-xl mb-2">Profile not found</p>
+          <p className="text-muted-foreground">{accountError.message}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Loading state
   if (isLoading) {
     return (
       <div className="h-screen bg-neutral-900 flex items-center justify-center">
@@ -132,13 +174,7 @@ export function ProfilePage() {
         isFollowing,
         isLoading: followLoading,
       }}
-      activeTab={activeTab}
-      mobileTab={mobileTab}
-      onDesktopTabChange={handleDesktopTabChange}
-      onMobileTabChange={handleMobileTabChange}
       isConnected={isPKPReady && !!pkpAddress}
-      walletAddress={pkpAddress || undefined}
-      onConnectWallet={() => console.log('Connect wallet')}
       onDisconnect={logout}
       onEditProfile={handleEditProfile}
       onFollowClick={handleFollowClick}

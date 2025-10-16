@@ -53,7 +53,7 @@ export function ArtistPage({
 }: ArtistPageProps) {
   return (
     <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-2xl">
+      <div className="relative w-full h-full md:max-w-6xl">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-16 px-4">

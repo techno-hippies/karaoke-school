@@ -29,14 +29,11 @@ export function KaraokeOverlay({
     return lines[currentIndex + 1]
   }, [showNextLine, lines, currentLine])
 
-  // Don't render if no lyrics or no current line
-  if (!currentLine) return null
-
-  // Process words for highlighting
+  // Process words for highlighting (MUST be before early return)
   const highlightedWords = useMemo(() => {
-    if (!currentLine.words || currentLine.words.length === 0) {
-      // No word-level timing, return whole line
-      return [{ text: currentLine.text, isSung: true }]
+    if (!currentLine || !currentLine.words || currentLine.words.length === 0) {
+      // No word-level timing, return whole line if we have one
+      return currentLine ? [{ text: currentLine.text, isSung: true }] : []
     }
 
     return currentLine.words.map(word => ({
@@ -44,6 +41,9 @@ export function KaraokeOverlay({
       isSung: currentTime >= word.start && currentTime < word.end
     }))
   }, [currentLine, currentTime])
+
+  // Don't render if no lyrics or no current line (AFTER all hooks)
+  if (!currentLine) return null
 
   return (
     <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-10', className)}>
