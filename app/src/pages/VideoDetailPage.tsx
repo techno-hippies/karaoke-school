@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMemo } from 'react'
 import { usePost, postId, useAccount } from '@lens-protocol/react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSubscription } from '@/hooks/useSubscription'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import type { VideoPostData } from '@/components/feed/types'
 
@@ -39,7 +40,7 @@ function lensToGroveUrl(lensUri: string): string {
 export function VideoDetailPage() {
   const { username, postId: postIdParam } = useParams<{ username: string; postId: string }>()
   const navigate = useNavigate()
-  const { isPKPReady, pkpAddress } = useAuth()
+  const { isPKPReady, pkpAddress, pkpAuthContext, pkpInfo } = useAuth()
 
   // Fetch the specific post
   const {
@@ -110,6 +111,21 @@ export function VideoDetailPage() {
     return { copyrightType, unlockLock, encryption, isPremium }
   }, [post, postIdParam])
 
+  // Check subscription status (only if there's a lock address)
+  const {
+    isSubscribed,
+    isLoading: isSubscriptionLoading,
+    isPurchasing,
+    subscribe,
+    keyPrice,
+    durationDays,
+  } = useSubscription({
+    lockAddress: unlockLock || undefined,
+    userAddress: pkpAddress || undefined,
+    pkpAuthContext,
+    pkpInfo,
+  })
+
   // Memoize video data to prevent re-renders
   const videoData = useMemo<VideoPostData | null>(() => {
     if (!post || post.metadata?.__typename !== 'VideoMetadata') {
@@ -131,9 +147,6 @@ export function VideoDetailPage() {
     console.log('  Raw thumbnail:', rawThumbnailUrl)
     console.log('  Resolved thumbnail:', thumbnailUrl)
 
-    // TODO: Check if user owns Unlock subscription key
-    const userIsSubscribed = false
-
     return {
       id: post.id,
       username: account?.username?.localName || username || 'user',
@@ -143,13 +156,13 @@ export function VideoDetailPage() {
       videoUrl,
       thumbnailUrl,
       isPremium,
-      userIsSubscribed,
+      userIsSubscribed: isSubscribed,
       likes: 0, // TODO: Add from post stats
       comments: 0, // TODO: Add from post stats
       shares: 0, // TODO: Add from post stats
       createdAt: post.timestamp,
     }
-  }, [post, account, username, isPremium])
+  }, [post, account, username, isPremium, isSubscribed])
 
   // Memoize karaoke lines extraction
   const karaokeLines = useMemo(() => {
@@ -268,6 +281,24 @@ export function VideoDetailPage() {
         console.log('Share video')
       }}
       onProfileClick={() => navigate(`/u/${username}`)}
+      onSubscribe={async () => {
+        if (!unlockLock) {
+          console.error('[VideoDetailPage] No lock address found')
+          return
+        }
+
+        console.log('[VideoDetailPage] Subscribing to lock:', unlockLock)
+        console.log('[VideoDetailPage] Lock price:', keyPrice, 'ETH')
+        console.log('[VideoDetailPage] Duration:', durationDays, 'days')
+
+        const result = await subscribe()
+
+        if (result.success) {
+          console.log('[VideoDetailPage] ✅ Subscription successful!', result.txHash)
+        } else {
+          console.error('[VideoDetailPage] ❌ Subscription failed:', result.error)
+        }
+      }}
     />
   )
 }

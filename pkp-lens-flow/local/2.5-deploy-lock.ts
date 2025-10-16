@@ -161,13 +161,19 @@ async function deployLockAndUpdateMetadata(tiktokHandle: string): Promise<void> 
   console.log('📝 Preparing lock parameters...');
   const lockName = `${cleanHandle} TikTok Subscription`;
   const expirationDuration = 60n * 60n * 24n * 30n; // 30 days in seconds
-  const tokenAddress = '0x0000000000000000000000000000000000000000'; // Native ETH
-  const keyPrice = parseEther('1.99'); // 1.99 ETH per month
+
+  // Use USDC on Base Sepolia instead of native ETH
+  const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
+  const tokenAddress = USDC_ADDRESS;
+
+  // USDC has 6 decimals, so 1.99 USDC = 1,990,000
+  const keyPrice = 1_990_000n; // 1.99 USDC per month
   const maxNumberOfKeys = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'); // Unlimited
 
   console.log(`   Lock Name: ${lockName}`);
   console.log(`   Duration: 30 days`);
-  console.log(`   Price: 1.99 ETH/month`);
+  console.log(`   Price: 1.99 USDC/month`);
+  console.log(`   Payment Token: USDC (${USDC_ADDRESS})`);
   console.log(`   Max Keys: Unlimited`);
   console.log(`   Beneficiary: ${masterAccount.address}\n`);
 

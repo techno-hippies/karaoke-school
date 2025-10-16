@@ -21,6 +21,7 @@ export interface VideoDetailProps extends VideoPostData {
   onProfileClick?: () => void
   onAudioClick?: () => void
   onClose?: () => void
+  onSubscribe?: () => void | Promise<void>
 
   // Navigation
   currentVideoIndex?: number
@@ -253,10 +254,7 @@ export function VideoDetail({
               <SubscribeCard
                 username={videoPostProps.username}
                 userAvatar={videoPostProps.userAvatar}
-                onSubscribe={() => {
-                  console.log('[VideoDetail] Subscribe clicked for', videoPostProps.username)
-                  // Handle subscription logic here
-                }}
+                onSubscribe={videoPostProps.onSubscribe}
                 className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
               />
             </div>
