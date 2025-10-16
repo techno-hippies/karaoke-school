@@ -55,6 +55,14 @@ elif [[ "$ACTION_FILE" == *"match-and-segment"* ]]; then
     --key openrouter_api_key \
     --output src/karaoke/keys/openrouter_api_key_v16.json
   echo "✅ Keys encrypted!"
+elif [[ "$ACTION_FILE" == *"translate-lyrics"* ]]; then
+  echo ""
+  echo "🔐 Step 2/4: Re-encrypting OpenRouter API key..."
+  DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
+    --cid $CID \
+    --key openrouter_api_key \
+    --output src/karaoke/keys/openrouter_api_key_translate_v1.json
+  echo "✅ Keys encrypted!"
 else
   echo ""
   echo "⏭️  Step 2/4: No keys to encrypt for this action"

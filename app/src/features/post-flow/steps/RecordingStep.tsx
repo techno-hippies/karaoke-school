@@ -36,9 +36,6 @@ export function RecordingStep({ flow }: RecordingStepProps) {
   const handleRecordingComplete = (blob: Blob) => {
     console.log('[RecordingStep] Recording completed, blob size:', blob.size, 'bytes')
 
-    // Create object URL for preview
-    const videoUrl = URL.createObjectURL(blob)
-
     // Store blob and proceed to grading
     flow.goToGrading(blob)
   }

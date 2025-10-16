@@ -7,7 +7,7 @@
  */
 
 // Active contracts on Base Sepolia
-export const KARAOKE_CATALOG_ADDRESS = '0x5AA8B71E835E0c5CCeCa6c4a1d98891839E416E6';
+export const KARAOKE_CATALOG_ADDRESS = '0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454'; // V2.1: Added deleteSong()
 export const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
 export const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 

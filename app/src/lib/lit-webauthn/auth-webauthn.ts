@@ -27,7 +27,7 @@ export async function registerWithWebAuthn(): Promise<RegisterResult> {
     const result = await WebAuthnAuthenticator.registerAndMintPKP({
       authServiceBaseUrl: LIT_WEBAUTHN_CONFIG.authServiceUrl,
       scopes: ['sign-anything'],
-    })
+    }) as { pkpInfo: any; webAuthnPublicKey: string; authData?: any }
 
     if (IS_DEV) {
       console.log('[LitWebAuthn] Registration successful:', {
@@ -83,9 +83,7 @@ export async function authenticateWithWebAuthn(): Promise<{ pkpInfo: PKPInfo; au
 
   try {
     // Authenticate with WebAuthn
-    const authData = await WebAuthnAuthenticator.authenticate({
-      authServiceBaseUrl: LIT_WEBAUTHN_CONFIG.authServiceUrl,
-    })
+    const authData = await WebAuthnAuthenticator.authenticate()
 
     if (IS_DEV) {
       console.log('[LitWebAuthn] Authentication successful:', {
@@ -161,9 +159,7 @@ export async function authenticateWithWebAuthn(): Promise<{ pkpInfo: PKPInfo; au
  */
 export async function hasExistingCredential(): Promise<boolean> {
   try {
-    await WebAuthnAuthenticator.authenticate({
-      authServiceBaseUrl: LIT_WEBAUTHN_CONFIG.authServiceUrl,
-    })
+    await WebAuthnAuthenticator.authenticate()
     return true
   } catch {
     return false

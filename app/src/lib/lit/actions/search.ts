@@ -26,7 +26,9 @@ export async function executeSearch(
       jsParams: { query, limit },
     })
 
-    const response: SearchResponse = JSON.parse(result.response)
+    const response: SearchResponse = typeof result.response === 'string'
+      ? JSON.parse(result.response)
+      : result.response
 
     if (IS_DEV && response.success && response.results) {
       console.log(`[Search] Found ${response.count} results:`,

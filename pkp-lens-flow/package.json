@@ -1,0 +1,42 @@
+{
+  "name": "pkp-lens-flow",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "mint-pkp": "dotenvx run -- bun run local/1-mint-pkp.ts",
+    "create-lens": "dotenvx run -- bun run local/2-create-lens-account.ts",
+    "deploy-lock": "dotenvx run -- bun run local/2.5-deploy-lock.ts",
+    "crawl-tiktok": "cd services/crawler && python3 tiktok_crawler.py",
+    "transcribe-audio": "dotenvx run -- bun run local/3.5-transcribe-audio.ts",
+    "translate-transcriptions": "dotenvx run -- bun run local/3.6-translate-transcriptions.ts",
+    "encrypt-videos": "bun run local/3-encrypt-videos.ts",
+    "upload-grove": "bun run local/4-upload-grove.ts",
+    "fetch-isrc": "dotenvx run -- bun run local/5-fetch-isrc.ts",
+    "fetch-mlc": "bun run local/6-fetch-mlc.ts",
+    "reupload-metadata": "bun run local/7-reupload-metadata.ts",
+    "create-lens-posts": "dotenvx run -- bun run local/8-create-lens-posts.ts",
+    "clear-post-hashes": "bun run local/8.1-delete-posts.ts",
+    "create-username": "dotenvx run -- bun run local/9-create-username.ts",
+    "setup-crawler": "cd services/crawler && bash setup.sh",
+    "test:generate-account": "bun run test/generate-test-account.ts",
+    "test:lock-info": "bun run test/unlock-lock-info.ts",
+    "test:purchase-key": "bun run test/purchase-key.ts",
+    "test:decrypt-video": "bun run test/decrypt-video.ts"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.24.0",
+    "@lens-chain/sdk": "^1.0.3",
+    "@lens-chain/storage-client": "^1.0.6",
+    "@lens-protocol/client": "^0.0.0-canary-20250430134539",
+    "@lens-protocol/metadata": "^2.1.0",
+    "@lit-protocol/access-control-conditions": "^8.0.2",
+    "@lit-protocol/auth": "^8.0.2",
+    "@lit-protocol/lit-client": "8.0.2",
+    "@lit-protocol/networks": "8.0.2",
+    "@unlock-protocol/contracts": "^0.0.35",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

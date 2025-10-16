@@ -4,7 +4,7 @@
  */
 
 import { LIT_WEBAUTHN_CONFIG } from './config'
-import { clearAuthContext } from './auth-pkp'
+// import { clearAuthContext } from './auth-pkp' // TODO: Use for clearing auth
 import type { SessionData, PKPInfo, AuthData, AuthStatus } from './types'
 
 const IS_DEV = import.meta.env.DEV

@@ -98,7 +98,22 @@ export function VideoPost({
           thumbnailUrl={thumbnailUrl}
           isPlaying={isPlaying}
           isMuted={isMuted}
-          onTogglePlay={() => setIsPlaying(!isPlaying)}
+          onTogglePlay={() => {
+            // If playing but muted, unmute instead of pausing
+            if (isPlaying && isMuted) {
+              setIsMuted(false)
+              return
+            }
+
+            // Otherwise, toggle play state
+            const newPlayingState = !isPlaying
+            setIsPlaying(newPlayingState)
+
+            // Unmute when starting to play
+            if (newPlayingState && isMuted) {
+              setIsMuted(false)
+            }
+          }}
         />
 
         {/* Premium Lock Overlay - show when video is locked */}

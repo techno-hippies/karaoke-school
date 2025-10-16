@@ -16,6 +16,7 @@ export interface SearchResult {
   artwork_thumbnail: string | null
   lyrics_state: string
   _score: number
+  soundcloud_permalink?: string
 }
 
 export interface SearchResponse {
@@ -73,6 +74,8 @@ export interface MatchSegmentResult {
     soundcloudPath: string
   }
   hasFullAudio?: boolean
+  soundcloudPermalink?: string
+  songDuration?: number
   lrclib?: {
     artist: string
     title: string
@@ -167,4 +170,35 @@ export interface TranslateResult {
   contractError?: string
   error?: string
   stack?: string
+}
+
+/**
+ * Artist Metadata Result (from Genius API)
+ */
+export interface ArtistMetadataResult {
+  success: boolean
+  artist?: {
+    id: number
+    name: string
+    url: string
+    image_url?: string
+    header_image_url?: string
+    description?: string
+    instagram_name?: string
+    twitter_name?: string
+    facebook_name?: string
+    followers_count?: number
+    is_verified?: boolean
+    alternate_names?: string[]
+  }
+  topSongs?: Array<{
+    id: number
+    title: string
+    title_with_featured: string
+    artist_names: string
+    url: string
+    song_art_image_thumbnail_url?: string
+    path?: string
+  }>
+  error?: string
 }

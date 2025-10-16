@@ -72,6 +72,7 @@ export function useSegmentLyrics(
         segmentEndTime
       })
       setLyrics([])
+      setIsLoading(false)
       return
     }
 

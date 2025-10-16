@@ -73,13 +73,14 @@ const go = async () => {
     const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
     const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
     const catalogAbi = [
-      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, string sectionsUri, string alignmentUri, bool enabled, uint64 addedAt))'
     ];
     const catalog = new ethers.Contract(contractAddress, catalogAbi, provider);
     const songData = await catalog.getSongByGeniusId(geniusId);
 
     const title = songData.title;
     const artist = songData.artist;
+    const alignmentUri = songData.alignmentUri || '';
 
     if (!title || !artist) {
       throw new Error('Song has no title/artist in contract. Run match-and-segment first to catalog the song.');
@@ -88,13 +89,49 @@ const go = async () => {
     console.log(`✅ Song data from contract:`);
     console.log(`   Title: ${title}`);
     console.log(`   Artist: ${artist}`);
+    console.log(`   AlignmentUri: ${alignmentUri || '(none - will use LRClib)'}`);
 
-    // Step 2: Fetch lyrics from LRClib (SINGLE NODE via runOnce)
-    console.log('[2/5] Fetching lyrics from LRClib...');
+    // Step 2: Fetch lyrics (try alignmentUri for native songs, fall back to LRClib)
+    console.log('[2/5] Fetching lyrics...');
     const lyricsResult = await Lit.Actions.runOnce(
       { waitForResponse: true, name: 'fetchLyrics' },
       async () => {
         try {
+          // Helper function to convert lens:// to https://
+          const lensToGroveUrl = (uri) => {
+            if (!uri) return '';
+            const lower = uri.toLowerCase();
+            if (!lower.startsWith('lens') && !lower.startsWith('glen')) return uri;
+            const hash = uri.replace(/^(lens|glens?):\/\//i, '');
+            return `https://api.grove.storage/${hash}`;
+          };
+
+          // Try alignmentUri first (native songs with full alignment data)
+          if (alignmentUri) {
+            console.log('   Using alignmentUri (native song)...');
+            const alignmentUrl = lensToGroveUrl(alignmentUri);
+            const alignmentResp = await fetch(alignmentUrl);
+
+            if (alignmentResp.ok) {
+              const alignmentData = await alignmentResp.json();
+
+              if (alignmentData.lines && Array.isArray(alignmentData.lines) && alignmentData.lines.length > 0) {
+                // Extract text from alignment data
+                const lyricsLines = alignmentData.lines.map((line, i) => ({
+                  id: line.lineIndex !== undefined ? line.lineIndex : i,
+                  text: line.text
+                }));
+
+                console.log(`   ✅ Loaded ${lyricsLines.length} lines from alignmentUri`);
+                return JSON.stringify({ lyricsLines, lineCount: lyricsLines.length, source: 'alignment' });
+              }
+            }
+
+            console.log('   ⚠️ AlignmentUri exists but failed to load, falling back to LRClib...');
+          }
+
+          // Fall back to LRClib (Genius songs)
+          console.log('   Using LRClib (Genius song)...');
           const lrcResp = await fetch(
             'https://lrclib.net/api/search?' +
             new URLSearchParams({
@@ -129,9 +166,10 @@ const go = async () => {
             }
           }
 
-          return JSON.stringify({ lyricsLines, lineCount: lyricsLines.length });
+          console.log(`   ✅ Loaded ${lyricsLines.length} lines from LRClib`);
+          return JSON.stringify({ lyricsLines, lineCount: lyricsLines.length, source: 'lrclib' });
         } catch (error) {
-          return JSON.stringify({ error: `LRClib fetch failed: ${error.message}` });
+          return JSON.stringify({ error: `Lyrics fetch failed: ${error.message}` });
         }
       }
     );
@@ -142,7 +180,7 @@ const go = async () => {
     }
 
     const lyricsLines = lyricsData.lyricsLines;
-    console.log(`✅ Lyrics fetched (${lyricsData.lineCount} lines)`);
+    console.log(`✅ Lyrics fetched (${lyricsData.lineCount} lines from ${lyricsData.source || 'unknown'})`);
 
     // Step 3: Decrypt OpenRouter key (ALL NODES for threshold decryption)
     console.log('[3/5] Decrypting OpenRouter key...');

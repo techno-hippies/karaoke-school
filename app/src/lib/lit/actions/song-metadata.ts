@@ -31,7 +31,9 @@ export async function executeSongMetadata(
       jsParams: { songId },
     })
 
-    const response: SongMetadataResult = JSON.parse(result.response)
+    const response: SongMetadataResult = typeof result.response === 'string'
+      ? JSON.parse(result.response)
+      : result.response
 
     if (IS_DEV && response.success && response.song) {
       console.log(`[Song] ${response.song.artist} - ${response.song.title}`)

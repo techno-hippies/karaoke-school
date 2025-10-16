@@ -15,7 +15,7 @@ import { createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 import { KARAOKE_CATALOG_ABI } from '@/config/abis/karaokeCatalog'
-import type { PKPAuthContext } from '@/lib/lit/auth/auth-pkp'
+import type { PKPAuthContext } from '@/lib/lit-webauthn/types'
 
 export interface CatalogSongResult {
   success: boolean

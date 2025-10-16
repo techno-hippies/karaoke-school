@@ -15,22 +15,23 @@ import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 import { KARAOKE_CATALOG_ABI } from '@/config/abis/karaokeCatalog'
 import type { Song } from '@/features/post-flow/types'
 
-interface ContractSong {
-  id: string
-  geniusId: number
-  title: string
-  artist: string
-  duration: number
-  hasFullAudio: boolean
-  requiresPayment: boolean
-  audioUri: string
-  metadataUri: string
-  coverUri: string
-  thumbnailUri: string
-  musicVideoUri: string
-  enabled: boolean
-  addedAt: bigint
-}
+// TODO: Use ContractSong interface when implementing direct contract reads
+// interface ContractSong {
+//   id: string
+//   geniusId: number
+//   title: string
+//   artist: string
+//   duration: number
+//   hasFullAudio: boolean
+//   requiresPayment: boolean
+//   audioUri: string
+//   metadataUri: string
+//   coverUri: string
+//   thumbnailUri: string
+//   musicVideoUri: string
+//   enabled: boolean
+//   addedAt: bigint
+// }
 
 export interface UseContractSongsResult {
   songs: Song[]
@@ -42,28 +43,30 @@ export interface UseContractSongsResult {
 /**
  * Converts Glens:// or lens:// URI to Grove storage URL
  * Note: "Glens" appears to be a typo in some contract data - should be "lens"
+ * TODO: Use when parsing contract URIs
  */
-function lensToGroveUrl(lensUri: string): string {
-  if (!lensUri) return ''
-  // Handle both lens://, glen://, and Glens:// (case-insensitive)
-  const lower = lensUri.toLowerCase()
-  if (!lower.startsWith('lens') && !lower.startsWith('glen')) return ''
-  // Extract hash from lens://HASH or glen(s)://HASH format
-  const hash = lensUri.replace(/^(lens|glens?):\/\//i, '')
-  // Use Grove storage API (Lens chain storage backend)
-  return `https://api.grove.storage/${hash}`
-}
+// function lensToGroveUrl(lensUri: string): string {
+//   if (!lensUri) return ''
+//   // Handle both lens://, glen://, and Glens:// (case-insensitive)
+//   const lower = lensUri.toLowerCase()
+//   if (!lower.startsWith('lens') && !lower.startsWith('glen')) return ''
+//   // Extract hash from lens://HASH or glen(s)://HASH format
+//   const hash = lensUri.replace(/^(lens|glens?):\/\//i, '')
+//   // Use Grove storage API (Lens chain storage backend)
+//   return `https://api.grove.storage/${hash}`
+// }
 
 /**
  * Capitalize section names (e.g., "chorus" → "Chorus", "verse 1" → "Verse 1")
+ * TODO: Use when formatting section names
  */
-function capitalizeSection(sectionType: string): string {
-  if (!sectionType) return ''
-  return sectionType
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
+// function capitalizeSection(sectionType: string): string {
+//   if (!sectionType) return ''
+//   return sectionType
+//     .split(' ')
+//     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+//     .join(' ')
+// }
 
 /**
  * Load songs from KaraokeCatalogV2 contract

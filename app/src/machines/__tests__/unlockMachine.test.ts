@@ -2,7 +2,7 @@
  * Tests for Unlock Flow State Machine
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { createActor, waitFor } from 'xstate';
 import { setup, fromPromise, assign } from 'xstate';
 import type { Hash } from 'viem';

@@ -1,5 +1,5 @@
 {
-  "ciphertext": "jBd/beLP9iyDHmjLZnn+RWM+R0sQp1A9bKaBX1bDI+5BfFOzBvAsGgxSYnTGvVjKQYki6p3e6/XcOQtwHNoHK3JH6ACMcWeUpRSTLnJ1OMFKv/mgF+TVfYxCcLQf0r1tLGU9Cewa+z2PSGOxAGozydWKi1lvPjyvDgf/nzyizB6j0u4BnQgrkVVemmq1CopNEpwGGVvfXBapTwcC",
+  "ciphertext": "lSTepzyfv3fzQDpB+BsX48nOO0BP2pVmXomet8CynAHw9QgyaobcUNcz0bz4EQ6K49e/F13ulcinKwPM7Dytg/aFFe7byRoP3wHYHVZtGaFKmk8dYgdKqkS58PDFA4At8ecZR+676i424hycv12oje+r8nJ5aNSHrZ2ti1HylVTtOEbdosXtVTTYcbAmcsQ5rda1hcn4RQ/DGG8C",
   "dataToEncryptHash": "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
   "accessControlConditions": [
     {
@@ -13,10 +13,10 @@
       ],
       "returnValueTest": {
         "comparator": "=",
-        "value": "QmWSCNhGtoXJTnaetuNEzpSt9AAVEsjwpak6DP1wvUkVLc"
+        "value": "QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop"
       }
     }
   ],
-  "encryptedAt": "2025-10-14T20:02:57.474Z",
-  "cid": "QmWSCNhGtoXJTnaetuNEzpSt9AAVEsjwpak6DP1wvUkVLc"
+  "encryptedAt": "2025-10-15T09:33:08.925Z",
+  "cid": "QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop"
 }

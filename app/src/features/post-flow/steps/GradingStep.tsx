@@ -14,7 +14,7 @@ interface GradingStepProps {
 export function GradingStep({ flow }: GradingStepProps) {
   const [grade, setGrade] = useState<PerformanceGrade | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const { recordedVideoBlob, selectedSegment } = flow.data
+  const { recordedVideoBlob, selectedSegment, selectedSong } = flow.data
 
   useEffect(() => {
     if (!recordedVideoBlob || !selectedSegment) return
@@ -58,8 +58,10 @@ export function GradingStep({ flow }: GradingStepProps) {
   return (
     <PerformanceGradePage
       grade={grade.grade}
-      feedback={grade.feedback}
-      onContinue={handleContinue}
+      songTitle={selectedSong?.title || 'Unknown Song'}
+      artist={selectedSong?.artist || 'Unknown Artist'}
+      artworkUrl={selectedSong?.artworkUrl}
+      onComplete={handleContinue}
     />
   )
 }

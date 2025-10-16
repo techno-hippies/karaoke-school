@@ -219,10 +219,10 @@ export function usePostFlow(onComplete: () => void) {
    * Action: Grade Performance
    */
   const gradePerformance = useCallback(async (
-    videoBlob: Blob,
+    _videoBlob: Blob, // TODO: Pass to gradePerformance when implementing actual grading
     segment: SongSegment
   ): Promise<PerformanceGrade> => {
-    const grade = await karaokeHook.gradePerformance(videoBlob, segment)
+    const grade = await karaokeHook.gradePerformance(segment)
     if (!grade) {
       throw new Error('Failed to grade performance')
     }
@@ -234,7 +234,7 @@ export function usePostFlow(onComplete: () => void) {
    * Action: Create Post (upload to Lens)
    */
   const createPost = useCallback(async (
-    videoUrl: string,
+    _videoUrl: string, // TODO: Use for video upload
     grade: PerformanceGrade
   ): Promise<string> => {
     // TODO: Implement Lens post creation

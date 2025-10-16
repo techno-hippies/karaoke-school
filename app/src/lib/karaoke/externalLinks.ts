@@ -21,13 +21,14 @@ export interface SongMetadata {
 
 /**
  * Create URL-friendly slug by replacing spaces with hyphens
+ * TODO: Use for slug generation
  */
-function createSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w-]/g, '')
-}
+// function createSlug(text: string): string {
+//   return text
+//     .toLowerCase()
+//     .replace(/\s+/g, '-')
+//     .replace(/[^\w-]/g, '')
+// }
 
 /**
  * Create Genius-style lyrics slug (preserves case, replaces spaces)
@@ -72,7 +73,7 @@ export function buildExternalSongLinks(song: SongMetadata): ExternalLink[] {
     })
     links.push({
       label: 'Maid.zone',
-      url: `https://maid.zone/${song.soundcloudPermalink}`
+      url: `https://sc.maid.zone/${song.soundcloudPermalink}`
     })
   }
 

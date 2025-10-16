@@ -23,6 +23,7 @@ export interface VideoPostData {
   userHandle?: string // Display name (e.g., "Professional Vocalist")
   userAvatar?: string
   grade?: string // Performance grade (A, B+, C, etc)
+  description?: string // Post description/caption
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
@@ -60,7 +61,7 @@ export interface KaraokeOverlayProps {
 }
 
 export interface AudioSourceButtonProps {
-  musicTitle: string
+  musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
   onClick?: () => void
@@ -85,13 +86,14 @@ export interface VideoActionsProps {
   onCommentClick: () => void
   onShareClick: () => void
   // Audio
-  musicTitle: string
+  musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
   onAudioClick?: () => void
   // Video controls
   isMuted: boolean
   onToggleMute: () => void
+  description?: string
   className?: string
 }
 

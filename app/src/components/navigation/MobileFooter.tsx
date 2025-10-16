@@ -1,9 +1,9 @@
 import React from 'react'
-import { House, Exam, MicrophoneStage, Wallet, User } from '@phosphor-icons/react'
+import { House, Exam, MagnifyingGlass, Wallet, User } from '@phosphor-icons/react'
 
 interface MobileFooterProps {
-  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
+  activeTab: 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => void
 }
 
 export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChange }) => {
@@ -25,6 +25,17 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
         </button>
 
         <button
+          onClick={() => onTabChange('search')}
+          className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
+            activeTab === 'search' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          aria-label="Search"
+        >
+          <MagnifyingGlass className="w-6 h-6" weight={activeTab === 'search' ? 'fill' : 'regular'} />
+          <span className="text-xs mt-1">Search</span>
+        </button>
+
+        <button
           onClick={() => onTabChange('study')}
           className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             activeTab === 'study' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -33,16 +44,6 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
         >
           <Exam className="w-6 h-6" weight={activeTab === 'study' ? 'fill' : 'regular'} />
           <span className="text-xs mt-1">Class</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange('post')}
-          className="flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer"
-          aria-label="Create Post"
-        >
-          <div className="bg-primary hover:bg-primary/90 rounded-xl px-6 py-3 transition-all">
-            <MicrophoneStage className="w-6 h-6 text-primary-foreground" weight="duotone" />
-          </div>
         </button>
 
         <button

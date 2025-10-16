@@ -50,5 +50,9 @@ export async function executeAudioProcessor(
     },
   })
 
-  return JSON.parse(result.response)
+  const response: AudioProcessorResult = typeof result.response === 'string'
+    ? JSON.parse(result.response)
+    : result.response
+
+  return response
 }

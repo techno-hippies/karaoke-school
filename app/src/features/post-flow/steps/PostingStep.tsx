@@ -3,7 +3,7 @@
  * Preview and post to Lens
  */
 
-import { useState } from 'react'
+// import { useState } from 'react' // TODO: Use for loading state
 import { VideoPoster } from '@/components/karaoke/VideoPoster'
 import type { PostFlowContext } from '../types'
 
@@ -12,7 +12,7 @@ interface PostingStepProps {
 }
 
 export function PostingStep({ flow }: PostingStepProps) {
-  const [isPosting, setIsPosting] = useState(false)
+  // const [isPosting, setIsPosting] = useState(false) // TODO: Use for loading state
   const { recordedVideoUrl, grade } = flow.data
 
   if (!recordedVideoUrl || !grade) {
@@ -21,7 +21,7 @@ export function PostingStep({ flow }: PostingStepProps) {
 
   const handlePost = async () => {
     try {
-      setIsPosting(true)
+      // setIsPosting(true) // TODO: Show posting UI state
       const postUrl = await flow.createPost(recordedVideoUrl, grade)
       console.log('[PostingStep] Post created:', postUrl)
 
@@ -31,7 +31,7 @@ export function PostingStep({ flow }: PostingStepProps) {
       console.error('[PostingStep] Post failed:', error)
       // TODO: Show error UI
     } finally {
-      setIsPosting(false)
+      // setIsPosting(false) // TODO: Reset posting state
     }
   }
 

@@ -17,7 +17,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import type { PKPAuthContext } from '@/lib/lit/auth/auth-pkp'
+import type { PKPAuthContext } from '@/lib/lit-webauthn/types'
 import { useCredits } from '@/contexts/CreditsContext'
 
 export class InsufficientCreditsError extends Error {

@@ -10,7 +10,7 @@ import { toast } from 'sonner'
  */
 export function WalletPage() {
   const { pkpAddress, credits } = useAuth()
-  const { balance: usdcBalance, isLoading: usdcLoading } = useUSDCBalance(pkpAddress)
+  const { balance: usdcBalance, isLoading: usdcLoading } = useUSDCBalance(pkpAddress ?? undefined)
 
   const handleCopyAddress = async () => {
     if (!pkpAddress) return

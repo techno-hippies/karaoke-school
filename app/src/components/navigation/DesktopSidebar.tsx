@@ -1,10 +1,10 @@
 import React from 'react'
-import { House, Exam, User, MicrophoneStage, Wallet } from '@phosphor-icons/react'
+import { House, Exam, User, MagnifyingGlass, Wallet } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'study' | 'post' | 'wallet' | 'profile' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'post' | 'wallet' | 'profile') => void
+  activeTab: 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => void
   isConnected?: boolean
   walletAddress?: string
   onConnectWallet?: () => void
@@ -41,6 +41,19 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </Button>
 
           <Button
+            onClick={() => onTabChange('search')}
+            variant="ghost"
+            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
+              activeTab === 'search'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+            }`}
+          >
+            <MagnifyingGlass className="w-7 h-7 flex-shrink-0" />
+            <span className="text-xl">Search</span>
+          </Button>
+
+          <Button
             onClick={() => onTabChange('study')}
             variant="ghost"
             className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
@@ -51,19 +64,6 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           >
             <Exam className="w-7 h-7 flex-shrink-0" />
             <span className="text-xl">Class</span>
-          </Button>
-
-          <Button
-            onClick={() => onTabChange('post')}
-            variant="ghost"
-            className={`w-full justify-start gap-4 px-5 py-4 h-auto ${
-              activeTab === 'post'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-            }`}
-          >
-            <MicrophoneStage className="w-7 h-7 flex-shrink-0" weight="duotone" />
-            <span className="text-xl">Karaoke</span>
           </Button>
 
           <Button

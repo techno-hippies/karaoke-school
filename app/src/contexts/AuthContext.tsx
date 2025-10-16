@@ -121,7 +121,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
           const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
           if (existingAccounts.length > 0 && !account) {
-            setAccount(existingAccounts[0])
+            setAccount(existingAccounts[0].account)
             setAuthStep('complete')
             setLensSetupStatus('complete')
           } else if (existingAccounts.length === 0) {
@@ -328,7 +328,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
       const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
       if (existingAccounts.length > 0) {
-        setAccount(existingAccounts[0])
+        setAccount(existingAccounts[0].account)
         setLensSetupStatus('complete')
       }
     } catch (error) {
@@ -365,7 +365,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
       const existingAccounts = await getExistingAccounts(pkpWallet.address)
 
       if (existingAccounts.length > 0) {
-        setAccount(existingAccounts[0])
+        setAccount(existingAccounts[0].account)
         setLensSetupStatus('complete')
         return true
       }

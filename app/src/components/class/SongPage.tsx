@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Play, MusicNotes, Lock } from '@phosphor-icons/react'
+import { useNavigate } from 'react-router-dom'
 import { Leaderboard } from './Leaderboard'
 import { ExternalLinksDrawer } from './ExternalLinksDrawer'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ export interface SongSegment {
 export interface SongPageProps {
   songTitle: string
   artist: string
+  geniusArtistId?: number // Genius artist ID for linking to artist page
   artworkUrl?: string
   onBack?: () => void
   onPlay: () => void // Required - play button is always shown
@@ -65,9 +67,10 @@ export interface SongPageProps {
 }
 
 // Song detail page with stats, leaderboard, and study/karaoke actions
-export function SongPage({
+export const SongPage = memo(function SongPage({
   songTitle,
   artist,
+  geniusArtistId,
   artworkUrl,
   onBack,
   onPlay,
@@ -81,7 +84,7 @@ export function SongPage({
   onUnlockAll,
   isGenerating = false,
   generatingProgress = 0,
-  isFree = false,
+  // isFree = false, // TODO: Use this when implementing free songs
   isOwned = false,
   isUnlocking = false,
   isProcessing = false,
@@ -92,6 +95,7 @@ export function SongPage({
   hasFullAudio,
   isLocked = false,
 }: SongPageProps) {
+  const navigate = useNavigate()
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
 
   const formatTime = (seconds: number) => {
@@ -170,9 +174,18 @@ export function SongPage({
                 <h1 className="text-foreground text-2xl md:text-4xl font-bold mb-1">
                   {songTitle}
                 </h1>
-                <p className="text-muted-foreground text-base md:text-xl">
-                  {artist}
-                </p>
+                {geniusArtistId && geniusArtistId > 0 ? (
+                  <button
+                    onClick={() => navigate(`/artist/${geniusArtistId}`)}
+                    className="text-muted-foreground text-xl md:text-2xl font-semibold hover:text-foreground transition-colors cursor-pointer text-left"
+                  >
+                    {artist}
+                  </button>
+                ) : (
+                  <p className="text-muted-foreground text-xl md:text-2xl font-semibold">
+                    {artist}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => {
@@ -225,8 +238,14 @@ export function SongPage({
             <div className="flex items-start gap-3">
               <div className="text-destructive mt-0.5">❌</div>
               <div className="flex-1">
-                <h3 className="text-destructive font-semibold mb-1">Catalog Failed</h3>
-                <p className="text-muted-foreground text-sm">{catalogError}</p>
+                <h3 className="text-destructive font-semibold mb-1">
+                  {catalogError.includes('No SoundCloud audio available') ? 'Not Available' : 'Catalog Failed'}
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  {catalogError.includes('No SoundCloud audio available')
+                    ? 'Check back later, maybe this song will be available in the future.'
+                    : catalogError}
+                </p>
               </div>
             </div>
           </div>
@@ -335,4 +354,4 @@ export function SongPage({
       </div>
     </div>
   )
-}
+})

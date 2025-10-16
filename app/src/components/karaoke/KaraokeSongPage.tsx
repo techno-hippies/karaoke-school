@@ -42,21 +42,37 @@ export function KaraokeSongPage() {
     pkpAddress || undefined
   )
 
-  // Merge song data: contract data (with segments) + state data (with artwork)
+  // Merge song data: contract data (with segments) + state data (with artwork) + Genius metadata (with artistId)
+  // Use stable keys to prevent re-renders
   const song = useMemo(() => {
     if (!songFromContract) return songFromState
     return {
       ...songFromContract,
-      artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl || fetchedSong?.artworkUrl
+      artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl || fetchedSong?.artworkUrl,
+      geniusArtistId: fetchedSong?.geniusArtistId || songFromState?.geniusArtistId
     }
-  }, [songFromContract, songFromState, fetchedSong?.artworkUrl])
+  }, [
+    songFromContract?.id,
+    songFromContract?.artworkUrl,
+    songFromContract?.hasBaseAlignment,
+    songFromContract?.isOwned,
+    songFromState?.id,
+    songFromState?.artworkUrl,
+    songFromState?.geniusArtistId,
+    fetchedSong?.artworkUrl,
+    fetchedSong?.geniusArtistId
+  ])
 
   const isProcessed = !!songFromContract
-  const displaySong = useMemo(() => song || fetchedSong, [song, fetchedSong])
+  const displaySong = useMemo(() =>
+    song || fetchedSong,
+    [song?.id, song?.artworkUrl, song?.hasBaseAlignment, song?.isOwned, song?.geniusArtistId, fetchedSong?.id, fetchedSong?.geniusArtistId]
+  )
 
-  // Fetch song metadata from Genius if no song data available (FAST, for display only)
+  // Fetch song metadata from Genius (FAST, for display and artist ID)
+  // Always fetch to get geniusArtistId, even if song is in contract
   useEffect(() => {
-    if (!song && geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong) {
+    if (geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong) {
       setIsFetchingSong(true)
       const fetchSongMetadata = async () => {
         console.log('[KaraokeSongPage] Fetching song metadata from Genius for ID:', geniusId)
@@ -64,10 +80,11 @@ export function KaraokeSongPage() {
         const result = await executeSongMetadata(parseInt(geniusId), pkpAuthContext)
 
         if (result.success && result.song) {
-          console.log('[KaraokeSongPage] ✅ Fetched song metadata:', result.song.title)
+          console.log('[KaraokeSongPage] ✅ Fetched song metadata:', result.song.title, 'by', result.song.artist, `(artistId: ${result.song.artist_id})`)
           setFetchedSong({
             id: geniusId,
             geniusId: parseInt(geniusId),
+            geniusArtistId: result.song.artist_id,
             title: result.song.title,
             artist: result.song.artist,
             artworkUrl: result.song.song_art_image_thumbnail_url,
@@ -87,7 +104,7 @@ export function KaraokeSongPage() {
       }
       fetchSongMetadata()
     }
-  }, [song, geniusId, isPKPReady, pkpAuthContext, isFetchingSong, fetchedSong])
+  }, [geniusId, isPKPReady, pkpAuthContext, isFetchingSong, fetchedSong])
 
   // Initialize catalog and unlock hooks
   const catalog = useCatalogSong({
@@ -237,9 +254,11 @@ export function KaraokeSongPage() {
     }
   }, [isPKPReady, pkpAuthContext, geniusId, unlock.unlockSong, refetch, pkpAddress, displaySong, songFromContract, credits, loadCredits])
 
-  // Handle segment click
+  // Memoized handlers to prevent re-renders
+  const handleBack = useCallback(() => navigate(-1), [navigate])
+  const handlePlay = useCallback(() => console.log('Play'), [])
   const handleSegmentClick = useCallback((segment: any) => {
-    navigate(`/karaoke/song/${geniusId}/segment/${segment.id}`)
+    navigate(`/song/${geniusId}/segment/${segment.id}`)
   }, [navigate, geniusId])
 
   // Handle credit purchase
@@ -297,7 +316,7 @@ export function KaraokeSongPage() {
     }
   }, [pkpAuthContext, pkpInfo, unlock, loadCredits, displaySong, songFromContract, refetch])
 
-  // Construct external links
+  // Construct external links - memoize based on actual values, not object reference
   const externalSongLinks = useMemo(() => {
     if (!displaySong) return []
     return buildExternalSongLinks({
@@ -310,7 +329,16 @@ export function KaraokeSongPage() {
       appleMusicId: displaySong.appleMusicId,
       appleMusicPlayerUrl: displaySong.appleMusicPlayerUrl,
     })
-  }, [displaySong])
+  }, [
+    displaySong?.geniusId,
+    displaySong?.title,
+    displaySong?.artist,
+    displaySong?.soundcloudPermalink,
+    displaySong?.youtubeUrl,
+    displaySong?.spotifyUuid,
+    displaySong?.appleMusicId,
+    displaySong?.appleMusicPlayerUrl
+  ])
 
   const externalLyricsLinks = useMemo(() => {
     if (!displaySong) return []
@@ -319,7 +347,7 @@ export function KaraokeSongPage() {
       title: displaySong.title,
       artist: displaySong.artist,
     })
-  }, [displaySong])
+  }, [displaySong?.geniusId, displaySong?.title, displaySong?.artist])
 
   // Show loading state
   if (isLoading && !songFromState && !fetchedSong) {
@@ -329,8 +357,8 @@ export function KaraokeSongPage() {
         artist="Loading..."
         leaderboardEntries={[]}
         segments={[]}
-        onBack={() => navigate(-1)}
-        onPlay={() => console.log('Play')}
+        onBack={handleBack}
+        onPlay={handlePlay}
       />
     )
   }
@@ -342,7 +370,8 @@ export function KaraokeSongPage() {
         artist="Loading..."
         leaderboardEntries={[]}
         segments={[]}
-        onBack={() => navigate(-1)}
+        onBack={handleBack}
+        onPlay={handlePlay}
         isAuthenticated={isPKPReady}
       />
     )
@@ -382,6 +411,7 @@ export function KaraokeSongPage() {
       <SongPage
         songTitle={displaySong.title}
         artist={displaySong.artist}
+        geniusArtistId={displaySong.geniusArtistId}
         artworkUrl={displaySong.artworkUrl}
         isExternal={true}
         externalSongLinks={externalSongLinks}
@@ -395,8 +425,8 @@ export function KaraokeSongPage() {
         catalogError={catalog.catalogError || undefined}
         hasFullAudio={catalog.result?.hasFullAudio}
         isLocked={segments.length > 0 && !songFromContract?.hasBaseAlignment && !baseAlignmentComplete}
-        onBack={() => navigate(-1)}
-        onPlay={() => console.log('Play')}
+        onBack={handleBack}
+        onPlay={handlePlay}
         onSelectSegment={handleSegmentClick}
         onUnlockAll={handleUnlock}
         isAuthenticated={isPKPReady}

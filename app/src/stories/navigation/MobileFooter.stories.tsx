@@ -20,7 +20,7 @@ const meta: Meta<typeof MobileFooter> = {
   argTypes: {
     activeTab: {
       control: 'select',
-      options: ['home', 'study', 'post', 'wallet', 'profile']
+      options: ['home', 'study', 'search', 'wallet', 'profile']
     },
     onTabChange: { action: 'tab changed' }
   }
@@ -61,15 +61,15 @@ export const Study: Story = {
   ]
 }
 
-export const Post: Story = {
+export const Search: Story = {
   args: {
-    activeTab: 'post'
+    activeTab: 'search'
   },
   decorators: [
     (Story) => (
       <div className="h-screen bg-background">
         <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Create post page</p>
+          <p className="text-muted-foreground">Search page</p>
         </div>
         <Story />
       </div>
