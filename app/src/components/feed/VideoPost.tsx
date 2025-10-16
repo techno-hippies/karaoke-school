@@ -114,6 +114,13 @@ export function VideoPost({
               setIsMuted(false)
             }
           }}
+          onPlayFailed={() => {
+            // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
+            // so the play button overlay appears
+            console.log('[VideoPost] Autoplay failed, showing play button')
+            setIsPlaying(false)
+          }}
+          forceShowThumbnail={isPremium && !userIsSubscribed}
         />
 
         {/* Premium Lock Overlay - show when video is locked */}

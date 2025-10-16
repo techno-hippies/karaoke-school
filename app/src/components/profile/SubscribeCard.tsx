@@ -17,7 +17,7 @@ export interface SubscribeCardProps {
 export function SubscribeCard({
   username,
   userAvatar,
-  price = '$6.99/month',
+  price = '$1.99/month',
   onSubscribe,
   className,
 }: SubscribeCardProps) {
@@ -58,13 +58,6 @@ export function SubscribeCard({
               <Check className="w-3 h-3 text-primary" weight="bold" />
             </div>
             <p className="text-sm text-foreground">Access all premium videos</p>
-          </div>
-
-          <div className="flex items-center gap-2 text-left">
-            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
-              <Check className="w-3 h-3 text-primary" weight="bold" />
-            </div>
-            <p className="text-sm text-foreground">Real-time chat</p>
           </div>
 
           <div className="flex items-center gap-2 text-left">

@@ -1,6 +1,5 @@
 import { useState, memo } from 'react'
 import { Play, MusicNotes, Lock } from '@phosphor-icons/react'
-import { useNavigate } from 'react-router-dom'
 import { Leaderboard } from './Leaderboard'
 import { ExternalLinksDrawer } from './ExternalLinksDrawer'
 import { Button } from '@/components/ui/button'
@@ -41,6 +40,7 @@ export interface SongPageProps {
   artworkUrl?: string
   onBack?: () => void
   onPlay: () => void // Required - play button is always shown
+  onArtistClick?: () => void // Called when artist name is clicked (if geniusArtistId is provided)
   isExternal?: boolean // true = external song (opens sheet), false = local (plays directly)
   externalSongLinks?: ExternalLink[]
   externalLyricsLinks?: ExternalLink[]
@@ -74,6 +74,7 @@ export const SongPage = memo(function SongPage({
   artworkUrl,
   onBack,
   onPlay,
+  onArtistClick,
   isExternal = false,
   externalSongLinks = [],
   externalLyricsLinks = [],
@@ -95,7 +96,6 @@ export const SongPage = memo(function SongPage({
   hasFullAudio,
   isLocked = false,
 }: SongPageProps) {
-  const navigate = useNavigate()
   const [isExternalSheetOpen, setIsExternalSheetOpen] = useState(false)
 
   const formatTime = (seconds: number) => {
@@ -174,9 +174,9 @@ export const SongPage = memo(function SongPage({
                 <h1 className="text-foreground text-2xl md:text-4xl font-bold mb-1">
                   {songTitle}
                 </h1>
-                {geniusArtistId && geniusArtistId > 0 ? (
+                {geniusArtistId && geniusArtistId > 0 && onArtistClick ? (
                   <button
-                    onClick={() => navigate(`/artist/${geniusArtistId}`)}
+                    onClick={onArtistClick}
                     className="text-muted-foreground text-xl md:text-2xl font-semibold hover:text-foreground transition-colors cursor-pointer text-left"
                   >
                     {artist}

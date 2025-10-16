@@ -162,12 +162,12 @@ async function deployLockAndUpdateMetadata(tiktokHandle: string): Promise<void> 
   const lockName = `${cleanHandle} TikTok Subscription`;
   const expirationDuration = 60n * 60n * 24n * 30n; // 30 days in seconds
   const tokenAddress = '0x0000000000000000000000000000000000000000'; // Native ETH
-  const keyPrice = parseEther('0.01'); // 0.01 ETH per month
+  const keyPrice = parseEther('1.99'); // 1.99 ETH per month
   const maxNumberOfKeys = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'); // Unlimited
 
   console.log(`   Lock Name: ${lockName}`);
   console.log(`   Duration: 30 days`);
-  console.log(`   Price: 0.01 ETH/month`);
+  console.log(`   Price: 1.99 ETH/month`);
   console.log(`   Max Keys: Unlimited`);
   console.log(`   Beneficiary: ${masterAccount.address}\n`);
 
@@ -290,7 +290,7 @@ async function deployLockAndUpdateMetadata(tiktokHandle: string): Promise<void> 
         {
           type: MetadataAttributeType.STRING,
           key: 'subscription_price',
-          value: '0.01',
+          value: '1.99',
         },
         {
           type: MetadataAttributeType.STRING,
@@ -347,7 +347,7 @@ async function deployLockAndUpdateMetadata(tiktokHandle: string): Promise<void> 
     console.log(`   Lens Handle: ${lensData.lensHandle}`);
     console.log(`   Lock Address: ${lockAddress}`);
     console.log(`   Lock Chain: Base Sepolia`);
-    console.log(`   Subscription Price: 0.01 ETH/month`);
+    console.log(`   Subscription Price: 1.99 ETH/month`);
     console.log(`   Lock Manager: ${masterAccount.address}`);
     console.log(`   Metadata URI: ${uploadResult.uri}\n`);
 

@@ -260,6 +260,11 @@ export function KaraokeSongPage() {
   const handleSegmentClick = useCallback((segment: any) => {
     navigate(`/song/${geniusId}/segment/${segment.id}`)
   }, [navigate, geniusId])
+  const handleArtistClick = useCallback(() => {
+    if (displaySong?.geniusArtistId) {
+      navigate(`/artist/${displaySong.geniusArtistId}`)
+    }
+  }, [navigate, displaySong?.geniusArtistId])
 
   // Handle credit purchase
   const handlePurchaseCredits = useCallback(async (packageId: number) => {
@@ -359,6 +364,7 @@ export function KaraokeSongPage() {
         segments={[]}
         onBack={handleBack}
         onPlay={handlePlay}
+        onArtistClick={handleArtistClick}
       />
     )
   }
@@ -372,6 +378,7 @@ export function KaraokeSongPage() {
         segments={[]}
         onBack={handleBack}
         onPlay={handlePlay}
+        onArtistClick={handleArtistClick}
         isAuthenticated={isPKPReady}
       />
     )
@@ -427,6 +434,7 @@ export function KaraokeSongPage() {
         isLocked={segments.length > 0 && !songFromContract?.hasBaseAlignment && !baseAlignmentComplete}
         onBack={handleBack}
         onPlay={handlePlay}
+        onArtistClick={handleArtistClick}
         onSelectSegment={handleSegmentClick}
         onUnlockAll={handleUnlock}
         isAuthenticated={isPKPReady}

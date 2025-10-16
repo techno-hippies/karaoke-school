@@ -74,6 +74,25 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   console.log(`✅ Loaded PKP for ${pkpData.tiktokHandle}`);
   console.log(`   PKP Address: ${pkpData.pkpEthAddress}\n`);
 
+  // 1.5. Load TikTok profile data from manifest
+  const manifestPath = path.join(process.cwd(), 'data', 'videos', cleanHandle, 'manifest.json');
+  console.log(`📂 Loading TikTok profile from manifest: ${manifestPath}`);
+
+  let profileData = null;
+  let desiredLensHandle = null;
+  try {
+    const manifestRaw = await readFile(manifestPath, 'utf-8');
+    const manifest = JSON.parse(manifestRaw);
+    profileData = manifest.profile;
+    desiredLensHandle = manifest.lensHandle?.replace('@', '');
+    console.log(`✅ Profile: ${profileData.nickname}`);
+    console.log(`   Avatar URI: ${profileData.groveUris?.avatar || 'none'}`);
+    console.log(`   Bio: ${profileData.bio?.slice(0, 50) || 'none'}...`);
+    console.log(`   Desired Lens Handle: @${desiredLensHandle}\n`);
+  } catch (e) {
+    console.log(`⚠️  Could not load manifest, will use placeholder data\n`);
+  }
+
   // 2. Setup owner account (for PKP authorization)
   const privateKey = process.env.PRIVATE_KEY?.trim();
   if (!privateKey) {
@@ -128,24 +147,50 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   const sessionClient = authenticated.value;
 
   // 7. Create account metadata
-  const lensHandle = `${cleanHandle}-tiktok`.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const lensHandle = (desiredLensHandle || cleanHandle).toLowerCase().replace(/[^a-z0-9]/g, '');
 
   console.log('📝 Creating account metadata...');
+
+  // Build attributes array
+  const attributes: any[] = [
+    {
+      type: 'String',
+      key: 'tiktok_handle',
+      value: tiktokHandle,
+    },
+    {
+      type: 'String',
+      key: 'pkp_address',
+      value: pkpData.pkpEthAddress,
+    },
+  ];
+
+  // Add Genius artist ID if available (for artists who make music)
+  if (profileData?.geniusArtistId) {
+    attributes.push({
+      type: 'Number',
+      key: 'genius_artist_id',
+      value: String(profileData.geniusArtistId),
+    });
+    console.log(`🎵 Artist detected - Genius ID: ${profileData.geniusArtistId}`);
+  }
+
+  // Add bio translations if available
+  if (profileData?.bioTranslations) {
+    for (const [lang, translation] of Object.entries(profileData.bioTranslations)) {
+      attributes.push({
+        type: 'String',
+        key: `bio_${lang}`,
+        value: translation,
+      });
+    }
+  }
+
   const metadata = account({
-    name: `${cleanHandle} (TikTok)`,
-    bio: `TikTok creator ${tiktokHandle} on Lens. PKP-controlled account.`,
-    attributes: [
-      {
-        type: 'String',
-        key: 'tiktok_handle',
-        value: tiktokHandle,
-      },
-      {
-        type: 'String',
-        key: 'pkp_address',
-        value: pkpData.pkpEthAddress,
-      },
-    ],
+    name: profileData?.nickname || `${cleanHandle} (TikTok)`,
+    bio: profileData?.bio || `TikTok creator ${tiktokHandle} on Lens. PKP-controlled account.`,
+    picture: profileData?.groveUris?.avatar || undefined,
+    attributes,
   });
 
   // 8. Upload metadata to Grove storage
