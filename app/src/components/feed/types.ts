@@ -45,6 +45,7 @@ export interface VideoPostData {
   isPremium?: boolean // Requires subscription to play
   userIsSubscribed?: boolean // User has active subscription
   isSubscribing?: boolean // Subscription purchase in progress
+  isSubscriptionLoading?: boolean // Subscription status check in progress
   // HLS encrypted video support
   encryption?: EncryptionMetadata // Encryption metadata for decrypting segments
   hlsMetadata?: HLSMetadata // HLS segment URIs and metadata

@@ -46,6 +46,7 @@ export function VideoPost({
   isPremium = false,
   userIsSubscribed = false,
   isSubscribing = false,
+  isSubscriptionLoading = false,
   onLikeClick,
   onCommentClick,
   onShareClick,
@@ -126,8 +127,8 @@ export function VideoPost({
           forceShowThumbnail={isPremium && !userIsSubscribed}
         />
 
-        {/* Premium Lock Overlay - show when video is locked */}
-        {isPremium && !userIsSubscribed && (
+        {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}
+        {isPremium && !userIsSubscribed && !isSubscriptionLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
             <SubscribeCard
               username={username}

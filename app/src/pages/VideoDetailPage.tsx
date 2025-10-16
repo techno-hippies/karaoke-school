@@ -209,6 +209,7 @@ export function VideoDetailPage() {
       isPremium,
       userIsSubscribed: isSubscribed,
       isSubscribing: isPurchasing,
+      isSubscriptionLoading: isSubscriptionLoading,
       likes: 0, // TODO: Add from post stats
       comments: 0, // TODO: Add from post stats
       shares: 0, // TODO: Add from post stats
@@ -219,7 +220,7 @@ export function VideoDetailPage() {
       pkpInfo: pkpInfo || undefined,
       authData: authData || undefined,
     }
-  }, [post, account, username, isPremium, isSubscribed, isPurchasing, encryption, hlsMetadata, pkpInfo, authData, i18n.language])
+  }, [post, account, username, isPremium, isSubscribed, isPurchasing, isSubscriptionLoading, encryption, hlsMetadata, pkpInfo, authData, i18n.language])
 
   // Memoize karaoke lines extraction
   const karaokeLines = useMemo(() => {
