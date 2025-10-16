@@ -24,6 +24,7 @@ interface HLSPlayerProps {
   loop?: boolean
   controls?: boolean
   onError?: (error: Error) => void
+  onTimeUpdate?: (currentTime: number) => void
 }
 
 /**
@@ -54,6 +55,7 @@ export function HLSPlayer({
   loop = false,
   controls = true,
   onError,
+  onTimeUpdate,
 }: HLSPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -235,11 +237,17 @@ export function HLSPlayer({
         const handlePause = () => setIsPlaying(false)
         const handleWaiting = () => setIsLoading(true)
         const handleCanPlay = () => setIsLoading(false)
+        const handleTimeUpdate = () => {
+          if (onTimeUpdate) {
+            onTimeUpdate(video.currentTime)
+          }
+        }
 
         video.addEventListener('play', handlePlay)
         video.addEventListener('pause', handlePause)
         video.addEventListener('waiting', handleWaiting)
         video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('timeupdate', handleTimeUpdate)
 
         // Load playlist (will be fetched without decryption, segments will be decrypted)
         const resolvedPlaylistUrl = lensToGroveUrl(playlistUrl)
@@ -255,6 +263,7 @@ export function HLSPlayer({
           video.removeEventListener('pause', handlePause)
           video.removeEventListener('waiting', handleWaiting)
           video.removeEventListener('canplay', handleCanPlay)
+          video.removeEventListener('timeupdate', handleTimeUpdate)
         }
 
       } catch (error: any) {
@@ -277,7 +286,7 @@ export function HLSPlayer({
       symmetricKeyRef.current = null
       isInitializedRef.current = false
     }
-  }, [playlistUrl, hlsMetadata, encryption, pkpInfo, authData, onError])
+  }, [playlistUrl, hlsMetadata, encryption, pkpInfo, authData, onError, onTimeUpdate])
 
   if (error) {
     return (

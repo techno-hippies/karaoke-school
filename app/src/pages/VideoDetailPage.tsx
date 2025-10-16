@@ -240,8 +240,14 @@ export function VideoDetailPage() {
     try {
       const transcriptions = JSON.parse(transcriptionsData)
 
-      // Map i18n language to transcription language key
-      // i18n uses 'zh-CN', but transcriptions use 'zh'
+      // Always use English for main text (word-level highlighting)
+      const englishData = transcriptions.languages?.en
+      if (!englishData?.segments) {
+        console.warn('No English transcription segments found')
+        return undefined
+      }
+
+      // Map i18n language to transcription language key for translation
       const currentLang = i18n.language
       const transcriptionLangMap: Record<string, string> = {
         'en': 'en',
@@ -250,27 +256,22 @@ export function VideoDetailPage() {
         'vi': 'vi'
       }
 
-      // Get the appropriate language, fall back to English
-      const transcriptionLang = transcriptionLangMap[currentLang] || 'en'
-      const languageData = transcriptions.languages?.[transcriptionLang] || transcriptions.languages?.en
+      // Get translation language (if not English)
+      const translationLang = transcriptionLangMap[currentLang] || 'en'
+      const translationData = translationLang !== 'en'
+        ? transcriptions.languages?.[translationLang]
+        : null
 
-      if (!languageData?.segments) {
-        console.warn(`No transcription segments found for language: ${transcriptionLang}`)
-        return undefined
-      }
+      console.log(`[VideoDetailPage] Using English transcription with ${translationLang} translation for i18n language: ${currentLang}`)
 
-      console.log(`[VideoDetailPage] Using ${transcriptionLang} transcription for i18n language: ${currentLang}`)
-
-      const segments = languageData.segments
-
-      // Convert segments to KaraokeLine format
-      return segments.map((segment: any) => ({
-        text: segment.text,
-        translation: segment.translation,
+      // Convert segments: English text with word timing + translation
+      return englishData.segments.map((segment: any, index: number) => ({
+        text: segment.text, // English text
+        translation: translationData?.segments?.[index]?.text || undefined, // Translation from user's language
         start: segment.start,
         end: segment.end,
         words: segment.words?.map((word: any) => ({
-          text: word.word || word.text, // Support both 'word' and 'text' field names
+          text: word.word || word.text, // English words for highlighting
           start: word.start,
           end: word.end,
         })),
