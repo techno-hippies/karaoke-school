@@ -74,22 +74,73 @@ echo "🔑 Step 3/4: Adding PKP permissions..."
 DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- bun run scripts/add-pkp-permission.mjs $CID > /dev/null
 echo "✅ Permissions added!"
 
-# 4. Update .env in frontend
+# 4. Update TypeScript config file (source of truth)
 echo ""
-echo "📝 Step 4/4: Updating app/.env.local..."
-ENV_FILE="../app/.env.local"
+echo "📝 Step 4/4: Updating app/src/config/lit-actions.ts..."
+CONFIG_FILE="../app/src/config/lit-actions.ts"
+DEPLOY_DATE=$(date +%Y-%m-%d)
 
-if [ -f "$ENV_FILE" ]; then
-  # Update existing variable or add if missing
-  if grep -q "^$ENV_VAR=" "$ENV_FILE"; then
-    sed -i "s|^$ENV_VAR=.*|$ENV_VAR=$CID|" "$ENV_FILE"
+if [ -f "$CONFIG_FILE" ]; then
+  # Map action file to config key
+  CONFIG_KEY=""
+  case "$ACTION_FILE" in
+    *"search.js")
+      CONFIG_KEY="search"
+      ;;
+    *"song.js")
+      CONFIG_KEY="song"
+      ;;
+    *"artist.js")
+      CONFIG_KEY="artist"
+      ;;
+    *"match-and-segment"*)
+      CONFIG_KEY="matchSegment"
+      ;;
+    *"base-alignment"*)
+      CONFIG_KEY="baseAlignment"
+      ;;
+    *"audio-processor"*)
+      CONFIG_KEY="audioProcessor"
+      ;;
+    *"translate-lyrics"*)
+      CONFIG_KEY="translate"
+      ;;
+    *"decrypt-symmetric-key"*)
+      CONFIG_KEY="decryptKey"
+      ;;
+    *)
+      echo "⚠️  Warning: Unknown action file, cannot determine config key"
+      CONFIG_KEY=""
+      ;;
+  esac
+
+  if [ -n "$CONFIG_KEY" ]; then
+    # Update the CID in the config file using sed
+    # Pattern: Find the config key block and update its cid line
+    sed -i "/$CONFIG_KEY: {/,/},/ s|cid: '[^']*'|cid: '$CID'|" "$CONFIG_FILE"
+    sed -i "/$CONFIG_KEY: {/,/},/ s|deployedAt: '[^']*'|deployedAt: '$DEPLOY_DATE'|" "$CONFIG_FILE"
+    echo "✅ Updated $CONFIG_KEY.cid = $CID in config file"
+    echo "✅ Updated $CONFIG_KEY.deployedAt = $DEPLOY_DATE"
+
+    # Also update .env.local for development override capability
+    ENV_FILE="../app/.env.local"
+    if [ -f "$ENV_FILE" ]; then
+      if grep -q "^$ENV_VAR=" "$ENV_FILE"; then
+        sed -i "s|^$ENV_VAR=.*|$ENV_VAR=$CID|" "$ENV_FILE"
+      else
+        echo "$ENV_VAR=$CID" >> "$ENV_FILE"
+      fi
+      echo "✅ Also updated $ENV_VAR in .env.local (for local dev override)"
+    fi
   else
-    echo "$ENV_VAR=$CID" >> "$ENV_FILE"
+    echo "⚠️  Could not auto-update config file"
+    echo "   Manually update $CONFIG_KEY in app/src/config/lit-actions.ts"
+    echo "   Set cid: '$CID'"
+    echo "   Set deployedAt: '$DEPLOY_DATE'"
   fi
-  echo "✅ Updated $ENV_VAR=$CID"
 else
-  echo "⚠️  Warning: $ENV_FILE not found, skipping env update"
-  echo "   Manually set: $ENV_VAR=$CID"
+  echo "⚠️  Warning: $CONFIG_FILE not found"
+  echo "   Manually update config file with CID: $CID"
 fi
 
 # Done!

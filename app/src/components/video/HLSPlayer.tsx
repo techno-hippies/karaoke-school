@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
+import { Play } from '@phosphor-icons/react'
 import { Spinner } from '@/components/ui/spinner'
 import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
 import { decryptSymmetricKey, decryptSegment } from '@/lib/lit/decrypt-video'
@@ -25,6 +26,7 @@ interface HLSPlayerProps {
   controls?: boolean
   onError?: (error: Error) => void
   onTimeUpdate?: (currentTime: number) => void
+  onPlayFailed?: () => void
 }
 
 /**
@@ -50,12 +52,13 @@ export function HLSPlayer({
   pkpInfo,
   authData,
   className = '',
-  autoPlay = false,
-  muted = false,
+  autoPlay = true,
+  muted = true,
   loop = false,
   controls = true,
   onError,
   onTimeUpdate,
+  onPlayFailed,
 }: HLSPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -65,6 +68,21 @@ export function HLSPlayer({
   const symmetricKeyRef = useRef<Uint8Array | null>(null)
   const isInitializedRef = useRef(false)
   const cancelledRef = useRef(false)
+  const autoPlayAttemptedRef = useRef(false)
+
+  // Handle manual play (when user clicks play button)
+  const handlePlayPause = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (video.paused) {
+      video.play().catch((e) => {
+        console.error('[HLSPlayer] Play failed:', e)
+      })
+    } else {
+      video.pause()
+    }
+  }
 
   useEffect(() => {
     const video = videoRef.current
@@ -247,7 +265,20 @@ export function HLSPlayer({
         const handlePlay = () => setIsPlaying(true)
         const handlePause = () => setIsPlaying(false)
         const handleWaiting = () => setIsLoading(true)
-        const handleCanPlay = () => setIsLoading(false)
+        const handleCanPlay = () => {
+          setIsLoading(false)
+
+          // Try autoplay when ready (if autoPlay prop is true and haven't attempted yet)
+          if (autoPlay && video.paused && !autoPlayAttemptedRef.current) {
+            autoPlayAttemptedRef.current = true
+            video.play().catch((e) => {
+              if (e.name === 'NotAllowedError' && onPlayFailed) {
+                console.log('[HLSPlayer] Autoplay blocked, showing play button')
+                onPlayFailed()
+              }
+            })
+          }
+        }
         const handleTimeUpdate = () => {
           if (onTimeUpdate) {
             onTimeUpdate(video.currentTime)
@@ -299,6 +330,7 @@ export function HLSPlayer({
       // Reset refs to allow re-initialization on next mount
       symmetricKeyRef.current = null
       isInitializedRef.current = false
+      autoPlayAttemptedRef.current = false
     }
   }, [playlistUrl, hlsMetadata, encryption, pkpInfo, authData, onError, onTimeUpdate])
 
@@ -319,17 +351,17 @@ export function HLSPlayer({
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-cover"
-        autoPlay={autoPlay}
         muted={muted}
         loop={loop}
         controls={controls}
         playsInline
         poster={thumbnailUrl}
+        onClick={handlePlayPause}
       />
 
       {/* Thumbnail overlay when loading or paused */}
       {(isLoading || !isPlaying) && thumbnailUrl && (
-        <div className="absolute inset-0 bg-black">
+        <div className="absolute inset-0 bg-black z-10">
           <img
             src={thumbnailUrl}
             alt="Video thumbnail"
@@ -340,8 +372,20 @@ export function HLSPlayer({
 
       {/* Loading spinner overlay */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
           <Spinner size="lg" className="text-white" />
+        </div>
+      )}
+
+      {/* Play button overlay - show when not playing and not loading */}
+      {!isPlaying && !isLoading && (
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
+          onClick={handlePlayPause}
+        >
+          <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
+            <Play className="w-10 h-10 text-foreground fill-white ml-1" weight="fill" />
+          </div>
         </div>
       )}
     </div>

@@ -62,7 +62,7 @@ export function VideoPost({
   className,
   karaokeClassName
 }: VideoPostProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true) // Start true to attempt autoplay
   const [isMuted, setIsMuted] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
@@ -130,6 +130,10 @@ export function VideoPost({
             className="absolute inset-0 w-full h-full object-cover"
             onError={handleHLSError}
             onTimeUpdate={handleTimeUpdate}
+            onPlayFailed={() => {
+              console.log('[VideoPost] HLS autoplay failed, showing play button')
+              setIsPlaying(false)
+            }}
           />
         ) : (
           <VideoPlayer

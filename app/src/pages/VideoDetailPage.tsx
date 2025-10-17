@@ -61,6 +61,11 @@ export function VideoDetailPage() {
 
     // Extract metadata from post attributes
     const extractAttribute = (key: string): string | null => {
+      // Debug: log attributes
+      if (key === 'genius_id') {
+        console.log('[extractAttribute] Looking for genius_id')
+        console.log('[extractAttribute] Attributes:', post.metadata.attributes)
+      }
       const attr = post.metadata.attributes?.find(a => a.key === key)
       return attr?.value || null
     }
@@ -157,7 +162,15 @@ export function VideoDetailPage() {
 
     // Get translated description based on i18n language
     const extractAttribute = (key: string): string | null => {
+      if (key === 'genius_id') {
+        console.log('[extractAttribute#2] Looking for genius_id')
+        console.log('[extractAttribute#2] post.metadata:', post.metadata)
+        console.log('[extractAttribute#2] Attributes:', post.metadata.attributes)
+      }
       const attr = post.metadata.attributes?.find(a => a.key === key)
+      if (key === 'genius_id') {
+        console.log('[extractAttribute#2] Found attr:', attr)
+      }
       return attr?.value || null
     }
 

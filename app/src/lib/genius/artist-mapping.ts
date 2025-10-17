@@ -5,7 +5,7 @@
  * who have PKP profiles. Artists without PKP profiles should use
  * the fallback /artist/:geniusArtistId route.
  *
- * Generated: 2025-10-17T11:56:51.293Z
+ * Generated: 2025-10-17T13:21:22.193Z
  * Command: bun run generate-artist-mapping
  *
  * @see pkp-lens-flow/scripts/generate-artist-mapping.ts
@@ -13,6 +13,7 @@
 
 export const GENIUS_TO_LENS_USERNAME: Record<number, string> = {
   "1177": "taylorswifttiktok",
+  "18722": "grimes",
   "3422526": "billieeilishtiktok"
 }
 
