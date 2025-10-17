@@ -124,10 +124,27 @@ export function VideoPost({
             encryption={encryption}
             pkpInfo={pkpInfo}
             authData={authData}
-            autoPlay={isPlaying}
-            muted={isMuted}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            loop={true}
             controls={false}
             className="absolute inset-0 w-full h-full object-cover"
+            onTogglePlay={() => {
+              // If playing but muted, unmute instead of pausing
+              if (isPlaying && isMuted) {
+                setIsMuted(false)
+                return
+              }
+
+              // Otherwise, toggle play state
+              const newPlayingState = !isPlaying
+              setIsPlaying(newPlayingState)
+
+              // Unmute when starting to play
+              if (newPlayingState && isMuted) {
+                setIsMuted(false)
+              }
+            }}
             onError={handleHLSError}
             onTimeUpdate={handleTimeUpdate}
             onPlayFailed={() => {

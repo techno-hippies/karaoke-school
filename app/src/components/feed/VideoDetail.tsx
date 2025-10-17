@@ -63,8 +63,8 @@ export function VideoDetail({
   className,
   ...videoPostProps
 }: VideoDetailProps) {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(true) // Try autoplay
+  const [isMuted, setIsMuted] = useState(true) // Muted for autoplay
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
@@ -104,14 +104,6 @@ export function VideoDetail({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onNavigatePrevious, onNavigateNext, onClose])
-
-  // Auto-play when component mounts
-  useEffect(() => {
-    setIsPlaying(true)
-    // Try to unmute (will work if user clicked to navigate here)
-    // If blocked by browser, user's first click will unmute
-    setIsMuted(false)
-  }, [])
 
   // Handlers must be defined BEFORE any conditional returns
   const handleCommentClick = () => {
@@ -231,12 +223,18 @@ export function VideoDetail({
               encryption={videoPostProps.encryption}
               pkpInfo={videoPostProps.pkpInfo}
               authData={videoPostProps.authData}
-              autoPlay={isPlaying}
-              muted={isMuted}
+              isPlaying={isPlaying}
+              isMuted={isMuted}
+              loop={true}
               controls={false}
               className="absolute inset-0 w-full h-full object-cover"
+              onTogglePlay={togglePlayPause}
               onError={handleHLSError}
               onTimeUpdate={handleTimeUpdate}
+              onPlayFailed={() => {
+                console.log('[VideoDetail] HLS autoplay failed, showing play button')
+                setIsPlaying(false)
+              }}
             />
           ) : (
             <VideoPlayer
@@ -253,15 +251,6 @@ export function VideoDetail({
               onTimeUpdate={handleTimeUpdate}
               forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
             />
-          )}
-
-          {/* Play/Pause Overlay - only show when paused and not locked */}
-          {videoPostProps.videoUrl && !isPlaying && !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity duration-200 pointer-events-none">
-              <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center">
-                <Play className="w-10 h-10 text-foreground ml-1" weight="fill" />
-              </div>
-            </div>
           )}
 
           {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}

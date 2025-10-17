@@ -20,10 +20,11 @@ interface HLSPlayerProps {
   pkpInfo: PKPInfo
   authData: AuthData
   className?: string
-  autoPlay?: boolean
-  muted?: boolean
+  isPlaying?: boolean
+  isMuted?: boolean
   loop?: boolean
   controls?: boolean
+  onTogglePlay?: () => void
   onError?: (error: Error) => void
   onTimeUpdate?: (currentTime: number) => void
   onPlayFailed?: () => void
@@ -52,10 +53,11 @@ export function HLSPlayer({
   pkpInfo,
   authData,
   className = '',
-  autoPlay = true,
-  muted = true,
-  loop = false,
-  controls = true,
+  isPlaying = false,
+  isMuted = true,
+  loop = true,
+  controls = false,
+  onTogglePlay,
   onError,
   onTimeUpdate,
   onPlayFailed,
@@ -63,12 +65,10 @@ export function HLSPlayer({
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const symmetricKeyRef = useRef<Uint8Array | null>(null)
   const isInitializedRef = useRef(false)
   const cancelledRef = useRef(false)
-  const autoPlayAttemptedRef = useRef(false)
 
   // Handle manual play (when user clicks play button)
   const handlePlayPause = () => {
@@ -76,11 +76,20 @@ export function HLSPlayer({
     if (!video) return
 
     if (video.paused) {
-      video.play().catch((e) => {
-        console.error('[HLSPlayer] Play failed:', e)
-      })
+      // Directly call play() to ensure Chrome recognizes the user gesture
+      video.play()
+        .then(() => {
+          // Only update parent state after play succeeds
+          onTogglePlay?.()
+        })
+        .catch((e) => {
+          if (e.name === 'NotAllowedError' && onPlayFailed) {
+            onPlayFailed()
+          }
+        })
     } else {
-      video.pause()
+      // For pause, call the parent handler
+      onTogglePlay?.()
     }
   }
 
@@ -261,32 +270,15 @@ export function HLSPlayer({
           setIsLoading(false)
         })
 
-        // Track play/pause state
-        const handlePlay = () => setIsPlaying(true)
-        const handlePause = () => setIsPlaying(false)
+        // Track loading state
         const handleWaiting = () => setIsLoading(true)
-        const handleCanPlay = () => {
-          setIsLoading(false)
-
-          // Try autoplay when ready (if autoPlay prop is true and haven't attempted yet)
-          if (autoPlay && video.paused && !autoPlayAttemptedRef.current) {
-            autoPlayAttemptedRef.current = true
-            video.play().catch((e) => {
-              if (e.name === 'NotAllowedError' && onPlayFailed) {
-                console.log('[HLSPlayer] Autoplay blocked, showing play button')
-                onPlayFailed()
-              }
-            })
-          }
-        }
+        const handleCanPlay = () => setIsLoading(false)
         const handleTimeUpdate = () => {
           if (onTimeUpdate) {
             onTimeUpdate(video.currentTime)
           }
         }
 
-        video.addEventListener('play', handlePlay)
-        video.addEventListener('pause', handlePause)
         video.addEventListener('waiting', handleWaiting)
         video.addEventListener('canplay', handleCanPlay)
         video.addEventListener('timeupdate', handleTimeUpdate)
@@ -301,8 +293,6 @@ export function HLSPlayer({
 
         // Cleanup event listeners
         return () => {
-          video.removeEventListener('play', handlePlay)
-          video.removeEventListener('pause', handlePause)
           video.removeEventListener('waiting', handleWaiting)
           video.removeEventListener('canplay', handleCanPlay)
           video.removeEventListener('timeupdate', handleTimeUpdate)
@@ -330,9 +320,39 @@ export function HLSPlayer({
       // Reset refs to allow re-initialization on next mount
       symmetricKeyRef.current = null
       isInitializedRef.current = false
-      autoPlayAttemptedRef.current = false
     }
   }, [playlistUrl, hlsMetadata, encryption, pkpInfo, authData, onError, onTimeUpdate])
+
+  // Sync isPlaying prop with actual video playback state (like VideoPlayer)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (isPlaying) {
+      // Only call play() if video is not already playing
+      if (video.paused) {
+        video.play().catch((e) => {
+          // Notify parent that autoplay failed so it can show the play button
+          if (e.name === 'NotAllowedError' && onPlayFailed) {
+            console.log('[HLSPlayer] Autoplay blocked, notifying parent')
+            onPlayFailed()
+          }
+        })
+      }
+    } else {
+      // Only pause if video is actually playing
+      if (!video.paused) {
+        video.pause()
+      }
+    }
+  }, [isPlaying, onPlayFailed])
+
+  // Sync isMuted prop with video element (like VideoPlayer)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = isMuted
+  }, [isMuted])
 
   if (error) {
     return (
@@ -351,7 +371,6 @@ export function HLSPlayer({
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-cover"
-        muted={muted}
         loop={loop}
         controls={controls}
         playsInline
@@ -377,8 +396,8 @@ export function HLSPlayer({
         </div>
       )}
 
-      {/* Play button overlay - show when not playing and not loading */}
-      {!isPlaying && !isLoading && (
+      {/* Play button overlay - only show when controls=true (parent handles it when false) */}
+      {!isPlaying && !isLoading && controls && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
           onClick={handlePlayPause}
