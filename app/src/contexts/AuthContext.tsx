@@ -263,15 +263,13 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
       })
 
       setSessionClient(result.session)
-      if (result.account) {
-        setAccount(result.account)
-      }
+      setAccount(result.account)
 
-      // Complete regardless of whether they have an account
-      // Session is enough for now, account creation can happen later
+      // Account is always created (either existing or new without username)
       setAuthStep('complete')
       setAuthStatus('All set!')
       setAuthMode(null)
+      setLensSetupStatus('complete')
     } catch (error) {
       console.error('[Auth] Lens login error:', error)
       setAuthError(error as Error)
@@ -344,7 +342,7 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
   /**
    * Ensure Lens account is set up (just-in-time)
    * Can be called when user attempts social features
-   * Returns true if account ready, false if setup needed
+   * Returns true (accounts are always auto-created now)
    */
   const ensureLensAccount = useCallback(async (): Promise<boolean> => {
     if (!pkpWallet.isConnected || !pkpWallet.address) {
@@ -357,29 +355,15 @@ function AuthProviderCore({ children, pkpWallet }: { children: ReactNode; pkpWal
     }
 
     try {
-      // Check if session exists
-      if (!sessionClient) {
-        await loginLens()
-      }
-
-      // Check if account exists
-      const existingAccounts = await getExistingAccounts(pkpWallet.address)
-
-      if (existingAccounts.length > 0) {
-        setAccount(existingAccounts[0].account)
-        setLensSetupStatus('complete')
-        return true
-      }
-
-      // No account - user needs to create one
-      setLensSetupStatus('failed')
-      return false
+      // loginLens now auto-creates account if none exists
+      await loginLens()
+      return true
     } catch (error) {
       console.error('[Auth] Ensure Lens account error:', error)
       setLensSetupStatus('failed')
       return false
     }
-  }, [pkpWallet.isConnected, pkpWallet.address, account, sessionClient, loginLens, setAccount])
+  }, [pkpWallet.isConnected, pkpWallet.address, account, loginLens])
 
   /**
    * Logout and reset all auth state

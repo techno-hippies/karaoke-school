@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Step 3.5: Transcribe Audio with Voxtral API
+ * Step 3.5: Transcribe Audio with ElevenLabs API
  *
- * Transcribes video audio to English using Mistral's Voxtral API
+ * Transcribes video audio to English using ElevenLabs Speech-to-Text
  * Generates word-level timestamps for karaoke-style captions
  *
  * Usage: bun run transcribe-audio --creator @handle
@@ -14,8 +14,8 @@ import { join } from "path";
 import { spawn } from "child_process";
 import type { TranscriptionData, VideoTranscription } from "./types/transcription";
 
-const VOXTRAL_API_URL = "https://api.mistral.ai/v1/audio/transcriptions";
-const VOXTRAL_MODEL = "voxtral-mini-latest";
+const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/speech-to-text";
+const ELEVENLABS_MODEL = "scribe_v1";
 
 /**
  * Extract audio from video file to MP3 using ffmpeg
@@ -51,29 +51,23 @@ async function extractAudioToMp3(videoPath: string, outputPath: string): Promise
   });
 }
 
-interface VoxtralSegment {
+interface ElevenLabsWord {
+  text: string;
   start: number;
   end: number;
-  text: string;
 }
 
-interface VoxtralResponse {
-  model: string;
+interface ElevenLabsResponse {
   text: string;
   language: string;
-  segments: VoxtralSegment[];
-  usage: {
-    prompt_audio_seconds: number;
-    prompt_tokens: number;
-    total_tokens: number;
-    completion_tokens: number;
-  };
+  words: ElevenLabsWord[];
+  duration: number;
 }
 
 async function transcribeAudio(
   audioPath: string,
   apiKey: string
-): Promise<VoxtralResponse> {
+): Promise<ElevenLabsResponse> {
   const formData = new FormData();
 
   // Read audio file as blob
@@ -81,14 +75,13 @@ async function transcribeAudio(
   const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
 
   formData.append("file", audioBlob, audioPath.split("/").pop());
-  formData.append("model", VOXTRAL_MODEL);
-  formData.append("timestamp_granularities", "segment");
-  // Note: Can't specify language when requesting timestamps - will auto-detect
+  formData.append("model_id", ELEVENLABS_MODEL);
+  formData.append("language_code", "en");
 
-  const response = await fetch(VOXTRAL_API_URL, {
+  const response = await fetch(ELEVENLABS_API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      "xi-api-key": apiKey,
     },
     body: formData,
   });
@@ -96,41 +89,88 @@ async function transcribeAudio(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `Voxtral API error (${response.status}): ${errorText}`
+      `ElevenLabs API error (${response.status}): ${errorText}`
     );
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  // Filter out whitespace-only words
+  if (data.words) {
+    data.words = data.words.filter((word: ElevenLabsWord) => {
+      return word.text.trim().length > 0;
+    });
+  }
+
+  return data;
 }
 
 /**
- * Distribute segment timing proportionally across words
- * Since Voxtral gives segment-level timestamps, we estimate word-level timing
+ * Group words into lines based on natural sentence boundaries
+ * Creates segments similar to karaoke lines for better readability
  */
-function distributeWordTimings(segment: VoxtralSegment) {
-  const words = segment.text.trim().split(/\s+/);
-  const segmentDuration = segment.end - segment.start;
-  const timePerWord = segmentDuration / words.length;
+function groupWordsIntoLines(
+  words: ElevenLabsWord[]
+): Array<{ start: number; end: number; text: string; words: Array<{ word: string; start: number; end: number }> }> {
+  if (words.length === 0) return [];
 
-  return words.map((word, index) => ({
-    word,
-    start: segment.start + index * timePerWord,
-    end: segment.start + (index + 1) * timePerWord,
-  }));
+  const lines: Array<{ start: number; end: number; text: string; words: Array<{ word: string; start: number; end: number }> }> = [];
+  let currentLine: Array<{ word: string; start: number; end: number }> = [];
+
+  const MAX_LINE_DURATION = 5.0; // Max 5 seconds per line
+  const MAX_WORDS_PER_LINE = 10; // Max 10 words per line
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordData = {
+      word: word.text,
+      start: word.start,
+      end: word.end,
+    };
+
+    currentLine.push(wordData);
+
+    // Check if we should end this line
+    const lineStart = currentLine[0].start;
+    const lineEnd = word.end;
+    const lineDuration = lineEnd - lineStart;
+    const isLastWord = i === words.length - 1;
+    const nextWordHasPause = !isLastWord && (words[i + 1].start - word.end) > 0.3; // 300ms pause
+
+    const shouldEndLine =
+      isLastWord ||
+      currentLine.length >= MAX_WORDS_PER_LINE ||
+      lineDuration >= MAX_LINE_DURATION ||
+      nextWordHasPause ||
+      word.text.endsWith('.') ||
+      word.text.endsWith('!') ||
+      word.text.endsWith('?');
+
+    if (shouldEndLine && currentLine.length > 0) {
+      const lineText = currentLine.map(w => w.word).join(' ');
+      lines.push({
+        start: currentLine[0].start,
+        end: currentLine[currentLine.length - 1].end,
+        text: lineText,
+        words: currentLine,
+      });
+      currentLine = [];
+    }
+  }
+
+  return lines;
 }
 
 function convertToTranscriptionData(
-  response: VoxtralResponse
+  response: ElevenLabsResponse
 ): TranscriptionData {
+  // Group words into natural line segments
+  const segments = groupWordsIntoLines(response.words);
+
   return {
-    language: "en",
+    language: response.language || "en",
     text: response.text,
-    segments: response.segments.map((segment) => ({
-      start: segment.start,
-      end: segment.end,
-      text: segment.text,
-      words: distributeWordTimings(segment),
-    })),
+    segments,
   };
 }
 
@@ -154,11 +194,11 @@ async function main() {
   const handle = creator.replace("@", "");
   console.log(`🎤 Transcribing audio for @${handle}...`);
 
-  // Load API key (check both VOXTRAL_API_KEY and MISTRAL_API_KEY)
-  const apiKey = process.env.VOXTRAL_API_KEY || process.env.MISTRAL_API_KEY;
+  // Load ElevenLabs API key
+  const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    console.error("❌ Missing VOXTRAL_API_KEY or MISTRAL_API_KEY environment variable");
-    console.error("   Get your API key at: https://console.mistral.ai/");
+    console.error("❌ Missing ELEVENLABS_API_KEY environment variable");
+    console.error("   Get your API key at: https://elevenlabs.io/app/settings/api-keys");
     process.exit(1);
   }
 
@@ -223,15 +263,19 @@ async function main() {
       await extractAudioToMp3(videoPath, audioPath);
       console.log(`   ✅ Audio extracted to ${audioPath.split("/").pop()}`);
 
-      console.log(`   🔊 Transcribing audio...`);
+      console.log(`   🔊 Transcribing audio with ElevenLabs...`);
       const response = await transcribeAudio(audioPath, apiKey);
 
-      console.log(`   ✅ Transcribed: ${response.segments.length} segments`);
+      console.log(`   ✅ Transcribed: ${response.words.length} words`);
       console.log(`   📝 Text preview: ${response.text.slice(0, 100)}...`);
-      console.log(`   ⏱️  Audio duration: ${response.usage.prompt_audio_seconds}s`);
+      if (response.duration) {
+        console.log(`   ⏱️  Audio duration: ${response.duration.toFixed(1)}s`);
+      }
 
-      // Convert to our format
+      // Convert to our format with natural line grouping
       const transcriptionData = convertToTranscriptionData(response);
+
+      console.log(`   📊 Created ${transcriptionData.segments.length} lines from ${response.words.length} words`);
 
       // Add to video object
       const transcription: VideoTranscription = {
@@ -239,7 +283,7 @@ async function main() {
           en: transcriptionData,
         },
         generatedAt: new Date().toISOString(),
-        voxtralModel: response.model,
+        elevenLabsModel: ELEVENLABS_MODEL,
       };
 
       video.transcription = transcription;

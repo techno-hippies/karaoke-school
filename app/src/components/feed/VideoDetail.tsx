@@ -72,11 +72,12 @@ export function VideoDetail({
 
   // Memoize callbacks to prevent HLS player re-initialization
   const handleTimeUpdate = useCallback((time: number) => {
+    console.log('[VideoDetail] Received time update:', time.toFixed(2))
     setCurrentTime(time)
   }, [])
 
   const handleHLSError = useCallback((error: Error) => {
-    console.error('[VideoDetail] HLS playback error:', error)
+    // HLS playback error - handled by HLSPlayer component
   }, [])
 
   // Format engagement counts
@@ -104,18 +105,6 @@ export function VideoDetail({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onNavigatePrevious, onNavigateNext, onClose])
 
-  // Track video time for karaoke
-  useEffect(() => {
-    if (!videoContainerRef.current) return
-
-    const video = videoContainerRef.current.querySelector('video')
-    if (!video) return
-
-    const updateTime = () => setCurrentTime(video.currentTime)
-    video.addEventListener('timeupdate', updateTime)
-    return () => video.removeEventListener('timeupdate', updateTime)
-  }, [])
-
   // Auto-play when component mounts
   useEffect(() => {
     setIsPlaying(true)
@@ -136,11 +125,8 @@ export function VideoDetail({
   }
 
   const togglePlayPause = () => {
-    console.log('[VideoDetail] togglePlayPause called, current isPlaying:', isPlaying, 'isMuted:', isMuted)
-
     // If playing but muted, unmute instead of pausing
     if (isPlaying && isMuted) {
-      console.log('[VideoDetail] Video is muted, unmuting instead of pausing')
       setIsMuted(false)
       return
     }
@@ -148,11 +134,9 @@ export function VideoDetail({
     // Otherwise, toggle play state
     const newPlayingState = !isPlaying
     setIsPlaying(newPlayingState)
-    console.log('[VideoDetail] Setting isPlaying to:', newPlayingState)
 
     // Unmute when starting to play
     if (newPlayingState && isMuted) {
-      console.log('[VideoDetail] Unmuting video on play')
       setIsMuted(false)
     }
   }
@@ -207,9 +191,9 @@ export function VideoDetail({
 
   // Desktop: Video left, sidebar right
   return (
-    <div className={cn('fixed inset-0 bg-neutral-900 z-50 flex overflow-hidden', className)}>
+    <div className={cn('fixed inset-0 bg-background z-50 flex overflow-hidden', className)}>
       {/* Video Area - Left Side */}
-      <div className="flex-1 relative bg-neutral-900 flex items-center justify-center overflow-hidden">
+      <div className="flex-1 relative bg-background flex items-center justify-center overflow-hidden">
         {/* Close button - Top Left */}
         {onClose && (
           <Button
@@ -227,7 +211,7 @@ export function VideoDetail({
         <div
           ref={videoContainerRef}
           className={cn(
-            "relative bg-neutral-900 rounded-lg overflow-hidden",
+            "relative bg-background rounded-lg overflow-hidden",
             !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && "cursor-pointer"
           )}
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
@@ -264,9 +248,9 @@ export function VideoDetail({
               onPlayFailed={() => {
                 // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
                 // so the play button overlay appears
-                console.log('[VideoDetail] Autoplay failed, showing play button')
                 setIsPlaying(false)
               }}
+              onTimeUpdate={handleTimeUpdate}
               forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
             />
           )}
@@ -330,9 +314,9 @@ export function VideoDetail({
       </div>
 
       {/* Right Sidebar - Fixed Width */}
-      <div className="w-[560px] bg-neutral-900 flex flex-col h-full border-l border-neutral-800">
+      <div className="w-[560px] bg-card flex flex-col h-full border-l border-border">
         {/* Profile Section */}
-        <div className="p-4 border-b border-neutral-800">
+        <div className="p-4 border-b border-border">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -388,7 +372,7 @@ export function VideoDetail({
         </div>
 
         {/* Description & Music Section */}
-        <div className="p-4 border-b border-neutral-800">
+        <div className="p-4 border-b border-border">
           <p className="text-foreground leading-relaxed mb-3 whitespace-pre-wrap">
             {videoPostProps.description}
           </p>
@@ -410,7 +394,7 @@ export function VideoDetail({
         </div>
 
         {/* Engagement Section */}
-        <div className="p-4 border-b border-neutral-800">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center gap-6">
             {/* Like */}
             <button
@@ -425,7 +409,7 @@ export function VideoDetail({
                 'rounded-full p-2 transition-colors',
                 videoPostProps.isLiked
                   ? 'bg-red-500/20'
-                  : 'bg-neutral-800/50 group-hover:bg-neutral-700/50'
+                  : 'bg-muted/50 group-hover:bg-accent/50'
               )}>
                 <Heart
                   className={cn(
@@ -451,7 +435,7 @@ export function VideoDetail({
               }}
               className="flex items-center gap-2 group"
             >
-              <div className="rounded-full p-2 bg-neutral-800/50 group-hover:bg-neutral-700/50 transition-colors">
+              <div className="rounded-full p-2 bg-muted/50 group-hover:bg-accent/50 transition-colors">
                 <ChatCircle className="w-6 h-6 text-foreground" weight="fill" />
               </div>
               <span className="text-sm font-medium text-foreground">
@@ -467,7 +451,7 @@ export function VideoDetail({
               }}
               className="flex items-center gap-2 group"
             >
-              <div className="rounded-full p-2 bg-neutral-800/50 group-hover:bg-neutral-700/50 transition-colors">
+              <div className="rounded-full p-2 bg-muted/50 group-hover:bg-accent/50 transition-colors">
                 <ShareFat className="w-6 h-6 text-foreground" weight="fill" />
               </div>
               <span className="text-sm font-medium text-foreground">
@@ -479,7 +463,7 @@ export function VideoDetail({
 
         {/* Comments Section */}
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-3 border-b border-neutral-800">
+          <div className="px-4 py-3 border-b border-border">
             <h3 className="font-semibold text-base text-foreground">
               Comments {videoPostProps.comments > 0 && `(${videoPostProps.comments})`}
             </h3>
@@ -509,7 +493,7 @@ export function VideoDetail({
           </div>
 
           {/* Comment Input - Sticky at bottom */}
-          <div className="border-t border-neutral-800">
+          <div className="border-t border-border">
             <CommentInput
               onSubmit={(content) => {
                 if (onSubmitComment) {

@@ -14,6 +14,7 @@ export function VideoPlayer({
   isMuted,
   onTogglePlay,
   onPlayFailed,
+  onTimeUpdate,
   forceShowThumbnail = false,
   className
 }: VideoPlayerProps) {
@@ -28,12 +29,10 @@ export function VideoPlayer({
       // Directly call play() to ensure Chrome recognizes the user gesture
       videoRef.current.play()
         .then(() => {
-          console.log('[VideoPlayer] Play succeeded, updating parent state')
           // Only update parent state after play succeeds
           onTogglePlay()
         })
         .catch(e => {
-          console.error('[VideoPlayer] Play failed on user click:', e.name)
           if (e.name === 'NotAllowedError' && onPlayFailed) {
             onPlayFailed()
           }
@@ -55,9 +54,8 @@ export function VideoPlayer({
     videoRef.current.src = videoUrl
     videoRef.current.load()
 
-    // Only log errors
     const handleError = (e: Event) => {
-      console.error('[VideoPlayer] Video load error:', videoRef.current?.error)
+      // Video load error - silently handled by showing thumbnail/error UI
     }
 
     videoRef.current.addEventListener('error', handleError)
@@ -76,7 +74,6 @@ export function VideoPlayer({
       if (videoRef.current.paused) {
         videoRef.current.play()
           .catch(e => {
-            console.error('[VideoPlayer] Play failed:', e.name)
             // Notify parent that autoplay failed so it can show the play button
             if (e.name === 'NotAllowedError' && onPlayFailed) {
               onPlayFailed()
@@ -98,34 +95,41 @@ export function VideoPlayer({
   }, [isMuted])
 
   // Track when video actually starts playing (not just when play() is called)
+  // Also track time updates for karaoke synchronization
   useEffect(() => {
     if (!videoRef.current) return
 
     const handlePlaying = () => {
-      console.log('[VideoPlayer] Video started playing')
       setHasStartedPlaying(true)
     }
 
     const handlePause = () => {
-      console.log('[VideoPlayer] Video paused')
       setHasStartedPlaying(false)
     }
 
     const handleEnded = () => {
-      console.log('[VideoPlayer] Video ended')
       setHasStartedPlaying(false)
+    }
+
+    const handleTimeUpdate = () => {
+      if (onTimeUpdate && videoRef.current) {
+        console.log('[VideoPlayer] Time update:', videoRef.current.currentTime.toFixed(2))
+        onTimeUpdate(videoRef.current.currentTime)
+      }
     }
 
     videoRef.current.addEventListener('playing', handlePlaying)
     videoRef.current.addEventListener('pause', handlePause)
     videoRef.current.addEventListener('ended', handleEnded)
+    videoRef.current.addEventListener('timeupdate', handleTimeUpdate)
 
     return () => {
       videoRef.current?.removeEventListener('playing', handlePlaying)
       videoRef.current?.removeEventListener('pause', handlePause)
       videoRef.current?.removeEventListener('ended', handleEnded)
+      videoRef.current?.removeEventListener('timeupdate', handleTimeUpdate)
     }
-  }, [])
+  }, [onTimeUpdate])
 
   const showThumbnail = !!thumbnailUrl
   const showVideo = !!videoUrl

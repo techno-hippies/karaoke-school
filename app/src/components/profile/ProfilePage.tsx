@@ -8,6 +8,8 @@ import type { ArtistSong } from './ProfilePageView'
 import { APP_ADDRESS } from '@/lens/config'
 import { useArtistData } from '@/hooks/useArtistData'
 import { lensToGroveUrl } from '@/lib/lens/utils'
+import { followAccount, unfollowAccount, isFollowingAccount } from '@/lib/lens/follow'
+import { toast } from 'sonner'
 
 /**
  * ProfilePage - Container component for profile page
@@ -16,7 +18,7 @@ import { lensToGroveUrl } from '@/lib/lens/utils'
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>()
   const navigate = useNavigate()
-  const { isPKPReady, pkpAddress, logout, pkpAuthContext } = useAuth()
+  const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, pkpWalletClient } = useAuth()
 
   // Fetch Lens account by username
   const {
@@ -81,9 +83,17 @@ export function ProfilePage() {
     console.log('==============================')
   }, [username, account?.address, account?.username?.localName, geniusArtistId, artist?.name, topSongs?.length, postsData?.items.length, postsLoading, accountLoading, artistLoading])
 
-  // Follow state (placeholder for now)
+  // Follow state - track both server state and optimistic updates
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+
+  // Update follow state when account data changes
+  useEffect(() => {
+    if (account) {
+      const serverFollowState = isFollowingAccount(account)
+      setIsFollowing(serverFollowState)
+    }
+  }, [account])
 
   // Show loading if account is loading, OR if we have posts but they're for a different account
   const isLoading = accountLoading || postsLoading || (account && !postsData)
@@ -152,11 +162,61 @@ export function ProfilePage() {
   }
 
   const handleFollowClick = async () => {
+    // Check if user is authenticated
+    if (!lensSession || !pkpWalletClient) {
+      toast.error('Please sign in to follow accounts')
+      return
+    }
+
+    // Check if viewing own profile
+    if (account?.address === pkpAddress) {
+      toast.error('You cannot follow yourself')
+      return
+    }
+
+    // Check if account exists
+    if (!account) {
+      toast.error('Account not found')
+      return
+    }
+
     setFollowLoading(true)
-    // TODO: Replace with actual Lens follow logic
-    // await toggleFollow()
-    setIsFollowing(!isFollowing)
-    setTimeout(() => setFollowLoading(false), 1000)
+
+    try {
+      // Optimistically update UI
+      const previousState = isFollowing
+      setIsFollowing(!isFollowing)
+
+      let result
+      if (previousState) {
+        // Unfollow
+        result = await unfollowAccount(lensSession, pkpWalletClient, account.address)
+        if (result.success) {
+          toast.success('Unfollowed successfully')
+        } else {
+          // Revert on error
+          setIsFollowing(previousState)
+          toast.error(result.error || 'Failed to unfollow')
+        }
+      } else {
+        // Follow
+        result = await followAccount(lensSession, pkpWalletClient, account.address)
+        if (result.success) {
+          toast.success('Followed successfully')
+        } else {
+          // Revert on error
+          setIsFollowing(previousState)
+          toast.error(result.error || 'Failed to follow')
+        }
+      }
+    } catch (error) {
+      console.error('[ProfilePage] Follow error:', error)
+      toast.error('An unexpected error occurred')
+      // Revert optimistic update on error
+      setIsFollowing(!isFollowing)
+    } finally {
+      setFollowLoading(false)
+    }
   }
 
   const handleStudyClick = () => {
@@ -186,7 +246,9 @@ export function ProfilePage() {
   }
 
   const handleVideoClick = (video: Video) => {
-    navigate(`/u/${username}/video/${video.id}`)
+    navigate(`/u/${username}/video/${video.id}`, {
+      state: { thumbnailUrl: video.thumbnailUrl }
+    })
   }
 
   // Error state
@@ -201,17 +263,9 @@ export function ProfilePage() {
     )
   }
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="h-screen bg-neutral-900 flex items-center justify-center">
-        <div className="text-foreground">Loading profile...</div>
-      </div>
-    )
-  }
-
   return (
     <ProfilePageView
+      isLoading={isLoading}
       profile={profile}
       videos={videos}
       videosLoading={isLoading}

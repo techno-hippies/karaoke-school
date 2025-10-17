@@ -115,6 +115,7 @@ export const Default: Story = {
     musicTitle: 'Heat of the Night',
     musicAuthor: 'Scarlett X',
     musicImageUrl: 'https://placebear.com/200/200',
+    geniusId: 123456,
     likes: 12500,
     comments: 342,
     shares: 1890,
@@ -128,7 +129,7 @@ export const Default: Story = {
     onShareClick: () => console.log('Share clicked'),
     onFollowClick: () => console.log('Follow clicked'),
     onProfileClick: () => console.log('Profile clicked'),
-    onAudioClick: () => console.log('Audio clicked'),
+    onAudioClick: () => console.log('Navigate to /song/123456'),
     onClose: () => console.log('Close clicked'),
     onSubmitComment: async (content) => {
       console.log('Comment submitted:', content)
@@ -320,6 +321,7 @@ export const PremiumUnlocked: Story = {
     description: 'My cover of this Billboard hit! 🔥 Thanks for subscribing!',
     musicTitle: 'Blinding Lights',
     musicAuthor: 'The Weeknd',
+    geniusId: 789012,
     isPremium: true,
     userIsSubscribed: true,
     likes: 4567890,
