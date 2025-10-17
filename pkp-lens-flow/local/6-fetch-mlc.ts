@@ -43,10 +43,18 @@ interface MLCWriter {
 }
 
 interface MLCPublisher {
-  ipi: string;
-  name: string;
-  proShare?: number;
-  mechShare?: number;
+  ipId: number;
+  publisherName: string;
+  ipiNumber: string | null;
+  publisherShare: number;
+  administratorPublishers: {
+    ipId: number;
+    publisherName: string;
+    ipiNumber: string;
+    publisherShare: number;
+  }[];
+  writers: any[];
+  [key: string]: any;
 }
 
 interface MLCWork {
@@ -184,6 +192,78 @@ class MLCSearcher {
   }
 }
 
+/**
+ * Calculate total publisher shares including both direct and administrator shares
+ */
+function calculateTotalPublisherShares(publishers: MLCPublisher[]): {
+  total: number;
+  breakdown: { direct: number; admin: number };
+} {
+  let directShare = 0;
+  let adminShare = 0;
+
+  for (const pub of publishers) {
+    // Add direct publisher share
+    directShare += pub.publisherShare || 0;
+
+    // Add administrator shares (nested)
+    if (pub.administratorPublishers && pub.administratorPublishers.length > 0) {
+      for (const admin of pub.administratorPublishers) {
+        adminShare += admin.publisherShare || 0;
+      }
+    }
+  }
+
+  return {
+    total: directShare + adminShare,
+    breakdown: { direct: directShare, admin: adminShare },
+  };
+}
+
+/**
+ * Validates if MLC data is complete enough for Story Protocol minting
+ * Requirements:
+ * - Total publisher shares (direct + admin) must be ≥98%
+ * - Writers must be listed (even if shares are 0)
+ */
+function validateMLCForStoryMint(work: MLCWork): {
+  mintable: boolean;
+  reason: string;
+  totalShare: number;
+  breakdown: { direct: number; admin: number };
+} {
+  // Calculate total publisher shares
+  const shares = calculateTotalPublisherShares(work.originalPublishers);
+
+  // Check if we have writers listed
+  if (work.writers.length === 0) {
+    return {
+      mintable: false,
+      reason: 'No writers listed',
+      totalShare: shares.total,
+      breakdown: shares.breakdown,
+    };
+  }
+
+  // Check if total shares meet threshold (≥98%)
+  if (shares.total < 98) {
+    return {
+      mintable: false,
+      reason: `Incomplete share data (${shares.total.toFixed(2)}%, need ≥98%)`,
+      totalShare: shares.total,
+      breakdown: shares.breakdown,
+    };
+  }
+
+  // Success
+  return {
+    mintable: true,
+    reason: `Complete (${shares.total.toFixed(2)}%)`,
+    totalShare: shares.total,
+    breakdown: shares.breakdown,
+  };
+}
+
 async function fetchMLCData(tiktokHandle: string): Promise<void> {
   console.log('\n🎵 Step 5: Fetch MLC Song Codes');
   console.log('═══════════════════════════════════════════\n');
@@ -229,24 +309,45 @@ async function fetchMLCData(tiktokHandle: string): Promise<void> {
       // Find the specific recording that matched
       const matchedRecording = work.matchedRecordings.recordings.find(r => r.isrc === isrc);
 
+      // Validate for Story Protocol minting
+      const validation = validateMLCForStoryMint(work);
+
       // Add to video
       if (!video.music.mlc) {
         video.music.mlc = {};
       }
 
       video.music.mlc.songCode = work.songCode;
+      video.music.mlc.iswc = work.iswc;
       video.music.mlc.title = work.title;
       video.music.mlc.writers = work.writers;
       video.music.mlc.originalPublishers = work.originalPublishers;
       video.music.mlc.matchedRecording = matchedRecording;
       video.music.mlc.fetchedAt = new Date().toISOString();
 
-      console.log(`   • Song Code: ${work.songCode}`);
-      console.log(`   • Writers: ${work.writers.map(w => `${w.firstName} ${w.lastName}`.trim()).join(', ')}`);
-      console.log(`   • Publishers: ${work.originalPublishers.map(p => p.publisherName).join(', ')}\n`);
+      // Add validation results
+      video.music.mlc.storyMintable = validation.mintable;
+      video.music.mlc.storyMintableReason = validation.reason;
+      video.music.mlc.totalPublisherShare = validation.totalShare;
+      video.music.mlc.publisherShareBreakdown = validation.breakdown;
 
-      foundCount++;
+      console.log(`   • Song Code: ${work.songCode}`);
+      console.log(`   • ISWC: ${work.iswc || 'N/A'}`);
+      console.log(`   • Writers: ${work.writers.length} listed`);
+      console.log(`   • Publishers: ${work.originalPublishers.length} (direct: ${validation.breakdown.direct.toFixed(2)}%, admin: ${validation.breakdown.admin.toFixed(2)}%)`);
+      console.log(`   • Total Share: ${validation.totalShare.toFixed(2)}%`);
+      console.log(`   • Story Mintable: ${validation.mintable ? '✅ YES' : '❌ NO'} - ${validation.reason}\n`);
+
+      if (validation.mintable) {
+        foundCount++;
+      }
     } else {
+      // No MLC work found
+      if (!video.music.mlc) {
+        video.music.mlc = {};
+      }
+      video.music.mlc.storyMintable = false;
+      video.music.mlc.storyMintableReason = 'No MLC work found for ISRC';
       console.log('');
     }
 
@@ -263,7 +364,21 @@ async function fetchMLCData(tiktokHandle: string): Promise<void> {
   console.log('═══════════════════════════════════════════');
   console.log('✨ MLC Fetch Complete!');
   console.log(`\n📊 Summary:`);
-  console.log(`   MLC matches found: ${foundCount}/${videos.length}`);
+  console.log(`   MLC works found: ${videos.filter(v => v.music.mlc?.songCode).length}/${videos.length}`);
+  console.log(`   Story-mintable (≥98% shares): ${foundCount}/${videos.length}`);
+
+  // Show unmintable videos
+  const unmintable = videos.filter(v => v.music.mlc && !v.music.mlc.storyMintable);
+  if (unmintable.length > 0) {
+    console.log(`\n⚠️  ${unmintable.length} video(s) not Story-mintable:`);
+    unmintable.forEach(v => {
+      const reason = v.music.mlc?.storyMintableReason || 'Unknown';
+      const share = v.music.mlc?.totalPublisherShare;
+      console.log(`   • "${v.music.title}": ${reason}${share !== undefined ? ` (${share.toFixed(2)}%)` : ''}`);
+    });
+  }
+
+  console.log(`\n💡 Tip: Only videos with storyMintable=true can be minted to Story Protocol`);
   console.log('');
 }
 

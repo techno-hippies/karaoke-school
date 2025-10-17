@@ -17,6 +17,7 @@
     "fetch-mlc": "bun run local/6-fetch-mlc.ts",
     "reupload-metadata": "bun run local/7-reupload-metadata.ts",
     "map-spotify-genius": "bun run local/8-map-spotify-to-genius.ts",
+    "mint-story-ip-assets": "dotenvx run -- bun run local/8.5-mint-story-ip-assets.ts",
     "create-lens-posts": "dotenvx run -- bun run local/8-create-lens-posts.ts",
     "clear-post-hashes": "bun run local/8.1-delete-posts.ts",
     "create-username": "dotenvx run -- bun run local/9-create-username.ts",
@@ -36,6 +37,7 @@
     "@lit-protocol/auth": "^8.0.2",
     "@lit-protocol/lit-client": "8.0.2",
     "@lit-protocol/networks": "8.0.2",
+    "@story-protocol/core-sdk": "^1.4.0",
     "@unlock-protocol/contracts": "^0.0.35",
     "string-similarity": "^4.0.4",
     "viem": "^2.21.54"
