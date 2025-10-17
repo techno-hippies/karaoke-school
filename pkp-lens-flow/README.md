@@ -240,9 +240,53 @@ pkp-lens-flow/
 │           ├── video_*.mp4            # Downloaded videos
 │           └── thumbnail_*.jpg        # Video thumbnails
 │
+├── scripts/                            # Utility scripts
+│   └── generate-artist-mapping.ts  # Auto-generates Genius → Lens username mapping
 ├── .env                                # Environment variables (encrypted with dotenvx)
 └── package.json
 ```
+
+## Artist Routing System
+
+The app uses a semi-dynamic mapping to route artist links intelligently:
+- Artists with PKP profiles → `/u/:username` (Videos + Songs)
+- Artists without PKPs → `/artist/:geniusArtistId` (Genius data only)
+
+### How It Works
+
+1. **After uploading a new artist**, run:
+   ```bash
+   cd pkp-lens-flow
+   bun run generate-artist-mapping
+   ```
+
+2. **The script**:
+   - Scans `data/videos/*/manifest.json` for `geniusArtistId`
+   - Generates `../app/src/lib/genius/artist-mapping.ts`
+   - Maps Genius IDs → Lens usernames
+
+3. **In the app**:
+   - Song pages use `getArtistRoute(geniusArtistId)`
+   - Routes to `/u/:username` if mapped
+   - Falls back to `/artist/:geniusArtistId` for unmapped artists
+
+### Example
+
+```typescript
+// After uploading Taylor Swift (geniusArtistId: 1177)
+// Mapping: { 1177: "taylorswifttiktok" }
+
+// On song page:
+getArtistRoute(1177) → "/u/taylorswifttiktok" ✅
+
+// For unmapped artist:
+getArtistRoute(999999) → "/artist/999999" ✅ (fallback to Genius)
+```
+
+### Scaling
+- **10k artists**: Mapping file ~500KB, loads instantly
+- **Non-musicians** (no geniusArtistId): Only appear on `/u/:username`, no mapping needed
+- **Universal support**: All Genius artists work via `/artist/:id` route
 
 ## Current Status
 

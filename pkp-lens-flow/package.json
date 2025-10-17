@@ -21,6 +21,7 @@
     "create-lens-posts": "dotenvx run -- bun run local/8-create-lens-posts.ts",
     "clear-post-hashes": "bun run local/8.1-delete-posts.ts",
     "create-username": "dotenvx run -- bun run local/9-create-username.ts",
+    "generate-artist-mapping": "bun run scripts/generate-artist-mapping.ts",
     "setup-crawler": "cd services/crawler && bash setup.sh",
     "test:generate-account": "bun run test/generate-test-account.ts",
     "test:lock-info": "bun run test/unlock-lock-info.ts",

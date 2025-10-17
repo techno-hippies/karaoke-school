@@ -262,7 +262,9 @@ export function KaraokeSongPage() {
   }, [navigate, geniusId])
   const handleArtistClick = useCallback(() => {
     if (displaySong?.geniusArtistId) {
-      navigate(`/artist/${displaySong.geniusArtistId}`)
+      // Use smart routing: /u/:username for PKP artists, /artist/:id for others
+      const { getArtistRoute } = require('@/lib/genius/artist-mapping')
+      navigate(getArtistRoute(displaySong.geniusArtistId))
     }
   }, [navigate, displaySong?.geniusArtistId])
 
