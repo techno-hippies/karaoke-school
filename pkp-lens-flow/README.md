@@ -202,6 +202,19 @@ STORAGE
 
    Re-uploads video metadata to Grove with licensing data
    Adds timestamps for data staleness tracking
+
+13. Generate Artist Routing Mapping    (scripts/generate-artist-mapping.ts) ✅
+   Input:  data/videos/*/manifest.json (all creators)
+   Output: ../app/src/lib/genius/artist-mapping.ts
+
+   Auto-generates TypeScript mapping of Genius artist IDs → Lens usernames
+   Scans all manifests for geniusArtistId and creates routing map
+   Enables smart routing in app:
+   - Artists with PKPs → /u/:username (profile with videos + songs)
+   - Artists without PKPs → /artist/:geniusArtistId (Genius data only)
+
+   Run after uploading new artists, before deploying frontend
+   Supports 10k+ artists (generates ~500KB file, loads instantly)
 ```
 
 ## Folder Structure
@@ -246,47 +259,19 @@ pkp-lens-flow/
 └── package.json
 ```
 
-## Artist Routing System
+## Artist Routing System (Step 13)
 
-The app uses a semi-dynamic mapping to route artist links intelligently:
-- Artists with PKP profiles → `/u/:username` (Videos + Songs)
-- Artists without PKPs → `/artist/:geniusArtistId` (Genius data only)
+The app uses smart routing to link song pages to artist profiles:
+- **Artists with PKPs** → `/u/:username` (Videos + Songs)
+- **Artists without PKPs** → `/artist/:geniusArtistId` (Genius data only)
 
-### How It Works
+This is achieved via **Step 13** in the pipeline, which auto-generates a TypeScript mapping file (`app/src/lib/genius/artist-mapping.ts`) from all manifests with `geniusArtistId`.
 
-1. **After uploading a new artist**, run:
-   ```bash
-   cd pkp-lens-flow
-   bun run generate-artist-mapping
-   ```
+**Example:**
+- Taylor Swift (Genius ID 1177, has PKP) → Routes to `/u/taylorswifttiktok`
+- Random artist (no PKP) → Routes to `/artist/999999` (universal Genius support)
 
-2. **The script**:
-   - Scans `data/videos/*/manifest.json` for `geniusArtistId`
-   - Generates `../app/src/lib/genius/artist-mapping.ts`
-   - Maps Genius IDs → Lens usernames
-
-3. **In the app**:
-   - Song pages use `getArtistRoute(geniusArtistId)`
-   - Routes to `/u/:username` if mapped
-   - Falls back to `/artist/:geniusArtistId` for unmapped artists
-
-### Example
-
-```typescript
-// After uploading Taylor Swift (geniusArtistId: 1177)
-// Mapping: { 1177: "taylorswifttiktok" }
-
-// On song page:
-getArtistRoute(1177) → "/u/taylorswifttiktok" ✅
-
-// For unmapped artist:
-getArtistRoute(999999) → "/artist/999999" ✅ (fallback to Genius)
-```
-
-### Scaling
-- **10k artists**: Mapping file ~500KB, loads instantly
-- **Non-musicians** (no geniusArtistId): Only appear on `/u/:username`, no mapping needed
-- **Universal support**: All Genius artists work via `/artist/:id` route
+**Scaling:** Supports 10k+ artists (~500KB mapping file, instant load)
 
 ## Current Status
 
@@ -306,6 +291,7 @@ getArtistRoute(999999) → "/artist/999999" ✅ (fallback to Genius)
 - [x] Step 10.5: Spotify → Genius Mapping (fuzzy matching + direct ID match)
 - [x] Step 11: MLC Licensing Data (MLC Public API)
 - [x] Step 12: Metadata Re-upload (enriched with licensing)
+- [x] Step 13: Artist Routing Mapping (auto-generated Genius ID → Lens username map)
 
 **Next Steps:**
 - [ ] Frontend HLS playback with custom DecryptingLoader
@@ -413,6 +399,12 @@ bun run fetch-mlc --creator @charlidamelio
 # Step 12: Re-upload Enriched Metadata
 bun run reupload-metadata --creator @charlidamelio
 # Output: Updated Grove URIs with licensing data
+
+# Step 13: Generate Artist Routing Mapping (after uploading all artists)
+bun run generate-artist-mapping
+# Output: ../app/src/lib/genius/artist-mapping.ts
+# Maps Genius artist IDs → Lens usernames for smart routing
+# Run this after uploading new artists, before deploying frontend
 ```
 
 ### Individual Steps
@@ -438,6 +430,9 @@ bun run transcribe-audio --creator @handle
 
 # Translate transcriptions + bio with custom languages
 bun run translate-transcriptions --creator @handle --languages vi,zh,es
+
+# Generate artist routing mapping (after uploading all artists)
+bun run generate-artist-mapping
 
 # Test copyright filters without downloading
 cd services/crawler
