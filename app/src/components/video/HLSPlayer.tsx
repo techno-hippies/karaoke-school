@@ -396,8 +396,8 @@ export function HLSPlayer({
         </div>
       )}
 
-      {/* Play button overlay - only show when controls=true (parent handles it when false) */}
-      {!isPlaying && !isLoading && controls && (
+      {/* Play button overlay - show when not playing (like VideoPlayer) */}
+      {!isPlaying && !isLoading && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
           onClick={handlePlayPause}
