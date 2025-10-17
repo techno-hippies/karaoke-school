@@ -53,10 +53,10 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
     deployedAt: '2025-10-03',
   },
   song: {
-    cid: 'QmNvX8u4mE6xqEPeC5vk77xJVLK6W7YB2u4GdFmbnCmDGv',
+    cid: 'QmZWwmrMBfXpwug9k4UL3AU6q6yFxCZ5z3YBMpJaW2fQn2',
     name: 'Song Metadata v1',
     source: 'lit-actions/src/genius/song.js',
-    deployedAt: '2025-10-03',
+    deployedAt: '2025-10-17',
   },
   artist: {
     cid: 'QmXgS2pLhSavsNBGa81atWqn3UHGciTDhasdQxsAx9f4bJ',
@@ -67,10 +67,10 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Karaoke Pipeline ===
   matchSegment: {
-    cid: 'QmUVCBUzMTRpdCQJY1uip8TimUYejckPmgwuat5KNpMcfH',
-    name: 'Match and Segment v8 (No audio fail-early)',
-    source: 'lit-actions/src/karaoke/match-and-segment-v8.js',
-    deployedAt: '2025-10-14',
+    cid: 'QmQtXQCMSjaeD7jCgvH6u7cnq2mFnucLieB3CaEsSA9HjN',
+    name: 'Match and Segment v9 (SC Fallback)',
+    source: 'lit-actions/src/karaoke/match-and-segment-v9.js',
+    deployedAt: '2025-10-17',
   },
   baseAlignment: {
     cid: 'QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e',

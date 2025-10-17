@@ -4,7 +4,6 @@ import { Leaderboard } from './Leaderboard'
 import { ExternalLinksDrawer } from './ExternalLinksDrawer'
 import { Button } from '@/components/ui/button'
 import { BackButton } from '@/components/ui/back-button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
@@ -142,8 +141,8 @@ export const SongPage = memo(function SongPage({
   const showUnlockButton = segments.length === 0 || isLocked
 
   return (
-    <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-6xl">
+    <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
+      <div className="relative w-full h-full md:max-w-6xl flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-16 px-4">
@@ -152,7 +151,7 @@ export const SongPage = memo(function SongPage({
       </div>
 
       {/* Main content */}
-      <ScrollArea className={cn("absolute top-0 left-0 right-0", showUnlockButton ? "bottom-24" : "bottom-0")}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {/* Album Art Hero */}
         <div className="relative w-full" style={{ height: 'min(384px, 40vh)' }}>
           {artworkUrl && (
@@ -262,52 +261,44 @@ export const SongPage = memo(function SongPage({
             <TabsContent value="clips" className="mt-4">
               {isUnlocking || (showUnlockButton && segments.length === 0) ? (
                 // Cataloging state OR waiting for segments to load - show skeleton
-                <div className="space-y-4">
-                  <ScrollArea className="max-h-[50vh]">
-                    <div className="space-y-1">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="px-4 py-3 space-y-2">
-                          <Skeleton className="h-5 w-24" />
-                          <Skeleton className="h-4 w-32" />
-                        </div>
-                      ))}
+                <div className="space-y-1">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="px-4 py-3 space-y-2">
+                      <Skeleton className="h-5 w-24" />
+                      <Skeleton className="h-4 w-32" />
                     </div>
-                  </ScrollArea>
+                  ))}
                 </div>
               ) : segments.length > 0 ? (
                 // Show segment list (locked or unlocked)
-                <div className="space-y-4">
-                  <ScrollArea className="max-h-[50vh]">
-                    <div className="space-y-1">
-                      {segments.map((segment) => (
-                        <Item
-                          key={segment.id}
-                          variant="default"
-                          className={cn(
-                            "gap-3 px-4 py-3 transition-colors",
-                            isLocked || isGenerating
-                              ? "opacity-60 cursor-not-allowed"
-                              : "cursor-pointer hover:bg-muted/50"
-                          )}
-                          onClick={() => !isGenerating && !isLocked && handleSegmentAction(segment)}
-                        >
-                          <ItemContent>
-                            <ItemTitle className={isGenerating ? "text-muted-foreground" : ""}>
-                              {segment.displayName}
-                            </ItemTitle>
-                            <ItemDescription>
-                              {segment.startTime === 0 && segment.endTime === 0
-                                ? '\u00A0'
-                                : `${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}`}
-                              </ItemDescription>
-                          </ItemContent>
-                          {isLocked && (
-                            <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" weight="regular" />
-                          )}
-                        </Item>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                <div className="space-y-1">
+                  {segments.map((segment) => (
+                    <Item
+                      key={segment.id}
+                      variant="default"
+                      className={cn(
+                        "gap-3 px-4 py-3 transition-colors",
+                        isLocked || isGenerating
+                          ? "opacity-60 cursor-not-allowed"
+                          : "cursor-pointer hover:bg-muted/50"
+                      )}
+                      onClick={() => !isGenerating && !isLocked && handleSegmentAction(segment)}
+                    >
+                      <ItemContent>
+                        <ItemTitle className={isGenerating ? "text-muted-foreground" : ""}>
+                          {segment.displayName}
+                        </ItemTitle>
+                        <ItemDescription>
+                          {segment.startTime === 0 && segment.endTime === 0
+                            ? '\u00A0'
+                            : `${formatTime(segment.startTime)} - ${formatTime(segment.endTime)}`}
+                          </ItemDescription>
+                      </ItemContent>
+                      {isLocked && (
+                        <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" weight="regular" />
+                      )}
+                    </Item>
+                  ))}
                 </div>
               ) : null}
             </TabsContent>
@@ -320,11 +311,11 @@ export const SongPage = memo(function SongPage({
             </TabsContent>
           </Tabs>
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Sticky Footer with Unlock Button */}
       {showUnlockButton && !isUnlocking && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
+        <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
           <Button
             size="lg"
             variant="default"

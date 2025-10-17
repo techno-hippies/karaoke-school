@@ -41,6 +41,9 @@ interface SpotifyTrack {
     ean?: string;
     upc?: string;
   };
+  external_urls?: {
+    spotify?: string;
+  };
   duration_ms: number;
   explicit: boolean;
   popularity: number;
@@ -167,6 +170,46 @@ class SpotifyISRCFetcher {
     return data.tracks || [];
   }
 
+  async searchTrack(trackTitle: string, artistName: string): Promise<SpotifyTrack | null> {
+    await this.ensureAccessToken();
+
+    // Use field filters for better search accuracy: track:title artist:name
+    const query = `track:${trackTitle} artist:${artistName}`;
+    const encodedQuery = encodeURIComponent(query);
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodedQuery}&type=track&limit=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+        },
+      }
+    );
+
+    if (response.status === 429) {
+      // Rate limited
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
+      console.log(`⚠️  Rate limited. Waiting ${retryAfter}s...`);
+      await this.sleep(retryAfter * 1000);
+      return this.searchTrack(trackTitle, artistName);
+    }
+
+    if (!response.ok) {
+      console.error(`Error searching for "${query}": ${response.status}`);
+      return null;
+    }
+
+    const data: any = await response.json();
+    const tracks = data.tracks?.items || [];
+
+    if (tracks.length === 0) {
+      return null;
+    }
+
+    // Return the first (best) match
+    return tracks[0];
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -229,16 +272,33 @@ async function fetchISRCs(tiktokHandle: string): Promise<void> {
 
   for (let i = 0; i < videos.length; i++) {
     const video = videos[i];
-    const trackId = video.music.spotifyTrackId;
+    let trackId = video.music.spotifyTrackId;
 
     console.log(`   Video ${i + 1}/${videos.length}: ${video.music.title}`);
 
     if (!trackId) {
-      console.log(`   ⚠️  No Spotify Track ID\n`);
-      continue;
-    }
+      console.log(`   ⚠️  No Spotify Track ID, searching...`);
 
-    console.log(`   • Spotify ID: ${trackId}`);
+      // Fallback: Search Spotify using track title + artist name
+      const artistName = manifest.profile?.nickname || 'Unknown Artist';
+      console.log(`   • Searching: "${video.music.title}" by ${artistName}`);
+
+      const searchResult = await fetcher.searchTrack(video.music.title, artistName);
+
+      if (searchResult) {
+        trackId = searchResult.id;
+        // Update manifest with found Spotify data
+        video.music.spotifyTrackId = searchResult.id;
+        video.music.spotifyUrl = searchResult.external_urls?.spotify || `https://open.spotify.com/track/${searchResult.id}`;
+        console.log(`   • ✅ Found: ${searchResult.name} by ${searchResult.artists.map(a => a.name).join(', ')}`);
+        console.log(`   • Spotify ID: ${trackId}`);
+      } else {
+        console.log(`   • ❌ Not found on Spotify\n`);
+        continue;
+      }
+    } else {
+      console.log(`   • Spotify ID: ${trackId}`);
+    }
 
     // Fetch track data
     const track = await fetcher.getTrack(trackId);
