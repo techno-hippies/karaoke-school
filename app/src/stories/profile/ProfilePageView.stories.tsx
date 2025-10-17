@@ -304,6 +304,40 @@ export const ArtistLoadingSongs: Story = {
 }
 
 /**
+ * Loading profile - shows skeleton while profile data loads
+ */
+export const LoadingProfile: Story = {
+  args: {
+    isLoading: true, // ← Loading profile
+    profile: {
+      username: 'loading',
+      displayName: 'Loading...',
+      avatarUrl: '',
+      following: 0,
+      followers: 0,
+      isVerified: false,
+      isOwnProfile: false,
+    },
+    videos: [],
+    videosLoading: false,
+    topFans: [],
+    followState: {
+      isFollowing: false,
+      isLoading: false,
+    },
+    isConnected: false,
+    onDisconnect: () => console.log('Disconnect'),
+    onEditProfile: () => console.log('Edit profile'),
+    onFollowClick: () => console.log('Follow'),
+    onStudyClick: () => console.log('Study'),
+    onMessageClick: () => console.log('Message'),
+    onShareProfile: () => console.log('Share'),
+    onVideoClick: (video) => console.log('Video clicked:', video.id),
+    onNavigateHome: () => console.log('Navigate home'),
+  },
+}
+
+/**
  * Loading videos
  */
 export const LoadingVideos: Story = {

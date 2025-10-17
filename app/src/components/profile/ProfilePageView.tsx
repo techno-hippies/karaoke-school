@@ -7,6 +7,7 @@ import { SubscriptionDialog } from './SubscriptionDialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Leaderboard, type LeaderboardEntry } from '@/components/class/Leaderboard'
 import { SongItem } from '@/components/ui/SongItem'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export interface ArtistSong {
   id: string
@@ -19,6 +20,9 @@ export interface ArtistSong {
 }
 
 export interface ProfilePageViewProps {
+  // Loading state
+  isLoading?: boolean
+
   // Profile data
   profile: {
     username: string
@@ -71,6 +75,7 @@ export interface ProfilePageViewProps {
  * Shows 2 tabs for creators (Videos | Top Fans)
  */
 export function ProfilePageView({
+  isLoading = false,
   profile,
   videos,
   videosLoading,
@@ -91,6 +96,68 @@ export function ProfilePageView({
   const isArtist = !!profile.geniusArtistId
   const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
 
+  // Show skeleton while loading profile data
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        {/* Mobile Header Skeleton */}
+        <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
+          <div className="w-12" />
+          <Skeleton className="h-5 w-32" />
+          <div className="w-9" />
+        </div>
+
+        {/* Profile Header Skeleton */}
+        <div className="w-full px-4 md:px-6 py-4 md:py-6">
+          <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-start">
+            {/* Avatar Skeleton */}
+            <Skeleton className="w-24 h-24 md:w-32 md:h-32 rounded-full flex-shrink-0" />
+
+            {/* Info Section Skeleton */}
+            <div className="flex-1 w-full space-y-4">
+              {/* Display Name */}
+              <div className="flex flex-col items-center md:items-start gap-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center justify-center md:justify-start gap-6">
+                <div className="flex flex-col items-center">
+                  <Skeleton className="h-5 w-12 mb-1" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="flex flex-col items-center">
+                  <Skeleton className="h-5 w-12 mb-1" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Skeleton className="h-9 flex-1" />
+                <Skeleton className="h-9 flex-1" />
+                <Skeleton className="h-9 w-9" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="mt-4 mb-4 px-4">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+
+        {/* Video Grid Skeleton */}
+        <VideoGrid
+          videos={[]}
+          isLoading={true}
+          onVideoClick={() => {}}
+        />
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Desktop Logout - top right */}
@@ -98,9 +165,9 @@ export function ProfilePageView({
         <div className="hidden md:block absolute top-4 right-4 z-50">
           <button
             onClick={onDisconnect}
-            className="p-2 hover:bg-neutral-800 rounded-full transition-colors"
+            className="p-2 hover:bg-muted rounded-full transition-colors"
           >
-            <SignOut className="h-5 w-5 text-neutral-400" />
+            <SignOut className="h-5 w-5 text-muted-foreground" />
           </button>
         </div>
       )}
@@ -125,9 +192,9 @@ export function ProfilePageView({
             {isConnected && profile.isOwnProfile ? (
               <button
                 onClick={onDisconnect}
-                className="p-2 hover:bg-neutral-800 rounded-full transition-colors"
+                className="p-2 hover:bg-muted rounded-full transition-colors"
               >
-                <SignOut className="h-5 w-5 text-neutral-400" />
+                <SignOut className="h-5 w-5 text-muted-foreground" />
               </button>
             ) : (
               <div className="w-9" />

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import type { KaraokeOverlayProps } from './types'
 
@@ -13,12 +13,62 @@ export function KaraokeOverlay({
   className,
   showNextLine = false
 }: KaraokeOverlayProps) {
+  // Log line data on mount
+  useEffect(() => {
+    if (lines && lines.length > 0) {
+      console.log('[KaraokeOverlay] Loaded with', lines.length, 'lines')
+      console.log('[KaraokeOverlay] First line:', {
+        text: lines[0].text,
+        start: lines[0].start,
+        end: lines[0].end,
+        wordCount: lines[0].words?.length || 0,
+        words: lines[0].words?.map(w => ({ text: w.text, start: w.start, end: w.end }))
+      })
+      console.log('[KaraokeOverlay] Last line:', {
+        text: lines[lines.length - 1].text,
+        start: lines[lines.length - 1].start,
+        end: lines[lines.length - 1].end,
+        words: lines[lines.length - 1].words?.map(w => ({ text: w.text, start: w.start, end: w.end }))
+      })
+    }
+  }, [lines])
+
   // Find current line based on time
   const currentLine = useMemo(() => {
     if (!lines || lines.length === 0) return null
-    return lines.find(line =>
+
+    const found = lines.find(line =>
       currentTime >= line.start && currentTime <= line.end
-    ) || null
+    )
+
+    if (found) {
+      console.log('[KaraokeOverlay] Active line at', currentTime.toFixed(2), ':', {
+        text: found.text,
+        start: found.start,
+        end: found.end,
+        wordCount: found.words?.length || 0,
+        words: found.words?.map(w => ({
+          text: w.text,
+          start: w.start,
+          end: w.end,
+          isSung: currentTime >= w.start && currentTime < w.end
+        }))
+      })
+    } else {
+      // Log nearby lines to help debug
+      const nearbyLines = lines.filter(line =>
+        Math.abs(line.start - currentTime) < 2 || Math.abs(line.end - currentTime) < 2
+      )
+      if (nearbyLines.length > 0) {
+        console.log('[KaraokeOverlay] No active line at', currentTime.toFixed(2), 'but nearby:', nearbyLines.map(l => ({
+          text: l.text.substring(0, 20) + '...',
+          start: l.start,
+          end: l.end
+        })))
+      }
+    }
+
+    return found || null
   }, [lines, currentTime])
 
   // Find next line (for karaoke recording mode)
@@ -36,17 +86,24 @@ export function KaraokeOverlay({
       return currentLine ? [{ text: currentLine.text, isSung: true }] : []
     }
 
-    return currentLine.words.map(word => ({
+    const words = currentLine.words.map(word => ({
       ...word,
       isSung: currentTime >= word.start && currentTime < word.end
     }))
+
+    const sungWords = words.filter(w => w.isSung)
+    if (sungWords.length > 0) {
+      console.log('[KaraokeOverlay] Highlighted words at', currentTime.toFixed(2), ':', sungWords.map(w => w.text).join(' '))
+    }
+
+    return words
   }, [currentLine, currentTime])
 
   // Don't render if no lyrics or no current line (AFTER all hooks)
   if (!currentLine) return null
 
   return (
-    <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-10', className)}>
+    <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-20 animate-in fade-in duration-300', className)}>
       <div className="flex justify-center px-8">
         <div className="text-foreground text-center space-y-2 max-w-xl">
           {/* Current line with word highlighting */}

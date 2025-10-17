@@ -212,6 +212,7 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
   let segmented = 0;
   let skipped = 0;
   let failed = 0;
+  let hlsCleared = 0;
 
   const SEGMENT_DURATION = 4; // 4 seconds per segment
 
@@ -267,33 +268,44 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
         skipped++;
       }
 
-      // Step 2: Create HLS segments (always do this, even if already H.264)
-      if (!video.hls?.segmented) {
-        console.log('   📦 Creating HLS segments...');
+      // Step 2: Create HLS segments (ONLY for copyrighted videos - copyright-free use direct MP4)
+      const isCopyrighted = video.copyrightType === 'copyrighted';
 
-        // Create segments directory
-        const segmentsDir = path.join(manifestDir, 'segments', video.postId);
-        if (!existsSync(segmentsDir)) {
-          await mkdir(segmentsDir, { recursive: true });
+      if (isCopyrighted) {
+        if (!video.hls?.segmented) {
+          console.log('   📦 Creating HLS segments (copyrighted content)...');
+
+          // Create segments directory
+          const segmentsDir = path.join(manifestDir, 'segments', video.postId);
+          if (!existsSync(segmentsDir)) {
+            await mkdir(segmentsDir, { recursive: true });
+          }
+
+          // Segment the video
+          const segmentCount = await segmentToHLS(videoPath, segmentsDir, SEGMENT_DURATION);
+          console.log(`   ✅ Created ${segmentCount} segments (${SEGMENT_DURATION}s each)`);
+
+          // Update manifest
+          video.hls = {
+            segmented: true,
+            segmentedAt: new Date().toISOString(),
+            segmentDuration: SEGMENT_DURATION,
+            segmentCount,
+            playlistFile: 'playlist.m3u8',
+            segmentsDir: `segments/${video.postId}`,
+          };
+
+          segmented++;
+        } else {
+          console.log('   ✅ Already segmented (copyrighted)');
         }
-
-        // Segment the video
-        const segmentCount = await segmentToHLS(videoPath, segmentsDir, SEGMENT_DURATION);
-        console.log(`   ✅ Created ${segmentCount} segments (${SEGMENT_DURATION}s each)`);
-
-        // Update manifest
-        video.hls = {
-          segmented: true,
-          segmentedAt: new Date().toISOString(),
-          segmentDuration: SEGMENT_DURATION,
-          segmentCount,
-          playlistFile: 'playlist.m3u8',
-          segmentsDir: `segments/${video.postId}`,
-        };
-
-        segmented++;
       } else {
-        console.log('   ✅ Already segmented');
+        console.log('   ⏭️  Skipping HLS segmentation (copyright-free - will use direct MP4)');
+        // Clear any existing HLS metadata for copyright-free videos
+        if (video.hls) {
+          video.hls = null;
+          hlsCleared++;
+        }
       }
 
     } catch (error: any) {
@@ -303,7 +315,7 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
   }
 
   // Save updated manifest
-  if (converted > 0 || segmented > 0) {
+  if (converted > 0 || segmented > 0 || hlsCleared > 0) {
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
     console.log('\n💾 Updated manifest with conversion & segmentation metadata');
   }
@@ -313,15 +325,23 @@ async function convertVideos(tiktokHandle: string, skipBackup: boolean = false):
   console.log('📊 Processing Summary:');
   console.log(`   🔄 Converted to H.264: ${converted}`);
   console.log(`   📦 Segmented to HLS: ${segmented}`);
+  console.log(`   🧹 HLS metadata cleared: ${hlsCleared}`);
   console.log(`   ⏭️  Skipped (already H.264): ${skipped}`);
   console.log(`   ❌ Failed: ${failed}`);
   console.log(`   📄 Total: ${videosToCheck.length}`);
   console.log('═'.repeat(60));
 
-  if (converted > 0 || segmented > 0) {
+  if (converted > 0 || segmented > 0 || hlsCleared > 0) {
     console.log(`\n✅ Videos processed successfully!`);
-    console.log(`   - H.264 encoding: browser-compatible ✓`);
-    console.log(`   - HLS segments: streaming-ready ✓`);
+    if (converted > 0) {
+      console.log(`   - H.264 encoding: browser-compatible ✓`);
+    }
+    if (segmented > 0) {
+      console.log(`   - HLS segments: streaming-ready ✓`);
+    }
+    if (hlsCleared > 0) {
+      console.log(`   - HLS metadata cleared for copyright-free videos ✓`);
+    }
     console.log(`\n📱 Next Steps:`);
     console.log(`   1. Run encryption: bun run encrypt-videos --creator ${tiktokHandle}`);
     console.log(`   2. Upload to Grove: bun run upload-grove --creator ${tiktokHandle}\n`);

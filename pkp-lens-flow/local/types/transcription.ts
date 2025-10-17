@@ -24,12 +24,13 @@ export interface TranscriptionData {
 
 export interface VideoTranscription {
   languages: {
-    en: TranscriptionData; // English (from Voxtral)
+    en: TranscriptionData; // English (from ElevenLabs)
     vi?: TranscriptionData; // Vietnamese (from Gemini)
     zh?: TranscriptionData; // Mandarin (from Gemini)
   };
   generatedAt: string; // ISO timestamp
-  voxtralModel?: string; // e.g., "voxtral-mini-latest"
+  elevenLabsModel?: string; // e.g., "eleven_turbo_v2_5"
+  voxtralModel?: string; // Legacy: e.g., "voxtral-mini-latest"
   translationModel?: string; // e.g., "gemini-flash-2.5-lite"
 }
 

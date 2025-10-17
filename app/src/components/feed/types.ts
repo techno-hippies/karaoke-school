@@ -30,6 +30,7 @@ export interface VideoPostData {
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
+  geniusId?: number // Genius song ID for linking to /song/{geniusId}
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number
@@ -60,6 +61,7 @@ export interface VideoPlayerProps {
   isMuted: boolean
   onTogglePlay: () => void
   onPlayFailed?: () => void // Called when autoplay fails
+  onTimeUpdate?: (currentTime: number) => void // Called on video timeupdate for karaoke sync
   forceShowThumbnail?: boolean // Keep thumbnail visible even when playing (for locked videos)
   className?: string
 }

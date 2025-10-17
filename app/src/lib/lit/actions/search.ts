@@ -4,6 +4,7 @@
  */
 
 import { getLitClient } from '../../lit-webauthn/client'
+import { LIT_ACTIONS } from '@/config/lit-actions'
 import type { SearchResponse } from './types'
 
 const IS_DEV = import.meta.env.DEV
@@ -21,7 +22,7 @@ export async function executeSearch(
     const litClient = await getLitClient()
 
     const result = await litClient.executeJs({
-      ipfsId: import.meta.env.VITE_LIT_ACTION_SEARCH,
+      ipfsId: LIT_ACTIONS.search,
       authContext,
       jsParams: { query, limit },
     })

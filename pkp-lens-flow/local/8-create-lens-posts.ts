@@ -64,6 +64,17 @@ interface VideoData {
       originalPublishers: any[];
       fetchedAt: string;
     };
+    genius?: {
+      id: number;
+      url: string;
+      slug: string;
+      title: string;
+      artist: string;
+      matchConfidence: number;
+      matchType: string;
+      matchDetails: any;
+      fetchedAt: string;
+    };
   };
   localFiles: {
     video: string | null;
@@ -331,6 +342,19 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
             key: 'copyright_type',
             value: videoData.copyrightType,
           },
+          // Include Genius URL and ID if available
+          ...(videoData.music.genius?.url ? [
+            {
+              type: 'String' as const,
+              key: 'genius_url',
+              value: videoData.music.genius.url,
+            },
+            {
+              type: 'String' as const,
+              key: 'genius_id',
+              value: videoData.music.genius.id.toString(),
+            },
+          ] : []),
           // Only include encryption attributes if video is encrypted
           ...(videoData.encryption ? [
             {

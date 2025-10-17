@@ -21,6 +21,7 @@
 
 import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
+import { LIT_ACTIONS } from '@/config/lit-actions'
 import type { MatchSegmentResult } from './types'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
 
@@ -53,12 +54,12 @@ export async function executeMatchAndSegment(
       hasOpenRouterACC: !!jsParams.openrouterKeyAccessControlConditions,
       hasElevenlabsACC: !!jsParams.elevenlabsKeyAccessControlConditions,
       contractAddress: jsParams.contractAddress,
-      ipfsId: import.meta.env.VITE_LIT_ACTION_MATCH_SEGMENT
+      ipfsId: LIT_ACTIONS.matchSegment
     })
   }
 
   const result = await litClient.executeJs({
-    ipfsId: import.meta.env.VITE_LIT_ACTION_MATCH_SEGMENT,
+    ipfsId: LIT_ACTIONS.matchSegment,
     authContext,
     jsParams,
   })
