@@ -8,6 +8,7 @@ import { useSongData } from '@/hooks/useSongData'
 import { useCatalogSong } from '@/hooks/useCatalogSong'
 import { useUnlockSong, InsufficientCreditsError } from '@/hooks/useUnlockSong'
 import { buildExternalSongLinks, buildExternalLyricsLinks } from '@/lib/karaoke/externalLinks'
+import { getArtistRoute } from '@/lib/genius/artist-mapping'
 import type { Song } from '@/features/post-flow/types'
 
 /**
@@ -263,7 +264,6 @@ export function KaraokeSongPage() {
   const handleArtistClick = useCallback(() => {
     if (displaySong?.geniusArtistId) {
       // Use smart routing: /u/:username for PKP artists, /artist/:id for others
-      const { getArtistRoute } = require('@/lib/genius/artist-mapping')
       navigate(getArtistRoute(displaySong.geniusArtistId))
     }
   }, [navigate, displaySong?.geniusArtistId])
