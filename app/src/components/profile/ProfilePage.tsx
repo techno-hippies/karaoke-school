@@ -225,13 +225,6 @@ export function ProfilePage() {
     }
   }
 
-  const handleStudyClick = () => {
-    // Navigate to artist study page when geniusArtistId exists
-    if (geniusArtistId) {
-      navigate(`/artist/${geniusArtistId}`)
-    }
-  }
-
   const handleShareProfile = async () => {
     // Use username if available, otherwise use address
     const profilePath = account?.username?.localName
@@ -291,7 +284,6 @@ export function ProfilePage() {
       onDisconnect={logout}
       onEditProfile={handleEditProfile}
       onFollowClick={handleFollowClick}
-      onStudyClick={handleStudyClick}
       onMessageClick={() => console.log('Message')}
       onShareProfile={handleShareProfile}
       onVideoClick={handleVideoClick}

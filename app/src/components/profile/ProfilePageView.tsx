@@ -3,7 +3,7 @@ import { SignOut } from '@phosphor-icons/react'
 import { ProfileHeader } from './ProfileHeader'
 import { VideoGrid, type Video } from './VideoGrid'
 import { BackButton } from '@/components/ui/back-button'
-import { SubscriptionDialog } from './SubscriptionDialog'
+import { EnrollmentDialog } from './EnrollmentDialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Leaderboard, type LeaderboardEntry } from '@/components/class/Leaderboard'
 import { SongItem } from '@/components/ui/SongItem'
@@ -62,7 +62,6 @@ export interface ProfilePageViewProps {
   // Handlers
   onEditProfile: () => void
   onFollowClick: () => void
-  onStudyClick?: () => void
   onMessageClick: () => void
   onShareProfile: () => void
   onVideoClick: (video: Video) => void
@@ -87,21 +86,20 @@ export function ProfilePageView({
   onDisconnect,
   onEditProfile,
   onFollowClick,
-  onStudyClick,
   onMessageClick,
   onShareProfile,
   onVideoClick,
   onNavigateHome,
 }: ProfilePageViewProps) {
   const isArtist = !!profile.geniusArtistId
-  const [subscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false)
+  const [enrollmentDialogOpen, setEnrollmentDialogOpen] = useState(false)
 
   // Show skeleton while loading profile data
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto">
         {/* Mobile Header Skeleton */}
-        <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
+        <div className="md:hidden flex items-center justify-between px-4 py-2 border-b border-border">
           <div className="w-12" />
           <Skeleton className="h-5 w-32" />
           <div className="w-9" />
@@ -175,7 +173,7 @@ export function ProfilePageView({
       {/* Container for profile content */}
       <div className="max-w-6xl mx-auto">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
+        <div className="md:hidden flex items-center justify-between px-4 py-2 border-b border-border">
             {/* Left: Back button or spacer */}
             {!profile.isOwnProfile ? (
               <BackButton onClick={onNavigateHome} />
@@ -214,8 +212,7 @@ export function ProfilePageView({
             isFollowLoading={followState.isLoading}
             onEditClick={onEditProfile}
             onFollowClick={onFollowClick}
-            onStudyClick={onStudyClick}
-            onSubscribeClick={() => setSubscriptionDialogOpen(true)}
+            onEnrollClick={() => setEnrollmentDialogOpen(true)}
             onMessageClick={onMessageClick}
             onMoreClick={onShareProfile}
           />
@@ -229,7 +226,7 @@ export function ProfilePageView({
                   {isArtist && (
                     <TabsTrigger value="songs">Songs</TabsTrigger>
                   )}
-                  <TabsTrigger value="fans">Fans</TabsTrigger>
+                  <TabsTrigger value="fans">Students</TabsTrigger>
                 </TabsList>
               </div>
 
@@ -275,7 +272,7 @@ export function ProfilePageView({
                   <Leaderboard entries={topFans} />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
-                    No fans yet
+                    No students yet
                   </div>
                 )}
               </TabsContent>
@@ -283,15 +280,15 @@ export function ProfilePageView({
           </div>
         </div>
 
-      {/* Subscription Dialog */}
-      <SubscriptionDialog
-        open={subscriptionDialogOpen}
-        onOpenChange={setSubscriptionDialogOpen}
+      {/* Enrollment Dialog */}
+      <EnrollmentDialog
+        open={enrollmentDialogOpen}
+        onOpenChange={setEnrollmentDialogOpen}
         username={profile.username}
         userAvatar={profile.avatarUrl}
-        onSubscribe={() => {
-          console.log('Subscribe clicked for', profile.username)
-          setSubscriptionDialogOpen(false)
+        onEnroll={() => {
+          console.log('Enroll clicked for', profile.username)
+          setEnrollmentDialogOpen(false)
         }}
       />
     </>

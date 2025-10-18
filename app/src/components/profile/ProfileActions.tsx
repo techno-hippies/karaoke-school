@@ -5,12 +5,11 @@ import { cn } from '@/lib/utils'
 export interface ProfileActionsProps {
   isOwnProfile: boolean
   isFollowing?: boolean
-  isSubscribed?: boolean
+  isEnrolled?: boolean
   isFollowLoading?: boolean
   onEditClick?: () => void
   onFollowClick?: () => void
-  onStudyClick?: () => void
-  onSubscribeClick?: () => void
+  onEnrollClick?: () => void
   onMessageClick?: () => void
   onMoreClick?: () => void
   className?: string
@@ -21,19 +20,18 @@ export interface ProfileActionsProps {
  *
  * States:
  * - Own profile: [Edit profile]
- * - Not following: [Follow] [Subscribe]
- * - Following, not subscribed: [Study] [Subscribe]
- * - Subscribed: [Message] [Subscribed ✓]
+ * - Not following: [Follow] [Enroll]
+ * - Following, not enrolled: [Following] [Enroll]
+ * - Enrolled: [Message] [Enrolled ✓]
  */
 export function ProfileActions({
   isOwnProfile,
   isFollowing = false,
-  isSubscribed = false,
+  isEnrolled = false,
   isFollowLoading = false,
   onEditClick,
   onFollowClick,
-  onStudyClick,
-  onSubscribeClick,
+  onEnrollClick,
   onMessageClick,
   onMoreClick,
   className
@@ -50,8 +48,8 @@ export function ProfileActions({
         >
           Edit profile
         </Button>
-      ) : isSubscribed ? (
-        // Subscribed - Message and Subscribed indicator
+      ) : isEnrolled ? (
+        // Enrolled - Message and Enrolled indicator
         <>
           <Button
             onClick={onMessageClick}
@@ -67,7 +65,7 @@ export function ProfileActions({
             className="flex-1 md:flex-initial"
             disabled
           >
-            Subscribed ✓
+            Enrolled ✓
           </Button>
           <Button
             onClick={onMoreClick}
@@ -79,24 +77,24 @@ export function ProfileActions({
           </Button>
         </>
       ) : (
-        // Not subscribed - Follow/Study and Subscribe
+        // Not enrolled - Follow/Following toggle and Enroll
         <>
           <Button
-            onClick={isFollowing ? onStudyClick : onFollowClick}
+            onClick={onFollowClick}
             disabled={isFollowLoading}
-            variant={isFollowing ? 'default' : 'secondary'}
-            size="lg"
-            className="flex-1 md:flex-initial"
-          >
-            {isFollowLoading ? 'Loading...' : isFollowing ? 'Study' : 'Follow'}
-          </Button>
-          <Button
-            onClick={onSubscribeClick}
             variant={isFollowing ? 'secondary' : 'default'}
             size="lg"
             className="flex-1 md:flex-initial"
           >
-            Subscribe
+            {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
+          </Button>
+          <Button
+            onClick={onEnrollClick}
+            variant={isFollowing ? 'secondary' : 'default'}
+            size="lg"
+            className="flex-1 md:flex-initial"
+          >
+            Enroll
           </Button>
           <Button
             onClick={onMoreClick}
