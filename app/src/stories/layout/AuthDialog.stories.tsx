@@ -31,11 +31,129 @@ export const Initial: Story = {
     authMode: null,
     statusMessage: '',
     errorMessage: '',
+    usernameAvailability: null,
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => console.log('Show username input'),
+    onRegisterWithUsername: () => {},
+    onLogin: () => console.log('Start login'),
+    onUsernameBack: () => {},
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Username Input - shown after clicking "Create Account"
+ */
+export const UsernameInput: Story = {
+  args: {
+    open: true,
+    currentStep: 'username',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
+    usernameAvailability: null,
     isPKPReady: false,
     hasSocialAccount: false,
     onOpenChange: () => {},
     onRegister: () => {},
+    onRegisterWithUsername: (username: string) => console.log('Register with username:', username),
     onLogin: () => {},
+    onUsernameBack: () => console.log('Back from username'),
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Username Input - Checking availability
+ */
+export const UsernameChecking: Story = {
+  args: {
+    open: true,
+    currentStep: 'username',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
+    usernameAvailability: 'checking',
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onRegisterWithUsername: () => {},
+    onLogin: () => {},
+    onUsernameBack: () => {},
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Username Input - Available
+ */
+export const UsernameAvailable: Story = {
+  args: {
+    open: true,
+    currentStep: 'username',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
+    usernameAvailability: 'available',
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onRegisterWithUsername: () => {},
+    onLogin: () => {},
+    onUsernameBack: () => {},
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Username Input - Not Available
+ */
+export const UsernameUnavailable: Story = {
+  args: {
+    open: true,
+    currentStep: 'username',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: '',
+    usernameAvailability: 'unavailable',
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onRegisterWithUsername: () => {},
+    onLogin: () => {},
+    onUsernameBack: () => {},
+    onConnectSocial: () => {},
+  },
+}
+
+/**
+ * Username Input - Loading state (after clicking Continue)
+ */
+export const UsernameInputLoading: Story = {
+  args: {
+    open: true,
+    currentStep: 'username',
+    isAuthenticating: true,
+    authMode: 'register',
+    statusMessage: 'Creating your account...',
+    errorMessage: '',
+    usernameAvailability: 'available',
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onRegisterWithUsername: () => {},
+    onLogin: () => {},
+    onUsernameBack: () => {},
     onConnectSocial: () => {},
   },
 }
@@ -51,11 +169,14 @@ export const Authenticating: Story = {
     authMode: 'register',
     statusMessage: 'Please create a passkey using your device...',
     errorMessage: '',
+    usernameAvailability: null,
     isPKPReady: false,
     hasSocialAccount: false,
     onOpenChange: () => {},
     onRegister: () => {},
+    onRegisterWithUsername: () => {},
     onLogin: () => {},
+    onUsernameBack: () => {},
     onConnectSocial: () => {},
   },
 }
@@ -71,11 +192,14 @@ export const Finalizing: Story = {
     authMode: 'register',
     statusMessage: 'Finalizing...',
     errorMessage: '',
+    usernameAvailability: null,
     isPKPReady: true,
     hasSocialAccount: false,
     onOpenChange: () => {},
     onRegister: () => {},
+    onRegisterWithUsername: () => {},
     onLogin: () => {},
+    onUsernameBack: () => {},
     onConnectSocial: () => {},
   },
 }
@@ -91,11 +215,14 @@ export const Complete: Story = {
     authMode: null,
     statusMessage: '',
     errorMessage: '',
+    usernameAvailability: null,
     isPKPReady: true,
     hasSocialAccount: true,
     onOpenChange: () => {},
     onRegister: () => {},
+    onRegisterWithUsername: () => {},
     onLogin: () => {},
+    onUsernameBack: () => {},
     onConnectSocial: () => {},
   },
 }
