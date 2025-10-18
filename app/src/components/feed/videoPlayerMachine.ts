@@ -6,6 +6,7 @@ export interface VideoPlayerContext {
   isMuted: boolean;
   hasStartedPlaying: boolean;
   error: string | null;
+  shouldAutoplay: boolean;
 }
 
 export type VideoPlayerEvent =
@@ -25,17 +26,24 @@ export const videoPlayerMachine = setup({
   types: {
     context: {} as VideoPlayerContext,
     events: {} as VideoPlayerEvent,
+    input: {} as {
+      videoUrl?: string;
+      thumbnailUrl?: string;
+      isMuted?: boolean;
+      autoplay?: boolean;
+    },
   },
 }).createMachine({
   id: 'videoPlayer',
   initial: 'idle',
-  context: {
-    videoUrl: undefined,
-    thumbnailUrl: undefined,
-    isMuted: false,
+  context: ({ input }) => ({
+    videoUrl: input.videoUrl,
+    thumbnailUrl: input.thumbnailUrl,
+    isMuted: input.isMuted ?? false,
     hasStartedPlaying: false,
     error: null,
-  },
+    shouldAutoplay: input.autoplay ?? false,
+  }),
   states: {
     idle: {
       on: {
@@ -52,7 +60,15 @@ export const videoPlayerMachine = setup({
     },
     loading: {
       on: {
-        VIDEO_LOADED: { target: 'loaded' },
+        VIDEO_LOADED: [
+          {
+            guard: ({ context }) => context.shouldAutoplay === true,
+            target: 'loaded.attemptingPlay',
+          },
+          {
+            target: 'loaded.paused',
+          },
+        ],
         VIDEO_ERROR: {
           target: 'error',
           actions: assign({
@@ -71,7 +87,6 @@ export const videoPlayerMachine = setup({
       },
     },
     loaded: {
-      initial: 'paused',
       on: {
         LOAD: {
           target: 'loading',
@@ -98,6 +113,14 @@ export const videoPlayerMachine = setup({
               {
                 guard: ({ event }) => event.autoplay === true,
                 target: 'attemptingPlay',
+                actions: assign({
+                  shouldAutoplay: true,
+                }),
+              },
+              {
+                actions: assign({
+                  shouldAutoplay: false,
+                }),
               },
             ],
           },
@@ -110,7 +133,12 @@ export const videoPlayerMachine = setup({
                 hasStartedPlaying: true,
               }),
             },
-            AUTOPLAY_BLOCKED: { target: 'paused' },
+            AUTOPLAY_BLOCKED: {
+              target: 'paused',
+              actions: assign({
+                shouldAutoplay: false,
+              }),
+            },
             PAUSE: { target: 'paused' },
             TOGGLE_PLAY: { target: 'paused' },
           },
@@ -124,6 +152,14 @@ export const videoPlayerMachine = setup({
               {
                 guard: ({ event }) => event.autoplay === false,
                 target: 'paused',
+                actions: assign({
+                  shouldAutoplay: false,
+                }),
+              },
+              {
+                actions: assign({
+                  shouldAutoplay: true,
+                }),
               },
             ],
           },

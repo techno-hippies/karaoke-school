@@ -23,12 +23,11 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [state, send] = useMachine(videoPlayerMachine, {
-    context: {
+    input: {
       videoUrl,
       thumbnailUrl,
       isMuted,
-      hasStartedPlaying: false,
-      error: null,
+      autoplay: isPlaying,
     },
   })
 
@@ -60,8 +59,11 @@ export function VideoPlayer({
 
     const handleError = () => {
       if (video.error) {
-        const errorMsg = `Code ${video.error.code}: ${video.error.message}`
-        console.error('[VideoPlayer] Video error:', errorMsg)
+        const errorMsg = `Code ${video.error.code}: ${video.error.message || 'Unknown error'}`
+        // Only log non-empty errors
+        if (video.error.message) {
+          console.error('[VideoPlayer] Video error:', errorMsg)
+        }
         send({ type: 'VIDEO_ERROR', error: errorMsg })
       }
     }
