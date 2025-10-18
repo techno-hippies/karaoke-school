@@ -1,11 +1,14 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { Play } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { useMachine } from '@xstate/react'
+import { videoPlayerMachine } from './videoPlayerMachine'
 import type { VideoPlayerProps } from './types'
 
 /**
  * VideoPlayer - Clean video element with play/pause and mute controls
  * Handles video playback, poster images, and basic controls
+ * Uses XState machine for reliable state management
  */
 export function VideoPlayer({
   videoUrl,
@@ -19,139 +22,121 @@ export function VideoPlayer({
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
+  const [state, send] = useMachine(videoPlayerMachine, {
+    context: {
+      videoUrl,
+      thumbnailUrl,
+      isMuted,
+      hasStartedPlaying: false,
+      error: null,
+    },
+  })
 
-  // Handle play/pause with direct video control for better browser compatibility
-  const handlePlayPause = (e?: React.MouseEvent) => {
+  // Handle play/pause - delegates to state machine
+  const handlePlayPause = () => {
     if (!videoRef.current || !videoUrl) return
-
-    if (videoRef.current.paused) {
-      // Directly call play() to ensure Chrome recognizes the user gesture
-      const playPromise = videoRef.current.play()
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            // Only update parent state after play succeeds
-            onTogglePlay()
-          })
-          .catch(e => {
-            if (e.name === 'NotAllowedError') {
-              console.error('[VideoPlayer] Autoplay blocked')
-              if (onPlayFailed) onPlayFailed()
-            }
-          })
-      }
-    } else {
-      // For pause, we can just call the parent handler
-      onTogglePlay()
-    }
+    send({ type: 'TOGGLE_PLAY' })
+    onTogglePlay()
   }
 
-  // Load video source when URL is available
+  // Load video when URL changes
   useEffect(() => {
-    if (!videoRef.current || !videoUrl) return
+    if (!videoUrl) return
+    send({ type: 'LOAD', videoUrl, thumbnailUrl })
+  }, [videoUrl, thumbnailUrl, send])
 
-    // Reset playing state when video URL changes
-    setHasStartedPlaying(false)
+  // Setup video element and event listeners
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !state.context.videoUrl) return
 
-    // Set video source directly - let browser auto-detect codec
-    videoRef.current.src = videoUrl
-    videoRef.current.load()
+    // Set video source
+    video.src = state.context.videoUrl
+    video.load()
 
-    const handleError = (e: Event) => {
-      const video = videoRef.current
-      if (video) {
-        console.error('[VideoPlayer] Video load error:', {
-          src: video.src,
-          error: video.error,
-          networkState: video.networkState,
-          readyState: video.readyState
-        })
-      }
+    const handleLoadedMetadata = () => {
+      send({ type: 'VIDEO_LOADED' })
     }
 
-    videoRef.current.addEventListener('error', handleError)
-
-    return () => {
-      videoRef.current?.removeEventListener('error', handleError)
-    }
-  }, [videoUrl])
-
-  // Sync isPlaying prop with actual video playback state
-  useEffect(() => {
-    if (!videoRef.current || !videoUrl) return
-
-    if (isPlaying) {
-      // Only call play() if video is not already playing (to avoid redundant calls)
-      if (videoRef.current.paused) {
-        videoRef.current.play()
-          .catch(e => {
-            // Notify parent that autoplay failed so it can show the play button
-            if (e.name === 'NotAllowedError' && onPlayFailed) {
-              onPlayFailed()
-            }
-          })
-      }
-    } else {
-      // Only pause if video is actually playing
-      if (!videoRef.current.paused) {
-        videoRef.current.pause()
+    const handleError = () => {
+      if (video.error) {
+        const errorMsg = `Code ${video.error.code}: ${video.error.message}`
+        console.error('[VideoPlayer] Video error:', errorMsg)
+        send({ type: 'VIDEO_ERROR', error: errorMsg })
       }
     }
-  }, [isPlaying, videoUrl, onPlayFailed])
-
-  // Sync isMuted prop with video element
-  useEffect(() => {
-    if (!videoRef.current) return
-    videoRef.current.muted = isMuted
-  }, [isMuted])
-
-  // Track when video actually starts playing (not just when play() is called)
-  // Also track time updates for karaoke synchronization
-  useEffect(() => {
-    if (!videoRef.current) return
 
     const handlePlaying = () => {
-      setHasStartedPlaying(true)
+      send({ type: 'PLAYING' })
     }
 
     const handlePause = () => {
-      setHasStartedPlaying(false)
-    }
-
-    const handleEnded = () => {
-      setHasStartedPlaying(false)
+      send({ type: 'PAUSED' })
     }
 
     const handleTimeUpdate = () => {
-      if (onTimeUpdate && videoRef.current) {
-        onTimeUpdate(videoRef.current.currentTime)
+      if (onTimeUpdate) {
+        onTimeUpdate(video.currentTime)
       }
     }
 
-    videoRef.current.addEventListener('playing', handlePlaying)
-    videoRef.current.addEventListener('pause', handlePause)
-    videoRef.current.addEventListener('ended', handleEnded)
-    videoRef.current.addEventListener('timeupdate', handleTimeUpdate)
+    video.addEventListener('loadedmetadata', handleLoadedMetadata)
+    video.addEventListener('error', handleError)
+    video.addEventListener('playing', handlePlaying)
+    video.addEventListener('pause', handlePause)
+    video.addEventListener('timeupdate', handleTimeUpdate)
 
     return () => {
-      videoRef.current?.removeEventListener('playing', handlePlaying)
-      videoRef.current?.removeEventListener('pause', handlePause)
-      videoRef.current?.removeEventListener('ended', handleEnded)
-      videoRef.current?.removeEventListener('timeupdate', handleTimeUpdate)
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      video.removeEventListener('error', handleError)
+      video.removeEventListener('playing', handlePlaying)
+      video.removeEventListener('pause', handlePause)
+      video.removeEventListener('timeupdate', handleTimeUpdate)
     }
-  }, [onTimeUpdate])
+  }, [state.context.videoUrl, send, onTimeUpdate])
 
-  const showThumbnail = !!thumbnailUrl
-  const showVideo = !!videoUrl
+  // Sync isPlaying prop with state machine
+  useEffect(() => {
+    send({ type: 'SET_AUTOPLAY', autoplay: isPlaying })
+  }, [isPlaying, send])
+
+  // Sync actual video playback with state machine
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const isInPlayingState = state.matches({ loaded: 'playing' }) || state.matches({ loaded: 'attemptingPlay' })
+
+    if (isInPlayingState && video.paused) {
+      video.play().catch((e) => {
+        if (e.name === 'NotAllowedError') {
+          send({ type: 'AUTOPLAY_BLOCKED' })
+          onPlayFailed?.()
+        }
+      })
+    } else if (!isInPlayingState && !video.paused) {
+      video.pause()
+    }
+  }, [state.value, send, onPlayFailed])
+
+  // Sync isMuted prop with video element
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = isMuted
+  }, [isMuted])
+
+  const showThumbnail = !!state.context.thumbnailUrl
+  const showVideo = !!state.context.videoUrl
+  const hasStartedPlaying = state.context.hasStartedPlaying
+  const showPlayButton = state.matches({ loaded: 'paused' })
 
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
       {/* Thumbnail - always show when available, z-10 to appear above video until it has visible frames */}
       {showThumbnail && (
         <img
-          src={thumbnailUrl}
+          src={state.context.thumbnailUrl}
           alt="Video thumbnail"
           className="absolute inset-0 w-full h-full object-cover z-10"
         />
@@ -176,14 +161,24 @@ export function VideoPlayer({
       )}
 
       {/* Fallback for no media */}
-      {!videoUrl && !thumbnailUrl && (
+      {!state.context.videoUrl && !state.context.thumbnailUrl && (
         <div className="absolute inset-0 w-full h-full bg-background flex items-center justify-center z-0">
           <span className="text-foreground/50">No media</span>
         </div>
       )}
 
+      {/* Error state */}
+      {state.matches('error') && state.context.error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-30">
+          <div className="text-red-500 text-center p-4">
+            <p className="font-semibold">Playback Error</p>
+            <p className="text-sm mt-2">{state.context.error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Play/Pause Overlay - only show when paused, z-30 to be above everything */}
-      {videoUrl && !isPlaying && (
+      {showPlayButton && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
           onClick={(e) => {
