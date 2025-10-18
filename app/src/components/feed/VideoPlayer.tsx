@@ -62,9 +62,15 @@ export function VideoPlayer({
     }
   }
 
-  // Set video source when URL changes
+  // Lazy load video - only load when isPlaying becomes true (user wants to play)
+  // This prevents loading all videos in feed simultaneously
   useEffect(() => {
     if (!videoRef.current || !videoUrl) return
+
+    // Only load video when it should play
+    if (!isPlaying) return
+
+    console.log('[VideoPlayer] Loading video:', videoUrl)
 
     // Reset playing state when video URL changes
     setHasStartedPlaying(false)
@@ -94,7 +100,7 @@ export function VideoPlayer({
       videoRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
       videoRef.current?.removeEventListener('canplay', handleCanPlay)
     }
-  }, [videoUrl])
+  }, [videoUrl, isPlaying])
 
   // Sync isPlaying prop with actual video playback state
   useEffect(() => {
