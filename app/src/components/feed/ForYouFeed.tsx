@@ -1,7 +1,4 @@
-import { evmAddress } from '@lens-protocol/react'
-import { useState, useEffect } from 'react'
-import { fetchPosts } from '@lens-protocol/client/actions'
-import { lensClient } from '@/lens/client'
+import { usePosts, evmAddress } from '@lens-protocol/react'
 import { APP_ADDRESS } from '@/lens/config'
 import { lensToGroveUrl } from '@/lib/lens/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -14,46 +11,28 @@ export interface ForYouFeedProps {
 
 /**
  * ForYouFeed - Fetches copyright-free karaoke posts for the global feed
- * Uses authenticated client when available to get follow status
+ * Uses tag-based filtering for efficient server-side filtering
  */
 export function ForYouFeed({ children }: ForYouFeedProps) {
   const { lensSession } = useAuth()
   const isAuthenticated = !!lensSession
-  const [videoPosts, setVideoPosts] = useState<VideoPostData[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function loadPosts() {
-      setLoading(true)
+  const { data: postsData, loading } = usePosts({
+    filter: {
+      apps: [evmAddress(APP_ADDRESS)],
+      feeds: [{ globalFeed: true }],
+      metadata: {
+        tags: { all: ['copyright-free'] } // Only copyright-free content in For You feed
+      }
+    },
+  })
 
-      try {
-        // Use session client if authenticated to get operations field, otherwise use public client
-        const client = lensSession || lensClient
-
-        const result = await fetchPosts(client, {
-          filter: {
-            apps: [evmAddress(APP_ADDRESS)],
-            feeds: [{ globalFeed: true }],
-            metadata: {
-              tags: { all: ['copyright-free'] } // Only copyright-free content in For You feed
-            }
-          }
-        })
-
-        if (result.isErr()) {
-          console.error('[ForYouFeed] Failed to fetch posts:', result.error)
-          setLoading(false)
-          return
-        }
-
-        const postsData = result.value.items
-
-        // Transform Lens posts to VideoPostData format
-        const posts: VideoPostData[] = postsData
-          .filter((post): post is Post & { metadata: VideoMetadata } =>
-            post.metadata?.__typename === 'VideoMetadata'
-          )
-          .map(post => {
+  // Transform Lens posts to VideoPostData format
+  const videoPosts: VideoPostData[] = (postsData?.items ?? [])
+    .filter((post): post is Post & { metadata: VideoMetadata } =>
+      post.metadata?.__typename === 'VideoMetadata'
+    )
+    .map(post => {
       const video = post.metadata as VideoMetadata
       const copyrightType = post.metadata.tags?.includes('copyrighted') ? 'copyrighted' : 'copyright-free'
       const isEncrypted = post.metadata.tags?.includes('encrypted') ?? false
@@ -164,18 +143,6 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         authData: undefined,
       }
     })
-
-        setVideoPosts(posts)
-        setLoading(false)
-
-      } catch (err) {
-        console.error('[ForYouFeed] Error loading posts:', err)
-        setLoading(false)
-      }
-    }
-
-    loadPosts()
-  }, [lensSession, isAuthenticated])
 
   return <>{children(videoPosts, loading)}</>
 }

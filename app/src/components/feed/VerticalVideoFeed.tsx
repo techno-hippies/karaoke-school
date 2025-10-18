@@ -33,6 +33,15 @@ export function VerticalVideoFeed({
   // Track follow state for each video (optimistic updates)
   const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
 
+  // Reset active index and scroll position when first video ID changes (e.g., tab switch)
+  const firstVideoId = videos.length > 0 ? videos[0].id : null
+  useEffect(() => {
+    setActiveIndex(0)
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0
+    }
+  }, [firstVideoId])
+
   // Handle scroll to detect active video
   useEffect(() => {
     const container = containerRef.current
