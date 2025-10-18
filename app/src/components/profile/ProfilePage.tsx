@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 export function ProfilePage() {
   const { username, address } = useParams<{ username?: string; address?: string }>()
   const navigate = useNavigate()
-  const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, lensAccount } = useAuth()
+  const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, lensAccount, pkpWalletClient } = useAuth()
 
   // Determine if viewing own profile (no username/address in URL)
   const isOwnProfileRoute = !username && !address
