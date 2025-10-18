@@ -18,6 +18,7 @@ export interface VideoPostProps extends VideoPostData {
   onProfileClick?: () => void
   onAudioClick?: () => void
   onSubscribe?: () => void | Promise<void>
+  autoplay?: boolean // If true, attempt autoplay; if false, show paused
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
 }
@@ -59,15 +60,21 @@ export function VideoPost({
   onProfileClick,
   onAudioClick,
   onSubscribe,
+  autoplay = true,
   className,
   karaokeClassName
 }: VideoPostProps) {
-  const [isPlaying, setIsPlaying] = useState(true) // Start true to attempt autoplay
+  const [isPlaying, setIsPlaying] = useState(autoplay) // Only autoplay if explicitly enabled
   const [isMuted, setIsMuted] = useState(false) // Try unmuted first
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // Sync playing state with autoplay prop (pause when scrolled away, play when scrolled into view)
+  useEffect(() => {
+    setIsPlaying(autoplay)
+  }, [autoplay])
 
   // Memoize callbacks to prevent HLS player re-initialization
   const handleTimeUpdate = useCallback((time: number) => {

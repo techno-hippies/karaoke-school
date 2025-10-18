@@ -101,6 +101,7 @@ export function VerticalVideoFeed({
           <div key={video.id} className="h-screen w-full snap-start snap-always">
             <VideoPost
               {...video}
+              autoplay={index === activeIndex}
               onLikeClick={() => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
                 // TODO: Implement like mutation
