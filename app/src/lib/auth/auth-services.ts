@@ -155,8 +155,8 @@ export async function registerWithPasskeyFlow(
 ): Promise<AuthFlowResult> {
   statusCallback('Starting registration...')
 
-  // Step 1: Register with WebAuthn + mint PKP
-  const result = await registerUser((status) => {
+  // Step 1: Register with WebAuthn + mint PKP (username used for passkey identifier)
+  const result = await registerUser(username, (status) => {
     statusCallback(status)
   })
 

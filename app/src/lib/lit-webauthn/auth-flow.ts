@@ -22,8 +22,12 @@ export interface AuthFlowResult {
 /**
  * Register new user: WebAuthn → Mint PKP → Auth Context
  * For users creating a new account
+ *
+ * @param username - Optional username for the passkey (shows in device's passkey manager)
+ * @param onStatusUpdate - Callback for status updates
  */
 export async function registerUser(
+  username: string | undefined,
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
   onStatusUpdate('Initializing Lit Protocol...')
@@ -32,6 +36,7 @@ export async function registerUser(
   // Register new WebAuthn credential and mint PKP
   onStatusUpdate('Please create a passkey using your device...')
   const registerResult = await WebAuthnAuthenticator.registerAndMintPKP({
+    username: username || 'K-School User',
     authServiceBaseUrl: AUTH_SERVICE_URL,
     scopes: ['sign-anything'],
   })
