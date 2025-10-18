@@ -34,17 +34,17 @@ export async function registerUser(
   const registerResult = await WebAuthnAuthenticator.registerAndMintPKP({
     authServiceBaseUrl: AUTH_SERVICE_URL,
     scopes: ['sign-anything'],
-  }) as { pkpInfo: any; webAuthnPublicKey: string; authData?: any }
+  })
 
   console.log('✅ Registered new credential and minted PKP')
 
   const pkpInfo = registerResult.pkpInfo
-  const authData = registerResult.authData
 
-  // Note: authData should be included in registerResult from SDK v7+
-  if (!authData) {
-    throw new Error('Registration failed: authData not returned from registerAndMintPKP')
-  }
+  // SDK v8: registerAndMintPKP only returns { pkpInfo, webAuthnPublicKey }
+  // We must call authenticate() separately to get authData
+  onStatusUpdate('Authenticating with your new passkey...')
+  const authData = await WebAuthnAuthenticator.authenticate()
+  console.log('✅ Authenticated with new credential')
 
   // Create auth context (session signature)
   onStatusUpdate('Creating secure session...')
