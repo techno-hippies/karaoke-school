@@ -23,40 +23,26 @@ export function VideoPlayer({
 
   // Handle play/pause with direct video control for better browser compatibility
   const handlePlayPause = (e?: React.MouseEvent) => {
-    console.log('[VideoPlayer] handlePlayPause called')
-    console.log('[VideoPlayer] videoRef.current:', !!videoRef.current)
-    console.log('[VideoPlayer] videoUrl:', videoUrl)
-    console.log('[VideoPlayer] video.paused:', videoRef.current?.paused)
-    console.log('[VideoPlayer] video.readyState:', videoRef.current?.readyState)
-
-    if (!videoRef.current || !videoUrl) {
-      console.log('[VideoPlayer] Early return - no video or URL')
-      return
-    }
+    if (!videoRef.current || !videoUrl) return
 
     if (videoRef.current.paused) {
-      console.log('[VideoPlayer] Calling play()')
       // Directly call play() to ensure Chrome recognizes the user gesture
       const playPromise = videoRef.current.play()
 
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            console.log('[VideoPlayer] Play succeeded, calling onTogglePlay')
             // Only update parent state after play succeeds
             onTogglePlay()
           })
           .catch(e => {
-            console.error('[VideoPlayer] Play failed:', e)
-            if (e.name === 'NotAllowedError' && onPlayFailed) {
-              onPlayFailed()
+            if (e.name === 'NotAllowedError') {
+              console.error('[VideoPlayer] Autoplay blocked')
+              if (onPlayFailed) onPlayFailed()
             }
           })
-      } else {
-        console.log('[VideoPlayer] Play promise undefined')
       }
     } else {
-      console.log('[VideoPlayer] Video not paused, calling onTogglePlay to pause')
       // For pause, we can just call the parent handler
       onTogglePlay()
     }
@@ -70,8 +56,6 @@ export function VideoPlayer({
     // Only load video when it should play
     if (!isPlaying) return
 
-    console.log('[VideoPlayer] Loading video:', videoUrl)
-
     // Reset playing state when video URL changes
     setHasStartedPlaying(false)
 
@@ -83,22 +67,10 @@ export function VideoPlayer({
       console.error('[VideoPlayer] Video load error:', e)
     }
 
-    const handleLoadedMetadata = () => {
-      console.log('[VideoPlayer] Video metadata loaded, readyState:', videoRef.current?.readyState)
-    }
-
-    const handleCanPlay = () => {
-      console.log('[VideoPlayer] Video can play, readyState:', videoRef.current?.readyState)
-    }
-
     videoRef.current.addEventListener('error', handleError)
-    videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
-    videoRef.current.addEventListener('canplay', handleCanPlay)
 
     return () => {
       videoRef.current?.removeEventListener('error', handleError)
-      videoRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      videoRef.current?.removeEventListener('canplay', handleCanPlay)
     }
   }, [videoUrl, isPlaying])
 
@@ -128,7 +100,6 @@ export function VideoPlayer({
   // Sync isMuted prop with video element
   useEffect(() => {
     if (!videoRef.current) return
-    console.log('[VideoPlayer] Setting video.muted =', isMuted)
     videoRef.current.muted = isMuted
   }, [isMuted])
 
@@ -151,7 +122,6 @@ export function VideoPlayer({
 
     const handleTimeUpdate = () => {
       if (onTimeUpdate && videoRef.current) {
-        console.log('[VideoPlayer] Time update:', videoRef.current.currentTime.toFixed(2))
         onTimeUpdate(videoRef.current.currentTime)
       }
     }
@@ -213,7 +183,6 @@ export function VideoPlayer({
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
           onClick={(e) => {
-            console.log('[VideoPlayer] Play overlay clicked!')
             e.stopPropagation()
             handlePlayPause()
           }}

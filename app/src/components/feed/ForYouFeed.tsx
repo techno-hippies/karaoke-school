@@ -1,6 +1,10 @@
-import { usePosts, evmAddress } from '@lens-protocol/react'
+import { evmAddress } from '@lens-protocol/react'
+import { useState, useEffect } from 'react'
+import { fetchPosts } from '@lens-protocol/client/actions'
+import { lensClient } from '@/lens/client'
 import { APP_ADDRESS } from '@/lens/config'
 import { lensToGroveUrl } from '@/lib/lens/utils'
+import { useAuth } from '@/contexts/AuthContext'
 import type { VideoPostData } from './types'
 import type { Post, VideoMetadata } from '@lens-protocol/client'
 
@@ -10,25 +14,46 @@ export interface ForYouFeedProps {
 
 /**
  * ForYouFeed - Fetches copyright-free karaoke posts for the global feed
- * Uses tag-based filtering for efficient server-side filtering
+ * Uses authenticated client when available to get follow status
  */
 export function ForYouFeed({ children }: ForYouFeedProps) {
-  const { data: postsData, loading } = usePosts({
-    filter: {
-      apps: [evmAddress(APP_ADDRESS)],
-      feeds: [{ globalFeed: true }],
-      metadata: {
-        tags: { all: ['copyright-free'] } // Only copyright-free content in For You feed
-      }
-    },
-  })
+  const { lensSession } = useAuth()
+  const isAuthenticated = !!lensSession
+  const [videoPosts, setVideoPosts] = useState<VideoPostData[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Transform Lens posts to VideoPostData format
-  const videoPosts: VideoPostData[] = (postsData?.items ?? [])
-    .filter((post): post is Post & { metadata: VideoMetadata } =>
-      post.metadata?.__typename === 'VideoMetadata'
-    )
-    .map(post => {
+  useEffect(() => {
+    async function loadPosts() {
+      setLoading(true)
+
+      try {
+        // Use session client if authenticated to get operations field, otherwise use public client
+        const client = lensSession || lensClient
+
+        const result = await fetchPosts(client, {
+          filter: {
+            apps: [evmAddress(APP_ADDRESS)],
+            feeds: [{ globalFeed: true }],
+            metadata: {
+              tags: { all: ['copyright-free'] } // Only copyright-free content in For You feed
+            }
+          }
+        })
+
+        if (result.isErr()) {
+          console.error('[ForYouFeed] Failed to fetch posts:', result.error)
+          setLoading(false)
+          return
+        }
+
+        const postsData = result.value.items
+
+        // Transform Lens posts to VideoPostData format
+        const posts: VideoPostData[] = postsData
+          .filter((post): post is Post & { metadata: VideoMetadata } =>
+            post.metadata?.__typename === 'VideoMetadata'
+          )
+          .map(post => {
       const video = post.metadata as VideoMetadata
       const copyrightType = post.metadata.tags?.includes('copyrighted') ? 'copyrighted' : 'copyright-free'
       const isEncrypted = post.metadata.tags?.includes('encrypted') ?? false
@@ -45,14 +70,49 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       const artistNameAttr = video.attributes?.find(a => a.key === 'artist_name')
       const albumArtAttr = video.attributes?.find(a => a.key === 'album_art')
 
-      // Extract karaoke lines from transcriptions
-      const karaokeLines = video.transcriptions?.map(t => ({
-        text: t.value,
-        translation: undefined, // TODO: Extract from translations if available
-        start: t.startTime / 1000, // Convert ms to seconds
-        end: t.endTime / 1000,
-        words: undefined, // TODO: Parse word-level timings if available
-      }))
+      // Extract karaoke lines from transcriptions attribute (stored as JSON)
+      const transcriptionsAttr = video.attributes?.find(a => a.key === 'transcriptions')
+      let karaokeLines
+
+      if (transcriptionsAttr?.value) {
+        try {
+          const transcriptionsData = JSON.parse(transcriptionsAttr.value)
+
+          // Always use English for main text (word-level highlighting)
+          const englishData = transcriptionsData.languages?.en
+
+          if (englishData?.segments) {
+            // Get browser language for translation
+            const browserLang = navigator.language.toLowerCase()
+            const langMap: Record<string, string> = {
+              'en': 'en',
+              'en-us': 'en',
+              'zh-cn': 'zh',
+              'zh': 'zh',
+              'vi': 'vi',
+              'vi-vn': 'vi'
+            }
+            const translationLang = langMap[browserLang] || 'en'
+            const translationData = translationLang !== 'en'
+              ? transcriptionsData.languages?.[translationLang]
+              : null
+
+            karaokeLines = englishData.segments.map((segment: any, index: number) => ({
+              text: segment.text,
+              translation: translationData?.segments?.[index]?.text || undefined,
+              start: segment.start,
+              end: segment.end,
+              words: segment.words?.map((word: any) => ({
+                text: word.word || word.text,
+                start: word.start,
+                end: word.end,
+              })),
+            }))
+          }
+        } catch (err) {
+          console.warn('[ForYouFeed] Failed to parse transcriptions:', err)
+        }
+      }
 
       // Extract video URL - check both old and new Lens metadata structures
       const rawVideoUrl = video.video?.item || video.video?.optimized?.uri || video.video?.raw?.uri
@@ -69,12 +129,16 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         : rawAvatar?.optimized?.uri || rawAvatar?.raw?.uri
       const userAvatar = lensToGroveUrl(avatarUri) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author.address}`
 
+      // Check follow status
+      const isFollowedByMe = post.author.operations?.isFollowedByMe ?? false
+
       return {
         id: post.id,
         videoUrl,
         thumbnailUrl,
         username: post.author.username?.localName || post.author.address,
         userAvatar,
+        authorAddress: post.author.address, // Store author address for follow operations
         grade,
         description: video.content,
         musicTitle: songNameAttr?.value,
@@ -87,8 +151,8 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         shares: post.stats?.reposts ?? 0,
         karaokeLines,
         isLiked: false, // TODO: Check if current user has liked
-        isFollowing: false, // TODO: Check if current user is following
-        canInteract: false, // TODO: Check if user is authenticated
+        isFollowing: isFollowedByMe, // Check follow status from operations field
+        canInteract: isAuthenticated, // Enable interactions when user is signed in
         isPremium: copyrightType === 'copyrighted',
         userIsSubscribed: false, // Always false for copyright-free feed
         isSubscribing: false,
@@ -100,6 +164,18 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         authData: undefined,
       }
     })
+
+        setVideoPosts(posts)
+        setLoading(false)
+
+      } catch (err) {
+        console.error('[ForYouFeed] Error loading posts:', err)
+        setLoading(false)
+      }
+    }
+
+    loadPosts()
+  }, [lensSession, isAuthenticated])
 
   return <>{children(videoPosts, loading)}</>
 }

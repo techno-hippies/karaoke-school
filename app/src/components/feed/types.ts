@@ -25,6 +25,7 @@ export interface VideoPostData {
   username: string
   userHandle?: string // Display name (e.g., "Professional Vocalist")
   userAvatar?: string
+  authorAddress?: string // Lens account address for follow operations
   grade?: string // Performance grade (A, B+, C, etc)
   description?: string // Post description/caption
   musicTitle?: string
