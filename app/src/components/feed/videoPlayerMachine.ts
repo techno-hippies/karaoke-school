@@ -84,9 +84,25 @@ export const videoPlayerMachine = setup({
             error: null,
           }),
         },
+        PLAY: {
+          actions: assign({
+            shouldAutoplay: true,
+          }),
+        },
+        TOGGLE_PLAY: {
+          actions: assign({
+            shouldAutoplay: true,
+          }),
+        },
+        SET_AUTOPLAY: {
+          actions: assign({
+            shouldAutoplay: ({ event }) => event.autoplay,
+          }),
+        },
       },
     },
     loaded: {
+      initial: 'paused',
       on: {
         LOAD: {
           target: 'loading',

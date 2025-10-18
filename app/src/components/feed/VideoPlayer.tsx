@@ -131,7 +131,11 @@ export function VideoPlayer({
   const showThumbnail = !!state.context.thumbnailUrl
   const showVideo = !!state.context.videoUrl
   const hasStartedPlaying = state.context.hasStartedPlaying
-  const showPlayButton = state.matches({ loaded: 'paused' })
+  const isLoading = state.matches('loading') || state.matches({ loaded: 'attemptingPlay' })
+  // Show play button if not autoplay and hasn't started playing yet (including during loading)
+  const showPlayButton = !state.context.shouldAutoplay && !hasStartedPlaying
+  // Show spinner only when user has interacted (clicked play or autoplay is enabled) and video is loading
+  const showSpinner = isLoading && (state.context.shouldAutoplay || hasStartedPlaying)
 
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
@@ -176,6 +180,13 @@ export function VideoPlayer({
             <p className="font-semibold">Playback Error</p>
             <p className="text-sm mt-2">{state.context.error}</p>
           </div>
+        </div>
+      )}
+
+      {/* Loading Spinner - show when loading or attempting to play, z-30 to be above everything */}
+      {showSpinner && (
+        <div className="absolute inset-0 flex items-center justify-center z-30">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
 

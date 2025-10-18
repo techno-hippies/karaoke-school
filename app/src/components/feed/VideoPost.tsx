@@ -64,16 +64,22 @@ export function VideoPost({
   className,
   karaokeClassName
 }: VideoPostProps) {
-  const [isPlaying, setIsPlaying] = useState(autoplay) // Only autoplay if explicitly enabled
+  const [isPlaying, setIsPlaying] = useState(false) // Start paused to show play button on first load
   const [isMuted, setIsMuted] = useState(false) // Try unmuted first
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
+  const hasInteractedRef = useRef(false) // Track if user has ever interacted
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
   // Sync playing state with autoplay prop (pause when scrolled away, play when scrolled into view)
+  // But only autoplay if user has interacted before (clicked play button)
   useEffect(() => {
-    setIsPlaying(autoplay)
+    if (hasInteractedRef.current && autoplay) {
+      setIsPlaying(true)
+    } else if (!autoplay) {
+      setIsPlaying(false)
+    }
   }, [autoplay])
 
   // Memoize callbacks to prevent HLS player re-initialization
@@ -143,6 +149,9 @@ export function VideoPost({
             controls={false}
             className="absolute inset-0 w-full h-full object-cover"
             onTogglePlay={() => {
+              // Mark that user has interacted
+              hasInteractedRef.current = true
+
               // If playing but muted, unmute instead of pausing
               if (isPlaying && isMuted) {
                 setIsMuted(false)
@@ -169,6 +178,9 @@ export function VideoPost({
             isPlaying={isPlaying}
             isMuted={isMuted}
             onTogglePlay={() => {
+              // Mark that user has interacted
+              hasInteractedRef.current = true
+
               // If playing but muted, unmute instead of pausing
               if (isPlaying && isMuted) {
                 setIsMuted(false)
