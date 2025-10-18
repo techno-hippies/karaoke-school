@@ -62,12 +62,19 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       const videoUrl = lensToGroveUrl(rawVideoUrl)
       const thumbnailUrl = lensToGroveUrl(rawThumbnailUrl) || `https://picsum.photos/400/711?random=${post.id}`
 
+      // Extract avatar - handle both object and string formats
+      const rawAvatar = post.author.metadata?.picture
+      const avatarUri = typeof rawAvatar === 'string'
+        ? rawAvatar
+        : rawAvatar?.optimized?.uri || rawAvatar?.raw?.uri
+      const userAvatar = lensToGroveUrl(avatarUri) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author.address}`
+
       return {
         id: post.id,
         videoUrl,
         thumbnailUrl,
         username: post.author.username?.localName || post.author.address,
-        userAvatar: post.author.metadata?.picture?.optimized?.uri,
+        userAvatar,
         grade,
         description: video.content,
         musicTitle: songNameAttr?.value,

@@ -115,13 +115,13 @@ export function VideoPost({
 
   return (
     <div className={cn(
-      'relative h-screen w-full bg-neutral-900 snap-start flex items-center justify-center',
+      'relative h-screen w-full bg-background snap-start flex items-center justify-center',
       className
     )}>
       {/* Video Container - mobile: full screen, desktop: 9:16 centered */}
       <div
         ref={videoContainerRef}
-        className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-neutral-900 md:rounded-lg overflow-hidden"
+        className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-background md:rounded-lg overflow-hidden"
       >
         {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
         {isPremium &&

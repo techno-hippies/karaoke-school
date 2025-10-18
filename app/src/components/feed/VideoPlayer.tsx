@@ -203,7 +203,7 @@ export function VideoPlayer({
 
       {/* Fallback for no media */}
       {!videoUrl && !thumbnailUrl && (
-        <div className="absolute inset-0 w-full h-full bg-neutral-900 flex items-center justify-center z-0">
+        <div className="absolute inset-0 w-full h-full bg-background flex items-center justify-center z-0">
           <span className="text-foreground/50">No media</span>
         </div>
       )}

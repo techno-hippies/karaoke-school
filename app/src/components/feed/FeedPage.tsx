@@ -17,7 +17,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
   const [activeTab, setActiveTab] = useState<FeedTab>(defaultTab)
 
   return (
-    <div className="relative h-screen w-full bg-neutral-900">
+    <div className="relative h-screen w-full bg-background">
       {/* Tab Navigation - positioned at top */}
       <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pt-safe">
         <div className="flex gap-8 pt-4 pb-2">

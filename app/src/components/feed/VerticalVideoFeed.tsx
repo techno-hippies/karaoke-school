@@ -77,7 +77,7 @@ export function VerticalVideoFeed({
 
   if (isLoading && videos.length === 0) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-neutral-900">
+      <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="text-white text-lg">Loading feed...</div>
       </div>
     )
@@ -85,7 +85,7 @@ export function VerticalVideoFeed({
 
   if (videos.length === 0) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-neutral-900">
+      <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="text-white text-lg">No videos available</div>
       </div>
     )
