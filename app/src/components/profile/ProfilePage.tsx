@@ -16,11 +16,14 @@ import { toast } from 'sonner'
  * Fetches Lens account and posts, maps to ProfilePageView
  */
 export function ProfilePage() {
-  const { username } = useParams<{ username: string }>()
+  const { username, address } = useParams<{ username?: string; address?: string }>()
   const navigate = useNavigate()
-  const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, pkpWalletClient } = useAuth()
+  const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, lensAccount } = useAuth()
 
-  // Fetch Lens account by username
+  // Determine if viewing own profile (no username/address in URL)
+  const isOwnProfileRoute = !username && !address
+
+  // Fetch Lens account by username or address
   const {
     data: account,
     loading: accountLoading,
@@ -28,7 +31,10 @@ export function ProfilePage() {
   } = useAccount({
     username: username ? {
       localName: username.replace('@', '')
-    } : undefined
+    } : undefined,
+    address: address ? evmAddress(address) : undefined,
+    // If viewing own profile route, use the logged-in account
+    ...(isOwnProfileRoute && lensAccount ? { address: evmAddress(lensAccount.address) } : {})
   })
 
   // Fetch posts by author (filtered to your app)
@@ -100,19 +106,19 @@ export function ProfilePage() {
 
   // Map Lens account to profile format
   const profile = account ? {
-    username: account.username?.localName || username || 'user',
+    username: account.username?.localName || username || account.address.slice(0, 8),
     displayName: account.metadata?.name || account.username?.localName || 'User',
-    avatarUrl: lensToGroveUrl(account.metadata?.picture) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    avatarUrl: lensToGroveUrl(account.metadata?.picture) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.address}`,
     bio: account.metadata?.bio || '',
-    following: 0, // TODO: Add following count from graph
-    followers: 0, // TODO: Add followers count from graph
+    following: 0, // TODO: Add enrollments count from graph
+    followers: 0, // TODO: Add students count from graph
     isVerified: false,
-    isOwnProfile: pkpAddress ? account.address === pkpAddress : false,
+    isOwnProfile: pkpAddress ? account.owner === pkpAddress : false,
     geniusArtistId,
   } : {
-    username: username || 'user',
+    username: username || address?.slice(0, 8) || 'user',
     displayName: 'User',
-    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || address}`,
     bio: '',
     following: 0,
     followers: 0,
@@ -227,12 +233,18 @@ export function ProfilePage() {
   }
 
   const handleShareProfile = async () => {
-    const shareUrl = `${window.location.origin}/profile/${username}`
+    // Use username if available, otherwise use address
+    const profilePath = account?.username?.localName
+      ? `/u/${account.username.localName}`
+      : account?.address
+      ? `/profile/${account.address}`
+      : '/profile'
+    const shareUrl = `${window.location.origin}${profilePath}`
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${profile.displayName} on Lens`,
+          title: `${profile.displayName} on K-School`,
           text: profile.bio || 'Check out this profile',
           url: shareUrl,
         })
@@ -241,7 +253,7 @@ export function ProfilePage() {
       }
     } else {
       navigator.clipboard.writeText(shareUrl)
-      console.log('Link copied to clipboard')
+      toast.success('Link copied to clipboard')
     }
   }
 

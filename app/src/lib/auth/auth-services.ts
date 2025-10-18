@@ -20,6 +20,7 @@ import {
   loginAsOnboardingUser,
   loginAsAccountOwner,
   getExistingAccounts,
+  createLensAccount,
   createLensAccountWithoutUsername,
   switchToAccountOwner
 } from '@/lib/lens/auth'
@@ -80,8 +81,8 @@ async function connectLensSession(
       console.log('[Auth Flow] Session authenticated:', session.authenticated)
       console.log('[Auth Flow] Session type:', session.type)
     } else {
-      // User has no account - auto-create one without username
-      console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account without username')
+      // User has no account - auto-create one
+      console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account', username ? `with username: ${username}` : 'without username')
       statusCallback('Creating your Lens account...')
 
       // Step 1: Login as ONBOARDING_USER to create account
@@ -107,17 +108,32 @@ async function connectLensSession(
       const uploadResult = await storageClient.uploadAsJson(metadata)
       console.log('[Auth Flow] ✓ Metadata uploaded:', uploadResult.uri)
 
-      // Step 3: Create account without username
+      // Step 3: Create account (with or without username)
       console.log('[Auth Flow] Step 3: Creating account on-chain...')
       statusCallback('Deploying account...')
-      account = await createLensAccountWithoutUsername(
-        session,
-        walletClient,
-        uploadResult.uri
-      )
+
+      if (username) {
+        // Create account WITH username
+        console.log('[Auth Flow] Creating account with username:', username)
+        account = await createLensAccount(
+          session,
+          walletClient,
+          username,
+          uploadResult.uri
+        )
+      } else {
+        // Create account WITHOUT username (can add later)
+        console.log('[Auth Flow] Creating account without username')
+        account = await createLensAccountWithoutUsername(
+          session,
+          walletClient,
+          uploadResult.uri
+        )
+      }
+
       console.log('[Auth Flow] ✓ Account created:', account.address)
       console.log('[Auth Flow] Account owner:', account.owner)
-      console.log('[Auth Flow] Account usernames:', account.username)
+      console.log('[Auth Flow] Account username:', account.username?.localName || 'none')
 
       // Step 4: Switch to ACCOUNT_OWNER role for social features
       console.log('[Auth Flow] Step 4: Switching to ACCOUNT_OWNER role...')
