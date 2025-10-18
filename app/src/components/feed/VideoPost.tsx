@@ -19,6 +19,8 @@ export interface VideoPostProps extends VideoPostData {
   onAudioClick?: () => void
   onSubscribe?: () => void | Promise<void>
   autoplay?: boolean // If true, attempt autoplay; if false, show paused
+  hasUserInteracted?: boolean // If true, user has interacted with a video before (enables autoplay)
+  onUserInteraction?: () => void // Called when user interacts with this video
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
 }
@@ -61,6 +63,8 @@ export function VideoPost({
   onAudioClick,
   onSubscribe,
   autoplay = true,
+  hasUserInteracted = false,
+  onUserInteraction,
   className,
   karaokeClassName
 }: VideoPostProps) {
@@ -69,18 +73,17 @@ export function VideoPost({
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
-  const hasInteractedRef = useRef(false) // Track if user has ever interacted
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
   // Sync playing state with autoplay prop (pause when scrolled away, play when scrolled into view)
   // But only autoplay if user has interacted before (clicked play button)
   useEffect(() => {
-    if (hasInteractedRef.current && autoplay) {
+    if (hasUserInteracted && autoplay) {
       setIsPlaying(true)
     } else if (!autoplay) {
       setIsPlaying(false)
     }
-  }, [autoplay])
+  }, [autoplay, hasUserInteracted])
 
   // Memoize callbacks to prevent HLS player re-initialization
   const handleTimeUpdate = useCallback((time: number) => {
@@ -150,7 +153,7 @@ export function VideoPost({
             className="absolute inset-0 w-full h-full object-cover"
             onTogglePlay={() => {
               // Mark that user has interacted
-              hasInteractedRef.current = true
+              onUserInteraction?.()
 
               // If playing but muted, unmute instead of pausing
               if (isPlaying && isMuted) {
@@ -179,7 +182,7 @@ export function VideoPost({
             isMuted={isMuted}
             onTogglePlay={() => {
               // Mark that user has interacted
-              hasInteractedRef.current = true
+              onUserInteraction?.()
 
               // If playing but muted, unmute instead of pausing
               if (isPlaying && isMuted) {

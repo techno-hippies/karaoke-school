@@ -33,6 +33,9 @@ export function VerticalVideoFeed({
   // Track follow state for each video (optimistic updates)
   const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
 
+  // Track if user has ever interacted with any video (enables autoplay for all subsequent videos)
+  const hasUserInteractedRef = useRef(false)
+
   // Reset active index and scroll position when first video ID changes (e.g., tab switch)
   const firstVideoId = videos.length > 0 ? videos[0].id : null
   useEffect(() => {
@@ -116,6 +119,10 @@ export function VerticalVideoFeed({
               {...video}
               isFollowing={finalFollowState}
               autoplay={index === activeIndex}
+              hasUserInteracted={hasUserInteractedRef.current}
+              onUserInteraction={() => {
+                hasUserInteractedRef.current = true
+              }}
               onLikeClick={() => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
                 // TODO: Implement like mutation
