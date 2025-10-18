@@ -145,7 +145,7 @@ export const SongPage = memo(function SongPage({
       <div className="relative w-full h-full md:max-w-6xl flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
-        <div className="flex items-center h-16 px-4">
+        <div className="flex items-center h-12 px-4">
           <BackButton onClick={onBack} variant="floating" />
         </div>
       </div>
@@ -255,7 +255,7 @@ export const SongPage = memo(function SongPage({
           <Tabs defaultValue="clips" className="w-full">
             <TabsList className="w-full grid grid-cols-2 bg-muted/50">
               <TabsTrigger value="clips">Segments</TabsTrigger>
-              <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+              <TabsTrigger value="leaderboard">Students</TabsTrigger>
             </TabsList>
 
             <TabsContent value="clips" className="mt-4">

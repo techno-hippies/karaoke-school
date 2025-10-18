@@ -22,22 +22,28 @@ export function VideoPlayer({
   const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
 
   // Handle play/pause with direct video control for better browser compatibility
-  const handlePlayPause = () => {
+  const handlePlayPause = (e?: React.MouseEvent) => {
+    console.log('[VideoPlayer] handlePlayPause called, video paused?', videoRef.current?.paused)
+
     if (!videoRef.current || !videoUrl) return
 
     if (videoRef.current.paused) {
+      console.log('[VideoPlayer] Video is paused, calling play()')
       // Directly call play() to ensure Chrome recognizes the user gesture
       videoRef.current.play()
         .then(() => {
+          console.log('[VideoPlayer] Play succeeded, calling onTogglePlay')
           // Only update parent state after play succeeds
           onTogglePlay()
         })
         .catch(e => {
+          console.log('[VideoPlayer] Play failed:', e.name)
           if (e.name === 'NotAllowedError' && onPlayFailed) {
             onPlayFailed()
           }
         })
     } else {
+      console.log('[VideoPlayer] Video is playing, calling onTogglePlay to pause')
       // For pause, we can just call the parent handler
       onTogglePlay()
     }
@@ -91,6 +97,7 @@ export function VideoPlayer({
   // Sync isMuted prop with video element
   useEffect(() => {
     if (!videoRef.current) return
+    console.log('[VideoPlayer] Setting video.muted =', isMuted)
     videoRef.current.muted = isMuted
   }, [isMuted])
 
@@ -156,7 +163,10 @@ export function VideoPlayer({
           loop
           playsInline
           muted={isMuted}
-          onClick={handlePlayPause}
+          onClick={(e) => {
+            e.stopPropagation()
+            handlePlayPause()
+          }}
         />
       )}
 
@@ -171,7 +181,11 @@ export function VideoPlayer({
       {videoUrl && !isPlaying && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
-          onClick={handlePlayPause}
+          onClick={(e) => {
+            console.log('[VideoPlayer] Play overlay clicked!')
+            e.stopPropagation()
+            handlePlayPause()
+          }}
         >
           <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
             <Play className="w-10 h-10 text-foreground fill-white ml-1" weight="fill" />

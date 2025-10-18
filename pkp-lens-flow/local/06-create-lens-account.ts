@@ -28,6 +28,7 @@ import { parseArgs } from 'util';
 import path from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createWalletClient, http } from 'viem';
+import { existsSync } from 'fs';
 
 // Parse CLI args
 const { values } = parseArgs({
@@ -63,8 +64,22 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   console.log('\n👤 Step 2: Creating Lens Account for TikTok Creator');
   console.log('═══════════════════════════════════════════════════\n');
 
-  // 1. Load PKP data
+  // Check if Lens account already exists
   const cleanHandle = tiktokHandle.replace('@', '');
+  const lensDataPath = path.join(process.cwd(), 'data', 'lens', `${cleanHandle}.json`);
+
+  if (existsSync(lensDataPath)) {
+    console.log('✅ Lens account already exists - loading from file');
+    const existingData = await readFile(lensDataPath, 'utf-8');
+    const lensData: LensAccountData = JSON.parse(existingData);
+    console.log(`   Handle: ${lensData.lensHandle}`);
+    console.log(`   Account Address: ${lensData.lensAccountAddress}`);
+    console.log('   Skipping account creation\n');
+    console.log('✨ Done!\n');
+    return lensData;
+  }
+
+  // 1. Load PKP data
   const pkpPath = path.join(process.cwd(), 'data', 'pkps', `${cleanHandle}.json`);
 
   console.log(`📂 Loading PKP data from: ${pkpPath}`);

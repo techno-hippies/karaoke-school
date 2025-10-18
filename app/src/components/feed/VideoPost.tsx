@@ -63,7 +63,7 @@ export function VideoPost({
   karaokeClassName
 }: VideoPostProps) {
   const [isPlaying, setIsPlaying] = useState(true) // Start true to attempt autoplay
-  const [isMuted, setIsMuted] = useState(true)
+  const [isMuted, setIsMuted] = useState(false) // Try unmuted first
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
@@ -76,6 +76,12 @@ export function VideoPost({
 
   const handleHLSError = useCallback((error: Error) => {
     console.error('[VideoPost] HLS playback error:', error)
+  }, [])
+
+  // Handle autoplay failures - show play button
+  const handlePlayFailed = useCallback(() => {
+    console.log('[VideoPost] Autoplay failed, showing play button')
+    setIsPlaying(false)
   }, [])
 
   const handleCommentClick = () => {
@@ -147,10 +153,7 @@ export function VideoPost({
             }}
             onError={handleHLSError}
             onTimeUpdate={handleTimeUpdate}
-            onPlayFailed={() => {
-              console.log('[VideoPost] HLS autoplay failed, showing play button')
-              setIsPlaying(false)
-            }}
+            onPlayFailed={handlePlayFailed}
           />
         ) : (
           <VideoPlayer
@@ -174,12 +177,7 @@ export function VideoPost({
                 setIsMuted(false)
               }
             }}
-            onPlayFailed={() => {
-              // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
-              // so the play button overlay appears
-              console.log('[VideoPost] Autoplay failed, showing play button')
-              setIsPlaying(false)
-            }}
+            onPlayFailed={handlePlayFailed}
             forceShowThumbnail={isPremium && !userIsSubscribed}
           />
         )}

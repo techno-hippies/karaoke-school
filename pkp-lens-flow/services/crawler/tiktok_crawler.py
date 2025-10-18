@@ -29,9 +29,16 @@ class TikTokCrawler:
     BASE_URL = "https://www.tiktok.com"
     API_BASE = "https://www.tiktok.com/api"
 
-    def __init__(self, data_dir: str = "../../data"):
+    def __init__(self, data_dir: str = None):
         """Initialize crawler"""
-        self.data_dir = Path(data_dir)
+        if data_dir is None:
+            # Auto-detect based on script location
+            script_dir = Path(__file__).parent.resolve()  # Absolute path to services/crawler/
+            # Always go up two levels from services/crawler/ to get to pkp-lens-flow/data
+            pkp_lens_flow_dir = script_dir.parent.parent  # Go up twice: crawler -> services -> pkp-lens-flow
+            self.data_dir = pkp_lens_flow_dir / 'data'
+        else:
+            self.data_dir = Path(data_dir).resolve()  # Resolve to absolute path
         self.session = hrequests.Session()
 
         # Base API parameters (from existing implementation)
@@ -441,7 +448,7 @@ def main():
     parser = argparse.ArgumentParser(description='TikTok Crawler for PKP-Lens Flow')
     parser.add_argument('--creator', '-c', required=True, help='TikTok handle (e.g., @charlidamelio)')
     parser.add_argument('--lens-handle', required=False, help='Desired Lens handle (e.g., charli). Defaults to TikTok handle without @ prefix.')
-    parser.add_argument('--data-dir', default='../../data', help='Data directory')
+    parser.add_argument('--data-dir', default=None, help='Data directory (auto-detected if not specified)')
     parser.add_argument('--copyrighted', type=int, default=3, help='Number of copyrighted videos to fetch (default: 3)')
     parser.add_argument('--copyright-free', type=int, default=3, help='Number of copyright-free videos to fetch (default: 3)')
 

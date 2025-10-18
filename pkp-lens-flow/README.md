@@ -7,24 +7,29 @@
 ```
 LOCAL ONLY (Cold Wallet - Never Deployed)
 ┌──────────────────────────────────────────────────────────┐
-│  Step 1: PKP Minting (Chronicle Yellowstone)            │
-│  Step 3.5: Add Genius Artist ID (Manual Edit)           │
-│  Step 4: Create Lens Account (Lens testnet + Grove)     │
-│  Step 5: Deploy Unlock Lock (Base Sepolia)              │
+│  Step 1:  PKP Minting (Chronicle Yellowstone)           │
+│  Step 5:  Add Genius Artist ID (Manual Edit)            │
+│  Step 6:  Create Lens Account (Lens testnet + Grove)    │
+│  Step 7:  Create Username (Lens)                        │
+│  Step 8:  Deploy Unlock Lock (Base Sepolia)             │
 └──────────────────────────────────────────────────────────┘
 
 SERVICES (Local-first, can deploy later)
 ┌──────────────────────────────────────────────────────────┐
-│  Step 2: TikTok Crawler (Python - hrequests)            │
-│  Step 2.9: Video Conversion (ffmpeg - HEVC→H.264) ⚠️     │
-│  Step 3: Upload Profile Avatar (Grove)                  │
-│  Step 6: Audio Transcription (Voxtral API)              │
-│  Step 7: Multilingual Translation (OpenRouter/Gemini)   │
-│  Step 8: Encrypt Videos (Lit Protocol)                  │
-│  Step 9: Grove Upload (TypeScript)                      │
-│  Step 10: ISRC Fetcher (Spotify API)                    │
-│  Step 11: MLC Scraper (Public API)                      │
-│  Step 12: Metadata Re-upload (Grove)                    │
+│  Step 2:  TikTok Crawler (Python - hrequests)           │
+│  Step 3:  Video Conversion (ffmpeg - HEVC→H.264) ⚠️      │
+│  Step 4:  Upload Profile Avatar (Grove)                 │
+│  Step 9:  Audio Transcription (Voxtral API)             │
+│  Step 10: Multilingual Translation (OpenRouter/Gemini)  │
+│  Step 11: Encrypt Videos (Lit Protocol)                 │
+│  Step 12: Grove Upload (TypeScript)                     │
+│  Step 13: ISRC Fetcher (Spotify API)                    │
+│  Step 14: Spotify → Genius Mapping (Fuzzy matching)     │
+│  Step 15: MLC Scraper (Public API)                      │
+│  Step 16: Metadata Re-upload (Grove)                    │
+│  Step 17: Story IP Assets (Story Protocol)              │
+│  Step 18: Create Lens Posts (Lens Protocol)             │
+│  Step 19: Generate Artist Mapping (TypeScript)          │
 └──────────────────────────────────────────────────────────┘
 
 STORAGE
@@ -32,13 +37,14 @@ STORAGE
 │  Grove Storage (Lens)     → Videos, metadata, licensing  │
 │  Local JSON (data/)       → PKP, Lens, manifests         │
 │  Unlock Locks (Base)      → Subscription contracts       │
+│  Story Protocol (Aeneid)  → IP Asset registration        │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ## Pipeline Flow
 
 ```
-1. Mint PKP                            (local/1-mint-pkp.ts) ✅
+1. Mint PKP                            (local/01-mint-pkp.ts) ✅
    Input:  CLI --creator @handle
    Output: data/pkps/{handle}.json
 
@@ -57,7 +63,7 @@ STORAGE
    Example: --creator @billieeilish → Lens handle: billieeilish
             --creator @charlidamelio --lens-handle charli → Lens handle: charli
 
-2.9. Convert Videos to H.264 + HLS Segments (local/2.9-convert-videos.ts) ✅
+3. Convert Videos to H.264 + HLS Segments (local/03-convert-videos.ts) ✅
    Input:  data/videos/{handle}/manifest.json + video files
    Output: Converted H.264 videos + HLS segments + .hevc backups
 
@@ -75,7 +81,7 @@ STORAGE
    - H.264 is universally supported
    - HLS segments enable streaming playback (better UX)
 
-3. Upload Profile Avatar to Grove      (local/1.5-upload-profile-avatar.ts) ✅
+4. Upload Profile Avatar to Grove      (local/04-upload-profile-avatar.ts) ✅
    Input:  data/videos/{handle}/manifest.json + avatar.jpg
    Output: Updated manifest with Grove avatar URI
 
@@ -83,12 +89,11 @@ STORAGE
    Updates manifest with lens:// URI for use in Lens account creation
    Must run before Lens account creation for proper metadata
 
-3.5. Add Genius Artist ID (MANUAL STEP) ⚠️
+5. Add Genius Artist ID (MANUAL STEP) ⚠️
    Input:  data/videos/{handle}/manifest.json
    Output: Updated manifest with geniusArtistId in profile
 
-   FOR ARTISTS ONLY: If the creator has music on Genius.com, manually add
-   their Genius artist ID to manifest.json under profile.geniusArtistId
+   Manually add the creator's Genius artist ID to manifest.json under profile.geniusArtistId
 
    Example:
    {
@@ -101,9 +106,8 @@ STORAGE
 
    This enables the artist profile view with Songs tab in the frontend
    Find artist ID: https://genius.com/artists/{artist-name}
-   If not an artist, skip this step
 
-4. Create Lens Account                 (local/2-create-lens-account.ts) ✅
+6. Create Lens Account                 (local/06-create-lens-account.ts) ✅
    Input:  data/pkps/{handle}.json + data/videos/{handle}/manifest.json
    Output: data/lens/{handle}.json
 
@@ -113,7 +117,19 @@ STORAGE
    Metadata includes TikTok handle, PKP address, bio translations, and
    Genius artist ID (if provided) for artist profiles
 
-5. Deploy Unlock Lock                  (local/2.5-deploy-lock.ts) ✅
+   Dependencies: Steps 1, 2, 4, 5
+
+7. Create Username                     (local/07-create-username.ts) ✅
+   Input:  data/lens/{handle}.json + desired username
+   Output: Additional username assigned to Lens account
+
+   Creates an additional username for an existing Lens account
+   Useful when TikTok handle is unavailable or you want a shorter alias
+
+   Example: @brookemonk_ → Also assign @brookmonk
+   Dependencies: Step 6
+
+8. Deploy Unlock Lock                  (local/08-deploy-lock.ts) ✅
    Input:  data/pkps/ + data/lens/
    Output: Updated data/lens/{handle}.json with lock address
 
@@ -121,7 +137,9 @@ STORAGE
    Updates Lens metadata with lock address for discovery
    Lock beneficiary = master EOA (holds subscription payments)
 
-6. Transcribe Audio                    (local/3.5-transcribe-audio.ts) ✅
+   Dependencies: Steps 1, 6
+
+9. Transcribe Audio                    (local/09-transcribe-audio.ts) ✅
    Input:  data/videos/{handle}/manifest.json + video files
    Output: Updated manifest with English transcriptions + word-level timestamps
 
@@ -130,7 +148,9 @@ STORAGE
    Generates word-level timestamps for karaoke-style captions
    Distributes timing proportionally across words within segments
 
-7. Translate Transcriptions + Bio      (local/3.6-translate-transcriptions.ts) ✅
+   Dependencies: Step 3 (needs converted videos)
+
+10. Translate Transcriptions + Bio      (local/10-translate-transcriptions.ts) ✅
    Input:  data/videos/{handle}/manifest.json with English transcriptions
    Output: Updated manifest with Vietnamese + Mandarin translations
 
@@ -140,7 +160,9 @@ STORAGE
    Distributes translated word timing proportionally to original segments
    Supports custom language selection via --languages flag
 
-8. Encrypt HLS Segments with Lit Protocol (local/3-encrypt-videos.ts) ✅
+   Dependencies: Step 9
+
+11. Encrypt HLS Segments with Lit Protocol (local/11-encrypt-videos.ts) ✅
    Input:  data/videos/{handle}/manifest.json + HLS segments + lock address
    Output: Encrypted segment files + updated manifest
 
@@ -158,7 +180,9 @@ STORAGE
    - Frontend decrypts segments on-the-fly with Web Crypto API
    - Enables streaming playback with HLS.js
 
-9. Upload HLS Segments to Grove Storage (local/4-upload-grove.ts) ✅
+   Dependencies: Steps 3, 8, 9, 10 (MUST be after convert, transcribe, translate!)
+
+12. Upload HLS Segments to Grove Storage (local/12-upload-grove.ts) ✅
    Input:  data/videos/{handle}/manifest.json (with encrypted segments)
    Output: Updated manifest with Grove URIs (lens://...)
 
@@ -172,14 +196,18 @@ STORAGE
    Stores segment URIs as map: filename → Grove URI
    Includes bio translations in profile metadata
 
-10. Fetch ISRCs from Spotify           (local/5-fetch-isrc.ts) ✅
+   Dependencies: Step 11
+
+13. Fetch ISRCs from Spotify           (local/13-fetch-isrc.ts) ✅
    Input:  data/videos/{handle}/manifest.json (Spotify track IDs)
    Output: Updated manifest with ISRC codes
 
    Uses Spotify Web API to get ISRCs for copyrighted tracks
    Skips copyright-free videos
 
-10.5. Map Spotify → Genius              (local/8-map-spotify-to-genius.ts) ✅
+   Dependencies: Step 2 (needs Spotify track IDs from crawler)
+
+14. Map Spotify → Genius              (local/14-map-spotify-genius.ts) ✅
    Input:  data/videos/{handle}/manifest.json (Spotify metadata)
    Output: Updated manifest with Genius song IDs + metadata
 
@@ -189,21 +217,47 @@ STORAGE
    Adds Genius ID, URL, and match confidence to each video
    Enables frontend linking: /song/{geniusId}
 
-11. Fetch MLC Licensing Data           (local/6-fetch-mlc.ts) ✅
+   Dependencies: Step 13
+
+15. Fetch MLC Licensing Data           (local/15-fetch-mlc.ts) ✅
    Input:  data/videos/{handle}/manifest.json (ISRCs)
    Output: Updated manifest with MLC song codes, writers, publishers
 
    Queries MLC Public API for licensing information
    Extracts writers, publishers, shares, IPI numbers
 
-12. Re-upload Enriched Metadata        (local/7-reupload-metadata.ts) ✅
+   Dependencies: Step 13
+
+16. Re-upload Enriched Metadata        (local/16-reupload-metadata.ts) ✅
    Input:  data/videos/{handle}/manifest.json (with ISRC + MLC data)
    Output: Updated Grove URIs with enriched metadata
 
    Re-uploads video metadata to Grove with licensing data
    Adds timestamps for data staleness tracking
 
-13. Generate Artist Routing Mapping    (scripts/generate-artist-mapping.ts) ✅
+   Dependencies: Steps 13, 14, 15
+
+17. Mint Story IP Assets              (local/17-mint-story-ip-assets.ts) ✅
+   Input:  data/videos/{handle}/manifest.json (with Spotify, Genius, MLC data)
+   Output: Updated manifest with Story Protocol IP Asset IDs
+
+   Creates Story Protocol IP Assets for songs with matched tracks
+   Includes MLC data, ISRC, ISWC, and other metadata in the IP Asset
+   Mints on Story Protocol Aeneid testnet
+
+   Dependencies: Steps 13, 14, 15, 16
+
+18. Create Lens Posts                 (local/18-create-lens-posts.ts) ✅
+   Input:  data/videos/{handle}/manifest.json (with all metadata enriched)
+   Output: Lens posts created for each video
+
+   Creates Lens video posts for all videos in the manifest
+   Posts to custom feed with proper metadata
+   Includes licensing, Genius links, Story IP assets
+
+   Dependencies: Steps 12, 16, 17 (all metadata must be enriched!)
+
+19. Generate Artist Routing Mapping    (scripts/19-generate-artist-mapping.ts) ✅
    Input:  data/videos/*/manifest.json (all creators)
    Output: ../app/src/lib/genius/artist-mapping.ts
 
@@ -215,6 +269,8 @@ STORAGE
 
    Run after uploading new artists, before deploying frontend
    Supports 10k+ artists (generates ~500KB file, loads instantly)
+
+   Dependencies: All manifests from all creators
 ```
 
 ## Folder Structure
@@ -222,21 +278,26 @@ STORAGE
 ```
 pkp-lens-flow/
 ├── local/                              # LOCAL ONLY - Cold wallet operations
-│   ├── 1-mint-pkp.ts                  # ✅ Mint PKPs (Chronicle Yellowstone)
-│   ├── 1.5-upload-profile-avatar.ts   # ✅ Upload avatar to Grove (before Lens)
-│   ├── 2-create-lens-account.ts       # ✅ Create Lens accounts (Lens testnet)
-│   ├── 2.5-deploy-lock.ts             # ✅ Deploy Unlock locks (Base Sepolia)
-│   ├── 2.9-convert-videos.ts          # ✅ Convert HEVC→H.264 (browser compat)
-│   ├── 3-encrypt-videos.ts            # ✅ Encrypt videos with Lit Protocol
-│   ├── 3.5-transcribe-audio.ts        # ✅ Transcribe audio with Voxtral
-│   ├── 3.6-translate-transcriptions.ts # ✅ Translate transcriptions + bio
-│   ├── 4-upload-grove.ts              # ✅ Upload encrypted content to Grove
-│   ├── 5-fetch-isrc.ts                # ✅ Fetch ISRCs from Spotify
-│   ├── 6-fetch-mlc.ts                 # ✅ Fetch MLC licensing data
-│   └── 7-reupload-metadata.ts         # ✅ Re-upload enriched metadata
+│   ├── 01-mint-pkp.ts                 # ✅ Step 1:  Mint PKPs (Chronicle Yellowstone)
+│   ├── 03-convert-videos.ts           # ✅ Step 3:  Convert HEVC→H.264 + HLS segments
+│   ├── 04-upload-profile-avatar.ts    # ✅ Step 4:  Upload avatar to Grove (before Lens)
+│   ├── 06-create-lens-account.ts      # ✅ Step 6:  Create Lens accounts (Lens testnet)
+│   ├── 07-create-username.ts          # ✅ Step 7:  Create additional username
+│   ├── 08-deploy-lock.ts              # ✅ Step 8:  Deploy Unlock locks (Base Sepolia)
+│   ├── 09-transcribe-audio.ts         # ✅ Step 9:  Transcribe audio with Voxtral
+│   ├── 10-translate-transcriptions.ts # ✅ Step 10: Translate transcriptions + bio
+│   ├── 11-encrypt-videos.ts           # ✅ Step 11: Encrypt videos with Lit Protocol
+│   ├── 12-upload-grove.ts             # ✅ Step 12: Upload encrypted content to Grove
+│   ├── 13-fetch-isrc.ts               # ✅ Step 13: Fetch ISRCs from Spotify
+│   ├── 14-map-spotify-genius.ts       # ✅ Step 14: Map Spotify → Genius (fuzzy match)
+│   ├── 15-fetch-mlc.ts                # ✅ Step 15: Fetch MLC licensing data
+│   ├── 16-reupload-metadata.ts        # ✅ Step 16: Re-upload enriched metadata
+│   ├── 17-mint-story-ip-assets.ts     # ✅ Step 17: Mint Story Protocol IP Assets
+│   ├── 18-create-lens-posts.ts        # ✅ Step 18: Create Lens posts
+│   └── util-delete-posts.ts           # 🛠️  Utility: Clear post hashes
 │
 ├── services/
-│   └── crawler/                        # ✅ TikTok scraping (Python)
+│   └── crawler/                        # ✅ Step 2: TikTok scraping (Python)
 │       ├── tiktok_crawler.py          # Main crawler with dual filtering
 │       ├── test_filters.py            # Copyright filter testing
 │       └── test_dual_filter.py        # Dual filter testing
@@ -254,18 +315,18 @@ pkp-lens-flow/
 │           └── thumbnail_*.jpg        # Video thumbnails
 │
 ├── scripts/                            # Utility scripts
-│   └── generate-artist-mapping.ts  # Auto-generates Genius → Lens username mapping
+│   └── 19-generate-artist-mapping.ts  # ✅ Step 19: Auto-generates Genius → Lens username mapping
 ├── .env                                # Environment variables (encrypted with dotenvx)
 └── package.json
 ```
 
-## Artist Routing System (Step 13)
+## Artist Routing System (Step 19)
 
 The app uses smart routing to link song pages to artist profiles:
 - **Artists with PKPs** → `/u/:username` (Videos + Songs)
 - **Artists without PKPs** → `/artist/:geniusArtistId` (Genius data only)
 
-This is achieved via **Step 13** in the pipeline, which auto-generates a TypeScript mapping file (`app/src/lib/genius/artist-mapping.ts`) from all manifests with `geniusArtistId`.
+This is achieved via **Step 19** in the pipeline, which auto-generates a TypeScript mapping file (`app/src/lib/genius/artist-mapping.ts`) from all manifests with `geniusArtistId`.
 
 **Example:**
 - Taylor Swift (Genius ID 1177, has PKP) → Routes to `/u/taylorswifttiktok`
@@ -279,25 +340,28 @@ This is achieved via **Step 13** in the pipeline, which auto-generates a TypeScr
 
 - [x] Step 1: PKP Minting (Chronicle Yellowstone)
 - [x] Step 2: TikTok Crawler (dual filtering: copyrighted + copyright-free, profile data)
-- [x] Step 3: Upload Profile Avatar to Grove (immutable ACL for public access)
-- [x] Step 3.5: Add Genius Artist ID (MANUAL - for artists only)
-- [x] Step 4: Lens Account Creation (Lens testnet with real TikTok profile data + Genius ID)
-- [x] Step 5: Unlock Lock Deployment (Base Sepolia)
-- [x] Step 6: Audio Transcription (Voxtral API with word-level timestamps)
-- [x] Step 7: Multilingual Translation (Vietnamese + Mandarin via OpenRouter, bio + transcriptions)
-- [x] Step 8: Lit Protocol Encryption (access control via Unlock keys)
-- [x] Step 9: Grove Upload (encrypted videos + metadata with ACL)
-- [x] Step 10: ISRC Fetching (Spotify Web API)
-- [x] Step 10.5: Spotify → Genius Mapping (fuzzy matching + direct ID match)
-- [x] Step 11: MLC Licensing Data (MLC Public API)
-- [x] Step 12: Metadata Re-upload (enriched with licensing)
-- [x] Step 13: Artist Routing Mapping (auto-generated Genius ID → Lens username map)
+- [x] Step 3: Video Conversion (HEVC→H.264 + HLS segments)
+- [x] Step 4: Upload Profile Avatar to Grove (immutable ACL for public access)
+- [x] Step 5: Add Genius Artist ID (MANUAL - required for all creators)
+- [x] Step 6: Lens Account Creation (Lens testnet with real TikTok profile data + Genius ID)
+- [x] Step 7: Create Username (additional username for Lens account)
+- [x] Step 8: Unlock Lock Deployment (Base Sepolia)
+- [x] Step 9: Audio Transcription (Voxtral API with word-level timestamps)
+- [x] Step 10: Multilingual Translation (Vietnamese + Mandarin via OpenRouter, bio + transcriptions)
+- [x] Step 11: Lit Protocol Encryption (access control via Unlock keys)
+- [x] Step 12: Grove Upload (encrypted videos + metadata with ACL)
+- [x] Step 13: ISRC Fetching (Spotify Web API)
+- [x] Step 14: Spotify → Genius Mapping (fuzzy matching + direct ID match)
+- [x] Step 15: MLC Licensing Data (MLC Public API)
+- [x] Step 16: Metadata Re-upload (enriched with licensing)
+- [x] Step 17: Story IP Assets (Story Protocol Aeneid testnet)
+- [x] Step 18: Create Lens Posts (Lens Protocol with enriched metadata)
+- [x] Step 19: Artist Routing Mapping (auto-generated Genius ID → Lens username map)
 
 **Next Steps:**
 - [ ] Frontend HLS playback with custom DecryptingLoader
 - [ ] Frontend subscription purchase flow (Unlock integration)
 - [ ] Frontend karaoke-style caption rendering (word-level highlighting)
-- [ ] Lens feed posting integration
 
 ## Prerequisites
 
@@ -349,58 +413,79 @@ cd services/crawler && bash setup.sh && cd ../..
 bun run crawl-tiktok -- --creator @charlidamelio --copyrighted 3 --copyright-free 3
 # Output: data/videos/charlidamelio/manifest.json + 6 videos + profile picture
 
-# Step 3: Upload Profile Avatar to Grove
+# Step 3: Convert Videos to H.264 + HLS Segments
+bun run convert-videos --creator @charlidamelio
+# Output: Converted H.264 videos + HLS segments + .hevc backups
+# CRITICAL: Must run BEFORE encryption!
+
+# Step 4: Upload Profile Avatar to Grove
 bun run upload-profile-avatar --creator @charlidamelio
 # Output: manifest.json with Grove avatar URI (lens://...)
 
-# Step 3.5: Add Genius Artist ID (MANUAL - for artists only)
+# Step 5: Add Genius Artist ID (MANUAL - required)
 # Open data/videos/charlidamelio/manifest.json and add:
 # "profile": {
 #   "nickname": "charli d'amelio",
 #   "bio": "...",
-#   "geniusArtistId": 1177  // ← Add this if creator is a music artist
+#   "geniusArtistId": 1177  // ← Add this line
 # }
 # Find artist ID at: https://genius.com/artists/charli-damelio
-# Skip this step if not an artist
 
-# Step 4: Create Lens Account
+# Step 6: Create Lens Account
 bun run create-lens --creator @charlidamelio
 # Output: data/lens/charlidamelio.json (with real TikTok profile data + Genius ID)
 
-# Step 5: Deploy Unlock Subscription Lock
+# Step 7: Create Username
+bun run create-username --creator @charlidamelio --username charli
+# Output: Additional username assigned to Lens account
+
+# Step 8: Deploy Unlock Subscription Lock
 bun run deploy-lock --creator @charlidamelio
 # Output: Lock contract on Base Sepolia, updated Lens metadata
 
-# Step 6: Transcribe Audio with Voxtral
+# Step 9: Transcribe Audio with Voxtral
 bun run transcribe-audio --creator @charlidamelio
 # Output: manifest.json with English transcriptions + word-level timestamps
 
-# Step 7: Translate Transcriptions + Bio
+# Step 10: Translate Transcriptions + Bio
 bun run translate-transcriptions --creator @charlidamelio
 # Output: manifest.json with Vietnamese + Mandarin translations (bio + transcriptions)
 # Optional: Use --languages flag to specify languages (default: vi,zh)
 
-# Step 8: Encrypt HLS Segments with Lit Protocol
+# Step 11: Encrypt HLS Segments with Lit Protocol
 bun run encrypt-videos --creator @charlidamelio
 # Output: Encrypted segments + manifest with encryption metadata (per-segment IVs)
+# CRITICAL: Must run AFTER convert, transcribe, translate!
 
-# Step 9: Upload HLS Segments to Grove Storage
+# Step 12: Upload HLS Segments to Grove Storage
 bun run upload-grove --creator @charlidamelio
 # Output: manifest.json with Grove URIs for playlists + segments (lens://...)
 
-# Step 10: Fetch ISRCs from Spotify
+# Step 13: Fetch ISRCs from Spotify
 bun run fetch-isrc --creator @charlidamelio
 # Output: manifest.json with ISRC codes
 
-# Step 11: Fetch MLC Licensing Data
+# Step 14: Map Spotify → Genius
+bun run map-spotify-genius --creator @charlidamelio
+# Output: manifest.json with Genius song IDs + metadata
+
+# Step 15: Fetch MLC Licensing Data
 bun run fetch-mlc --creator @charlidamelio
 # Output: manifest.json with song codes, writers, publishers
 
-# Step 12: Re-upload Enriched Metadata
+# Step 16: Re-upload Enriched Metadata
 bun run reupload-metadata --creator @charlidamelio
 # Output: Updated Grove URIs with licensing data
 
-# Step 13: Generate Artist Routing Mapping (after uploading all artists)
+# Step 17: Mint Story IP Assets
+bun run mint-story-ip-assets --creator @charlidamelio
+# Output: manifest.json with Story Protocol IP Asset IDs
+
+# Step 18: Create Lens Posts
+bun run create-lens-posts --creator @charlidamelio
+# Output: Lens posts created for each video with enriched metadata
+
+# Step 19: Generate Artist Routing Mapping (after uploading all artists)
 bun run generate-artist-mapping
 # Output: ../app/src/lib/genius/artist-mapping.ts
 # Maps Genius artist IDs → Lens usernames for smart routing
@@ -410,28 +495,58 @@ bun run generate-artist-mapping
 ### Individual Steps
 
 ```bash
-# Mint PKP only
+# Step 1: Mint PKP only
 bun run mint-pkp --creator @handle
 
-# Crawl TikTok with custom counts
+# Step 2: Crawl TikTok with custom counts
 bun run crawl-tiktok -- --creator @handle --copyrighted 5 --copyright-free 2
 
-# Upload profile avatar to Grove
+# Step 3: Convert videos to H.264 + HLS (requires videos from Step 2)
+bun run convert-videos --creator @handle
+
+# Step 4: Upload profile avatar to Grove
 bun run upload-profile-avatar --creator @handle
 
-# Create Lens account (requires PKP + manifest with avatar)
+# Step 6: Create Lens account (requires PKP + manifest with avatar + Genius ID)
 bun run create-lens --creator @handle
 
-# Deploy lock (requires PKP + Lens)
+# Step 7: Create additional username
+bun run create-username --creator @handle --username shortername
+
+# Step 8: Deploy lock (requires PKP + Lens)
 bun run deploy-lock --creator @handle
 
-# Transcribe audio
+# Step 9: Transcribe audio
 bun run transcribe-audio --creator @handle
 
-# Translate transcriptions + bio with custom languages
+# Step 10: Translate transcriptions + bio with custom languages
 bun run translate-transcriptions --creator @handle --languages vi,zh,es
 
-# Generate artist routing mapping (after uploading all artists)
+# Step 11: Encrypt videos (requires lock from Step 8)
+bun run encrypt-videos --creator @handle
+
+# Step 12: Upload to Grove
+bun run upload-grove --creator @handle
+
+# Step 13: Fetch ISRCs
+bun run fetch-isrc --creator @handle
+
+# Step 14: Map Spotify to Genius
+bun run map-spotify-genius --creator @handle
+
+# Step 15: Fetch MLC data
+bun run fetch-mlc --creator @handle
+
+# Step 16: Reupload metadata
+bun run reupload-metadata --creator @handle
+
+# Step 17: Mint Story IP Assets
+bun run mint-story-ip-assets --creator @handle
+
+# Step 18: Create Lens Posts
+bun run create-lens-posts --creator @handle
+
+# Step 19: Generate artist routing mapping (after uploading all artists)
 bun run generate-artist-mapping
 
 # Test copyright filters without downloading

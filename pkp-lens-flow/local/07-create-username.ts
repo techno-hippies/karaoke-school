@@ -62,6 +62,13 @@ async function createNewUsername(tiktokHandle: string, localName: string): Promi
   console.log(`   Current Handle: ${lensData.lensHandle}`);
   console.log(`   New Username: @${localName}\n`);
 
+  // If the username matches the current handle, skip
+  if (lensData.lensHandle === `@${localName}` || lensData.lensHandle === localName) {
+    console.log('✅ Username already set as primary handle - skipping\n');
+    console.log('✨ Done!\n');
+    return;
+  }
+
   // 2. Setup clients
   console.log('🔗 Setting up Lens client...');
 

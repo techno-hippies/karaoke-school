@@ -90,11 +90,11 @@ export function ProfileActions({
           </Button>
           <Button
             onClick={onEnrollClick}
-            variant={isFollowing ? 'secondary' : 'default'}
+            variant={isEnrolled ? 'secondary' : 'default'}
             size="lg"
             className="flex-1 md:flex-initial"
           >
-            Enroll
+            {isEnrolled ? 'Enrolled' : 'Enroll'}
           </Button>
           <Button
             onClick={onMoreClick}

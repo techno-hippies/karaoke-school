@@ -126,6 +126,14 @@ export function usePKPWallet(): UsePKPWalletResult {
           await initialize(status.pkpInfo, status.authData)
         } catch (error) {
           console.error('[usePKPWallet] Auto-initialization failed:', error)
+
+          // Check if this is a stale session error (blockhash validation)
+          if (error instanceof Error && error.message.includes('Invalid blockhash')) {
+            console.log('[usePKPWallet] Clearing stale session data due to blockhash error')
+            const { clearSession } = await import('@/lib/lit-webauthn/storage')
+            clearSession()
+          }
+
           // Don't throw - user can manually sign in
         }
       }

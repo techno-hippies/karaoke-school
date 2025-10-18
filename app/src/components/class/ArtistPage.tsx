@@ -56,7 +56,7 @@ export function ArtistPage({
       <div className="relative w-full h-full md:max-w-6xl">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
-        <div className="flex items-center h-16 px-4">
+        <div className="flex items-center h-12 px-4">
           <BackButton onClick={onBack} variant="floating" />
         </div>
       </div>

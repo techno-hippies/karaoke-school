@@ -235,3 +235,27 @@ export const Complete: Story = {
     onConnectSocial: () => {},
   },
 }
+
+/**
+ * Registration Error - WebAuthn passkey error with long URL
+ */
+export const RegistrationError: Story = {
+  args: {
+    open: true,
+    currentStep: 'webauthn',
+    isAuthenticating: false,
+    authMode: 'register',
+    statusMessage: '',
+    errorMessage: 'NotAllowedError: The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.',
+    usernameAvailability: null,
+    isPKPReady: false,
+    hasSocialAccount: false,
+    onOpenChange: () => {},
+    onRegister: () => {},
+    onRegisterWithUsername: () => {},
+    onLogin: () => {},
+    onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
+    onConnectSocial: () => {},
+  },
+}

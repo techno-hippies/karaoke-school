@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAccount, usePosts, evmAddress } from '@lens-protocol/react'
+import { fetchAccount } from '@lens-protocol/client/actions'
+import type { Account } from '@lens-protocol/client'
 import { useAuth } from '@/contexts/AuthContext'
 import { ProfilePageView } from './ProfilePageView'
 import type { Video } from './VideoGrid'
@@ -24,12 +26,8 @@ export function ProfilePage() {
   const isOwnProfileRoute = !username && !address
 
   // Fetch Lens account by username or address
-  const {
-    data: account,
-    loading: accountLoading,
-    error: accountError,
-    refetch: refetchAccount
-  } = useAccount({
+  // Note: We need lensSession to get the operations field (isFollowedByMe, canFollow, etc.)
+  const accountResult = useAccount({
     username: username ? {
       localName: username.replace('@', '')
     } : undefined,
@@ -37,6 +35,41 @@ export function ProfilePage() {
     // If viewing own profile route, use the logged-in account
     ...(isOwnProfileRoute && lensAccount ? { address: evmAddress(lensAccount.address) } : {})
   })
+
+  const baseAccount = accountResult.data
+  const accountLoading = accountResult.loading
+  const accountError = accountResult.error
+
+  // State to hold account with operations field (fetched when session is available)
+  const [accountWithOperations, setAccountWithOperations] = useState<Account | null>(null)
+
+  // Use the authenticated account if available, otherwise use the base account
+  const account = accountWithOperations || baseAccount
+
+  // Clear accountWithOperations when baseAccount changes (e.g., navigating to different profile)
+  useEffect(() => {
+    setAccountWithOperations(null)
+  }, [baseAccount?.address])
+
+  // Fetch account with session to get operations field
+  useEffect(() => {
+    if (lensSession && baseAccount && !baseAccount.operations && !accountWithOperations) {
+      console.log('[ProfilePage] Fetching account with session to get operations field...')
+
+      fetchAccount(lensSession, {
+        address: evmAddress(baseAccount.address)
+      }).then(result => {
+        if (result.isOk() && result.value) {
+          console.log('[ProfilePage] ✅ Account with operations fetched:', result.value.operations)
+          setAccountWithOperations(result.value)
+        } else {
+          console.warn('[ProfilePage] Failed to fetch account with operations:', result.isErr() ? result.error : 'No account')
+        }
+      }).catch(error => {
+        console.error('[ProfilePage] Error fetching account with operations:', error)
+      })
+    }
+  }, [lensSession, baseAccount, accountWithOperations])
 
   // Fetch posts by author (filtered to your app)
   // Only fetch posts after account is loaded
@@ -97,8 +130,13 @@ export function ProfilePage() {
   // Update follow state when account data changes
   useEffect(() => {
     if (account) {
+      console.log('[ProfilePage] Checking follow state for account:', account.address)
+      console.log('[ProfilePage] account.operations:', account.operations)
+      console.log('[ProfilePage] account.operations.isFollowedByMe:', account.operations?.isFollowedByMe)
       const serverFollowState = isFollowingAccount(account)
+      console.log('[ProfilePage] isFollowingAccount result:', serverFollowState)
       setIsFollowing(serverFollowState)
+      console.log('[ProfilePage] Set isFollowing state to:', serverFollowState)
     }
   }, [account])
 
@@ -169,24 +207,35 @@ export function ProfilePage() {
   }
 
   const handleFollowClick = async () => {
+    console.log('[ProfilePage] handleFollowClick called')
+    console.log('[ProfilePage] Current isFollowing state:', isFollowing)
+    console.log('[ProfilePage] lensSession:', !!lensSession)
+    console.log('[ProfilePage] pkpWalletClient:', !!pkpWalletClient)
+    console.log('[ProfilePage] account:', account?.address)
+    console.log('[ProfilePage] pkpAddress:', pkpAddress)
+
     // Check if user is authenticated
     if (!lensSession || !pkpWalletClient) {
+      console.log('[ProfilePage] Not authenticated, showing toast')
       toast.error('Please sign in to follow accounts')
       return
     }
 
     // Check if viewing own profile
     if (account?.address === pkpAddress) {
+      console.log('[ProfilePage] Cannot follow own profile')
       toast.error('You cannot follow yourself')
       return
     }
 
     // Check if account exists
     if (!account) {
+      console.log('[ProfilePage] Account not found')
       toast.error('Account not found')
       return
     }
 
+    console.log('[ProfilePage] Starting follow/unfollow operation...')
     setFollowLoading(true)
 
     try {
@@ -201,7 +250,12 @@ export function ProfilePage() {
         if (result.success) {
           toast.success('Unfollowed successfully')
           // Refetch account to get updated follow state
-          await refetchAccount()
+          const refetchResult = await fetchAccount(lensSession, {
+            address: evmAddress(account.address)
+          })
+          if (refetchResult.isOk() && refetchResult.value) {
+            setAccountWithOperations(refetchResult.value)
+          }
         } else {
           // Revert on error
           setIsFollowing(previousState)
@@ -213,7 +267,12 @@ export function ProfilePage() {
         if (result.success) {
           toast.success('Followed successfully')
           // Refetch account to get updated follow state
-          await refetchAccount()
+          const refetchResult = await fetchAccount(lensSession, {
+            address: evmAddress(account.address)
+          })
+          if (refetchResult.isOk() && refetchResult.value) {
+            setAccountWithOperations(refetchResult.value)
+          }
         } else {
           // Revert on error
           setIsFollowing(previousState)

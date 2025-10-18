@@ -64,7 +64,7 @@ export function VideoDetail({
   ...videoPostProps
 }: VideoDetailProps) {
   const [isPlaying, setIsPlaying] = useState(true) // Try autoplay
-  const [isMuted, setIsMuted] = useState(true) // Muted for autoplay
+  const [isMuted, setIsMuted] = useState(false) // Try unmuted first
   const [currentTime, setCurrentTime] = useState(0)
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
@@ -117,21 +117,32 @@ export function VideoDetail({
   }
 
   const togglePlayPause = () => {
+    console.log('[VideoDetail] togglePlayPause called - state:', { isPlaying, isMuted })
+
     // If playing but muted, unmute instead of pausing
     if (isPlaying && isMuted) {
+      console.log('[VideoDetail] Unmuting (was playing but muted)')
       setIsMuted(false)
       return
     }
 
     // Otherwise, toggle play state
     const newPlayingState = !isPlaying
+    console.log('[VideoDetail] Toggling play state to:', newPlayingState)
     setIsPlaying(newPlayingState)
 
     // Unmute when starting to play
     if (newPlayingState && isMuted) {
+      console.log('[VideoDetail] Unmuting because starting to play')
       setIsMuted(false)
     }
   }
+
+  // Handle autoplay failures - show play button
+  const handlePlayFailed = useCallback(() => {
+    console.log('[VideoDetail] Autoplay failed, showing play button')
+    setIsPlaying(false)
+  }, [])
 
   // Mobile: Use VideoPost for full-screen TikTok experience
   if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -207,7 +218,12 @@ export function VideoDetail({
             !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && "cursor-pointer"
           )}
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
-          onClick={videoPostProps.isPremium && !videoPostProps.userIsSubscribed ? undefined : togglePlayPause}
+          onClick={(e) => {
+            console.log('[VideoDetail] Container clicked!', e.target)
+            if (!(videoPostProps.isPremium && !videoPostProps.userIsSubscribed)) {
+              togglePlayPause()
+            }
+          }}
         >
           {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
           {videoPostProps.isPremium &&
@@ -231,10 +247,7 @@ export function VideoDetail({
               onTogglePlay={togglePlayPause}
               onError={handleHLSError}
               onTimeUpdate={handleTimeUpdate}
-              onPlayFailed={() => {
-                console.log('[VideoDetail] HLS autoplay failed, showing play button')
-                setIsPlaying(false)
-              }}
+              onPlayFailed={handlePlayFailed}
             />
           ) : (
             <VideoPlayer
@@ -243,11 +256,7 @@ export function VideoDetail({
               isPlaying={isPlaying}
               isMuted={isMuted}
               onTogglePlay={togglePlayPause}
-              onPlayFailed={() => {
-                // When autoplay fails (e.g., Chrome blocking), set isPlaying to false
-                // so the play button overlay appears
-                setIsPlaying(false)
-              }}
+              onPlayFailed={handlePlayFailed}
               onTimeUpdate={handleTimeUpdate}
               forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
             />

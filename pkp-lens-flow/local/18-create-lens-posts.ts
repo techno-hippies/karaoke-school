@@ -321,10 +321,12 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
           altTag: videoData.description || videoData.music.title,
         },
         tags: [
+          'karaoke',
           'tiktok',
-          'encrypted',
-          videoData.copyrightType,
+          videoData.copyrightType, // 'copyrighted' | 'copyright-free' - for feed filtering
+          ...(videoData.encryption ? ['encrypted'] : ['unencrypted']),
           ...(videoData.music.spotify?.isrc ? ['licensed'] : []),
+          ...(videoData.music.genius?.id ? ['genius'] : []),
         ],
         attributes: [
           {

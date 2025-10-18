@@ -48,7 +48,7 @@ export function EditProfileView({
   return (
     <div className={cn('min-h-screen bg-background', className)}>
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 bg-background border-b border-border">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 bg-background border-b border-border">
         <BackButton onClick={onCancel} />
         <h1 className="text-foreground text-base font-semibold">Edit Profile</h1>
         <div className="w-12" />

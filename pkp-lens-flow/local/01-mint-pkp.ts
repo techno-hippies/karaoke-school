@@ -17,11 +17,12 @@
 
 import { createLitClient } from '@lit-protocol/lit-client';
 import { nagaDev } from '@lit-protocol/networks';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readFile } from 'fs/promises';
 import { parseArgs } from 'util';
 import path from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createWalletClient, createPublicClient, http } from 'viem';
+import { existsSync } from 'fs';
 
 // Environment loaded by dotenvx run command
 
@@ -47,6 +48,21 @@ interface PKPData {
 async function mintPKP(tiktokHandle: string): Promise<PKPData> {
   console.log('\n🪙 Step 1: Minting PKP for TikTok Creator');
   console.log('═══════════════════════════════════════\n');
+
+  // Check if PKP already exists
+  const cleanHandle = tiktokHandle.replace('@', '');
+  const pkpDataPath = path.join(process.cwd(), 'data', 'pkps', `${cleanHandle}.json`);
+
+  if (existsSync(pkpDataPath)) {
+    console.log('✅ PKP already exists - loading from file');
+    const existingData = await readFile(pkpDataPath, 'utf-8');
+    const pkpData: PKPData = JSON.parse(existingData);
+    console.log(`   PKP Address: ${pkpData.pkpEthAddress}`);
+    console.log(`   Token ID: ${pkpData.pkpTokenId}`);
+    console.log('   Skipping mint\n');
+    console.log('✨ Done!\n');
+    return pkpData;
+  }
 
   // 1. Setup account from private key
   const privateKey = process.env.PRIVATE_KEY?.trim();
@@ -122,7 +138,6 @@ async function mintPKP(tiktokHandle: string): Promise<PKPData> {
     transactionHash: mintResult.txHash,
   };
 
-  const cleanHandle = tiktokHandle.replace('@', '');
   const outputPath = path.join(process.cwd(), 'data', 'pkps', `${cleanHandle}.json`);
 
   await mkdir(path.dirname(outputPath), { recursive: true });

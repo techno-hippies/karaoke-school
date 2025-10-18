@@ -61,14 +61,14 @@ export function VideoPoster({
         <KaraokeOverlay
           lines={karaokeLines}
           currentTime={currentTime}
-          className="pt-16 pointer-events-none z-10"
+          className="pt-12 pointer-events-none z-10"
           showNextLine={true}
         />
       )}
 
       {/* Back button - top left */}
       <div className="absolute top-0 left-0 right-0 z-50">
-        <div className="flex items-center h-16 px-4">
+        <div className="flex items-center h-12 px-4">
           <BackButton onClick={onBack} variant="floating" />
         </div>
       </div>

@@ -235,7 +235,7 @@ export function AuthDialog({
 
               {/* Error Message */}
               {errorMessage && (
-                <div className="text-base text-center p-4 bg-destructive/10 text-destructive rounded-lg">
+                <div className="text-base text-center p-4 bg-destructive/10 text-destructive rounded-lg break-words" style={{ overflowWrap: 'anywhere' }}>
                   {errorMessage}
                 </div>
               )}

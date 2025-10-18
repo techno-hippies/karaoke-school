@@ -276,6 +276,12 @@ async function fetchISRCs(tiktokHandle: string): Promise<void> {
 
     console.log(`   Video ${i + 1}/${videos.length}: ${video.music.title}`);
 
+    // Skip copyright-free videos - they don't have commercial releases
+    if ((video as any).copyrightType === 'copyright-free') {
+      console.log(`   ⏭️  Copyright-free - skipping ISRC lookup\n`);
+      continue;
+    }
+
     if (!trackId) {
       console.log(`   ⚠️  No Spotify Track ID, searching...`);
 

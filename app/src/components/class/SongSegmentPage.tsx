@@ -103,7 +103,7 @@ export const SongSegmentPage = memo(function SongSegmentPage({
       <div className="relative w-full h-full md:max-w-6xl">
         {/* Header - Back | Title | Spacer */}
         <div className="absolute top-0 left-0 right-0 z-50 bg-background border-b border-neutral-800">
-          <div className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center justify-between px-4 py-2">
             {/* Left: Back button */}
             <BackButton onClick={onBack} />
 
@@ -118,7 +118,7 @@ export const SongSegmentPage = memo(function SongSegmentPage({
         </div>
 
         {/* Scrollable Content */}
-        <div className="absolute inset-x-0 bottom-24" style={{ top: '57px' }}>
+        <div className="absolute inset-x-0 bottom-24" style={{ top: '41px' }}>
           <ScrollArea className="h-full">
             <div className="px-6 pt-12 pb-8 space-y-4">
               {/* Score container with same style as StudyStats */}
