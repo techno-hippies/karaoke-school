@@ -123,6 +123,7 @@ export function VerticalVideoFeed({
               onUserInteraction={() => {
                 hasUserInteractedRef.current = true
               }}
+              karaokeClassName="pt-20"
               onLikeClick={() => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
                 // TODO: Implement like mutation
