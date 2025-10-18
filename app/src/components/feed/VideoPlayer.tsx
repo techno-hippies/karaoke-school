@@ -23,27 +23,40 @@ export function VideoPlayer({
 
   // Handle play/pause with direct video control for better browser compatibility
   const handlePlayPause = (e?: React.MouseEvent) => {
-    console.log('[VideoPlayer] handlePlayPause called, video paused?', videoRef.current?.paused)
+    console.log('[VideoPlayer] handlePlayPause called')
+    console.log('[VideoPlayer] videoRef.current:', !!videoRef.current)
+    console.log('[VideoPlayer] videoUrl:', videoUrl)
+    console.log('[VideoPlayer] video.paused:', videoRef.current?.paused)
+    console.log('[VideoPlayer] video.readyState:', videoRef.current?.readyState)
 
-    if (!videoRef.current || !videoUrl) return
+    if (!videoRef.current || !videoUrl) {
+      console.log('[VideoPlayer] Early return - no video or URL')
+      return
+    }
 
     if (videoRef.current.paused) {
-      console.log('[VideoPlayer] Video is paused, calling play()')
+      console.log('[VideoPlayer] Calling play()')
       // Directly call play() to ensure Chrome recognizes the user gesture
-      videoRef.current.play()
-        .then(() => {
-          console.log('[VideoPlayer] Play succeeded, calling onTogglePlay')
-          // Only update parent state after play succeeds
-          onTogglePlay()
-        })
-        .catch(e => {
-          console.log('[VideoPlayer] Play failed:', e.name)
-          if (e.name === 'NotAllowedError' && onPlayFailed) {
-            onPlayFailed()
-          }
-        })
+      const playPromise = videoRef.current.play()
+
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('[VideoPlayer] Play succeeded, calling onTogglePlay')
+            // Only update parent state after play succeeds
+            onTogglePlay()
+          })
+          .catch(e => {
+            console.error('[VideoPlayer] Play failed:', e)
+            if (e.name === 'NotAllowedError' && onPlayFailed) {
+              onPlayFailed()
+            }
+          })
+      } else {
+        console.log('[VideoPlayer] Play promise undefined')
+      }
     } else {
-      console.log('[VideoPlayer] Video is playing, calling onTogglePlay to pause')
+      console.log('[VideoPlayer] Video not paused, calling onTogglePlay to pause')
       // For pause, we can just call the parent handler
       onTogglePlay()
     }
@@ -61,13 +74,25 @@ export function VideoPlayer({
     videoRef.current.load()
 
     const handleError = (e: Event) => {
-      // Video load error - silently handled by showing thumbnail/error UI
+      console.error('[VideoPlayer] Video load error:', e)
+    }
+
+    const handleLoadedMetadata = () => {
+      console.log('[VideoPlayer] Video metadata loaded, readyState:', videoRef.current?.readyState)
+    }
+
+    const handleCanPlay = () => {
+      console.log('[VideoPlayer] Video can play, readyState:', videoRef.current?.readyState)
     }
 
     videoRef.current.addEventListener('error', handleError)
+    videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
+    videoRef.current.addEventListener('canplay', handleCanPlay)
 
     return () => {
       videoRef.current?.removeEventListener('error', handleError)
+      videoRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      videoRef.current?.removeEventListener('canplay', handleCanPlay)
     }
   }, [videoUrl])
 
