@@ -36,7 +36,7 @@ export const NotFollowing: Story = {
   args: {
     isOwnProfile: false,
     isFollowing: false,
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onMessageClick: () => console.log('Message'),
     onMoreClick: () => console.log('More'),
   },
@@ -63,7 +63,7 @@ export const FollowLoading: Story = {
     isOwnProfile: false,
     isFollowing: false,
     isFollowLoading: true,
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onMessageClick: () => console.log('Message'),
     onMoreClick: () => console.log('More'),
   },

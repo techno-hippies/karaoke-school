@@ -27,7 +27,8 @@ export function ProfilePage() {
   const {
     data: account,
     loading: accountLoading,
-    error: accountError
+    error: accountError,
+    refetch: refetchAccount
   } = useAccount({
     username: username ? {
       localName: username.replace('@', '')
@@ -199,6 +200,8 @@ export function ProfilePage() {
         result = await unfollowAccount(lensSession, pkpWalletClient, account.address)
         if (result.success) {
           toast.success('Unfollowed successfully')
+          // Refetch account to get updated follow state
+          await refetchAccount()
         } else {
           // Revert on error
           setIsFollowing(previousState)
@@ -209,6 +212,8 @@ export function ProfilePage() {
         result = await followAccount(lensSession, pkpWalletClient, account.address)
         if (result.success) {
           toast.success('Followed successfully')
+          // Refetch account to get updated follow state
+          await refetchAccount()
         } else {
           // Revert on error
           setIsFollowing(previousState)

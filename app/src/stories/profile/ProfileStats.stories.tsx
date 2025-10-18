@@ -60,9 +60,9 @@ export const VeryPopular: Story = {
 }
 
 /**
- * Zero followers (new account)
+ * Zero students (new account)
  */
-export const ZeroFollowers: Story = {
+export const ZeroStudents: Story = {
   args: {
     following: 0,
     followers: 0,

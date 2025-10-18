@@ -125,7 +125,7 @@ export const OwnProfileCreator: Story = {
 
 /**
  * Artist profile - not following (3 tabs: Videos | Songs | Top Fans)
- * Shows "Follow" button before following
+ * Shows "Enroll" button before following
  */
 export const ArtistNotFollowing: Story = {
   args: {
@@ -151,7 +151,7 @@ export const ArtistNotFollowing: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -223,7 +223,7 @@ export const CreatorNotFollowing: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -294,7 +294,7 @@ export const ArtistLoadingSongs: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -328,7 +328,7 @@ export const LoadingProfile: Story = {
     isConnected: false,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -361,7 +361,7 @@ export const LoadingVideos: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -394,7 +394,7 @@ export const NoVideos: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -427,7 +427,7 @@ export const NoTopFans: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -460,7 +460,7 @@ export const FollowLoading: Story = {
     isConnected: true,
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
@@ -493,7 +493,7 @@ export const NotConnected: Story = {
     isConnected: false, // ← Not connected
     onDisconnect: () => console.log('Disconnect'),
     onEditProfile: () => console.log('Edit profile'),
-    onFollowClick: () => console.log('Follow'),
+    onFollowClick: () => console.log('Enroll'),
     onStudyClick: () => console.log('Study'),
     onMessageClick: () => console.log('Message'),
     onShareProfile: () => console.log('Share'),
