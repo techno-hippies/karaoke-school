@@ -166,7 +166,7 @@ export function AuthDialog({
                   autoFocus
                   minLength={6}
                   maxLength={26}
-                  pattern="[a-zA-Z0-9_-]+"
+                  pattern="[a-zA-Z0-9_\-]+"
                   disabled={isAuthenticating}
                   required
                 />
