@@ -55,6 +55,8 @@ export interface AuthDialogProps {
   onLogin?: () => void
   /** Called when user clicks back from username input */
   onUsernameBack?: () => void
+  /** Called when username input changes */
+  onUsernameChange?: (username: string) => void
   /** Called when user clicks "Connect Social Account" */
   onConnectSocial?: () => void
 }
@@ -74,10 +76,20 @@ export function AuthDialog({
   onRegisterWithUsername,
   onLogin,
   onUsernameBack,
+  onUsernameChange,
   // onConnectSocial, // TODO: Use when adding social account connection
 }: AuthDialogProps) {
   // Internal state for username input
   const [username, setUsername] = useState('')
+
+  // Call onUsernameChange when username changes
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value
+    setUsername(newUsername)
+    if (onUsernameChange) {
+      onUsernameChange(newUsername)
+    }
+  }
 
   // Determine current state
   const isComplete = currentStep === 'complete' && authMode === null
@@ -149,7 +161,7 @@ export function AuthDialog({
                   type="text"
                   placeholder="alice"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={handleUsernameChange}
                   className="h-12 text-base"
                   autoFocus
                   minLength={6}

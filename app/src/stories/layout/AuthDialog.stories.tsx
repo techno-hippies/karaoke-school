@@ -39,6 +39,7 @@ export const Initial: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => console.log('Start login'),
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -62,6 +63,7 @@ export const UsernameInput: Story = {
     onRegisterWithUsername: (username: string) => console.log('Register with username:', username),
     onLogin: () => {},
     onUsernameBack: () => console.log('Back from username'),
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -85,6 +87,7 @@ export const UsernameChecking: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -108,6 +111,7 @@ export const UsernameAvailable: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -131,6 +135,7 @@ export const UsernameUnavailable: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -154,6 +159,7 @@ export const UsernameInputLoading: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -177,6 +183,7 @@ export const Authenticating: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -200,6 +207,7 @@ export const Finalizing: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }
@@ -223,6 +231,7 @@ export const Complete: Story = {
     onRegisterWithUsername: () => {},
     onLogin: () => {},
     onUsernameBack: () => {},
+    onUsernameChange: (username: string) => console.log('Username changed:', username),
     onConnectSocial: () => {},
   },
 }

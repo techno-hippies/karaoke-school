@@ -1,5 +1,5 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LensProvider } from '@lens-protocol/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
@@ -51,6 +51,9 @@ function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
   const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [pendingUsername, setPendingUsername] = useState<string | null>(null)
+  const [usernameAvailability, setUsernameAvailability] = useState<'checking' | 'available' | 'unavailable' | null>(null)
+  const checkUsernameTimeoutRef = useRef<NodeJS.Timeout>()
 
   const {
     isPKPReady,
@@ -62,6 +65,8 @@ function AppRouter() {
     authError,
     registerWithPasskey,
     signInWithPasskey,
+    showUsernameInput,
+    resetAuthFlow,
     loginLens,
     logout,
     pkpAddress,
@@ -102,6 +107,58 @@ function AppRouter() {
     }
     navigate(routes[tab])
   }
+
+  // Check username availability with debouncing
+  const checkUsernameAvailability = useCallback(async (username: string) => {
+    if (username.trim().length < 6) {
+      setUsernameAvailability(null)
+      return
+    }
+
+    // Clear previous timeout
+    if (checkUsernameTimeoutRef.current) {
+      clearTimeout(checkUsernameTimeoutRef.current)
+    }
+
+    // Set checking state
+    setUsernameAvailability('checking')
+
+    // Debounce: wait 500ms before checking
+    checkUsernameTimeoutRef.current = setTimeout(async () => {
+      try {
+        // TODO: Replace with actual Lens username availability check
+        // For now, simulate with random delay
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Simulate: usernames starting with 'test' are unavailable
+        const isAvailable = !username.toLowerCase().startsWith('test')
+        setUsernameAvailability(isAvailable ? 'available' : 'unavailable')
+      } catch (error) {
+        console.error('[App] Username check error:', error)
+        setUsernameAvailability(null)
+      }
+    }, 500)
+  }, [])
+
+  // Handle "Create Account" click - show username input
+  const handleRegisterClick = useCallback(() => {
+    setPendingUsername(null)
+    setUsernameAvailability(null)
+    showUsernameInput()
+  }, [showUsernameInput])
+
+  // Handle username submission - start actual registration
+  const handleRegisterWithUsername = useCallback(async (username: string) => {
+    setPendingUsername(username)
+    await registerWithPasskey(username)
+  }, [registerWithPasskey])
+
+  // Handle back from username input
+  const handleUsernameBack = useCallback(() => {
+    setPendingUsername(null)
+    setUsernameAvailability(null)
+    resetAuthFlow()
+  }, [resetAuthFlow])
 
   // Hide mobile footer on full-screen pages (song detail, segment pages, video detail)
   const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
@@ -144,10 +201,14 @@ function AppRouter() {
         authMode={authMode}
         statusMessage={authStatus}
         errorMessage={authError?.message || ''}
+        usernameAvailability={usernameAvailability}
         isPKPReady={isPKPReady}
         hasSocialAccount={hasLensAccount}
-        onRegister={registerWithPasskey}
+        onRegister={handleRegisterClick}
+        onRegisterWithUsername={handleRegisterWithUsername}
         onLogin={signInWithPasskey}
+        onUsernameBack={handleUsernameBack}
+        onUsernameChange={checkUsernameAvailability}
         onConnectSocial={loginLens}
       />
 
