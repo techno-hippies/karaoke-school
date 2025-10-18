@@ -43,13 +43,13 @@ export function KaraokeSongPage() {
     pkpAddress || undefined
   )
 
-  // Merge song data: contract data (with segments) + state data (with artwork) + Genius metadata (with artistId)
+  // Merge song data: contract (artwork, segments) + state (fallback) + Genius (artistId for navigation)
   // Use stable keys to prevent re-renders
   const song = useMemo(() => {
     if (!songFromContract) return songFromState
     return {
       ...songFromContract,
-      artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl || fetchedSong?.artworkUrl,
+      artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl, // Artwork from contract (Grove) preferred
       geniusArtistId: fetchedSong?.geniusArtistId || songFromState?.geniusArtistId
     }
   }, [
@@ -70,25 +70,25 @@ export function KaraokeSongPage() {
     [song?.id, song?.artworkUrl, song?.hasBaseAlignment, song?.isOwned, song?.geniusArtistId, fetchedSong?.id, fetchedSong?.geniusArtistId]
   )
 
-  // Fetch song metadata from Genius (FAST, for display and artist ID)
-  // Always fetch to get geniusArtistId, even if song is in contract
+  // Fetch song metadata from Genius for artistId and external links (only if not in contract)
+  // NOTE: Artwork now comes from contract (coverUri/thumbnailUri)
   useEffect(() => {
     if (geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong) {
       setIsFetchingSong(true)
       const fetchSongMetadata = async () => {
-        console.log('[KaraokeSongPage] Fetching song metadata from Genius for ID:', geniusId)
+        console.log('[KaraokeSongPage] Fetching artist ID and external links from Genius:', geniusId)
         const { executeSongMetadata } = await import('@/lib/lit/actions')
         const result = await executeSongMetadata(parseInt(geniusId), pkpAuthContext)
 
         if (result.success && result.song) {
-          console.log('[KaraokeSongPage] ✅ Fetched song metadata:', result.song.title, 'by', result.song.artist, `(artistId: ${result.song.artist_id})`)
+          console.log('[KaraokeSongPage] ✅ Fetched metadata:', result.song.title, `(artistId: ${result.song.artist_id})`)
           setFetchedSong({
             id: geniusId,
             geniusId: parseInt(geniusId),
             geniusArtistId: result.song.artist_id,
             title: result.song.title,
             artist: result.song.artist,
-            artworkUrl: result.song.song_art_image_thumbnail_url,
+            artworkUrl: result.song.song_art_image_thumbnail_url, // Fallback only, contract preferred
             isProcessed: false,
             isFree: false,
             segments: [],

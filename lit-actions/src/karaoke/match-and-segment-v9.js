@@ -105,6 +105,11 @@ const go = async () => {
     const title = song.title;
     const album = song.album?.name || '';
 
+    // Extract cover artwork URLs
+    const coverImageUrl = song.song_art_image_url;
+    const thumbnailUrl = song.song_art_image_thumbnail_url;
+    console.log(`Cover image: ${coverImageUrl || 'N/A'}`);
+
     // Extract SoundCloud permalink from song.media array
     const soundcloudMedia = song.media?.find(m => m.provider === 'soundcloud');
     let soundcloudPermalink = soundcloudMedia?.url || null;
@@ -508,6 +513,57 @@ Instructions:
       }
     }
 
+    // Step 5b: Upload cover artwork to Grove (if available)
+    let coverUri = '';
+    if (coverImageUrl && writeToBlockchain && result.isMatch && sections.length > 0) {
+      try {
+        console.log('[5c/6] Uploading cover artwork to Grove...');
+
+        const coverUpload = await Lit.Actions.runOnce(
+          { waitForResponse: true, name: 'uploadCover' },
+          async () => {
+            try {
+              // Download image from Genius
+              const imageResp = await fetch(coverImageUrl);
+              if (!imageResp.ok) {
+                throw new Error(`Image download failed: ${imageResp.status}`);
+              }
+              const imageBlob = await imageResp.blob();
+
+              // Upload to Grove
+              const formData = new FormData();
+              formData.append('file', imageBlob, `genius-${geniusId}-cover.jpg`);
+
+              const groveResp = await fetch('https://api.storage.lens.xyz/v1/upload', {
+                method: 'POST',
+                body: formData
+              });
+
+              if (!groveResp.ok) {
+                throw new Error(`Grove upload failed: ${groveResp.status}`);
+              }
+
+              const groveResult = await groveResp.json();
+              const groveData = Array.isArray(groveResult) ? groveResult[0] : groveResult;
+              return JSON.stringify({ success: true, uri: groveData.uri });
+            } catch (e) {
+              return JSON.stringify({ error: e.message });
+            }
+          }
+        );
+
+        const uploadResult = JSON.parse(coverUpload);
+        if (uploadResult.success) {
+          coverUri = uploadResult.uri;
+          console.log('✅ Cover uploaded to Grove:', coverUri);
+        } else {
+          console.error('⚠️ Cover upload failed:', uploadResult.error);
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to upload cover:', error.message);
+      }
+    }
+
     // Step 6: Sign and submit transaction for blockchain (if enabled and matched)
     let txHash = null;
     let contractError = null;
@@ -541,8 +597,8 @@ Instructions:
           requiresPayment: true, // Genius songs require unlock (1 credit)
           audioUri: '', // Could be added later
           metadataUri: '', // DEPRECATED: use sectionsUri + alignmentUri
-          coverUri: '', // Could be added later
-          thumbnailUri: '', // Could be added later
+          coverUri: coverUri, // Uploaded to Grove from Genius
+          thumbnailUri: thumbnailUrl || '', // Genius thumbnail URL
           musicVideoUri: '', // Optional
           sectionsUri: metadataUri, // V2: Sections from match-and-segment
           alignmentUri: '' // V2: Will be set by base-alignment later

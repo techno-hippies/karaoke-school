@@ -184,7 +184,7 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
         geniusId,
         title: songData.title,
         artist: songData.artist,
-        artworkUrl: undefined, // Use Genius artwork from navigation state or metadata fetch
+        artworkUrl: songData.coverUri || songData.thumbnailUri || undefined, // Use contract coverUri (Grove) or thumbnailUri (Genius)
         isProcessed: true,
         isFree: !songData.requiresPayment,
         isOwned: false, // Will be checked separately if userAddress is provided
