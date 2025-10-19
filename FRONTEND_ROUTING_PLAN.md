@@ -1,20 +1,33 @@
 # Frontend Artist Routing - Integration Plan
 
-## Current Problem
+## ✅ IMPLEMENTED SOLUTION
 
-**Static Mapping** (`artist-mapping.ts`):
+**Key Insight**: Song data from `KaraokeCatalog` already includes `geniusArtistId` → We just pre-fetch the route!
+
+**Before** (`artist-mapping.ts` - static):
 ```typescript
-// SYNCHRONOUS - instant lookup
+// SYNCHRONOUS - instant lookup from static map
 const route = getArtistRoute(447) // → "/u/ladygaga"
 navigate(route)
 ```
 
-**New Contract Lookup** (`artist-lookup.ts`):
+**After** (`useArtistRoute` hook - dynamic):
 ```typescript
-// ASYNC - requires RPC call (~100ms)
-const route = await getArtistRoute(447) // ❌ Can't use in onClick
-navigate(route)
+// PRE-FETCH when song loads (async in background)
+const artistRoute = useArtistRoute(displaySong?.geniusArtistId)
+
+// INSTANT navigation when user clicks (cached)
+const handleClick = () => navigate(artistRoute)
 ```
+
+## Why This Works
+
+1. `useSongData()` reads from `KaraokeCatalog` → returns `geniusArtistId` (contracts/evm/base-sepolia/KaraokeCatalog/KaraokeCatalogV2.sol:54)
+2. `displaySong.geniusArtistId` is available when song loads (app/src/components/karaoke/KaraokeSongPage.tsx:69-72)
+3. `useArtistRoute` hook pre-fetches Lens username via contract lookup (~100ms)
+4. Route is cached - clicking artist is **instant** (no async delay)
+
+**Much simpler than originally proposed!** No complex fallbacks/redirects needed.
 
 ## Navigation Flows
 
@@ -92,61 +105,67 @@ const handleArtistClick = async () => {
 - Can't show loading spinner easily
 - Feels sluggish
 
-## Solution: Hybrid Routing Strategy
+## Implementation
 
-### Strategy 1: Pre-fetch + Cache (BEST)
+### Step 1: Create `useArtistRoute` Hook ✅
 
-**Hook**: `useArtistRoute(geniusArtistId)`
+**File**: `app/src/hooks/useArtistRoute.ts`
 
 ```typescript
-// app/src/hooks/useArtistRoute.ts
-export function useArtistRoute(geniusArtistId: number | undefined) {
+export function useArtistRoute(geniusArtistId: number | undefined): string | null {
   const [route, setRoute] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     if (!geniusArtistId) return
 
-    setIsLoading(true)
-    getArtistRoute(geniusArtistId).then(r => {
-      setRoute(r)
-      setIsLoading(false)
-    })
+    // Pre-fetch route when song data is available
+    getArtistRoute(geniusArtistId)
+      .then(r => setRoute(r))
+      .catch(err => {
+        console.error('[useArtistRoute] Failed:', err)
+        setRoute(`/artist/${geniusArtistId}`) // Fallback
+      })
   }, [geniusArtistId])
 
-  return { route, isLoading }
+  return route
 }
 ```
 
-**Usage**:
-```typescript
-// KaraokeSongPage.tsx
-const { route: artistRoute } = useArtistRoute(displaySong?.geniusArtistId)
+**Why so simple?**
+- Song data already has `geniusArtistId` from KaraokeCatalog contract
+- We just pre-fetch in background when song loads
+- No loading states needed - fallback route handles edge cases
 
+### Step 2: Update `KaraokeSongPage.tsx` ✅
+
+**Changes**:
+```typescript
+// Import the hook
+import { useArtistRoute } from '@/hooks/useArtistRoute'
+
+// Pre-fetch artist route when song loads
+const artistRoute = useArtistRoute(displaySong?.geniusArtistId)
+
+// Update click handler to use cached route
 const handleArtistClick = useCallback(() => {
   if (artistRoute) {
-    navigate(artistRoute) // INSTANT - already cached
-  } else {
-    // Fallback: navigate to /artist/:id, let it redirect
-    navigate(`/artist/${displaySong?.geniusArtistId}`)
+    navigate(artistRoute) // INSTANT!
+  } else if (displaySong?.geniusArtistId) {
+    navigate(`/artist/${displaySong.geniusArtistId}`) // Fallback
   }
 }, [navigate, artistRoute, displaySong?.geniusArtistId])
 ```
 
 **Benefits**:
 - ✅ Instant click (route pre-fetched)
-- ✅ Fallback for slow loading
-- ✅ Simple implementation
+- ✅ Graceful fallback
+- ✅ No complex logic needed
 
-**Trade-off**:
-- Extra RPC call on page load (~100ms)
-- Negligible impact
+### Step 3: Handle `/artist/:id` Fallback Route
 
-### Strategy 2: Fallback Routing (SIMPLER)
+**Purpose**: For cases where route not pre-fetched yet, or direct navigation to `/artist/447`
 
-**Always navigate to `/artist/:geniusArtistId` first**, then redirect if needed.
-
-**Implementation**:
+**Implementation** (to be added if needed):
 ```typescript
 // KaraokeSongPage.tsx - SIMPLEST
 const handleArtistClick = useCallback(() => {
@@ -193,83 +212,29 @@ export function ClassArtistPage() {
 - Extra redirect (~100ms delay)
 - User sees flash of `/artist/:id` URL
 
-## Recommended Solution
-
-### **Hybrid: Pre-fetch + Fallback**
-
-Combine both strategies for best UX:
-
-1. **Pre-fetch route** when song page loads (`useArtistRoute`)
-2. **Navigate instantly** if cached
-3. **Fallback** to `/artist/:id` if not cached yet
-4. **Redirect** from `/artist/:id` to `/u/:username` if profile exists
-
 ---
 
-## Implementation Plan
+## Implementation Status
 
-### Step 1: Create `useArtistRoute` Hook
+### ✅ Phase 1: Song Page Navigation (COMPLETE)
 
-**File**: `app/src/hooks/useArtistRoute.ts`
+**Files Changed**:
+1. `app/src/hooks/useArtistRoute.ts` - Created
+2. `app/src/components/karaoke/KaraokeSongPage.tsx` - Updated
 
-```typescript
-import { useState, useEffect } from 'react'
-import { getArtistRoute } from '@/lib/genius/artist-lookup'
+**What it does**:
+- Pre-fetches artist route when song data loads
+- Clicking artist navigates instantly (route cached)
+- Fallback to `/artist/:id` if route not ready
 
-export function useArtistRoute(geniusArtistId: number | undefined) {
-  const [route, setRoute] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+### ⏳ Phase 2: Direct URL Navigation (TODO)
 
-  useEffect(() => {
-    if (!geniusArtistId) {
-      setRoute(null)
-      return
-    }
+Need to handle users typing `/u/gracieabrams` directly in browser:
 
-    setIsLoading(true)
-    setError(null)
+1. **ProfilePage.tsx** - Add contract fallback when Lens account not found
+2. **Optional**: Create `/artist/:id` page that redirects to `/u/:username`
 
-    getArtistRoute(geniusArtistId)
-      .then(r => {
-        setRoute(r)
-        setIsLoading(false)
-      })
-      .catch(err => {
-        setError(err)
-        setIsLoading(false)
-        // Fallback to /artist/:id
-        setRoute(`/artist/${geniusArtistId}`)
-      })
-  }, [geniusArtistId])
-
-  return { route, isLoading, error }
-}
-```
-
-### Step 2: Update `KaraokeSongPage.tsx`
-
-```typescript
-// Replace line 11:
-// import { getArtistRoute } from '@/lib/genius/artist-mapping'
-import { useArtistRoute } from '@/hooks/useArtistRoute'
-
-// Add near top of component:
-const { route: artistRoute } = useArtistRoute(displaySong?.geniusArtistId)
-
-// Update handleArtistClick (line 266-271):
-const handleArtistClick = useCallback(() => {
-  if (artistRoute) {
-    // Route pre-fetched - navigate instantly
-    navigate(artistRoute)
-  } else if (displaySong?.geniusArtistId) {
-    // Fallback: navigate to /artist/:id
-    navigate(`/artist/${displaySong.geniusArtistId}`)
-  }
-}, [navigate, artistRoute, displaySong?.geniusArtistId])
-```
-
-### Step 3: Add Redirect Logic to `/artist/:id` Page
+### Step 3: Add Redirect Logic to `/artist/:id` Page (Optional)
 
 **File**: `app/src/pages/ClassArtistPage.tsx`
 

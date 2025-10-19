@@ -8,7 +8,7 @@ import { useSongData } from '@/hooks/useSongData'
 import { useCatalogSong } from '@/hooks/useCatalogSong'
 import { useUnlockSong, InsufficientCreditsError } from '@/hooks/useUnlockSong'
 import { buildExternalSongLinks, buildExternalLyricsLinks } from '@/lib/karaoke/externalLinks'
-import { getArtistRoute } from '@/lib/genius/artist-mapping'
+import { useArtistRoute } from '@/hooks/useArtistRoute'
 import type { Song } from '@/features/post-flow/types'
 
 /**
@@ -70,6 +70,9 @@ export function KaraokeSongPage() {
     song || fetchedSong,
     [song?.id, song?.artworkUrl, song?.hasBaseAlignment, song?.isOwned, song?.geniusArtistId, fetchedSong?.id, fetchedSong?.geniusArtistId]
   )
+
+  // Pre-fetch artist route for instant navigation (uses contract lookup)
+  const artistRoute = useArtistRoute(displaySong?.geniusArtistId)
 
   // Fetch song metadata from Genius as fallback (only if not in contract or missing artistId)
   // NOTE: Artwork now comes from contract (coverUri/thumbnailUri)
@@ -264,11 +267,14 @@ export function KaraokeSongPage() {
     navigate(`/song/${geniusId}/segment/${segment.id}`)
   }, [navigate, geniusId])
   const handleArtistClick = useCallback(() => {
-    if (displaySong?.geniusArtistId) {
-      // Use smart routing: /u/:username for PKP artists, /artist/:id for others
-      navigate(getArtistRoute(displaySong.geniusArtistId))
+    if (artistRoute) {
+      // Route pre-fetched via useArtistRoute - instant navigation!
+      navigate(artistRoute)
+    } else if (displaySong?.geniusArtistId) {
+      // Fallback: navigate to generic artist page if route not ready yet
+      navigate(`/artist/${displaySong.geniusArtistId}`)
     }
-  }, [navigate, displaySong?.geniusArtistId])
+  }, [navigate, artistRoute, displaySong?.geniusArtistId])
 
   // Handle credit purchase
   const handlePurchaseCredits = useCallback(async (packageId: number) => {

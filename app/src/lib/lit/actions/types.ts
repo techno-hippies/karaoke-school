@@ -238,3 +238,23 @@ export interface GenerateProfileResult {
   error?: string
   stack?: string
 }
+
+/**
+ * Study Scorer Result (v1 - Audio Transcription + FSRS)
+ * Transcribes audio, scores pronunciation, runs FSRS algorithm, updates contract
+ */
+export interface StudyScorerResult {
+  success: boolean
+  userAddress?: string
+  songId?: string
+  segmentId?: string
+  linesProcessed: number
+  scores: number[]       // Per-line pronunciation scores (0-100)
+  ratings: number[]      // Per-line FSRS ratings (0=Again, 1=Hard, 2=Good, 3=Easy)
+  averageScore: number   // Average pronunciation score
+  txHash?: string        // FSRSTrackerV1 contract update transaction
+  contractError?: string
+  contractAddress?: string
+  error?: string
+  stack?: string
+}

@@ -93,6 +93,14 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
     source: 'lit-actions/src/karaoke/translate-lyrics-v1.js',
     deployedAt: '2025-10-19',
   },
+
+  // === Study & FSRS ===
+  studyScorer: {
+    cid: 'PLACEHOLDER_STUDY_SCORER',
+    name: 'Study Scorer v1',
+    source: 'lit-actions/src/karaoke/study-scorer-v1.js',
+    // Deploy with: ./scripts/deploy-lit-action.sh src/karaoke/study-scorer-v1.js "Study Scorer v1"
+  },
 }
 
 /**
@@ -135,6 +143,9 @@ export const LIT_ACTIONS = {
   baseAlignment: getLitActionCID('baseAlignment'),
   audioProcessor: getLitActionCID('audioProcessor'),
   translate: getLitActionCID('translate'),
+
+  // Study & FSRS
+  studyScorer: getLitActionCID('studyScorer'),
 } as const
 
 /**

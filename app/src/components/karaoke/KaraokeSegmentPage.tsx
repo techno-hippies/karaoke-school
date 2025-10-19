@@ -130,8 +130,9 @@ export function KaraokeSegmentPage() {
   }, [navigate, geniusId])
 
   const handleStudy = useCallback(() => {
-    console.log('Study mode')
-  }, [])
+    console.log('[KaraokeSegmentPage] Navigating to study mode')
+    navigate(`/song/${geniusId}/segment/${segmentId}/study`)
+  }, [navigate, geniusId, segmentId])
 
   const handleKaraoke = useCallback(() => {
     console.log('Karaoke mode')

@@ -199,34 +199,44 @@ Lens account not found
 - ✅ Update config with CID
 - ✅ Test cached path
 
-### Phase 2: Frontend Migration (TODO)
+### Phase 2: Frontend Migration ✅ COMPLETE
 
-1. **Find all usages** of `artist-mapping.ts`:
-   ```bash
-   cd app
-   grep -r "artist-mapping" src/
-   ```
+**Key Insight**: Song data from `KaraokeCatalog` already includes `geniusArtistId`, making this much simpler than originally planned!
 
-2. **Replace with async lookups**:
-   ```typescript
-   // OLD
-   import { getLensUsername } from '@/lib/genius/artist-mapping'
-   const route = getArtistRoute(geniusId)
+**Files Modified**:
+1. ✅ `app/src/hooks/useArtistRoute.ts` - Created pre-fetch hook
+2. ✅ `app/src/components/karaoke/KaraokeSongPage.tsx` - Updated to use hook
+3. ✅ `app/src/components/profile/ProfilePage.tsx` - Added contract fallback
+4. ✅ `FRONTEND_ROUTING_PLAN.md` - Updated with actual solution
 
-   // NEW
-   import { getLensUsername } from '@/lib/genius/artist-lookup'
-   const route = await getArtistRoute(geniusId)
-   ```
+**Implementation**:
+```typescript
+// Pre-fetch artist route when song loads (background async)
+const artistRoute = useArtistRoute(displaySong?.geniusArtistId)
 
-3. **Update ProfilePage.tsx**:
-   - Add contract lookup fallback when Lens account not found
-   - Add retry logic for race conditions
-   - [FUTURE] Add "Generate Profile" button for new artists
+// Navigate instantly when user clicks (route cached!)
+const handleArtistClick = () => {
+  if (artistRoute) navigate(artistRoute)  // INSTANT
+  else navigate(`/artist/${geniusArtistId}`)  // Fallback
+}
+```
 
-4. **Delete static mapping**:
-   ```bash
-   rm app/src/lib/genius/artist-mapping.ts
-   ```
+**Why This Works**:
+- `useSongData()` reads from `KaraokeCatalog` → already has `geniusArtistId`
+- Route pre-fetched in background (~100ms)
+- Clicking artist is instant (no async delay)
+- No complex fallback/redirect logic needed
+
+**ProfilePage Enhancements**:
+- Checks contract when Lens account not found
+- Retries after 2s if registered but not synced yet
+- Shows appropriate error messages:
+  - "Artist profile not available" - not in contract
+  - "Profile loading..." - registered, retrying Lens
+  - "Profile not found" - generic error
+
+**TODO**:
+- Delete static `artist-mapping.ts` after confirming all usages replaced
 
 ### Phase 3: UI Enhancements (FUTURE)
 

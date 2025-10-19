@@ -19,6 +19,7 @@ import { KaraokeSongPage } from './components/karaoke/KaraokeSongPage'
 import { KaraokeSegmentPage } from './components/karaoke/KaraokeSegmentPage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { VideoDetailPage } from './pages/VideoDetailPage'
+import { StudyExercisePageContainer } from './pages/StudyExercisePageContainer'
 import { useParams } from 'react-router-dom'
 
 // Wrapper to ensure ProfilePage remounts when username changes
@@ -161,7 +162,7 @@ function AppRouter() {
     resetAuthFlow()
   }, [resetAuthFlow])
 
-  // Hide mobile footer on full-screen pages (song detail, artist detail, segment pages, video detail)
+  // Hide mobile footer on full-screen pages (song detail, artist detail, segment pages, study pages, video detail)
   const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/artist\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
@@ -180,6 +181,7 @@ function AppRouter() {
           <Route path="/search" element={<KaraokePage />} />
           <Route path="/song/:geniusId" element={<KaraokeSongPage />} />
           <Route path="/song/:geniusId/segment/:segmentId" element={<KaraokeSegmentPage />} />
+          <Route path="/song/:geniusId/segment/:segmentId/study" element={<StudyExercisePageContainer />} />
           <Route path="/artist/:geniusArtistId" element={<ClassArtistPage />} />
           <Route path="/class" element={<ClassPage />} />
           <Route path="/wallet" element={<WalletPage />} />

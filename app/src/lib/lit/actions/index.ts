@@ -14,6 +14,7 @@ export type {
   BaseAlignmentResult,
   TranslateResult,
   GenerateProfileResult,
+  StudyScorerResult,
 } from './types'
 
 // Re-export all action executors
@@ -25,6 +26,7 @@ export { executeAudioProcessor } from './audio-processor'
 export { executeBaseAlignment } from './base-alignment'
 export { executeTranslate } from './translate'
 export { executeGenerateProfile } from './generate-profile'
+export { executeStudyScorer } from './study-scorer'
 
 // Re-export utilities
 export { formatSection, generateSegmentId } from './utils'
