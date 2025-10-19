@@ -77,7 +77,8 @@ export function ProfileActions({
           </Button>
         </>
       ) : (
-        // Not enrolled - Follow/Following toggle and Enroll
+        // Not enrolled - Follow/Following toggle and Study
+        // UX: Follow is primary initially, then Study becomes primary after following
         <>
           <Button
             onClick={onFollowClick}
@@ -90,11 +91,11 @@ export function ProfileActions({
           </Button>
           <Button
             onClick={onEnrollClick}
-            variant={isEnrolled ? 'secondary' : 'default'}
+            variant={isFollowing ? 'default' : 'secondary'}
             size="lg"
             className="flex-1 md:flex-initial"
           >
-            {isEnrolled ? 'Enrolled' : 'Enroll'}
+            {isEnrolled ? 'Enrolled' : 'Study'}
           </Button>
           <Button
             onClick={onMoreClick}
