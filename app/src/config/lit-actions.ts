@@ -90,14 +90,6 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
     source: 'lit-actions/src/karaoke/translate-lyrics-v1.js',
     deployedAt: '2025-10-15',
   },
-
-  // === Video Decryption (HLS) ===
-  decryptKey: {
-    cid: 'QmYqbhft19CRLmn9W1zBVkuujfiaPni24gJNXjZduNf4ws',
-    name: 'Decrypt Symmetric Key v1',
-    source: 'lit-actions/src/decrypt/decrypt-symmetric-key-v1.js',
-    deployedAt: '2025-10-16',
-  },
 }
 
 /**
@@ -151,9 +143,6 @@ export const LIT_ACTIONS = {
   baseAlignment: getLitActionCID('baseAlignment', 'VITE_LIT_ACTION_BASE_ALIGNMENT'),
   audioProcessor: getLitActionCID('audioProcessor', 'VITE_LIT_ACTION_AUDIO_PROCESSOR'),
   translate: getLitActionCID('translate', 'VITE_LIT_ACTION_TRANSLATE'),
-
-  // Video Decryption
-  decryptKey: getLitActionCID('decryptKey', 'VITE_LIT_ACTION_DECRYPT_KEY'),
 } as const
 
 /**

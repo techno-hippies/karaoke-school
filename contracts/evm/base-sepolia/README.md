@@ -66,6 +66,22 @@ DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434
 **Status**: Replaced by KaraokeCatalogV1
 **Note**: Use KaraokeCatalogV1 for new deployments
 
+### ArtistRegistryV2 (Current)
+**Purpose**: Maps Genius artist IDs to PKP addresses and Lens profiles
+**Dependencies**: None (standalone)
+**V2 Improvements**: Fixed updateArtist() collision bug, added validation
+
+**Deploy**:
+```bash
+DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
+  dotenvx run -f /media/t42/th42/Code/karaoke-school-v1/contracts/.env -- \
+  forge script ArtistRegistry/script/DeployArtistRegistryV2.s.sol:DeployArtistRegistryV2 \
+  --rpc-url https://sepolia.base.org \
+  --broadcast \
+  --verify \
+  --etherscan-api-key VTPV1IK2Y79NSGDUWT4R9KCJKZ2DI5MD3A
+```
+
 ## Network Info
 
 - **Chain ID**: 84532

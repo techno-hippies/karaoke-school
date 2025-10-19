@@ -4,7 +4,6 @@ import { BackButton } from '@/components/ui/back-button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SongItem } from '@/components/ui/SongItem'
 import { Spinner } from '@/components/ui/spinner'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LeaderboardEntry } from './Leaderboard'
 import { cn } from '@/lib/utils'
 
@@ -52,8 +51,8 @@ export function ArtistPage({
   className,
 }: ArtistPageProps) {
   return (
-    <div className={cn('relative w-full h-screen bg-background overflow-hidden flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-6xl">
+    <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
+      <div className="relative w-full h-full md:max-w-6xl flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <div className="flex items-center h-12 px-4">
@@ -62,7 +61,7 @@ export function ArtistPage({
       </div>
 
       {/* Main content */}
-      <ScrollArea className="absolute top-0 left-0 right-0 bottom-0">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {/* Album Art Hero */}
         <div className="relative w-full" style={{ height: 'min(384px, 40vh)' }}>
           {artworkUrl && (
@@ -89,7 +88,7 @@ export function ArtistPage({
           </div>
         </div>
 
-        <div className="px-4 mt-4 pb-32">
+        <div className="px-4 mt-4 pb-8">
           <Tabs defaultValue="songs" className="w-full">
             <TabsList className="w-full grid grid-cols-2 bg-muted/50">
               <TabsTrigger value="songs">Top Songs</TabsTrigger>
@@ -121,10 +120,10 @@ export function ArtistPage({
             </TabsContent>
           </Tabs>
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Sticky Footer with Study and Quiz Buttons */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
+      <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
         <div className="flex gap-3">
           <Button
             onClick={onQuiz}

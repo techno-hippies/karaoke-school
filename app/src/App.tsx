@@ -161,8 +161,8 @@ function AppRouter() {
     resetAuthFlow()
   }, [resetAuthFlow])
 
-  // Hide mobile footer on full-screen pages (song detail, segment pages, video detail)
-  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+  // Hide mobile footer on full-screen pages (song detail, artist detail, segment pages, video detail)
+  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/artist\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
     <>

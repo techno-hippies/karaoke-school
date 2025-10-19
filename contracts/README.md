@@ -17,6 +17,10 @@ contracts/
 │   │   ├── KaraokeSegmentRegistryV1.sol
 │   │   ├── script/DeployKaraokeSegmentRegistryV1.s.sol
 │   │   └── test/
+│   ├── ArtistRegistry/
+│   │   ├── ArtistRegistryV1.sol
+│   │   ├── script/DeployArtistRegistryV1.s.sol
+│   │   └── README.md
 │   ├── lib/forge-std/
 │   ├── foundry.toml
 │   └── .gitignore
@@ -82,6 +86,27 @@ On-chain registry for generated karaoke segments.
 - PKP-controlled registration
 
 **Deployed**: `0xd74F1874B1346Ce1a4958FA5304c376bE0209Fa8`
+
+#### ArtistRegistryV2
+Authoritative registry mapping Genius artist IDs to PKP addresses and Lens profiles.
+
+**V2 Improvements**:
+- ✅ Fixed `updateArtist()` to prevent mapping collision bugs
+- ✅ Added `lensAccountAddress != address(0)` validation
+- ✅ Improved NatSpec documentation
+
+**Features**:
+- Maps geniusArtistId → PKP address → Lens handle
+- Minimal on-chain storage (~$150 for 10k artists)
+- Rich metadata stored in Lens Account Metadata (queryable via GraphQL)
+- Supports MANUAL (pipeline) and GENERATED (on-demand) profiles
+- Reverse lookups (PKP/Lens handle → geniusId)
+- Batch queries for frontend optimization
+- Subgraph-ready events
+
+**Purpose**: Creates parity between Genius artist pages (`/artist/:geniusId`) and PKP-Lens pipeline profiles (`/u/:lensHandle`)
+
+**Deployed**: `0x81cE49c16D2Bf384017C2bCA7FDdACb8A15DECC7`
 
 ### Lens Testnet (zkEVM)
 **Network**: Lens Testnet (Chain ID: 37111)

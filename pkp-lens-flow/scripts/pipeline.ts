@@ -52,10 +52,9 @@ const STEPS: StepDefinition[] = [
   { num: 5, name: 'Add Genius ID', script: 'local/05-add-genius-id.ts', requiresEnv: false },
   { num: 6, name: 'Create Lens Account', script: 'local/06-create-lens-account.ts', requiresEnv: true },
   { num: 7, name: 'Create Username', script: 'local/07-create-username.ts', requiresEnv: true },
-  { num: 8, name: 'Deploy Lock', script: 'local/08-deploy-lock.ts', requiresEnv: true },
+  { num: 8, name: 'Register in Contract', script: 'local/08-register-in-contract.ts', requiresEnv: true },
   { num: 9, name: 'Transcribe Audio', script: 'local/09-transcribe-audio.ts', requiresEnv: true },
   { num: 10, name: 'Translate', script: 'local/10-translate-transcriptions.ts', requiresEnv: true },
-  { num: 11, name: 'Encrypt Videos', script: 'local/11-encrypt-videos.ts', requiresEnv: false },
   { num: 12, name: 'Upload Grove', script: 'local/12-upload-grove.ts', requiresEnv: false },
   { num: 13, name: 'Fetch ISRC', script: 'local/13-fetch-isrc.ts', requiresEnv: true },
   { num: 14, name: 'Map Spotify→Genius', script: 'local/14-map-spotify-genius.ts', requiresEnv: false },
@@ -152,9 +151,9 @@ async function runCreatorPipeline(creator: string, options: PipelineOptions): Pr
   const checkpoint3Steps = steps.filter(s => s.num >= 9 && s.num <= 16);
   if (checkpoint3Steps.length > 0) {
     await Promise.all([
-      // Chain A: Video processing (9 → 10 → 11 → 12)
+      // Chain A: Video processing (9 → 10 → 12)
       (async () => {
-        for (const step of checkpoint3Steps.filter(s => s.num >= 9 && s.num <= 12)) {
+        for (const step of checkpoint3Steps.filter(s => [9, 10, 12].includes(s.num))) {
           await runStep(step, creator, options);
         }
       })(),

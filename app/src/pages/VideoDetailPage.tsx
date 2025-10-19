@@ -67,7 +67,6 @@ export function VideoDetailPage() {
     console.log('Resolved URLs:')
     console.log('  Raw video/playlist:', rawVideoUrl)
     console.log('  Resolved video/playlist:', videoUrl)
-    console.log('  Is HLS:', !!hlsMetadata)
     console.log('  Raw thumbnail:', rawThumbnailUrl)
     console.log('  Resolved thumbnail:', thumbnailUrl)
 

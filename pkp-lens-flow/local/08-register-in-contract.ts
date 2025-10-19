@@ -103,6 +103,9 @@ const REGISTRY_ABI = [
       },
     ],
   },
+  // Custom errors
+  parseAbiItem('error ArtistNotFound(uint32 geniusArtistId)'),
+  parseAbiItem('error ArtistAlreadyExists(uint32 geniusArtistId)'),
 ] as const;
 
 enum ProfileSource {
@@ -169,13 +172,13 @@ async function registerInContract(tiktokHandle: string): Promise<void> {
   // 6. Create clients
   const publicClient = createPublicClient({
     chain: baseSepolia,
-    transport: http(),
+    transport: http('https://sepolia.base.org'),
   });
 
   const walletClient = createWalletClient({
     account,
     chain: baseSepolia,
-    transport: http(),
+    transport: http('https://sepolia.base.org'),
   });
 
   // 7. Check if artist already registered
@@ -198,15 +201,15 @@ async function registerInContract(tiktokHandle: string): Promise<void> {
     });
 
     console.log('📊 Existing Registration:');
-    console.log(`   Genius ID: ${artist[0]}`);
-    console.log(`   PKP Address: ${artist[1]}`);
-    console.log(`   Lens Handle: ${artist[2]}`);
-    console.log(`   Lens Account: ${artist[3]}`);
-    console.log(`   Source: ${artist[4] === 0 ? 'MANUAL' : 'GENERATED'}`);
-    console.log(`   Verified: ${artist[5]}`);
-    console.log(`   Has Content: ${artist[6]}`);
-    console.log(`   Created: ${new Date(Number(artist[7]) * 1000).toISOString()}`);
-    console.log(`   Updated: ${new Date(Number(artist[8]) * 1000).toISOString()}\n`);
+    console.log(`   Genius ID: ${artist.geniusArtistId}`);
+    console.log(`   PKP Address: ${artist.pkpAddress}`);
+    console.log(`   Lens Handle: @${artist.lensHandle}`);
+    console.log(`   Lens Account: ${artist.lensAccountAddress}`);
+    console.log(`   Source: ${artist.source === 0 ? 'MANUAL' : 'GENERATED'}`);
+    console.log(`   Verified: ${artist.verified}`);
+    console.log(`   Has Content: ${artist.hasContent}`);
+    console.log(`   Created: ${new Date(Number(artist.createdAt) * 1000).toISOString()}`);
+    console.log(`   Updated: ${new Date(Number(artist.updatedAt) * 1000).toISOString()}\n`);
     console.log('✨ Done!\n');
     return;
   }
@@ -243,21 +246,40 @@ async function registerInContract(tiktokHandle: string): Promise<void> {
   console.log(`   ✅ Confirmed in block: ${receipt.blockNumber}\n`);
 
   // 9. Verify registration
-  console.log('✅ Verifying registration...');
-  const artist = await publicClient.readContract({
-    address: REGISTRY_CONTRACT_ADDRESS,
-    abi: REGISTRY_ABI,
-    functionName: 'getArtist',
-    args: [geniusArtistId],
-  });
+  console.log('✅ Verifying registration...\n');
 
-  console.log('\n📊 Registration Complete:');
-  console.log(`   Genius ID: ${artist[0]}`);
-  console.log(`   PKP Address: ${artist[1]}`);
-  console.log(`   Lens Handle: ${artist[2]}`);
-  console.log(`   Lens Account: ${artist[3]}`);
-  console.log(`   Source: ${artist[4] === 0 ? 'MANUAL' : 'GENERATED'}`);
-  console.log(`   Transaction: ${hash}\n`);
+  try {
+    const artist = await publicClient.readContract({
+      address: REGISTRY_CONTRACT_ADDRESS,
+      abi: REGISTRY_ABI,
+      functionName: 'getArtist',
+      args: [geniusArtistId],
+    });
+
+    console.log('📊 Registration Complete:');
+    console.log(`   Genius ID: ${artist.geniusArtistId}`);
+    console.log(`   PKP Address: ${artist.pkpAddress}`);
+    console.log(`   Lens Handle: @${artist.lensHandle}`);
+    console.log(`   Lens Account: ${artist.lensAccountAddress}`);
+    console.log(`   Source: ${artist.source === 0 ? 'MANUAL' : 'GENERATED'}`);
+    console.log(`   Transaction: ${hash}\n`);
+  } catch (error: any) {
+    // Fallback: just verify existence
+    console.log(`   ⚠️  Could not fetch full details, verifying existence...`);
+    const nowExists = await publicClient.readContract({
+      address: REGISTRY_CONTRACT_ADDRESS,
+      abi: REGISTRY_ABI,
+      functionName: 'artistExists',
+      args: [geniusArtistId],
+    });
+
+    if (nowExists) {
+      console.log(`   ✅ Artist exists in contract`);
+      console.log(`   Transaction: ${hash}\n`);
+    } else {
+      throw new Error('Registration failed - artist not found after tx confirmation');
+    }
+  }
 
   console.log('═══════════════════════════════════════════════════════');
   console.log('✨ Artist successfully registered in contract!\n');

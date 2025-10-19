@@ -141,7 +141,7 @@ interface LensAccountData {
   lensHandle: string;
   lensAccountAddress: string;
   network: string;
-  subscriptionLock: {
+  subscriptionLock?: {
     address: string;
     chain: string;
   };
@@ -174,8 +174,7 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
 
   console.log(`🔑 Lens Account:`);
   console.log(`   Handle: ${lensData.lensHandle}`);
-  console.log(`   Address: ${lensData.lensAccountAddress}`);
-  console.log(`   Lock: ${lensData.subscriptionLock.address}\n`);
+  console.log(`   Address: ${lensData.lensAccountAddress}\n`);
 
   // 3. Setup clients
   console.log('🔗 Setting up Lens client...');
@@ -201,21 +200,45 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
     origin: 'https://pkp-lens-flow.local',
   });
 
-  // First, fetch the account details by username to get the account address
-  console.log(`   Fetching Lens account details for: ${lensData.lensHandle}`);
+  // Get account address (prefer saved address, fall back to query with retry)
+  let lensAccountAddress = lensData.lensAccountAddress;
 
-  const accountResult = await fetchAccount(publicClient, {
-    username: {
-      localName: lensData.lensHandle.replace('@', ''),
-    },
-  });
+  // If address is not saved or is 'unknown', query for it
+  if (!lensAccountAddress || lensAccountAddress === 'unknown') {
+    console.log(`   Fetching Lens account details for: ${lensData.lensHandle}`);
 
-  if (accountResult.isErr()) {
-    throw new Error(`Could not find Lens account: ${lensData.lensHandle}`);
+    let accountResult;
+    let retries = 0;
+    const maxRetries = 10;
+    const retryDelay = 5000; // 5 seconds
+
+    while (retries < maxRetries) {
+      accountResult = await fetchAccount(publicClient, {
+        username: {
+          localName: lensData.lensHandle.replace('@', ''),
+        },
+      });
+
+      if (accountResult.isOk() && accountResult.value) {
+        break;
+      }
+
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`   ⏳ Account not indexed yet, retrying in ${retryDelay / 1000}s (attempt ${retries}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    if (accountResult.isErr() || !accountResult.value) {
+      throw new Error(`Could not find Lens account after ${maxRetries} attempts: ${lensData.lensHandle}. Account may need more time to index.`);
+    }
+
+    lensAccountAddress = accountResult.value.address;
+    console.log(`   ✅ Found account address: ${lensAccountAddress}`);
+  } else {
+    console.log(`   ✅ Using saved account address: ${lensAccountAddress}`);
   }
-
-  const lensAccountAddress = accountResult.value.address;
-  console.log(`   Found account address: ${lensAccountAddress}`);
 
   console.log(`   Authenticating as account owner: ${account.address}`);
 
@@ -302,12 +325,6 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
       contentText += `\n👁️ ${(videoData.stats.views / 1000000).toFixed(1)}M views`;
       contentText += `\n❤️ ${(videoData.stats.likes / 1000000).toFixed(1)}M likes`;
 
-      // Add encryption notice (only for copyrighted content)
-      if (videoData.copyrightType === 'copyrighted' && videoData.encryption) {
-        contentText += `\n\n🔐 This content is encrypted and requires an Unlock subscription key to decrypt.`;
-        contentText += `\nLock: ${lensData.subscriptionLock.address}`;
-      }
-
       // Create video metadata
       console.log(`      • Creating Lens video metadata...`);
 
@@ -324,7 +341,6 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
           'karaoke',
           'tiktok',
           videoData.copyrightType, // 'copyrighted' | 'copyright-free' - for feed filtering
-          ...(videoData.encryption ? ['encrypted'] : ['unencrypted']),
           ...(videoData.music.spotify?.isrc ? ['licensed'] : []),
           ...(videoData.music.genius?.id ? ['genius'] : []),
         ],
@@ -355,19 +371,6 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
               type: 'String' as const,
               key: 'genius_id',
               value: videoData.music.genius.id.toString(),
-            },
-          ] : []),
-          // Only include encryption attributes if video is encrypted
-          ...(videoData.encryption ? [
-            {
-              type: 'String' as const,
-              key: 'unlock_lock',
-              value: lensData.subscriptionLock.address,
-            },
-            {
-              type: 'String' as const,
-              key: 'encryption_hash',
-              value: videoData.encryption.dataToEncryptHash,
             },
           ] : []),
           {
@@ -403,25 +406,6 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
             type: 'JSON' as const,
             key: 'description_translations',
             value: JSON.stringify(videoData.descriptionTranslations),
-          }] : []),
-          // Include encryption metadata as JSON
-          ...(videoData.encryption ? [{
-            type: 'JSON' as const,
-            key: 'encryption',
-            value: JSON.stringify({
-              encryptedSymmetricKey: videoData.encryption.encryptedSymmetricKey,
-              dataToEncryptHash: videoData.encryption.dataToEncryptHash,
-              // Single-file encryption (one IV/authTag)
-              ...(videoData.encryption.iv && videoData.encryption.authTag ? {
-                iv: videoData.encryption.iv,
-                authTag: videoData.encryption.authTag,
-              } : {}),
-              // HLS segment encryption (multiple IVs/authTags)
-              ...(videoData.encryption.segments ? {
-                segments: videoData.encryption.segments,
-              } : {}),
-              unifiedAccessControlConditions: videoData.encryption.unifiedAccessControlConditions,
-            }),
           }] : []),
           // Include licensing data as JSON for copyrighted content
           ...(videoData.music.spotify?.isrc ? [{

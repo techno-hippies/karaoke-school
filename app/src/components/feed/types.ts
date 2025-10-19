@@ -17,7 +17,7 @@ export interface KaraokeWord {
 
 export interface VideoPostData {
   id: string
-  videoUrl?: string // For HLS, this is the playlist URI
+  videoUrl?: string
   thumbnailUrl?: string
   username: string
   userHandle?: string // Display name (e.g., "Professional Vocalist")

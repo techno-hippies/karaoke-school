@@ -92,32 +92,48 @@ export function useContractSongs(): UseContractSongsResult {
         transport: http(),
       })
 
-      // Fetch the 20 most recently catalogued songs
-      const recentSongs = await publicClient.readContract({
-        address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
-        abi: KARAOKE_CATALOG_ABI,
-        functionName: 'getRecentSongs',
-        args: [20n], // BigInt for uint256
-      }) as any[]
+      // Try to fetch recent songs (V2.1+ contract)
+      try {
+        const recentSongs = await publicClient.readContract({
+          address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+          abi: KARAOKE_CATALOG_ABI,
+          functionName: 'getRecentSongs',
+          args: [20n], // BigInt for uint256
+        }) as any[]
 
-      console.log('[useContractSongs] Loaded', recentSongs.length, 'recent songs')
+        console.log('[useContractSongs] Loaded', recentSongs.length, 'recent songs')
 
-      // Transform contract songs to app Song format
-      const transformedSongs: Song[] = recentSongs.map((contractSong) => ({
-        id: contractSong.geniusId.toString(),
-        geniusId: Number(contractSong.geniusId),
-        title: contractSong.title,
-        artist: contractSong.artist,
-        artworkUrl: contractSong.thumbnailUri ?
-          (contractSong.thumbnailUri.startsWith('lens://') || contractSong.thumbnailUri.startsWith('grove://')
-            ? `https://api.grove.storage/${contractSong.thumbnailUri.replace(/^(lens|grove):\/\//, '')}`
-            : contractSong.thumbnailUri)
-          : undefined,
-        isFree: !contractSong.requiresPayment,
-        isProcessed: true, // All songs from catalog are processed
-      }))
+        // Transform contract songs to app Song format
+        const transformedSongs: Song[] = recentSongs.map((contractSong) => ({
+          id: contractSong.geniusId.toString(),
+          geniusId: Number(contractSong.geniusId),
+          title: contractSong.title,
+          artist: contractSong.artist,
+          artworkUrl: contractSong.thumbnailUri ?
+            (contractSong.thumbnailUri.startsWith('lens://') || contractSong.thumbnailUri.startsWith('grove://')
+              ? `https://api.grove.storage/${contractSong.thumbnailUri.replace(/^(lens|grove):\/\//, '')}`
+              : contractSong.thumbnailUri)
+            : undefined,
+          isFree: !contractSong.requiresPayment,
+          isProcessed: true, // All songs from catalog are processed
+        }))
 
-      setSongs(transformedSongs)
+        setSongs(transformedSongs)
+      } catch (contractErr) {
+        // Function doesn't exist - old contract version
+        console.warn('[useContractSongs] Contract does not have getRecentSongs() - deploy V2.1+ to enable trending songs')
+        console.warn('[useContractSongs] To deploy: cd contracts/evm/base-sepolia && forge script KaraokeCatalog/script/DeployKaraokeCatalogV2.s.sol:DeployKaraokeCatalogV2 --rpc-url https://sepolia.base.org --broadcast')
+
+        // Get total count for informational purposes
+        const totalSongs = await publicClient.readContract({
+          address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
+          abi: KARAOKE_CATALOG_ABI,
+          functionName: 'getTotalSongs',
+        })
+        console.log('[useContractSongs] Contract has', Number(totalSongs), 'total songs (use search to discover)')
+
+        setSongs([]) // Empty array - user must search
+      }
     } catch (err) {
       console.error('[useContractSongs] Error loading songs:', err)
       setError(err instanceof Error ? err : new Error('Failed to load songs'))

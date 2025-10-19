@@ -2,16 +2,18 @@
  * ClassArtistPage - Container for individual artist detail page
  *
  * Flow:
- * 1. Load artist metadata via Lit Action (Genius API)
- * 2. Display artist info + top 10 songs
- * 3. Navigate to songs when clicked
+ * 1. Check ArtistRegistryV1 for Lens profile (redirect if exists)
+ * 2. Load artist metadata via Lit Action (Genius API)
+ * 3. Display artist info + top 10 songs
+ * 4. Navigate to songs when clicked
  */
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArtistPage, type ArtistSong } from '@/components/class/ArtistPage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useArtistData } from '@/hooks/useArtistData'
+import { useArtistProfileUrl } from '@/hooks/useArtistRegistry'
 
 export function ClassArtistPage() {
   const navigate = useNavigate()
@@ -19,6 +21,16 @@ export function ClassArtistPage() {
   const { /* isPKPReady, */ pkpAuthContext } = useAuth() // isPKPReady TODO: Use for loading state
 
   const artistId = geniusArtistId ? parseInt(geniusArtistId) : undefined
+
+  // Check if artist has a Lens profile in the registry
+  const lensProfileUrl = useArtistProfileUrl(artistId)
+
+  // Redirect to Lens profile if it exists (provides parity with PKP-Lens pipeline)
+  useEffect(() => {
+    if (lensProfileUrl) {
+      navigate(lensProfileUrl, { replace: true })
+    }
+  }, [lensProfileUrl, navigate])
 
   // Fetch artist data via Lit Action
   const { artist, topSongs, isLoading, error } = useArtistData({
