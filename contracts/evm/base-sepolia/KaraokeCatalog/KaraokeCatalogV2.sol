@@ -3,12 +3,14 @@ pragma solidity ^0.8.30;
 
 /**
  * @title KaraokeCatalogV2
- * @notice V2: Adds batch processing function for optimized Lit Action execution
+ * @notice Karaoke song catalog with batch processing and query optimization
  *
- * Changes from V1:
- * - Added processSegmentsBatch() to process multiple segments in single transaction
- * - Reduces Lit Action execution time: 5 txs × 10s = 50s → 1 tx × 10s = 10s
- * - Prevents Lit Network timeout (30s limit)
+ * Key Features:
+ * - Batch segment processing (processSegmentsBatch)
+ * - Recent songs query (getRecentSongs)
+ * - Translation support (multi-language lyrics)
+ * - Additive metadata updates (sectionsUri + alignmentUri)
+ * - Song deletion (testnet utility)
  */
 contract KaraokeCatalogV2 {
 
@@ -151,6 +153,9 @@ contract KaraokeCatalogV2 {
     );
 
     event SongUpdated(string indexed id, bool enabled);
+    event SongDeleted(string indexed id, uint32 indexed geniusId);
+    event SectionsUriUpdated(uint32 indexed geniusId, string sectionsUri);
+    event AlignmentUriUpdated(uint32 indexed geniusId, string alignmentUri);
     event TranslationAdded(uint32 indexed geniusId, string languageCode, string uri);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ProcessorUpdated(address indexed previousProcessor, address indexed newProcessor);
@@ -322,6 +327,7 @@ contract KaraokeCatalogV2 {
         Song storage song = songs[index - 1];
         song.sectionsUri = sectionsUri;
 
+        emit SectionsUriUpdated(geniusId, sectionsUri);
         return true;
     }
 
@@ -343,6 +349,7 @@ contract KaraokeCatalogV2 {
         Song storage song = songs[index - 1];
         song.alignmentUri = alignmentUri;
 
+        emit AlignmentUriUpdated(geniusId, alignmentUri);
         return true;
     }
 
@@ -577,7 +584,7 @@ contract KaraokeCatalogV2 {
         // Clear the song data (set to default values)
         delete songs[index - 1];
 
-        emit SongUpdated(id, false);
+        emit SongDeleted(id, geniusId);
     }
 
     function setTrustedProcessor(address newProcessor) external onlyOwner {

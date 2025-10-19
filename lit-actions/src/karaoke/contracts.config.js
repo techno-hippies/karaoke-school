@@ -7,12 +7,12 @@
  */
 
 // Active contracts on Base Sepolia
-export const KARAOKE_CATALOG_ADDRESS = '0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454'; // V2.1: Added deleteSong()
+export const KARAOKE_CATALOG_ADDRESS = '0xe43A62838f70384Ed7a4C205E70d20f56d1Da711'; // V2: getRecentSongs(), deleteSong(), enhanced events
 export const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
 export const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
-// Deprecated - old deployments
-export const OLD_KARAOKE_CATALOG_ADDRESS = '0x0843DDB2F2ceCAB0644Ece0523328af2C7882032';
+// Deprecated - old deployments (V2.1)
+export const OLD_KARAOKE_CATALOG_ADDRESS = '0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454';
 export const KARAOKE_SEGMENT_REGISTRY_ADDRESS = '0xd74F1874B1346Ce1a4958FA5304c376bE0209Fa8';
 
 // Deprecated - Lens Testnet (no longer used, migrated to Base Sepolia)

@@ -20,7 +20,7 @@ import { canCreateUsername, createUsername, fetchAccount } from '@lens-protocol/
 import { testnet } from '@lens-protocol/env';
 import { signMessageWith } from '@lens-protocol/client/viem';
 import { handleOperationWith } from '@lens-protocol/client/viem';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { parseArgs } from 'util';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -93,17 +93,23 @@ async function createNewUsername(tiktokHandle: string, localName: string): Promi
     origin: 'https://pkp-lens-flow.local',
   });
 
-  // Get account address (prefer saved address, fall back to query with retry)
+  // Get account address (should be saved by step 6)
   let lensAccountAddress = lensData.lensAccountAddress;
 
-  // If address is not saved or is 'unknown', query for it
+  // If address is not saved or is 'unknown', this is an error - step 6 should have populated it
   if (!lensAccountAddress || lensAccountAddress === 'unknown') {
-    console.log(`   Fetching Lens account details for: ${lensData.lensHandle}`);
+    console.error(`\n   ❌ Account address not found in saved data`);
+    console.error(`   📋 Expected: Step 6 (create-lens-account) should have populated this`);
+    console.error(`   💡 Possible causes:`);
+    console.error(`      - Step 6 was not run or failed during account fetch`);
+    console.error(`      - Old data file from before step 6 was fixed`);
+    console.error(`\n   🔄 Attempting to fetch account details...`);
 
+    // Try to fetch (reduced retries since this shouldn't normally happen)
     let accountResult;
     let retries = 0;
-    const maxRetries = 10;
-    const retryDelay = 5000; // 5 seconds
+    const maxRetries = 5;  // Reduced from 20
+    const retryDelay = 10000;
 
     while (retries < maxRetries) {
       accountResult = await fetchAccount(publicClient, {
@@ -118,17 +124,25 @@ async function createNewUsername(tiktokHandle: string, localName: string): Promi
 
       retries++;
       if (retries < maxRetries) {
-        console.log(`   ⏳ Account not indexed yet, retrying in ${retryDelay / 1000}s (attempt ${retries}/${maxRetries})...`);
+        console.log(`   ⏳ Retrying... (attempt ${retries}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
 
     if (accountResult.isErr() || !accountResult.value) {
-      throw new Error(`Could not find Lens account after ${maxRetries} attempts: ${lensData.lensHandle}. Account may need more time to index.`);
+      console.error(`\n   ❌ Could not find account - please re-run step 6 first:`);
+      console.error(`      bun run local/06-create-lens-account.ts --creator ${lensData.tiktokHandle}`);
+      throw new Error(`Account address not found. Re-run step 6 to fix.`);
     }
 
     lensAccountAddress = accountResult.value.address;
     console.log(`   ✅ Found account address: ${lensAccountAddress}`);
+
+    // Save the fetched account address back to the JSON file
+    lensData.lensAccountAddress = lensAccountAddress;
+    lensData.lensAccountId = accountResult.value.id;
+    await writeFile(lensDataPath, JSON.stringify(lensData, null, 2));
+    console.log(`   💾 Updated lens account data with address`);
   } else {
     console.log(`   ✅ Using saved account address: ${lensAccountAddress}`);
   }

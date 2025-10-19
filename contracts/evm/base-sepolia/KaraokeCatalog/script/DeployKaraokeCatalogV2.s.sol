@@ -8,10 +8,11 @@ import "../KaraokeCatalogV2.sol";
  * @title DeployKaraokeCatalogV2
  * @notice Deployment script for KaraokeCatalogV2 on Base Sepolia
  *
- * V2 Changes:
- * - Added processSegmentsBatch() for optimized Lit Action execution
- * - Single transaction for all segments (reduces time from 50s to 10s)
- * - Prevents Lit Network timeout (30s limit)
+ * Features:
+ * - Batch segment processing (processSegmentsBatch)
+ * - Recent songs query (getRecentSongs)
+ * - Translation support
+ * - Song deletion (testnet utility)
  *
  * Base Sepolia:
  * - Chain ID: 84532
@@ -19,7 +20,7 @@ import "../KaraokeCatalogV2.sol";
  * - Explorer: https://sepolia.basescan.org
  *
  * Usage (with dotenvx):
- * DOTENV_PRIVATE_KEY=<key> dotenvx run -f /path/to/contracts/.env -- \
+ * DOTENV_PRIVATE_KEY=<key> dotenvx run -f ../../.env -- \
  *   forge script KaraokeCatalog/script/DeployKaraokeCatalogV2.s.sol:DeployKaraokeCatalogV2 \
  *   --rpc-url https://sepolia.base.org \
  *   --broadcast \
@@ -28,7 +29,7 @@ import "../KaraokeCatalogV2.sol";
  *
  * Environment Variables Required (in .env):
  * - PRIVATE_KEY: Deployer private key (encrypted)
- * - PKP_ADDRESS: Lit Protocol PKP address (trusted processor for automated operations)
+ * - PKP_ADDRESS: Lit Protocol PKP address (trusted processor)
  * - BASESCAN_API_KEY: BaseScan API key for verification
  */
 contract DeployKaraokeCatalogV2 is Script {
@@ -54,18 +55,19 @@ contract DeployKaraokeCatalogV2 is Script {
         console.log("Paused:", catalog.paused());
         console.log("Total Songs:", catalog.getTotalSongs());
 
-        console.log("\n=== V2 New Features ===");
-        console.log("- processSegmentsBatch(): Process multiple segments in single tx");
-        console.log("- Reduces Lit Action time: 50s -> 10s (5 txs -> 1 tx)");
-        console.log("- Prevents Lit Network timeout (30s limit)");
-        console.log("- Lower gas cost (single transaction overhead)");
-        console.log("- Atomic updates (all segments succeed or all fail)");
+        console.log("\n=== Features ===");
+        console.log("- getRecentSongs(limit): Query recently added songs");
+        console.log("- processSegmentsBatch(): Batch processing (50s -> 10s)");
+        console.log("- deleteSong(id): Remove songs (testnet utility)");
+        console.log("- Translation support: Multi-language lyrics");
+        console.log("- Enhanced events: Sections/Alignment/Delete tracking");
 
         console.log("\n=== Contract Capabilities ===");
         console.log("- Full songs with audio/metadata/covers");
         console.log("- Segment-only songs (copyrighted content)");
         console.log("- Genius API integration");
-        console.log("- Batch segment creation AND processing (V2)");
+        console.log("- Batch segment creation AND processing");
+        console.log("- Recent songs discovery (no search required)");
         console.log("- Two-phase segment lifecycle (Create -> Process)");
 
         console.log("\n=== Next Steps ===");

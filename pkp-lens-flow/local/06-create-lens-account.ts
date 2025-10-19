@@ -20,7 +20,7 @@ import { PublicClient, evmAddress } from '@lens-protocol/client';
 import { createAccountWithUsername, fetchAccount } from '@lens-protocol/client/actions';
 import { testnet } from '@lens-protocol/env';
 import { chains } from '@lens-chain/sdk/viem';
-import { signMessageWith } from '@lens-protocol/client/viem';
+import { signMessageWith, handleOperationWith } from '@lens-protocol/client/viem';
 import { StorageClient, immutable } from '@lens-chain/storage-client';
 import { account } from '@lens-protocol/metadata';
 import { readFile, writeFile, mkdir } from 'fs/promises';
@@ -69,14 +69,20 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   const lensDataPath = path.join(process.cwd(), 'data', 'lens', `${cleanHandle}.json`);
 
   if (existsSync(lensDataPath)) {
-    console.log('✅ Lens account already exists - loading from file');
     const existingData = await readFile(lensDataPath, 'utf-8');
     const lensData: LensAccountData = JSON.parse(existingData);
-    console.log(`   Handle: ${lensData.lensHandle}`);
-    console.log(`   Account Address: ${lensData.lensAccountAddress}`);
-    console.log('   Skipping account creation\n');
-    console.log('✨ Done!\n');
-    return lensData;
+
+    // If address is valid (not 'unknown'), skip creation
+    if (lensData.lensAccountAddress && lensData.lensAccountAddress !== 'unknown') {
+      console.log('✅ Lens account already exists - loading from file');
+      console.log(`   Handle: ${lensData.lensHandle}`);
+      console.log(`   Account Address: ${lensData.lensAccountAddress}`);
+      console.log('   Skipping account creation\n');
+      console.log('✨ Done!\n');
+      return lensData;
+    } else {
+      console.log('⚠️  Existing file found but address is unknown - will re-create account\n');
+    }
   }
 
   // 1. Load PKP data
@@ -224,62 +230,76 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   console.log(`   Lens Handle: @${lensHandle}`);
   console.log(`   Linked to TikTok: ${tiktokHandle}\n`);
 
-  const result = await createAccountWithUsername(sessionClient, {
+  const createResult = await createAccountWithUsername(sessionClient, {
     username: {
       localName: lensHandle,
     },
     metadataUri: uploadResult.uri,
-  });
+  })
+    .andThen(handleOperationWith(walletClient))
+    .andThen(sessionClient.waitForTransaction);
 
-  if (!result.isOk()) {
-    throw new Error(`Account creation failed: ${result.error.message}`);
+  if (createResult.isErr()) {
+    throw new Error(`Account creation failed: ${createResult.error.message}`);
   }
 
-  console.log('✅ Lens Account Created!\n');
+  const txHash = createResult.value;
+  console.log('✅ Lens Account Created!');
+  console.log(`   Tx Hash: ${txHash}`);
+  console.log(`   Waiting for indexer to pick up the account...\n`);
 
-  // 10. Extract account data from result
-  const accountData = result.value;
-  console.log('📊 Lens Account Details:');
-  console.log(`   Handle: @${lensHandle}`);
-  console.log(`   Transaction Hash: ${accountData.hash}\n`);
+  // 10. Fetch account after creation (with retries for indexing)
+  let accountResult;
+  let retries = 0;
+  const maxRetries = 30;  // 5 minutes max
+  const retryDelay = 10000;  // 10 seconds
 
-  // 11. Wait for account to be indexed and fetch full details
-  console.log('⏳ Waiting for account to be indexed...');
-  let accountAddress = 'unknown';
-  let accountId = 'unknown';
+  console.log(`   ⚠️  Lens testnet indexer can be slow - this may take a few minutes...`);
 
-  // Retry fetching account details (indexer needs time)
-  for (let i = 0; i < 12; i++) {
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-
-    const accountResult = await fetchAccount(publicClient, {
+  while (retries < maxRetries) {
+    accountResult = await fetchAccount(lensClient, {
       username: {
         localName: lensHandle,
       },
     });
 
     if (accountResult.isOk() && accountResult.value) {
-      accountAddress = accountResult.value.address;
-      accountId = accountResult.value.id;
-      console.log(`✅ Account indexed!`);
-      console.log(`   Address: ${accountAddress}`);
-      console.log(`   ID: ${accountId}\n`);
       break;
     }
 
-    console.log(`   Retry ${i + 1}/12...`);
+    retries++;
+    if (retries < maxRetries) {
+      const remainingTime = Math.ceil(((maxRetries - retries) * retryDelay) / 1000);
+      console.log(`   ⏳ Account not indexed yet, retrying in ${retryDelay / 1000}s (attempt ${retries}/${maxRetries}, ~${remainingTime}s remaining)...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
 
-  // 12. Save Lens account data
+  if (accountResult.isErr() || !accountResult.value) {
+    console.error(`\n   ❌ Could not find account after ${maxRetries * retryDelay / 1000} seconds`);
+    console.error(`   📋 Tried to fetch: ${lensHandle}`);
+    console.error(`   💡 Possible causes:`);
+    console.error(`      - Lens testnet indexer is slow/down`);
+    console.error(`      - Account creation failed (check tx: ${txHash})`);
+    console.error(`      - Username already taken or invalid`);
+    throw new Error(`Could not find Lens account after ${maxRetries} attempts: @${lensHandle}. Account may need more time to index or testnet may be down.`);
+  }
+
+  const lensAccountAddress = accountResult.value.address;
+  // Note: Account ID is not directly available, use username ID as fallback
+  const lensAccountId = (accountResult.value as any).username?.id || 'N/A';
+  console.log(`   ✅ Found account: ${lensAccountAddress}\n`);
+
+  // 11. Save Lens account data with real address/ID
   const lensAccountData: LensAccountData = {
     tiktokHandle,
     pkpEthAddress: pkpData.pkpEthAddress,
     lensHandle: `@${lensHandle}`,
-    lensAccountAddress: accountAddress,
-    lensAccountId: accountId,
+    lensAccountAddress,  // Now populated with real address
+    lensAccountId,  // Now populated with real ID
     network: 'lens-testnet',
     createdAt: new Date().toISOString(),
-    transactionHash: accountData.hash,
+    transactionHash: txHash,
   };
 
   const outputPath = path.join(process.cwd(), 'data', 'lens', `${cleanHandle}.json`);

@@ -26,6 +26,49 @@
 - **Owner**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
 - **Trusted Processor (PKP)**: `0x254aAB1EF1ad6f95d93b557cA6dd3ef2E6f5ce52`
 
+### ArtistRegistryV1 (Deprecated)
+- **Address**: `0x8370c98114B52ea294ABd65ACF113414B38525d0`
+- **Status**: ⚠️ **DEPRECATED** - Use V2 instead
+- **Bug**: `updateArtist()` doesn't check for mapping collisions
+- **BaseScan**: https://sepolia.basescan.org/address/0x8370c98114b52ea294abd65acf113414b38525d0
+
+### ArtistRegistryV2 (Current)
+- **Address**: `0x81cE49c16D2Bf384017C2bCA7FDdACb8A15DECC7`
+- **Deployer**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Owner**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **BaseScan**: https://sepolia.basescan.org/address/0x81ce49c16d2bf384017c2bca7fddacb8a15decc7
+- **Purpose**: Maps Genius artist IDs to PKP addresses and Lens profiles
+- **V2 Improvements**:
+  - ✅ Fixed `updateArtist()` mapping collision bug
+  - ✅ Added `lensAccountAddress != address(0)` validation
+  - ✅ Improved NatSpec documentation
+- **Features**:
+  - Minimal on-chain storage (~$150 for 10k artists)
+  - Rich metadata in Lens Account Metadata
+  - Supports MANUAL and GENERATED profiles
+  - Reverse lookups (PKP/Lens handle → geniusId)
+  - Subgraph-ready events
+- **Deployed**: 2025-01-19
+- **Gas Used**: 2,410,206 gas (~0.0024 ETH)
+
+### KaraokeCatalogV2 (Current)
+- **Address**: `0xe43A62838f70384Ed7a4C205E70d20f56d1Da711`
+- **Deployer**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Owner**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Trusted Processor (PKP)**: `0x254aAB1EF1ad6f95d93b557cA6dd3ef2E6f5ce52`
+- **Treasury**: `0x8aAc65DCC0E2CB4e3EF63DcF85Ce2A1Ff1b93E8B`
+- **BaseScan**: https://sepolia.basescan.org/address/0xe43a62838f70384ed7a4c205e70d20f56d1da711
+- **Purpose**: Main catalog for karaoke songs with segments and metadata
+- **Features**:
+  - ✅ Batch segment processing (`processSegmentsBatch`)
+  - ✅ Recent songs query (`getRecentSongs`) - up to 50 newest songs
+  - ✅ Translation support (multi-language lyrics)
+  - ✅ Additive metadata updates (`sectionsUri` + `alignmentUri`)
+  - ✅ Song deletion (`deleteSong`) - testnet utility
+  - ✅ Enhanced event tracking (SectionsUriUpdated, AlignmentUriUpdated, SongDeleted)
+- **Deployed**: 2025-10-19
+- **Previous Version**: `0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454` (V2.1 - deprecated)
+
 ## Lens Testnet (Chain ID: 37111)
 **Network**: Lens Testnet (zkSync)
 **RPC**: https://rpc.testnet.lens.xyz
