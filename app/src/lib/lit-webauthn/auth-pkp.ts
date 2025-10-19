@@ -51,18 +51,23 @@ export async function createPKPAuthContext(
     const litClient = await getLitClient()
     const authManager = getAuthManager()
 
-    // Create PKP auth context - matches working EOA test format
+    // Create PKP auth context - matches working test format
     const authContext = await authManager.createPkpAuthContext({
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
         domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
-        statement: 'Decrypt subscription content',
+        statement: 'Execute Lit Actions and sign transactions',
         expiration: getConsistentExpiration(),
         resources: [
-          ['lit-action-execution', '*'],
-          ['pkp-signing', '*'],
-          ['access-control-condition-decryption', '*'],
+          {
+            resource: new LitActionResource('*'),
+            ability: 'lit-action-execution'
+          },
+          {
+            resource: new LitPKPResource('*'),
+            ability: 'pkp-signing'
+          }
         ],
       },
       litClient: litClient,
@@ -118,20 +123,24 @@ export async function createPKPDecryptionAuthContext(
     const litClient = await getLitClient()
     const authManager = getAuthManager()
 
-    // Create auth context with wildcard for decryption
+    // Create auth context with proper resource objects
     // In Lit Protocol v8, we don't need to pre-register specific resources for decryption
     const authContext = await authManager.createPkpAuthContext({
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
         domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
-        statement: 'Decrypt subscription content',
+        statement: 'Execute Lit Actions, sign transactions, and decrypt content',
         expiration: getConsistentExpiration(),
         resources: [
-          ['lit-action-execution', '*'],
-          ['pkp-signing', '*'],
-          // Use wildcard for decryption to allow any encrypted content
-          ['access-control-condition-decryption', '*'],
+          {
+            resource: new LitActionResource('*'),
+            ability: 'lit-action-execution'
+          },
+          {
+            resource: new LitPKPResource('*'),
+            ability: 'pkp-signing'
+          }
         ],
       },
       litClient: litClient,
