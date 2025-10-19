@@ -22,6 +22,7 @@ export const KARAOKE_CATALOG_ABI = [
         components: [
           { name: 'id', type: 'string' },
           { name: 'geniusId', type: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32' },
           { name: 'title', type: 'string' },
           { name: 'artist', type: 'string' },
           { name: 'duration', type: 'uint32' },
@@ -53,6 +54,7 @@ export const KARAOKE_CATALOG_ABI = [
         components: [
           { name: 'id', type: 'string' },
           { name: 'geniusId', type: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32' },
           { name: 'title', type: 'string' },
           { name: 'artist', type: 'string' },
           { name: 'duration', type: 'uint32' },
@@ -105,6 +107,7 @@ export const KARAOKE_CATALOG_ABI = [
         components: [
           { name: 'id', type: 'string' },
           { name: 'geniusId', type: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32' },
           { name: 'title', type: 'string' },
           { name: 'artist', type: 'string' },
           { name: 'duration', type: 'uint32' },
@@ -162,6 +165,25 @@ export const KARAOKE_CATALOG_ABI = [
     inputs: [
       { name: 'geniusId', type: 'uint32' },
       { name: 'languageCode', type: 'string' },
+      { name: 'uri', type: 'string' },
+    ],
+    outputs: [],
+  },
+
+  // === Leaderboard Functions ===
+  {
+    name: 'getLeaderboardUri',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'geniusId', type: 'uint32' }],
+    outputs: [{ name: '', type: 'string' }],
+  },
+  {
+    name: 'setLeaderboardUri',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
       { name: 'uri', type: 'string' },
     ],
     outputs: [],
@@ -252,6 +274,14 @@ export const KARAOKE_CATALOG_ABI = [
     inputs: [
       { indexed: false, name: 'segmentCount', type: 'uint256' },
       { indexed: false, name: 'timestamp', type: 'uint64' },
+    ],
+  },
+  {
+    name: 'LeaderboardUriUpdated',
+    type: 'event',
+    inputs: [
+      { indexed: true, name: 'geniusId', type: 'uint32' },
+      { indexed: false, name: 'uri', type: 'string' },
     ],
   },
 ] as const

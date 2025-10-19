@@ -51,6 +51,7 @@ contract KaraokeCatalogV2 {
         // Core Identification
         string id;                  // Unique ID: "heat-of-the-night" or "genius-123456"
         uint32 geniusId;           // 0 = not linked to Genius, >0 = Genius song ID
+        uint32 geniusArtistId;     // 0 = not linked to Genius, >0 = Genius artist ID
 
         // Metadata
         string title;
@@ -114,6 +115,9 @@ contract KaraokeCatalogV2 {
     // Track available languages per song
     mapping(uint32 => string[]) public availableLanguages;
 
+    // Leaderboard Grove URIs: geniusId => grove URI
+    mapping(uint32 => string) public leaderboardUris;
+
     address public owner;
     address public trustedProcessor;  // Lit Protocol PKP for automated operations
     bool public paused;
@@ -157,6 +161,7 @@ contract KaraokeCatalogV2 {
     event SectionsUriUpdated(uint32 indexed geniusId, string sectionsUri);
     event AlignmentUriUpdated(uint32 indexed geniusId, string alignmentUri);
     event TranslationAdded(uint32 indexed geniusId, string languageCode, string uri);
+    event LeaderboardUriUpdated(uint32 indexed geniusId, string uri);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event ProcessorUpdated(address indexed previousProcessor, address indexed newProcessor);
     event Paused(address indexed by);
@@ -193,6 +198,7 @@ contract KaraokeCatalogV2 {
     struct AddFullSongParams {
         string id;
         uint32 geniusId;
+        uint32 geniusArtistId;
         string title;
         string artist;
         uint32 duration;
@@ -232,6 +238,7 @@ contract KaraokeCatalogV2 {
 
         newSong.id = params.id;
         newSong.geniusId = params.geniusId;
+        newSong.geniusArtistId = params.geniusArtistId;
         newSong.title = params.title;
         newSong.artist = params.artist;
         newSong.duration = params.duration;
@@ -262,6 +269,7 @@ contract KaraokeCatalogV2 {
      */
     function addSegmentOnlySong(
         uint32 geniusId,
+        uint32 geniusArtistId,
         string calldata id,
         string calldata title,
         string calldata artist,
@@ -273,6 +281,7 @@ contract KaraokeCatalogV2 {
         Song memory newSong;
         newSong.id = id;
         newSong.geniusId = geniusId;
+        newSong.geniusArtistId = geniusArtistId;
         newSong.title = title;
         newSong.artist = artist;
         newSong.duration = duration;
@@ -552,6 +561,35 @@ contract KaraokeCatalogV2 {
         returns (bool)
     {
         return bytes(translationUris[geniusId][languageCode]).length > 0;
+    }
+
+    // ============ LEADERBOARD FUNCTIONS ============
+
+    /**
+     * @notice Set leaderboard URI for a song
+     * @dev Called by indexer service after uploading leaderboard to Grove
+     */
+    function setLeaderboardUri(uint32 geniusId, string calldata uri)
+        external
+        onlyOwnerOrProcessor
+        whenNotPaused
+    {
+        if (geniusIdToIndex[geniusId] == 0) revert SongNotFound();
+        if (bytes(uri).length == 0) revert InvalidSongIdentifier();
+
+        leaderboardUris[geniusId] = uri;
+        emit LeaderboardUriUpdated(geniusId, uri);
+    }
+
+    /**
+     * @notice Get leaderboard URI for a song
+     */
+    function getLeaderboardUri(uint32 geniusId)
+        external
+        view
+        returns (string memory)
+    {
+        return leaderboardUris[geniusId];
     }
 
     // ============ ADMIN FUNCTIONS ============
