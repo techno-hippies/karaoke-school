@@ -64,6 +64,7 @@ app.use((req, res, next) => {
 const PRIVATE_KEY = process.env.PRIVATE_KEY?.trim();
 const ARTIST_REGISTRY_ADDRESS = (process.env.ARTIST_REGISTRY_ADDRESS || '0x81cE49c16D2Bf384017C2bCA7FDdACb8A15DECC7').trim();
 const LENS_APP_ADDRESS = (process.env.LENS_APP_ADDRESS || '0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0').trim();
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY?.trim();
 
 // Genius API key (exposed, free tier)
 const GENIUS_API_KEY = 'z0-uHScJhlvY7rB_HwThSEZhjpmSzlWMnBhaby3tPtqJpfOeQwZ1cc5OG1bdegV7';
@@ -186,23 +187,103 @@ function runScript(scriptPath, args, label) {
 }
 
 /**
+ * AI-powered TikTok Handle Discovery
+ * Uses OpenRouter + Gemini Flash 2.5 + Exa search to find official TikTok handle
+ *
+ * @param {string} artistName - Artist name from Genius
+ * @param {string} instagramHandle - Instagram handle (optional)
+ * @returns {Promise<string|null>} - TikTok handle (with @) or null if not found
+ */
+async function findTikTokHandle(artistName, instagramHandle = null) {
+  if (!OPENROUTER_API_KEY) {
+    console.log('[TikTok Discovery] OpenRouter API key not configured, skipping AI discovery');
+    return null;
+  }
+
+  try {
+    console.log(`[TikTok Discovery] 🤖 Searching for ${artistName}'s TikTok handle...`);
+    if (instagramHandle) {
+      console.log(`[TikTok Discovery]    Context: Instagram @${instagramHandle}`);
+    }
+
+    const prompt = instagramHandle
+      ? `Find the official TikTok handle for artist "${artistName}". Their Instagram is @${instagramHandle}. Return ONLY the @handle (e.g., @username), nothing else. If not found, return "NOT_FOUND".`
+      : `Find the official TikTok handle for artist "${artistName}". Return ONLY the @handle (e.g., @username), nothing else. If not found, return "NOT_FOUND".`;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://karaoke-school.com',
+        'X-Title': 'Karaoke School - Artist Profile Generator'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        plugins: [{ id: 'web', engine: 'exa', max_results: 3 }],
+        messages: [{
+          role: 'user',
+          content: prompt
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[TikTok Discovery] OpenRouter API error (${response.status}):`, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const handle = data.choices?.[0]?.message?.content?.trim();
+
+    if (!handle || handle === 'NOT_FOUND' || !handle.startsWith('@')) {
+      console.log(`[TikTok Discovery] ❌ No TikTok handle found for ${artistName}`);
+      return null;
+    }
+
+    console.log(`[TikTok Discovery] ✅ Found TikTok: ${handle}`);
+    return handle;
+
+  } catch (error) {
+    console.error(`[TikTok Discovery] Error during AI search:`, error.message);
+    return null;
+  }
+}
+
+/**
  * Background content generation job
  * Runs full pkp-lens-flow pipeline after profile is created
  */
 async function generateContent(geniusArtistId, artistData, pkpData, lensData) {
   console.log(`[Content] Starting background video pipeline for ${artistData.name} (${geniusArtistId})`);
 
-  const creator = lensData.handle.startsWith('@') ? lensData.handle : `@${lensData.handle}`; // Ensure @ prefix
+  const creator = lensData.handle.startsWith('@') ? lensData.handle : `@${lensData.handle}`; // Fallback: Lens handle
+  let tiktokCreator = creator;
 
   try {
+    // Step 1.5: AI-powered TikTok discovery
+    console.log(`[Content] Step 1.5: Discovering TikTok handle using AI...`);
+    const discoveredHandle = await findTikTokHandle(
+      artistData.name,
+      artistData.instagram
+    );
+
+    if (discoveredHandle) {
+      tiktokCreator = discoveredHandle;
+      console.log(`[Content]    🎯 Using AI-discovered handle: ${tiktokCreator}`);
+    } else {
+      console.log(`[Content]    ⚠️  AI discovery failed, using Lens handle: ${creator}`);
+    }
+
     // Step 2: Crawl TikTok (top 3 videos)
     console.log(`[Content] Step 2: Crawling TikTok for top 3 videos...`);
-    console.log(`[Content]    Attempting to find TikTok account: ${creator}`);
+    console.log(`[Content]    Target TikTok account: ${tiktokCreator}`);
 
     try {
       await runScript(
         'services/crawler/tiktok_crawler.py',
-        ['--creator', creator, '--copyrighted', '3', '--copyright-free', '0'],
+        ['--creator', tiktokCreator, '--copyrighted', '3', '--copyright-free', '0'],
         'Crawl TikTok'
       );
     } catch (crawlError) {
