@@ -96,10 +96,10 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Study & FSRS ===
   studyScorer: {
-    cid: 'PLACEHOLDER_STUDY_SCORER',
+    cid: 'QmXe5H4WXrreaZKRrGRXoD7dVfMAXr4ahCUa137kZ6qX6i',
     name: 'Study Scorer v1',
     source: 'lit-actions/src/karaoke/study-scorer-v1.js',
-    // Deploy with: ./scripts/deploy-lit-action.sh src/karaoke/study-scorer-v1.js "Study Scorer v1"
+    deployedAt: '2025-10-19',
   },
 }
 
