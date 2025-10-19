@@ -9,6 +9,7 @@
 // Active contracts on Base Sepolia
 export const KARAOKE_CATALOG_ADDRESS = '0xe43A62838f70384Ed7a4C205E70d20f56d1Da711'; // V2: getRecentSongs(), deleteSong(), enhanced events
 export const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
+export const FSRS_TRACKER_ADDRESS = '0xcB208EFA5B615472ee9b8Dea913624caefB6C1F3'; // V1: FSRS spaced repetition tracker
 export const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
 // Deprecated - old deployments (V2.1)

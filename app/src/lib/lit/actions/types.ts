@@ -202,3 +202,39 @@ export interface ArtistMetadataResult {
   }>
   error?: string
 }
+
+/**
+ * Generate Profile Result (On-Demand Artist Profile Creation)
+ * Calls Render service to create PKP + Lens account + contract registration
+ */
+export interface GenerateProfileResult {
+  success: boolean
+  source: 'CACHED' | 'GENERATED'
+  profileReady: boolean
+  contentGenerating: boolean
+  geniusArtistId?: number
+  artistName?: string
+  pkpAddress?: string
+  pkpTokenId?: string
+  pkpMintTxHash?: string
+  lensHandle?: string
+  lensAccountAddress?: string
+  lensTxHash?: string
+  registryTxHash?: string
+  hasContent?: boolean
+  isVerified?: boolean
+  createdAt?: number
+  alreadyRegistered?: boolean
+  message?: string
+  nextSteps?: string[]
+  processing?: {
+    totalTime: number
+    renderResponse?: string
+  }
+  renderService?: {
+    url: string
+    healthCheck: string
+  }
+  error?: string
+  stack?: string
+}

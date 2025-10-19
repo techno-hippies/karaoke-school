@@ -46,6 +46,7 @@ export const BASE_SEPOLIA_CONTRACTS = {
   usdc: (import.meta.env.VITE_BASE_SEPOLIA_USDC || '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
   karaokeCredits: (import.meta.env.VITE_KARAOKE_CREDITS_CONTRACT || '0xf897bf9246abb53477b9986940b46e5db886a27f') as Address,
   karaokeCatalog: (import.meta.env.VITE_KARAOKE_CATALOG_CONTRACT || '0xa3fE1628c6FA4B93df76e070fdCd103626D83039') as Address, // V2: getRecentSongs(), deleteSong(), enhanced events, geniusArtistId
+  fsrsTrackerV1: (import.meta.env.VITE_FSRS_TRACKER_CONTRACT || '0xcB208EFA5B615472ee9b8Dea913624caefB6C1F3') as Address, // V1: FSRS spaced repetition tracker
 } as const
 
 // === HELPER FUNCTIONS ===

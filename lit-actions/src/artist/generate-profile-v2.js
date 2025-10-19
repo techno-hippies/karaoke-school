@@ -60,7 +60,7 @@ const go = async () => {
     const provider = new ethers.providers.JsonRpcProvider(baseSepoliaRpc);
 
     const registryAbi = [
-      'function getArtist(uint32) view returns (tuple(uint32 geniusArtistId, address pkpAddress, string name, address lensAccountAddress, uint8 source, bool hasContent, bool isVerified, bool isBlacklisted, uint64 createdAt, uint64 updatedAt))'
+      'function getArtist(uint32) view returns (tuple(uint32 geniusArtistId, address pkpAddress, string lensHandle, address lensAccountAddress, uint8 source, bool verified, bool hasContent, uint64 createdAt, uint64 updatedAt))'
     ];
 
     const registry = new ethers.Contract(registryContract, registryAbi, provider);
@@ -75,7 +75,7 @@ const go = async () => {
       if (artistData.geniusArtistId > 0) {
         alreadyExists = true;
         console.log('[Artist Profile v2] ✅ Artist already exists in registry!');
-        console.log(`  Name: ${artistData.name}`);
+        console.log(`  Lens Handle: ${artistData.lensHandle}`);
         console.log(`  PKP: ${artistData.pkpAddress}`);
         console.log(`  Lens: ${artistData.lensAccountAddress}`);
         console.log(`  Has Content: ${artistData.hasContent}`);
@@ -89,11 +89,12 @@ const go = async () => {
             profileReady: true,
             contentGenerating: false, // Already processed
             geniusArtistId: artistIdNum,
-            artistName: artistData.name,
+            artistName: artistData.lensHandle, // Contract only stores lensHandle, not name
             pkpAddress: artistData.pkpAddress,
+            lensHandle: artistData.lensHandle,
             lensAccountAddress: artistData.lensAccountAddress,
             hasContent: artistData.hasContent,
-            isVerified: artistData.isVerified,
+            isVerified: artistData.verified,
             createdAt: parseInt(artistData.createdAt),
             alreadyRegistered: true,
             message: 'Artist profile already exists (returned cached data)',
@@ -159,6 +160,9 @@ const go = async () => {
     console.log(`  Lens: ${result.lensHandle}`);
     console.log(`  Registry Tx: ${result.registryTxHash}`);
 
+    console.log('[Artist Profile v2] Render response:');
+    console.log(JSON.stringify(result, null, 2));
+
     if (result.success) {
       // Success! Return profile data
       Lit.Actions.setResponse({
@@ -199,7 +203,9 @@ const go = async () => {
       });
     } else {
       // Error from Render
-      throw new Error(result.error || 'Profile generation failed');
+      const errorMsg = result.error || 'Profile generation failed';
+      console.error(`[Artist Profile v2] Render returned error: ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
   } catch (error) {

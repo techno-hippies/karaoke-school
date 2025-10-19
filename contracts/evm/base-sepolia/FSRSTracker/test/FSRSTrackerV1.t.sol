@@ -293,7 +293,7 @@ contract FSRSTrackerV1Test is Test {
 
     function test_RevertWhen_SetTrustedPKP_NotOwner() public {
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", attacker));
+        vm.expectRevert(FSRSTrackerV1.NotOwner.selector);
         tracker.setTrustedPKP(address(0xABCD));
     }
 

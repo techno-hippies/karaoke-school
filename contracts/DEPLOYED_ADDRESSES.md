@@ -69,6 +69,27 @@
 - **Deployed**: 2025-10-19
 - **Previous Version**: `0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454` (V2.1 - deprecated)
 
+### FSRSTrackerV1
+- **Address**: `0xcB208EFA5B615472ee9b8Dea913624caefB6C1F3`
+- **Deployer**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Owner**: `0x0C6433789d14050aF47198B2751f6689731Ca79C`
+- **Trusted PKP**: `0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30` (study-scorer-v1.js PKP)
+- **BaseScan**: https://sepolia.basescan.org/address/0xcb208efa5b615472ee9b8dea913624caefb6c1f3
+- **Purpose**: FSRS spaced repetition tracker for language learning via karaoke
+- **Features**:
+  - ✅ Ultra-compact card storage (19 bytes per card, fits in 1 slot)
+  - ✅ Batch updates (`updateCardsBatch`) - up to 20 cards per tx
+  - ✅ Song-level aggregation (`getSongStats`, `getDueSongSegments`)
+  - ✅ Separate due vs review queries (`getDueReviewSegments`)
+  - ✅ CardReviewed events for Grove indexing (leaderboards, streaks)
+  - ✅ Segment-level queries (`getStudyStats`, `getDueCards`)
+- **Gas Costs**:
+  - Single update: ~50k gas (~$0.00005 on Base)
+  - Batch (5 cards): ~200k gas (~$0.0002 on Base)
+  - View functions: Free (no gas)
+- **Deployed**: 2025-10-19
+- **Gas Used**: 2,593,574 gas (~0.0026 ETH)
+
 ## Lens Testnet (Chain ID: 37111)
 **Network**: Lens Testnet (zkSync)
 **RPC**: https://rpc.testnet.lens.xyz

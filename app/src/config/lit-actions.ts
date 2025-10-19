@@ -60,6 +60,14 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
     deployedAt: '2025-10-15',
   },
 
+  // === Artist Profile Generation ===
+  generateProfile: {
+    cid: 'QmbZPDYwPxZFViXfq9rwsx5B1AwHpnCAmS1AEgmBd4HeFk',
+    name: 'Generate Artist Profile v2',
+    source: 'lit-actions/src/artist/generate-profile-v2.js',
+    deployedAt: '2025-10-19',
+  },
+
   // === Karaoke Pipeline ===
   matchSegment: {
     cid: 'QmbqMqiHAcJNU9p2qfHv5s9Kb5bf6RLN8nxWAkyMSo6Q1G',
@@ -117,6 +125,9 @@ export const LIT_ACTIONS = {
   search: getLitActionCID('search'),
   song: getLitActionCID('song'),
   artist: getLitActionCID('artist'),
+
+  // Artist Profile Generation
+  generateProfile: getLitActionCID('generateProfile'),
 
   // Karaoke Pipeline
   matchSegment: getLitActionCID('matchSegment'),

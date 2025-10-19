@@ -106,6 +106,9 @@ if [ -f "$CONFIG_FILE" ]; then
     *"artist.js")
       CONFIG_KEY="artist"
       ;;
+    *"generate-profile"*)
+      CONFIG_KEY="generateProfile"
+      ;;
     *"match-and-segment"*)
       CONFIG_KEY="matchSegment"
       ;;

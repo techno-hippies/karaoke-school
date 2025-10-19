@@ -13,6 +13,7 @@ export type {
   AudioProcessorResult,
   BaseAlignmentResult,
   TranslateResult,
+  GenerateProfileResult,
 } from './types'
 
 // Re-export all action executors
@@ -23,6 +24,7 @@ export { executeMatchAndSegment } from './match-and-segment'
 export { executeAudioProcessor } from './audio-processor'
 export { executeBaseAlignment } from './base-alignment'
 export { executeTranslate } from './translate'
+export { executeGenerateProfile } from './generate-profile'
 
 // Re-export utilities
 export { formatSection, generateSegmentId } from './utils'
