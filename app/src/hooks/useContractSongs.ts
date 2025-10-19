@@ -1,11 +1,9 @@
 /**
  * useContractSongs
- * Hook to load songs from KaraokeCatalogV2 contract on Base Sepolia
+ * Hook to load recently catalogued songs from KaraokeCatalogV2 contract on Base Sepolia
  *
- * NOTE: V2 contract removed getAllSongs() to reduce size.
- * For now, returns empty array - use search to find songs.
- *
- * TODO: Add trending song IDs to config or implement pagination.
+ * Uses the getRecentSongs() function to fetch the most recently added songs.
+ * Returns up to 20 songs, sorted by addedAt timestamp (newest first).
  */
 
 import { useState, useEffect } from 'react'
@@ -89,28 +87,41 @@ export function useContractSongs(): UseContractSongsResult {
       setIsLoading(true)
       setError(null)
 
-      // V2 contract has no getAllSongs() - would need to iterate via known IDs
-      // For now, return empty array - use search to discover songs
-      console.log('[useContractSongs] V2 contract - trending list disabled, use search')
-
-      // Get total song count for info
       const publicClient = createPublicClient({
         chain: baseSepolia,
         transport: http(),
       })
 
-      const totalSongs = await publicClient.readContract({
+      // Fetch the 20 most recently catalogued songs
+      const recentSongs = await publicClient.readContract({
         address: BASE_SEPOLIA_CONTRACTS.karaokeCatalog,
         abi: KARAOKE_CATALOG_ABI,
-        functionName: 'getTotalSongs',
-      })
+        functionName: 'getRecentSongs',
+        args: [20n], // BigInt for uint256
+      }) as any[]
 
-      console.log('[useContractSongs] Total songs in catalog:', Number(totalSongs))
+      console.log('[useContractSongs] Loaded', recentSongs.length, 'recent songs')
 
-      setSongs([])
+      // Transform contract songs to app Song format
+      const transformedSongs: Song[] = recentSongs.map((contractSong) => ({
+        id: contractSong.geniusId.toString(),
+        geniusId: Number(contractSong.geniusId),
+        title: contractSong.title,
+        artist: contractSong.artist,
+        artworkUrl: contractSong.thumbnailUri ?
+          (contractSong.thumbnailUri.startsWith('lens://') || contractSong.thumbnailUri.startsWith('grove://')
+            ? `https://api.grove.storage/${contractSong.thumbnailUri.replace(/^(lens|grove):\/\//, '')}`
+            : contractSong.thumbnailUri)
+          : undefined,
+        isFree: !contractSong.requiresPayment,
+        isProcessed: true, // All songs from catalog are processed
+      }))
+
+      setSongs(transformedSongs)
     } catch (err) {
       console.error('[useContractSongs] Error loading songs:', err)
       setError(err instanceof Error ? err : new Error('Failed to load songs'))
+      setSongs([]) // Set empty array on error
     } finally {
       setIsLoading(false)
     }

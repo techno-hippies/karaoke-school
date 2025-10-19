@@ -5,7 +5,7 @@
  * Changes from V1:
  * - Removed: getAllSongs(), getSegmentsForSong()
  * - Removed from Song struct: geniusArtistId, segmentHashes[], languages
- * - Added: getSegment(), getSegmentHash()
+ * - Added: getSegment(), getSegmentHash(), getRecentSongs()
  */
 
 export const KARAOKE_CATALOG_ABI = [
@@ -92,6 +92,37 @@ export const KARAOKE_CATALOG_ABI = [
     stateMutability: 'view',
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getRecentSongs',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'limit', type: 'uint256' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple[]',
+        components: [
+          { name: 'id', type: 'string' },
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'title', type: 'string' },
+          { name: 'artist', type: 'string' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'soundcloudPath', type: 'string' },
+          { name: 'hasFullAudio', type: 'bool' },
+          { name: 'requiresPayment', type: 'bool' },
+          { name: 'audioUri', type: 'string' },
+          { name: 'metadataUri', type: 'string' },
+          { name: 'coverUri', type: 'string' },
+          { name: 'thumbnailUri', type: 'string' },
+          { name: 'musicVideoUri', type: 'string' },
+          { name: 'sectionsUri', type: 'string' },
+          { name: 'alignmentUri', type: 'string' },
+          { name: 'enabled', type: 'bool' },
+          { name: 'addedAt', type: 'uint64' },
+        ],
+      },
+    ],
   },
 
   // === Translation Read Functions ===

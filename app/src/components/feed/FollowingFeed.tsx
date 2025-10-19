@@ -4,6 +4,7 @@ import { fetchTimeline } from '@lens-protocol/client/actions'
 import { APP_ADDRESS } from '@/lens/config'
 import { lensToGroveUrl } from '@/lib/lens/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { batchCheckLikedPosts } from '@/lib/lens/reactions'
 import type { VideoPostData } from './types'
 import type { Post, VideoMetadata } from '@lens-protocol/client'
 
@@ -25,6 +26,7 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
   const [videoPosts, setVideoPosts] = useState<VideoPostData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [likedPostsMap, setLikedPostsMap] = useState<Map<string, boolean>>(new Map())
 
   useEffect(() => {
     async function loadTimeline() {
@@ -63,6 +65,22 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
         const { items } = result.value
 
         console.log('[FollowingFeed] Timeline items:', items.length)
+
+        // Extract posts from timeline items
+        const timelinePosts = items
+          .map(item => item.primary)
+          .filter((post): post is Post => post.metadata?.__typename === 'VideoMetadata')
+
+        // Batch check which posts are liked by the current user
+        let likedMap = new Map<string, boolean>()
+        if (lensAccount?.address) {
+          try {
+            likedMap = await batchCheckLikedPosts(lensSession, timelinePosts, lensAccount.address)
+            setLikedPostsMap(likedMap)
+          } catch (error) {
+            console.error('[FollowingFeed] Error checking liked posts:', error)
+          }
+        }
 
         // Transform timeline items to VideoPostData
         // Timeline items have structure: { id, primary: Post, comments: Post[], reposts: Repost[] }
@@ -192,7 +210,7 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
               comments: post.stats?.comments ?? 0,
               shares: post.stats?.reposts ?? 0,
               karaokeLines,
-              isLiked: false, // TODO: Check if current user has liked
+              isLiked: likedMap.get(post.id) ?? false, // Check from reaction status
               isFollowing: isFollowedByMe, // Check from operations field
               canInteract: true, // User is authenticated
               isPremium: copyrightType === 'copyrighted',

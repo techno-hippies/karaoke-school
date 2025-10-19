@@ -5,6 +5,7 @@ import { fetchAccount } from '@lens-protocol/client/actions'
 import { VideoPost } from './VideoPost'
 import { useAuth } from '@/contexts/AuthContext'
 import { followAccount, unfollowAccount } from '@/lib/lens/follow'
+import { likePost, unlikePost } from '@/lib/lens/reactions'
 import { toast } from 'sonner'
 import type { VideoPostData } from './types'
 
@@ -30,11 +31,9 @@ export function VerticalVideoFeed({
   const navigate = useNavigate()
   const { lensSession, pkpWalletClient, pkpAddress } = useAuth()
 
-  // Track follow state for each video (optimistic updates)
+  // Track follow and like state for each video (optimistic updates)
   const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
-
-  // Track if user has ever interacted with any video (enables autoplay for all subsequent videos)
-  const hasUserInteractedRef = useRef(false)
+  const [likeStates, setLikeStates] = useState<Record<string, { isLiked: boolean; count: number }>>({})
 
   // Reset active index and scroll position when first video ID changes (e.g., tab switch)
   const firstVideoId = videos.length > 0 ? videos[0].id : null
@@ -112,21 +111,76 @@ export function VerticalVideoFeed({
     >
       {videos.map((video, index) => {
         const finalFollowState = followStates[video.id] ?? video.isFollowing
+        const finalLikeState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
 
         return (
           <div key={video.id} className="h-screen w-full snap-start snap-always">
             <VideoPost
               {...video}
               isFollowing={finalFollowState}
+              isLiked={finalLikeState.isLiked}
+              likes={finalLikeState.count}
               autoplay={index === activeIndex}
-              hasUserInteracted={hasUserInteractedRef.current}
-              onUserInteraction={() => {
-                hasUserInteractedRef.current = true
-              }}
               karaokeClassName="pt-20"
-              onLikeClick={() => {
+              onLikeClick={async () => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
-                // TODO: Implement like mutation
+
+                // Check if user is authenticated
+                if (!lensSession) {
+                  toast.error('Please sign in to like posts')
+                  return
+                }
+
+                // Get current like state (use optimistic state if available, otherwise server state)
+                const currentState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
+
+                // Optimistically update UI
+                setLikeStates(prev => ({
+                  ...prev,
+                  [video.id]: {
+                    isLiked: !currentState.isLiked,
+                    count: currentState.isLiked ? currentState.count - 1 : currentState.count + 1
+                  }
+                }))
+
+                try {
+                  let success: boolean
+                  if (currentState.isLiked) {
+                    // Unlike
+                    success = await unlikePost(lensSession, video.id)
+                    if (success) {
+                      console.log('[VerticalVideoFeed] Successfully unliked post')
+                    } else {
+                      // Revert on error
+                      setLikeStates(prev => ({
+                        ...prev,
+                        [video.id]: currentState
+                      }))
+                      toast.error('Failed to unlike post')
+                    }
+                  } else {
+                    // Like
+                    success = await likePost(lensSession, video.id)
+                    if (success) {
+                      console.log('[VerticalVideoFeed] Successfully liked post')
+                    } else {
+                      // Revert on error
+                      setLikeStates(prev => ({
+                        ...prev,
+                        [video.id]: currentState
+                      }))
+                      toast.error('Failed to like post')
+                    }
+                  }
+                } catch (error) {
+                  console.error('[VerticalVideoFeed] Like error:', error)
+                  toast.error('An unexpected error occurred')
+                  // Revert optimistic update
+                  setLikeStates(prev => ({
+                    ...prev,
+                    [video.id]: currentState
+                  }))
+                }
               }}
               onCommentClick={() => {
                 console.log('[VerticalVideoFeed] Comment clicked:', video.id)

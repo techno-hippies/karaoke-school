@@ -448,6 +448,48 @@ contract KaraokeCatalogV2 {
         return songs.length;
     }
 
+    /**
+     * @notice Get the most recently catalogued songs
+     * @param limit Maximum number of songs to return (max 50)
+     * @return Array of songs, ordered by addedAt timestamp (newest first)
+     */
+    function getRecentSongs(uint256 limit) external view returns (Song[] memory) {
+        if (limit == 0 || limit > 50) {
+            limit = 50;
+        }
+
+        uint256 totalSongs = songs.length;
+        if (totalSongs == 0) {
+            return new Song[](0);
+        }
+
+        // Determine actual number of songs to return
+        uint256 count = limit > totalSongs ? totalSongs : limit;
+        Song[] memory recentSongs = new Song[](count);
+
+        // Iterate backwards from the end (most recent songs)
+        uint256 resultIndex = 0;
+        for (uint256 i = totalSongs; i > 0 && resultIndex < count; i--) {
+            Song storage song = songs[i - 1];
+            // Only include enabled songs
+            if (song.enabled) {
+                recentSongs[resultIndex] = song;
+                resultIndex++;
+            }
+        }
+
+        // If we found fewer enabled songs than requested, resize array
+        if (resultIndex < count) {
+            Song[] memory trimmedSongs = new Song[](resultIndex);
+            for (uint256 i = 0; i < resultIndex; i++) {
+                trimmedSongs[i] = recentSongs[i];
+            }
+            return trimmedSongs;
+        }
+
+        return recentSongs;
+    }
+
     // ============ TRANSLATION FUNCTIONS ============
 
     /**

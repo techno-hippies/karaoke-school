@@ -11,6 +11,7 @@ import { ShareSheet } from './ShareSheet'
 import { SubscribeCard } from '../profile/SubscribeCard'
 import { Comment, type CommentData } from './Comment'
 import { CommentInput } from './CommentInput'
+import { useVideoPlayback } from '@/hooks/useVideoPlayback'
 import type { VideoPostData } from './types'
 
 export interface VideoDetailProps extends VideoPostData {
@@ -63,18 +64,20 @@ export function VideoDetail({
   className,
   ...videoPostProps
 }: VideoDetailProps) {
-  const [isPlaying, setIsPlaying] = useState(true) // Try autoplay
-  const [isMuted, setIsMuted] = useState(false) // Try unmuted first
-  const [currentTime, setCurrentTime] = useState(0)
+  // Use shared video playback logic (force autoplay on detail view)
+  const {
+    isPlaying,
+    isMuted,
+    currentTime,
+    setIsMuted,
+    handleTogglePlay,
+    handlePlayFailed,
+    handleTimeUpdate: onTimeUpdate,
+  } = useVideoPlayback({ autoplay: true, forceAutoplay: true })
+
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
-
-  // Memoize callbacks to prevent HLS player re-initialization
-  const handleTimeUpdate = useCallback((time: number) => {
-    console.log('[VideoDetail] Received time update:', time.toFixed(2))
-    setCurrentTime(time)
-  }, [])
 
   const handleHLSError = useCallback((error: Error) => {
     // HLS playback error - handled by HLSPlayer component
@@ -115,34 +118,6 @@ export function VideoDetail({
     setShareSheetOpen(true)
     videoPostProps.onShareClick?.()
   }
-
-  const togglePlayPause = () => {
-    console.log('[VideoDetail] togglePlayPause called - state:', { isPlaying, isMuted })
-
-    // If playing but muted, unmute instead of pausing
-    if (isPlaying && isMuted) {
-      console.log('[VideoDetail] Unmuting (was playing but muted)')
-      setIsMuted(false)
-      return
-    }
-
-    // Otherwise, toggle play state
-    const newPlayingState = !isPlaying
-    console.log('[VideoDetail] Toggling play state to:', newPlayingState)
-    setIsPlaying(newPlayingState)
-
-    // Unmute when starting to play
-    if (newPlayingState && isMuted) {
-      console.log('[VideoDetail] Unmuting because starting to play')
-      setIsMuted(false)
-    }
-  }
-
-  // Handle autoplay failures - show play button
-  const handlePlayFailed = useCallback(() => {
-    console.log('[VideoDetail] Autoplay failed, showing play button')
-    setIsPlaying(false)
-  }, [])
 
   // Mobile: Use VideoPost for full-screen TikTok experience
   if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -221,7 +196,7 @@ export function VideoDetail({
           onClick={(e) => {
             console.log('[VideoDetail] Container clicked!', e.target)
             if (!(videoPostProps.isPremium && !videoPostProps.userIsSubscribed)) {
-              togglePlayPause()
+              handleTogglePlay()
             }
           }}
         >
@@ -244,9 +219,9 @@ export function VideoDetail({
               loop={true}
               controls={false}
               className="absolute inset-0 w-full h-full object-cover"
-              onTogglePlay={togglePlayPause}
+              onTogglePlay={handleTogglePlay}
               onError={handleHLSError}
-              onTimeUpdate={handleTimeUpdate}
+              onTimeUpdate={onTimeUpdate}
               onPlayFailed={handlePlayFailed}
             />
           ) : (
@@ -255,9 +230,9 @@ export function VideoDetail({
               thumbnailUrl={videoPostProps.thumbnailUrl}
               isPlaying={isPlaying}
               isMuted={isMuted}
-              onTogglePlay={togglePlayPause}
+              onTogglePlay={handleTogglePlay}
               onPlayFailed={handlePlayFailed}
-              onTimeUpdate={handleTimeUpdate}
+              onTimeUpdate={onTimeUpdate}
               forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
             />
           )}

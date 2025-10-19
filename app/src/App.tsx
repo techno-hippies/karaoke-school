@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LensProvider } from '@lens-protocol/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { VideoPlaybackProvider } from './contexts/VideoPlaybackContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { AuthDialog } from './components/layout/AuthDialog'
 import { Toaster } from './components/ui/sonner'
@@ -225,9 +226,11 @@ function App() {
     <LensProvider client={lensClient}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <HashRouter>
-            <AppRouter />
-          </HashRouter>
+          <VideoPlaybackProvider>
+            <HashRouter>
+              <AppRouter />
+            </HashRouter>
+          </VideoPlaybackProvider>
         </AuthProvider>
       </QueryClientProvider>
     </LensProvider>

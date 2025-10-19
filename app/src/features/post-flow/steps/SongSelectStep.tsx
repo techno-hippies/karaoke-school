@@ -48,7 +48,6 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
 
   // Read URL parameters for persistent state
   const urlSearchQuery = searchParams.get('q') || ''
-  const urlActiveTab = (searchParams.get('tab') || 'trending') as 'trending' | 'favorites'
 
   // Check for cached results synchronously
   const cachedResults = loadCachedResults(urlSearchQuery)
@@ -56,6 +55,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Load songs from KaraokeCatalogV1 contract on Base Sepolia
   const { songs: trendingSongs } = useContractSongs()
   // const { songs: trendingSongs, isLoading: isTrendingLoading } = useContractSongs() // TODO: Use isLoading for loading state
+
   const [isSearching, setIsSearching] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [pendingSong, setPendingSong] = useState<Song | null>(null)
@@ -142,7 +142,7 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
   // Handle search - initializes Lit on-demand
   const handleSearch = async (query: string) => {
     // Update URL parameters
-    setSearchParams({ q: query, tab: urlActiveTab })
+    setSearchParams({ q: query })
 
     // Only need PKP for search (no Lens required)
     if (!capabilities.canSearch || !pkpAuthContext) {
@@ -304,18 +304,9 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
     navigate(targetPath, { state: { song } })
   }
 
-  // Handle tab change - update URL parameters
-  const handleTabChange = (tab: 'trending' | 'favorites') => {
-    if (urlSearchQuery) {
-      setSearchParams({ q: urlSearchQuery, tab })
-    } else {
-      setSearchParams({ tab })
-    }
-  }
-
   // Handle clear search - clear URL params, cache, and results
   const handleClearSearch = () => {
-    setSearchParams({ tab: urlActiveTab })
+    setSearchParams({})
     sessionStorage.removeItem(SEARCH_CACHE_KEY)
     sessionStorage.removeItem(SEARCH_QUERY_KEY)
     flow.updateData({ searchResults: [] })
@@ -328,15 +319,12 @@ export function SongSelectStep({ flow }: SongSelectStepProps) {
         open={true}
         onClose={flow.cancel}
         trendingSongs={trendingSongs}
-        favoriteSongs={[]} // TODO: Add favorites support
         searchResults={cachedResults || flow.data.searchResults}
         isSearching={isSearching}
         onSearch={handleSearch}
         onClearSearch={handleClearSearch}
         onSongClick={handleSongClick}
         initialSearchQuery={urlSearchQuery}
-        initialActiveTab={urlActiveTab}
-        onTabChange={handleTabChange}
         skipAutoSearch={!!cachedResults}
       />
 

@@ -8,6 +8,7 @@ import { VideoInfo } from './VideoInfo'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
 import { SubscribeCard } from '../profile/SubscribeCard'
+import { useVideoPlayback } from '@/hooks/useVideoPlayback'
 import type { VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
@@ -19,8 +20,6 @@ export interface VideoPostProps extends VideoPostData {
   onAudioClick?: () => void
   onSubscribe?: () => void | Promise<void>
   autoplay?: boolean // If true, attempt autoplay; if false, show paused
-  hasUserInteracted?: boolean // If true, user has interacted with a video before (enables autoplay)
-  onUserInteraction?: () => void // Called when user interacts with this video
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
 }
@@ -63,41 +62,26 @@ export function VideoPost({
   onAudioClick,
   onSubscribe,
   autoplay = true,
-  hasUserInteracted = false,
-  onUserInteraction,
   className,
   karaokeClassName
 }: VideoPostProps) {
-  const [isPlaying, setIsPlaying] = useState(false) // Start paused to show play button on first load
-  const [isMuted, setIsMuted] = useState(false) // Try unmuted first
-  const [currentTime, setCurrentTime] = useState(0)
+  // Use shared video playback logic
+  const {
+    isPlaying,
+    isMuted,
+    currentTime,
+    setIsMuted,
+    handleTogglePlay,
+    handlePlayFailed,
+    handleTimeUpdate,
+  } = useVideoPlayback({ autoplay })
+
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
-  // Sync playing state with autoplay prop (pause when scrolled away, play when scrolled into view)
-  // But only autoplay if user has interacted before (clicked play button)
-  useEffect(() => {
-    if (hasUserInteracted && autoplay) {
-      setIsPlaying(true)
-    } else if (!autoplay) {
-      setIsPlaying(false)
-    }
-  }, [autoplay, hasUserInteracted])
-
-  // Memoize callbacks to prevent HLS player re-initialization
-  const handleTimeUpdate = useCallback((time: number) => {
-    setCurrentTime(time)
-  }, [])
-
   const handleHLSError = useCallback((error: Error) => {
     console.error('[VideoPost] HLS playback error:', error)
-  }, [])
-
-  // Handle autoplay failures - show play button
-  const handlePlayFailed = useCallback(() => {
-    console.log('[VideoPost] Autoplay failed, showing play button')
-    setIsPlaying(false)
   }, [])
 
   const handleCommentClick = () => {
@@ -109,18 +93,6 @@ export function VideoPost({
     setShareSheetOpen(true)
     onShareClick?.()
   }
-
-  // Track video time for karaoke
-  useEffect(() => {
-    if (!videoContainerRef.current) return
-
-    const video = videoContainerRef.current.querySelector('video')
-    if (!video) return
-
-    const updateTime = () => setCurrentTime(video.currentTime)
-    video.addEventListener('timeupdate', updateTime)
-    return () => video.removeEventListener('timeupdate', updateTime)
-  }, [])
 
   return (
     <div className={cn(
@@ -151,25 +123,7 @@ export function VideoPost({
             loop={true}
             controls={false}
             className="absolute inset-0 w-full h-full object-cover"
-            onTogglePlay={() => {
-              // Mark that user has interacted
-              onUserInteraction?.()
-
-              // If playing but muted, unmute instead of pausing
-              if (isPlaying && isMuted) {
-                setIsMuted(false)
-                return
-              }
-
-              // Otherwise, toggle play state
-              const newPlayingState = !isPlaying
-              setIsPlaying(newPlayingState)
-
-              // Unmute when starting to play
-              if (newPlayingState && isMuted) {
-                setIsMuted(false)
-              }
-            }}
+            onTogglePlay={handleTogglePlay}
             onError={handleHLSError}
             onTimeUpdate={handleTimeUpdate}
             onPlayFailed={handlePlayFailed}
@@ -180,26 +134,9 @@ export function VideoPost({
             thumbnailUrl={thumbnailUrl}
             isPlaying={isPlaying}
             isMuted={isMuted}
-            onTogglePlay={() => {
-              // Mark that user has interacted
-              onUserInteraction?.()
-
-              // If playing but muted, unmute instead of pausing
-              if (isPlaying && isMuted) {
-                setIsMuted(false)
-                return
-              }
-
-              // Otherwise, toggle play state
-              const newPlayingState = !isPlaying
-              setIsPlaying(newPlayingState)
-
-              // Unmute when starting to play
-              if (newPlayingState && isMuted) {
-                setIsMuted(false)
-              }
-            }}
+            onTogglePlay={handleTogglePlay}
             onPlayFailed={handlePlayFailed}
+            onTimeUpdate={handleTimeUpdate}
             forceShowThumbnail={isPremium && !userIsSubscribed}
           />
         )}

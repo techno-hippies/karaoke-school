@@ -2,6 +2,8 @@ import { usePosts, evmAddress } from '@lens-protocol/react'
 import { APP_ADDRESS } from '@/lens/config'
 import { lensToGroveUrl } from '@/lib/lens/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { useState, useEffect } from 'react'
+import { batchCheckLikedPosts } from '@/lib/lens/reactions'
 import type { VideoPostData } from './types'
 import type { Post, VideoMetadata } from '@lens-protocol/client'
 
@@ -14,8 +16,10 @@ export interface ForYouFeedProps {
  * Uses tag-based filtering for efficient server-side filtering
  */
 export function ForYouFeed({ children }: ForYouFeedProps) {
-  const { lensSession } = useAuth()
+  const { lensSession, lensAccount } = useAuth()
   const isAuthenticated = !!lensSession
+  const [likedPostsMap, setLikedPostsMap] = useState<Map<string, boolean>>(new Map())
+  const [isCheckingLikes, setIsCheckingLikes] = useState(false)
 
   const { data: postsData, loading } = usePosts({
     filter: {
@@ -26,6 +30,31 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       }
     },
   })
+
+  // Fetch liked status for all posts when authenticated
+  useEffect(() => {
+    if (!lensSession || !lensAccount?.address || !postsData?.items?.length) {
+      setLikedPostsMap(new Map())
+      return
+    }
+
+    const checkLikedPosts = async () => {
+      setIsCheckingLikes(true)
+      try {
+        const posts = postsData.items.filter(
+          (post): post is Post => post.metadata?.__typename === 'VideoMetadata'
+        )
+        const likedMap = await batchCheckLikedPosts(lensSession, posts, lensAccount.address)
+        setLikedPostsMap(likedMap)
+      } catch (error) {
+        console.error('[ForYouFeed] Error checking liked posts:', error)
+      } finally {
+        setIsCheckingLikes(false)
+      }
+    }
+
+    checkLikedPosts()
+  }, [lensSession, lensAccount?.address, postsData?.items])
 
   // Transform Lens posts to VideoPostData format
   const videoPosts: VideoPostData[] = (postsData?.items ?? [])
@@ -129,7 +158,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         comments: post.stats?.comments ?? 0,
         shares: post.stats?.reposts ?? 0,
         karaokeLines,
-        isLiked: false, // TODO: Check if current user has liked
+        isLiked: likedPostsMap.get(post.id) ?? false, // Check from reaction status
         isFollowing: isFollowedByMe, // Check follow status from operations field
         canInteract: isAuthenticated, // Enable interactions when user is signed in
         isPremium: copyrightType === 'copyrighted',
@@ -144,5 +173,5 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       }
     })
 
-  return <>{children(videoPosts, loading)}</>
+  return <>{children(videoPosts, loading || isCheckingLikes)}</>
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X } from '@phosphor-icons/react'
 import { SongItem } from '@/components/ui/SongItem'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   InputGroup,
@@ -30,8 +29,6 @@ export interface SongSelectPageProps {
   onClose: () => void
   /** Trending songs */
   trendingSongs?: Song[]
-  /** User's favorite songs */
-  favoriteSongs?: Song[]
   /** Search results */
   searchResults?: Song[]
   /** Whether search is loading */
@@ -44,10 +41,6 @@ export interface SongSelectPageProps {
   onSongClick?: (song: Song) => void
   /** Initial search query from URL params */
   initialSearchQuery?: string
-  /** Initial active tab from URL params */
-  initialActiveTab?: 'trending' | 'favorites'
-  /** Called when tab changes */
-  onTabChange?: (tab: 'trending' | 'favorites') => void
   /** Skip auto-search on mount (when we have cached results) */
   skipAutoSearch?: boolean
   /** Optional className */
@@ -57,7 +50,7 @@ export interface SongSelectPageProps {
 /**
  * SongSelectPage - Full-page song selection interface
  * Features:
- * - Trending/Favorites tabs
+ * - Trending songs display
  * - Search functionality
  * - Scrollable song list
  * - Simple navigation - credit/unlock logic handled on individual song pages
@@ -65,27 +58,17 @@ export interface SongSelectPageProps {
 export function SongSelectPage({
   open,
   trendingSongs = [],
-  favoriteSongs = [],
   searchResults = [],
   isSearching = false,
   onSearch,
   onClearSearch,
   onSongClick,
   initialSearchQuery = '',
-  initialActiveTab = 'trending',
-  onTabChange,
   skipAutoSearch = false,
   className,
 }: SongSelectPageProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [hasSearched, setHasSearched] = useState(!!initialSearchQuery)
-  const [activeTab, setActiveTab] = useState<'trending' | 'favorites'>(initialActiveTab)
-
-  // Notify parent when tab changes
-  const handleTabChange = (tab: 'trending' | 'favorites') => {
-    setActiveTab(tab)
-    onTabChange?.(tab)
-  }
 
   // Trigger search on mount ONLY if we have a query and no cached results
   useEffect(() => {
@@ -123,17 +106,8 @@ export function SongSelectPage({
     }
   }
 
-  // Don't filter while typing - only show search results after user triggers search
-  const filterSongs = (songs: Song[]) => {
-    if (hasSearched) return [] // Don't show local results when showing search results
-    return songs // Show all songs until user actually searches
-  }
-
-  const filteredTrending = filterSongs(trendingSongs)
-  const filteredFavorites = filterSongs(favoriteSongs)
-
-  // Display search results if user has searched
-  const displaySongs = hasSearched ? searchResults : filteredTrending
+  // Display search results if user has searched, otherwise show trending
+  const displaySongs = hasSearched ? searchResults : trendingSongs
 
   if (!open) return null
 
@@ -152,109 +126,77 @@ export function SongSelectPage({
 
         {/* Content area */}
         <div className="flex-1 flex flex-col min-h-0 p-4 max-w-6xl mx-auto w-full">
-          <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as 'trending' | 'favorites')} className="flex-1 flex flex-col min-h-0">
-            {/* Tabs */}
-            <TabsList className="w-full flex-shrink-0">
-              <TabsTrigger value="trending" className="flex-1">
-                Trending
-              </TabsTrigger>
-              <TabsTrigger value="favorites" className="flex-1">
-                Favorites
-              </TabsTrigger>
-            </TabsList>
+          {/* Search */}
+          <div className="flex-shrink-0">
+            <InputGroup>
+              <InputGroupInput
+                type="text"
+                placeholder="Search songs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+              />
+              <InputGroupAddon align="inline-end">
+                {isSearching ? (
+                  <div className="px-3">
+                    <Spinner size="sm" />
+                  </div>
+                ) : hasSearched ? (
+                  <InputGroupButton
+                    variant="ghost"
+                    onClick={handleClearSearch}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Clear
+                  </InputGroupButton>
+                ) : (
+                  <InputGroupButton
+                    variant="secondary"
+                    onClick={handleSearch}
+                    disabled={!searchQuery.trim()}
+                  >
+                    Search
+                  </InputGroupButton>
+                )}
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
 
-            {/* Search */}
-            <div className="mt-4 flex-shrink-0">
-              <InputGroup>
-                <InputGroupInput
-                  type="text"
-                  placeholder="Search songs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                />
-                <InputGroupAddon align="inline-end">
-                  {isSearching ? (
-                    <div className="px-3">
-                      <Spinner size="sm" />
-                    </div>
-                  ) : hasSearched ? (
-                    <InputGroupButton
-                      variant="ghost"
-                      onClick={handleClearSearch}
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Clear
-                    </InputGroupButton>
-                  ) : (
-                    <InputGroupButton
-                      variant="secondary"
-                      onClick={handleSearch}
-                      disabled={!searchQuery.trim()}
-                    >
-                      Search
-                    </InputGroupButton>
-                  )}
-                </InputGroupAddon>
-              </InputGroup>
-            </div>
-
-            {/* Trending Tab Content */}
-            <TabsContent value="trending" className="flex-1 mt-4 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-1 pr-4">
-                  {isSearching ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Spinner size="md" />
-                    </div>
-                  ) : displaySongs.length > 0 ? (
-                    displaySongs.map((song) => (
-                      <SongItem
-                        key={song.id}
-                        title={song.title}
-                        artist={song.artist}
-                        artworkUrl={song.artworkUrl}
-                        isFree={song.isFree}
-                        onClick={() => handleSongClick(song)}
-                      />
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-muted-foreground text-sm md:text-base">
-                        {hasSearched ? 'No songs found' : searchQuery ? 'No songs found' : 'No songs available'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            {/* Favorites Tab Content */}
-            <TabsContent value="favorites" className="flex-1 mt-4 min-h-0">
-              <ScrollArea className="h-full">
-                <div className="space-y-1 pr-4">
-                  {filteredFavorites.length > 0 ? (
-                    filteredFavorites.map((song) => (
-                      <SongItem
-                        key={song.id}
-                        title={song.title}
-                        artist={song.artist}
-                        artworkUrl={song.artworkUrl}
-                        isFree={song.isFree}
-                        onClick={() => handleSongClick(song)}
-                      />
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-muted-foreground text-sm md:text-base">
-                        {searchQuery ? 'No songs found' : 'No songs available'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+          {/* Song List */}
+          <div className="flex-1 mt-4 min-h-0">
+            {/* Section Header */}
+            {!hasSearched && displaySongs.length > 0 && !isSearching && (
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+                Recently Added
+              </h2>
+            )}
+            <ScrollArea className="h-full">
+              <div className="space-y-1 pr-4">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Spinner size="md" />
+                  </div>
+                ) : displaySongs.length > 0 ? (
+                  displaySongs.map((song) => (
+                    <SongItem
+                      key={song.id}
+                      title={song.title}
+                      artist={song.artist}
+                      artworkUrl={song.artworkUrl}
+                      isFree={song.isFree}
+                      onClick={() => handleSongClick(song)}
+                    />
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-muted-foreground text-sm md:text-base">
+                      {hasSearched ? 'No songs found' : 'No songs available'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </div>
     </>
