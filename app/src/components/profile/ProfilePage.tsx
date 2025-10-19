@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAccount, usePosts, evmAddress } from '@lens-protocol/react'
 import { fetchAccount } from '@lens-protocol/client/actions'
 import type { Account } from '@lens-protocol/client'
@@ -11,7 +11,8 @@ import { APP_ADDRESS } from '@/lens/config'
 import { useArtistData } from '@/hooks/useArtistData'
 import { lensToGroveUrl } from '@/lib/lens/utils'
 import { followAccount, unfollowAccount, isFollowingAccount } from '@/lib/lens/follow'
-import { getGeniusIdByUsername } from '@/lib/genius/artist-lookup'
+import { executeGenerateProfile } from '@/lib/lit/actions'
+import { getLensUsername } from '@/lib/genius/artist-lookup'
 import { toast } from 'sonner'
 
 /**
@@ -19,18 +20,49 @@ import { toast } from 'sonner'
  * Fetches Lens account and posts, maps to ProfilePageView
  */
 export function ProfilePage() {
-  const { username, address } = useParams<{ username?: string; address?: string }>()
+  const { username, address, geniusId } = useParams<{ username?: string; address?: string; geniusId?: string }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const { isPKPReady, pkpAddress, logout, pkpAuthContext, lensSession, lensAccount, pkpWalletClient } = useAuth()
 
-  // Determine if viewing own profile (no username/address in URL)
-  const isOwnProfileRoute = !username && !address
+  // Get artist name and geniusId from navigation state (for loading UI and fallback)
+  const stateArtistName = (location.state as any)?.artistName
+  const stateGeniusId = (location.state as any)?.geniusId
+
+  // Parse geniusId from URL if present (artist route: /a/{geniusId})
+  const urlGeniusId = geniusId ? parseInt(geniusId) : undefined
+
+  // Determine if viewing own profile (no username/address/geniusId in URL)
+  const isOwnProfileRoute = !username && !address && !geniusId
+
+  // Fetch Lens username from contract when viewing artist by geniusId
+  const [lensUsernameFromContract, setLensUsernameFromContract] = useState<string | null>(null)
+  const [isLoadingUsername, setIsLoadingUsername] = useState(false)
+
+  useEffect(() => {
+    if (urlGeniusId && !lensUsernameFromContract) {
+      setIsLoadingUsername(true)
+      getLensUsername(urlGeniusId)
+        .then(handle => {
+          console.log('[ProfilePage] Fetched Lens handle from contract:', handle)
+          setLensUsernameFromContract(handle ? handle.replace('@', '') : null)
+        })
+        .catch(error => {
+          console.error('[ProfilePage] Error fetching Lens handle:', error)
+          setLensUsernameFromContract(null)
+        })
+        .finally(() => setIsLoadingUsername(false))
+    }
+  }, [urlGeniusId, lensUsernameFromContract])
+
+  // Determine which identifier to use for Lens account lookup
+  const effectiveUsername = lensUsernameFromContract || username
 
   // Fetch Lens account by username or address
   // Note: We need lensSession to get the operations field (isFollowedByMe, canFollow, etc.)
   const accountResult = useAccount({
-    username: username ? {
-      localName: username.replace('@', '')
+    username: effectiveUsername ? {
+      localName: effectiveUsername.replace('@', '')
     } : undefined,
     address: address ? evmAddress(address) : undefined,
     // If viewing own profile route, use the logged-in account
@@ -44,9 +76,9 @@ export function ProfilePage() {
   // State to hold account with operations field (fetched when session is available)
   const [accountWithOperations, setAccountWithOperations] = useState<Account | null>(null)
 
-  // Contract fallback state (check if artist registered but Lens not synced yet)
-  const [contractGeniusId, setContractGeniusId] = useState<number | null>(null)
-  const [isCheckingContract, setIsCheckingContract] = useState(false)
+  // Profile generation state
+  const [isGeneratingProfile, setIsGeneratingProfile] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
 
   // Use the authenticated account if available, otherwise use the base account
   const account = accountWithOperations || baseAccount
@@ -76,32 +108,61 @@ export function ProfilePage() {
     }
   }, [lensSession, baseAccount, accountWithOperations])
 
-  // Check contract when Lens account not found (maybe registered but not synced yet)
+  // Trigger profile generation when account not found (on-demand generation!)
   useEffect(() => {
-    if (!accountLoading && !account && username && !isCheckingContract) {
-      console.log('[ProfilePage] Account not found in Lens, checking ArtistRegistry contract...')
-      setIsCheckingContract(true)
+    // Determine which Genius ID to use: URL param (/a/:geniusId) takes priority over nav state
+    const targetGeniusId = urlGeniusId || stateGeniusId
 
-      getGeniusIdByUsername(username.replace('@', '')).then(geniusId => {
-        setContractGeniusId(geniusId)
-        if (geniusId > 0) {
-          console.log('[ProfilePage] ✅ Found in contract! Artist may be registered but Lens not synced. Retrying...')
-          // Artist registered but Lens not synced - retry after delay
-          setTimeout(() => {
-            console.log('[ProfilePage] Retrying Lens account fetch...')
-            accountResult.refetch?.()
-            setIsCheckingContract(false)
-          }, 2000)
-        } else {
-          console.log('[ProfilePage] Not found in contract - artist truly does not exist')
-          setIsCheckingContract(false)
-        }
-      }).catch(err => {
-        console.error('[ProfilePage] Contract check error:', err)
-        setIsCheckingContract(false)
+    // Determine display name: contract username > nav state > URL username
+    const displayName = lensUsernameFromContract || stateArtistName || effectiveUsername || 'artist'
+
+    // Only generate if we have a Genius ID and no account exists yet
+    const shouldGenerate = !accountLoading &&
+                          !account &&
+                          targetGeniusId &&
+                          isPKPReady &&
+                          pkpAuthContext &&
+                          !isGeneratingProfile &&
+                          !generationError &&
+                          !isLoadingUsername // Wait for contract lookup to complete
+
+    if (shouldGenerate) {
+      console.log('[ProfilePage] Account not found, generating profile for Genius ID:', targetGeniusId)
+      console.log('[ProfilePage] Display name:', displayName)
+      setIsGeneratingProfile(true)
+
+      const toastId = toast.loading(`Generating profile for ${displayName}...`, {
+        description: 'This may take 15-30 seconds'
       })
+
+      executeGenerateProfile(targetGeniusId, pkpAuthContext)
+        .then(result => {
+          if (result.success) {
+            console.log('[ProfilePage] ✅ Profile generated! Reloading account...')
+            toast.success('Profile created!', {
+              id: toastId,
+              description: result.message || 'Artist profile is ready'
+            })
+            // Reload account after generation
+            setTimeout(() => {
+              accountResult.refetch?.()
+              setIsGeneratingProfile(false)
+            }, 2000)
+          } else {
+            throw new Error(result.error || 'Profile generation failed')
+          }
+        })
+        .catch(err => {
+          console.error('[ProfilePage] Profile generation failed:', err)
+          toast.error('Failed to create profile', {
+            id: toastId,
+            description: err.message
+          })
+          setGenerationError(err.message)
+          setIsGeneratingProfile(false)
+        })
     }
-  }, [accountLoading, account, username, isCheckingContract, accountResult])
+  }, [accountLoading, account, urlGeniusId, stateGeniusId, lensUsernameFromContract, stateArtistName, effectiveUsername, isPKPReady, pkpAuthContext, isGeneratingProfile, generationError, isLoadingUsername, accountResult])
 
   // Fetch posts by author (filtered to your app)
   // Only fetch posts after account is loaded
@@ -356,27 +417,47 @@ export function ProfilePage() {
     })
   }
 
-  // Error state - enhanced with contract fallback
-  if (accountError && !isCheckingContract) {
+  // Show generation state
+  if (isGeneratingProfile) {
     return (
       <div className="h-screen bg-neutral-900 flex items-center justify-center">
         <div className="text-center max-w-md px-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-foreground text-xl mb-2">
-            {contractGeniusId === 0
-              ? "Artist profile not available"
-              : contractGeniusId !== null
-              ? "Profile loading..."
-              : "Profile not found"
-            }
+            Generating profile for {stateArtistName || username}...
           </p>
-          {contractGeniusId === 0 && (
-            <p className="text-muted-foreground mb-4">
-              This artist hasn't been added to K-School yet.
-            </p>
-          )}
-          {contractGeniusId === null && (
-            <p className="text-muted-foreground">{accountError.message}</p>
-          )}
+          <p className="text-muted-foreground">
+            Creating PKP, Lens account, and registering in contract
+          </p>
+          <p className="text-muted-foreground text-sm mt-2">
+            This may take 15-30 seconds
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (accountError && !isGeneratingProfile) {
+    // If we have geniusId (URL or state) but not generating yet, show waiting message
+    if ((urlGeniusId || stateGeniusId) && !generationError) {
+      return (
+        <div className="h-screen bg-neutral-900 flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-foreground text-xl mb-2">Loading...</p>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <p className="text-foreground text-xl mb-2">Profile not found</p>
+          <p className="text-muted-foreground">
+            {generationError || accountError.message}
+          </p>
         </div>
       </div>
     )

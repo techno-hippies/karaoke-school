@@ -12,7 +12,7 @@ import { lensClient } from './lens/client'
 // Page imports
 import { HomePage } from './pages/HomePage'
 import { ClassPage } from './pages/ClassPage'
-import { ClassArtistPage } from './pages/ClassArtistPage'
+// ClassArtistPage removed - on-demand generation now happens in ProfilePage
 import { WalletPage } from './pages/WalletPage'
 import { KaraokePage } from './components/karaoke/KaraokePage'
 import { KaraokeSongPage } from './components/karaoke/KaraokeSongPage'
@@ -22,10 +22,10 @@ import { VideoDetailPage } from './pages/VideoDetailPage'
 import { StudyExercisePageContainer } from './pages/StudyExercisePageContainer'
 import { useParams } from 'react-router-dom'
 
-// Wrapper to ensure ProfilePage remounts when username changes
+// Wrapper to ensure ProfilePage remounts when parameters change
 function ProfilePageWrapper() {
-  const { username, address } = useParams<{ username?: string; address?: string }>()
-  const key = username || address || 'default'
+  const { username, address, geniusId } = useParams<{ username?: string; address?: string; geniusId?: string }>()
+  const key = geniusId || username || address || 'default'
   return <ProfilePage key={key} />
 }
 
@@ -86,9 +86,8 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    // Deep routes (song, artist, segment pages) should have no tab selected
+    // Deep routes (song, profile, segment pages) should have no tab selected
     if (location.pathname.startsWith('/song/') ||
-        location.pathname.startsWith('/artist/') ||
         location.pathname.startsWith('/class/') ||
         location.pathname.startsWith('/u/') ||
         (location.pathname.startsWith('/profile/') && location.pathname !== '/profile')) {
@@ -162,8 +161,8 @@ function AppRouter() {
     resetAuthFlow()
   }, [resetAuthFlow])
 
-  // Hide mobile footer on full-screen pages (song detail, artist detail, segment pages, study pages, video detail)
-  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/artist\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+  // Hide mobile footer on full-screen pages (song detail, segment pages, study pages, video detail)
+  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
     <>
@@ -182,11 +181,13 @@ function AppRouter() {
           <Route path="/song/:geniusId" element={<KaraokeSongPage />} />
           <Route path="/song/:geniusId/segment/:segmentId" element={<KaraokeSegmentPage />} />
           <Route path="/song/:geniusId/segment/:segmentId/study" element={<StudyExercisePageContainer />} />
-          <Route path="/artist/:geniusArtistId" element={<ClassArtistPage />} />
+          {/* /artist/:id route removed - profiles generate on-demand in ProfilePage */}
           <Route path="/class" element={<ClassPage />} />
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          {/* Lens v3 style username routing */}
+          {/* Artist profiles by Genius ID */}
+          <Route path="/a/:geniusId" element={<ProfilePageWrapper />} />
+          {/* User profiles by Lens username */}
           <Route path="/u/:username" element={<ProfilePageWrapper />} />
           {/* Video detail page */}
           <Route path="/u/:username/video/:postId" element={<VideoDetailPage />} />
