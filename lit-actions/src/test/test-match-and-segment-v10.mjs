@@ -43,9 +43,9 @@ const TEST_SONG = {
   notes: 'Has SoundCloud link + synced lyrics'
 };
 
-// Encrypted key paths (v17 = encrypted for match-and-segment v9 V4 ABI)
-const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v17.json');
-const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v17.json');
+// Encrypted key paths (v18 = encrypted for match-and-segment v10)
+const OPENROUTER_KEY_PATH = join(__dirname, '../karaoke/keys/openrouter_api_key_v18.json');
+const GENIUS_KEY_PATH = join(__dirname, '../karaoke/keys/genius_api_key_v18.json');
 
 // Contract configuration
 const KARAOKE_CATALOG_ADDRESS = '0xa3fE1628c6FA4B93df76e070fdCd103626D83039'; // Base Sepolia (V2 with geniusArtistId)
@@ -175,8 +175,7 @@ async function main() {
     const startTime = Date.now();
 
     // Use IPFS CID for v10 (V10 ABI with 16 fields including geniusArtistId)
-    // TODO: Update this CID after uploading v10 to IPFS
-    const MATCH_AND_SEGMENT_V10_CID = 'QmQtXQCMSjaeD7jCgvH6u7cnq2mFnucLieB3CaEsSA9HjN'; // PLACEHOLDER - UPDATE AFTER UPLOAD
+    const MATCH_AND_SEGMENT_V10_CID = 'QmbqMqiHAcJNU9p2qfHv5s9Kb5bf6RLN8nxWAkyMSo6Q1G';
 
     try {
       const result = await litClient.executeJs({
