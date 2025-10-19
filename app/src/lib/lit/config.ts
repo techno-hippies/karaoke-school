@@ -1,6 +1,9 @@
 /**
  * Lit Protocol Configuration
  * Provides serverless compute (Lit Actions)
+ *
+ * DEPRECATED: Use @/config/lit-actions for Lit Action CIDs
+ * This file is kept for backwards compatibility only
  */
 
 export const LIT_CONFIG = {
@@ -10,15 +13,13 @@ export const LIT_CONFIG = {
 
 /**
  * Lit Action CIDs
+ * DEPRECATED: Import from @/config/lit-actions instead
  */
-export const LIT_ACTIONS = {
-  matchAndSegment: import.meta.env.VITE_LIT_ACTION_MATCH_AND_SEGMENT || '',
-  audioProcessor: import.meta.env.VITE_LIT_ACTION_AUDIO_PROCESSOR || '',
-} as const
+export { LIT_ACTIONS } from '@/config/lit-actions'
 
 /**
  * Check if Lit is configured
  */
 export function isLitConfigured(): boolean {
-  return !!(LIT_CONFIG.pkpPublicKey && LIT_ACTIONS.matchAndSegment && LIT_ACTIONS.audioProcessor)
+  return !!LIT_CONFIG.pkpPublicKey
 }

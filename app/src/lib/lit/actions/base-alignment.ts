@@ -3,6 +3,7 @@
  * Generates word-level timing for karaoke WITHOUT translations
  *
  * Flow:
+import { LIT_ACTIONS } from '@/config/lit-actions'
  * 1. Downloads audio from SoundCloud
  * 2. ElevenLabs forced alignment → word-level timing
  * 3. Uploads to Grove → song-{geniusId}-base.json
@@ -40,14 +41,14 @@ export async function executeBaseAlignment(
 
     if (IS_DEV) {
       console.log('[BaseAlignment] Calling executeJs with:', {
-        ipfsId: import.meta.env.VITE_LIT_ACTION_BASE_ALIGNMENT,
+        ipfsId: LIT_ACTIONS.baseAlignment,
         hasAuthContext: !!authContext,
         geniusId
       })
     }
 
     const result = await litClient.executeJs({
-      ipfsId: import.meta.env.VITE_LIT_ACTION_BASE_ALIGNMENT,
+      ipfsId: LIT_ACTIONS.baseAlignment,
       authContext,
       jsParams: {
         geniusId,

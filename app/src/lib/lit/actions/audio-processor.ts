@@ -3,6 +3,7 @@
  * Triggers song-based karaoke generation (paid operation - requires credits)
  *
  * IMPORTANT: User must own the segment before calling this function.
+import { LIT_ACTIONS } from '@/config/lit-actions'
  * Use checkSegmentOwnership() and unlockSegment() first if needed.
  *
  * Flow:
@@ -38,7 +39,7 @@ export async function executeAudioProcessor(
   const litClient = await getLitClient()
 
   const result = await litClient.executeJs({
-    ipfsId: import.meta.env.VITE_LIT_ACTION_AUDIO_PROCESSOR,
+    ipfsId: LIT_ACTIONS.audioProcessor,
     authContext,
     jsParams: {
       geniusId,

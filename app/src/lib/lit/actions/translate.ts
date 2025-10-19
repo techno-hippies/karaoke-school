@@ -3,6 +3,7 @@
  * Generates per-language translation WITHOUT timing (uses base alignment timing)
  *
  * Flow:
+import { LIT_ACTIONS } from '@/config/lit-actions'
  * 1. Loads base alignment from contract metadataUri
  * 2. OpenRouter translation to target language
  * 3. Uploads to Grove → song-{geniusId}-{lang}.json
@@ -61,7 +62,7 @@ export async function executeTranslate(
     }
 
     const result = await litClient.executeJs({
-      ipfsId: import.meta.env.VITE_LIT_ACTION_TRANSLATE,
+      ipfsId: LIT_ACTIONS.translate,
       authContext,
       jsParams: {
         geniusId,

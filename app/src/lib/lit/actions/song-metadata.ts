@@ -4,6 +4,7 @@
  */
 
 import { getLitClient } from '../../lit-webauthn/client'
+import { LIT_ACTIONS } from '@/config/lit-actions'
 import type { SongMetadataResult } from './types'
 
 const IS_DEV = import.meta.env.DEV
@@ -21,12 +22,12 @@ export async function executeSongMetadata(
 
     console.log('[executeSongMetadata] Calling with:', {
       songId,
-      ipfsId: import.meta.env.VITE_LIT_ACTION_SONG,
+      ipfsId: LIT_ACTIONS.song,
       jsParams: { songId }
     })
 
     const result = await litClient.executeJs({
-      ipfsId: import.meta.env.VITE_LIT_ACTION_SONG,
+      ipfsId: LIT_ACTIONS.song,
       authContext,
       jsParams: { songId },
     })
