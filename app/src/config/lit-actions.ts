@@ -68,22 +68,22 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
     deployedAt: '2025-10-19',
   },
   baseAlignment: {
-    cid: 'QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e',
+    cid: 'QmX8wJ1EmcPpAb7GsX3sJQEeLMqqN4nT4GoL36b4Di19D8',
     name: 'Base Alignment v2',
     source: 'lit-actions/src/karaoke/base-alignment-v2.js',
-    deployedAt: '2025-10-14',
+    deployedAt: '2025-10-19',
   },
   audioProcessor: {
-    cid: 'QmYxNkawEVCT2LGvXEyPVi2gzMgjEpidWpUXWhbDPvuUUd',
+    cid: 'Qmd6mWibWmujJaiqLSAQL551cgkNTnqYtXX3f1aXZdTc7r',
     name: 'Audio Processor v4',
     source: 'lit-actions/src/karaoke/audio-processor-v4.js',
-    deployedAt: '2025-10-12',
+    deployedAt: '2025-10-19',
   },
   translate: {
-    cid: 'QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop',
+    cid: 'QmQB9yYBjZVUpD85RxnSEWWXh7P1eC4fxoPbmpn9ToKvBV',
     name: 'Translate Lyrics v1',
     source: 'lit-actions/src/karaoke/translate-lyrics-v1.js',
-    deployedAt: '2025-10-15',
+    deployedAt: '2025-10-19',
   },
 }
 

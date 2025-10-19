@@ -26,7 +26,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       apps: [evmAddress(APP_ADDRESS)],
       feeds: [{ globalFeed: true }],
       metadata: {
-        tags: { all: ['copyright-free'] } // Only copyright-free content in For You feed
+        tags: { all: ['karaoke'] } // Show all karaoke content (only copyrighted with Genius matches are posted)
       }
     },
   })
@@ -152,7 +152,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         musicImageUrl: albumArtAttr?.value,
         geniusId,
         createdAt: post.createdAt,
-        likes: post.stats?.reactions ?? 0,
+        likes: post.stats?.upvotes ?? 0,
         comments: post.stats?.comments ?? 0,
         shares: post.stats?.reposts ?? 0,
         karaokeLines,

@@ -127,7 +127,7 @@ export function ProfileVideoFeed({ accountAddress, children }: ProfileVideoFeedP
             musicImageUrl: albumArtAttr?.value,
             geniusId,
             createdAt: post.createdAt,
-            likes: post.stats?.reactions ?? 0,
+            likes: post.stats?.upvotes ?? 0,
             comments: post.stats?.comments ?? 0,
             shares: post.stats?.reposts ?? 0,
             karaokeLines,

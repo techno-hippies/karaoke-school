@@ -69,7 +69,7 @@ const go = async () => {
     const baseSepoliaRpc = 'https://sepolia.base.org';
     const provider = new ethers.JsonRpcProvider(baseSepoliaRpc);
     const catalogAbi = [
-      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, bool enabled, uint64 addedAt))'
+      'function getSongByGeniusId(uint32) view returns (tuple(string id, uint32 geniusId, uint32 geniusArtistId, string title, string artist, uint32 duration, string soundcloudPath, bool hasFullAudio, bool requiresPayment, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, string sectionsUri, string alignmentUri, bool enabled, uint64 addedAt))'
     ];
     const catalog = new ethers.Contract(catalogContract, catalogAbi, provider);
     const songData = await catalog.getSongByGeniusId(geniusId);

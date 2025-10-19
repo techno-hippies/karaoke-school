@@ -245,8 +245,9 @@ async function registerInContract(tiktokHandle: string): Promise<void> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   console.log(`   ✅ Confirmed in block: ${receipt.blockNumber}\n`);
 
-  // 9. Verify registration
+  // 9. Verify registration (wait a moment for state to settle)
   console.log('✅ Verifying registration...\n');
+  await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s for state to settle
 
   try {
     const artist = await publicClient.readContract({

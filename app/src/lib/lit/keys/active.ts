@@ -64,10 +64,10 @@ export const OPENROUTER_API_KEY: EncryptedKey = {
 
 /**
  * ElevenLabs API Key (v11)
- * Bound to Base Alignment Lit Action v2 (FIXED 17-field ABI): QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e
+ * Bound to Base Alignment Lit Action v2.1 (geniusArtistId support): QmX8wJ1EmcPpAb7GsX3sJQEeLMqqN4nT4GoL36b4Di19D8
  */
 export const ELEVENLABS_API_KEY: EncryptedKey = {
-  ciphertext: "tGllwyjbjVEFtcmPdVtA0crr9VS6LAvbHfk+ITkt7jDXnhTEeYtfLjjA1k+IHW6/SGBhV37VA5C28IbEOjiw+0QSx8MCajyxmFWmet8JVos0Ytu2rsyFU2FIkiENkDMQuHS0/4epfF8Qkyag4pZGsuN2GR18+hrBKdHjJVBkBwD+gBaCQAI=",
+  ciphertext: "srNHojQ8hNMRsKLPdMQC//CNLqLJpmaPZLz5ogy0rwtO0YZe0mbfnQ6jjUtPEReQ9GVo0lWMXDdCT0v0l918XfobUJ5qR7hPqoCh3gfSnWQ00mnE4A3UY/xtJDdAjsxfXoOlOlpmp3eEgxQEnmyAu+VLnw1b/z2xLufuAZdxA9dzzBBqtgI=",
   dataToEncryptHash: "da26dea27c14ab04063640c69fda349cfcd7a97cb0f6d318139a57e14c50b69a",
   accessControlConditions: [
     {
@@ -79,10 +79,10 @@ export const ELEVENLABS_API_KEY: EncryptedKey = {
       parameters: [":currentActionIpfsId"],
       returnValueTest: {
         comparator: "=",
-        value: "QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e"
+        value: "QmX8wJ1EmcPpAb7GsX3sJQEeLMqqN4nT4GoL36b4Di19D8"
       }
     }
   ],
-  encryptedAt: "2025-10-14T18:25:29.496Z",
-  cid: "QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e"
+  encryptedAt: "2025-10-19T13:48:45.036Z",
+  cid: "QmX8wJ1EmcPpAb7GsX3sJQEeLMqqN4nT4GoL36b4Di19D8"
 }

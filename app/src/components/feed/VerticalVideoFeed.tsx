@@ -17,6 +17,7 @@ export interface VerticalVideoFeedProps {
   initialVideoId?: string // Scroll to this video on mount
   updateUrlOnScroll?: boolean // Update URL as user scrolls (for video detail routes)
   baseUrl?: string // Base URL pattern for updates (e.g., '/u/username/video/')
+  hasMobileFooter?: boolean // If true, add bottom spacing for mobile footer (default: false)
 }
 
 /**
@@ -31,6 +32,7 @@ export function VerticalVideoFeed({
   initialVideoId,
   updateUrlOnScroll = false,
   baseUrl,
+  hasMobileFooter = false,
 }: VerticalVideoFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -168,6 +170,7 @@ export function VerticalVideoFeed({
               likes={finalLikeState.count}
               autoplay={index === activeIndex}
               karaokeClassName="pt-20 md:pt-6"
+              hasMobileFooter={hasMobileFooter}
               onLikeClick={async () => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
 
@@ -319,13 +322,6 @@ export function VerticalVideoFeed({
           </div>
         )
       })}
-
-      {/* Loading indicator for infinite scroll */}
-      {isLoading && videos.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-sm z-50">
-          Loading more...
-        </div>
-      )}
     </div>
   )
 }

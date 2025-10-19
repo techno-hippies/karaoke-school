@@ -123,6 +123,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
                   // TODO: Implement pagination with usePagination hook
                 }}
                 hasMore={false} // TODO: Implement pagination
+                hasMobileFooter={true}
               />
             )
           }}
@@ -222,6 +223,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
                   // TODO: Implement pagination with timeline.next()
                 }}
                 hasMore={false} // TODO: Implement pagination
+                hasMobileFooter={true}
               />
             )
           }}

@@ -89,6 +89,7 @@ interface MatchResult {
     artist: string;
     url: string;
     slug: string;
+    artwork?: string;
   };
 }
 
@@ -297,7 +298,8 @@ class GeniusMatcher {
             title: songData.title,
             artist: songData.artist,
             url: songData.url,
-            slug: songData.path.replace(/^\//, '')
+            slug: songData.path.replace(/^\//, ''),
+            artwork: songData.song_art_image_thumbnail_url
           }
         };
       }
@@ -356,7 +358,8 @@ class GeniusMatcher {
             title: result.title,
             artist: result.artist,
             url: result.url,
-            slug: result.genius_slug || ''
+            slug: result.genius_slug || '',
+            artwork: result.artwork_thumbnail || undefined
           }
         };
       }
@@ -472,6 +475,7 @@ async function mapSpotifyToGenius(tiktokHandle: string, minConfidence: number): 
           slug: match.geniusData.slug,
           title: match.geniusData.title,
           artist: match.geniusData.artist,
+          artwork: match.geniusData.artwork,
           matchConfidence: match.confidence,
           matchType: match.matchType,
           matchDetails: match.matchDetails,

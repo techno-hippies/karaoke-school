@@ -17,6 +17,7 @@ import { getLitClient } from '../../lit-webauthn/client'
 import { getKaraokeKeyParams } from '../keys'
 import type { BaseAlignmentResult } from './types'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
+import { LIT_ACTIONS } from '@/config/lit-actions'
 
 const IS_DEV = import.meta.env.DEV
 

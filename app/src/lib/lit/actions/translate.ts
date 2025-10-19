@@ -3,7 +3,6 @@
  * Generates per-language translation WITHOUT timing (uses base alignment timing)
  *
  * Flow:
-import { LIT_ACTIONS } from '@/config/lit-actions'
  * 1. Loads base alignment from contract metadataUri
  * 2. OpenRouter translation to target language
  * 3. Uploads to Grove → song-{geniusId}-{lang}.json
@@ -17,6 +16,7 @@ import { getLitClient } from '../../lit-webauthn/client'
 // import { getKaraokeKeyParams } from '../keys' // TODO: Use for dynamic key loading
 import type { TranslateResult } from './types'
 import { BASE_SEPOLIA_CONTRACTS } from '@/config/contracts'
+import { LIT_ACTIONS } from '@/config/lit-actions'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -41,9 +41,9 @@ export async function executeTranslate(
   try {
     const litClient = await getLitClient()
     // Translate only needs OpenRouter key (no ElevenLabs or Genius)
-    // Updated for translate-lyrics-v1 with native + Genius song support (fixed regex)
+    // Updated for translate-lyrics-v1.1 with geniusArtistId support
     const openrouterKey = {
-      ciphertext: "lSTepzyfv3fzQDpB+BsX48nOO0BP2pVmXomet8CynAHw9QgyaobcUNcz0bz4EQ6K49e/F13ulcinKwPM7Dytg/aFFe7byRoP3wHYHVZtGaFKmk8dYgdKqkS58PDFA4At8ecZR+676i424hycv12oje+r8nJ5aNSHrZ2ti1HylVTtOEbdosXtVTTYcbAmcsQ5rda1hcn4RQ/DGG8C",
+      ciphertext: "rLrqB11fs4dMex1saGL3aaVB46etSbP0DChg4wdCBGlbg8sfxOGUx2pgjz+Yt0piaE7tIKjPxZ/8xRA7DDSy2KpJ1XNqtabKnb7lMyYB66FKrL8dkCcCFiRrAT9lkvWiJnETf38Thq7ig4smd6+zkTO9EazGRFIn4pqIihBhMNvcQ/kxZuCKMwu9Ut2fcsgroMWfOFsgD3t3b3UC",
       dataToEncryptHash: "4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23",
       accessControlConditions: [
         {
@@ -55,7 +55,7 @@ export async function executeTranslate(
           parameters: [":currentActionIpfsId"],
           returnValueTest: {
             comparator: "=",
-            value: "QmR3VoCJGWHyus1BCSaKH8duP8ptuKehuvYuvAk8m4Vyop"
+            value: "QmQB9yYBjZVUpD85RxnSEWWXh7P1eC4fxoPbmpn9ToKvBV"
           }
         }
       ]

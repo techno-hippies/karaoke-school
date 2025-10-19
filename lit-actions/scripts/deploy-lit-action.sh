@@ -38,23 +38,36 @@ echo "✅ Uploaded! CID: $CID"
 if [[ "$ACTION_FILE" == *"base-alignment"* ]]; then
   echo ""
   echo "🔐 Step 2/4: Re-encrypting ElevenLabs API key..."
+  KEY_FILE="src/karaoke/keys/elevenlabs_api_key_v11.json"
   DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key elevenlabs_api_key \
-    --output src/karaoke/keys/elevenlabs_api_key_v11.json
+    --output $KEY_FILE
   echo "✅ Keys encrypted!"
+
+  # Update active.ts with new key
+  node scripts/update-active-keys.mjs --key elevenlabs --file $KEY_FILE --cid $CID
+  echo "✅ Updated app/src/lib/lit/keys/active.ts"
 elif [[ "$ACTION_FILE" == *"match-and-segment"* ]]; then
   echo ""
   echo "🔐 Step 2/4: Re-encrypting Genius + OpenRouter keys..."
+  GENIUS_KEY_FILE="src/karaoke/keys/genius_api_key_v16.json"
+  OPENROUTER_KEY_FILE="src/karaoke/keys/openrouter_api_key_v16.json"
+
   DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key genius_api_key \
-    --output src/karaoke/keys/genius_api_key_v16.json
+    --output $GENIUS_KEY_FILE
   DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key openrouter_api_key \
-    --output src/karaoke/keys/openrouter_api_key_v16.json
+    --output $OPENROUTER_KEY_FILE
   echo "✅ Keys encrypted!"
+
+  # Update active.ts with new keys
+  node scripts/update-active-keys.mjs --key genius --file $GENIUS_KEY_FILE --cid $CID
+  node scripts/update-active-keys.mjs --key openrouter --file $OPENROUTER_KEY_FILE --cid $CID
+  echo "✅ Updated app/src/lib/lit/keys/active.ts"
 elif [[ "$ACTION_FILE" == *"translate-lyrics"* ]]; then
   echo ""
   echo "🔐 Step 2/4: Re-encrypting OpenRouter API key..."

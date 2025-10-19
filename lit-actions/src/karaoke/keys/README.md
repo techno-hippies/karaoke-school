@@ -1,6 +1,8 @@
-# Encrypted API Keys for Match and Segment v1
+# Encrypted API Keys for Lit Actions
 
-This directory contains encrypted API keys for the match-and-segment-v1.js Lit Action.
+This directory contains encrypted API keys for karaoke Lit Actions.
+
+**IMPORTANT**: When deploying a new Lit Action version, keys must be re-encrypted and locked to the new CID. The deployment script handles this automatically.
 
 ## Required Keys
 
@@ -100,3 +102,20 @@ Or test with a specific Genius ID:
 ```bash
 bun run test:match-segment-v1 378195
 ```
+
+## Troubleshooting
+
+### Error: "Access control conditions check failed"
+
+This means the encrypted key is locked to a different CID than the Lit Action trying to use it.
+
+**Cause**: When you deploy a new Lit Action version, it gets a new IPFS CID. The old encrypted keys are locked to the old CID and won't work.
+
+**Fix**: The deployment script (`scripts/deploy-lit-action.sh`) automatically:
+1. Re-encrypts keys locked to the new CID
+2. Updates `app/src/lib/lit/keys/active.ts` with the new encrypted key
+
+If this didn't happen:
+1. Check that the deployment script completed successfully
+2. Verify `app/src/lib/lit/keys/active.ts` shows the new CID in the access control conditions
+3. Restart your frontend dev server

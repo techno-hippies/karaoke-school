@@ -281,6 +281,12 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
       continue;
     }
 
+    // Skip if no Genius data (only post copyrighted content matched to Genius)
+    if (!videoData.music.genius?.id) {
+      console.log(`   ⏭️  Skipping: No Genius match (only posting matched copyrighted content)\n`);
+      continue;
+    }
+
     // Ensure we have Grove URIs (either single video or HLS playlist)
     const hasVideo = videoData.groveUris.video || videoData.groveUris.playlist;
     if (!hasVideo || !videoData.groveUris.thumbnail) {
@@ -360,6 +366,23 @@ async function createLensPosts(tiktokHandle: string): Promise<void> {
             key: 'copyright_type',
             value: videoData.copyrightType,
           },
+          // Song metadata (required for feed display)
+          {
+            type: 'String',
+            key: 'song_name',
+            value: videoData.music.genius?.title || videoData.music.spotify?.metadata?.name || videoData.music.title,
+          },
+          {
+            type: 'String',
+            key: 'artist_name',
+            value: videoData.music.genius?.artist || videoData.music.spotify?.metadata?.artists?.[0] || 'Unknown Artist',
+          },
+          // Album art (if available from Genius or elsewhere)
+          ...(videoData.music.genius?.artwork || videoData.groveUris.thumbnail ? [{
+            type: 'String' as const,
+            key: 'album_art',
+            value: videoData.music.genius?.artwork || videoData.groveUris.thumbnail,
+          }] : []),
           // Include Genius URL and ID if available
           ...(videoData.music.genius?.url ? [
             {

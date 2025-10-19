@@ -20,6 +20,7 @@ export interface VideoPostProps extends VideoPostData {
   autoplay?: boolean // If true, attempt autoplay; if false, show paused
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
+  hasMobileFooter?: boolean // If true, add bottom spacing for mobile footer (default: false)
 }
 
 /**
@@ -52,7 +53,8 @@ export function VideoPost({
   onAudioClick,
   autoplay = true,
   className,
-  karaokeClassName
+  karaokeClassName,
+  hasMobileFooter = false
 }: VideoPostProps) {
   // Use shared video playback logic
   const {
@@ -123,7 +125,10 @@ export function VideoPost({
       </div>
 
       {/* Mobile: Bottom gradient + Video Info */}
-      <div className="md:hidden absolute bottom-0 left-0 right-0 p-6 pb-4 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10">
+      <div className={cn(
+        "md:hidden absolute left-0 right-0 p-6 pb-4 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-30",
+        hasMobileFooter ? "bottom-16" : "bottom-0"
+      )}>
         <VideoInfo
           username={username}
           musicTitle={musicTitle}
@@ -135,7 +140,10 @@ export function VideoPost({
       </div>
 
       {/* Mobile: Actions overlay on right side */}
-      <div className="md:hidden absolute right-4 bottom-20 z-20">
+      <div className={cn(
+        "md:hidden absolute right-4 z-20",
+        hasMobileFooter ? "bottom-20" : "bottom-4"
+      )}>
         <VideoActions
           userAvatar={userAvatar || ''}
           username={username}
