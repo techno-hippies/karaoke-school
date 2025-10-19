@@ -29,6 +29,7 @@ const colors = {
 interface PipelineOptions {
   creators: string[];
   geniusIds?: Record<string, number>;
+  handles?: Record<string, string>;
   startAt?: number;
   stopAt?: number;
   concurrency?: number;
@@ -89,7 +90,7 @@ async function runStep(step: StepDefinition, creator: string, options: PipelineO
     args = ['run', scriptPath, '--creator', creator, '--genius-id', geniusId.toString()];
   } else if (step.num === 7) {
     // Create Username - requires both creator and username
-    const username = creator.replace('@', '');
+    const username = options.handles?.[creator] || creator.replace('@', '');
     args = step.requiresEnv
       ? ['dotenvx', 'run', '--', 'bun', 'run', scriptPath, '--creator', creator, '--username', username]
       : ['run', scriptPath, '--creator', creator, '--username', username];
@@ -216,6 +217,8 @@ async function main() {
       creators: { type: 'string' },
       'genius-id': { type: 'string' },
       'genius-ids': { type: 'string' },
+      handle: { type: 'string' },
+      handles: { type: 'string' },
       'start-at': { type: 'string' },
       'stop-at': { type: 'string' },
       concurrency: { type: 'string' },
@@ -231,8 +234,8 @@ async function main() {
   } else {
     console.error(`\n${colors.red}❌ Error: --creator or --creators required${colors.reset}\n`);
     console.log('Usage:');
-    console.log('  bun run pipeline --creator @madisonbeer --genius-id 154127');
-    console.log('  bun run pipeline --creators @a,@b --genius-ids "a:123,b:456"');
+    console.log('  bun run pipeline --creator @madisonbeer --genius-id 154127 --handle madison');
+    console.log('  bun run pipeline --creators @a,@b --genius-ids "a:123,b:456" --handles "@a:handlea,@b:handleb"');
     console.log('  bun run pipeline --creator @handle --start-at 9 --stop-at 12');
     console.log('  bun run pipeline --creators @a,@b --concurrency 1\n');
     process.exit(1);
@@ -251,9 +254,23 @@ async function main() {
     }
   }
 
+  // Parse handles
+  let handles: Record<string, string> = {};
+  if (values.handle && values.creator) {
+    handles[values.creator] = values.handle;
+  } else if (values.handles) {
+    // Format: "creator1:handle1,creator2:handle2"
+    const pairs = values.handles.split(',');
+    for (const pair of pairs) {
+      const [creator, handle] = pair.split(':');
+      handles[creator.trim()] = handle.trim();
+    }
+  }
+
   const options: PipelineOptions = {
     creators,
     geniusIds,
+    handles,
     startAt: values['start-at'] ? parseInt(values['start-at']) : undefined,
     stopAt: values['stop-at'] ? parseInt(values['stop-at']) : undefined,
     concurrency: values.concurrency ? parseInt(values.concurrency) : 1, // Default to 1 to avoid nonce conflicts
