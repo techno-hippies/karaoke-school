@@ -1,9 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { VideoPost } from '@/components/feed/VideoPost'
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 
 const meta = {
   title: 'Feed/VideoPost',
   component: VideoPost,
+  decorators: [
+    (Story) => (
+      <VideoPlaybackProvider>
+        <Story />
+      </VideoPlaybackProvider>
+    ),
+  ],
   parameters: {
     layout: 'fullscreen',
     backgrounds: {

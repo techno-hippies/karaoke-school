@@ -91,6 +91,7 @@ export function VideoPost({
       >
         {/* Video Player */}
         <VideoPlayer
+          key={videoUrl || thumbnailUrl} // Force remount when video changes to prevent thumbnail flash
           videoUrl={videoUrl}
           thumbnailUrl={thumbnailUrl}
           isPlaying={isPlaying}

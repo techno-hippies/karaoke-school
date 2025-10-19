@@ -161,13 +161,15 @@ export function VideoActions({
         </span>
       </button>
 
-      {/* Audio Source Button */}
-      <AudioSourceButton
-        musicTitle={musicTitle}
-        musicAuthor={musicAuthor}
-        musicImageUrl={musicImageUrl}
-        onClick={onAudioClick}
-      />
+      {/* Audio Source Button - only show when music info is available */}
+      {(musicTitle || musicAuthor) && (
+        <AudioSourceButton
+          musicTitle={musicTitle}
+          musicAuthor={musicAuthor}
+          musicImageUrl={musicImageUrl}
+          onClick={onAudioClick}
+        />
+      )}
     </div>
   )
 }

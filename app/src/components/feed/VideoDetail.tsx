@@ -190,6 +190,7 @@ export function VideoDetail({
         >
           {/* Video Player */}
           <VideoPlayer
+            key={videoPostProps.id} // Force remount when video changes using unique post ID
             videoUrl={videoPostProps.videoUrl}
             thumbnailUrl={videoPostProps.thumbnailUrl}
             isPlaying={isPlaying}

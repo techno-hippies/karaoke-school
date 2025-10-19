@@ -316,7 +316,11 @@ export function ProfilePage() {
 
   const handleVideoClick = (video: Video) => {
     navigate(`/u/${username}/video/${video.id}`, {
-      state: { thumbnailUrl: video.thumbnailUrl }
+      state: {
+        thumbnailUrl: video.thumbnailUrl,
+        videoIds: videos.map(v => v.id),
+        currentIndex: videos.findIndex(v => v.id === video.id)
+      }
     })
   }
 

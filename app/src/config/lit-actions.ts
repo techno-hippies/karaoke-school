@@ -1,15 +1,15 @@
 /**
  * Lit Action CID Management - SINGLE SOURCE OF TRUTH
  *
- * IMPORTANT: All Lit Action CIDs MUST be imported from this file.
- * DO NOT use `import.meta.env.VITE_LIT_ACTION_*` directly in code.
+ * IMPORTANT: All Lit Action CIDs are defined HERE and ONLY here.
+ * DO NOT use environment variables or .env files for these CIDs.
  *
- * Why centralized?
- * - Single source of truth prevents missing CIDs
- * - Version controlled - no more lost .env.local files
+ * Why in config, not .env?
+ * - IPFS CIDs are PUBLIC, not secrets
+ * - Version controlled - deployment history tracked in git
+ * - Single source of truth - no confusion between .env and config
  * - Type-safe access via TypeScript
  * - Easy to audit and update
- * - Deployment history is tracked in git
  *
  * What are Lit Actions?
  * - JavaScript functions that run on Lit Protocol's decentralized network
@@ -18,15 +18,10 @@
  * - Each deployment creates a NEW CID (new version)
  *
  * Deployment:
- * 1. Deploy via: ./lit-actions/scripts/deploy-lit-action.sh <file> <name> <env-var>
+ * 1. Deploy via: ./lit-actions/scripts/deploy-lit-action.sh <file> <name>
  * 2. Script uploads to IPFS and returns CID
- * 3. **Manually** update the CID in this file (don't rely on .env.local)
+ * 3. **Manually** update the CID in this file
  * 4. Commit this file to git
- *
- * Environment Variable Overrides:
- * - If VITE_LIT_ACTION_* is set in .env.local, it overrides the default
- * - Useful for local development/testing with unreleased versions
- * - Production always uses the defaults from this file
  */
 
 export interface LitActionConfig {
@@ -93,25 +88,11 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 }
 
 /**
- * Get Lit Action CID with optional environment variable override
+ * Get Lit Action CID from config (NO env var overrides)
  *
- * Priority:
- * 1. Environment variable (VITE_LIT_ACTION_*)
- * 2. Production default from this config
- * 3. Error if neither exists
+ * These are public IPFS CIDs, not secrets, so they belong in version control.
  */
-function getLitActionCID(
-  key: keyof typeof LIT_ACTIONS_PRODUCTION,
-  envVarName: string
-): string {
-  // Check for env var override (for local development)
-  const envOverride = import.meta.env[envVarName]
-  if (envOverride && typeof envOverride === 'string') {
-    console.log(`[LitActions] Using env override for ${key}: ${envOverride}`)
-    return envOverride
-  }
-
-  // Use production default
+function getLitActionCID(key: keyof typeof LIT_ACTIONS_PRODUCTION): string {
   const config = LIT_ACTIONS_PRODUCTION[key]
   if (!config) {
     throw new Error(`Lit Action '${String(key)}' not found in config`)
@@ -120,7 +101,7 @@ function getLitActionCID(
   if (config.cid.includes('PLACEHOLDER')) {
     throw new Error(
       `Lit Action '${String(key)}' not deployed yet! Deploy it first:\n` +
-      `  cd lit-actions && ./scripts/deploy-lit-action.sh ${config.source} "${config.name}" ${envVarName}`
+      `  cd lit-actions && ./scripts/deploy-lit-action.sh ${config.source} "${config.name}"`
     )
   }
 
@@ -129,20 +110,20 @@ function getLitActionCID(
 
 /**
  * Lit Action CIDs for use in application code
- * Use these exported constants instead of env vars directly
+ * SINGLE SOURCE OF TRUTH - no env var overrides
  */
 export const LIT_ACTIONS = {
   // Genius API
-  search: getLitActionCID('search', 'VITE_LIT_ACTION_SEARCH'),
-  song: getLitActionCID('song', 'VITE_LIT_ACTION_SONG'),
-  artist: getLitActionCID('artist', 'VITE_LIT_ACTION_ARTIST'),
+  search: getLitActionCID('search'),
+  song: getLitActionCID('song'),
+  artist: getLitActionCID('artist'),
 
   // Karaoke Pipeline
-  matchSegment: getLitActionCID('matchSegment', 'VITE_LIT_ACTION_MATCH_SEGMENT'),
-  matchAndSegment: getLitActionCID('matchSegment', 'VITE_LIT_ACTION_MATCH_AND_SEGMENT'), // Alias
-  baseAlignment: getLitActionCID('baseAlignment', 'VITE_LIT_ACTION_BASE_ALIGNMENT'),
-  audioProcessor: getLitActionCID('audioProcessor', 'VITE_LIT_ACTION_AUDIO_PROCESSOR'),
-  translate: getLitActionCID('translate', 'VITE_LIT_ACTION_TRANSLATE'),
+  matchSegment: getLitActionCID('matchSegment'),
+  matchAndSegment: getLitActionCID('matchSegment'), // Alias
+  baseAlignment: getLitActionCID('baseAlignment'),
+  audioProcessor: getLitActionCID('audioProcessor'),
+  translate: getLitActionCID('translate'),
 } as const
 
 /**

@@ -1,9 +1,11 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { usePost, postId, useAccount } from '@lens-protocol/react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { VideoDetail } from '@/components/feed/VideoDetail'
+import { ProfileVideoFeed } from '@/components/feed/ProfileVideoFeed'
+import { VerticalVideoFeed } from '@/components/feed/VerticalVideoFeed'
 import { Spinner } from '@/components/ui/spinner'
 import type { VideoPostData } from '@/components/feed/types'
 import { lensToGroveUrl } from '@/lib/lens/utils'
@@ -15,9 +17,8 @@ import { lensToGroveUrl } from '@/lib/lens/utils'
  * - /u/:username/video/:postId
  *
  * Features:
- * - Fetches single Lens post by ID
- * - Displays video with karaoke overlay
- * - All videos are freely available
+ * Mobile: Full-screen vertical feed with lazy loading
+ * Desktop: Single video with caret navigation
  */
 export function VideoDetailPage() {
   const { username, postId: postIdParam } = useParams<{ username: string; postId: string }>()
@@ -25,7 +26,19 @@ export function VideoDetailPage() {
   const location = useLocation()
   const { i18n } = useTranslation()
 
-  // Get thumbnail from navigation state for instant visual feedback
+  // Detect mobile/desktop
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  )
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Get navigation context from ProfilePage
+  const { videoIds, currentIndex: initialIndex } = location.state || {}
   const navigationThumbnail = location.state?.thumbnailUrl as string | undefined
 
   // Fetch the specific post
@@ -303,11 +316,61 @@ export function VideoDetailPage() {
     )
   }
 
+  // MOBILE: Scrollable feed with all profile videos
+  if (isMobile && account) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background">
+        <ProfileVideoFeed accountAddress={account.address}>
+          {(posts, loading, hasMore, loadMore) => (
+            <VerticalVideoFeed
+              videos={posts}
+              isLoading={loading}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              initialVideoId={postIdParam}
+              updateUrlOnScroll={true}
+              baseUrl={`/u/${username}/video/`}
+            />
+          )}
+        </ProfileVideoFeed>
+      </div>
+    )
+  }
+
+  // DESKTOP: Single video with caret navigation
+  const currentIndex = videoIds?.findIndex((id: string) => id === postIdParam) ?? initialIndex ?? 0
+
+  const handlePrevious = () => {
+    if (videoIds && currentIndex > 0) {
+      const prevId = videoIds[currentIndex - 1]
+      console.log('[VideoDetailPage] Navigate to previous:', prevId)
+      navigate(`/u/${username}/video/${prevId}`, {
+        state: { videoIds, currentIndex: currentIndex - 1 }
+        // Don't pass thumbnailUrl - we don't have the correct one for prev video
+      })
+    }
+  }
+
+  const handleNext = () => {
+    if (videoIds && currentIndex < videoIds.length - 1) {
+      const nextId = videoIds[currentIndex + 1]
+      console.log('[VideoDetailPage] Navigate to next:', nextId)
+      navigate(`/u/${username}/video/${nextId}`, {
+        state: { videoIds, currentIndex: currentIndex + 1 }
+        // Don't pass thumbnailUrl - we don't have the correct one for next video
+      })
+    }
+  }
+
   return (
     <VideoDetail
       key={post.id} // Force remount when switching videos to prevent state flash
       {...videoData}
       karaokeLines={karaokeLines}
+      currentVideoIndex={currentIndex}
+      totalVideos={videoIds?.length}
+      onNavigatePrevious={videoIds ? handlePrevious : undefined}
+      onNavigateNext={videoIds ? handleNext : undefined}
       onClose={() => navigate(`/u/${username}`)}
       onFollowClick={() => {
         // TODO: Implement follow

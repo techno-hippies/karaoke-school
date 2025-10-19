@@ -14,6 +14,9 @@ export interface VerticalVideoFeedProps {
   isLoading?: boolean
   onLoadMore?: () => void
   hasMore?: boolean
+  initialVideoId?: string // Scroll to this video on mount
+  updateUrlOnScroll?: boolean // Update URL as user scrolls (for video detail routes)
+  baseUrl?: string // Base URL pattern for updates (e.g., '/u/username/video/')
 }
 
 /**
@@ -25,6 +28,9 @@ export function VerticalVideoFeed({
   isLoading = false,
   onLoadMore,
   hasMore = false,
+  initialVideoId,
+  updateUrlOnScroll = false,
+  baseUrl,
 }: VerticalVideoFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -35,14 +41,54 @@ export function VerticalVideoFeed({
   const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
   const [likeStates, setLikeStates] = useState<Record<string, { isLiked: boolean; count: number }>>({})
 
+  // Scroll to initial video on mount (for video detail navigation)
+  useEffect(() => {
+    if (initialVideoId && containerRef.current && videos.length > 0) {
+      const index = videos.findIndex(v => v.id === initialVideoId)
+      if (index >= 0) {
+        console.log('[VerticalVideoFeed] Scrolling to initial video:', { initialVideoId, index })
+        containerRef.current.scrollTo({
+          top: index * containerRef.current.clientHeight,
+          behavior: 'auto' // Instant scroll on mount
+        })
+        setActiveIndex(index)
+      }
+    }
+  }, [initialVideoId, videos.length])
+
   // Reset active index and scroll position when first video ID changes (e.g., tab switch)
   const firstVideoId = videos.length > 0 ? videos[0].id : null
   useEffect(() => {
-    setActiveIndex(0)
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0
+    // Don't reset if we have an initialVideoId (let the scroll effect above handle it)
+    if (!initialVideoId) {
+      setActiveIndex(0)
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0
+      }
     }
-  }, [firstVideoId])
+  }, [firstVideoId, initialVideoId])
+
+  // Update URL when scrolling through videos (TikTok-style)
+  // Use window.history.replaceState to avoid React Router re-renders
+  useEffect(() => {
+    if (updateUrlOnScroll && baseUrl && videos.length > 0 && activeIndex >= 0) {
+      const currentVideo = videos[activeIndex]
+      if (currentVideo) {
+        const newUrl = `${baseUrl}${currentVideo.id}`
+        console.log('[VerticalVideoFeed] Updating URL to:', newUrl)
+
+        // Use native history API to avoid triggering React Router re-render
+        window.history.replaceState(
+          {
+            thumbnailUrl: currentVideo.thumbnailUrl,
+            scrollIndex: activeIndex
+          },
+          '',
+          newUrl
+        )
+      }
+    }
+  }, [activeIndex, updateUrlOnScroll, baseUrl, videos])
 
   // Handle scroll to detect active video
   useEffect(() => {
@@ -121,7 +167,7 @@ export function VerticalVideoFeed({
               isLiked={finalLikeState.isLiked}
               likes={finalLikeState.count}
               autoplay={index === activeIndex}
-              karaokeClassName="pt-20"
+              karaokeClassName="pt-20 md:pt-6"
               onLikeClick={async () => {
                 console.log('[VerticalVideoFeed] Like clicked:', video.id)
 
