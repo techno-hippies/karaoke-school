@@ -93,21 +93,45 @@ async function createNewUsername(tiktokHandle: string, localName: string): Promi
     origin: 'https://pkp-lens-flow.local',
   });
 
-  // Fetch account details
-  console.log(`   Fetching Lens account details for: ${lensData.lensHandle}`);
+  // Get account address (prefer saved address, fall back to query with retry)
+  let lensAccountAddress = lensData.lensAccountAddress;
 
-  const accountResult = await fetchAccount(publicClient, {
-    username: {
-      localName: lensData.lensHandle.replace('@', ''),
-    },
-  });
+  // If address is not saved or is 'unknown', query for it
+  if (!lensAccountAddress || lensAccountAddress === 'unknown') {
+    console.log(`   Fetching Lens account details for: ${lensData.lensHandle}`);
 
-  if (accountResult.isErr()) {
-    throw new Error(`Could not find Lens account: ${lensData.lensHandle}`);
+    let accountResult;
+    let retries = 0;
+    const maxRetries = 10;
+    const retryDelay = 5000; // 5 seconds
+
+    while (retries < maxRetries) {
+      accountResult = await fetchAccount(publicClient, {
+        username: {
+          localName: lensData.lensHandle.replace('@', ''),
+        },
+      });
+
+      if (accountResult.isOk() && accountResult.value) {
+        break;
+      }
+
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`   ⏳ Account not indexed yet, retrying in ${retryDelay / 1000}s (attempt ${retries}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    if (accountResult.isErr() || !accountResult.value) {
+      throw new Error(`Could not find Lens account after ${maxRetries} attempts: ${lensData.lensHandle}. Account may need more time to index.`);
+    }
+
+    lensAccountAddress = accountResult.value.address;
+    console.log(`   ✅ Found account address: ${lensAccountAddress}`);
+  } else {
+    console.log(`   ✅ Using saved account address: ${lensAccountAddress}`);
   }
-
-  const lensAccountAddress = accountResult.value.address;
-  console.log(`   Found account address: ${lensAccountAddress}`);
 
   console.log(`   Authenticating as account owner: ${account.address}`);
 

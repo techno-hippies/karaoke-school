@@ -17,7 +17,7 @@
  */
 
 import { PublicClient, evmAddress } from '@lens-protocol/client';
-import { createAccountWithUsername } from '@lens-protocol/client/actions';
+import { createAccountWithUsername, fetchAccount } from '@lens-protocol/client/actions';
 import { testnet } from '@lens-protocol/env';
 import { chains } from '@lens-chain/sdk/viem';
 import { signMessageWith } from '@lens-protocol/client/viem';
@@ -241,18 +241,45 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   const accountData = result.value;
   console.log('📊 Lens Account Details:');
   console.log(`   Handle: @${lensHandle}`);
-  console.log(`   Account: ${JSON.stringify(accountData, null, 2)}\n`);
+  console.log(`   Transaction Hash: ${accountData.hash}\n`);
 
-  // 11. Save Lens account data
+  // 11. Wait for account to be indexed and fetch full details
+  console.log('⏳ Waiting for account to be indexed...');
+  let accountAddress = 'unknown';
+  let accountId = 'unknown';
+
+  // Retry fetching account details (indexer needs time)
+  for (let i = 0; i < 12; i++) {
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+
+    const accountResult = await fetchAccount(publicClient, {
+      username: {
+        localName: lensHandle,
+      },
+    });
+
+    if (accountResult.isOk() && accountResult.value) {
+      accountAddress = accountResult.value.address;
+      accountId = accountResult.value.id;
+      console.log(`✅ Account indexed!`);
+      console.log(`   Address: ${accountAddress}`);
+      console.log(`   ID: ${accountId}\n`);
+      break;
+    }
+
+    console.log(`   Retry ${i + 1}/12...`);
+  }
+
+  // 12. Save Lens account data
   const lensAccountData: LensAccountData = {
     tiktokHandle,
     pkpEthAddress: pkpData.pkpEthAddress,
     lensHandle: `@${lensHandle}`,
-    lensAccountAddress: accountData.address || 'unknown', // Extract from result
-    lensAccountId: accountData.id || 'unknown', // Extract from result
+    lensAccountAddress: accountAddress,
+    lensAccountId: accountId,
     network: 'lens-testnet',
     createdAt: new Date().toISOString(),
-    transactionHash: accountData.txHash,
+    transactionHash: accountData.hash,
   };
 
   const outputPath = path.join(process.cwd(), 'data', 'lens', `${cleanHandle}.json`);
