@@ -3,11 +3,9 @@ import { useMemo } from 'react'
 import { usePost, postId, useAccount } from '@lens-protocol/react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
-import { useSubscription } from '@/hooks/useSubscription'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import { Spinner } from '@/components/ui/spinner'
 import type { VideoPostData } from '@/components/feed/types'
-import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
 import { lensToGroveUrl } from '@/lib/lens/utils'
 
 /**
@@ -18,16 +16,14 @@ import { lensToGroveUrl } from '@/lib/lens/utils'
  *
  * Features:
  * - Fetches single Lens post by ID
- * - Extracts encryption metadata from post attributes
- * - Checks if user owns Unlock subscription key
- * - Shows lock overlay for encrypted content without subscription
+ * - Displays video with karaoke overlay
+ * - All videos are freely available
  */
 export function VideoDetailPage() {
   const { username, postId: postIdParam } = useParams<{ username: string; postId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const { i18n } = useTranslation()
-  const { isPKPReady, pkpAddress, pkpAuthContext, pkpInfo, authData } = useAuth()
 
   // Get thumbnail from navigation state for instant visual feedback
   const navigationThumbnail = location.state?.thumbnailUrl as string | undefined
@@ -52,91 +48,6 @@ export function VideoDetailPage() {
   })
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-
-  // Memoize encryption and HLS metadata extraction to prevent re-renders
-  const { copyrightType, unlockLock, encryption, hlsMetadata, isPremium } = useMemo(() => {
-    if (!post || post.metadata?.__typename !== 'VideoMetadata') {
-      return { copyrightType: 'copyright-free', unlockLock: null, encryption: null, hlsMetadata: null, isPremium: false }
-    }
-
-    // Extract metadata from post attributes
-    const extractAttribute = (key: string): string | null => {
-      // Debug: log attributes
-      if (key === 'genius_id') {
-        console.log('[extractAttribute] Looking for genius_id')
-        console.log('[extractAttribute] Attributes:', post.metadata.attributes)
-      }
-      const attr = post.metadata.attributes?.find(a => a.key === key)
-      return attr?.value || null
-    }
-
-    const copyrightType = extractAttribute('copyright_type') || 'copyright-free'
-    const unlockLock = extractAttribute('unlock_lock')
-    const encryptionData = extractAttribute('encryption') // JSON string
-    const hlsData = extractAttribute('hls') // JSON string
-
-    console.log('===== VideoDetailPage Debug =====')
-    console.log('Post ID:', postIdParam)
-    console.log('Copyright Type:', copyrightType)
-    console.log('Has encryption data:', !!encryptionData)
-    console.log('Has HLS data:', !!hlsData)
-    console.log('Unlock Lock:', unlockLock)
-
-    // Parse encryption metadata if available
-    let encryption: EncryptionMetadata | null = null
-    if (encryptionData) {
-      try {
-        encryption = JSON.parse(encryptionData)
-        console.log('Encryption metadata:', {
-          hasKey: !!encryption.encryptedSymmetricKey,
-          hasSegments: !!encryption.segments,
-          segmentCount: encryption.segments?.length || 0,
-          hasConditions: !!encryption.unifiedAccessControlConditions,
-        })
-      } catch (err) {
-        console.error('Failed to parse encryption data:', err)
-      }
-    }
-
-    // Parse HLS metadata if available
-    let hlsMetadata: HLSMetadata | null = null
-    if (hlsData) {
-      try {
-        hlsMetadata = JSON.parse(hlsData)
-        console.log('HLS metadata:', {
-          segmented: hlsMetadata.segmented,
-          segmentCount: hlsMetadata.segmentCount,
-          segmentDuration: hlsMetadata.segmentDuration,
-        })
-      } catch (err) {
-        console.error('Failed to parse HLS data:', err)
-      }
-    }
-
-    // Determine if video is premium (encrypted HLS)
-    const isPremium = copyrightType === 'copyrighted' && !!encryption && !!hlsMetadata
-
-    console.log('isPremium:', isPremium)
-    console.log('Video URL:', post.metadata.video?.item || 'N/A')
-    console.log('==================================\n')
-
-    return { copyrightType, unlockLock, encryption, hlsMetadata, isPremium }
-  }, [post, postIdParam])
-
-  // Check subscription status (only if there's a lock address)
-  const {
-    isSubscribed,
-    isLoading: isSubscriptionLoading,
-    isPurchasing,
-    subscribe,
-    keyPrice,
-    durationDays,
-  } = useSubscription({
-    lockAddress: unlockLock || undefined,
-    userAddress: pkpAddress || undefined,
-    pkpAuthContext,
-    pkpInfo,
-  })
 
   // Memoize video data to prevent re-renders
   const videoData = useMemo<VideoPostData | null>(() => {
@@ -230,21 +141,12 @@ export function VideoDetailPage() {
       geniusId,
       videoUrl,
       thumbnailUrl,
-      isPremium,
-      userIsSubscribed: isSubscribed,
-      isSubscribing: isPurchasing,
-      isSubscriptionLoading: isSubscriptionLoading,
       likes: 0, // TODO: Add from post stats
       comments: 0, // TODO: Add from post stats
       shares: 0, // TODO: Add from post stats
       createdAt: post.timestamp,
-      // HLS-specific fields
-      encryption: encryption || undefined,
-      hlsMetadata: hlsMetadata || undefined,
-      pkpInfo: pkpInfo || undefined,
-      authData: authData || undefined,
     }
-  }, [post, account, username, isPremium, isSubscribed, isPurchasing, isSubscriptionLoading, encryption, hlsMetadata, pkpInfo, authData, i18n.language])
+  }, [post, account, username, i18n.language])
 
   // Memoize karaoke lines extraction
   const karaokeLines = useMemo(() => {
@@ -432,24 +334,6 @@ export function VideoDetailPage() {
           navigate(`/song/${videoData.geniusId}`)
         } else {
           console.log('[VideoDetailPage] No geniusId available')
-        }
-      }}
-      onSubscribe={async () => {
-        if (!unlockLock) {
-          console.error('[VideoDetailPage] No lock address found')
-          return
-        }
-
-        console.log('[VideoDetailPage] Subscribing to lock:', unlockLock)
-        console.log('[VideoDetailPage] Lock price:', keyPrice, 'ETH')
-        console.log('[VideoDetailPage] Duration:', durationDays, 'days')
-
-        const result = await subscribe()
-
-        if (result.success) {
-          console.log('[VideoDetailPage] ✅ Subscription successful!', result.txHash)
-        } else {
-          console.error('[VideoDetailPage] ❌ Subscription failed:', result.error)
         }
       }}
     />

@@ -1,10 +1,9 @@
-import { Play, Lock } from '@phosphor-icons/react'
+import { Play } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 export interface VideoThumbnailProps {
   thumbnailUrl: string
   playCount: number
-  isPremium?: boolean
   onClick?: () => void
   className?: string
 }
@@ -16,7 +15,6 @@ export interface VideoThumbnailProps {
 export function VideoThumbnail({
   thumbnailUrl,
   playCount,
-  isPremium,
   onClick,
   className
 }: VideoThumbnailProps) {
@@ -46,13 +44,6 @@ export function VideoThumbnail({
         className="w-full h-full object-cover"
         loading="lazy"
       />
-
-      {/* Premium Badge - top right */}
-      {isPremium && (
-        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-full p-1.5">
-          <Lock weight="fill" className="w-3.5 h-3.5 text-foreground" />
-        </div>
-      )}
 
       {/* Play Count Overlay - bottom left */}
       <div className="absolute bottom-2 left-2 flex items-center gap-1 text-foreground text-base font-semibold">

@@ -4,11 +4,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { VideoPost } from './VideoPost'
 import { VideoPlayer } from './VideoPlayer'
-import { HLSPlayer } from '../video/HLSPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
-import { SubscribeCard } from '../profile/SubscribeCard'
 import { Comment, type CommentData } from './Comment'
 import { CommentInput } from './CommentInput'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
@@ -23,7 +21,6 @@ export interface VideoDetailProps extends VideoPostData {
   onProfileClick?: () => void
   onAudioClick?: () => void
   onClose?: () => void
-  onSubscribe?: () => void | Promise<void>
 
   // Navigation
   currentVideoIndex?: number
@@ -78,10 +75,6 @@ export function VideoDetail({
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
-
-  const handleHLSError = useCallback((error: Error) => {
-    // HLS playback error - handled by HLSPlayer component
-  }, [])
 
   // Format engagement counts
   const formatCount = (count: number): string => {
@@ -188,70 +181,26 @@ export function VideoDetail({
         {/* Video Container - 9:16 aspect ratio, centered */}
         <div
           ref={videoContainerRef}
-          className={cn(
-            "relative bg-background rounded-lg overflow-hidden",
-            !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && "cursor-pointer"
-          )}
+          className="relative bg-background rounded-lg overflow-hidden cursor-pointer"
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
           onClick={(e) => {
             console.log('[VideoDetail] Container clicked!', e.target)
-            if (!(videoPostProps.isPremium && !videoPostProps.userIsSubscribed)) {
-              handleTogglePlay()
-            }
+            handleTogglePlay()
           }}
         >
-          {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
-          {videoPostProps.isPremium &&
-           videoPostProps.userIsSubscribed &&
-           videoPostProps.encryption &&
-           videoPostProps.hlsMetadata &&
-           videoPostProps.pkpInfo &&
-           videoPostProps.authData ? (
-            <HLSPlayer
-              playlistUrl={videoPostProps.videoUrl || ''}
-              thumbnailUrl={videoPostProps.thumbnailUrl}
-              hlsMetadata={videoPostProps.hlsMetadata}
-              encryption={videoPostProps.encryption}
-              pkpInfo={videoPostProps.pkpInfo}
-              authData={videoPostProps.authData}
-              isPlaying={isPlaying}
-              isMuted={isMuted}
-              loop={true}
-              controls={false}
-              className="absolute inset-0 w-full h-full object-cover"
-              onTogglePlay={handleTogglePlay}
-              onError={handleHLSError}
-              onTimeUpdate={onTimeUpdate}
-              onPlayFailed={handlePlayFailed}
-            />
-          ) : (
-            <VideoPlayer
-              videoUrl={videoPostProps.videoUrl}
-              thumbnailUrl={videoPostProps.thumbnailUrl}
-              isPlaying={isPlaying}
-              isMuted={isMuted}
-              onTogglePlay={handleTogglePlay}
-              onPlayFailed={handlePlayFailed}
-              onTimeUpdate={onTimeUpdate}
-              forceShowThumbnail={videoPostProps.isPremium && !videoPostProps.userIsSubscribed}
-            />
-          )}
-
-          {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}
-          {videoPostProps.isPremium && !videoPostProps.userIsSubscribed && !videoPostProps.isSubscriptionLoading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
-              <SubscribeCard
-                username={videoPostProps.username}
-                userAvatar={videoPostProps.userAvatar}
-                onSubscribe={videoPostProps.onSubscribe}
-                isLoading={videoPostProps.isSubscribing}
-                className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
-              />
-            </div>
-          )}
+          {/* Video Player */}
+          <VideoPlayer
+            videoUrl={videoPostProps.videoUrl}
+            thumbnailUrl={videoPostProps.thumbnailUrl}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            onTogglePlay={handleTogglePlay}
+            onPlayFailed={handlePlayFailed}
+            onTimeUpdate={onTimeUpdate}
+          />
 
           {/* Karaoke Overlay */}
-          {videoPostProps.karaokeLines && videoPostProps.karaokeLines.length > 0 && !(videoPostProps.isPremium && !videoPostProps.userIsSubscribed) && (
+          {videoPostProps.karaokeLines && videoPostProps.karaokeLines.length > 0 && (
             <KaraokeOverlay
               lines={videoPostProps.karaokeLines}
               currentTime={currentTime}

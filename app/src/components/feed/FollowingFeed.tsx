@@ -91,8 +91,6 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
           )
           .map(post => {
             const video = post.metadata as VideoMetadata
-            const copyrightType = post.metadata.tags?.includes('copyrighted') ? 'copyrighted' : 'copyright-free'
-            const isEncrypted = post.metadata.tags?.includes('encrypted') ?? false
 
             // Extract metadata from attributes
             const geniusIdAttr = video.attributes?.find(a => a.key === 'genius_id')
@@ -168,30 +166,6 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
             // Check follow status
             const isFollowedByMe = post.author.operations?.isFollowedByMe ?? true // Default to true for Following feed
 
-            // Extract encryption data for premium content
-            let encryption, hlsMetadata, pkpInfo, authData
-            if (copyrightType === 'copyrighted' && isEncrypted) {
-              const encryptionAttr = video.attributes?.find(a => a.key === 'encryption')
-              if (encryptionAttr?.value) {
-                try {
-                  encryption = JSON.parse(encryptionAttr.value)
-                } catch (e) {
-                  console.warn('[FollowingFeed] Failed to parse encryption data:', e)
-                }
-              }
-
-              const hlsAttr = video.attributes?.find(a => a.key === 'hls')
-              if (hlsAttr?.value) {
-                try {
-                  hlsMetadata = JSON.parse(hlsAttr.value)
-                } catch (e) {
-                  console.warn('[FollowingFeed] Failed to parse HLS data:', e)
-                }
-              }
-
-              // TODO: Extract PKP info and auth data from post attributes
-            }
-
             return {
               id: post.id,
               videoUrl,
@@ -213,15 +187,6 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
               isLiked: likedMap.get(post.id) ?? false, // Check from reaction status
               isFollowing: isFollowedByMe, // Check from operations field
               canInteract: true, // User is authenticated
-              isPremium: copyrightType === 'copyrighted',
-              userIsSubscribed: false, // TODO: Check subscription status
-              isSubscribing: false,
-              isSubscriptionLoading: false,
-              // Premium content data
-              encryption,
-              hlsMetadata,
-              pkpInfo,
-              authData,
             }
           })
 

@@ -63,8 +63,6 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     )
     .map(post => {
       const video = post.metadata as VideoMetadata
-      const copyrightType = post.metadata.tags?.includes('copyrighted') ? 'copyrighted' : 'copyright-free'
-      const isEncrypted = post.metadata.tags?.includes('encrypted') ?? false
 
       // Extract metadata from attributes
       const geniusIdAttr = video.attributes?.find(a => a.key === 'genius_id')
@@ -161,15 +159,6 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         isLiked: likedPostsMap.get(post.id) ?? false, // Check from reaction status
         isFollowing: isFollowedByMe, // Check follow status from operations field
         canInteract: isAuthenticated, // Enable interactions when user is signed in
-        isPremium: copyrightType === 'copyrighted',
-        userIsSubscribed: false, // Always false for copyright-free feed
-        isSubscribing: false,
-        isSubscriptionLoading: false,
-        // Encrypted video data (not needed for copyright-free feed)
-        encryption: undefined,
-        hlsMetadata: undefined,
-        pkpInfo: undefined,
-        authData: undefined,
       }
     })
 

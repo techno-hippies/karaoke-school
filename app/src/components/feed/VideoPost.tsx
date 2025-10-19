@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { VideoPlayer } from './VideoPlayer'
-import { HLSPlayer } from '../video/HLSPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { VideoActions } from './VideoActions'
 import { VideoInfo } from './VideoInfo'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
-import { SubscribeCard } from '../profile/SubscribeCard'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
 import type { VideoPostData } from './types'
 
@@ -46,21 +44,12 @@ export function VideoPost({
   isLiked = false,
   isFollowing = false,
   canInteract = false,
-  isPremium = false,
-  userIsSubscribed = false,
-  isSubscribing = false,
-  isSubscriptionLoading = false,
-  encryption,
-  hlsMetadata,
-  pkpInfo,
-  authData,
   onLikeClick,
   onCommentClick,
   onShareClick,
   onFollowClick,
   onProfileClick,
   onAudioClick,
-  onSubscribe,
   autoplay = true,
   className,
   karaokeClassName
@@ -79,10 +68,6 @@ export function VideoPost({
   const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
-
-  const handleHLSError = useCallback((error: Error) => {
-    console.error('[VideoPost] HLS playback error:', error)
-  }, [])
 
   const handleCommentClick = () => {
     setCommentSheetOpen(true)
@@ -104,58 +89,19 @@ export function VideoPost({
         ref={videoContainerRef}
         className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-background md:rounded-lg overflow-hidden"
       >
-        {/* Video Player - Use HLS player for encrypted videos if user is subscribed */}
-        {isPremium &&
-         userIsSubscribed &&
-         encryption &&
-         hlsMetadata &&
-         pkpInfo &&
-         authData ? (
-          <HLSPlayer
-            playlistUrl={videoUrl || ''}
-            thumbnailUrl={thumbnailUrl}
-            hlsMetadata={hlsMetadata}
-            encryption={encryption}
-            pkpInfo={pkpInfo}
-            authData={authData}
-            isPlaying={isPlaying}
-            isMuted={isMuted}
-            loop={true}
-            controls={false}
-            className="absolute inset-0 w-full h-full object-cover"
-            onTogglePlay={handleTogglePlay}
-            onError={handleHLSError}
-            onTimeUpdate={handleTimeUpdate}
-            onPlayFailed={handlePlayFailed}
-          />
-        ) : (
-          <VideoPlayer
-            videoUrl={videoUrl}
-            thumbnailUrl={thumbnailUrl}
-            isPlaying={isPlaying}
-            isMuted={isMuted}
-            onTogglePlay={handleTogglePlay}
-            onPlayFailed={handlePlayFailed}
-            onTimeUpdate={handleTimeUpdate}
-            forceShowThumbnail={isPremium && !userIsSubscribed}
-          />
-        )}
-
-        {/* Premium Lock Overlay - show when video is locked (but not while subscription status is loading) */}
-        {isPremium && !userIsSubscribed && !isSubscriptionLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-30 pointer-events-auto">
-            <SubscribeCard
-              username={username}
-              userAvatar={userAvatar}
-              onSubscribe={onSubscribe}
-              isLoading={isSubscribing}
-              className="bg-card/90 rounded-lg px-6 py-6 w-[calc(100%-2rem)] max-w-md mx-auto"
-            />
-          </div>
-        )}
+        {/* Video Player */}
+        <VideoPlayer
+          videoUrl={videoUrl}
+          thumbnailUrl={thumbnailUrl}
+          isPlaying={isPlaying}
+          isMuted={isMuted}
+          onTogglePlay={handleTogglePlay}
+          onPlayFailed={handlePlayFailed}
+          onTimeUpdate={handleTimeUpdate}
+        />
 
         {/* Karaoke Overlay - top-center lyrics */}
-        {karaokeLines && karaokeLines.length > 0 && !(isPremium && !userIsSubscribed) && (
+        {karaokeLines && karaokeLines.length > 0 && (
           <KaraokeOverlay
             lines={karaokeLines}
             currentTime={currentTime}

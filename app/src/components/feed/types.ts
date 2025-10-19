@@ -1,8 +1,5 @@
 // Shared types for VideoPost components
 
-import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
-import type { PKPInfo, AuthData } from '@/lib/lit-webauthn/types'
-
 export interface KaraokeLine {
   text: string
   translation?: string
@@ -43,16 +40,6 @@ export interface VideoPostData {
   isLiked?: boolean
   isFollowing?: boolean
   canInteract?: boolean // Can like/comment/follow
-  // Premium content
-  isPremium?: boolean // Requires subscription to play
-  userIsSubscribed?: boolean // User has active subscription
-  isSubscribing?: boolean // Subscription purchase in progress
-  isSubscriptionLoading?: boolean // Subscription status check in progress
-  // HLS encrypted video support
-  encryption?: EncryptionMetadata // Encryption metadata for decrypting segments
-  hlsMetadata?: HLSMetadata // HLS segment URIs and metadata
-  pkpInfo?: PKPInfo // PKP information for decryption
-  authData?: AuthData // WebAuthn auth data for decryption
 }
 
 export interface VideoPlayerProps {
