@@ -67,10 +67,10 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Karaoke Pipeline ===
   matchSegment: {
-    cid: 'QmQtXQCMSjaeD7jCgvH6u7cnq2mFnucLieB3CaEsSA9HjN',
-    name: 'Match and Segment v9 (SC Fallback)',
-    source: 'lit-actions/src/karaoke/match-and-segment-v9.js',
-    deployedAt: '2025-10-17',
+    cid: 'QmbqMqiHAcJNU9p2qfHv5s9Kb5bf6RLN8nxWAkyMSo6Q1G',
+    name: 'Match and Segment v10 (geniusArtistId Support)',
+    source: 'lit-actions/src/karaoke/match-and-segment-v10.js',
+    deployedAt: '2025-10-19',
   },
   baseAlignment: {
     cid: 'QmVjCaNCS45BECxgbjHExDn7VikFLpeZXjXDEF4Nta691e',
