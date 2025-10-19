@@ -278,9 +278,12 @@ const go = async () => {
   try {
     // Step 1: Decrypt Voxstral API key (skip in test mode)
     let voxstralKey = null;
-    const testMode = audioBlob === 'base64_audio_data_here' || jsParams.testMode === true;
+    const testMode = jsParams.testMode === true || !voxstralKeyCiphertext || voxstralKeyCiphertext === '';
 
-    if (!testMode) {
+    console.log('Test mode enabled:', testMode);
+    console.log('Has voxstral ciphertext:', !!voxstralKeyCiphertext);
+
+    if (!testMode && voxstralKeyCiphertext && voxstralKeyAccessControlConditions?.length > 0) {
       console.log('[1/5] Decrypting Voxstral API key...');
       voxstralKey = await Lit.Actions.decryptAndCombine({
         accessControlConditions: voxstralKeyAccessControlConditions,

@@ -96,8 +96,8 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Study & FSRS ===
   studyScorer: {
-    cid: 'QmVFp9WvRQTvYQKhYHjCUHw1pWx6hGzTVNWoX73TUwY39L',
-    name: 'Study Scorer v1',
+    cid: 'QmTnfuMR8Z8uszU8kwQwmn74W3LZubpGiFceMy51ac5FL7',
+    name: 'Study Scorer v1 (Fixed testMode detection)',
     source: 'lit-actions/src/karaoke/study-scorer-v1.js',
     deployedAt: '2025-10-19',
   },
