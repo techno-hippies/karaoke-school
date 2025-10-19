@@ -90,8 +90,9 @@ export async function executeStudyScorer(
       accessControlConditions: []
     }
 
+    // Pass authContext - Lit Action signs with hardcoded SYSTEM_PKP
     const result = await litClient.executeJs({
-      ipfsId: LIT_ACTIONS.studyScorer, // TODO: Deploy and add CID to config
+      ipfsId: LIT_ACTIONS.studyScorer,
       authContext,
       jsParams: {
         userAddress,

@@ -153,17 +153,24 @@ const go = async () => {
 
     const totalTime = (Date.now() - pipelineStartTime) / 1000;
 
-    console.log('[Artist Profile v2] ✅ Profile generation complete');
+    console.log('[Artist Profile v2] Render API response received');
     console.log(`  Total time: ${totalTime}s`);
-    console.log(`  Artist: ${result.artistName}`);
-    console.log(`  PKP: ${result.pkpAddress}`);
-    console.log(`  Lens: ${result.lensHandle}`);
-    console.log(`  Registry Tx: ${result.registryTxHash}`);
 
+    // Log full response for debugging
     console.log('[Artist Profile v2] Render response:');
     console.log(JSON.stringify(result, null, 2));
 
+    // Check if result is valid
+    if (!result) {
+      throw new Error('No response received from Render service');
+    }
+
     if (result.success) {
+      console.log('[Artist Profile v2] ✅ Profile generation complete');
+      console.log(`  Artist: ${result.artistName}`);
+      console.log(`  PKP: ${result.pkpAddress}`);
+      console.log(`  Lens: ${result.lensHandle}`);
+      console.log(`  Registry Tx: ${result.registryTxHash}`);
       // Success! Return profile data
       Lit.Actions.setResponse({
         response: JSON.stringify({

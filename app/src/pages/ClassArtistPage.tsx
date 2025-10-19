@@ -1,19 +1,24 @@
 /**
- * ClassArtistPage - Container for individual artist detail page
+ * ClassArtistPage - On-Demand Artist Profile Generation
  *
  * Flow:
- * 1. Check ArtistRegistryV1 for Lens profile (redirect if exists)
- * 2. Load artist metadata via Lit Action (Genius API)
- * 3. Display artist info + top 10 songs
- * 4. Navigate to songs when clicked
+ * 1. Check ArtistRegistry for existing Lens profile → Redirect if exists
+ * 2. If NOT exists → Trigger automatic profile generation via Lit Action
+ * 3. Show "Generating profile..." state (15-30s)
+ * 4. Redirect to /u/:username when profile is ready
+ *
+ * This ensures EVERY Genius artist automatically gets a Lens profile when accessed.
  */
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArtistPage, type ArtistSong } from '@/components/class/ArtistPage'
 import { useAuth } from '@/contexts/AuthContext'
 import { useArtistData } from '@/hooks/useArtistData'
 import { useArtistProfileUrl } from '@/hooks/useArtistRegistry'
+import { hasLensProfile } from '@/lib/genius/artist-lookup'
+import { executeGenerateProfile } from '@/lib/lit/actions'
+import { toast } from 'sonner'
 
 export function ClassArtistPage() {
   const navigate = useNavigate()

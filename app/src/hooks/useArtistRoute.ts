@@ -1,38 +1,32 @@
-import { useState, useEffect } from 'react'
-import { getArtistRoute } from '@/lib/genius/artist-lookup'
+import { useMemo } from 'react'
 
 /**
- * Pre-fetch artist route for instant navigation
+ * Generate artist route from artist name
  *
- * This hook is MUCH simpler than originally proposed because:
- * - Song data from KaraokeCatalog already includes geniusArtistId
- * - We just pre-fetch the Lens username when song loads
- * - Clicking artist is instant (no async delay)
+ * Sanitizes artist name to create Lens-compatible username.
+ * This matches the logic used in profile generation so navigation is instant.
+ *
+ * Examples:
+ * - "Charli XCX" → "/u/charlixcx"
+ * - "Taylor Swift" → "/u/taylorswift"
+ * - "21 Savage" → "/u/21savage"
  *
  * Usage:
  * ```typescript
- * const artistRoute = useArtistRoute(displaySong?.geniusArtistId)
- * const handleClick = () => navigate(artistRoute)  // Instant!
+ * const route = useArtistRoute(displaySong?.artist)
+ * navigate(route, { state: { geniusArtistId } })
  * ```
  */
-export function useArtistRoute(geniusArtistId: number | undefined): string | null {
-  const [route, setRoute] = useState<string | null>(null)
+export function useArtistRoute(artistName: string | undefined): string | null {
+  return useMemo(() => {
+    if (!artistName) return null
 
-  useEffect(() => {
-    if (!geniusArtistId) {
-      setRoute(null)
-      return
-    }
+    // Sanitize artist name to username (same logic as profile generation)
+    const username = artistName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric chars
+      .slice(0, 26) // Lens username max length
 
-    // Pre-fetch route when song data is available
-    getArtistRoute(geniusArtistId)
-      .then(r => setRoute(r))
-      .catch(err => {
-        console.error('[useArtistRoute] Failed to fetch route:', err)
-        // Fallback to generic artist route
-        setRoute(`/artist/${geniusArtistId}`)
-      })
-  }, [geniusArtistId])
-
-  return route
+    return `/u/${username}`
+  }, [artistName])
 }

@@ -62,8 +62,8 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Artist Profile Generation ===
   generateProfile: {
-    cid: 'QmbZPDYwPxZFViXfq9rwsx5B1AwHpnCAmS1AEgmBd4HeFk',
-    name: 'Generate Artist Profile v2',
+    cid: 'QmWnKqkHqm7XKScJyy2e2ZEB9bTj7LtoaJszQtxXkcTRAm',
+    name: 'Generate Artist Profile v2 (Fixed error handling)',
     source: 'lit-actions/src/artist/generate-profile-v2.js',
     deployedAt: '2025-10-19',
   },
@@ -96,7 +96,7 @@ const LIT_ACTIONS_PRODUCTION: Record<string, LitActionConfig> = {
 
   // === Study & FSRS ===
   studyScorer: {
-    cid: 'QmXe5H4WXrreaZKRrGRXoD7dVfMAXr4ahCUa137kZ6qX6i',
+    cid: 'QmVFp9WvRQTvYQKhYHjCUHw1pWx6hGzTVNWoX73TUwY39L',
     name: 'Study Scorer v1',
     source: 'lit-actions/src/karaoke/study-scorer-v1.js',
     deployedAt: '2025-10-19',

@@ -477,7 +477,7 @@ const go = async () => {
           provider.getGasPrice()
         ]);
 
-        // Gas: ~60k base + 30k per line (conservative estimate)
+        // Gas: ~60k base + 30k per line
         const gasLimit = 60000 + (lineIndices.length * 30000);
 
         const unsignedTx = {
@@ -489,13 +489,15 @@ const go = async () => {
           chainId: 84532
         };
 
-        const transactionHash = ethers.utils.keccak256(ethers.utils.serializeTransaction(unsignedTx));
-        const toSign = ethers.utils.arrayify(transactionHash);
-
+        // Strip 0x prefix from publicKey if present (match-and-segment pattern)
         let publicKeyForSigning = SYSTEM_PKP.publicKey;
         if (publicKeyForSigning.startsWith('0x')) {
           publicKeyForSigning = publicKeyForSigning.substring(2);
         }
+
+        // Sign transaction hash
+        const transactionHash = ethers.utils.keccak256(ethers.utils.serializeTransaction(unsignedTx));
+        const toSign = ethers.utils.arrayify(transactionHash);
 
         const signature = await Lit.Actions.signAndCombineEcdsa({
           toSign: toSign,
@@ -503,10 +505,12 @@ const go = async () => {
           sigName: 'studyScorerTx'
         });
 
+        // Parse and format signature
         const jsonSignature = JSON.parse(signature);
         const rHex = jsonSignature.r.startsWith('0x') ? jsonSignature.r : `0x${jsonSignature.r}`;
         const sHex = jsonSignature.s.startsWith('0x') ? jsonSignature.s : `0x${jsonSignature.s}`;
 
+        // Extract recovery ID
         let recid = 0;
         if (jsonSignature.recid !== undefined) {
           recid = jsonSignature.recid;
@@ -514,12 +518,15 @@ const go = async () => {
           recid = jsonSignature.v >= 27 ? jsonSignature.v - 27 : jsonSignature.v;
         }
 
+        // Calculate EIP-155 v value
         const v = 84532 * 2 + 35 + recid;
         const sigObject = { r: rHex, s: sHex, v: v };
-        const signedTx = ethers.utils.serializeTransaction(unsignedTx, sigObject);
 
+        // Serialize signed transaction
+        const signedTx = ethers.utils.serializeTransaction(unsignedTx, sigObject);
         console.log('✅ Transaction signed');
 
+        // Submit transaction using runOnce
         const txHashResult = await Lit.Actions.runOnce(
           { waitForResponse: true, name: "studyScorerTx" },
           async () => {
