@@ -43,18 +43,19 @@ export function KaraokeSongPage() {
     pkpAddress || undefined
   )
 
-  // Merge song data: contract (artwork, segments) + state (fallback) + Genius (artistId for navigation)
+  // Merge song data: contract (preferred) + state (fallback) + Genius (last resort)
   // Use stable keys to prevent re-renders
   const song = useMemo(() => {
     if (!songFromContract) return songFromState
     return {
       ...songFromContract,
       artworkUrl: songFromContract.artworkUrl || songFromState?.artworkUrl, // Artwork from contract (Grove) preferred
-      geniusArtistId: fetchedSong?.geniusArtistId || songFromState?.geniusArtistId
+      geniusArtistId: songFromContract.geniusArtistId || fetchedSong?.geniusArtistId || songFromState?.geniusArtistId // Contract first, then Genius API fallback
     }
   }, [
     songFromContract?.id,
     songFromContract?.artworkUrl,
+    songFromContract?.geniusArtistId,
     songFromContract?.hasBaseAlignment,
     songFromContract?.isOwned,
     songFromState?.id,
@@ -70,10 +71,11 @@ export function KaraokeSongPage() {
     [song?.id, song?.artworkUrl, song?.hasBaseAlignment, song?.isOwned, song?.geniusArtistId, fetchedSong?.id, fetchedSong?.geniusArtistId]
   )
 
-  // Fetch song metadata from Genius for artistId and external links (only if not in contract)
+  // Fetch song metadata from Genius as fallback (only if not in contract or missing artistId)
   // NOTE: Artwork now comes from contract (coverUri/thumbnailUri)
   useEffect(() => {
-    if (geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong) {
+    const needsGeniusData = !songFromContract?.geniusArtistId && !songFromState?.geniusArtistId
+    if (geniusId && isPKPReady && pkpAuthContext && !isFetchingSong && !fetchedSong && needsGeniusData) {
       setIsFetchingSong(true)
       const fetchSongMetadata = async () => {
         console.log('[KaraokeSongPage] Fetching artist ID and external links from Genius:', geniusId)
@@ -105,7 +107,7 @@ export function KaraokeSongPage() {
       }
       fetchSongMetadata()
     }
-  }, [geniusId, isPKPReady, pkpAuthContext, isFetchingSong, fetchedSong])
+  }, [geniusId, isPKPReady, pkpAuthContext, isFetchingSong, fetchedSong, songFromContract?.geniusArtistId, songFromState?.geniusArtistId])
 
   // Initialize catalog and unlock hooks
   const catalog = useCatalogSong({

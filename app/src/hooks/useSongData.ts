@@ -182,6 +182,7 @@ export function useSongData(geniusId: number | undefined, userAddress?: string):
       const loadedSong: Song = {
         id: geniusId.toString(),
         geniusId,
+        geniusArtistId: songData.geniusArtistId ? Number(songData.geniusArtistId) : undefined,
         title: songData.title,
         artist: songData.artist,
         artworkUrl: songData.coverUri || songData.thumbnailUri || undefined, // Use contract coverUri (Grove) or thumbnailUri (Genius)
