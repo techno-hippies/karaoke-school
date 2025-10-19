@@ -15,6 +15,18 @@ const ARTIST_REGISTRY_ADDRESS = '0x81cE49c16D2Bf384017C2bCA7FDdACb8A15DECC7' as 
 const BASE_SEPOLIA_RPC = 'https://sepolia.base.org'
 
 const ARTIST_REGISTRY_ABI = [
+  // Custom Errors
+  {
+    name: 'ArtistNotFound',
+    type: 'error',
+    inputs: [{ name: 'geniusArtistId', type: 'uint32' }]
+  },
+  {
+    name: 'ArtistAlreadyExists',
+    type: 'error',
+    inputs: [{ name: 'geniusArtistId', type: 'uint32' }]
+  },
+  // Functions
   {
     name: 'getGeniusIdByLensHandle',
     type: 'function',
@@ -111,8 +123,13 @@ export async function getLensUsername(geniusArtistId: number): Promise<string | 
       args: [geniusArtistId]
     })
     return handle || null
-  } catch (error) {
-    console.error('[getLensUsername] Error fetching handle:', error)
+  } catch (error: any) {
+    // Handle ArtistNotFound error gracefully (artist not registered in contract)
+    if (error?.message?.includes('ArtistNotFound') || error?.message?.includes('0x7614087b')) {
+      console.log(`[getLensUsername] Artist ${geniusArtistId} not registered in contract`)
+      return null
+    }
+    console.error('[getLensUsername] Unexpected error fetching handle:', error)
     return null
   }
 }
