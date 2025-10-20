@@ -1,0 +1,17 @@
+{
+  "_description": "Artist configuration for pipeline",
+  "artists": [
+    {
+      "name": "beyonce",
+      "geniusArtistId": 498,
+      "handle": "beyonce",
+      "bio": "Queen Bey - Multi-Grammy winning artist"
+    },
+    {
+      "name": "taylorswift",
+      "geniusArtistId": 1177,
+      "handle": "taylorswift",
+      "bio": "Pop icon and storyteller extraordinaire"
+    }
+  ]
+}

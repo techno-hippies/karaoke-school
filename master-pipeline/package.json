@@ -1,0 +1,30 @@
+{
+  "name": "karaoke-school-master-pipeline",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Master pipeline for karaoke school: artists, songs, and segments",
+  "scripts": {
+    "pipeline-artist": "dotenvx run -- bun run scripts/pipeline-artist.ts",
+    "pipeline-song": "dotenvx run -- bun run scripts/pipeline-song.ts",
+    "pipeline-full": "dotenvx run -- bun run scripts/pipeline-full.ts",
+    "validate": "bun run scripts/validate-data.ts",
+    "sync-contracts": "dotenvx run -- bun run scripts/sync-contracts.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.24.0",
+    "@lens-chain/sdk": "^1.0.3",
+    "@lens-chain/storage-client": "^1.0.6",
+    "@lens-protocol/client": "^0.0.0-canary-20250430134539",
+    "@lens-protocol/metadata": "^2.1.0",
+    "@lit-protocol/access-control-conditions": "^8.0.2",
+    "@lit-protocol/auth": "^8.0.2",
+    "@lit-protocol/lit-client": "8.0.2",
+    "@lit-protocol/networks": "8.0.2",
+    "viem": "^2.21.54",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
