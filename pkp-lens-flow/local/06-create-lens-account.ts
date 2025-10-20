@@ -35,6 +35,7 @@ const { values } = parseArgs({
   args: process.argv.slice(2),
   options: {
     creator: { type: 'string', short: 'c' },
+    username: { type: 'string', short: 'u' },
   },
 });
 
@@ -60,7 +61,7 @@ interface LensAccountData {
   transactionHash?: string;
 }
 
-async function createLensAccount(tiktokHandle: string): Promise<LensAccountData> {
+async function createLensAccount(tiktokHandle: string, desiredUsername?: string): Promise<LensAccountData> {
   console.log('\n👤 Step 2: Creating Lens Account for TikTok Creator');
   console.log('═══════════════════════════════════════════════════\n');
 
@@ -168,7 +169,8 @@ async function createLensAccount(tiktokHandle: string): Promise<LensAccountData>
   const sessionClient = authenticated.value;
 
   // 7. Create account metadata
-  const lensHandle = (desiredLensHandle || cleanHandle).toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Priority: --username param > manifest lensHandle > creator handle
+  const lensHandle = (desiredUsername || desiredLensHandle || cleanHandle).toLowerCase().replace(/[^a-z0-9]/g, '');
 
   console.log('📝 Creating account metadata...');
 
@@ -323,11 +325,11 @@ async function main() {
 
     if (!creator) {
       console.error('\n❌ Error: --creator argument required\n');
-      console.log('Usage: bun run local/2-create-lens-account.ts --creator @charlidamelio\n');
+      console.log('Usage: bun run local/06-create-lens-account.ts --creator @charlidamelio --username charlidamelio\n');
       process.exit(1);
     }
 
-    await createLensAccount(creator);
+    await createLensAccount(creator, values.username);
     console.log('✨ Done!\n');
     process.exit(0);
 
