@@ -199,7 +199,7 @@ export function SongPage({
               </TabsContent>
             </Tabs>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Sticky Footer with Study and Karaoke buttons */}
         {(onStudy || onKaraoke) && (

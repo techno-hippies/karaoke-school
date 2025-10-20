@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { WalletPage } from '@/pages/WalletPage'
 
 /**
  * App - Clean routing architecture
@@ -9,6 +10,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
  * /u/:lensHandle/video/:postId - Video detail (TikTok sidebar)
  * /song/:geniusId - Song overview (all segments)
  * /song/:geniusId/segment/:segmentId - Study a segment
+ * /wallet - Wallet balances and address
  */
 function App() {
   return (
@@ -19,6 +21,7 @@ function App() {
         <Route path="/u/:lensHandle/video/:postId" element={<div>Video Detail</div>} />
         <Route path="/song/:geniusId" element={<div>Song Overview</div>} />
         <Route path="/song/:geniusId/segment/:segmentId" element={<div>Study Segment</div>} />
+        <Route path="/wallet" element={<WalletPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

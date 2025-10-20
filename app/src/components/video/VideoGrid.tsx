@@ -12,6 +12,7 @@ export interface VideoGridProps {
   videos: VideoPost[]
   onVideoClick?: (video: VideoPost) => void
   isLoading?: boolean
+  showUsernames?: boolean
   className?: string
 }
 
@@ -25,6 +26,7 @@ export function VideoGrid({
   videos,
   onVideoClick,
   isLoading = false,
+  showUsernames = true,
   className
 }: VideoGridProps) {
   // Loading skeleton
@@ -65,7 +67,7 @@ export function VideoGrid({
           <VideoThumbnail
             key={video.id}
             thumbnailUrl={video.thumbnailUrl}
-            username={video.username}
+            username={showUsernames ? video.username : undefined}
             onClick={() => onVideoClick?.(video)}
           />
         ))}

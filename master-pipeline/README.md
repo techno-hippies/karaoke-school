@@ -212,18 +212,26 @@ bun run segments/02-process-segment --segment-id {hash}
    - Deepinfra/OpenRouter (STT for matching)
 
 3. **Tools**
-   - ffmpeg (audio processing)
-   - demucs (stem separation)
-   - fal.ai API (audio2audio)
+   - `ffmpeg` (audio processing) - install via package manager
+   - `demucs` (stem separation) - see [SETUP_DEMUCS.md](./SETUP_DEMUCS.md)
+   - `fal.ai` API (audio2audio) - API key required
 
 ### Environment Setup
 ```bash
 cd master-pipeline
+
+# Install TypeScript dependencies
 bun install
+
+# Setup Python venv for TikTok scraper + Demucs
+uv venv
+uv pip install hrequests "numpy<2" "demucs==4.0.1" soundfile
 
 # Copy .env.example to .env and fill in values
 cp .env.example .env
 ```
+
+See [SETUP_DEMUCS.md](./SETUP_DEMUCS.md) for detailed Demucs installation guide.
 
 ### Example: Create Beyoncé with "CUFF IT" segment
 
