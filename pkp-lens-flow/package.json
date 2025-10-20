@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "mint-pkp": "dotenvx run -- bun run local/01-mint-pkp.ts",
+    "init-artist-manifest": "bun run local/02-init-artist-manifest.ts",
     "crawl-tiktok": "cd services/crawler && python3 tiktok_crawler.py",
     "convert-videos": "bun run local/03-convert-videos.ts",
     "upload-profile-avatar": "dotenvx run -- bun run local/04-upload-profile-avatar.ts",
