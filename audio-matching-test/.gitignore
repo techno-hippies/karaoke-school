@@ -1,0 +1,13 @@
+# Test outputs
+output_segment.mp3
+crop_instructions.json
+*_extracted.mp3
+*.pyc
+__pycache__/
+
+# Test data - original songs (too large for git)
+test-cases/*/original.*
+
+# Keep test structure but ignore large files
+!test-cases/*/.gitkeep
+!test-cases/*/metadata.json

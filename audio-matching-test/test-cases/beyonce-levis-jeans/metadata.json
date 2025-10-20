@@ -1,0 +1,23 @@
+{
+  "testId": "beyonce-levis-jeans",
+  "artist": "Beyoncé feat. Post Malone",
+  "songTitle": "LEVII'S JEANS",
+  "album": "COWBOY CARTER",
+  "isrc": "USSM12402718",
+  "spotifyId": "2UDARQiksl207HcSduDpov",
+  "geniusId": null,
+  "tiktokCreator": "@beyonce",
+  "tiktokPostId": "7420654552413687071",
+  "expectedMatch": {
+    "startTime": 45.0,
+    "endTime": 75.0,
+    "section": "chorus",
+    "notes": "Main chorus section with 'pretty little thing' lyrics"
+  },
+  "files": {
+    "original": "original.flac",
+    "clip": "tiktok_clip.mp4",
+    "lyrics": "lyrics.txt",
+    "segments": "segments.json"
+  }
+}

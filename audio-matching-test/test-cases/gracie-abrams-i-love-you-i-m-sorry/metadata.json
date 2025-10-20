@@ -1,0 +1,24 @@
+{
+  "testId": "gracie-abrams-i-love-you-i-m-sorry",
+  "artist": "Gracie Abrams",
+  "songTitle": "I Love You, I'm Sorry",
+  "album": "The Secret of Us",
+  "isrc": "USUG12401766",
+  "spotifyId": "51rfRCiUSvxXlCSCfIztBy",
+  "geniusId": null,
+  "tiktokCreator": "@tehegracietehe",
+  "tiktokPostId": "7392640645145316651",
+  "tiktokUrl": "https://www.tiktok.com/@tehegracietehe/video/7392640645145316651",
+  "expectedMatch": {
+    "startTime": null,
+    "endTime": null,
+    "section": null,
+    "notes": "Manual verification needed - run test to get actual match"
+  },
+  "files": {
+    "original": "original.mp3",
+    "clip": "tiktok_clip.mp4",
+    "lyrics": null,
+    "segments": null
+  }
+}

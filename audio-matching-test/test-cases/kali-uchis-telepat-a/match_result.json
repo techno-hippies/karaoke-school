@@ -1,0 +1,13 @@
+{
+  "startTime": 12.039,
+  "endTime": 12.039,
+  "duration": 0,
+  "confidence": 1,
+  "startIdx": 0,
+  "geminiEndIdx": 4,
+  "clipVocalDuration": 0,
+  "clipVocalStart": 0,
+  "clipVocalEnd": 0,
+  "clipTranscript": "(música)",
+  "method": "forced_alignment_with_gemini"
+}

@@ -1,0 +1,13 @@
+{
+  "startTime": 113.576,
+  "endTime": 127.97699999999999,
+  "duration": 14.400999999999996,
+  "confidence": 1,
+  "startIdx": 504,
+  "geminiEndIdx": 572,
+  "clipVocalDuration": 14.401,
+  "clipVocalStart": 0.579,
+  "clipVocalEnd": 14.98,
+  "clipTranscript": "So, we had a conversation on the way home. Should I stop my birth control? 'Cause my career still feels small in the existential scheme of it all. I tell ya (ooh-ooh-ooh), I fall in love (ooh-ooh-ooh).",
+  "method": "forced_alignment_with_gemini"
+}

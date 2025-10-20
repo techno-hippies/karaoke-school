@@ -1,0 +1,13 @@
+{
+  "startTime": 7.759,
+  "endTime": 40.68,
+  "duration": 32.921,
+  "confidence": 1,
+  "startIdx": 0,
+  "geminiEndIdx": 42,
+  "clipVocalDuration": 32.921,
+  "clipVocalStart": 0.119,
+  "clipVocalEnd": 33.04,
+  "clipTranscript": "Swirl.   Don't   judge   me,   baby.   (laughs)   You   would   never   judge   me,   baby.   Bottle   in   my   hand,   my   whiskey   up   high.   Two   hands   to   heaven,   coyotes   run   wild,   oh.   Oh,   oh,   God   only,   God   only   knows   why   though.   Why,   why,   why.   Ten   thousand   steps   towards   the   time   of   your   life.   Two   hands   to   heaven,   my   whiskey   up   high,   oh.   Oh-oh.",
+  "method": "forced_alignment_with_gemini"
+}

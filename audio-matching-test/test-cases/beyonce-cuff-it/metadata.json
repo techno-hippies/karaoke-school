@@ -1,0 +1,24 @@
+{
+  "testId": "beyonc-cuff-it",
+  "artist": "Beyoncé",
+  "songTitle": "CUFF IT",
+  "album": "RENAISSANCE",
+  "isrc": "USSM12206232",
+  "spotifyId": "1xzi1Jcr7mEi9K2RfzLOqS",
+  "geniusId": null,
+  "tiktokCreator": "@beyonce",
+  "tiktokPostId": "7159048978569497902",
+  "tiktokUrl": "https://www.tiktok.com/@beyonce/video/7159048978569497902",
+  "expectedMatch": {
+    "startTime": null,
+    "endTime": null,
+    "section": null,
+    "notes": "Manual verification needed - run test to get actual match"
+  },
+  "files": {
+    "original": "original.mp3",
+    "clip": "tiktok_clip.mp4",
+    "lyrics": null,
+    "segments": null
+  }
+}

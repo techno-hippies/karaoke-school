@@ -1,0 +1,24 @@
+{
+  "testId": "kali-uchis-telepat-a",
+  "artist": "Kali Uchis",
+  "songTitle": "telepatía",
+  "album": "Sin Miedo (del Amor y Otros Demonios) ∞",
+  "isrc": "GBUM72005748",
+  "spotifyId": "6tDDoYIxWvMLTdKpjFkc1B",
+  "geniusId": null,
+  "tiktokCreator": "@grimes",
+  "tiktokPostId": "6950474185575582982",
+  "tiktokUrl": "https://www.tiktok.com/@grimes/video/6950474185575582982",
+  "expectedMatch": {
+    "startTime": null,
+    "endTime": null,
+    "section": null,
+    "notes": "Manual verification needed - run test to get actual match"
+  },
+  "files": {
+    "original": "original.mp3",
+    "clip": "tiktok_clip.mp4",
+    "lyrics": null,
+    "segments": null
+  }
+}

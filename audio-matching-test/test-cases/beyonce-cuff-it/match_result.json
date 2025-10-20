@@ -1,0 +1,13 @@
+{
+  "startTime": 165.659,
+  "endTime": 184.5,
+  "duration": 18.841000000000008,
+  "confidence": 1,
+  "startIdx": 694,
+  "geminiEndIdx": 768,
+  "clipVocalDuration": 18.840999999999998,
+  "clipVocalStart": 0.039,
+  "clipVocalEnd": 18.88,
+  "clipTranscript": "play.   Oh   yeah   you   come   and   cuff   it,   cuff   it,   cuff   it,   cuff   it,   baby   while   I   buss   it,   buss   it,   buss   it   for   you   baby.   Oh   baby.   Anywhere,   anytime,   I   don't   mind,   I   don't   mind.",
+  "method": "forced_alignment_with_gemini"
+}
