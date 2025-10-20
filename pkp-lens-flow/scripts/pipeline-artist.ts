@@ -72,7 +72,7 @@ const STEPS: StepDefinition[] = [
     name: 'Create Lens Account',
     script: 'local/06-create-lens-account.ts',
     requiresEnv: true,
-    args: (opts) => ['--creator', `@${opts.handle}`],
+    args: (opts) => ['--creator', `@${opts.handle}`, '--username', opts.username],
   },
   {
     num: 7,
