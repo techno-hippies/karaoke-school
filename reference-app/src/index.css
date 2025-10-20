@@ -4,11 +4,19 @@
 @import "@fontsource/geist/latin-500.css";
 @import "@fontsource/geist/latin-600.css";
 @import "@fontsource/geist/latin-700.css";
+@import "@fontsource/noto-sans-sc/chinese-simplified-400.css";
+@import "@fontsource/noto-sans-sc/chinese-simplified-500.css";
+@import "@fontsource/noto-sans-sc/chinese-simplified-600.css";
+@import "@fontsource/noto-sans-sc/chinese-simplified-700.css";
+@import "@fontsource/noto-sans-tc/chinese-traditional-400.css";
+@import "@fontsource/noto-sans-tc/chinese-traditional-500.css";
+@import "@fontsource/noto-sans-tc/chinese-traditional-600.css";
+@import "@fontsource/noto-sans-tc/chinese-traditional-700.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --font-sans: 'Geist', 'Noto Sans SC', 'Noto Sans TC', -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   --font-serif: ui-serif, Georgia, serif;
   --radius: 0.5rem;
@@ -73,7 +81,7 @@
   --sidebar-accent-foreground: oklch(0.7940 0.1709 71.0585);
   --sidebar-border: oklch(0.3781 0.0242 285.1842);
   --sidebar-ring: oklch(0.65 0.25 240);
-  --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --font-sans: 'Geist', 'Noto Sans SC', 'Noto Sans TC', -apple-system, system-ui, sans-serif;
   --font-serif: ui-serif, Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   --shadow-color: 0 150 255;

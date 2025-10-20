@@ -1,7 +1,10 @@
 import type { Preview } from '@storybook/react-vite'
 import '../src/index.css'
+import { withI18n, globalTypes } from './i18n'
 
 const preview: Preview = {
+  decorators: [withI18n],
+  globalTypes,
   parameters: {
     controls: {
       matchers: {
@@ -26,6 +29,7 @@ const preview: Preview = {
   },
   initialGlobals: {
     backgrounds: { value: 'dark' },
+    locale: 'en',
   },
 };
 

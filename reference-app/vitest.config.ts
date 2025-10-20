@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config.js'
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin'
 import path from 'path'
 

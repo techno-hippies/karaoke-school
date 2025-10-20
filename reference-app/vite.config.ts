@@ -9,6 +9,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      buffer: 'buffer',
     },
+    conditions: ['import', 'module', 'browser', 'default'],
+  },
+  optimizeDeps: {
+    include: ['@lens-chain/sdk/viem', 'buffer'],
+  },
+  define: {
+    'global': 'globalThis',
   },
 })
