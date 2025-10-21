@@ -56,6 +56,21 @@ async function main() {
   console.log(`   Lens Handle: @${lensHandle}\n`);
 
   try {
+    // Check if Lens account already exists
+    const lensPath = paths.creatorLens(tiktokHandle);
+    try {
+      const existingLens = readJson<CreatorLens>(lensPath);
+      logger.warn('Lens account already exists for this creator');
+      console.log(`   Handle: @${existingLens.lensHandle}`);
+      console.log(`   Address: ${existingLens.lensAccountAddress}`);
+      console.log(`   Created: ${existingLens.createdAt}\n`);
+      console.log('✅ Skipping Lens account creation (already exists)');
+      console.log(`   Use existing account or delete ${lensPath} to create new one\n`);
+      return;
+    } catch {
+      // Lens account doesn't exist, continue with creation
+    }
+
     // Load PKP data
     const pkpPath = paths.creatorPkp(tiktokHandle);
     const pkpData = readJson<CreatorPKP>(pkpPath);

@@ -107,6 +107,16 @@ async function main() {
     logger.info(`Copyright: ${manifest.song.copyrightType}`);
     logger.info(`Story mintable: ${manifest.storyMintable}`);
 
+    // Check if already minted
+    if (manifest.storyProtocol) {
+      logger.warn('Story Protocol IP Asset already minted');
+      console.log(`   IP ID: ${manifest.storyProtocol.ipId}`);
+      console.log(`   Minted: ${manifest.storyProtocol.mintedAt}\n`);
+      console.log('✅ Skipping minting (already complete)');
+      console.log(`   Story Explorer: https://explorer.story.foundation/ipa/${manifest.storyProtocol.ipId}\n`);
+      return;
+    }
+
     if (!manifest.storyMintable) {
       throw new Error('Video is not Story Protocol mintable');
     }

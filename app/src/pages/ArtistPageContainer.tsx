@@ -68,13 +68,16 @@ export function ArtistPageContainer() {
   // Transform contract data to component props
   const artist = artistData as any // Type assertion for now
 
-  const songs: ArtistSong[] = (songsData as any[] || []).map((song: any) => ({
-    id: song.geniusId.toString(),
-    title: song.title,
-    artist: song.artist,
-    artworkUrl: song.coverUri, // TODO: Convert grove:// URI to HTTP URL
-    onSongClick: () => navigate(`/song/${song.geniusId}`),
-  }))
+  // Safely transform songs data
+  const songs: ArtistSong[] = Array.isArray(songsData)
+    ? (songsData as any[]).map((song: any) => ({
+        id: song?.geniusId?.toString() || 'unknown',
+        title: song?.title || 'Unknown Song',
+        artist: song?.artist || artist.lensHandle,
+        artworkUrl: song?.coverUri || undefined, // TODO: Convert grove:// URI to HTTP URL
+        onSongClick: () => navigate(`/song/${song?.geniusId}`),
+      }))
+    : []
 
   return (
     <ArtistPage

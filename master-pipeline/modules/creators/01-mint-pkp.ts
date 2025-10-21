@@ -15,7 +15,7 @@ import { nagaDev } from '@lit-protocol/networks';
 import { createWalletClient, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { requireEnv, paths } from '../../lib/config.js';
-import { writeJson, ensureDir } from '../../lib/fs.js';
+import { writeJson, ensureDir, readJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
 import type { CreatorPKP } from '../../lib/schemas/index.js';
 
@@ -65,6 +65,21 @@ async function main() {
   console.log(`   Lens Handle: @${lensHandle}\n`);
 
   try {
+    // Check if PKP already exists
+    const pkpPath = paths.creatorPkp(tiktokHandle);
+    try {
+      const existingPkp = readJson<CreatorPKP>(pkpPath);
+      logger.warn('PKP already exists for this creator');
+      console.log(`   Address: ${existingPkp.pkpEthAddress}`);
+      console.log(`   Token ID: ${existingPkp.pkpTokenId}`);
+      console.log(`   Minted: ${existingPkp.mintedAt}\n`);
+      console.log('✅ Skipping PKP minting (already exists)');
+      console.log(`   Use existing PKP or delete ${pkpPath} to mint new one\n`);
+      return;
+    } catch {
+      // PKP doesn't exist, continue with minting
+    }
+
     // Initialize Lit client
     console.log('🔧 Initializing Lit Protocol client...');
     const litClient = await createLitClient({

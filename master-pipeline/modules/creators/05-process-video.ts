@@ -119,6 +119,33 @@ async function main() {
   logger.header(`Process Video: ${videoId}`);
 
   try {
+    // Create video hash first (to check if already processed)
+    const videoHash = createHash('sha256')
+      .update(`${tiktokHandle}-${videoId}`)
+      .digest('hex')
+      .slice(0, 16);
+
+    // Check if video already processed
+    const videoManifestPath = paths.creatorVideoManifest(tiktokHandle, videoHash);
+    try {
+      const existingManifest = readJson<VideoManifest>(videoManifestPath);
+
+      // Check if fully processed (has Grove URIs)
+      if (existingManifest.grove?.video) {
+        logger.warn('Video already processed');
+        console.log(`   Video Hash: ${videoHash}`);
+        console.log(`   Song: ${existingManifest.song.title}`);
+        console.log(`   Grove Video: ${existingManifest.grove.video}\n`);
+        console.log('✅ Skipping processing (already complete)');
+        console.log(`   Delete ${videoManifestPath} to reprocess\n`);
+        return;
+      } else {
+        logger.info('Video partially processed, continuing...');
+      }
+    } catch {
+      // Manifest doesn't exist, continue with processing
+    }
+
     // Load identified videos
     const creatorDir = paths.creator(tiktokHandle);
     const identifiedPath = `${creatorDir}/identified_videos.json`;
@@ -145,12 +172,6 @@ async function main() {
     logger.info(`Found video: ${video.music.title}`);
     logger.info(`Copyright type: ${video.identification.copyrightType}`);
     logger.info(`Story mintable: ${video.identification.storyMintable}`);
-
-    // Create video hash
-    const videoHash = createHash('sha256')
-      .update(`${tiktokHandle}-${videoId}`)
-      .digest('hex')
-      .slice(0, 16);
 
     // Create working directory
     const videoDir = paths.creatorVideo(tiktokHandle, videoHash);
