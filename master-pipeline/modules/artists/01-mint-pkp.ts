@@ -9,10 +9,10 @@
  */
 
 import { parseArgs } from 'util';
-import { mintPKP } from '../lib/pkp';
-import { paths } from '../lib/config';
-import { writeJson } from '../lib/fs';
-import { logger } from '../lib/logger';
+import { mintPKP } from '../../lib/pkp.js';
+import { paths } from '../../lib/config.js';
+import { writeJson } from '../../lib/fs.js';
+import { logger } from '../../lib/logger.js';
 
 async function main() {
   const { values } = parseArgs({

@@ -9,11 +9,11 @@
  */
 
 import { parseArgs } from 'util';
-import { registerArtist } from '../lib/contracts';
-import { paths } from '../lib/config';
-import { readJson, writeJson } from '../lib/fs';
-import { logger } from '../lib/logger';
-import type { ArtistPKP, ArtistLens, ArtistManifest } from '../lib/types';
+import { registerArtist } from '../../lib/contracts.js';
+import { paths } from '../../lib/config.js';
+import { readJson, writeJson } from '../../lib/fs.js';
+import { logger } from '../../lib/logger.js';
+import type { ArtistPKP, ArtistLens, ArtistManifest } from '../../lib/types.js';
 
 async function main() {
   const { values } = parseArgs({

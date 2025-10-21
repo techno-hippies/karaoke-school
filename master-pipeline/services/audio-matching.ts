@@ -36,6 +36,7 @@ export interface MatchResult {
     artistName: string;
     albumName: string;
   };
+  fullAlignment?: Array<{ start: number; text: string }>; // Full song alignment for cropping
 }
 
 export class AudioMatchingService {
@@ -222,6 +223,7 @@ export class AudioMatchingService {
         artistName: lrcMatch.artistName,
         albumName: lrcMatch.albumName,
       },
+      fullAlignment: fullWords, // Save for segment metadata cropping
     };
   }
 }

@@ -126,9 +126,13 @@ IMPORTANT:
 - If multiple sections match equally well (e.g., repeated chorus), ALWAYS choose the EARLIEST occurrence (lowest start index)
 - TikTok segments typically use the opening/intro of songs, so prefer matches closer to the beginning
 
-Respond ONLY with:
-START_INDEX: <number>
-END_INDEX: <number>`;
+CRITICAL: Respond with NOTHING ELSE except these two lines. Do not explain your reasoning. Do not show your work. Do not add any other text before or after.
+
+Example of EXACT format required:
+START_INDEX: 490
+END_INDEX: 642
+
+Your response:`;
 
     const response = await this.chat([
       {
@@ -141,9 +145,9 @@ END_INDEX: <number>`;
 
     this.log(`Gemini response:\n${answer}\n`);
 
-    // Parse indices
-    const startMatch = answer.match(/START_INDEX:\s*(\d+)/i);
-    const endMatch = answer.match(/END_INDEX:\s*(\d+)/i);
+    // Parse indices (handle various formats: START_INDEX, START\_INDEX, etc)
+    const startMatch = answer.match(/START[_\s]*INDEX:\s*(\d+)/i);
+    const endMatch = answer.match(/END[_\s]*INDEX:\s*(\d+)/i);
 
     if (!startMatch || !endMatch) {
       throw new Error(`Could not parse indices from Gemini response: ${answer}`);

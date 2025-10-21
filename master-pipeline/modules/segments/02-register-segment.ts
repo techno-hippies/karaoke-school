@@ -23,10 +23,18 @@ import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { parseArgs } from 'util';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { addSegmentToSong } from '../../lib/update-song-segments.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const execAsync = promisify(exec);
 
 // Parse CLI arguments
 const { values } = parseArgs({
   options: {
+    'segment-hash': { type: 'string' }, // Local segment hash (for loading from manifest)
     'genius-id': { type: 'string' },
     'tiktok-id': { type: 'string' },
     'start-time': { type: 'string' },
@@ -38,28 +46,59 @@ const { values } = parseArgs({
   },
 });
 
-// Validate required args
-if (!values['genius-id'] || !values['tiktok-id'] || !values['start-time'] ||
-    !values['end-time'] || !values['vocals-uri'] || !values['instrumental-uri']) {
-  console.error('❌ Missing required arguments');
-  console.error('Usage: bun segments/01-register-segment.ts \\');
-  console.error('  --genius-id 3002580 \\');
-  console.error('  --tiktok-id 7334542274145454891 \\');
-  console.error('  --start-time 0 \\');
-  console.error('  --end-time 60.56 \\');
-  console.error('  --vocals-uri lens://... \\');
-  console.error('  --instrumental-uri lens://...');
-  process.exit(1);
-}
+// Load from manifest if segment-hash provided, otherwise use CLI args
+let geniusId: number;
+let tiktokId: string;
+let startTime: number;
+let endTime: number;
+let vocalsUri: string;
+let instrumentalUri: string;
+let alignmentUri: string;
+let coverUri: string;
 
-const geniusId = parseInt(values['genius-id']!);
-const tiktokId = values['tiktok-id']!;
-const startTime = Math.floor(parseFloat(values['start-time']!));
-const endTime = Math.floor(parseFloat(values['end-time']!)); // Floor to stay within 60s max
-const vocalsUri = values['vocals-uri']!;
-const instrumentalUri = values['instrumental-uri']!;
-const alignmentUri = values['alignment-uri'] || '';
-const coverUri = values['cover-uri'] || '';
+if (values['segment-hash']) {
+  // Load from manifest
+  const segmentHash = values['segment-hash']!;
+  const manifestPath = join(process.cwd(), 'data', 'segments', segmentHash, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+
+  geniusId = manifest.geniusId;
+  tiktokId = manifest.tiktokMusicId;
+  startTime = Math.floor(manifest.match.startTime);
+  endTime = Math.floor(manifest.match.endTime);
+  vocalsUri = manifest.grove.vocalsUri;
+  instrumentalUri = manifest.grove.instrumentalUri;
+  alignmentUri = manifest.grove.alignmentUri || '';
+  coverUri = '';
+
+  console.log(`📂 Loaded from manifest: data/segments/${segmentHash}/manifest.json`);
+} else {
+  // Use CLI arguments
+  if (!values['genius-id'] || !values['tiktok-id'] || !values['start-time'] ||
+      !values['end-time'] || !values['vocals-uri'] || !values['instrumental-uri']) {
+    console.error('❌ Missing required arguments');
+    console.error('\nUsage (from manifest):');
+    console.error('  bun segments/02-register-segment.ts --segment-hash abc123');
+    console.error('\nUsage (manual):');
+    console.error('  bun segments/02-register-segment.ts \\');
+    console.error('    --genius-id 3002580 \\');
+    console.error('    --tiktok-id 7334542274145454891 \\');
+    console.error('    --start-time 0 \\');
+    console.error('    --end-time 60.56 \\');
+    console.error('    --vocals-uri lens://... \\');
+    console.error('    --instrumental-uri lens://...');
+    process.exit(1);
+  }
+
+  geniusId = parseInt(values['genius-id']!);
+  tiktokId = values['tiktok-id']!;
+  startTime = Math.floor(parseFloat(values['start-time']!));
+  endTime = Math.floor(parseFloat(values['end-time']!));
+  vocalsUri = values['vocals-uri']!;
+  instrumentalUri = values['instrumental-uri']!;
+  alignmentUri = values['alignment-uri'] || '';
+  coverUri = values['cover-uri'] || '';
+}
 
 console.log('🎵 Segment Registration\n');
 console.log('════════════════════════════════════════════════════════════\n');
@@ -230,12 +269,18 @@ async function main() {
     console.log('\nStep 3: Adding audio assets...');
     console.log(`  Calling processSegment("${segmentHash}", ...)`);
 
-    const processHash = await walletClient.writeContract({
-      address: SEGMENT_REGISTRY as `0x${string}`,
-      abi: segmentRegistryAbi,
-      functionName: 'processSegment',
-      args: [segmentHash, vocalsUri, instrumentalUri, alignmentUri],
-    });
+    // Use cast send directly (viem has issues with processSegment)
+    const castCmd = `cast send ${SEGMENT_REGISTRY} "processSegment(bytes32,string,string,string)" ${segmentHash} "${vocalsUri}" "${instrumentalUri}" "${alignmentUri}" --rpc-url https://sepolia.base.org --private-key 0x${privateKey}`;
+
+    const { stdout: castOutput } = await execAsync(castCmd);
+
+    // Parse transaction hash from cast output
+    const txHashMatch = castOutput.match(/transactionHash\s+(\w+)/);
+    const processHash = txHashMatch ? txHashMatch[1] as `0x${string}` : null;
+
+    if (!processHash) {
+      throw new Error('Failed to parse transaction hash from cast output');
+    }
 
     console.log(`  Transaction: ${processHash}`);
     console.log('  Waiting for confirmation...');
@@ -266,6 +311,12 @@ async function main() {
     console.log(`  Cover: ${segment[8]}`);
     console.log(`  Processed: ${segment[9]}`);
     console.log(`  Enabled: ${segment[10]}`);
+    console.log();
+
+    // Step 5: Update song metadata with segment reference
+    console.log('Step 5: Updating song metadata...');
+    addSegmentToSong(geniusId, segmentHash);
+
     console.log();
     console.log(`🔗 Base Sepolia: https://sepolia.basescan.org/address/${SEGMENT_REGISTRY}`);
   } catch (error: any) {

@@ -9,11 +9,11 @@
  */
 
 import { parseArgs } from 'util';
-import { createLensAccount, createLensUsername } from '../lib/lens';
-import { paths } from '../lib/config';
-import { readJson, writeJson } from '../lib/fs';
-import { logger } from '../lib/logger';
-import type { ArtistPKP, ArtistManifest } from '../lib/types';
+import { createLensAccount, createLensUsername } from '../../lib/lens.js';
+import { paths } from '../../lib/config.js';
+import { readJson, writeJson } from '../../lib/fs.js';
+import { logger } from '../../lib/logger.js';
+import type { ArtistPKP, ArtistManifest } from '../../lib/types.js';
 
 async function main() {
   const { values } = parseArgs({
@@ -28,17 +28,17 @@ async function main() {
     },
   });
 
-  if (!values.name || !values.handle || !values['genius-id'] || !values['luminate-id']) {
+  if (!values.name || !values.handle || !values['genius-id']) {
     logger.error('Missing required parameters');
     console.log('\nUsage:');
-    console.log('  bun run artists/02-create-lens.ts --name beyonce --handle beyonce --genius-id 498 --luminate-id AR90077C7E103143BBAD5F062BA5AEDE49\n');
+    console.log('  bun run artists/02-create-lens.ts --name beyonce --handle beyonce --genius-id 498 [--luminate-id AR...] [--musicbrainz-id ...] [--spotify-id ...]\n');
     process.exit(1);
   }
 
   const artistName = values.name;
   const handle = values.handle;
   const geniusArtistId = parseInt(values['genius-id']);
-  const luminateId = values['luminate-id'];
+  const luminateId = values['luminate-id'] || '';
   const musicbrainzId = values['musicbrainz-id'];
   const spotifyArtistId = values['spotify-id'];
 

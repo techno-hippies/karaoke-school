@@ -55,7 +55,9 @@ export function extractTikTokMusicSlug(url: string): string {
  * @returns true if valid
  */
 export function isValidTikTokMusicUrl(url: string): boolean {
-  return /^https:\/\/www\.tiktok\.com\/music\/[^-]+-\d+/.test(url);
+  // Match URLs like: https://www.tiktok.com/music/Cruel-Summer-7211414788142794754
+  // Slug can contain hyphens, so we match .+ (any characters) followed by -{digits}
+  return /^https:\/\/www\.tiktok\.com\/music\/.+-\d+$/.test(url);
 }
 
 /**

@@ -109,7 +109,7 @@ async function main() {
       tiktokMusicId,
       title: song.title,
       artist: song.primary_artist.name,
-      duration: 0, // Will be updated when we process audio
+      duration: 1, // Placeholder - will be updated from LRCLib or actual audio file
       coverUri: song.song_art_image_url, // Reference only, not Grove URI yet
       metadataUri: '', // Will be set after building metadata
       copyrightFree: false, // Will be determined from MLC data
@@ -127,14 +127,14 @@ async function main() {
       title: song.title,
       artist: song.primary_artist.name,
       album: song.album?.name || null,
-      duration: 0, // To be updated
+      duration: 1, // Placeholder - will be updated from LRCLib
       coverUri: song.song_art_image_url,
       spotify: spotifyId ? { id: spotifyId, url: spotifyUrl } : undefined,
       licensing: null, // Step 2: Fetch MLC data
-      lyrics: null, // Step 3: Fetch from LRCLib
-      segments: [],
+      lyrics: null, // Step 3: LRCLib reference only (no full lyrics)
+      segments: [], // Step 4: Populated when segments registered
       createdAt: new Date().toISOString(),
-      onchain: onchainData,
+      blockchain: onchainData, // Blockchain registration data
     };
 
     writeFileSync(metadataPath, JSON.stringify(initialMetadata, null, 2));

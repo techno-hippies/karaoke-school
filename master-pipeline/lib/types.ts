@@ -181,6 +181,133 @@ export interface PipelineConfig {
 }
 
 // ============================================================================
+// Creator Types
+// ============================================================================
+
+export interface CreatorPKP {
+  pkpPublicKey: string;
+  pkpEthAddress: Address;
+  pkpTokenId: string;
+  ownerEOA: Address;
+  network: string;
+  mintedAt: string;
+  transactionHash: Hex;
+}
+
+export interface CreatorIdentifiers {
+  tiktokHandle: string;        // Primary identifier
+  tiktokUserId?: string;        // TikTok API user ID
+  instagramHandle?: string;
+  youtubeChannelId?: string;
+  spotifyCreatorId?: string;
+}
+
+export interface CreatorLens {
+  lensHandle: string;           // Same as TikTok handle
+  lensAccountAddress: Address;
+  lensAccountId: Hex;
+  network: string;
+  createdAt: string;
+  metadataUri: string;
+  transactionHash: Hex;
+}
+
+export interface CreatorManifest {
+  handle: string;               // TikTok handle (filesystem + Lens)
+  displayName: string;          // Creator's display name
+  identifiers: CreatorIdentifiers;
+  pkp: CreatorPKP;
+  lens: CreatorLens;
+  videos: string[];             // Array of video hashes
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
+// Creator Video Types
+// ============================================================================
+
+export interface MLCData {
+  isrc: string;
+  mlcSongCode: string;
+  iswc: string;
+  writers: Array<{
+    name: string;
+    ipi: string | null;
+    role: string;
+    share: number;
+  }>;
+  publishers: Array<{
+    name: string;
+    ipi: string;
+    share: number;
+    administrators: Array<{
+      name: string;
+      ipi: string;
+      share: number;
+    }>;
+  }>;
+  totalPublisherShare: number;
+  storyMintable: boolean;
+}
+
+export interface VideoManifest {
+  videoHash: string;
+  creatorHandle: string;
+  tiktokVideoId: string;
+  tiktokUrl: string;
+
+  song: {
+    title: string;
+    artist: string;
+    spotifyId: string;
+    isrc: string;
+    geniusId?: number;
+    mlcSongCode?: string;
+  };
+
+  match: {
+    startTime: number;
+    endTime: number;
+    duration: number;
+    confidence: number;
+    method: string;
+  };
+
+  files: {
+    originalVideo: string;
+    segment: string;
+    vocals: string;
+    instrumental: string;
+  };
+
+  grove: {
+    vocalsUri: string;
+    instrumentalUri: string;
+    alignmentUri: string;
+  };
+
+  licensing: MLCData;
+
+  storyProtocol?: {
+    ipId: string;
+    parentIpId?: string;      // Original song IP (if registered)
+    licenseTermsId?: string;
+    mintedAt: string;
+    transactionHash: Hex;
+  };
+
+  lens?: {
+    postId: string;
+    uri: string;
+    transactionHash: Hex;
+  };
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================================
 // Utility Types
 // ============================================================================
 

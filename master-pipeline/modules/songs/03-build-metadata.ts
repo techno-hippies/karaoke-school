@@ -118,19 +118,19 @@ async function main() {
         console.log(`  ✓ Updated duration: ${lyricsResult.duration}s`);
       }
 
-      // Parse LRC to structured format
-      const syncedLines = parseLRCToLines(lyricsResult.syncedLyrics);
-      console.log(`  ✓ Parsed ${syncedLines.length} synced lines`);
-
-      const lyrics: Lyrics = {
-        en: {
-          source: 'lrclib' as const,
-          plain: lyricsResult.plainLyrics,
-          synced: syncedLines,
+      // Only store LRCLib reference (not full lyrics - copyright)
+      metadata.lyrics = {
+        lrclib: {
+          id: lyricsResult.id,
+          trackName: lyricsResult.trackName,
+          artistName: lyricsResult.artistName,
+          albumName: lyricsResult.albumName,
+          duration: lyricsResult.duration,
         },
       };
 
-      metadata.lyrics = lyrics;
+      console.log(`  ✓ Stored LRCLib reference (ID: ${lyricsResult.id})`);
+      console.log(`  ⚠️  Full lyrics NOT included (copyright - segments only)`);
     }
 
     // Step 3: Validate complete metadata
@@ -179,6 +179,12 @@ async function main() {
     metadata.metadataUri = uploadResult.uri;
     metadata.metadataGatewayUrl = uploadResult.gatewayUrl;
     metadata.updatedAt = new Date().toISOString();
+
+    // Rename "onchain" to "blockchain" for clarity
+    if (metadata.onchain) {
+      metadata.blockchain = metadata.onchain;
+      delete metadata.onchain;
+    }
 
     writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
     console.log(`  ✓ Updated local metadata file`);

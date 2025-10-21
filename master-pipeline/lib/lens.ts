@@ -97,10 +97,12 @@ export async function createLensAccount(params: {
   const attributes = [
     { type: 'String', key: 'pkpAddress', value: pkpAddress },
     { type: 'Number', key: 'geniusArtistId', value: geniusArtistId.toString() },
-    { type: 'String', key: 'luminateId', value: luminateId },
     { type: 'String', key: 'artistType', value: 'music-artist' },
   ];
 
+  if (luminateId) {
+    attributes.push({ type: 'String', key: 'luminateId', value: luminateId });
+  }
   if (musicbrainzId) {
     attributes.push({ type: 'String', key: 'musicbrainzId', value: musicbrainzId });
   }
