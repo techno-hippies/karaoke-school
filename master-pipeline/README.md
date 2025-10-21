@@ -1,267 +1,435 @@
-# Master Pipeline
+# Karaoke School Master Pipeline
 
-**Karaoke School Content Pipeline: TikTok-based song segments for English learning**
+**TikTok-based karaoke segments for English learning with blockchain provenance**
 
 ## Overview
 
-This pipeline creates the complete karaoke learning experience:
-1. **Artist Flow:** PKP → Lens Account → Artist Registry
-2. **Song/Segment Flow:** TikTok → Audio Matching → Processing → Contracts
+Complete pipeline for creating karaoke learning content from TikTok music segments:
+
+1. **Song Registration**: Fetch metadata, MLC licensing data, synced lyrics
+2. **Segment Processing**: TikTok matching → Audio processing → Blockchain registration
+3. **Story Protocol (Optional)**: Mint derivative IP Assets for AI-generated instrumentals
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ARTIST PIPELINE                               │
-│  Input:  Artist name, Genius ID                                  │
-│  Output: PKP + Lens Account + On-chain Artist                    │
-│  Path:   /a/:lenshandle                                         │
+│                     SONG PIPELINE                                │
+│  Input:  Genius ID, Artist ID                                    │
+│  Steps:                                                          │
+│    1. Register Song (blockchain)                                 │
+│    2. Fetch MLC Data (licensing, ISRC)                           │
+│    3. Build Metadata (lyrics + licensing → Grove)                │
+│  Output: Song on Base Sepolia + metadata JSON                    │
 └─────────────────────────────────────────────────────────────────┘
                             │
                             │ Enables
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                 SONG/SEGMENT PIPELINE                            │
-│  Input:  TikTok song page URL                                    │
+│                  SEGMENT PIPELINE                                │
+│  Input:  TikTok music URL + full song file                       │
 │  Steps:                                                          │
-│    1. Crawl TikTok → Download segment                            │
-│    2. Audio matching → Find start/end in original                │
-│    3. Crop original → Demucs → Fal → Grove                       │
-│    4. Register Song → Register Segment → Update contracts        │
-│  Output: Playable karaoke segment at /s/:songId                  │
+│    1. Match TikTok segment to original (audio fingerprinting)    │
+│    2. Crop segment → Demucs separation → fal.ai enhancement      │
+│    3. ElevenLabs forced alignment (word timestamps)              │
+│    4. Upload to Grove (vocals, instrumental, alignment)          │
+│    5. Register on blockchain (SegmentRegistry)                   │
+│  Output: Karaoke-ready segment with word-level timing            │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            │ Optional
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              STORY PROTOCOL (DERIVATIVE)                         │
+│  Input:  Processed segment                                       │
+│  Steps:                                                          │
+│    1. Generate Seedream derivative cover art                     │
+│    2. Build IP Asset metadata (100% ownership)                   │
+│    3. Mint derivative instrumental on Story Protocol             │
+│  Output: IP Asset for AI-generated karaoke instrumental          │
+│  Note: NOT original song (we're not rights holders)              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Data Model
 
 ```
-Artist (PKP + Lens + On-chain)
-  └── Song (Genius ID + Spotify ID + TikTok Music ID)
-       └── Segment (~30s TikTok portion)
-            ├── TikTok Videos (reference metadata)
-            └── Student Performances (karaoke recordings)
+Song (Genius + Spotify + MLC)
+  ├── Metadata (MLC licensing + synced lyrics)
+  └── Segments (TikTok music segments)
+       ├── Audio Assets (vocals, instrumental, alignment)
+       ├── Blockchain Entry (SegmentRegistry)
+       └── Story Protocol IP Asset (derivative instrumental)
 ```
+
+## Quick Start
+
+### 1. Song Registration
+
+```bash
+# Register song on blockchain
+bun songs/01-register-song.ts \
+  --genius-id 10047250 \
+  --genius-artist-id 498
+
+# Fetch MLC licensing data (publishers, writers, ISRC)
+bun songs/02-fetch-mlc-data.ts \
+  --genius-id 10047250
+
+# Build metadata JSON with lyrics + licensing
+bun songs/03-build-metadata.ts \
+  --genius-id 10047250
+```
+
+**Result**: Song registered on Base Sepolia + `data/metadata/10047250.json`
+
+### 2. Segment Processing
+
+```bash
+# Complete segment pipeline (match + process + register)
+bun segments/01-match-and-process.ts \
+  --genius-id 10047250 \
+  --tiktok-url "https://www.tiktok.com/music/TEXAS-HOLDEM-7334542274145454891" \
+  --song-path "/path/to/TEXAS-HOLD-EM.flac"
+```
+
+**Pipeline Steps**:
+1. Extract TikTok music ID from URL
+2. Match TikTok segment to original song (Voxtral STT + Gemini matching)
+3. Crop audio segment
+4. Demucs separation (vocals + instrumental)
+5. fal.ai audio-to-audio enhancement (instrumental only)
+6. ElevenLabs forced alignment (word timestamps)
+7. Upload to Grove (3 files: vocals, instrumental, alignment)
+8. Register on blockchain (SegmentRegistry)
+
+**Result**: Segment hash + Grove URIs ready for karaoke app
+
+### 3. Story Protocol (Optional)
+
+```bash
+# Mint derivative IP Asset for AI-generated instrumental
+bun segments/02-mint-segment-ip-asset.ts \
+  --genius-id 10047250 \
+  --segment-id "7334542274145454891-0-60"
+```
+
+**What gets minted**:
+- **Type**: Derivative AI-generated instrumental (NOT original song)
+- **Primary Media**: `instrumental.wav` (users sing over this)
+- **Cover Art**: Seedream derivative (abstract painting transformation)
+- **Ownership**: 100% KaraokeSchool (mechanical royalties paid separately)
+- **License**: Commercial Remix PIL with 0% revenue share
+
+**Important**: We do NOT mint the original song as we are not rights holders. We mint the derivative instrumental we created via fal.ai audio-to-audio processing.
 
 ## Folder Structure
 
 ```
 master-pipeline/
-├── artists/               # Artist pipeline scripts
-│   ├── 01-mint-pkp.ts               # Mint PKP for artist
-│   ├── 02-create-lens.ts            # Create Lens account with metadata
-│   ├── 03-register-artist.ts        # Register in ArtistRegistry contract
-│   └── pipeline-artist.ts           # Full artist flow (automated)
+├── artists/               # Artist pipeline (future)
+├── songs/                 # Song registration + metadata
+│   ├── 01-register-song.ts        # Base Sepolia: SongRegistry
+│   ├── 02-fetch-mlc-data.ts       # MLC API: publishers, writers, ISRC
+│   └── 03-build-metadata.ts       # Metadata JSON with lyrics
 │
-├── songs/                 # Song pipeline scripts
-│   ├── 01-crawl-tiktok.ts          # Crawl TikTok song page
-│   ├── 02-audio-match.ts           # Match segment to original
-│   ├── 03-process-audio.ts         # Crop + Demucs + Fal
-│   ├── 04-upload-grove.ts          # Upload to Grove storage
-│   ├── 05-register-song.ts         # Register in SongRegistry
-│   └── pipeline-song.ts            # Full song flow (automated)
+├── segments/              # Segment processing
+│   ├── 01-match-and-process.ts   # Complete segment pipeline
+│   └── 02-mint-segment-ip-asset.ts # Story Protocol derivative mint
 │
-├── segments/              # Segment pipeline scripts
-│   ├── 01-register-segment.ts      # Phase 1: Metadata
-│   ├── 02-process-segment.ts       # Phase 2: Audio assets
-│   └── pipeline-segment.ts         # Full segment flow (automated)
-│
-├── scripts/               # Pipeline orchestration
-│   ├── pipeline-full.ts            # Artist + Song + Segment (E2E)
-│   ├── validate-data.ts            # Validate manifests
-│   └── sync-contracts.ts           # Sync with on-chain data
-│
-├── lib/                   # Shared utilities
-│   ├── pkp.ts                      # PKP utilities
-│   ├── lens.ts                     # Lens utilities
-│   ├── contracts.ts                # Contract interactions
-│   ├── grove.ts                    # Grove storage
-│   ├── audio.ts                    # Audio processing
-│   └── tiktok.ts                   # TikTok utilities
-│
-├── config/                # Configuration files
-│   ├── contracts.json              # Contract addresses
-│   ├── networks.json               # Network configs
-│   └── artists.json                # Artist metadata
+├── services/              # Reusable services
+│   ├── StoryProtocolService.ts    # Story Protocol integration
+│   ├── FalSeedreamService.ts      # Derivative cover art generation
+│   ├── audio-matching.ts          # TikTok → song timestamp matching
+│   ├── audio-processing.ts        # Demucs + fal.ai
+│   ├── elevenlabs.ts              # Forced alignment
+│   ├── voxtral.ts                 # Speech-to-text
+│   ├── openrouter.ts              # Gemini Flash 2.5 Lite
+│   ├── lrclib.ts                  # Synced lyrics
+│   ├── grove.ts                   # IPFS via Grove
+│   ├── tiktok.ts                  # TikTok URL parsing
+│   └── base.ts                    # Base service with retry
 │
 ├── data/                  # Pipeline outputs (gitignored)
-│   ├── artists/                    # Artist manifests
-│   │   └── {artist-handle}/
-│   │       ├── pkp.json            # PKP data
-│   │       ├── lens.json           # Lens data
-│   │       └── manifest.json       # Full artist data
-│   │
-│   ├── songs/                      # Song manifests
-│   │   └── {genius-song-id}/
-│   │       ├── metadata.json       # Song metadata
-│   │       ├── original.flac       # Original track (manual)
-│   │       └── manifest.json       # Full song data
-│   │
-│   └── segments/                   # Segment data
-│       └── {segment-hash}/
-│           ├── tiktok_clip.mp4     # TikTok clip
-│           ├── vocals.wav          # Cropped vocals
-│           ├── instrumental.wav    # Processed instrumental
-│           ├── alignment.json      # Forced alignment
-│           └── manifest.json       # Full segment data
+│   ├── metadata/                  # Song metadata JSONs
+│   │   └── {genius-id}.json       # MLC data + lyrics + segments
+│   └── segments/                  # Segment processing (temp)
 │
-├── .env                   # Environment variables
-├── .gitignore
-├── package.json
-├── tsconfig.json
+├── scripts/               # Python utilities
+│   ├── scrape_tiktok_segment.py  # TikTok music segment scraper
+│   └── demucs_api.py             # Modal Demucs endpoint
+│
+├── STORY_PROTOCOL_ARCHITECTURE.md # Story Protocol details
+├── .env
 └── README.md
 ```
 
-## Pipeline Flows
+## Service Architecture
 
-### 1. Artist Pipeline
+### Base Service Pattern
 
-**Goal:** Create artist profile with PKP, Lens account, and on-chain registration
+All services extend `BaseService` with automatic retry logic:
 
-**Steps:**
-```bash
-# Full automated flow
-bun run pipeline-artist --name beyonce --genius-id 498 --handle beyonce
+```typescript
+import { BaseService, ServiceConfig } from './base.js';
 
-# Or step-by-step:
-bun run artists/01-mint-pkp --name beyonce --genius-id 498
-bun run artists/02-create-lens --name beyonce --handle beyonce
-bun run artists/03-register-artist --name beyonce
+export class MyService extends BaseService {
+  constructor(config: MyServiceConfig) {
+    super('MyService', { retries: 3, ...config });
+  }
+
+  async doSomething() {
+    this.log('Starting...');
+    // Automatic retry on failure
+  }
+}
 ```
 
-**Output:**
-- `data/artists/beyonce/pkp.json` - PKP address, token ID
-- `data/artists/beyonce/lens.json` - Lens handle, account address
-- `data/artists/beyonce/manifest.json` - Combined metadata
-- On-chain: ArtistRegistry entry for Genius ID 498
-- Frontend: Artist page at `/a/beyonce`
+### Key Services
 
----
+- **AudioMatchingService**: TikTok → song timestamp matching
+  - Scrapes TikTok segment
+  - Voxtral STT on TikTok clip
+  - LRCLib lyrics with album fallback
+  - ElevenLabs forced alignment on full song
+  - Gemini Flash 2.5 Lite intelligent matching
 
-### 2. Song/Segment Pipeline
+- **AudioProcessingService**: Stem separation + enhancement
+  - Demucs via Modal (H200 GPU)
+  - fal.ai audio-to-audio enhancement
+  - Returns vocals + instrumental paths
 
-**Goal:** Add song with TikTok segment, processed audio, and on-chain data
+- **StoryProtocolService**: IP Asset minting
+  - NFT collection creation
+  - IP Asset registration with PIL
+  - Metadata hashing (SHA-256)
+  - Royalty vault setup
 
-**Steps:**
-```bash
-# Full automated flow
-bun run pipeline-song \
-  --artist beyonce \
-  --tiktok-url https://www.tiktok.com/music/CUFF-IT-7164943011337561089 \
-  --original-path /path/to/original.flac
+- **GroveService**: IPFS storage via Grove
+  - Upload files/buffers
+  - Returns `lens://` URIs + gateway URLs
+  - Supports Base Sepolia (chain_id=84532)
 
-# Or step-by-step:
-bun run songs/01-crawl-tiktok --url https://www.tiktok.com/music/...
-bun run songs/02-audio-match --tiktok-clip clip.mp4 --original original.flac
-bun run songs/03-process-audio --segment-id {hash} --original original.flac
-bun run songs/04-upload-grove --segment-id {hash}
-bun run songs/05-register-song --artist beyonce --genius-id 7163434
-bun run segments/01-register-segment --song-id 7163434 --segment-id {hash}
-bun run segments/02-process-segment --segment-id {hash}
+## Story Protocol Architecture
+
+### What We Mint: Derivative Instrumentals
+
+We mint **TWO types** of derivative IP Assets (NOT original songs):
+
+#### 1. Derivative AI-Generated Instrumental (Current)
+
+**One IP Asset per processed segment**
+
+- **Type**: AI-generated instrumental derivative (100% owned by us)
+- **Media**: `instrumental.wav` (fal.ai audio-to-audio enhancement)
+- **Cover Art**: Seedream-generated abstract derivative
+- **Ownership**: 100% KaraokeSchool
+- **Mechanical Royalties**: Paid separately per statutory rate to MLC publishers
+- **Use Case**: Educational karaoke - users sing over this instrumental
+
+**Key Point**: We OWN the derivative instrumental. Mechanical royalties are a separate payment obligation, not a Story Protocol revenue split.
+
+#### 2. TikTok Dance Videos (Future)
+
+**One IP Asset per user-posted dance video**
+
+- **Type**: Derivative performance work
+- **Media**: `video/mp4` (TikTok dance performance)
+- **Royalty Split**: 18% to dancer, 82% to original rights holders
+- **Use Case**: Social media monetization
+
+### What We DON'T Mint
+
+❌ **Original Songs**: We are NOT the rights holders for songs like "TEXAS HOLD 'EM" by Beyoncé. The MLC licensing data shows the actual rights holders (Sony/ATV, Universal Music Corp, etc.).
+
+Original song IP Assets should only be minted by actual rights holders.
+
+### Derivative Cover Art Strategy
+
+**Problem**: Original album art is copyrighted - we can't use it directly.
+
+**Solution**: fal.ai Seedream Transformation
+
+```typescript
+const prompt = "convert this to an abstract painting maintaining its shapes and overall structure but making it vague";
 ```
 
-**Output:**
-- `data/songs/{genius-id}/metadata.json` - Genius metadata
-- `data/segments/{hash}/manifest.json` - Segment metadata + Grove URIs
-- On-chain: SongRegistry + SegmentRegistry entries
-- Frontend: Song page at `/s/{genius-id}` with TikTok dance videos
+**Process**:
+1. Original album art (from Genius or Spotify)
+2. → fal.ai Seedream 4 text-to-image
+3. → Abstract painting with vague shapes
+4. → Upload to Grove (`lens://...`)
+5. → Use as derivative cover art
 
----
+**Why this works**:
+- Creates a transformative derivative work
+- Maintains visual connection to original
+- Legally distinct from copyrighted original
+- Safe for commercial use
 
-## Key Differences from pkp-lens-flow
+## Contract Integration
 
-| Aspect | pkp-lens-flow | master-pipeline |
-|--------|---------------|-----------------|
-| **Purpose** | TikTok content monetization | Karaoke learning platform |
-| **Artists** | TikTok creators | Music artists (Genius) |
-| **Content** | Full TikTok videos (encrypted) | ~30s song segments (open) |
-| **Access** | Subscription gated (Unlock) | Free for learning |
-| **Audio** | Original video audio | Demucs instrumental + vocals |
-| **Lyrics** | Transcription (any language) | Forced alignment (English) |
-| **Data** | Grove + Lens posts | Grove + Smart contracts |
-| **Frontend** | `/u/:username` (user profile) | `/a/:handle` (artist page) |
+### Base Sepolia Contracts
 
-## Integration Points
+```typescript
+// SongRegistryV1
+struct Song {
+  uint32 geniusId;             // 10047250
+  uint32 geniusArtistId;       // 498 (Beyoncé)
+  string spotifyId;            // "0Z7nGFVCLfixWctgePsRk9"
+  string tiktokMusicId;        // "7334542274145454891"
+  string title;                // "TEXAS HOLD 'EM"
+  string artist;               // "Beyoncé"
+  uint32 duration;             // 233 seconds
+  string coverUri;             // Genius URL (reference only)
+  string metadataUri;          // lens://... (MLC data + lyrics)
+  bool copyrightFree;          // false
+  bool enabled;                // true
+}
 
-### With v2-contracts
-- ArtistRegistryV1: Store PKP + Lens + Genius mapping
-- SongRegistryV1: Store songs with artist linkage
-- SegmentRegistryV1: Store ~30s segments with audio URIs
+// SegmentRegistryV1
+struct Segment {
+  uint32 geniusId;             // Links to Song
+  string tiktokSegmentId;      // TikTok music ID
+  uint32 startTime;            // 0 seconds
+  uint32 endTime;              // 60 seconds
+  uint32 duration;             // 60 seconds
+  string vocalsUri;            // lens://... (backup only)
+  string instrumentalUri;      // lens://... (PRIMARY - users karaoke over this)
+  string alignmentUri;         // lens://... (ElevenLabs word timestamps)
+  string coverUri;             // lens://... (Seedream derivative)
+  bool processed;              // true
+  bool enabled;                // true
+}
+```
 
-### With audio-matching-test
-- Use `scripts/match-audio-alignment.mjs` for segment matching
-- Input: TikTok clip + original FLAC + lyrics.txt
-- Output: `crop_instructions.json` with start/end times
+**Notes**:
+- `Song.coverUri`: Genius URL is fine (reference only, not hosting)
+- `Segment.instrumentalUri`: PRIMARY media (users sing over this)
+- `Segment.vocalsUri`: Backup only (NOT used in app)
 
-### With pkp-lens-flow (reusable)
-- PKP minting logic
-- Lens account creation
-- Grove upload utilities
-- Audio transcription/alignment
+## Environment Variables
 
-## Getting Started
-
-### Prerequisites
-1. **Test Tokens**
-   - Chronicle Yellowstone (PKP minting)
-   - Lens Testnet (Lens accounts)
-   - ZKsync/Lens Network (contracts)
-
-2. **API Keys**
-   - Genius API (song metadata)
-   - Spotify API (ISRC, track data)
-   - Deepinfra/OpenRouter (STT for matching)
-
-3. **Tools**
-   - `ffmpeg` (audio processing) - install via package manager
-   - `demucs` (stem separation) - see [SETUP_DEMUCS.md](./SETUP_DEMUCS.md)
-   - `fal.ai` API (audio2audio) - API key required
-
-### Environment Setup
 ```bash
-cd master-pipeline
+# Base Sepolia (EVM contracts)
+PRIVATE_KEY=...
+ARTIST_REGISTRY_ADDRESS=0x...
+SONG_REGISTRY_ADDRESS=0x...
+SEGMENT_REGISTRY_ADDRESS=0x...
 
-# Install TypeScript dependencies
-bun install
+# Story Protocol Aeneid Testnet
+STORY_SPG_NFT_CONTRACT=0x...
+SAFE_MULTISIG_ADDRESS=0x... (optional)
 
-# Setup Python venv for TikTok scraper + Demucs
+# API Keys
+GENIUS_API_KEY=...
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+ELEVENLABS_API_KEY=...
+VOXTRAL_API_KEY=...
+OPENROUTER_API_KEY=...
+FAL_KEY=...
+MODAL_API_KEY=...
+
+# Python environment
+DOTENV_PRIVATE_KEY=... (dotenvx encryption key)
+```
+
+## Prerequisites
+
+### 1. System Tools
+
+```bash
+# Audio processing
+brew install ffmpeg  # or apt-get install ffmpeg
+
+# Python environment
+pip install uv
 uv venv
-uv pip install hrequests "numpy<2" "demucs==4.0.1" soundfile
-
-# Copy .env.example to .env and fill in values
-cp .env.example .env
+uv pip install hrequests "numpy<2" soundfile
 ```
 
-See [SETUP_DEMUCS.md](./SETUP_DEMUCS.md) for detailed Demucs installation guide.
-
-### Example: Create Beyoncé with "CUFF IT" segment
+### 2. Modal Demucs Setup
 
 ```bash
-# 1. Create artist
-bun run pipeline-artist --name beyonce --genius-id 498 --handle beyonce
-
-# 2. Add song + segment
-bun run pipeline-song \
-  --artist beyonce \
-  --tiktok-url https://www.tiktok.com/music/CUFF-IT-7164943011337561089 \
-  --original-path ~/Music/Beyoncé/CUFF-IT.flac
-
-# 3. Verify on-chain
-bun run scripts/validate-data --artist beyonce
-
-# 4. Frontend ready!
-# Artist page: /a/beyonce
-# Song page: /s/7163434
+cd scripts
+modal deploy demucs_api.py
 ```
 
-## Next Steps
+See `STORY_PROTOCOL_ARCHITECTURE.md` for complete details.
 
-- [ ] Implement artist pipeline scripts
-- [ ] Implement song/segment pipeline scripts
-- [ ] Integrate audio-matching-test
-- [ ] Add demucs/fal processing
-- [ ] Contract interaction utilities
-- [ ] Grove upload logic
-- [ ] End-to-end testing with Beyoncé
+### 3. Test Tokens
+
+- Base Sepolia ETH (for contract interactions)
+- Story Protocol Aeneid IP tokens (for IP minting)
+
+## Example: Process TEXAS HOLD 'EM
+
+```bash
+# 1. Register song
+bun songs/01-register-song.ts --genius-id 10047250 --genius-artist-id 498
+bun songs/02-fetch-mlc-data.ts --genius-id 10047250
+bun songs/03-build-metadata.ts --genius-id 10047250
+
+# 2. Process segment
+bun segments/01-match-and-process.ts \
+  --genius-id 10047250 \
+  --tiktok-url "https://www.tiktok.com/music/TEXAS-HOLDEM-7334542274145454891" \
+  --song-path "/path/to/TEXAS-HOLD-EM.flac"
+
+# 3. Mint Story Protocol IP Asset (optional)
+bun segments/02-mint-segment-ip-asset.ts \
+  --genius-id 10047250 \
+  --segment-id "7334542274145454891-0-60"
+```
+
+**Result**:
+- Song on blockchain (Base Sepolia)
+- Segment with vocals + instrumental on Grove
+- IP Asset on Story Protocol (Aeneid testnet)
+- Metadata: `data/metadata/10047250.json`
+
+## Performance
+
+### Audio Matching
+- TikTok scraping: ~3s
+- Voxtral STT: ~5s
+- LRCLib lyrics: <1s
+- ElevenLabs alignment: ~8s
+- Gemini matching: ~2s
+- **Total**: ~20s
+
+### Audio Processing
+- Modal Demucs: 26-31s (H200 GPU)
+- fal.ai enhancement: ~12s
+- **Total**: ~43s
+
+### Story Protocol
+- Seedream cover: ~10s
+- IP Asset mint: ~5s
+- **Total**: ~15s
+
+**Full Pipeline**: ~80s for 60s segment
+
+## Key Differences: Karaoke vs TikTok Dance Videos
+
+| Aspect | Karaoke Instrumental | Dance Videos |
+|--------|---------------------|--------------|
+| **What we mint** | Derivative instrumental | Derivative performance |
+| **Primary media** | instrumental.wav | video/mp4 |
+| **Ownership** | 100% ours | 18/82 split |
+| **Cover art** | Seedream derivative | Seedream derivative |
+| **Revenue share** | 0% (we own it) | 18% creator, 82% rights holders |
+| **Royalties** | Mechanical (separate) | Via Story Protocol |
+| **Use case** | Educational karaoke | Social monetization |
+
+## Resources
+
+- Story Protocol Docs: https://docs.story.foundation
+- MLC API: https://api.ptl.themlc.com
+- fal.ai Seedream: https://fal.ai/models/bytedance/seedream/v4/text-to-image
+- Grove Storage: https://grove.storage
+- Mechanical License Guide: https://www.themlc.com
 
 ## License
 

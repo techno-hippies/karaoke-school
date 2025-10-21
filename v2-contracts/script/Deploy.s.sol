@@ -18,9 +18,7 @@ import "../src/leaderboard/LeaderboardV1.sol";
 contract Deploy is Script {
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // 1. Deploy ArtistRegistry (no dependencies)
         console.log("Deploying ArtistRegistryV1...");
@@ -70,21 +68,6 @@ contract Deploy is Script {
         console.log("StudentProfile:", address(studentProfile));
         console.log("Leaderboard:", address(leaderboard));
         console.log("============================\n");
-
-        // Save addresses to file for master-pipeline
-        string memory addresses = string(
-            abi.encodePacked(
-                "ARTIST_REGISTRY=", vm.toString(address(artistRegistry)), "\n",
-                "SONG_REGISTRY=", vm.toString(address(songRegistry)), "\n",
-                "SEGMENT_REGISTRY=", vm.toString(address(segmentRegistry)), "\n",
-                "PERFORMANCE_REGISTRY=", vm.toString(address(performanceRegistry)), "\n",
-                "STUDENT_PROFILE=", vm.toString(address(studentProfile)), "\n",
-                "LEADERBOARD=", vm.toString(address(leaderboard)), "\n"
-            )
-        );
-
-        vm.writeFile("deployments/latest.env", addresses);
-        console.log("Addresses saved to deployments/latest.env");
     }
 }
 

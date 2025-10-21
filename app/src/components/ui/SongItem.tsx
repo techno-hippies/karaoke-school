@@ -5,12 +5,10 @@ import { cn } from '@/lib/utils'
 export interface SongItemProps {
   /** Song title */
   title: string
-  /** Artist name */
+  /** Artist name or subtitle */
   artist: string
   /** Optional album art URL */
   artworkUrl?: string
-  /** Is this song free (no credits required)? */
-  isFree?: boolean
   /** Show play/pause button overlay */
   showPlayButton?: boolean
   /** Is this song currently playing? */
@@ -21,6 +19,8 @@ export interface SongItemProps {
   onClick?: () => void
   /** Optional rank number to show on the left */
   rank?: number
+  /** Highlight this item (e.g. for current user) */
+  isHighlighted?: boolean
   /** Optional className for additional styling */
   className?: string
 }
@@ -33,21 +33,29 @@ export function SongItem({
   title,
   artist,
   artworkUrl,
-  isFree = false,
   showPlayButton = false,
   isPlaying = false,
   onPlayClick,
   onClick,
   rank,
+  isHighlighted = false,
   className,
 }: SongItemProps) {
   return (
-    <Item variant="default" asChild className={cn("gap-3 p-2", className)}>
-      <button onClick={onClick} className="w-full cursor-pointer hover:bg-secondary/50 transition-colors">
+    <Item variant="default" asChild className={cn("gap-3 px-4 py-3", className)}>
+      <button
+        onClick={onClick}
+        className={cn(
+          "w-full cursor-pointer transition-colors rounded-full",
+          isHighlighted
+            ? "bg-primary/10 hover:bg-primary/15"
+            : "bg-muted/30 hover:bg-muted/40"
+        )}
+      >
         {/* Rank */}
         {rank !== undefined && (
-          <div className="flex items-center justify-center w-6 flex-shrink-0">
-            <span className="text-base font-semibold text-muted-foreground">
+          <div className="flex items-center justify-center w-8 flex-shrink-0">
+            <span className="text-base font-bold text-muted-foreground">
               {rank}
             </span>
           </div>
@@ -60,10 +68,10 @@ export function SongItem({
               <img
                 src={artworkUrl}
                 alt={`${title} artwork`}
-                className="w-full h-full object-cover rounded-sm"
+                className="w-full h-full object-cover rounded-full"
               />
             ) : (
-              <div className="w-full h-full rounded-sm bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
                 <MusicNote size={24} weight="duotone" className="text-foreground/80" />
               </div>
             )}
@@ -76,7 +84,7 @@ export function SongItem({
                   onPlayClick()
                 }}
                 className={cn(
-                  "absolute inset-0 flex items-center justify-center transition-opacity rounded-sm cursor-pointer",
+                  "absolute inset-0 flex items-center justify-center transition-opacity rounded-full cursor-pointer",
                   "bg-black/40 group-hover:bg-black/50"
                 )}
                 aria-label={isPlaying ? "Pause song" : "Play song"}
@@ -95,15 +103,6 @@ export function SongItem({
           <ItemTitle className="w-full truncate text-left">{title}</ItemTitle>
           <ItemDescription className="w-full truncate text-left line-clamp-1">{artist}</ItemDescription>
         </ItemContent>
-
-        {/* Free Badge */}
-        {isFree && (
-          <div className="flex-shrink-0 self-center">
-            <span className="text-xs md:text-sm font-semibold px-2 py-1 rounded-full bg-green-500/20 text-green-400">
-              FREE
-            </span>
-          </div>
-        )}
       </button>
     </Item>
   )

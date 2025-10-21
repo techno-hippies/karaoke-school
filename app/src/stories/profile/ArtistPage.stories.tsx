@@ -97,42 +97,49 @@ const sampleTopStudents: TopStudent[] = [
     username: 'karaoke_king',
     score: 45230,
     avatarUrl: 'https://placebear.com/100/100',
+    onStudentClick: () => console.log('Navigate to karaoke_king profile'),
   },
   {
     rank: 2,
     username: 'melody_master',
     score: 38720,
     avatarUrl: 'https://placebear.com/101/101',
+    onStudentClick: () => console.log('Navigate to melody_master profile'),
   },
   {
     rank: 3,
     username: 'rhythm_queen',
     score: 34890,
     avatarUrl: 'https://placebear.com/102/102',
+    onStudentClick: () => console.log('Navigate to rhythm_queen profile'),
   },
   {
     rank: 4,
     username: 'vocal_hero',
     score: 29543,
     avatarUrl: 'https://placebear.com/103/103',
+    onStudentClick: () => console.log('Navigate to vocal_hero profile'),
   },
   {
     rank: 5,
     username: 'dance_star',
     score: 25432,
     avatarUrl: 'https://placebear.com/104/104',
+    onStudentClick: () => console.log('Navigate to dance_star profile'),
   },
   {
     rank: 6,
     username: 'beat_boxer',
     score: 22100,
     avatarUrl: 'https://placebear.com/105/105',
+    onStudentClick: () => console.log('Navigate to beat_boxer profile'),
   },
   {
     rank: 7,
     username: 'harmony_hero',
     score: 19850,
     avatarUrl: 'https://placebear.com/106/106',
+    onStudentClick: () => console.log('Navigate to harmony_hero profile'),
   },
 ]
 
@@ -142,6 +149,7 @@ const currentUser: TopStudent = {
   score: 5340,
   avatarUrl: 'https://placebear.com/107/107',
   isCurrentUser: true,
+  onStudentClick: () => console.log('Navigate to your profile'),
 }
 
 /**
@@ -187,7 +195,7 @@ export const Following: Story = {
 }
 
 /**
- * Own artist profile (no follow button)
+ * Own artist profile (shows edit profile button)
  */
 export const OwnProfile: Story = {
   args: {
@@ -200,6 +208,7 @@ export const OwnProfile: Story = {
     songs: sampleSongs,
     topStudents: sampleTopStudents,
     onBack: () => console.log('Back clicked'),
+    onEditProfile: () => console.log('Edit profile clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }

@@ -97,11 +97,13 @@ export class GroveService extends BaseService {
    *
    * @param buffer Audio buffer
    * @param contentType MIME type (default: audio/mp3)
+   * @param metadata Optional metadata (e.g., { name: 'file.png' })
    * @returns Grove upload result with URI and gateway URL
    */
   async uploadBuffer(
     buffer: Buffer,
-    contentType: string = 'audio/mp3'
+    contentType: string = 'audio/mp3',
+    metadata?: { name?: string }
   ): Promise<GroveUploadResult> {
     const sizeKB = buffer.length / 1024;
     const sizeMB = sizeKB / 1024;

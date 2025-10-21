@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { WalletPage } from '@/pages/WalletPage'
+import { SearchPage } from '@/pages/SearchPage'
 
 /**
  * App - Clean routing architecture
  *
  * Routes:
  * / - Feed (all artist videos, chronological)
+ * /search - Search for songs
  * /u/:lensHandle - Artist profile (filtered to one artist)
  * /u/:lensHandle/video/:postId - Video detail (TikTok sidebar)
  * /song/:geniusId - Song overview (all segments)
@@ -17,6 +19,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<div>Feed</div>} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/u/:lensHandle" element={<div>Artist Profile</div>} />
         <Route path="/u/:lensHandle/video/:postId" element={<div>Video Detail</div>} />
         <Route path="/song/:geniusId" element={<div>Song Overview</div>} />

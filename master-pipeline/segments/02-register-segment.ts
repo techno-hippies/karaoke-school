@@ -19,7 +19,7 @@
  *     [--cover-uri lens://...]
  */
 
-import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
+import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { parseArgs } from 'util';
@@ -55,7 +55,7 @@ if (!values['genius-id'] || !values['tiktok-id'] || !values['start-time'] ||
 const geniusId = parseInt(values['genius-id']!);
 const tiktokId = values['tiktok-id']!;
 const startTime = Math.floor(parseFloat(values['start-time']!));
-const endTime = Math.ceil(parseFloat(values['end-time']!));
+const endTime = Math.floor(parseFloat(values['end-time']!)); // Floor to stay within 60s max
 const vocalsUri = values['vocals-uri']!;
 const instrumentalUri = values['instrumental-uri']!;
 const alignmentUri = values['alignment-uri'] || '';
@@ -84,7 +84,9 @@ if (!privateKey) {
   throw new Error('PRIVATE_KEY not set in .env');
 }
 
-const account = privateKeyToAccount(privateKey as `0x${string}`);
+// Ensure private key has 0x prefix
+const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+const account = privateKeyToAccount(formattedKey as `0x${string}`);
 
 const publicClient = createPublicClient({
   chain: baseSepolia,
@@ -98,31 +100,103 @@ const walletClient = createWalletClient({
 });
 
 // Contract ABI (minimal for registration)
-const segmentRegistryAbi = parseAbi([
-  'function registerSegment(uint32 geniusId, string calldata tiktokSegmentId, uint32 startTime, uint32 endTime, string calldata coverUri) external returns (bytes32 segmentHash)',
-  'function processSegment(bytes32 segmentHash, string calldata vocalsUri, string calldata instrumentalUri, string calldata alignmentUri) external',
-  'function getSegment(bytes32 segmentHash) external view returns (tuple(uint32 geniusId, string tiktokSegmentId, uint32 startTime, uint32 endTime, uint32 duration, string vocalsUri, string instrumentalUri, string alignmentUri, string coverUri, bool processed, bool enabled, uint64 createdAt, uint64 processedAt))',
-  'function getSegmentHash(uint32 geniusId, string calldata tiktokSegmentId) external view returns (bytes32)',
-]);
+const segmentRegistryAbi = [
+  {
+    name: 'registerSegment',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'tiktokSegmentId', type: 'string' },
+      { name: 'startTime', type: 'uint32' },
+      { name: 'endTime', type: 'uint32' },
+      { name: 'coverUri', type: 'string' },
+    ],
+    outputs: [{ name: 'segmentHash', type: 'bytes32' }],
+  },
+  {
+    name: 'processSegment',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'segmentHash', type: 'bytes32' },
+      { name: 'vocalsUri', type: 'string' },
+      { name: 'instrumentalUri', type: 'string' },
+      { name: 'alignmentUri', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'getSegmentHash',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'geniusId', type: 'uint32' },
+      { name: 'tiktokSegmentId', type: 'string' },
+    ],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    name: 'segmentExists',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'segmentHash', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    name: 'getSegment',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'segmentHash', type: 'bytes32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'geniusId', type: 'uint32' },
+          { name: 'tiktokSegmentId', type: 'string' },
+          { name: 'startTime', type: 'uint32' },
+          { name: 'endTime', type: 'uint32' },
+          { name: 'duration', type: 'uint32' },
+          { name: 'vocalsUri', type: 'string' },
+          { name: 'instrumentalUri', type: 'string' },
+          { name: 'alignmentUri', type: 'string' },
+          { name: 'coverUri', type: 'string' },
+          { name: 'processed', type: 'bool' },
+          { name: 'enabled', type: 'bool' },
+          { name: 'createdAt', type: 'uint64' },
+          { name: 'processedAt', type: 'uint64' },
+        ],
+      },
+    ],
+  },
+] as const;
 
 async function main() {
   try {
     // Step 1: Check if segment already exists
     console.log('Step 1: Checking if segment exists...');
-    const existingHash = await publicClient.readContract({
+    const computedHash = await publicClient.readContract({
       address: SEGMENT_REGISTRY as `0x${string}`,
       abi: segmentRegistryAbi,
       functionName: 'getSegmentHash',
       args: [geniusId, tiktokId],
     });
 
-    console.log(`  Segment hash: ${existingHash}`);
+    console.log(`  Segment hash: ${computedHash}`);
+
+    const exists = await publicClient.readContract({
+      address: SEGMENT_REGISTRY as `0x${string}`,
+      abi: segmentRegistryAbi,
+      functionName: 'segmentExists',
+      args: [computedHash],
+    });
 
     let segmentHash: `0x${string}`;
 
-    if (existingHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    if (exists) {
       console.log('⚠️  Segment already registered, skipping registerSegment()');
-      segmentHash = existingHash;
+      segmentHash = computedHash;
     } else {
       // Step 2: Register segment
       console.log('\nStep 2: Registering segment...');

@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileInfo } from './ProfileInfo'
 import { VideoGrid, type VideoPost } from '@/components/video/VideoGrid'
-import { SongItem } from '@/components/song/SongItem'
+import { SongItem } from '@/components/ui/SongItem'
 import { cn } from '@/lib/utils'
 
 export interface ArtistSong {
@@ -21,6 +21,7 @@ export interface TopStudent {
   score: number
   avatarUrl?: string
   isCurrentUser?: boolean
+  onStudentClick?: () => void
 }
 
 export interface ArtistPageProps {
@@ -49,6 +50,7 @@ export interface ArtistPageProps {
   // Handlers
   onBack?: () => void
   onFollow?: () => void
+  onEditProfile?: () => void
 
   className?: string
 }
@@ -72,6 +74,7 @@ export function ArtistPage({
   currentUser,
   onBack,
   onFollow,
+  onEditProfile,
   className,
 }: ArtistPageProps) {
 
@@ -97,34 +100,45 @@ export function ArtistPage({
                 size="xl"
               />
 
-              {/* Info Section */}
-              <div className="flex-1 w-full">
+              {/* Info Section with Follow Button below handle */}
+              <div className="flex-1 w-full flex flex-col items-center md:items-start">
                 <ProfileInfo
                   username={username}
                   displayName={displayName}
                   isVerified={isVerified}
                   alignment="center"
                 />
+
+                {/* Action Button - Follow or Edit profile */}
+                {isOwnProfile ? (
+                  onEditProfile && (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={onEditProfile}
+                      className="mt-4 min-w-[200px]"
+                    >
+                      Edit profile
+                    </Button>
+                  )
+                ) : (
+                  onFollow && (
+                    <Button
+                      size="lg"
+                      variant={isFollowing ? 'outline' : 'default'}
+                      onClick={onFollow}
+                      disabled={isFollowLoading}
+                      className="mt-4 min-w-[200px]"
+                    >
+                      {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
+                    </Button>
+                  )
+                )}
               </div>
             </div>
-
-            {/* Follow Button */}
-            {!isOwnProfile && onFollow && (
-              <div className="mt-4 mb-4 flex justify-center">
-                <Button
-                  size="lg"
-                  variant={isFollowing ? 'outline' : 'default'}
-                  onClick={onFollow}
-                  disabled={isFollowLoading}
-                  className="w-full max-w-md"
-                >
-                  {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
-                </Button>
-              </div>
-            )}
           </div>
 
-          <div className="px-4 space-y-4 pb-8">
+          <div className="px-4 space-y-4 pb-8 pt-6">
             {/* Tabs: Videos | Songs | Students */}
             <Tabs defaultValue="videos" className="w-full">
               <TabsList className="w-full grid grid-cols-3 bg-muted/50">
@@ -143,7 +157,7 @@ export function ArtistPage({
 
               <TabsContent value="songs" className="mt-4">
                 {songs.length > 0 ? (
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     {songs.map((song, index) => (
                       <SongItem
                         key={song.id}
@@ -167,52 +181,27 @@ export function ArtistPage({
                   {topStudents.length > 0 ? (
                     <>
                       {topStudents.map((student) => (
-                        <div
+                        <SongItem
                           key={student.username}
-                          className={cn(
-                            'flex items-center gap-3 px-4 py-3 rounded-full',
-                            student.isCurrentUser ? 'bg-primary/10' : 'bg-muted/30'
-                          )}
-                        >
-                          <div className="w-8 text-center font-bold text-muted-foreground">
-                            #{student.rank}
-                          </div>
-                          {student.avatarUrl && (
-                            <img
-                              src={student.avatarUrl}
-                              alt={student.username}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold truncate">{student.username}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {student.score.toLocaleString()} pts
-                            </p>
-                          </div>
-                        </div>
+                          rank={student.rank}
+                          title={student.username}
+                          artist={`${student.score.toLocaleString()} pts`}
+                          artworkUrl={student.avatarUrl}
+                          isHighlighted={student.isCurrentUser}
+                          onClick={student.onStudentClick}
+                        />
                       ))}
 
                       {currentUser && !topStudents.some(s => s.isCurrentUser) && (
                         <div className="mt-4 pt-4 border-t border-border">
-                          <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-primary/10">
-                            <div className="w-8 text-center font-bold text-muted-foreground">
-                              #{currentUser.rank}
-                            </div>
-                            {currentUser.avatarUrl && (
-                              <img
-                                src={currentUser.avatarUrl}
-                                alt={currentUser.username}
-                                className="w-10 h-10 rounded-full object-cover"
-                              />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold truncate">{currentUser.username}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {currentUser.score.toLocaleString()} pts
-                              </p>
-                            </div>
-                          </div>
+                          <SongItem
+                            rank={currentUser.rank}
+                            title={currentUser.username}
+                            artist={`${currentUser.score.toLocaleString()} pts`}
+                            artworkUrl={currentUser.avatarUrl}
+                            isHighlighted={true}
+                            onClick={currentUser.onStudentClick}
+                          />
                         </div>
                       )}
                     </>
