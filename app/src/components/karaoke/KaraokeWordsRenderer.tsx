@@ -37,14 +37,14 @@ export function KaraokeWordsRenderer({
  */
 export function TikTokKaraokeRenderer({
   words,
-  className = 'flex flex-wrap',
+  className = 'flex flex-wrap gap-1',
 }: Omit<KaraokeWordsRendererProps, 'wordClassName'>) {
   return (
     <KaraokeWordsRenderer
       words={words}
       className={className}
       wordClassName={(word) =>
-        `mr-2 ${word.isActive ? 'text-primary' : 'text-foreground'}`
+        word.isActive ? 'text-primary' : 'text-foreground'
       }
     />
   )

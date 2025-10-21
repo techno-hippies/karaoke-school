@@ -44,6 +44,24 @@ storybook-static/
 # Test assets
 /public/test_video
 
+# Audio/video files (copyrighted content - NEVER commit)
+*.mp3
+*.flac
+*.wav
+*.m4a
+*.aac
+*.ogg
+*.wma
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# Processed pipeline data
+master-pipeline/data/segments/
+master-pipeline/data/creators/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

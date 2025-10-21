@@ -30,9 +30,9 @@ export function SongPageContainer() {
   // Error states
   if (songError || !songData) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <h1 className="text-2xl font-bold">Song not found</h1>
-        <p className="text-muted-foreground">
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Song not found</h1>
+        <p className="text-muted-foreground text-center">
           No song found with ID {geniusId}
         </p>
         <button

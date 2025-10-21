@@ -3,6 +3,7 @@ import { useAutoScroll } from '@/hooks/useAutoScroll'
 import { KaraokeLyricLine } from './KaraokeLyricLine'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LyricLine } from '@/types/karaoke'
+import { cn } from '@/lib/utils'
 
 export interface LyricsDisplayProps {
   lyrics: LyricLine[]
@@ -36,9 +37,9 @@ export function LyricsDisplay({
   useAutoScroll(currentLineIndex, containerRef)
 
   return (
-    <ScrollArea ref={containerRef} className={className}>
+    <ScrollArea ref={containerRef} className={cn(className, 'overflow-x-hidden')}>
       <div
-        className="space-y-8 sm:space-y-10 pt-16 sm:pt-20 pb-32 sm:pb-40 px-4 sm:px-6"
+        className="space-y-8 sm:space-y-10 pt-16 sm:pt-20 pb-32 sm:pb-40 px-4 sm:px-6 w-full max-w-full"
         style={{
           maskImage: 'linear-gradient(to bottom, transparent 0%, black 64px, black calc(100% - 80px), transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 64px, black calc(100% - 80px), transparent 100%)',
@@ -49,7 +50,7 @@ export function LyricsDisplay({
           const isPast = index < currentLineIndex
 
           return (
-            <div key={index} data-line-index={index}>
+            <div key={index} data-line-index={index} className="w-full max-w-full overflow-hidden">
               <KaraokeLyricLine
                 line={line}
                 currentTime={currentTime}

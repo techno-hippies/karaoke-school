@@ -68,33 +68,29 @@ export function useSegmentAlignment(alignmentUri?: string) {
       let lineIndex = 0
 
       alignmentWords.forEach((word: AlignmentWord, index: number) => {
-        // Skip pure whitespace entries
-        if (word.text.trim() === '') {
-          return
-        }
-
-        if (currentLine.length === 0) {
+        if (currentLine.length === 0 && word.text.trim() !== '') {
           lineStartTime = word.start
         }
 
         currentLine.push(word)
 
-        // Create a new line every 8-10 words or at punctuation
+        // Create a new line every 8-10 words (non-whitespace) or at punctuation
+        const nonWhitespaceCount = currentLine.filter(w => w.text.trim() !== '').length
         const shouldBreak =
-          currentLine.length >= 8 ||
+          nonWhitespaceCount >= 8 ||
           word.text.match(/[.!?,;:]/) ||
           index === alignmentWords.length - 1
 
         if (shouldBreak && currentLine.length > 0) {
           const lineText = currentLine.map(w => w.text).join('').trim()
-          const lastWord = currentLine[currentLine.length - 1]
+          const lastNonWhitespace = [...currentLine].reverse().find(w => w.text.trim() !== '')
 
           if (lineText) {
             lyrics.push({
               lineIndex: lineIndex++,
               originalText: lineText,
               start: lineStartTime,
-              end: lastWord.end || lastWord.start + 1, // Use word end time or estimate
+              end: lastNonWhitespace ? (lastNonWhitespace.end || lastNonWhitespace.start + 1) : lineStartTime + 1,
               words: currentLine.map(w => ({
                 text: w.text,
                 start: w.start,

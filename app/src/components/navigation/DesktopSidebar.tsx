@@ -113,7 +113,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <Button
               onClick={onConnectWallet}
               variant="default"
-              className="w-full px-6 py-4 h-auto text-xl"
+              className="w-full px-6 py-4 h-auto text-base md:text-lg lg:text-xl"
             >
               Connect
             </Button>

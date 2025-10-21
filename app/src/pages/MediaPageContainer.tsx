@@ -56,8 +56,8 @@ export function MediaPageContainer() {
   // Error states
   if (!songData || !segment || !lyrics) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <h1 className="text-2xl font-bold">Unable to load media</h1>
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">
           {!songData && 'Song not found'}
           {songData && !segment && 'No segments available for this song'}

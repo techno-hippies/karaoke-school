@@ -33,9 +33,9 @@ export function ArtistPageContainer() {
   // Error states
   if (geniusIdError || !geniusId || geniusId === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <h1 className="text-2xl font-bold">Artist not found</h1>
-        <p className="text-muted-foreground">
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Artist not found</h1>
+        <p className="text-muted-foreground text-center">
           No artist found with handle @{lenshandle}
         </p>
         <button
@@ -50,9 +50,9 @@ export function ArtistPageContainer() {
 
   if (artistError || !artistData) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <h1 className="text-2xl font-bold">Error loading artist</h1>
-        <p className="text-muted-foreground">
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Error loading artist</h1>
+        <p className="text-muted-foreground text-center">
           Failed to load artist data
         </p>
         <button

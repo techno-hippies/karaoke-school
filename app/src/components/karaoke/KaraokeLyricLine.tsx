@@ -25,10 +25,10 @@ export function KaraokeLyricLine({
   selectedLanguage = 'cn',
   className,
 }: KaraokeLyricLineProps) {
-  // Filter out malformed word timestamps
+  // Filter out malformed word timestamps and whitespace-only entries
   const validWords = (line.words || []).filter((word) => {
     const duration = word.end - word.start
-    return duration > 0 && duration < 5
+    return duration > 0 && duration < 5 && word.text.trim() !== ''
   })
 
   // Process words with karaoke timing if active
@@ -42,16 +42,16 @@ export function KaraokeLyricLine({
     : undefined
 
   return (
-    <div className={cn('transition-all duration-300', isActive && 'scale-105', className)}>
+    <div className={cn('transition-all duration-300 w-full max-w-full', isActive && 'sm:scale-105', className)}>
       {/* Word-level highlighting if available, otherwise line-level */}
       {isActive && validWords.length > 0 ? (
         <TikTokKaraokeRenderer
           words={processedWords}
-          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight flex flex-wrap break-words"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight flex flex-wrap break-words w-full max-w-full"
         />
       ) : (
         <p
-          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight break-words transition-colors duration-300"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight break-words transition-colors duration-300 w-full max-w-full"
           style={{
             color: isActive ? '#ffffff' : isPast ? '#a3a3a3' : '#737373',
           }}
@@ -64,7 +64,7 @@ export function KaraokeLyricLine({
       {translation && (
         <p
           className={cn(
-            'text-base sm:text-lg md:text-xl mt-3 break-words transition-colors duration-300',
+            'text-base sm:text-lg md:text-xl mt-3 break-words transition-colors duration-300 w-full max-w-full',
             isActive ? 'text-neutral-300' : 'text-neutral-600'
           )}
         >

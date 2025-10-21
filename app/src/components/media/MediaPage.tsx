@@ -46,11 +46,12 @@ export function MediaPage({
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       {/* Header */}
-      <div className="flex-none h-16 border-b border-neutral-800 flex items-center px-4">
+      <div className="flex-none h-16 border-b border-neutral-800 flex items-center px-4 gap-2">
         <BackButton onClick={onBack} />
-        <h1 className="text-foreground text-base font-semibold flex-1 text-center pr-12">
+        <h1 className="text-foreground text-sm sm:text-base font-semibold flex-1 text-center truncate min-w-0">
           {title} - {artist}
         </h1>
+        <div className="w-8" />
       </div>
 
       {/* Lyrics Display - flex-1 makes it fill available space */}
@@ -65,7 +66,7 @@ export function MediaPage({
       </div>
 
       {/* Bottom Controls */}
-      <div className="flex-none px-6 pt-6 pb-8 flex flex-col items-center gap-5">
+      <div className="flex-none px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center gap-5">
         {/* Play/Pause Button */}
         <AudioButton
           isPlaying={isPlaying}

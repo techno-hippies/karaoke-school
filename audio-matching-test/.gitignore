@@ -5,7 +5,15 @@ crop_instructions.json
 *.pyc
 __pycache__/
 
-# Test data - original songs (too large for git)
+# Test data - ALL audio/video files (copyrighted content)
+test-cases/*/*.flac
+test-cases/*/*.mp3
+test-cases/*/*.wav
+test-cases/*/*.m4a
+test-cases/*/*.mp4
+test-cases/*/*.avi
+test-cases/*/*.mov
+test-cases/*/*.webm
 test-cases/*/original.*
 
 # Keep test structure but ignore large files

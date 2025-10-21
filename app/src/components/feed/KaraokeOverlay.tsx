@@ -75,11 +75,11 @@ export function KaraokeOverlay({
 
           {/* Next line (for karaoke recording) or translation (for video playback) */}
           {showNextLine && nextLine ? (
-            <div className="text-xl font-bold leading-tight drop-shadow-lg text-foreground/60">
+            <div className="text-base sm:text-lg md:text-xl font-bold leading-tight drop-shadow-lg text-foreground/60 break-words">
               {nextLine.text}
             </div>
           ) : currentLine.translation ? (
-            <div className="text-lg font-medium leading-tight drop-shadow-lg text-foreground/90">
+            <div className="text-sm sm:text-base md:text-lg font-medium leading-tight drop-shadow-lg text-foreground/90 break-words">
               {currentLine.translation}
             </div>
           ) : null}
