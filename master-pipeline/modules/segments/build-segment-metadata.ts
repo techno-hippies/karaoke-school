@@ -7,6 +7,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { validateSegmentAlignmentMetadata } from '../../lib/schemas/segment.js';
 
 export interface SegmentLyrics {
   plain: string;
@@ -65,8 +66,8 @@ export function cropAlignmentToSegment(
     text: word.text,
   }));
 
-  // Create plain text
-  const plain = adjustedWords.map((w) => w.text).join(' ');
+  // Create plain text (spaces already in data, don't add more)
+  const plain = adjustedWords.map((w) => w.text).join('');
 
   return {
     plain,
@@ -144,5 +145,6 @@ export function buildSegmentMetadata(
     createdAt: manifest.createdAt,
   };
 
-  return metadata;
+  // Validate before returning
+  return validateSegmentAlignmentMetadata(metadata);
 }

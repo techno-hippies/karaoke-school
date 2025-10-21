@@ -1,6 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
 
 const meta = {
   title: 'Song/SongPage',
@@ -11,6 +20,13 @@ const meta = {
       default: 'dark',
     },
   },
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={queryClient}>
+        <Story />
+      </QueryClientProvider>
+    ),
+  ],
   tags: ['autodocs'],
 } satisfies Meta<typeof SongPage>
 

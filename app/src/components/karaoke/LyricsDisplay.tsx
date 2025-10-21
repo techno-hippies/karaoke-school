@@ -38,7 +38,7 @@ export function LyricsDisplay({
   return (
     <ScrollArea ref={containerRef} className={className}>
       <div
-        className="space-y-10 pt-20 pb-40 px-6"
+        className="space-y-8 sm:space-y-10 pt-16 sm:pt-20 pb-32 sm:pb-40 px-4 sm:px-6"
         style={{
           maskImage: 'linear-gradient(to bottom, transparent 0%, black 64px, black calc(100% - 80px), transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 64px, black calc(100% - 80px), transparent 100%)',
@@ -49,7 +49,7 @@ export function LyricsDisplay({
           const isPast = index < currentLineIndex
 
           return (
-            <div key={line.lineIndex} data-line-index={index}>
+            <div key={index} data-line-index={index}>
               <KaraokeLyricLine
                 line={line}
                 currentTime={currentTime}

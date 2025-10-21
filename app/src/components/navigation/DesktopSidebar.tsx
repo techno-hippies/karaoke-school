@@ -101,7 +101,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               variant="ghost"
               className="w-full justify-start gap-4 px-6 py-4 h-auto hover:bg-secondary"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex-shrink-0" />
+              <div className="w-12 h-12 bg-primary rounded-lg flex-shrink-0" />
               <p className="text-foreground text-lg font-medium truncate flex-1 text-left">
                 {walletAddress.length > 15
                   ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`

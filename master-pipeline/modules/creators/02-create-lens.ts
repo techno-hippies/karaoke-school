@@ -185,7 +185,6 @@ async function main() {
     console.log(`   Address: ${lensData.lensAccountAddress}\n`);
 
     // Save to file
-    const lensPath = paths.creatorLens(tiktokHandle);
     writeJson(lensPath, lensData);
 
     logger.success(`Lens data saved to: ${lensPath}`);

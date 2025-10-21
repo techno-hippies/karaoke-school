@@ -62,7 +62,7 @@ export function SayItBackExercise({
         </div>
         <div className="flex items-center gap-4">
           <AudioButton onClick={handlePlayAudio} aria-label="Play audio" />
-          <div className="text-xl font-medium text-foreground leading-relaxed">
+          <div className="text-base sm:text-lg md:text-xl font-medium text-foreground leading-relaxed break-words flex-1">
             {expectedText}
           </div>
         </div>
@@ -75,7 +75,7 @@ export function SayItBackExercise({
           <div className="text-muted-foreground text-base font-medium">
             You said:
           </div>
-          <div className="text-xl font-medium text-foreground leading-relaxed">
+          <div className="text-base sm:text-lg md:text-xl font-medium text-foreground leading-relaxed break-words">
             {transcript}
           </div>
         </div>

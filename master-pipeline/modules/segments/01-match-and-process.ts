@@ -42,6 +42,10 @@ import {
   isValidTikTokMusicUrl,
 } from '../../services/tiktok.js';
 import { cropAlignmentToSegment } from './build-segment-metadata.js';
+import {
+  validateSegmentManifest,
+  validateSegmentAlignmentMetadata,
+} from '../../lib/schemas/segment.js';
 
 const execAsync = promisify(exec);
 
@@ -300,9 +304,9 @@ async function main() {
 
       // Enhance instrumental
       const enhancedResult = await falAI.audioToAudio({
-        prompt: 'instrumental',
+        prompt: 'Instrumental',
         audioPath: instrumentalPath,
-        strength: 0.3,
+        strength: 0.33,
       });
 
       // Download enhanced audio
@@ -347,9 +351,14 @@ async function main() {
       createdAt: new Date().toISOString(),
     };
 
+    console.log(`  ✓ Cropped lyrics: ${croppedLyrics.plain.substring(0, 50)}...`);
+
     console.log(`  ✓ Cropped lyrics to segment timeframe`);
     console.log(`  ✓ Words in segment: ${croppedLyrics.synced.length}`);
     console.log(`  ⚠️  Full song lyrics NOT included (copyright)`);
+
+    // Validate alignment metadata before upload
+    const validatedMetadata = validateSegmentAlignmentMetadata(segmentMetadata);
 
     // Step 8: Upload to Grove
     console.log('\nStep 8: Uploading to Grove...');
@@ -360,7 +369,7 @@ async function main() {
     let alignmentUri = '';
 
     // Upload segment metadata (cropped lyrics + alignment)
-    const metadataJSON = JSON.stringify(segmentMetadata, null, 2);
+    const metadataJSON = JSON.stringify(validatedMetadata, null, 2);
     const metadataBuffer = Buffer.from(metadataJSON, 'utf-8');
     const alignmentUpload = await grove.uploadBuffer(metadataBuffer, 'application/json');
     alignmentUri = alignmentUpload.uri;
@@ -415,7 +424,10 @@ async function main() {
     };
 
     const manifestPath = join(segmentDir, 'manifest.json');
-    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    // Validate manifest before saving
+    const validatedManifest = validateSegmentManifest(manifest);
+
+    writeFileSync(manifestPath, JSON.stringify(validatedManifest, null, 2));
     console.log(`   Saved: ${manifestPath}`);
 
     // Success

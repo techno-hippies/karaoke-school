@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
 import { useGeniusIdByLensHandle, useArtist } from '@/hooks/useArtistRegistry'
-import { useSongsByArtist } from '@/hooks/useSongRegistry'
+import { useArtistSongs } from '@/hooks/useArtistSongs'
 import { Spinner } from '@/components/ui/spinner'
 
 export function ArtistPageContainer() {
@@ -17,7 +17,7 @@ export function ArtistPageContainer() {
   )
 
   // Step 3: Get artist's songs (only runs when we have geniusId)
-  const { data: songsData, isLoading: isLoadingSongs } = useSongsByArtist(
+  const { data: songsData, isLoading: isLoadingSongs } = useArtistSongs(
     geniusId ? Number(geniusId) : undefined
   )
 
@@ -71,11 +71,11 @@ export function ArtistPageContainer() {
   // Safely transform songs data
   const songs: ArtistSong[] = Array.isArray(songsData)
     ? (songsData as any[]).map((song: any) => ({
-        id: song?.geniusId?.toString() || 'unknown',
-        title: song?.title || 'Unknown Song',
-        artist: song?.artist || artist.lensHandle,
-        artworkUrl: song?.coverUri || undefined, // TODO: Convert grove:// URI to HTTP URL
-        onSongClick: () => navigate(`/song/${song?.geniusId}`),
+        id: song.geniusId.toString(),
+        title: song.title,
+        artist: song.artist,
+        artworkUrl: song.coverUri || undefined, // TODO: Convert grove:// URI to HTTP URL
+        onSongClick: () => navigate(`/song/${song.geniusId}`),
       }))
     : []
 

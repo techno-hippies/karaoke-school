@@ -47,11 +47,11 @@ export function KaraokeLyricLine({
       {isActive && validWords.length > 0 ? (
         <TikTokKaraokeRenderer
           words={processedWords}
-          className="text-3xl font-bold leading-tight flex flex-wrap"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight flex flex-wrap break-words"
         />
       ) : (
         <p
-          className="text-3xl font-bold leading-tight transition-colors duration-300"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight break-words transition-colors duration-300"
           style={{
             color: isActive ? '#ffffff' : isPast ? '#a3a3a3' : '#737373',
           }}
@@ -64,7 +64,7 @@ export function KaraokeLyricLine({
       {translation && (
         <p
           className={cn(
-            'text-xl mt-3 transition-colors duration-300',
+            'text-base sm:text-lg md:text-xl mt-3 break-words transition-colors duration-300',
             isActive ? 'text-neutral-300' : 'text-neutral-600'
           )}
         >

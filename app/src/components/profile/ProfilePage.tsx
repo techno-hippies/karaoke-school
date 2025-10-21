@@ -56,6 +56,7 @@ export interface ProfilePageProps {
   onBack?: () => void
   onFollow?: () => void
   onMessage?: () => void
+  onEditProfile?: () => void
   onActivitySongClick?: (activity: ActivityItem) => void
 
   className?: string
@@ -80,6 +81,7 @@ export function ProfilePage({
   onBack,
   onFollow,
   onMessage,
+  onEditProfile,
   onActivitySongClick,
   className,
 }: ProfilePageProps) {
@@ -250,8 +252,21 @@ export function ProfilePage({
           </div>
         </div>
 
-        {/* Sticky Footer with Follow/Message buttons */}
-        {!isOwnProfile && (
+        {/* Sticky Footer with Follow/Message buttons OR Edit Profile button */}
+        {isOwnProfile ? (
+          onEditProfile && (
+            <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={onEditProfile}
+                className="w-full"
+              >
+                Edit Profile
+              </Button>
+            </div>
+          )
+        ) : (
           <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
             <div className="flex gap-3">
               {onFollow && (

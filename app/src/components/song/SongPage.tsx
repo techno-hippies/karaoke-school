@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { VideoGrid, type VideoPost } from '@/components/video/VideoGrid'
 import { ExternalLinksDrawer } from '@/components/media/ExternalLinksDrawer'
+import { useSongVideos } from '@/hooks/useSongVideos'
 import { cn } from '@/lib/utils'
 
 export interface LeaderboardEntry {
@@ -32,8 +33,9 @@ export interface SongPageProps {
   // Footer actions
   onStudy?: () => void
   onKaraoke?: () => void
-  // Videos tab
-  videos?: VideoPost[]
+  // Videos - can provide manually or via geniusId query
+  geniusId?: number // Query all videos for this song across creators
+  videos?: VideoPost[] // Manual override (for Storybook)
   onVideoClick?: (video: VideoPost) => void
   // Leaderboard tab
   leaderboardEntries: LeaderboardEntry[]
@@ -43,7 +45,7 @@ export interface SongPageProps {
 
 /**
  * Song detail page with videos and student leaderboard
- * Simplified - no unlock/payment flow
+ * Queries videos across ALL creators for this song via Lens GraphQL
  */
 export function SongPage({
   songTitle,
@@ -56,13 +58,20 @@ export function SongPage({
   onArtistClick,
   onStudy,
   onKaraoke,
-  videos = [],
+  geniusId,
+  videos: manualVideos,
   onVideoClick,
   leaderboardEntries,
   currentUser,
   className,
 }: SongPageProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Query videos by genius_id (queries Lens for all creator videos of this song)
+  const { data: queriedVideos, isLoading: videosLoading } = useSongVideos(geniusId)
+
+  // Use manual videos if provided (for Storybook), otherwise use queried videos
+  const videos = manualVideos ?? queriedVideos ?? []
 
   return (
     <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
@@ -138,10 +147,16 @@ export function SongPage({
               </TabsList>
 
               <TabsContent value="videos" className="mt-4 -mx-4 md:-mx-6">
-                <VideoGrid
-                  videos={videos}
-                  onVideoClick={onVideoClick}
-                />
+                {videosLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    Loading videos...
+                  </div>
+                ) : (
+                  <VideoGrid
+                    videos={videos}
+                    onVideoClick={onVideoClick}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="students" className="mt-4">

@@ -157,13 +157,18 @@ async function main() {
     const result = await $`python3 ${args}`.quiet();
     const output = result.stdout.toString();
 
-    // Parse JSON output (scraper outputs JSON to stdout)
+    // Parse JSON output - extract only the JSON object (last line or find { ... })
     let scraperResult: ScraperResult;
     try {
-      scraperResult = JSON.parse(output);
+      // Try to find JSON object in output (starts with { and ends with })
+      const jsonMatch = output.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON object found in scraper output');
+      }
+      scraperResult = JSON.parse(jsonMatch[0]);
     } catch (error) {
       console.error('Failed to parse scraper output:');
-      console.error(output);
+      console.error(output.slice(0, 1000) + '...'); // Only show first 1000 chars
       throw new Error('Invalid JSON from TikTok scraper');
     }
 

@@ -1,6 +1,6 @@
 import type { Address } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { baseSepolia } from 'viem/chains'
+import { base, baseSepolia } from 'viem/chains'
 
 /**
  * Contract Address Management - SINGLE SOURCE OF TRUTH
@@ -16,9 +16,15 @@ import { baseSepolia } from 'viem/chains'
 export const BASE_SEPOLIA_CHAIN_ID = 84532
 
 // === PUBLIC CLIENT ===
+const isMainnet = import.meta.env.VITE_NETWORK === 'mainnet'
+const currentChain = isMainnet ? base : baseSepolia
+const rpcUrl = isMainnet
+  ? import.meta.env.VITE_BASE_MAINNET_RPC
+  : import.meta.env.VITE_BASE_SEPOLIA_RPC
+
 export const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http('https://sepolia.base.org'),
+  chain: currentChain,
+  transport: http(rpcUrl),
 })
 
 /**

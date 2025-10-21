@@ -104,7 +104,7 @@ export const MultipleChoiceQuiz = ({
         <div className="text-muted-foreground text-base font-medium">
           Question:
         </div>
-        <div className="text-xl font-medium text-foreground leading-relaxed">
+        <div className="text-base sm:text-lg md:text-xl font-medium text-foreground leading-relaxed break-words">
           {question}
         </div>
       </div>

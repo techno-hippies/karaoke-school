@@ -35,8 +35,8 @@ export function WalletPageView({
       <div className="mb-8">
         <h2 className="text-base font-medium text-muted-foreground mb-3">Wallet Address</h2>
         <div className="flex items-center gap-3">
-          <div className="flex-1 w-0 bg-neutral-800 rounded-lg px-4 md:px-5 py-3 md:py-4">
-            <div className="font-mono text-base md:text-lg text-foreground">
+          <div className="flex-1 w-0 bg-secondary rounded-full h-11 px-4 flex items-center">
+            <div className="font-mono text-base text-foreground">
               {walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}
             </div>
           </div>
@@ -44,7 +44,6 @@ export function WalletPageView({
             onClick={onCopyAddress}
             variant="secondary"
             size="icon"
-            className="shrink-0 h-11 w-11 md:h-12 md:w-12"
           >
             <Copy className="h-5 w-5" />
           </Button>
@@ -71,7 +70,7 @@ export function WalletPageView({
             >
               {/* Token Icon */}
               <ItemMedia>
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-base md:text-lg flex-shrink-0">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-base md:text-lg flex-shrink-0">
                   {token.symbol.slice(0, 2)}
                 </div>
               </ItemMedia>

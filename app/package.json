@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@fontsource/geist": "^5.2.8",
-    "@lens-protocol/client": "^0.0.0-canary-20250820102520",
+    "@lens-protocol/client": "^0.0.0-canary-20250430134539",
     "@lens-protocol/env": "^0.0.0-canary-20250820102520",
     "@lens-protocol/metadata": "^2.1.0",
     "@lens-protocol/react": "^0.0.0-canary-20250820102520",
