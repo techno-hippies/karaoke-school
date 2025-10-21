@@ -70,7 +70,9 @@ export function loadPipelineConfig(): PipelineConfig {
  */
 export const paths = {
   // Data directories
+  dataDir: () => DATA_DIR,
   artists: () => join(DATA_DIR, 'artists'),
+  creators: () => join(DATA_DIR, 'creators'),
   songs: () => join(DATA_DIR, 'songs'),
   segments: () => join(DATA_DIR, 'segments'),
 
@@ -79,6 +81,16 @@ export const paths = {
   artistPkp: (handle: string) => join(DATA_DIR, 'artists', handle, 'pkp.json'),
   artistLens: (handle: string) => join(DATA_DIR, 'artists', handle, 'lens.json'),
   artistManifest: (handle: string) => join(DATA_DIR, 'artists', handle, 'manifest.json'),
+
+  // Creator paths
+  creator: (handle: string) => join(DATA_DIR, 'creators', handle),
+  creatorPkp: (handle: string) => join(DATA_DIR, 'creators', handle, 'pkp.json'),
+  creatorLens: (handle: string) => join(DATA_DIR, 'creators', handle, 'lens.json'),
+  creatorManifest: (handle: string) => join(DATA_DIR, 'creators', handle, 'manifest.json'),
+  creatorVideo: (handle: string, videoHash: string) =>
+    join(DATA_DIR, 'creators', handle, 'videos', videoHash),
+  creatorVideoManifest: (handle: string, videoHash: string) =>
+    join(DATA_DIR, 'creators', handle, 'videos', videoHash, 'manifest.json'),
 
   // Song paths
   song: (geniusId: number) => join(DATA_DIR, 'songs', geniusId.toString()),
