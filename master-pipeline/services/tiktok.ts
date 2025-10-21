@@ -1,8 +1,13 @@
 /**
- * TikTok Utility Functions
+ * TikTok Service
  *
- * Extract metadata from TikTok URLs
+ * URL parsing and segment scraping utilities
  */
+
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Extract TikTok music ID from music page URL
@@ -51,4 +56,32 @@ export function extractTikTokMusicSlug(url: string): string {
  */
 export function isValidTikTokMusicUrl(url: string): boolean {
   return /^https:\/\/www\.tiktok\.com\/music\/[^-]+-\d+/.test(url);
+}
+
+/**
+ * Download TikTok segment from CDN URL
+ *
+ * @param segmentUrl TikTok CDN URL
+ * @param outputPath Local file path to save segment
+ */
+export async function downloadTikTokSegment(
+  segmentUrl: string,
+  outputPath: string
+): Promise<void> {
+  console.log(`📥 Downloading TikTok segment...`);
+  console.log(`   URL: ${segmentUrl}`);
+  console.log(`   Output: ${outputPath}`);
+
+  try {
+    // Use curl to download
+    await execAsync(`curl -s -o "${outputPath}" "${segmentUrl}"`);
+
+    // Verify download
+    const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${outputPath}"`);
+    const duration = parseFloat(stdout.trim());
+
+    console.log(`   ✓ Downloaded (${duration.toFixed(1)}s)`);
+  } catch (error: any) {
+    throw new Error(`Failed to download TikTok segment: ${error.message}`);
+  }
 }

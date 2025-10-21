@@ -1,5 +1,5 @@
 /**
- * fal.ai Seedream Service
+ * fal.ai Image Service
  *
  * Generates derivative cover art using Bytedance's Seedream 4 model
  * Transforms images into abstract paintings to create derivative works
@@ -7,11 +7,11 @@
 
 import { BaseService, ServiceConfig } from './base.js';
 
-export interface SeedreamConfig extends ServiceConfig {
+export interface FalImageConfig extends ServiceConfig {
   apiKey?: string;
 }
 
-export interface SeedreamInput {
+export interface FalImageInput {
   prompt: string;
   imageUrl?: string; // For image-to-image (if supported)
   imageSize?: {
@@ -22,7 +22,7 @@ export interface SeedreamInput {
   enableSafetyChecker?: boolean;
 }
 
-export interface SeedreamOutput {
+export interface FalImageOutput {
   images: Array<{
     url: string;
     width?: number;
@@ -32,12 +32,12 @@ export interface SeedreamOutput {
   seed: number;
 }
 
-export class FalSeedreamService extends BaseService {
+export class FalImageService extends BaseService {
   private apiKey: string;
   private baseUrl = 'https://queue.fal.run/fal-ai/bytedance/seedream/v4/text-to-image';
 
-  constructor(config: SeedreamConfig = {}) {
-    super('FalSeedream', config);
+  constructor(config: FalImageConfig = {}) {
+    super('FalImage', config);
     this.apiKey = config.apiKey || process.env.FAL_KEY || '';
 
     if (!this.apiKey) {
@@ -52,7 +52,7 @@ export class FalSeedreamService extends BaseService {
   async generateDerivativeCoverArt(
     originalImageUrl: string,
     baseSeed?: number
-  ): Promise<SeedreamOutput> {
+  ): Promise<FalImageOutput> {
     this.log(`Generating derivative cover art from: ${originalImageUrl.slice(0, 60)}...`);
 
     // Download the original image to get its description/style
@@ -75,7 +75,7 @@ export class FalSeedreamService extends BaseService {
   /**
    * Generate image using Seedream 4
    */
-  async generateImage(input: SeedreamInput): Promise<SeedreamOutput> {
+  async generateImage(input: FalImageInput): Promise<FalImageOutput> {
     const requestBody = {
       prompt: input.prompt,
       image_size: input.imageSize || {
@@ -118,7 +118,7 @@ export class FalSeedreamService extends BaseService {
     // Poll for result
     const result = await this.pollForResult(requestId);
 
-    return result as SeedreamOutput;
+    return result as FalImageOutput;
   }
 
   /**

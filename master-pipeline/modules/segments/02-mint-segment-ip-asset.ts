@@ -124,8 +124,8 @@ async function main() {
 
     // Step 4: Generate derivative cover art using Seedream
     console.log('\nStep 4: Generating derivative cover art with Seedream...');
-    const { FalSeedreamService } = await import('../services/FalSeedreamService.js');
-    const seedreamService = new FalSeedreamService({ apiKey: falKey });
+    const { FalImageService } = await import('../../services/fal-image.js');
+    const seedreamService = new FalImageService({ apiKey: falKey });
 
     const coverArtResult = await seedreamService.generateDerivativeCoverArt(
       metadata.coverUri,
@@ -136,7 +136,7 @@ async function main() {
 
     // Step 5: Upload derivative cover art to Grove
     console.log('\nStep 5: Uploading cover art to Grove...');
-    const { GroveService } = await import('../services/grove.js');
+    const { GroveService } = await import('../../services/grove.js');
     const groveService = new GroveService();
 
     // Download Seedream image
@@ -158,7 +158,7 @@ async function main() {
 
     // Step 6: Create Story Protocol service
     console.log('\nStep 6: Connecting to Story Protocol...');
-    const { StoryProtocolService } = await import('../services/StoryProtocolService.js');
+    const { StoryProtocolService } = await import('../../services/story-protocol.js');
 
     let currentSpgContract = spgNftContract;
 
