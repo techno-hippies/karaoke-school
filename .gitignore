@@ -21,7 +21,9 @@ output/
 temp/
 
 # Song data (can be large)
-songs/
+master-pipeline/songs/
+data/songs/
+!master-pipeline/modules/songs/
 
 # Music pipeline POC
 music-pipeline/

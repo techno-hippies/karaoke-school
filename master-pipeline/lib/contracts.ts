@@ -86,8 +86,73 @@ const artistRegistryAbi = [
   },
 ] as const;
 
-// TODO: Add proper JSON ABIs for SongRegistry and SegmentRegistry when needed
-const songRegistryAbi = [] as const;
+const songRegistryAbi = [
+  {
+    type: 'function',
+    name: 'registerSong',
+    inputs: [
+      { name: 'geniusId', type: 'uint32', internalType: 'uint32' },
+      { name: 'geniusArtistId', type: 'uint32', internalType: 'uint32' },
+      { name: 'spotifyId', type: 'string', internalType: 'string' },
+      { name: 'tiktokMusicId', type: 'string', internalType: 'string' },
+      { name: 'title', type: 'string', internalType: 'string' },
+      { name: 'artist', type: 'string', internalType: 'string' },
+      { name: 'duration', type: 'uint32', internalType: 'uint32' },
+      { name: 'coverUri', type: 'string', internalType: 'string' },
+      { name: 'metadataUri', type: 'string', internalType: 'string' },
+      { name: 'copyrightFree', type: 'bool', internalType: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getSong',
+    inputs: [{ name: 'geniusId', type: 'uint32', internalType: 'uint32' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        internalType: 'struct ISongRegistry.Song',
+        components: [
+          { name: 'geniusId', type: 'uint32', internalType: 'uint32' },
+          { name: 'geniusArtistId', type: 'uint32', internalType: 'uint32' },
+          { name: 'spotifyId', type: 'string', internalType: 'string' },
+          { name: 'tiktokMusicId', type: 'string', internalType: 'string' },
+          { name: 'title', type: 'string', internalType: 'string' },
+          { name: 'artist', type: 'string', internalType: 'string' },
+          { name: 'duration', type: 'uint32', internalType: 'uint32' },
+          { name: 'coverUri', type: 'string', internalType: 'string' },
+          { name: 'metadataUri', type: 'string', internalType: 'string' },
+          { name: 'copyrightFree', type: 'bool', internalType: 'bool' },
+          { name: 'enabled', type: 'bool', internalType: 'bool' },
+          { name: 'createdAt', type: 'uint64', internalType: 'uint64' },
+          { name: 'updatedAt', type: 'uint64', internalType: 'uint64' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'songExists',
+    inputs: [{ name: 'geniusId', type: 'uint32', internalType: 'uint32' }],
+    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'updateSongMetadata',
+    inputs: [
+      { name: 'geniusId', type: 'uint32', internalType: 'uint32' },
+      { name: 'metadataUri', type: 'string', internalType: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const;
+
+// TODO: Add proper JSON ABI for SegmentRegistry when needed
 const segmentRegistryAbi = [] as const;
 
 // ============================================================================
@@ -161,18 +226,31 @@ export async function getArtist(geniusArtistId: number) {
  * Register song in SongRegistry
  */
 export async function registerSong(params: {
+  geniusId: number;
   geniusArtistId: number;
-  geniusSongId: number;
+  spotifyId: string;
+  tiktokMusicId: string;
   title: string;
-  artistName: string;
+  artist: string;
   duration: number;
-  coverArt: string;
+  coverUri: string;
   metadataUri: string;
+  copyrightFree: boolean;
 }): Promise<SongOnChain> {
-  const { geniusArtistId, geniusSongId, title, artistName, duration, coverArt, metadataUri } =
-    params;
+  const {
+    geniusId,
+    geniusArtistId,
+    spotifyId,
+    tiktokMusicId,
+    title,
+    artist,
+    duration,
+    coverUri,
+    metadataUri,
+    copyrightFree,
+  } = params;
 
-  console.log(`\n📝 Registering song ${geniusSongId} in SongRegistry...`);
+  console.log(`\n📝 Registering song ${geniusId} in SongRegistry...`);
 
   const { walletClient, publicClient } = initClients();
   const config = loadPipelineConfig();
@@ -183,13 +261,16 @@ export async function registerSong(params: {
     abi: songRegistryAbi,
     functionName: 'registerSong',
     args: [
-      BigInt(geniusArtistId),
-      BigInt(geniusSongId),
+      geniusId,
+      geniusArtistId,
+      spotifyId,
+      tiktokMusicId,
       title,
-      artistName,
-      BigInt(duration),
-      coverArt,
+      artist,
+      duration,
+      coverUri,
       metadataUri,
+      copyrightFree,
     ],
   });
 
@@ -197,7 +278,7 @@ export async function registerSong(params: {
   await publicClient.waitForTransactionReceipt({ hash });
 
   const songData: SongOnChain = {
-    geniusSongId,
+    geniusSongId: geniusId,
     registeredAt: new Date().toISOString(),
     transactionHash: hash,
     enabled: true,
@@ -212,7 +293,7 @@ export async function registerSong(params: {
 /**
  * Get song from SongRegistry
  */
-export async function getSong(geniusSongId: number) {
+export async function getSong(geniusId: number) {
   const { publicClient } = initClients();
   const config = loadPipelineConfig();
 
@@ -220,10 +301,52 @@ export async function getSong(geniusSongId: number) {
     address: config.contracts.songRegistry,
     abi: songRegistryAbi,
     functionName: 'getSong',
-    args: [BigInt(geniusSongId)],
+    args: [geniusId],
   });
 
   return song;
+}
+
+/**
+ * Check if song exists in SongRegistry
+ */
+export async function songExists(geniusId: number): Promise<boolean> {
+  const { publicClient } = initClients();
+  const config = loadPipelineConfig();
+
+  const exists = await publicClient.readContract({
+    address: config.contracts.songRegistry,
+    abi: songRegistryAbi,
+    functionName: 'songExists',
+    args: [geniusId],
+  });
+
+  return exists;
+}
+
+/**
+ * Update song metadata URI
+ */
+export async function updateSongMetadata(geniusId: number, metadataUri: string) {
+  const { walletClient, publicClient } = initClients();
+  const config = loadPipelineConfig();
+
+  console.log(`\n📝 Updating metadata for song ${geniusId}...`);
+
+  const hash = await walletClient.writeContract({
+    address: config.contracts.songRegistry,
+    abi: songRegistryAbi,
+    functionName: 'updateSongMetadata',
+    args: [geniusId, metadataUri],
+  });
+
+  console.log(`⏳ Waiting for transaction: ${hash}`);
+  await publicClient.waitForTransactionReceipt({ hash });
+
+  console.log(`✅ Metadata updated`);
+  console.log(`   Tx: ${hash}`);
+
+  return hash;
 }
 
 // ============================================================================

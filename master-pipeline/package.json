@@ -23,7 +23,7 @@
     "@lit-protocol/networks": "8.0.2",
     "@story-protocol/core-sdk": "^1.4.0",
     "viem": "^2.21.54",
-    "zod": "^3.22.4"
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/bun": "latest"
