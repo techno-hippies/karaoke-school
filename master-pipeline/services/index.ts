@@ -14,8 +14,9 @@ export * from './audio-matching.js';
 export * from './audio-processing.js';
 export * from './demucs.js';
 export * from './demucs-modal.js';
-export * from './falai.js';
+export * from './fal-audio.js';
+export * from './fal-image.js';
 export * from './grove.js';
-
-// Future services:
-// export * from './genius.js';
+export * from './story-protocol.js';
+export * from './song-identification.js';
+export * from './tiktok.js';

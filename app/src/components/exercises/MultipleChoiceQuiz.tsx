@@ -52,13 +52,13 @@ export const MultipleChoiceQuiz = ({
   }
 
   const getOptionStyles = (option: MultipleChoiceOption) => {
-    const baseStyles = "w-full flex items-center gap-3 p-4 rounded-lg transition-all cursor-pointer border min-h-[60px]"
+    const baseStyles = "w-full flex items-center gap-3 p-4 rounded-lg transition-all cursor-pointer min-h-[60px]"
 
     if (!answered) {
-      // Not answered yet - normal hover states
+      // Not answered yet - normal hover states (matches button outline variant)
       return cn(
         baseStyles,
-        "bg-secondary/30 hover:bg-secondary border-border text-foreground"
+        "bg-secondary/30 hover:bg-secondary/50 text-foreground"
       )
     }
 
@@ -70,7 +70,7 @@ export const MultipleChoiceQuiz = ({
       // User selected the correct answer - green
       return cn(
         baseStyles,
-        "bg-green-500/20 border-green-500/50 text-green-400"
+        "bg-green-500/20 text-green-400"
       )
     }
 
@@ -78,7 +78,7 @@ export const MultipleChoiceQuiz = ({
       // User selected wrong answer - red
       return cn(
         baseStyles,
-        "bg-destructive/20 border-destructive/50 text-destructive"
+        "bg-destructive/20 text-destructive"
       )
     }
 
@@ -86,14 +86,14 @@ export const MultipleChoiceQuiz = ({
       // Show correct answer even if not selected - green
       return cn(
         baseStyles,
-        "bg-green-500/10 border-green-500/30 text-green-400"
+        "bg-green-500/10 text-green-400"
       )
     }
 
     // Not selected and not correct - muted
     return cn(
       baseStyles,
-      "bg-muted/30 border-border/50 text-muted-foreground opacity-60"
+      "bg-muted/30 text-muted-foreground opacity-60"
     )
   }
 
@@ -127,7 +127,7 @@ export const MultipleChoiceQuiz = ({
 
       {/* Explanation (shown after answering if provided) */}
       {answered && explanation && (
-        <div className="p-4 bg-secondary/20 border border-border rounded-lg">
+        <div className="p-4 bg-secondary/20 rounded-lg">
           <div className="text-muted-foreground text-base font-medium mb-1">Explanation:</div>
           <div className="text-foreground text-base">{explanation}</div>
         </div>
