@@ -24,8 +24,8 @@
  *   # Regular user
  *   bun run accounts/01-create-account.ts --username brookemonk
  *
- *   # Verified artist (with Genius ID and ISNI)
- *   bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858
+ *   # Verified artist (with Genius ID, ISNI, and blue check)
+ *   bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858 --verify
  *
  *   # With custom display name and avatar
  *   bun run accounts/01-create-account.ts --username charlidamelio --display-name "Charli D'Amelio" --avatar lens://...
@@ -78,6 +78,7 @@ async function main() {
       'display-name': { type: 'string' }, // Optional: overrides username
       avatar: { type: 'string' }, // Optional: avatar URI
       bio: { type: 'string' }, // Optional: custom bio
+      verify: { type: 'boolean', default: false }, // Optional: mark as verified (blue check)
       'emit-event': { type: 'boolean', default: false }, // Optional: emit to contract
     },
   });
@@ -86,7 +87,7 @@ async function main() {
     logger.error('Missing required parameter: --username');
     console.log('\nUsage:');
     console.log('  bun run accounts/01-create-account.ts --username brookemonk');
-    console.log('  bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858');
+    console.log('  bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858 --verify');
     console.log('  bun run accounts/01-create-account.ts --username charlidamelio --display-name "Charli D\'Amelio"\n');
     console.log('Options:');
     console.log('  --username           Lens handle (lowercase, alphanumeric + hyphens/underscores)');
@@ -95,6 +96,7 @@ async function main() {
     console.log('  --display-name       Custom display name (defaults to username)');
     console.log('  --avatar             Avatar URI on Grove storage (optional)');
     console.log('  --bio                Custom bio (optional)');
+    console.log('  --verify             Mark account as verified (blue check badge)');
     console.log('  --emit-event         Emit AccountCreated event to contract (optional)\n');
     process.exit(1);
   }
@@ -115,6 +117,7 @@ async function main() {
 
   const avatarUri = values.avatar;
   const customBio = values.bio;
+  const shouldVerify = values.verify;
   const emitEvent = values['emit-event'];
 
   // Validate username format
@@ -127,10 +130,13 @@ async function main() {
   console.log(`   Username: @${username}`);
   console.log(`   Display Name: ${displayName}`);
   if (geniusArtistId) {
-    console.log(`   ⭐ Verified Artist (Genius ID: ${geniusArtistId})`);
+    console.log(`   ⭐ Artist (Genius ID: ${geniusArtistId})`);
   }
   if (isni) {
     console.log(`   🎵 ISNI: ${isni}`);
+  }
+  if (shouldVerify) {
+    console.log(`   ✅ Verified Account (Blue Check)`);
   }
   console.log('');
 
@@ -285,6 +291,9 @@ async function main() {
     // ============ STEP 3: Create Unified Account Metadata (Grove) ============
     logger.step('3/4', 'Creating unified account metadata');
 
+    // Get admin wallet address for ACL and verification
+    const adminWallet = requireEnv('BACKEND_WALLET_ADDRESS');
+
     // Build AccountMetadata using Zod schema
     const accountMetadata: AccountMetadata = {
       version: '1.0.0',
@@ -297,6 +306,14 @@ async function main() {
       ...(isni && { isni }),
       ...(avatarUri && { avatar: avatarUri }),
       ...(customBio && { bio: customBio }),
+      ...(shouldVerify && {
+        verification: {
+          verified: true,
+          verifiedBy: adminWallet as Address,
+          verifiedAt: new Date().toISOString(),
+          verificationMethod: 'manual' as const,
+        },
+      }),
       stats: {
         // Initialize empty stats
         totalPerformances: 0,
@@ -319,9 +336,6 @@ async function main() {
 
     // Validate with Zod
     const validated = AccountMetadataSchema.parse(accountMetadata);
-
-    // Get admin wallet address for ACL (allows admin to update ISNI, verification, stats)
-    const adminWallet = requireEnv('BACKEND_WALLET_ADDRESS');
 
     console.log('☁️  Uploading account metadata to Grove...');
     const metadataUpload = await storage.uploadAsJson(validated, {
