@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { ProfilePage, type Achievement, type ActivityItem } from '@/components/profile/ProfilePage'
+import { ProfilePage, type Achievement } from '@/components/profile/ProfilePage'
+import type { VideoPost } from '@/components/video/VideoGrid'
 
 /**
  * ProfilePageContainer - Container for the user's own profile
@@ -15,7 +16,7 @@ export function ProfilePageContainer() {
   // const { username, displayName, avatarUrl, pkpAddress } = useAuth()
   // const { following, followers } = useProfileStats(pkpAddress)
   // const { achievements } = useAchievements(pkpAddress)
-  // const { activities } = useActivities(pkpAddress)
+  // const { videos } = useUserVideos(pkpAddress)
 
   // Mock data for now
   const mockUsername = 'student123'
@@ -23,6 +24,8 @@ export function ProfilePageContainer() {
   const mockAvatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=student123'
   const mockFollowing = 0
   const mockFollowers = 0
+
+  const mockVideos: VideoPost[] = []
 
   const mockAchievements: Achievement[] = [
     {
@@ -47,46 +50,14 @@ export function ProfilePageContainer() {
     },
   ]
 
-  const mockActivities: ActivityItem[] = [
-    {
-      id: '1',
-      type: 'practice',
-      timestamp: new Date(Date.now() - 3600000 * 2),
-      title: 'Practiced a song',
-      song: {
-        title: 'Anti-Hero',
-        artist: 'Taylor Swift',
-        artworkUrl: 'https://images.genius.com/f406b461b1e69871b2ceb0320d322fd4.1000x1000x1.jpg',
-      },
-    },
-    {
-      id: '2',
-      type: 'achievement',
-      timestamp: new Date(Date.now() - 86400000 * 1),
-      title: 'Unlocked achievement',
-      description: '7 Day Streak',
-    },
-    {
-      id: '3',
-      type: 'performance',
-      timestamp: new Date(Date.now() - 86400000 * 2),
-      title: 'Completed karaoke session',
-      score: 850,
-      song: {
-        title: 'Shake It Off',
-        artist: 'Taylor Swift',
-      },
-    },
-  ]
-
   const handleEditProfile = () => {
     // TODO: Navigate to profile edit page or open edit modal
     console.log('Edit profile clicked')
   }
 
-  const handleActivitySongClick = (activity: ActivityItem) => {
-    // TODO: Navigate to song page
-    console.log('Activity song clicked:', activity)
+  const handleVideoClick = (video: VideoPost) => {
+    // TODO: Navigate to video page
+    console.log('Video clicked:', video)
   }
 
   return (
@@ -98,11 +69,11 @@ export function ProfilePageContainer() {
       followers={mockFollowers}
       isVerified={false}
       isOwnProfile={true}
+      videos={mockVideos}
+      onVideoClick={handleVideoClick}
       achievements={mockAchievements}
-      activities={mockActivities}
       onBack={() => navigate(-1)}
       onEditProfile={handleEditProfile}
-      onActivitySongClick={handleActivitySongClick}
     />
   )
 }

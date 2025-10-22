@@ -18,7 +18,6 @@ export function VideoPlayer({
   onTogglePlay,
   onPlayFailed,
   onTimeUpdate,
-  forceShowThumbnail = false,
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)

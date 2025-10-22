@@ -2,19 +2,23 @@
  * Study progress types from FSRSTrackerV1 contract
  */
 
-export enum CardState {
-  New = 0,         // Never studied
-  Learning = 1,    // Short-term repetition (< 1 day intervals)
-  Review = 2,      // Long-term repetition (days/weeks/months)
-  Relearning = 3   // Failed review, back to short intervals
-}
+export const CardState = {
+  New: 0,         // Never studied
+  Learning: 1,    // Short-term repetition (< 1 day intervals)
+  Review: 2,      // Long-term repetition (days/weeks/months)
+  Relearning: 3   // Failed review, back to short intervals
+} as const
 
-export enum Rating {
-  Again = 0,  // Complete failure, restart learning
-  Hard = 1,   // Difficult but remembered
-  Good = 2,   // Correct with effort
-  Easy = 3    // Trivial, increase interval significantly
-}
+export type CardState = typeof CardState[keyof typeof CardState]
+
+export const Rating = {
+  Again: 0,  // Complete failure, restart learning
+  Hard: 1,   // Difficult but remembered
+  Good: 2,   // Correct with effort
+  Easy: 3    // Trivial, increase interval significantly
+} as const
+
+export type Rating = typeof Rating[keyof typeof Rating]
 
 export interface Card {
   due: bigint              // Next review timestamp

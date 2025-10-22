@@ -75,15 +75,43 @@ class TikTokMusicScraper:
                     console.print("[yellow]Video element not found[/yellow]")
                     return None
 
-                # Extract video URL using JavaScript
-                segment_url = page.evaluate('() => document.querySelector("video")?.src')
+                # Extract ALL video URLs and find the music preview (longest duration)
+                # TikTok music pages have multiple videos: user clips + 60s music preview
+                video_info = page.evaluate('''() => {
+                    const videos = Array.from(document.querySelectorAll('video'));
+                    return videos.map(v => ({
+                        src: v.src,
+                        duration: v.duration || 0,
+                        className: v.className,
+                        id: v.id
+                    }));
+                }''')
 
-                if segment_url:
-                    console.print(f"✅ Found segment URL")
-                    return segment_url
-                else:
-                    console.print("[yellow]Video element has no src[/yellow]")
+                if not video_info or len(video_info) == 0:
+                    console.print("[yellow]No video elements found[/yellow]")
                     return None
+
+                console.print(f"   Found {len(video_info)} video element(s)")
+
+                # Find the video with longest duration (should be the 60s preview)
+                # Filter out videos with no src or 0 duration
+                valid_videos = [v for v in video_info if v.get('src') and v.get('duration', 0) > 0]
+
+                if not valid_videos:
+                    # Fall back to first video with src if no duration info
+                    valid_videos = [v for v in video_info if v.get('src')]
+
+                if not valid_videos:
+                    console.print("[yellow]No valid video sources found[/yellow]")
+                    return None
+
+                # Sort by duration descending and take longest
+                longest_video = max(valid_videos, key=lambda v: v.get('duration', 0))
+                segment_url = longest_video['src']
+
+                console.print(f"   Selected video: {longest_video.get('duration', 0):.1f}s")
+                console.print(f"✅ Found segment URL")
+                return segment_url
 
         except Exception as e:
             console.print(f"[red]Error rendering page:[/red] {e}")

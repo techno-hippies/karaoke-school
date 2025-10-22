@@ -2,10 +2,12 @@
  * Artist types from ArtistRegistryV2 contract
  */
 
-export enum ProfileSource {
-  MANUAL = 0,     // Created via pkp-lens-flow pipeline
-  GENERATED = 1   // Created on-demand via Lit Action
-}
+export const ProfileSource = {
+  MANUAL: 0,     // Created via pkp-lens-flow pipeline
+  GENERATED: 1   // Created on-demand via Lit Action
+} as const
+
+export type ProfileSource = typeof ProfileSource[keyof typeof ProfileSource]
 
 export interface Artist {
   geniusArtistId: number

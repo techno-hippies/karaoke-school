@@ -37,15 +37,24 @@ export function KaraokeWordsRenderer({
  */
 export function TikTokKaraokeRenderer({
   words,
-  className = 'flex flex-wrap gap-1',
+  className = '',
 }: Omit<KaraokeWordsRendererProps, 'wordClassName'>) {
   return (
-    <KaraokeWordsRenderer
-      words={words}
-      className={className}
-      wordClassName={(word) =>
-        word.isActive ? 'text-primary' : 'text-foreground'
-      }
-    />
+    <p className={className}>
+      {words.map((word, index) => (
+        <span
+          key={index}
+          className={
+            word.isActive
+              ? 'text-white font-bold transition-colors duration-75'
+              : word.isPast
+              ? 'text-neutral-400 transition-colors duration-75'
+              : 'text-neutral-500 transition-colors duration-75'
+          }
+        >
+          {word.text}{index < words.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </p>
   )
 }

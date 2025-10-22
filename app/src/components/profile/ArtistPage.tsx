@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileInfo } from './ProfileInfo'
+import { ProfileStats } from './ProfileStats'
 import { VideoGrid, type VideoPost } from '@/components/video/VideoGrid'
 import { SongItem } from '@/components/ui/SongItem'
 import { cn } from '@/lib/utils'
@@ -15,15 +16,6 @@ export interface ArtistSong {
   onSongClick?: () => void
 }
 
-export interface TopStudent {
-  rank: number
-  username: string
-  score: number
-  avatarUrl?: string
-  isCurrentUser?: boolean
-  onStudentClick?: () => void
-}
-
 export interface ArtistPageProps {
   // Profile data
   username: string
@@ -31,6 +23,10 @@ export interface ArtistPageProps {
   avatarUrl: string
   isVerified?: boolean
   isOwnProfile?: boolean
+
+  // Stats
+  following?: number
+  followers?: number
 
   // Follow state
   isFollowing?: boolean
@@ -43,10 +39,6 @@ export interface ArtistPageProps {
   // Songs tab
   songs?: ArtistSong[]
 
-  // Students tab
-  topStudents?: TopStudent[]
-  currentUser?: TopStudent
-
   // Handlers
   onBack?: () => void
   onFollow?: () => void
@@ -56,8 +48,8 @@ export interface ArtistPageProps {
 }
 
 /**
- * ArtistPage - Artist profile with videos, songs, and students
- * Shows profile avatar (not hero), 3 tabs (Videos, Songs, Students), Follow button above tabs
+ * ArtistPage - Artist profile with dances and songs
+ * Shows profile avatar (not hero), 2 tabs (Dances, Songs), Follow button above tabs
  */
 export function ArtistPage({
   username,
@@ -65,13 +57,13 @@ export function ArtistPage({
   avatarUrl,
   isVerified = false,
   isOwnProfile = false,
+  following = 0,
+  followers = 0,
   isFollowing = false,
   isFollowLoading = false,
   videos = [],
   onVideoClick,
   songs = [],
-  topStudents = [],
-  currentUser,
   onBack,
   onFollow,
   onEditProfile,
@@ -84,7 +76,7 @@ export function ArtistPage({
         {/* Header */}
         <div className="flex-shrink-0">
           <div className="flex items-center h-12 px-4 pt-2">
-            <BackButton onClick={onBack} variant="ghost" />
+            <BackButton onClick={onBack} />
           </div>
         </div>
 
@@ -100,13 +92,19 @@ export function ArtistPage({
                 size="xl"
               />
 
-              {/* Info Section with Follow Button below handle */}
+              {/* Info Section with Stats and Follow Button */}
               <div className="flex-1 w-full flex flex-col items-center md:items-start">
                 <ProfileInfo
                   username={username}
                   displayName={displayName}
                   isVerified={isVerified}
                   alignment="center"
+                />
+
+                {/* Stats */}
+                <ProfileStats
+                  following={following}
+                  followers={followers}
                 />
 
                 {/* Action Button - Follow or Edit profile */}
@@ -139,15 +137,14 @@ export function ArtistPage({
           </div>
 
           <div className="px-4 space-y-4 pb-8 pt-6">
-            {/* Tabs: Videos | Songs | Students */}
-            <Tabs defaultValue="videos" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 bg-muted/50">
-                <TabsTrigger value="videos">Videos</TabsTrigger>
+            {/* Tabs: Dances | Songs */}
+            <Tabs defaultValue="dances" className="w-full">
+              <TabsList className="w-full grid grid-cols-2 bg-muted/50">
+                <TabsTrigger value="dances">Dances</TabsTrigger>
                 <TabsTrigger value="songs">Songs</TabsTrigger>
-                <TabsTrigger value="students">Students</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="videos" className="mt-4 -mx-4 md:-mx-6">
+              <TabsContent value="dances" className="mt-4 -mx-4 md:-mx-6">
                 <VideoGrid
                   videos={videos}
                   onVideoClick={onVideoClick}
@@ -174,43 +171,6 @@ export function ArtistPage({
                     No songs yet
                   </div>
                 )}
-              </TabsContent>
-
-              <TabsContent value="students" className="mt-4">
-                <div className="space-y-1">
-                  {topStudents.length > 0 ? (
-                    <>
-                      {topStudents.map((student) => (
-                        <SongItem
-                          key={student.username}
-                          rank={student.rank}
-                          title={student.username}
-                          artist={`${student.score.toLocaleString()} pts`}
-                          artworkUrl={student.avatarUrl}
-                          isHighlighted={student.isCurrentUser}
-                          onClick={student.onStudentClick}
-                        />
-                      ))}
-
-                      {currentUser && !topStudents.some(s => s.isCurrentUser) && (
-                        <div className="mt-4 pt-4 border-t border-border">
-                          <SongItem
-                            rank={currentUser.rank}
-                            title={currentUser.username}
-                            artist={`${currentUser.score.toLocaleString()} pts`}
-                            artworkUrl={currentUser.avatarUrl}
-                            isHighlighted={true}
-                            onClick={currentUser.onStudentClick}
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      No students yet
-                    </div>
-                  )}
-                </div>
               </TabsContent>
             </Tabs>
           </div>

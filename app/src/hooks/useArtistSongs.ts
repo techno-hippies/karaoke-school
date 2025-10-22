@@ -23,7 +23,7 @@ export function useArtistSongs(geniusArtistId?: number) {
     : []
 
   const { data: songsData, isLoading: isLoadingSongs, error: songsError } = useReadContracts({
-    contracts,
+    contracts: contracts as any,
     query: {
       enabled: !!songIds && Array.isArray(songIds) && songIds.length > 0,
     },

@@ -51,7 +51,6 @@ let geniusId: number;
 let tiktokId: string;
 let startTime: number;
 let endTime: number;
-let vocalsUri: string;
 let instrumentalUri: string;
 let alignmentUri: string;
 let coverUri: string;
@@ -66,7 +65,6 @@ if (values['segment-hash']) {
   tiktokId = manifest.tiktokMusicId;
   startTime = Math.floor(manifest.match.startTime);
   endTime = Math.floor(manifest.match.endTime);
-  vocalsUri = manifest.grove.vocalsUri;
   instrumentalUri = manifest.grove.instrumentalUri;
   alignmentUri = manifest.grove.alignmentUri || '';
   coverUri = '';
@@ -94,7 +92,6 @@ if (values['segment-hash']) {
   tiktokId = values['tiktok-id']!;
   startTime = Math.floor(parseFloat(values['start-time']!));
   endTime = Math.floor(parseFloat(values['end-time']!));
-  vocalsUri = values['vocals-uri']!;
   instrumentalUri = values['instrumental-uri']!;
   alignmentUri = values['alignment-uri'] || '';
   coverUri = values['cover-uri'] || '';
@@ -105,7 +102,6 @@ console.log('══════════════════════�
 console.log(`Genius ID: ${geniusId}`);
 console.log(`TikTok ID: ${tiktokId}`);
 console.log(`Time Range: ${startTime}s - ${endTime}s (${endTime - startTime}s)`);
-console.log(`Vocals: ${vocalsUri}`);
 console.log(`Instrumental: ${instrumentalUri}`);
 if (alignmentUri) console.log(`Alignment: ${alignmentUri}`);
 if (coverUri) console.log(`Cover: ${coverUri}`);
@@ -270,7 +266,8 @@ async function main() {
     console.log(`  Calling processSegment("${segmentHash}", ...)`);
 
     // Use cast send directly (viem has issues with processSegment)
-    const castCmd = `cast send ${SEGMENT_REGISTRY} "processSegment(bytes32,string,string,string)" ${segmentHash} "${vocalsUri}" "${instrumentalUri}" "${alignmentUri}" --rpc-url https://sepolia.base.org --private-key 0x${privateKey}`;
+    // Note: vocalsUri is always empty - vocals are never uploaded
+    const castCmd = `cast send ${SEGMENT_REGISTRY} "processSegment(bytes32,string,string,string)" ${segmentHash} "" "${instrumentalUri}" "${alignmentUri}" --rpc-url https://sepolia.base.org --private-key 0x${privateKey}`;
 
     const { stdout: castOutput } = await execAsync(castCmd);
 

@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Item } from '@/components/ui/item'
 import { Check, X } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
 
 export interface UsernameUpgradeSectionProps {
   currentUsername?: string

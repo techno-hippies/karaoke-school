@@ -41,11 +41,12 @@ import {
   extractTikTokMusicSlug,
   isValidTikTokMusicUrl,
 } from '../../services/tiktok.js';
-import { cropAlignmentToSegment } from './build-segment-metadata.js';
-import {
-  validateSegmentManifest,
-  validateSegmentAlignmentMetadata,
-} from '../../lib/schemas/segment.js';
+import { buildSegmentMetadataV2, addBackendTranslations } from './build-segment-metadata-v2.js';
+import { validateSegmentManifest } from '../../lib/schemas/segment-v2.js';
+import { buildSegmentLyrics, buildTranslatedLyrics } from '../../lib/segment-lyrics-helpers.js';
+import { TranslationService } from '../../services/translation.js';
+import { uploadMutableAlignment } from '../../lib/grove-acl-config.js';
+import { initGroveClient, createLensWalletClient } from '../../lib/lens.js';
 
 const execAsync = promisify(exec);
 
@@ -59,6 +60,7 @@ const { values } = parseArgs({
     'tiktok-url': { type: 'string' },
     'skip-demucs': { type: 'boolean', default: false },
     'skip-fal': { type: 'boolean', default: false },
+    'skip-translations': { type: 'boolean', default: false },
     'music-dir': { type: 'string' }, // Optional: path to music library
   },
 });
@@ -79,6 +81,7 @@ const geniusId = parseInt(values['genius-id']!);
 const tiktokUrl = values['tiktok-url']!;
 const skipDemucs = values['skip-demucs'] || false;
 const skipFal = values['skip-fal'] || false;
+const skipTranslations = values['skip-translations'] || false;
 const musicDir = values['music-dir'] || '/media/t42/me/Music';
 
 // Validate TikTok URL
@@ -321,69 +324,86 @@ async function main() {
     }
 
 
-    // Step 7: Build segment metadata with cropped lyrics
-    console.log('\nStep 7: Building segment metadata...');
+    // Step 7: Build segment metadata v2 (lines + words)
+    console.log('\nStep 7: Building segment metadata v2...');
 
-    // Crop alignment to segment timeframe only (copyright compliance)
-    const croppedLyrics = cropAlignmentToSegment(
-      matchResult.fullAlignment || [],
-      matchResult.startTime,
-      matchResult.endTime
-    );
-
-    const segmentMetadata = {
-      version: '1.0.0',
+    // Build v2 metadata with lines (LRCLib) + words (ElevenLabs)
+    let segmentMetadata = await buildSegmentMetadataV2({
       geniusId,
       segmentHash,
       tiktokMusicId,
-      timeRange: {
-        startTime: matchResult.startTime,
-        endTime: matchResult.endTime,
-        duration: matchResult.duration,
-      },
-      lyrics: {
-        en: croppedLyrics,
-        lrclib: {
-          id: matchResult.lrcMatch?.id || 0,
-          source: 'lrclib',
-        },
-      },
-      createdAt: new Date().toISOString(),
-    };
+      matchResult,
+    });
 
-    console.log(`  ✓ Cropped lyrics: ${croppedLyrics.plain.substring(0, 50)}...`);
+    const englishLyrics = segmentMetadata.lyrics.languages.en;
+    const totalWords = englishLyrics.lines.reduce((sum, line) => sum + line.words.length, 0);
+    console.log(`  ✓ English lyrics:`);
+    console.log(`    Lines: ${englishLyrics.lines.length}`);
+    console.log(`    Words: ${totalWords} (nested in lines)`);
+    console.log(`    Preview: ${englishLyrics.plain.substring(0, 50)}...`);
 
-    console.log(`  ✓ Cropped lyrics to segment timeframe`);
-    console.log(`  ✓ Words in segment: ${croppedLyrics.synced.length}`);
-    console.log(`  ⚠️  Full song lyrics NOT included (copyright)`);
+    // Step 7.1: Add default translations (vi + zh)
+    if (!skipTranslations) {
+      console.log('\nStep 7.1: Adding default translations (vi + zh)...');
+      const translationService = new TranslationService();
 
-    // Validate alignment metadata before upload
-    const validatedMetadata = validateSegmentAlignmentMetadata(segmentMetadata);
+      const translations = new Map();
+
+      // Translate to Vietnamese
+      console.log('  Translating to Vietnamese...');
+      const viPlain = await translationService.translateText(englishLyrics.plain, 'vi');
+      const viLyrics = buildTranslatedLyrics(englishLyrics, viPlain);
+      translations.set('vi', viLyrics);
+      console.log(`    ✓ vi: ${viPlain.substring(0, 40)}...`);
+
+      // Translate to Mandarin
+      console.log('  Translating to Mandarin...');
+      const zhPlain = await translationService.translateText(englishLyrics.plain, 'zh');
+      const zhLyrics = buildTranslatedLyrics(englishLyrics, zhPlain);
+      translations.set('zh', zhLyrics);
+      console.log(`    ✓ zh: ${zhPlain.substring(0, 40)}...`);
+
+      // Add to metadata
+      segmentMetadata = addBackendTranslations(segmentMetadata, translations);
+      console.log('  ✓ Added 2 translations (vi, zh)');
+    } else {
+      console.log('\nStep 7.1: Skipping translations (--skip-translations)');
+    }
 
     // Step 8: Upload to Grove
     console.log('\nStep 8: Uploading to Grove...');
     const grove = new GroveService({ chainId: 37111 }); // Lens testnet
 
-    let vocalsUri = '';
     let instrumentalUri = '';
     let alignmentUri = '';
+    let alignmentStorageKey = '';
 
-    // Upload segment metadata (cropped lyrics + alignment)
-    const metadataJSON = JSON.stringify(validatedMetadata, null, 2);
-    const metadataBuffer = Buffer.from(metadataJSON, 'utf-8');
-    const alignmentUpload = await grove.uploadBuffer(metadataBuffer, 'application/json');
+    // Upload segment metadata with mutable ACL (allows adding translations later)
+    console.log('  Uploading alignment with mutable ACL...');
+    const storageClient = initGroveClient();
+    const walletClient = createLensWalletClient();
+
+    const alignmentUpload = await uploadMutableAlignment(
+      storageClient,
+      segmentMetadata,
+      walletClient
+    );
+
     alignmentUri = alignmentUpload.uri;
+    alignmentStorageKey = alignmentUpload.storageKey;
 
+    const metadataJSON = JSON.stringify(segmentMetadata, null, 2);
+    const fileSize = (Buffer.from(metadataJSON, 'utf-8').length / 1024).toFixed(1);
+    const languageCount = Object.keys(segmentMetadata.lyrics.languages).length;
     console.log(`  ✓ Alignment: ${alignmentUri}`);
+    console.log(`    Size: ${fileSize} KB (${languageCount} languages)`);
+    console.log(`    Storage Key: ${alignmentStorageKey}`);
 
     if (!skipDemucs) {
-      const vocalsUpload = await grove.upload(vocalsPath, 'audio/mp3');
+      // Only upload fal.ai enhanced instrumental (vocals are never uploaded)
       const instrumentalUpload = await grove.upload(instrumentalPath, 'audio/mp3');
-
-      vocalsUri = vocalsUpload.uri;
       instrumentalUri = instrumentalUpload.uri;
 
-      console.log(`  ✓ Vocals: ${vocalsUri}`);
       console.log(`  ✓ Instrumental: ${instrumentalUri}`);
     } else {
       console.log('  ⚠️  Skipping audio upload (Demucs was skipped)');
@@ -412,9 +432,9 @@ async function main() {
         instrumental: instrumentalPath,
       },
       grove: {
-        vocalsUri,
         instrumentalUri,
         alignmentUri,
+        alignmentStorageKey,
       },
       processing: {
         demucs: !skipDemucs,

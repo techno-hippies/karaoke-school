@@ -17,7 +17,7 @@ export function ArtistPageContainer() {
   )
 
   // Step 3: Get artist's songs (only runs when we have geniusId)
-  const { data: songsData, isLoading: isLoadingSongs } = useArtistSongs(
+  const { data: songsData } = useArtistSongs(
     geniusId ? Number(geniusId) : undefined
   )
 

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ArtistPage, type ArtistSong, type TopStudent } from '@/components/profile/ArtistPage'
+import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
 const meta = {
@@ -90,68 +90,6 @@ const sampleSongs: ArtistSong[] = [
   },
 ]
 
-// Sample top students
-const sampleTopStudents: TopStudent[] = [
-  {
-    rank: 1,
-    username: 'karaoke_king',
-    score: 45230,
-    avatarUrl: 'https://placebear.com/100/100',
-    onStudentClick: () => console.log('Navigate to karaoke_king profile'),
-  },
-  {
-    rank: 2,
-    username: 'melody_master',
-    score: 38720,
-    avatarUrl: 'https://placebear.com/101/101',
-    onStudentClick: () => console.log('Navigate to melody_master profile'),
-  },
-  {
-    rank: 3,
-    username: 'rhythm_queen',
-    score: 34890,
-    avatarUrl: 'https://placebear.com/102/102',
-    onStudentClick: () => console.log('Navigate to rhythm_queen profile'),
-  },
-  {
-    rank: 4,
-    username: 'vocal_hero',
-    score: 29543,
-    avatarUrl: 'https://placebear.com/103/103',
-    onStudentClick: () => console.log('Navigate to vocal_hero profile'),
-  },
-  {
-    rank: 5,
-    username: 'dance_star',
-    score: 25432,
-    avatarUrl: 'https://placebear.com/104/104',
-    onStudentClick: () => console.log('Navigate to dance_star profile'),
-  },
-  {
-    rank: 6,
-    username: 'beat_boxer',
-    score: 22100,
-    avatarUrl: 'https://placebear.com/105/105',
-    onStudentClick: () => console.log('Navigate to beat_boxer profile'),
-  },
-  {
-    rank: 7,
-    username: 'harmony_hero',
-    score: 19850,
-    avatarUrl: 'https://placebear.com/106/106',
-    onStudentClick: () => console.log('Navigate to harmony_hero profile'),
-  },
-]
-
-const currentUser: TopStudent = {
-  rank: 42,
-  username: 'you',
-  score: 5340,
-  avatarUrl: 'https://placebear.com/107/107',
-  isCurrentUser: true,
-  onStudentClick: () => console.log('Navigate to your profile'),
-}
-
 /**
  * Artist page with all content
  */
@@ -162,11 +100,11 @@ export const Default: Story = {
     avatarUrl: 'https://placebear.com/300/300',
     isVerified: true,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: false,
     videos: sampleVideos,
     songs: sampleSongs,
-    topStudents: sampleTopStudents,
-    currentUser,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
@@ -183,11 +121,11 @@ export const Following: Story = {
     avatarUrl: 'https://placebear.com/301/301',
     isVerified: true,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: true,
     videos: sampleVideos,
     songs: sampleSongs.slice(0, 3),
-    topStudents: sampleTopStudents.slice(0, 5),
-    currentUser,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Unfollow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
@@ -204,9 +142,10 @@ export const OwnProfile: Story = {
     avatarUrl: 'https://placebear.com/302/302',
     isVerified: false,
     isOwnProfile: true,
+    following: 0,
+    followers: 0,
     videos: sampleVideos,
     songs: sampleSongs,
-    topStudents: sampleTopStudents,
     onBack: () => console.log('Back clicked'),
     onEditProfile: () => console.log('Edit profile clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
@@ -223,10 +162,11 @@ export const NewArtist: Story = {
     avatarUrl: 'https://placebear.com/303/303',
     isVerified: false,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: false,
     videos: sampleVideos.slice(0, 2),
     songs: sampleSongs.slice(0, 1),
-    topStudents: sampleTopStudents.slice(0, 3),
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
@@ -243,10 +183,11 @@ export const NoVideos: Story = {
     avatarUrl: 'https://placebear.com/304/304',
     isVerified: true,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: false,
     videos: [],
     songs: sampleSongs,
-    topStudents: sampleTopStudents,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
   },
@@ -262,6 +203,8 @@ export const PopularArtist: Story = {
     avatarUrl: 'https://placebear.com/305/305',
     isVerified: true,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: true,
     videos: [
       ...sampleVideos,
@@ -272,8 +215,6 @@ export const PopularArtist: Story = {
       ...sampleSongs,
       ...sampleSongs.map((s, i) => ({ ...s, id: `${s.id}-${i}`, title: `${s.title} (Remix)` })),
     ],
-    topStudents: sampleTopStudents,
-    currentUser,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Unfollow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),
@@ -290,10 +231,11 @@ export const Unverified: Story = {
     avatarUrl: 'https://placebear.com/306/306',
     isVerified: false,
     isOwnProfile: false,
+    following: 0,
+    followers: 0,
     isFollowing: false,
     videos: sampleVideos.slice(0, 4),
     songs: sampleSongs.slice(0, 3),
-    topStudents: sampleTopStudents.slice(0, 4),
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),

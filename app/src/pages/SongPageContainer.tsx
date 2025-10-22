@@ -16,7 +16,7 @@ export function SongPageContainer() {
   const { data: songData, isLoading: isLoadingSong, error: songError } = useSong(songId)
 
   // Fetch creator videos from Lens (by genius_id attribute)
-  const { data: videosData, isLoading: isLoadingVideos } = useSongVideos(songId)
+  const { data: videosData } = useSongVideos(songId)
 
   // Loading state
   if (isLoadingSong) {

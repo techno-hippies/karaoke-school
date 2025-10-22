@@ -25,15 +25,22 @@ export function KaraokeLyricLine({
   selectedLanguage = 'cn',
   className,
 }: KaraokeLyricLineProps) {
-  // Filter out malformed word timestamps and whitespace-only entries
-  const validWords = (line.words || []).filter((word) => {
-    const duration = word.end - word.start
-    return duration > 0 && duration < 5 && word.text.trim() !== ''
-  })
+  // Only filter out truly empty words - keep all words with actual content
+  const allWords = (line.words || []).filter((word) => word.text.trim() !== '')
+
+  // Check if word-level data is complete by verifying first word matches line text
+  const hasCompleteWordData = allWords.length > 0 && (() => {
+    const firstWord = allWords[0].text
+    const lineText = line.originalText
+    // Check if the line text contains the first word near the beginning
+    // (allowing for punctuation/quotes at the start)
+    const cleanedLineStart = lineText.replace(/^["\s]+/, '')
+    return cleanedLineStart.toLowerCase().startsWith(firstWord.toLowerCase())
+  })()
 
   // Process words with karaoke timing if active
   const processedWords = useKaraokeWords(
-    validWords,
+    allWords,
     isActive ? currentTime : 0
   )
 
@@ -42,12 +49,12 @@ export function KaraokeLyricLine({
     : undefined
 
   return (
-    <div className={cn('transition-all duration-300 w-full max-w-full', isActive && 'sm:scale-105', className)}>
-      {/* Word-level highlighting if available, otherwise line-level */}
-      {isActive && validWords.length > 0 ? (
+    <div className={cn('transition-all duration-300 w-full max-w-full', className)}>
+      {/* Word-level highlighting ONLY if we have complete word data */}
+      {isActive && hasCompleteWordData ? (
         <TikTokKaraokeRenderer
           words={processedWords}
-          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight flex flex-wrap break-words w-full max-w-full"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight"
         />
       ) : (
         <p

@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileInfo } from './ProfileInfo'
 import { ProfileStats } from './ProfileStats'
-import { SongItem, type SongItemProps } from '@/components/song/SongItem'
+import { VideoGrid, type VideoPost } from '@/components/video/VideoGrid'
 import { cn } from '@/lib/utils'
 
 export interface Achievement {
@@ -14,22 +14,6 @@ export interface Achievement {
   iconUrl?: string
   unlockedAt?: Date
   isLocked?: boolean
-}
-
-export interface ActivityItem {
-  id: string
-  type: 'practice' | 'performance' | 'streak' | 'achievement'
-  timestamp: Date
-  title: string
-  description?: string
-  // For song-related activities
-  song?: {
-    title: string
-    artist: string
-    artworkUrl?: string
-  }
-  // For performance activities
-  score?: number
 }
 
 export interface ProfilePageProps {
@@ -46,25 +30,25 @@ export interface ProfilePageProps {
   isFollowing?: boolean
   isFollowLoading?: boolean
 
+  // Videos tab
+  videos?: VideoPost[]
+  onVideoClick?: (video: VideoPost) => void
+
   // Achievements
   achievements?: Achievement[]
-
-  // Activity
-  activities?: ActivityItem[]
 
   // Handlers
   onBack?: () => void
   onFollow?: () => void
   onMessage?: () => void
   onEditProfile?: () => void
-  onActivitySongClick?: (activity: ActivityItem) => void
 
   className?: string
 }
 
 /**
- * ProfilePage - Student profile with achievements and activity
- * Shows profile avatar (not hero), 2 tabs (Achievements, Activity), Follow button footer
+ * ProfilePage - Student profile with dances and achievements
+ * Shows profile avatar (not hero), 2 tabs (Dances, Achievements), Follow button footer
  */
 export function ProfilePage({
   username,
@@ -76,29 +60,15 @@ export function ProfilePage({
   isOwnProfile = false,
   isFollowing = false,
   isFollowLoading = false,
+  videos = [],
+  onVideoClick,
   achievements = [],
-  activities = [],
   onBack,
   onFollow,
   onMessage,
   onEditProfile,
-  onActivitySongClick,
   className,
 }: ProfilePageProps) {
-
-  const formatActivityTime = (timestamp: Date): string => {
-    const now = new Date()
-    const diff = now.getTime() - timestamp.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 1) return 'Just now'
-    if (minutes < 60) return `${minutes}m ago`
-    if (hours < 24) return `${hours}h ago`
-    if (days < 7) return `${days}d ago`
-    return timestamp.toLocaleDateString()
-  }
 
   return (
     <div className={cn('relative w-full h-screen bg-background flex justify-center', className)}>
@@ -106,7 +76,7 @@ export function ProfilePage({
         {/* Header */}
         <div className="flex-shrink-0">
           <div className="flex items-center h-12 px-4 pt-2">
-            <BackButton onClick={onBack} variant="ghost" />
+            <BackButton onClick={onBack} />
           </div>
         </div>
 
@@ -141,12 +111,20 @@ export function ProfilePage({
           </div>
 
           <div className="px-4 mt-2 space-y-4 pb-8">
-            {/* Tabs: Achievements | Activity */}
-            <Tabs defaultValue="achievements" className="w-full">
+            {/* Tabs: Dances | Achievements */}
+            <Tabs defaultValue="dances" className="w-full">
               <TabsList className="w-full grid grid-cols-2 bg-muted/50">
+                <TabsTrigger value="dances">Dances</TabsTrigger>
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="dances" className="mt-4 -mx-4 md:-mx-6">
+                <VideoGrid
+                  videos={videos}
+                  onVideoClick={onVideoClick}
+                  showUsernames={false}
+                />
+              </TabsContent>
 
               <TabsContent value="achievements" className="mt-4">
                 {achievements.length > 0 ? (
@@ -184,67 +162,6 @@ export function ProfilePage({
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     No achievements yet
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="activity" className="mt-4">
-                {activities.length > 0 ? (
-                  <div className="space-y-3">
-                    {activities.map((activity) => (
-                      <div
-                        key={activity.id}
-                        className="flex gap-3 p-3 rounded-2xl bg-muted/30"
-                      >
-                        {/* Activity Type Icon */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          {activity.type === 'practice' && <span className="text-lg">📚</span>}
-                          {activity.type === 'performance' && <span className="text-lg">🎤</span>}
-                          {activity.type === 'streak' && <span className="text-lg">🔥</span>}
-                          {activity.type === 'achievement' && <span className="text-lg">🏆</span>}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h3 className="text-sm font-semibold">{activity.title}</h3>
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatActivityTime(activity.timestamp)}
-                            </span>
-                          </div>
-
-                          {activity.description && (
-                            <p className="text-sm text-muted-foreground mb-2">
-                              {activity.description}
-                            </p>
-                          )}
-
-                          {activity.song && (
-                            <div
-                              className="mt-2 cursor-pointer"
-                              onClick={() => onActivitySongClick?.(activity)}
-                            >
-                              <SongItem
-                                title={activity.song.title}
-                                artist={activity.song.artist}
-                                artworkUrl={activity.song.artworkUrl}
-                                className="bg-background/50"
-                              />
-                            </div>
-                          )}
-
-                          {activity.score !== undefined && (
-                            <div className="mt-2 text-sm">
-                              <span className="font-bold text-primary">{activity.score}</span>
-                              <span className="text-muted-foreground"> points</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No activity yet
                   </div>
                 )}
               </TabsContent>

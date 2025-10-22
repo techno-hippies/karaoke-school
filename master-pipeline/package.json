@@ -22,6 +22,8 @@
     "@lit-protocol/lit-client": "8.0.2",
     "@lit-protocol/networks": "8.0.2",
     "@story-protocol/core-sdk": "^1.4.0",
+    "graphql": "^16.11.0",
+    "graphql-request": "^7.3.1",
     "viem": "^2.21.54",
     "zod": "^4.1.12"
   },

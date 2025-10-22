@@ -59,9 +59,7 @@ export function MediaPageContainer() {
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">
-          {!songData && 'Song not found'}
-          {songData && !segment && 'No segments available for this song'}
-          {songData && segment && !lyrics && 'Lyrics not available'}
+          {!songData ? 'Song not found' : !segment ? 'No segments available for this song' : 'Lyrics not available'}
         </p>
         <button
           onClick={() => navigate(-1)}

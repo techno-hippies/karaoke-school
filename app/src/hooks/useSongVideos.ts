@@ -4,8 +4,8 @@ import { lensClient } from '@/lib/lens'
 
 export interface VideoPost {
   id: string
-  thumbnailUrl?: string
-  username?: string
+  thumbnailUrl: string
+  username: string
   author: {
     address: string
     username?: string
@@ -33,12 +33,9 @@ export function useSongVideos(geniusId?: number) {
       const result = await fetchPosts(lensClient, {
         filter: {
           metadata: {
-            attributes: [
-              {
-                key: 'genius_id',
-                value: geniusId.toString(),
-              },
-            ],
+            tags: {
+              oneOf: [`genius_id:${geniusId}`],
+            },
           },
         },
       })
@@ -50,8 +47,8 @@ export function useSongVideos(geniusId?: number) {
       // Transform to VideoPost format
       const videos: VideoPost[] = result.value.items.map((post: any) => ({
         id: post.id,
-        thumbnailUrl: post.metadata?.cover?.optimized?.uri || post.metadata?.image?.optimized?.uri,
-        username: post.author?.username?.value || post.author?.address,
+        thumbnailUrl: post.metadata?.cover?.optimized?.uri || post.metadata?.image?.optimized?.uri || 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video',
+        username: post.author?.username?.value || post.author?.address.slice(0, 8),
         author: {
           address: post.author.address,
           username: post.author?.username?.value,
@@ -87,12 +84,9 @@ export function useCreatorArtistVideos(creatorLensAccount?: string, geniusArtist
         filter: {
           authors: [creatorLensAccount],
           metadata: {
-            attributes: [
-              {
-                key: 'genius_artist_id',
-                value: geniusArtistId.toString(),
-              },
-            ],
+            tags: {
+              oneOf: [`genius_artist_id:${geniusArtistId}`],
+            },
           },
         },
       })
@@ -103,8 +97,8 @@ export function useCreatorArtistVideos(creatorLensAccount?: string, geniusArtist
 
       const videos: VideoPost[] = result.value.items.map((post: any) => ({
         id: post.id,
-        thumbnailUrl: post.metadata?.cover?.optimized?.uri || post.metadata?.image?.optimized?.uri,
-        username: post.author?.username?.value || post.author?.address,
+        thumbnailUrl: post.metadata?.cover?.optimized?.uri || post.metadata?.image?.optimized?.uri || 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video',
+        username: post.author?.username?.value || post.author?.address.slice(0, 8),
         author: {
           address: post.author.address,
           username: post.author?.username?.value,

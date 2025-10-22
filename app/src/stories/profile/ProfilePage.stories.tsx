@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ProfilePage, type Achievement, type ActivityItem } from '@/components/profile/ProfilePage'
+import { ProfilePage, type Achievement } from '@/components/profile/ProfilePage'
+import type { VideoPost } from '@/components/video/VideoGrid'
 
 const meta = {
   title: 'Profile/ProfilePage',
@@ -15,6 +16,25 @@ const meta = {
 
 export default meta
 type Story = StoryObj<typeof meta>
+
+// Sample videos
+const sampleVideos: VideoPost[] = [
+  {
+    id: '1',
+    thumbnailUrl: 'https://picsum.photos/400/711?random=1',
+    username: 'karaoke_star',
+  },
+  {
+    id: '2',
+    thumbnailUrl: 'https://picsum.photos/400/711?random=2',
+    username: 'karaoke_star',
+  },
+  {
+    id: '3',
+    thumbnailUrl: 'https://picsum.photos/400/711?random=3',
+    username: 'karaoke_star',
+  },
+]
 
 // Sample achievements
 const sampleAchievements: Achievement[] = [
@@ -65,63 +85,8 @@ const sampleAchievements: Achievement[] = [
   },
 ]
 
-// Sample activities
-const sampleActivities: ActivityItem[] = [
-  {
-    id: '1',
-    type: 'performance',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    title: 'Completed Karaoke Performance',
-    description: 'Great job on your performance!',
-    song: {
-      title: 'Heat of the Night',
-      artist: 'Scarlett X',
-      artworkUrl: 'https://placebear.com/200/200',
-    },
-    score: 8750,
-  },
-  {
-    id: '2',
-    type: 'streak',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-    title: '7 Day Streak!',
-    description: "You've practiced for 7 days in a row",
-  },
-  {
-    id: '3',
-    type: 'practice',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    title: 'Study Session Completed',
-    description: 'Practiced 50 lines',
-    song: {
-      title: 'Neon Lights',
-      artist: 'Luna Ray',
-      artworkUrl: 'https://placebear.com/201/201',
-    },
-  },
-  {
-    id: '4',
-    type: 'achievement',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    title: 'Achievement Unlocked!',
-    description: 'Earned "Perfect Score" achievement',
-  },
-  {
-    id: '5',
-    type: 'performance',
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    title: 'Completed Karaoke Performance',
-    song: {
-      title: 'Midnight Dreams',
-      artist: 'Echo Black',
-      artworkUrl: 'https://placebear.com/202/202',
-    },
-    score: 7230,
-  },
-]
-
 /**
- * Student profile with achievements and activity
+ * Student profile with dances and achievements
  */
 export const Default: Story = {
   args: {
@@ -133,12 +98,12 @@ export const Default: Story = {
     isVerified: false,
     isOwnProfile: false,
     isFollowing: false,
+    videos: sampleVideos,
     achievements: sampleAchievements,
-    activities: sampleActivities,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onMessage: () => console.log('Message clicked'),
-    onActivitySongClick: (activity) => console.log('Activity song clicked:', activity),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }
 
@@ -155,11 +120,12 @@ export const Verified: Story = {
     isVerified: true,
     isOwnProfile: false,
     isFollowing: true,
+    videos: sampleVideos,
     achievements: sampleAchievements,
-    activities: sampleActivities,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Unfollow clicked'),
     onMessage: () => console.log('Message clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }
 
@@ -175,14 +141,15 @@ export const OwnProfile: Story = {
     followers: 234,
     isVerified: false,
     isOwnProfile: true,
+    videos: sampleVideos,
     achievements: sampleAchievements.slice(0, 3),
-    activities: sampleActivities,
     onBack: () => console.log('Back clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }
 
 /**
- * New student with minimal achievements and activity
+ * New student with minimal achievements and videos
  */
 export const NewStudent: Story = {
   args: {
@@ -193,16 +160,17 @@ export const NewStudent: Story = {
     isVerified: false,
     isOwnProfile: false,
     isFollowing: false,
+    videos: sampleVideos.slice(0, 1),
     achievements: [sampleAchievements[0], ...sampleAchievements.slice(3)],
-    activities: [sampleActivities[2]],
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onMessage: () => console.log('Message clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }
 
 /**
- * Profile with no achievements or activity yet
+ * Profile with no achievements or videos yet
  */
 export const EmptyState: Story = {
   args: {
@@ -213,16 +181,17 @@ export const EmptyState: Story = {
     isVerified: false,
     isOwnProfile: false,
     isFollowing: false,
+    videos: [],
     achievements: [],
-    activities: [],
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onMessage: () => console.log('Message clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }
 
 /**
- * Profile with lots of activity
+ * Profile with lots of videos and achievements
  */
 export const ActiveUser: Story = {
   args: {
@@ -234,18 +203,14 @@ export const ActiveUser: Story = {
     isVerified: true,
     isOwnProfile: false,
     isFollowing: false,
-    achievements: sampleAchievements,
-    activities: [
-      ...sampleActivities,
-      ...sampleActivities.map((a, i) => ({
-        ...a,
-        id: `${a.id}-${i}`,
-        timestamp: new Date(a.timestamp.getTime() - 7 * 24 * 60 * 60 * 1000),
-      })),
+    videos: [
+      ...sampleVideos,
+      ...sampleVideos.map((v, i) => ({ ...v, id: `${v.id}-${i}` })),
     ],
+    achievements: sampleAchievements,
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onMessage: () => console.log('Message clicked'),
-    onActivitySongClick: (activity) => console.log('Activity song clicked:', activity),
+    onVideoClick: (video) => console.log('Video clicked:', video),
   },
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, ReactNode } from 'react'
+import { createContext, useContext, useRef, type ReactNode } from 'react'
 
 interface VideoPlaybackContextType {
   hasUserInteracted: () => boolean
