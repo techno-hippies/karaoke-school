@@ -20,10 +20,11 @@ import {
   loginAsOnboardingUser,
   loginAsAccountOwner,
   getExistingAccounts,
-  createLensAccount,
-  createLensAccountWithoutUsername,
-  switchToAccountOwner
 } from '@/lib/lens/auth'
+import {
+  createAccountInCustomNamespace,
+  validateUsernameFormat,
+} from '@/lib/lens/account-creation'
 
 export interface AuthFlowResult {
   pkpInfo: PKPInfo
@@ -107,38 +108,37 @@ async function connectLensSession(
       const uploadResult = await storageClient.uploadAsJson(metadata)
       console.log('[Auth Flow] ✓ Metadata uploaded:', uploadResult.uri)
 
-      // Step 3: Create account (with or without username)
+      // Step 3: Validate username if provided
+      if (username) {
+        const validationError = validateUsernameFormat(username)
+        if (validationError) {
+          throw new Error(validationError)
+        }
+      }
+
+      // Step 4: Create account in custom namespace (2-step flow)
       console.log('[Auth Flow] Step 3: Creating account on-chain...')
       statusCallback('Deploying account...')
 
       if (username) {
-        // Create account WITH username
-        console.log('[Auth Flow] Creating account with username:', username)
-        account = await createLensAccount(
+        // Create account WITH username in custom namespace (kschool1/*)
+        console.log('[Auth Flow] Creating account with username in custom namespace:', username)
+        account = await createAccountInCustomNamespace(
           session,
           walletClient,
           username,
           uploadResult.uri
         )
+        console.log('[Auth Flow] ✓ Account created with username:', account.username?.localName)
       } else {
-        // Create account WITHOUT username (can add later)
-        console.log('[Auth Flow] Creating account without username')
-        account = await createLensAccountWithoutUsername(
-          session,
-          walletClient,
-          uploadResult.uri
-        )
+        // For now, require username during registration
+        // Future: Support creating account without username
+        throw new Error('Username is required for registration')
       }
 
       console.log('[Auth Flow] ✓ Account created:', account.address)
       console.log('[Auth Flow] Account owner:', account.owner)
       console.log('[Auth Flow] Account username:', account.username?.localName || 'none')
-
-      // Step 4: Switch to ACCOUNT_OWNER role for social features
-      console.log('[Auth Flow] Step 4: Switching to ACCOUNT_OWNER role...')
-      statusCallback('Activating account...')
-      await switchToAccountOwner(session, account.address)
-      console.log('[Auth Flow] ✓ Switched to ACCOUNT_OWNER')
     }
 
     console.log('[Auth Flow] ===== connectLensSession COMPLETE =====')

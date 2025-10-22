@@ -1,26 +1,20 @@
 /**
  * Lens Protocol Configuration
  * Provides social identity layer
+ *
+ * Note: This file contains constants only. The lensClient is in client.ts
+ * to maintain compatibility with React hooks.
  */
 
-import { PublicClient, testnet, mainnet } from '@lens-protocol/client'
 import type { EvmAddress } from '@lens-protocol/client'
 
-// Lens environment
-const LENS_ENV = import.meta.env.VITE_LENS_ENVIRONMENT === 'mainnet' ? mainnet : testnet
-
 // Lens App address (test app on testnet by default)
-export const LENS_APP_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_APP_ADDRESS || 
+export const LENS_APP_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_APP_ADDRESS ||
   '0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7') as EvmAddress
 
-/**
- * Lens Public Client (unauthenticated)
- * Used for initial login
- */
-export const lensClient = PublicClient.create({
-  environment: LENS_ENV,
-  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-})
+// Lens Custom Namespace (kschool1/*)
+export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||
+  '0xA5882f62feDC936276ef2e7166723A04Ee12501B') as EvmAddress
 
 /**
  * Check if Lens is configured

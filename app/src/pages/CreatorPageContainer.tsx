@@ -9,6 +9,7 @@ import type { VideoPost } from '@/components/video/VideoGrid'
 import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
 import { useGroveAccountMetadata } from '@/hooks/useGroveAccountMetadata'
+import { useArtistSongsWithMetadata } from '@/hooks/useArtistSongsV2'
 import { Spinner } from '@/components/ui/spinner'
 import {
   convertGroveUri,
@@ -43,8 +44,15 @@ export function CreatorPageContainer() {
     isLoading: isLoadingGroveMetadata,
   } = useGroveAccountMetadata(metadataUri)
 
+  // Fetch songs from The Graph subgraph by genius artist ID with enriched metadata
+  const geniusArtistId = groveMetadata?.geniusArtistId
+  const {
+    data: enrichedSongs,
+    isLoading: isLoadingSongs,
+  } = useArtistSongsWithMetadata(geniusArtistId)
+
   // Loading state
-  if (isLoadingAccount || isLoadingGroveMetadata) {
+  if (isLoadingAccount || isLoadingGroveMetadata || isLoadingSongs) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -130,9 +138,24 @@ export function CreatorPageContainer() {
       }
     })
 
-  // Parse unique songs from video metadata
+  // Parse songs from The Graph subgraph and video metadata
   const songsMap = new Map<string, ArtistSong>()
 
+  // Add songs from The Graph subgraph with enriched metadata (higher priority)
+  if (enrichedSongs) {
+    console.log('[CreatorPage] Enriched songs from The Graph:', enrichedSongs)
+    enrichedSongs.forEach((song) => {
+      songsMap.set(song.geniusId, {
+        id: song.geniusId,
+        title: song.metadata?.title || `Song ${song.geniusId}`,
+        artist: song.metadata?.artist || displayName,
+        artworkUrl: song.metadata?.coverUri ? convertGroveUri(song.metadata.coverUri) : undefined,
+        onSongClick: () => navigate(`/song/${song.geniusId}`),
+      })
+    })
+  }
+
+  // Add songs from video metadata (if not already added)
   postItems
     .filter((post): post is Post => post.__typename === 'Post' && isVideoPost(post))
     .forEach((post) => {
@@ -150,7 +173,7 @@ export function CreatorPageContainer() {
         id: geniusId,
         title: songTitle,
         artist: songArtist,
-        artworkUrl: undefined, // TODO: Fetch from Genius API or extract from metadata
+        artworkUrl: undefined,
         onSongClick: () => navigate(`/song/${geniusId}`),
       })
     })

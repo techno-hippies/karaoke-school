@@ -1,0 +1,95 @@
+"""
+A registered song on the platform
+"""
+type Song @entity(immutable: false) {
+  id: ID! # geniusId
+  geniusId: BigInt!
+  metadataUri: String!
+  registeredBy: Bytes!
+  geniusArtistId: BigInt!
+  registeredAt: BigInt!
+
+  # Relations
+  segments: [Segment!]! @derivedFrom(field: "song")
+
+  # Computed/aggregated fields
+  segmentCount: Int!
+  performanceCount: Int!
+}
+
+"""
+A processed segment of a song (TikTok audio)
+"""
+type Segment @entity(immutable: false) {
+  id: ID! # segmentHash
+  segmentHash: Bytes!
+  song: Song!
+  geniusId: BigInt!
+  tiktokSegmentId: String!
+  metadataUri: String!
+  registeredBy: Bytes!
+  registeredAt: BigInt!
+
+  # Set after processing
+  instrumentalUri: String
+  alignmentUri: String
+  processedAt: BigInt
+
+  # Relations
+  performances: [Performance!]! @derivedFrom(field: "segment")
+
+  # Computed
+  performanceCount: Int!
+  averageScore: BigDecimal!
+}
+
+"""
+A graded performance of a segment
+"""
+type Performance @entity(immutable: true) {
+  id: ID! # performanceId
+  performanceId: BigInt!
+  segment: Segment!
+  performer: Account!
+  performerAddress: Bytes!
+  score: Int!
+  metadataUri: String!
+  gradedAt: BigInt!
+
+  # Denormalized for queries
+  songId: BigInt!
+  segmentHash: Bytes!
+}
+
+"""
+Lens account with performance history
+"""
+type Account @entity(immutable: false) {
+  id: ID! # lensAccountAddress
+  lensAccountAddress: Bytes!
+  pkpAddress: Bytes!
+  username: String!
+  metadataUri: String!
+  geniusArtistId: Int # 0 if not an artist
+  createdAt: BigInt!
+  updatedAt: BigInt!
+
+  # Relations
+  performances: [Performance!]! @derivedFrom(field: "performer")
+
+  # Stats
+  performanceCount: Int!
+  totalScore: BigInt!
+  averageScore: BigDecimal!
+}
+
+"""
+Global statistics
+"""
+type GlobalStats @entity(immutable: false) {
+  id: ID! # "global"
+  totalSongs: Int!
+  totalSegments: Int!
+  totalPerformances: Int!
+  totalAccounts: Int!
+}

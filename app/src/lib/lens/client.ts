@@ -1,24 +1,19 @@
 /**
- * Lens Protocol Client & Configuration
- * Social identity layer
+ * Lens Protocol Client
+ * Social identity layer - uses React client for compatibility with hooks
  */
 
 import { PublicClient, testnet, mainnet } from '@lens-protocol/react'
-import type { EvmAddress } from '@lens-protocol/client'
 import './fragments'
+
+export { LENS_APP_ADDRESS, LENS_CUSTOM_NAMESPACE, isLensConfigured } from './config'
 
 // Lens environment (default to testnet)
 const LENS_ENV = import.meta.env.VITE_LENS_ENVIRONMENT === 'mainnet' ? mainnet : testnet
 
-// Lens App address (test app on testnet by default)
-export const LENS_APP_ADDRESS: EvmAddress = (
-  import.meta.env.VITE_LENS_APP_ADDRESS ||
-  '0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7'
-) as EvmAddress
-
 /**
  * Lens Public Client (unauthenticated)
- * Used for initial login and public queries
+ * Used for initial login and React hooks
  */
 console.log('[lens/client] Creating PublicClient with env:', LENS_ENV)
 console.log('[lens/client] PublicClient:', PublicClient)
@@ -29,10 +24,3 @@ export const lensClient = PublicClient.create({
 })
 
 console.log('[lens/client] Created lensClient:', lensClient)
-
-/**
- * Check if Lens is configured
- */
-export function isLensConfigured(): boolean {
-  return !!LENS_APP_ADDRESS
-}

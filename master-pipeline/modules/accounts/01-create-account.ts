@@ -49,6 +49,7 @@ import { requireEnv, paths } from '../../lib/config.js';
 import { writeJson, ensureDir, readJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
 import { AccountMetadataSchema, type AccountMetadata } from '../../lib/schemas/grove/account.js';
+import { emitAccountCreated } from '../../lib/event-emitter.js';
 
 // Chronicle Yellowstone chain config
 const chronicleChain = {
@@ -853,9 +854,21 @@ async function main() {
     // ============ STEP 5: Optionally Emit Event ============
     if (emitEvent) {
       logger.step('5/5', 'Emitting AccountCreated event');
-      console.log('⚠️  Event emission not yet implemented');
-      console.log('   Will be added when AccountEvents contract is deployed\n');
-      // TODO: Call accountEvents.emitAccountCreated()
+      try {
+        const txHash = await emitAccountCreated({
+          lensAccountAddress,
+          pkpAddress,
+          username,
+          metadataUri: metadataUpload.uri,
+          geniusArtistId: geniusArtistId || 0,
+        });
+        console.log(`✅ Event emitted successfully!`);
+        console.log(`   Transaction: ${txHash}`);
+        console.log(`   The Graph will index this event\n`);
+      } catch (error: any) {
+        console.log(`⚠️  Failed to emit event: ${error.message}`);
+        console.log(`   Account created successfully, but event not emitted\n`);
+      }
     } else {
       logger.step('5/5', 'Skipping event emission');
       console.log('   Use --emit-event to emit to contract\n');

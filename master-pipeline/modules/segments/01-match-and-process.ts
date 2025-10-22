@@ -47,6 +47,11 @@ import { buildSegmentLyrics, buildTranslatedLyrics } from '../../lib/segment-lyr
 import { TranslationService } from '../../services/translation.js';
 import { uploadMutableAlignment } from '../../lib/grove-acl-config.js';
 import { initGroveClient, createLensWalletClient } from '../../lib/lens.js';
+import {
+  emitSegmentRegistered,
+  emitSegmentProcessed,
+  generateSegmentHash,
+} from '../../lib/event-emitter.js';
 
 const execAsync = promisify(exec);
 
@@ -139,14 +144,15 @@ async function findOrDownloadFullSong(
 ): Promise<string> {
   console.log('\n<� Finding full song audio...');
 
-  // Load song metadata
-  const metadataPath = join(process.cwd(), 'data', 'metadata', `${geniusId}.json`);
+  // Load song metadata from V2 path
+  const metadataPath = join(process.cwd(), 'data', 'songs', `${geniusId}.json`);
   if (!existsSync(metadataPath)) {
-    throw new Error(`Metadata not found for song ${geniusId}. Run 01-register-song.ts first.`);
+    throw new Error(`Metadata not found for song ${geniusId}. Run modules/songs/01-create-song.ts first.`);
   }
 
   const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
-  const { title, artist, spotify } = metadata;
+  const { title, artist, spotifyId } = metadata;
+  const spotify = spotifyId ? { url: `https://open.spotify.com/track/${spotifyId}` } : undefined;
 
   console.log(`  Title: ${title}`);
   console.log(`  Artist: ${artist}`);
@@ -234,10 +240,20 @@ async function main() {
 
     // Step 2: Find/download full song
     console.log('Step 2: Finding full song audio...');
-    const fullSongPath = await findOrDownloadFullSong(geniusId, musicDir);
 
-    // Load metadata for song info
-    const metadataPath = join(process.cwd(), 'data', 'metadata', `${geniusId}.json`);
+    // Check for manually provided full song first
+    const manualSongPath = join(segmentDir, 'full_song.flac');
+    let fullSongPath: string;
+
+    if (existsSync(manualSongPath)) {
+      console.log(`  ✅ Found manually provided song: ${manualSongPath}\n`);
+      fullSongPath = manualSongPath;
+    } else {
+      fullSongPath = await findOrDownloadFullSong(geniusId, musicDir);
+    }
+
+    // Load metadata for song info (V2 path)
+    const metadataPath = join(process.cwd(), 'data', 'songs', `${geniusId}.json`);
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
 
     // Step 3: Match clip to full song
@@ -450,11 +466,50 @@ async function main() {
     writeFileSync(manifestPath, JSON.stringify(validatedManifest, null, 2));
     console.log(`   Saved: ${manifestPath}`);
 
+    // Step 10: Emit events to The Graph
+    console.log('\nStep 10: Emitting events to The Graph...');
+
+    try {
+      // Generate segment hash for event (matches contract implementation)
+      const eventSegmentHash = generateSegmentHash(geniusId, tiktokMusicId);
+      console.log(`  Segment hash: ${eventSegmentHash}`);
+
+      // Emit SegmentRegistered event
+      console.log('  Emitting SegmentRegistered event...');
+      const registeredTxHash = await emitSegmentRegistered({
+        segmentHash: eventSegmentHash,
+        geniusId,
+        tiktokSegmentId: tiktokMusicId,
+        metadataUri: alignmentUri,
+      });
+      console.log(`  ✓ SegmentRegistered: ${registeredTxHash}`);
+
+      // Emit SegmentProcessed event (if audio processing was done)
+      if (!skipDemucs) {
+        console.log('  Emitting SegmentProcessed event...');
+        const processedTxHash = await emitSegmentProcessed({
+          segmentHash: eventSegmentHash,
+          instrumentalUri,
+          alignmentUri,
+          metadataUri: alignmentUri,
+        });
+        console.log(`  ✓ SegmentProcessed: ${processedTxHash}`);
+      } else {
+        console.log('  ⚠️  Skipping SegmentProcessed event (Demucs was skipped)');
+      }
+
+      console.log('\n  ✓ Events emitted successfully!');
+      console.log('    The Graph will index these events\n');
+    } catch (error: any) {
+      console.log(`\n  ⚠️  Failed to emit events: ${error.message}`);
+      console.log('    Segment created successfully, but events not emitted\n');
+    }
+
     // Success
-    console.log('\n Segment processing complete!\n');
-    console.log('Next step:');
-    console.log(`  bun segments/02-register-segment.ts --segment-hash ${segmentHash}`);
-    console.log();
+    console.log('\n Segment processing complete!\n');
+    console.log('Next steps:');
+    console.log('  • Query subgraph to verify indexing');
+    console.log('  • Test segment playback in app\n');
   } catch (error: any) {
     console.error('\nL Error:', error.message);
     if (error.stack) {

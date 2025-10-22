@@ -9,6 +9,7 @@ import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { validateUsernameFormat, checkUsernameAvailability } from '@/lib/lens/account-creation'
 
 /**
  * AppRouter - Main routing with layout and navigation state
@@ -108,8 +109,10 @@ function AppRouter() {
     setUsernameAvailability(null)
   }, [resetAuthFlow])
 
-  const checkUsernameAvailability = useCallback(async (username: string) => {
-    if (username.trim().length < 6) {
+  const checkUsernameAvailabilityDebounced = useCallback(async (username: string) => {
+    // Validate format first
+    const formatError = validateUsernameFormat(username)
+    if (formatError) {
       setUsernameAvailability(null)
       return
     }
@@ -125,12 +128,17 @@ function AppRouter() {
     // Debounce: wait 500ms before checking
     checkUsernameTimeoutRef.current = setTimeout(async () => {
       try {
-        // TODO: Replace with actual Lens username availability check
-        await new Promise(resolve => setTimeout(resolve, 500))
+        const result = await checkUsernameAvailability(username)
 
-        // Simulate: usernames starting with 'test' are unavailable
-        const isAvailable = !username.toLowerCase().startsWith('test')
-        setUsernameAvailability(isAvailable ? 'available' : 'unavailable')
+        if (result.available) {
+          setUsernameAvailability('available')
+          // TODO: Show payment info if required
+          if (result.paymentRequired && result.paymentAmount) {
+            console.log('[App] Payment required:', result.paymentAmount.toString(), 'wei')
+          }
+        } else {
+          setUsernameAvailability('unavailable')
+        }
       } catch (error) {
         console.error('[App] Username check error:', error)
         setUsernameAvailability(null)
@@ -180,7 +188,7 @@ function AppRouter() {
         onRegisterWithUsername={handleRegisterWithUsername}
         onLogin={handleLogin}
         onUsernameBack={handleUsernameBack}
-        onUsernameChange={checkUsernameAvailability}
+        onUsernameChange={checkUsernameAvailabilityDebounced}
       />
     </>
   )

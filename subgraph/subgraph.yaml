@@ -1,0 +1,100 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: SongEvents
+    network: lens-testnet
+    source:
+      address: "0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d"
+      abi: SongEvents
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Song
+        - GlobalStats
+      abis:
+        - name: SongEvents
+          file: ./abis/SongEvents.json
+      eventHandlers:
+        - event: SongRegistered(indexed uint32,string,indexed address,uint32,uint64)
+          handler: handleSongRegistered
+      file: ./src/mappings.ts
+
+  - kind: ethereum
+    name: SegmentEvents
+    network: lens-testnet
+    source:
+      address: "0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8"
+      abi: SegmentEvents
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Segment
+        - Song
+        - GlobalStats
+      abis:
+        - name: SegmentEvents
+          file: ./abis/SegmentEvents.json
+      eventHandlers:
+        - event: SegmentRegistered(indexed bytes32,indexed uint32,string,string,indexed address,uint64)
+          handler: handleSegmentRegistered
+        - event: SegmentProcessed(indexed bytes32,string,string,string,uint64)
+          handler: handleSegmentProcessed
+      file: ./src/mappings.ts
+
+  - kind: ethereum
+    name: PerformanceGrader
+    network: lens-testnet
+    source:
+      address: "0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0"
+      abi: PerformanceGrader
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Performance
+        - Segment
+        - Account
+        - GlobalStats
+      abis:
+        - name: PerformanceGrader
+          file: ./abis/PerformanceGrader.json
+      eventHandlers:
+        - event: PerformanceGraded(indexed uint256,indexed bytes32,indexed address,uint16,string,uint64)
+          handler: handlePerformanceGraded
+      file: ./src/mappings.ts
+
+  - kind: ethereum
+    name: AccountEvents
+    network: lens-testnet
+    source:
+      address: "0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22"
+      abi: AccountEvents
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Account
+        - GlobalStats
+      abis:
+        - name: AccountEvents
+          file: ./abis/AccountEvents.json
+      eventHandlers:
+        - event: AccountCreated(indexed address,indexed address,string,string,uint32,uint64)
+          handler: handleAccountCreated
+        - event: AccountMetadataUpdated(indexed address,string,indexed address,uint64)
+          handler: handleAccountMetadataUpdated
+      file: ./src/mappings.ts

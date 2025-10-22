@@ -39,6 +39,7 @@ import {
   validateSongMetadata,
   type SongMetadata
 } from '../../lib/schemas/grove/song.js';
+import { emitSongRegistered } from '../../lib/event-emitter.js';
 
 async function main() {
   const { values } = parseArgs({
@@ -46,7 +47,8 @@ async function main() {
     options: {
       'genius-id': { type: 'string' },
       'artist-username': { type: 'string' }, // Optional: Link to artist account
-      'emit-event': { type: 'boolean', default: false },
+      'emit-event': { type: 'boolean', default: true }, // V2: Emit events by default
+      'skip-event': { type: 'boolean', default: false }, // Skip event emission
     },
   });
 
@@ -65,7 +67,8 @@ async function main() {
 
   const geniusId = parseInt(values['genius-id']!);
   const artistUsername = values['artist-username'];
-  const emitEvent = values['emit-event'];
+  const skipEvent = values['skip-event'];
+  const shouldEmitEvent = !skipEvent && values['emit-event'];
 
   logger.header(`Create Song: ${geniusId}`);
 
@@ -199,11 +202,22 @@ async function main() {
     writeJson(songPath, songData);
     console.log(`✅ Song data saved to: ${songPath}\n`);
 
-    // ============ OPTIONAL: Emit Event ============
-    if (emitEvent) {
-      logger.step('4/4', 'Emitting SongCreated event');
-      // TODO: Implement event emission using minimal event contract
-      console.log('⚠️  Event emission not yet implemented\n');
+    // ============ STEP 4: Emit Event to The Graph ============
+    if (shouldEmitEvent) {
+      logger.step('4/4', 'Emitting SongRegistered event');
+      try {
+        const txHash = await emitSongRegistered({
+          geniusId,
+          metadataUri: metadataUpload.uri,
+          geniusArtistId,
+        });
+        console.log(`✅ Event emitted successfully!`);
+        console.log(`   Transaction: ${txHash}`);
+        console.log(`   The Graph will index this event\n`);
+      } catch (error: any) {
+        console.log(`⚠️  Failed to emit event: ${error.message}`);
+        console.log(`   Song created successfully, but event not emitted\n`);
+      }
     } else {
       console.log('ℹ️  Skipping event emission (use --emit-event to enable)\n');
     }

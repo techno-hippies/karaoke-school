@@ -1,0 +1,28 @@
+{
+  "name": "karaoke-school-subgraph",
+  "version": "1.0.0",
+  "description": "The Graph subgraph for Karaoke School V2 on Lens Chain",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy": "graph deploy ksc-1 --node https://api.studio.thegraph.com/deploy/",
+    "create-local": "graph create --node http://localhost:8020/ karaoke-school",
+    "remove-local": "graph remove --node http://localhost:8020/ karaoke-school",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 karaoke-school",
+    "auth": "graph auth"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/karaoke-school"
+  },
+  "keywords": [
+    "the-graph",
+    "lens",
+    "zksync",
+    "karaoke"
+  ],
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.98.1",
+    "@graphprotocol/graph-ts": "^0.35.1"
+  }
+}

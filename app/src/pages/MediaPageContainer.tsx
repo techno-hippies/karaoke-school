@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useSong } from '@/hooks/useSongRegistry'
-import { useSegmentsBySong, useSegment, type Segment } from '@/hooks/useSegmentRegistry'
-import { useSegmentAlignment } from '@/hooks/useSegmentAlignment'
+import { useSongWithMetadata } from '@/hooks/useSongV2'
+import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { Spinner } from '@/components/ui/spinner'
-import { lensUriToHttp } from '@/lib/grove'
+import { convertGroveUri } from '@/lib/lens/utils'
+import { getPreferredLanguage } from '@/lib/language'
 
 export function MediaPageContainer() {
   const { geniusId } = useParams<{ geniusId: string }>()
@@ -12,40 +12,23 @@ export function MediaPageContainer() {
 
   const songId = geniusId ? parseInt(geniusId) : undefined
 
-  // Fetch song data
-  const { data: songData, isLoading: isLoadingSong } = useSong(songId)
+  // Fetch song data from The Graph with Grove metadata
+  const { data: songData, isLoading: isLoadingSong } = useSongWithMetadata(songId)
 
   console.log('[MediaPageContainer] Song data:', songData)
 
-  // Fetch segments for this song
-  const { data: segmentHashes, isLoading: isLoadingSegments } = useSegmentsBySong(songId)
+  // Get first segment from song data
+  const firstSegment = songData?.segments?.[0]
 
-  console.log('[MediaPageContainer] Segment hashes:', segmentHashes)
+  console.log('[MediaPageContainer] First segment:', firstSegment)
 
-  // Use first segment for now (TODO: allow user to select segment)
-  const firstSegmentHash = Array.isArray(segmentHashes) && segmentHashes.length > 0
-    ? (segmentHashes[0] as `0x${string}`)
-    : undefined
+  // Fetch segment metadata (includes lyrics)
+  const { data: segmentMetadata, isLoading: isLoadingSegment } = useSegmentMetadata(firstSegment?.metadataUri)
 
-  console.log('[MediaPageContainer] First segment hash:', firstSegmentHash)
-
-  // Fetch segment data
-  const { data: segmentData, isLoading: isLoadingSegment } = useSegment(firstSegmentHash)
-
-  const segment = segmentData as Segment | undefined
-
-  console.log('[MediaPageContainer] Segment data:', segment)
-  console.log('[MediaPageContainer] Alignment URI:', segment?.alignmentUri)
-
-  // Fetch alignment data (lyrics)
-  const { data: lyrics, isLoading: isLoadingLyrics, error: lyricsError } = useSegmentAlignment(segment?.alignmentUri)
-
-  console.log('[MediaPageContainer] Lyrics:', lyrics)
-  console.log('[MediaPageContainer] Lyrics loading:', isLoadingLyrics)
-  console.log('[MediaPageContainer] Lyrics error:', lyricsError)
+  console.log('[MediaPageContainer] Segment metadata:', segmentMetadata)
 
   // Loading state
-  if (isLoadingSong || isLoadingSegments || isLoadingSegment || isLoadingLyrics) {
+  if (isLoadingSong || isLoadingSegment) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -54,12 +37,12 @@ export function MediaPageContainer() {
   }
 
   // Error states
-  if (!songData || !segment || !lyrics) {
+  if (!songData || !firstSegment || !segmentMetadata) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">
-          {!songData ? 'Song not found' : !segment ? 'No segments available for this song' : 'Lyrics not available'}
+          {!songData ? 'Song not found' : !firstSegment ? 'No segments available for this song' : 'Segment metadata not available'}
         </p>
         <button
           onClick={() => navigate(-1)}
@@ -71,19 +54,70 @@ export function MediaPageContainer() {
     )
   }
 
-  const song = songData as any
-
   // Convert lens:// URIs to HTTP URLs
-  const audioUrl = lensUriToHttp(segment.instrumentalUri)
+  const audioUrl = firstSegment.instrumentalUri ? convertGroveUri(firstSegment.instrumentalUri) : undefined
+
+  if (!audioUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
+        <p className="text-muted-foreground">Instrumental audio not available</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-primary hover:underline"
+        >
+          Go back
+        </button>
+      </div>
+    )
+  }
+
+  // Transform V2 lyrics format to LyricLine[] format
+  const originalLanguage = 'en' // English is always required in V2
+  const originalLyrics = segmentMetadata.lyrics.languages[originalLanguage]
+
+  // Get available translation languages (all except English)
+  const availableLanguages = Object.keys(segmentMetadata.lyrics.languages).filter(lang => lang !== 'en')
+
+  // Determine preferred language based on browser settings
+  const preferredLanguage = getPreferredLanguage(availableLanguages)
+
+  const lyrics = originalLyrics.lines.map((line, index) => {
+    // Build translations object from V2 format
+    const translations: Record<string, string> = {}
+
+    // Add translations from other languages
+    Object.entries(segmentMetadata.lyrics.languages).forEach(([lang, lyricsData]) => {
+      if (lang !== originalLanguage) {
+        const translatedLine = lyricsData.lines[index]
+        if (translatedLine) {
+          translations[lang] = translatedLine.text
+        }
+      }
+    })
+
+    return {
+      lineIndex: index,
+      originalText: line.text,
+      translations: Object.keys(translations).length > 0 ? translations : undefined,
+      start: line.start,
+      end: line.end,
+      words: line.words.map(w => ({
+        text: w.text,
+        start: w.start,
+        end: w.end,
+      })),
+    }
+  })
 
   return (
     <MediaPage
-      title={song.title}
-      artist={song.artist}
+      title={songData.metadata?.title || `Song ${songData.geniusId}`}
+      artist={songData.metadata?.artist || 'Unknown Artist'}
       audioUrl={audioUrl}
       lyrics={lyrics}
-      selectedLanguage="en"
-      showTranslations={false}
+      selectedLanguage={preferredLanguage}
+      showTranslations={availableLanguages.length > 0}
       onBack={() => navigate(-1)}
     />
   )

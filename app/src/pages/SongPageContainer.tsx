@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
-import { useSong } from '@/hooks/useSongRegistry'
+import { useSongWithMetadata } from '@/hooks/useSongV2'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
+import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost as LensVideoPost } from '@/hooks/useSongVideos'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
@@ -12,8 +13,8 @@ export function SongPageContainer() {
 
   const songId = geniusId ? parseInt(geniusId) : undefined
 
-  // Fetch song data from SongRegistry contract
-  const { data: songData, isLoading: isLoadingSong, error: songError } = useSong(songId)
+  // Fetch song data from The Graph with Grove metadata
+  const { data: songData, isLoading: isLoadingSong, error: songError } = useSongWithMetadata(songId)
 
   // Fetch creator videos from Lens (by genius_id attribute)
   const { data: videosData } = useSongVideos(songId)
@@ -45,8 +46,8 @@ export function SongPageContainer() {
     )
   }
 
-  // Transform contract song data
-  const song = songData as any
+  // Extract metadata from enriched song
+  const metadata = songData.metadata
 
   // Transform Lens videos to VideoGrid format
   const videos: VideoPost[] = (videosData || []).map((video: LensVideoPost) => ({
@@ -60,37 +61,33 @@ export function SongPageContainer() {
 
   // External links
   const songLinks = [
-    song.spotifyId && {
+    metadata?.spotifyId && {
       label: 'Spotify',
-      url: `https://open.spotify.com/track/${song.spotifyId}`,
-    },
-    song.tiktokMusicId && {
-      label: 'TikTok',
-      url: `https://www.tiktok.com/music/${song.tiktokMusicId}`,
+      url: `https://open.spotify.com/track/${metadata.spotifyId}`,
     },
   ].filter(Boolean) as Array<{ label: string; url: string }>
 
-  const lyricsLinks = song.geniusId
+  const lyricsLinks = songData.geniusId
     ? [
         {
           label: 'Genius',
-          url: `https://genius.com/songs/${song.geniusId}`,
+          url: `https://genius.com/songs/${songData.geniusId}`,
         },
       ]
     : []
 
   return (
     <SongPage
-      songTitle={song.title}
-      artist={song.artist}
-      artworkUrl={song.coverUri || undefined} // TODO: Convert grove:// URI to HTTP URL
+      songTitle={metadata?.title || `Song ${songData.geniusId}`}
+      artist={metadata?.artist || 'Unknown Artist'}
+      artworkUrl={metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined}
       songLinks={songLinks}
       lyricsLinks={lyricsLinks}
       onBack={() => navigate(-1)}
       onPlay={() => navigate(`/song/${geniusId}/play`)}
       onArtistClick={() => {
         // TODO: Navigate to artist page using geniusArtistId
-        console.log('Navigate to artist:', song.geniusArtistId)
+        console.log('Navigate to artist:', songData.geniusArtistId)
       }}
       videos={videos}
       onVideoClick={(video) => {
