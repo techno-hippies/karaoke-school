@@ -6,8 +6,9 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
-import { useLensCreator, isVideoPost, isVerifiedAccount } from '@/hooks/useLensCreator'
+import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
+import { useGroveAccountMetadata } from '@/hooks/useGroveAccountMetadata'
 import { Spinner } from '@/components/ui/spinner'
 import {
   convertGroveUri,
@@ -18,17 +19,32 @@ export function CreatorPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
 
-  // Fetch account and posts from Lens
+  // Fetch account and posts from Lens (using kschool1 namespace)
+  // Namespace address from master-pipeline/.env
+  const KSCHOOL1_NAMESPACE = '0xA5882f62feDC936276ef2e7166723A04Ee12501B'
   const {
     account,
     posts,
     isLoadingAccount,
     accountError,
     postsError,
-  } = useLensCreator(lenshandle)
+  } = useLensCreator(lenshandle, KSCHOOL1_NAMESPACE)
+
+  // Fetch Grove metadata for custom fields (ISNI, verification, geniusArtistId)
+  const attributes = (account?.metadata as any)?.attributes as Array<{ key: string; value: string }> | undefined
+
+  // Extract Grove metadata URI from attributes
+  const groveMetadataUriAttr = attributes?.find(attr => attr.key === 'groveMetadataUri')
+  const metadataUri = groveMetadataUriAttr?.value
+  console.log('[CreatorPage] Grove metadata URI:', metadataUri)
+
+  const {
+    data: groveMetadata,
+    isLoading: isLoadingGroveMetadata,
+  } = useGroveAccountMetadata(metadataUri)
 
   // Loading state
-  if (isLoadingAccount) {
+  if (isLoadingAccount || isLoadingGroveMetadata) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -68,13 +84,29 @@ export function CreatorPageContainer() {
   }
 
   // Parse account metadata
-  const displayName = account.metadata?.name || lenshandle || 'Unknown Creator'
-  const avatarUrl = account.metadata?.picture
+  const displayName = groveMetadata?.displayName || account.metadata?.name || lenshandle || 'Unknown Creator'
+  const avatarUrl = groveMetadata?.avatarUri
+    ? convertGroveUri(groveMetadata.avatarUri)
+    : account.metadata?.picture
     ? convertGroveUri(account.metadata.picture)
     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.address}`
 
-  // Check verification status using account score
-  const verified = isVerifiedAccount(account)
+  // Check verification status from Grove metadata
+  const verified = groveMetadata?.verification?.verified ?? false
+
+  // Log Grove metadata for debugging
+  if (groveMetadata) {
+    console.log('[CreatorPage] Grove metadata:', {
+      username: groveMetadata.username,
+      displayName: groveMetadata.displayName,
+      verified,
+      isni: groveMetadata.isni,
+      geniusArtistId: groveMetadata.geniusArtistId,
+      avatarUri: groveMetadata.avatarUri,
+    })
+  }
+
+  console.log('[CreatorPage] Final avatarUrl:', avatarUrl)
 
   // Parse posts data
   const postItems = posts?.items || []

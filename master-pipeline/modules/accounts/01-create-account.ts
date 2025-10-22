@@ -24,11 +24,11 @@
  *   # Regular user (kschool1/username)
  *   bun run accounts/01-create-account.ts --username brookemonk
  *
- *   # Verified artist (with Genius ID, ISNI, and blue check)
+ *   # Verified artist (with Genius ID, ISNI, and blue check - avatar auto-fetched)
  *   bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858 --verify
  *
- *   # With custom display name and avatar
- *   bun run accounts/01-create-account.ts --username charlidamelio --display-name "Charli D'Amelio" --avatar lens://...
+ *   # With custom display name (avatar auto-fetched from Genius)
+ *   bun run accounts/01-create-account.ts --username charlidamelio --genius-artist-id 154127 --display-name "Charli D'Amelio"
  *
  *   # Emit event to contract (optional)
  *   bun run accounts/01-create-account.ts --username brookemonk --emit-event
@@ -90,10 +90,10 @@ async function main() {
     console.log('  bun run accounts/01-create-account.ts --username charlidamelio --display-name "Charli D\'Amelio"\n');
     console.log('Options:');
     console.log('  --username           Username in kschool1/* namespace (lowercase, alphanumeric + hyphens/underscores)');
-    console.log('  --genius-artist-id   Genius artist ID (for verified artists only)');
+    console.log('  --genius-artist-id   Genius artist ID (for verified artists, avatar fetched automatically from Genius)');
     console.log('  --isni               ISNI code for artists (16 digits, no spaces, e.g., "0000000078519858")');
     console.log('  --display-name       Custom display name (defaults to username)');
-    console.log('  --avatar             Avatar URI on Grove storage (optional)');
+    console.log('  --avatar             Avatar URI (optional, auto-fetched from Genius if artist ID provided)');
     console.log('  --bio                Custom bio (optional)');
     console.log('  --verify             Mark account as verified (blue check badge)');
     console.log('  --emit-event         Emit AccountCreated event to contract (optional)');
@@ -115,7 +115,7 @@ async function main() {
     process.exit(1);
   }
 
-  const avatarUri = values.avatar;
+  let avatarUri = values.avatar;
   const customBio = values.bio;
   const shouldVerify = values.verify;
   const emitEvent = values['emit-event'];
@@ -124,6 +124,37 @@ async function main() {
   if (!/^[a-z0-9-_]+$/.test(username)) {
     logger.error('Invalid username format. Use lowercase letters, numbers, hyphens, and underscores only.');
     process.exit(1);
+  }
+
+  // Fetch avatar URL from Genius API if geniusArtistId provided and no manual avatar
+  // TODO: Download and upload to Grove storage (uploadFile API needs investigation)
+  if (geniusArtistId && !avatarUri) {
+    try {
+      console.log(`🎨 Fetching avatar from Genius API (ID: ${geniusArtistId})...`);
+      const geniusApiKey = requireEnv('GENIUS_API_KEY');
+      const geniusResponse = await fetch(`https://api.genius.com/artists/${geniusArtistId}`, {
+        headers: {
+          'Authorization': `Bearer ${geniusApiKey}`,
+        },
+      });
+
+      if (!geniusResponse.ok) {
+        throw new Error(`Genius API error: ${geniusResponse.status} ${geniusResponse.statusText}`);
+      }
+
+      const geniusData = await geniusResponse.json();
+      const imageUrl = geniusData?.response?.artist?.image_url;
+
+      if (imageUrl) {
+        avatarUri = imageUrl;
+        console.log(`✅ Avatar from Genius: ${avatarUri}\n`);
+      } else {
+        console.log('⚠️  No image_url found in Genius API response');
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch avatar from Genius API:', error);
+      console.log('   Continuing without avatar...\n');
+    }
   }
 
   logger.header(`Create Unified Account: @${username}`);
@@ -717,14 +748,116 @@ async function main() {
     console.log(`✅ Account metadata uploaded: ${metadataUpload.uri}`);
     console.log(`   ACL: Admin wallet only (${adminWallet})\n`);
 
-    // ============ STEP 4: Optionally Emit Event ============
+    // ============ STEP 4: Update Lens Metadata with Grove URI ============
+    logger.step('4/5', 'Linking Grove metadata to Lens account');
+
+    // Create updated Lens metadata with Grove URI attribute
+    const updatedAttributes = [
+      { type: 'String', key: 'pkpAddress', value: pkpAddress },
+      { type: 'String', key: 'username', value: username },
+      { type: 'String', key: 'platform', value: 'karaoke-school' },
+      ...(geniusArtistId ? [{ type: 'Number', key: 'geniusArtistId', value: geniusArtistId.toString() }] : []),
+      { type: 'String', key: 'groveMetadataUri', value: metadataUpload.uri },
+    ];
+
+    const updatedLensMetadata = createLensAccountMetadata({
+      name: displayName,
+      bio: customBio || `Karaoke School account for @${username} - Powered by Lit Protocol`,
+      picture: avatarUri,
+      attributes: updatedAttributes,
+    });
+
+    console.log('☁️  Uploading updated Lens metadata with Grove URI...');
+    const updatedLensMetadataUpload = await storage.uploadAsJson(updatedLensMetadata, {
+      name: `${username}-lens-metadata-updated.json`,
+      acl: immutable(chains.testnet.id),
+    });
+    console.log(`✅ Updated Lens metadata uploaded: ${updatedLensMetadataUpload.uri}`);
+
+    // Update account metadata URI
+    console.log('🔄 Updating Lens account metadata...');
+    const updateMetadataMutation = gql`
+      mutation SetAccountMetadata($request: SetAccountMetadataRequest!) {
+        setAccountMetadata(request: $request) {
+          ... on SetAccountMetadataResponse {
+            hash
+          }
+          ... on SponsoredTransactionRequest {
+            reason
+            sponsoredReason
+            raw {
+              from
+              to
+              data
+              value
+              nonce
+              gasLimit
+              maxPriorityFeePerGas
+              maxFeePerGas
+            }
+          }
+          ... on SelfFundedTransactionRequest {
+            reason
+            raw {
+              from
+              to
+              data
+              value
+              nonce
+              gasLimit
+              maxPriorityFeePerGas
+              maxFeePerGas
+            }
+          }
+          ... on TransactionWillFail {
+            reason
+          }
+        }
+      }
+    `;
+
+    const updateMetadataResponse: any = await gqlClient.request(updateMetadataMutation, {
+      request: {
+        metadataUri: updatedLensMetadataUpload.uri,
+      },
+    });
+
+    const updateMetadataResult = updateMetadataResponse.setAccountMetadata;
+
+    // Handle transaction response
+    let updateMetadataTxHash: Hex | undefined;
+    if (updateMetadataResult.hash) {
+      updateMetadataTxHash = updateMetadataResult.hash;
+      console.log(`   Tx hash: ${updateMetadataTxHash}`);
+    } else if (updateMetadataResult.raw) {
+      // Self-funded or sponsored transaction requiring signature
+      const txHash = await lensWalletClient.sendTransaction({
+        to: updateMetadataResult.raw.to,
+        data: updateMetadataResult.raw.data,
+        value: BigInt(updateMetadataResult.raw.value || '0'),
+        gas: BigInt(updateMetadataResult.raw.gasLimit),
+        maxPriorityFeePerGas: BigInt(updateMetadataResult.raw.maxPriorityFeePerGas || '0'),
+        maxFeePerGas: BigInt(updateMetadataResult.raw.maxFeePerGas || '0'),
+      });
+      updateMetadataTxHash = txHash;
+      console.log(`   Tx sent: ${txHash}`);
+
+      const updateReceipt = await lensPublicClient.waitForTransactionReceipt({ hash: txHash });
+      if (updateReceipt.status !== 'success') {
+        throw new Error('Metadata update transaction failed');
+      }
+    }
+
+    console.log('✅ Lens account metadata updated with Grove URI\n');
+
+    // ============ STEP 5: Optionally Emit Event ============
     if (emitEvent) {
-      logger.step('4/4', 'Emitting AccountCreated event');
+      logger.step('5/5', 'Emitting AccountCreated event');
       console.log('⚠️  Event emission not yet implemented');
       console.log('   Will be added when AccountEvents contract is deployed\n');
       // TODO: Call accountEvents.emitAccountCreated()
     } else {
-      logger.step('4/4', 'Skipping event emission');
+      logger.step('5/5', 'Skipping event emission');
       console.log('   Use --emit-event to emit to contract\n');
     }
 

@@ -9,12 +9,16 @@ import type { Account, Post, EvmAddress } from '@lens-protocol/react'
 /**
  * Fetch Lens account by username
  * @param username - Local name (e.g., "brookemonk" for "lens/brookemonk")
+ * @param namespace - Optional namespace address (e.g., "0xA5882f62feDC936276ef2e7166723A04Ee12501B" for kschool1). Defaults to "lens"
  * @returns Account data with loading/error states
  */
-export function useLensAccount(username: string | undefined) {
-  console.log('[useLensAccount] Called with username:', username)
+export function useLensAccount(username: string | undefined, namespace?: string) {
+  console.log('[useLensAccount] Called with username:', username, 'namespace:', namespace)
   const result = useAccount({
-    username: username ? { localName: username } : undefined,
+    username: username ? {
+      localName: username,
+      ...(namespace && { namespace })
+    } : undefined,
   })
   console.log('[useLensAccount] Result:', { data: result.data, loading: result.loading, error: result.error })
   return result
@@ -44,10 +48,11 @@ export function useLensCreatorPosts(accountAddress: string | undefined) {
  * Combined hook for creator profile data
  * Fetches both account and posts in a single hook
  * @param username - Local name of the creator
+ * @param namespace - Optional namespace address (e.g., "0xA5882f62feDC936276ef2e7166723A04Ee12501B" for kschool1). Defaults to "lens"
  * @returns Combined account and posts data
  */
-export function useLensCreator(username: string | undefined) {
-  const accountQuery = useLensAccount(username)
+export function useLensCreator(username: string | undefined, namespace?: string) {
+  const accountQuery = useLensAccount(username, namespace)
   const postsQuery = useLensCreatorPosts(accountQuery.data?.address)
 
   return {

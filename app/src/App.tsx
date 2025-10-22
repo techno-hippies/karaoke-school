@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
-import { ArtistPageContainer } from '@/pages/ArtistPageContainer'
 import { CreatorPageContainer } from '@/pages/CreatorPageContainer'
 import { SongPageContainer } from '@/pages/SongPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
@@ -49,9 +48,8 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    // Deep routes (song, artist, user pages) should have no tab selected
+    // Deep routes (song, creator pages) should have no tab selected
     if (location.pathname.startsWith('/song/') ||
-        location.pathname.startsWith('/a/') ||
         location.pathname.startsWith('/u/')) {
       setActiveTab('none')
     } else {
@@ -156,7 +154,6 @@ function AppRouter() {
         <Routes>
           <Route path="/" element={<div>Feed</div>} />
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/a/:lenshandle" element={<ArtistPageContainer />} />
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<div>Video Detail</div>} />
           <Route path="/song/:geniusId" element={<SongPageContainer />} />
@@ -195,8 +192,7 @@ function AppRouter() {
  * Routes:
  * / - Feed (all artist videos, chronological)
  * /search - Search for songs
- * /a/:lenshandle - Artist profile (from ArtistRegistryV1 contract)
- * /u/:lenshandle - Student/User profile (from StudentProfileV1 contract)
+ * /u/:lenshandle - Creator/Artist profile (from Lens + Grove metadata)
  * /u/:lenshandle/video/:postId - Video detail (TikTok sidebar)
  * /song/:geniusId - Song overview + creator videos (from SongRegistryV1 + Lens)
  * /song/:geniusId/play - Media player with instrumental and lyrics
