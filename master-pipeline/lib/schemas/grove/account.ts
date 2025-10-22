@@ -119,9 +119,11 @@ export const AccountMetadataSchema = z.object({
   pkpAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/)
     .describe('Lit Protocol PKP address (account controller)'),
 
-  // Optional: Link to Genius artist (if account represents an artist)
+  // Optional: Artist identifiers (if account represents an artist)
   geniusArtistId: z.number().int().positive().optional()
     .describe('Genius.com artist ID (optional, only if account is also a Genius artist)'),
+  isni: z.string().regex(/^\d{16}$/).optional()
+    .describe('International Standard Name Identifier (ISNI) - authoritative artist identifier for royalty tracking (16 digits, e.g., "0000000078519858")'),
 
   // Verification (optional, for creators/artists)
   verification: VerificationSchema.optional()
@@ -191,6 +193,7 @@ export function createInitialAccountMetadata(params: {
   lensAccountAddress: string;
   pkpAddress: string;
   geniusArtistId?: number;
+  isni?: string;
   displayName?: string;
   bio?: string;
 }): AccountMetadata {
@@ -202,7 +205,8 @@ export function createInitialAccountMetadata(params: {
     username: params.username,
     lensAccountAddress: params.lensAccountAddress,
     pkpAddress: params.pkpAddress,
-    geniusArtistId: params.geniusArtistId,
+    ...(params.geniusArtistId && { geniusArtistId: params.geniusArtistId }),
+    ...(params.isni && { isni: params.isni }),
     displayName: params.displayName,
     bio: params.bio,
     createdContent: [],

@@ -73,16 +73,20 @@ export const paths = {
   dataDir: () => DATA_DIR,
   artists: () => join(DATA_DIR, 'artists'),
   creators: () => join(DATA_DIR, 'creators'),
+  accounts: () => join(DATA_DIR, 'accounts'),
   songs: () => join(DATA_DIR, 'songs'),
   segments: () => join(DATA_DIR, 'segments'),
 
-  // Artist paths
+  // Unified account paths (V2)
+  account: (username: string) => join(DATA_DIR, 'accounts', `${username}.json`),
+
+  // Artist paths (legacy V1)
   artist: (handle: string) => join(DATA_DIR, 'artists', handle),
   artistPkp: (handle: string) => join(DATA_DIR, 'artists', handle, 'pkp.json'),
   artistLens: (handle: string) => join(DATA_DIR, 'artists', handle, 'lens.json'),
   artistManifest: (handle: string) => join(DATA_DIR, 'artists', handle, 'manifest.json'),
 
-  // Creator paths
+  // Creator paths (legacy V1)
   creator: (handle: string) => join(DATA_DIR, 'creators', handle),
   creatorPkp: (handle: string) => join(DATA_DIR, 'creators', handle, 'pkp.json'),
   creatorLens: (handle: string) => join(DATA_DIR, 'creators', handle, 'lens.json'),
