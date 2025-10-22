@@ -73,12 +73,15 @@ export const paths = {
   dataDir: () => DATA_DIR,
   artists: () => join(DATA_DIR, 'artists'),
   creators: () => join(DATA_DIR, 'creators'),
-  accounts: () => join(DATA_DIR, 'accounts'),
-  songs: () => join(DATA_DIR, 'songs'),
-  segments: () => join(DATA_DIR, 'segments'),
+  accountsDir: () => join(DATA_DIR, 'accounts'),
+  songsDir: () => join(DATA_DIR, 'songs'),
+  segmentsDir: () => join(DATA_DIR, 'segments'),
 
   // Unified account paths (V2)
   account: (username: string) => join(DATA_DIR, 'accounts', `${username}.json`),
+
+  // Unified song paths (V2)
+  song: (geniusId: string) => join(DATA_DIR, 'songs', `${geniusId}.json`),
 
   // Artist paths (legacy V1)
   artist: (handle: string) => join(DATA_DIR, 'artists', handle),
@@ -96,9 +99,9 @@ export const paths = {
   creatorVideoManifest: (handle: string, videoHash: string) =>
     join(DATA_DIR, 'creators', handle, 'videos', videoHash, 'manifest.json'),
 
-  // Song paths
-  song: (geniusId: number) => join(DATA_DIR, 'songs', geniusId.toString()),
-  songMetadata: (geniusId: number) =>
+  // Song paths (legacy V1 - directories)
+  songDir: (geniusId: number) => join(DATA_DIR, 'songs', geniusId.toString()),
+  songMetadataV1: (geniusId: number) =>
     join(DATA_DIR, 'songs', geniusId.toString(), 'metadata.json'),
   songManifest: (geniusId: number) =>
     join(DATA_DIR, 'songs', geniusId.toString(), 'manifest.json'),
