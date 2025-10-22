@@ -79,17 +79,13 @@ export type Achievement = z.infer<typeof AchievementSchema>;
 /**
  * Verification Status
  *
- * For artists/creators who want verified badge
+ * For artists/creators who want verified badge (blue check)
  */
 export const VerificationSchema = z.object({
   verified: z.boolean().default(false)
     .describe('Whether account is verified'),
-  verifiedBy: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional()
-    .describe('EOA address that verified this account'),
-  verifiedAt: z.string().datetime().optional()
+  verifiedAt: z.string().datetime()
     .describe('Verification timestamp'),
-  verificationMethod: z.enum(['manual', 'genius-api', 'twitter', 'other']).optional()
-    .describe('How verification was performed'),
 }).describe('Verification status for account');
 
 export type Verification = z.infer<typeof VerificationSchema>;

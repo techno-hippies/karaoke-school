@@ -309,9 +309,7 @@ async function main() {
       ...(shouldVerify && {
         verification: {
           verified: true,
-          verifiedBy: adminWallet as Address,
           verifiedAt: new Date().toISOString(),
-          verificationMethod: 'manual' as const,
         },
       }),
       stats: {
