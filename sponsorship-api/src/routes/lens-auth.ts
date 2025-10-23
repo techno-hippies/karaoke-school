@@ -9,9 +9,10 @@ import { getPKPBalance } from '../lib/balance-check'
  * Backend wallet whitelist
  * These addresses are allowed to authenticate without PKP verification
  * Used by the master pipeline to create accounts for TikTok creators
+ * Note: All addresses must be lowercase for comparison
  */
 const BACKEND_WHITELISTED_WALLETS = [
-  '0x0C6433789d14050aF47198B2751f6689731Ca79C', // Master pipeline admin wallet
+  '0x0c6433789d14050af47198b2751f6689731ca79c', // Master pipeline admin wallet
 ]
 
 /**
