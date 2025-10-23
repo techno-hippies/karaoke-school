@@ -132,6 +132,9 @@ async function main() {
     console.log('\n✅ Next step:');
     console.log(`   bun run creators/02-create-lens.ts --tiktok-handle @${tiktokHandle} --lens-handle ${lensHandle}\n`);
 
+    // Disconnect Lit client to allow clean exit
+    await litClient.disconnect();
+
   } catch (error: any) {
     logger.error(`Failed to mint PKP: ${error.message}`);
     console.error(error);

@@ -165,7 +165,8 @@ async function main() {
     console.log('✅ Lens Account Created!');
     console.log(`   Tx: ${txHash}`);
 
-    // Fetch account details
+    // Fetch account details by username
+    // Note: For custom namespaces, fetchAccount by username works correctly
     const accountResult = await fetchAccount(sessionClient, {
       username: {
         localName: lensHandle,
@@ -189,7 +190,10 @@ async function main() {
       transactionHash: txHash as Hex,
     };
 
-    console.log(`   Address: ${lensData.lensAccountAddress}\n`);
+    console.log(`   Address: ${lensData.lensAccountAddress}`);
+    console.log(`   Username: kschool1/${lensHandle} (assigned on-chain)`);
+    console.log(`   Note: Custom namespace usernames don't appear in account.username field`);
+    console.log(`   Use username query with namespace parameter to verify\n`);
 
     // Save to file
     writeJson(lensPath, lensData);
