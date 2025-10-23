@@ -1,228 +1,115 @@
-# V2 Contracts Deployment Guide
+# Deployment Summary - Lens Chain Testnet
 
-## Prerequisites
+**Network:** Lens Chain Testnet
+**RPC URL:** https://rpc.testnet.lens.xyz
+**Chain ID:** 37111
+**Explorer:** https://explorer.testnet.lens.xyz
+**Deployer:** 0x0C6433789d14050aF47198B2751f6689731Ca79C
+**Deployment Date:** 2025-10-22
 
-1. Install Foundry:
+## How to Deploy
+
+### Prerequisites
 ```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-```
+# Ensure you have forge installed with ZKsync support
+forge --version
 
-2. Install dependencies:
-```bash
-forge install foundry-rs/forge-std
-```
-
-3. Configure environment:
-```bash
+# Configure environment
 cp .env.example .env
-# Edit .env with your private key
+# Fill in: PRIVATE_KEY, TRUSTED_PKP_ADDRESS, LENS_CHAIN_RPC_URL
 ```
 
-## Deployment Steps
+### Compile Contracts
+```bash
+forge clean
+forge build --zksync
+```
 
-### 1. Deploy All Contracts (Recommended)
-
-Deploy all contracts in correct dependency order:
+### Deploy Individual Contracts
 
 ```bash
-# Lens Testnet (zkSync)
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:Deploy \
-  --rpc-url lens_testnet \
+# Deploy SongEvents
+forge create --zksync \
+  --rpc-url https://rpc.testnet.lens.xyz \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  --zksync
+  src/events/SongEvents.sol:SongEvents
 
-# Or using .env file
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:Deploy \
-  --rpc-url lens_testnet \
+# Deploy SegmentEvents
+forge create --zksync \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
   --broadcast \
-  --zksync
+  src/events/SegmentEvents.sol:SegmentEvents
+
+# Deploy PerformanceGrader (requires PKP address)
+forge create --zksync \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  src/events/PerformanceGrader.sol:PerformanceGrader \
+  --constructor-args $TRUSTED_PKP_ADDRESS
+
+# Deploy AccountEvents
+forge create --zksync \
+  --rpc-url https://rpc.testnet.lens.xyz \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  src/events/AccountEvents.sol:AccountEvents
 ```
 
-Contract addresses will be saved to `deployments/latest.env`.
-
-### 2. Deploy Individual Contracts
-
-For testing or incremental deployment:
+### Verify Contracts (Optional)
 
 ```bash
-# 1. Artist Registry (no dependencies)
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeployArtistRegistry \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
-
-# 2. Song Registry (requires ARTIST_REGISTRY in .env)
-export ARTIST_REGISTRY=0x...
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeploySongRegistry \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
-
-# 3. Segment Registry (requires SONG_REGISTRY in .env)
-export SONG_REGISTRY=0x...
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeploySegmentRegistry \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
-
-# 4. Performance Registry (requires SEGMENT_REGISTRY in .env)
-export SEGMENT_REGISTRY=0x...
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeployPerformanceRegistry \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
-
-# 5. Student Profile (no dependencies)
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeployStudentProfile \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
-
-# 6. Leaderboard (no dependencies)
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:DeployLeaderboard \
-  --rpc-url lens_testnet \
-  --broadcast \
-  --zksync
+forge verify-contract \
+  --zksync \
+  --chain-id 37111 \
+  --verifier zksync \
+  --verifier-url https://block-explorer-verify.testnet.lens.dev/contract_verification \
+  --watch \
+  <CONTRACT_ADDRESS> \
+  src/events/SongEvents.sol:SongEvents
 ```
 
-## Post-Deployment
+## Deployed Contracts
 
-### 1. Verify Contracts
+### SongEvents
+- **Address:** `0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d`
+- **Transaction:** `0x411078d898d34399468bab6c83ffc02e33e1df278e590d692baef1644ac7bba3`
+- **Explorer:** https://explorer.testnet.lens.xyz/address/0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d
 
-```bash
-# Verify on Lens Block Explorer
-forge verify-contract <CONTRACT_ADDRESS> \
-  src/core/ArtistRegistryV1.sol:ArtistRegistryV1 \
-  --chain lens_testnet \
-  --etherscan-api-key $LENSSCAN_API_KEY
-```
+### SegmentEvents
+- **Address:** `0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8`
+- **Transaction:** `0x23bf099441b91413f9a43a1aede9df4ce828294edd790a04aa8673387ec1c0a9`
+- **Explorer:** https://explorer.testnet.lens.xyz/address/0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8
 
-### 2. Configure Authorizations
+### PerformanceGrader
+- **Address:** `0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0`
+- **Transaction:** `0x85f802f40cbd258e898e785ffdecde01523beca097c7f436dbf67701319ce6ee`
+- **Explorer:** https://explorer.testnet.lens.xyz/address/0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0
+- **Trusted PKP:** `0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23`
 
-Authorize the master-pipeline PKP to register artists/songs:
-
-```bash
-# Get PKP address
-export PKP_ADDRESS=0x254AA0096C9287a03eE62b97AA5643A2b8003657
-
-# Authorize in each contract
-cast send $ARTIST_REGISTRY \
-  "setAuthorized(address,bool)" \
-  $PKP_ADDRESS \
-  true \
-  --rpc-url lens_testnet \
-  --private-key $PRIVATE_KEY
-
-cast send $SONG_REGISTRY \
-  "setAuthorized(address,bool)" \
-  $PKP_ADDRESS \
-  true \
-  --rpc-url lens_testnet \
-  --private-key $PRIVATE_KEY
-
-# Repeat for other contracts...
-```
-
-### 3. Test Basic Functionality
-
-```bash
-# Test ArtistRegistry
-cast call $ARTIST_REGISTRY "getTotalArtists()" --rpc-url lens_testnet
-
-# Register test artist
-cast send $ARTIST_REGISTRY \
-  "registerArtist(uint32,address,string,address)" \
-  498 \
-  $PKP_ADDRESS \
-  "beyoncetest" \
-  0x0000000000000000000000000000000000000001 \
-  --rpc-url lens_testnet \
-  --private-key $PRIVATE_KEY
-
-# Verify registration
-cast call $ARTIST_REGISTRY "artistExists(uint32)" 498 --rpc-url lens_testnet
-```
-
-## Integration with Master Pipeline
-
-After deployment, update master-pipeline configuration:
-
-```bash
-# Copy addresses to master-pipeline
-cp deployments/latest.env ../master-pipeline/.env.contracts
-
-# Or manually update master-pipeline/.env
-ARTIST_REGISTRY=0x...
-SONG_REGISTRY=0x...
-SEGMENT_REGISTRY=0x...
-PERFORMANCE_REGISTRY=0x...
-STUDENT_PROFILE=0x...
-LEADERBOARD=0x...
-```
-
-## Deployment Order
-
-**Critical:** Contracts must be deployed in this order due to constructor dependencies:
-
-1. **ArtistRegistryV1** (no dependencies)
-2. **SongRegistryV1** (requires ArtistRegistry address)
-3. **SegmentRegistryV1** (requires SongRegistry address)
-4. **PerformanceRegistryV1** (requires SegmentRegistry address)
-5. **StudentProfileV1** (no dependencies)
-6. **LeaderboardV1** (no dependencies)
-
-## Gas Costs
-
-Estimated deployment costs on Lens Testnet:
-
-| Contract | Gas | Cost (at 0.5 gwei) |
-|----------|-----|--------------------|
-| ArtistRegistry | ~800k | ~$0.02 |
-| SongRegistry | ~1.2M | ~$0.03 |
-| SegmentRegistry | ~1.1M | ~$0.03 |
-| PerformanceRegistry | ~1.3M | ~$0.03 |
-| StudentProfile | ~1.0M | ~$0.02 |
-| Leaderboard | ~1.5M | ~$0.04 |
-| **Total** | **~6.9M** | **~$0.17** |
-
-## Troubleshooting
-
-### "Insufficient funds" error
-Ensure deployer address has enough ETH on Lens Testnet.
-
-### "Contract creation failed" error
-Check that dependencies are deployed first (see Deployment Order above).
-
-### "zkSync verification failed"
-Ensure you're using `--zksync` flag and correct profile (`FOUNDRY_PROFILE=zksync`).
-
-### Contract not showing on block explorer
-Wait 1-2 minutes for indexing, then verify manually via block explorer UI.
+### AccountEvents
+- **Address:** `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
+- **Transaction:** `0xb7fe5bc18888f6722b19f027ca2b8def4c64dfe6231de9d7311341817aef35dc`
+- **Explorer:** https://explorer.testnet.lens.xyz/address/0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22
 
 ## Next Steps
 
-After successful deployment:
+1. **Update master-pipeline/.env** with contract addresses:
+   ```bash
+   SONG_EVENTS_ADDRESS=0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d
+   SEGMENT_EVENTS_ADDRESS=0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8
+   PERFORMANCE_GRADER_ADDRESS=0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0
+   ACCOUNT_EVENTS_ADDRESS=0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22
+   ```
 
-1. ✅ Update `deployments/latest.env` with addresses
-2. ✅ Authorize PKP in all contracts
-3. ✅ Test basic functionality
-4. ✅ Configure master-pipeline with contract addresses
-5. ✅ Run end-to-end test with pipeline
-6. ✅ Document deployment in README.md
+2. **Update song/segment creation scripts** to emit events after Grove upload
 
-## Mainnet Deployment
+3. **Set up The Graph subgraph**:
+   - Create subgraph schema with Song, Segment, Performance entities
+   - Write event handlers/mappings
+   - Deploy to The Graph Studio
+   - Point to these contract addresses
 
-When ready for mainnet:
-
-```bash
-# Use lens_mainnet RPC
-FOUNDRY_PROFILE=zksync forge script script/Deploy.s.sol:Deploy \
-  --rpc-url lens_mainnet \
-  --broadcast \
-  --zksync \
-  --verify
-
-# IMPORTANT: Triple-check all parameters before mainnet deployment
-```
+4. **Update frontend** to query subgraph instead of direct contract queries

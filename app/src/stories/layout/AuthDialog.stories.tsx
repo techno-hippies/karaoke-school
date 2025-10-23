@@ -79,7 +79,7 @@ export const UsernameChecking: Story = {
     authMode: 'register',
     statusMessage: '',
     errorMessage: '',
-    usernameAvailability: 'checking',
+    usernameAvailability: 'available',
     isPKPReady: false,
     hasSocialAccount: false,
     onOpenChange: () => {},

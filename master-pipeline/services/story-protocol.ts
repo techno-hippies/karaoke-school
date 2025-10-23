@@ -14,7 +14,7 @@ import { BaseService, ServiceConfig } from './base.js';
 export interface StoryProtocolConfig extends ServiceConfig {
   privateKey: string;
   rpcUrl?: string;
-  chainId?: number; // 1315 = Aeneid testnet
+  chainId?: number; // 1315 = Aeneid testnet, 1514 = mainnet
   spgNftContract?: Address; // Reusable NFT collection
   currency?: Address; // Currency for royalties (default: $WIP testnet)
   safeWallet?: Address; // Safe multisig for 82% royalty split

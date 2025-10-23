@@ -163,7 +163,15 @@ export class SongIdentificationService extends BaseService {
     });
 
     if (!response.ok) {
-      throw new Error(`Spotify auth failed: ${response.status}`);
+      const errorBody = await response.text();
+      console.error('[Spotify Auth Debug]', {
+        status: response.status,
+        clientId: this.spotifyConfig.clientId?.substring(0, 10) + '...',
+        hasSecret: !!this.spotifyConfig.clientSecret,
+        secretLength: this.spotifyConfig.clientSecret?.length,
+        errorBody,
+      });
+      throw new Error(`Spotify auth failed: ${response.status} - ${errorBody}`);
     }
 
     const data = (await response.json()) as any;

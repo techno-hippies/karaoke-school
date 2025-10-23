@@ -98,15 +98,28 @@ export async function createAccountInCustomNamespace(
   console.log('[Account Creation] Metadata URI:', metadataUri)
   console.log('[Account Creation] Custom namespace:', LENS_CUSTOM_NAMESPACE)
 
-  // Get GraphQL client (will use session client's auth)
-  // Note: We'll extract the access token from the session if needed
-  const gqlClient = createLensGraphQLClient()
+  // Use SessionClient's internal urql client which is already authenticated
+  const urqlClient = (sessionClient as any).urql
+  if (!urqlClient) {
+    throw new Error('SessionClient does not have urql client')
+  }
+
+  console.log('[Account Creation] Using SessionClient authenticated urql client')
+
+  // Helper to execute mutations using SessionClient's urql
+  const executeMutationWithSession = async <T,>(mutation: string, variables: any): Promise<T> => {
+    const result = await urqlClient.mutation(mutation, variables).toPromise()
+    if (result.error) {
+      console.error('[Account Creation] Mutation error:', result.error)
+      throw new Error(result.error.message || 'Mutation failed')
+    }
+    return result.data as T
+  }
 
   // ============ STEP 1: Create Account (No Username) ============
   console.log('[Account Creation] Step 1/3: Creating account without username...')
 
-  const createAccountResult = await executeMutation<{ createAccount: CreateAccountResponse }>(
-    gqlClient,
+  const createAccountResult = await executeMutationWithSession<{ createAccount: CreateAccountResponse }>(
     CREATE_ACCOUNT_MUTATION,
     {
       request: {
@@ -147,12 +160,12 @@ export async function createAccountInCustomNamespace(
 
   await switchToAccountOwner(sessionClient, account.address)
   console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
+  console.log('[Account Creation] SessionClient urql client updated with new account context')
 
   // ============ STEP 3: Create Username in Custom Namespace ============
   console.log('[Account Creation] Step 3/3: Creating username in custom namespace...')
 
-  const createUsernameResult = await executeMutation<{ createUsername: CreateUsernameResponse }>(
-    gqlClient,
+  const createUsernameResult = await executeMutationWithSession<{ createUsername: CreateUsernameResponse }>(
     CREATE_USERNAME_MUTATION,
     {
       request: {
@@ -170,25 +183,41 @@ export async function createAccountInCustomNamespace(
   let usernameTxHash: Hex
 
   if (createUsernameData.hash) {
-    // Direct hash response
+    // Direct hash response (fully sponsored without signature)
     usernameTxHash = createUsernameData.hash as Hex
     console.log('[Account Creation] ✓ Username created, hash:', usernameTxHash)
-  } else if (createUsernameData.sponsoredReason !== undefined) {
-    // Sponsored transaction (gas paid by protocol)
-    console.log('[Account Creation] ✓ Sponsored username creation')
+  } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.raw) {
+    // Sponsored transaction requiring signature - submit via backend API
+    console.log('[Account Creation] Sponsored transaction requires signature')
     console.log('[Account Creation] Reason:', createUsernameData.reason)
-    console.log('[Account Creation] Sponsored reason:', createUsernameData.sponsoredReason)
+    console.log('[Account Creation] Submitting via sponsorship API...')
 
-    if (createUsernameData.raw) {
-      // Requires signature
-      usernameTxHash = await sendRawTransaction(walletClient, createUsernameData.raw)
-      console.log('[Account Creation] ✓ Transaction sent:', usernameTxHash)
-    } else {
-      // Fully sponsored - poll for username
-      console.log('[Account Creation] Polling for username assignment...')
-      await waitForUsernameAssignment(gqlClient, account.address, username)
-      usernameTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
+    // Call backend API to submit transaction with funded admin wallet
+    const apiUrl = import.meta.env.VITE_SPONSORSHIP_API_URL || 'http://localhost:8787'
+    const response = await fetch(`${apiUrl}/api/submit-tx`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account: account.address,
+        operation: 'username',
+        raw: createUsernameData.raw,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`API submission failed: ${error.error || response.statusText}`)
     }
+
+    const result = await response.json()
+    usernameTxHash = result.txHash
+    console.log('[Account Creation] ✓ Transaction submitted by API:', usernameTxHash)
+  } else if (createUsernameData.sponsoredReason !== undefined && !createUsernameData.raw) {
+    // Fully sponsored without signature - poll for username
+    console.log('[Account Creation] ✓ Fully sponsored username creation')
+    console.log('[Account Creation] Polling for username assignment...')
+    await waitForUsernameAssignment(urqlClient, account.address, username)
+    usernameTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
   } else if (createUsernameData.raw) {
     // Self-funded transaction (payment required for short usernames)
     const paymentValue = BigInt(createUsernameData.raw.value || '0')
@@ -224,7 +253,7 @@ export async function createAccountInCustomNamespace(
  * Wait for username to be assigned (for fully sponsored transactions)
  */
 async function waitForUsernameAssignment(
-  gqlClient: ReturnType<typeof createLensGraphQLClient>,
+  urqlClient: any,
   accountAddress: Address,
   expectedUsername: string,
   maxRetries: number = 30,
@@ -235,15 +264,11 @@ async function waitForUsernameAssignment(
     await new Promise(resolve => setTimeout(resolve, delayMs))
 
     try {
-      const accountResult = await executeQuery<{ account: AccountResponse }>(
-        gqlClient,
-        ACCOUNT_QUERY,
-        {
-          request: { address: accountAddress },
-        }
-      )
+      const result = await urqlClient.query(ACCOUNT_QUERY, {
+        request: { address: accountAddress },
+      }).toPromise()
 
-      if (accountResult.account?.username?.localName === expectedUsername) {
+      if (result.data?.account?.username?.localName === expectedUsername) {
         console.log('[Account Creation] ✓ Username assigned')
         return
       }
@@ -257,7 +282,9 @@ async function waitForUsernameAssignment(
 
 /**
  * Check if username can be created in custom namespace
- * Returns payment amount if required (in wei)
+ *
+ * Note: This only checks basic availability, not payment requirements
+ * Payment info will be provided when actually creating the username
  */
 export async function checkUsernameAvailability(
   username: string
@@ -275,42 +302,56 @@ export async function checkUsernameAvailability(
       CAN_CREATE_USERNAME_QUERY,
       {
         request: {
-          username: {
-            localName: username,
-            namespace: LENS_CUSTOM_NAMESPACE,
-          },
+          localName: username,
+          namespace: LENS_CUSTOM_NAMESPACE,
         },
       }
     )
 
     const response = result.canCreateUsername
 
-    // Check if username can be created
-    if (response.canCreate) {
-      return {
-        available: true,
-        paymentRequired: false,
-      }
-    }
+    console.log('[Account Creation] canCreateUsername response:', response)
 
-    // Check for payment rule
-    const paymentRule = response.unsatisfiedRules?.find(rule => 'config' in rule)
-    if (paymentRule && 'config' in paymentRule) {
-      const paymentAmount = BigInt(paymentRule.config?.price || '0')
+    // Handle different response types
+    switch (response.__typename) {
+      case 'NamespaceOperationValidationPassed':
+        // Username is available and can be created
+        // Note: Payment may still be required for short usernames (checked during actual creation)
+        return {
+          available: true,
+          paymentRequired: false, // We don't know yet, will find out during creation
+        }
 
-      return {
-        available: true,
-        paymentRequired: paymentAmount > 0n,
-        paymentAmount,
-        reason: `Username requires payment: ${paymentAmount.toString()} wei`,
-      }
-    }
+      case 'NamespaceOperationValidationFailed':
+        // Validation failed (too short, invalid chars, etc.)
+        return {
+          available: false,
+          paymentRequired: false,
+          reason: response.reason || 'Username validation failed',
+        }
 
-    // Other validation failures (too short, invalid chars, etc.)
-    return {
-      available: false,
-      paymentRequired: false,
-      reason: response.reason || 'Username validation failed',
+      case 'UsernameTaken':
+        // Username is already in use
+        return {
+          available: false,
+          paymentRequired: false,
+          reason: 'Username is already taken',
+        }
+
+      case 'NamespaceOperationValidationUnknown':
+        // Validation outcome unknown
+        return {
+          available: false,
+          paymentRequired: false,
+          reason: 'Username validation status unknown',
+        }
+
+      default:
+        return {
+          available: false,
+          paymentRequired: false,
+          reason: 'Unexpected response from API',
+        }
     }
   } catch (error) {
     console.error('[Account Creation] Username availability check failed:', error)

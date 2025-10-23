@@ -10,7 +10,7 @@
  * - Song metadata with MLC data
  * - PRIVATE_KEY in .env
  * - FAL_KEY in .env (for Seedream cover art)
- * - STORY_SPG_NFT_CONTRACT
+ * - SPG_NFT_CONTRACT
  *
  * Usage:
  *   bun segments/02-mint-segment-ip-asset.ts \
@@ -47,7 +47,7 @@ console.log('🎨 Story Protocol Derivative IP Asset Minter (Karaoke Segment)\n'
 console.log('════════════════════════════════════════════════════════════\n');
 
 const privateKey = process.env.PRIVATE_KEY;
-const spgNftContract = process.env.STORY_SPG_NFT_CONTRACT as Address | undefined;
+const spgNftContract = process.env.SPG_NFT_CONTRACT as Address | undefined;
 const safeWallet = process.env.SAFE_MULTISIG_ADDRESS as Address | undefined;
 const falKey = process.env.FAL_KEY;
 
@@ -176,7 +176,7 @@ async function main() {
       );
 
       console.log(`\n⚠️  Add to your .env:`);
-      console.log(`  STORY_SPG_NFT_CONTRACT="${currentSpgContract}"\n`);
+      console.log(`  SPG_NFT_CONTRACT="${currentSpgContract}"\n`);
 
       await new Promise(resolve => setTimeout(resolve, 5000));
     } else {

@@ -15,6 +15,7 @@
 
 import { parseArgs } from 'util';
 import { type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { requireEnv, paths } from '../../lib/config.js';
 import { readJson, writeJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
@@ -125,14 +126,22 @@ async function main() {
     const creatorManifestPath = paths.creatorManifest(tiktokHandle);
     const creatorManifest = readJson<CreatorManifest>(creatorManifestPath);
 
+    // Use Lens account address as recipient (matches working implementation)
+    const recipientAddress = creatorManifest.identifiers.lensAccountAddress as Address;
+
     // Initialize services
     const privateKey = requireEnv('PRIVATE_KEY');
-    const spgNftContract = process.env.SPG_NFT_CONTRACT as Address | undefined;
+    const spgNftContract = (process.env.STORY_SPG_NFT_CONTRACT || process.env.SPG_NFT_CONTRACT) as Address | undefined;
     const safeWallet = process.env.SAFE_WALLET as Address | undefined;
 
     if (!spgNftContract) {
-      throw new Error('SPG_NFT_CONTRACT environment variable not set');
+      throw new Error('STORY_SPG_NFT_CONTRACT or SPG_NFT_CONTRACT environment variable not set');
     }
+
+    // Get wallet address from private key (for metadata creators array)
+    const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+    const account = privateKeyToAccount(formattedKey as `0x${string}`);
+    const walletAddress = account.address;
 
     const storyService = new StoryProtocolService({
       privateKey,
@@ -149,57 +158,102 @@ async function main() {
     const creatorName = creatorManifest.displayName || manifest.creatorHandle;
 
     const metadata: IPAssetMetadata = {
+      // === REQUIRED FOR STORY EXPLORER ===
       title: isCopyrighted
-        ? `${creatorName} performs ${manifest.song.title}`
+        ? `${manifest.song.title} - ${manifest.song.artist}`
         : manifest.song.title,
-      description: manifest.description || `Karaoke performance by ${creatorName}`,
+      description: manifest.description || `User-generated performance video by ${creatorName} featuring '${manifest.song.title}' by ${manifest.song.artist}. Original composition and recording rights held by respective owners.`,
       createdAt: manifest.createdAt,
-      image: manifest.grove.video, // Use video thumbnail
+      image: manifest.grove.video, // Thumbnail for display (lens:// URI)
       imageHash: '', // Will be set by hashUrl
       creators: isCopyrighted
         ? [
             {
               name: creatorName,
-              address: creatorManifest.pkp.pkpEthAddress as Address,
+              address: walletAddress,
               contributionPercent: 18,
               role: 'derivative_performer',
-              description: `TikTok creator performing ${manifest.song.title}`,
+              description: `User-generated performance video creator`,
+              socialMedia: [
+                { platform: 'TikTok', url: manifest.tiktokUrl },
+              ],
             },
             {
               name: manifest.song.artist,
               address: '0x0000000000000000000000000000000000000000' as Address,
               contributionPercent: 82,
               role: 'original_rights_holder',
-              description: 'Original song rights holders',
+              description: 'Original artist(s) and rights holder(s); detailed credits in rights_metadata.mlc_data',
+              ...(manifest.song.spotifyId || manifest.song.geniusId ? {
+                socialMedia: [
+                  ...(manifest.song.spotifyId ? [{ platform: 'Spotify', url: `https://open.spotify.com/track/${manifest.song.spotifyId}` }] : []),
+                  ...(manifest.song.geniusId ? [{ platform: 'Genius', url: `https://genius.com/songs/${manifest.song.geniusId}` }] : []),
+                ]
+              } : {}),
             },
           ]
         : [
             {
               name: creatorName,
-              address: creatorManifest.pkp.pkpEthAddress as Address,
+              address: walletAddress,
               contributionPercent: 100,
               role: 'original_creator',
               description: 'Original content creator',
+              socialMedia: [
+                { platform: 'TikTok', url: manifest.tiktokUrl },
+              ],
             },
           ],
-      mediaUrl: manifest.grove.video,
+
+      // === REQUIRED FOR COMMERCIAL INFRINGEMENT CHECK ===
+      mediaUrl: manifest.grove.video, // Actual video file (lens:// URI)
       mediaHash: '', // Will be set by hashUrl
-      mediaType: 'video/mp4',
-      ipType: isCopyrighted ? 'derivative' : 'original',
-      tags: [
-        'karaoke',
-        'tiktok',
-        manifest.song.copyrightType,
-        ...(isCopyrighted ? ['cover', 'performance'] : ['original-sound']),
+      mediaType: 'video/mp4', // MIME type
+
+      // === OPTIONAL STANDARD FIELDS ===
+      ipType: 'Music', // Type of IP Asset
+      tags: ['karaoke', 'cover', 'music', 'lipsync', manifest.song.copyrightType],
+
+      // === CUSTOM EXTENSIONS (allowed by standard) ===
+      original_work: {
+        title: manifest.song.title,
+        primary_artists: [manifest.song.artist],
+        recording_label: 'Unknown',
+        isrc: null,
+        iswc: null,
+        mlc_work_id: null,
+        source_url: manifest.song.spotifyId
+          ? `https://open.spotify.com/track/${manifest.song.spotifyId}`
+          : null,
+        genius_url: manifest.song.geniusId
+          ? `https://genius.com/songs/${manifest.song.geniusId}`
+          : null,
+        genius_id: manifest.song.geniusId || null,
+        ownership_claim_status: 'unverified', // or 'verified' if you have licenses
+      },
+      derivative_details: {
+        video_url: manifest.tiktokUrl,
+        duration_seconds: null, // Could be extracted from video metadata
+        start_offset_seconds: 0,
+        audio_used: 'varies',
+        notes: `User-generated performance video incorporating the song. Specific type (e.g., lip-sync, dance, or vocal cover) and audio elements vary.`,
+      },
+      royalty_allocation_proposal: [
+        { party: 'creator', pct: 18 },
+        { party: 'rights_holders', pct: 82 },
       ],
-      // Additional metadata
-      tiktokHandle: manifest.creatorHandle,
-      tiktokVideoId: manifest.tiktokVideoId,
-      tiktokUrl: manifest.tiktokUrl,
-      song: manifest.song,
-      match: manifest.match,
-      vocals: manifest.grove.vocals,
-      instrumental: manifest.grove.instrumental,
+      license_hint: {
+        default: 'social_non_commercial',
+        human_readable: 'Non-commercial social sharing only; underlying composition and recording remain third-party-owned.',
+        terms_url: 'https://karaoke.school/terms/lipsync',
+      },
+      provenance: {
+        created_at: manifest.createdAt,
+        uploader: walletAddress,
+        tiktok_url: manifest.tiktokUrl,
+        tiktok_video_id: manifest.tiktokVideoId,
+        copyright_type: manifest.song.copyrightType,
+      },
     };
 
     // Hash image and media URLs
@@ -212,21 +266,22 @@ async function main() {
 
     // Upload metadata to Grove
     console.log('\n☁️  Uploading metadata to Grove...');
-    const metadataUri = await groveService.uploadJson({
+    const groveResult = await groveService.uploadJson({
       json: metadata,
       accessControl: 'immutable',
     });
+    const metadataUri = groveResult.gatewayUrl; // Use HTTP gateway URL for Story Protocol
     console.log(`   ✓ Metadata URI: ${metadataUri}`);
 
     // Mint IP Asset
     console.log('\n⛓️  Minting IP Asset on Story Protocol...');
     console.log(`   Type: ${isCopyrighted ? 'Derivative (18/82 split)' : 'Original (100% creator)'}`);
-    console.log(`   Recipient: ${creatorManifest.pkp.pkpEthAddress}`);
+    console.log(`   Recipient: ${recipientAddress} (Lens account)`);
 
     const mintResult = await storyService.mintIPAsset({
       metadata,
       metadataUri,
-      recipient: creatorManifest.pkp.pkpEthAddress as Address,
+      recipient: recipientAddress, // Mint to creator's Lens account (matches working implementation)
       commercialRevShare: isCopyrighted ? 18 : 0, // 18% for derivatives, 0% for originals
       mintingFee: 0,
     });
@@ -245,7 +300,8 @@ async function main() {
     manifest.storyProtocol = {
       ipId: mintResult.ipId,
       txHash: mintResult.txHash,
-      metadataUri: mintResult.metadataUri,
+      metadataUri: groveResult.uri, // Store lens:// URI
+      metadataGatewayUrl: groveResult.gatewayUrl, // Store HTTP gateway URL
       licenseTermsIds: mintResult.licenseTermsIds,
       royaltyVault: mintResult.royaltyVault,
       mintedAt: new Date().toISOString(),

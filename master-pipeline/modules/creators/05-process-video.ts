@@ -21,6 +21,8 @@ import { paths } from '../../lib/config.js';
 import { readJson, writeJson, ensureDir } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
 import { GroveService } from '../../services/grove.js';
+import { VoxtralService } from '../../services/voxtral.js';
+import { TranslationService } from '../../services/translation.js';
 
 interface IdentifiedVideo {
   id: string;
@@ -28,6 +30,7 @@ interface IdentifiedVideo {
   video: {
     downloadAddr: string;
     duration: number;
+    cover: string; // TikTok thumbnail URL
   };
   music: {
     title: string;
@@ -51,6 +54,11 @@ interface VideoManifest {
   tiktokUrl: string;
   description: string;
   descriptionTranslations?: Record<string, string>;
+  captions?: {
+    en: string;
+    vi: string;
+    zh: string;
+  };
   song: {
     title: string;
     artist: string;
@@ -65,11 +73,13 @@ interface VideoManifest {
   };
   files: {
     video: string;
+    audio?: string;
     vocals?: string;
     instrumental?: string;
   };
   grove: {
     video: string;
+    thumbnail?: string;
     vocals?: string;
     instrumental?: string;
   };
@@ -170,6 +180,42 @@ async function main() {
     await $`yt-dlp --no-warnings --quiet -o ${videoPath} ${videoUrl}`;
     console.log(`   ✓ Downloaded: ${videoPath}`);
 
+    // Step 1.5: Download TikTok thumbnail (creator-chosen cover image)
+    const thumbnailPath = `${videoDir}/thumbnail.jpg`;
+    console.log('\n🖼️  Downloading TikTok thumbnail...');
+    await $`curl -s -o ${thumbnailPath} "${video.video.cover}"`;
+    console.log(`   ✓ Downloaded: ${thumbnailPath}`);
+
+    // Step 1.6: Extract audio for STT
+    const audioPath = `${videoDir}/audio.mp3`;
+    console.log('\n🎤 Extracting audio from video...');
+    await $`ffmpeg -i ${videoPath} -vn -ar 16000 -ac 1 -b:a 128k -y ${audioPath}`;
+    console.log(`   ✓ Extracted: ${audioPath}`);
+
+    // Step 1.7: Speech-to-Text with Voxtral
+    console.log('\n💬 Transcribing audio (Voxtral STT)...');
+    const voxtralService = new VoxtralService();
+    const transcription = await voxtralService.transcribe(audioPath, 'en');
+    console.log(`   ✓ Transcribed (${transcription.language}): ${transcription.text.substring(0, 80)}...`);
+
+    // Step 1.8: Translate to Vietnamese + Mandarin
+    console.log('\n🌐 Translating captions...');
+    const translationService = new TranslationService();
+
+    console.log('   → Vietnamese...');
+    const viTranslation = await translationService.translateText(transcription.text, 'vi');
+    console.log(`   ✓ vi: ${viTranslation.substring(0, 60)}...`);
+
+    console.log('   → Mandarin...');
+    const zhTranslation = await translationService.translateText(transcription.text, 'zh');
+    console.log(`   ✓ zh: ${zhTranslation.substring(0, 60)}...`);
+
+    const captionTranslations = {
+      en: transcription.text,
+      vi: viTranslation,
+      zh: zhTranslation,
+    };
+
     // Step 2: Upload to Grove
     console.log('\n☁️  Uploading to Grove...');
     const groveService = new GroveService();
@@ -178,6 +224,10 @@ async function main() {
     const videoUri = videoResult.uri;
     console.log(`   ✓ Video: ${videoUri}`);
 
+    const thumbnailResult = await groveService.upload(thumbnailPath, 'image/jpeg');
+    const thumbnailUri = thumbnailResult.uri;
+    console.log(`   ✓ Thumbnail: ${thumbnailUri}`);
+
     // Step 3: Create video manifest
     const manifest: VideoManifest = {
       videoHash,
@@ -185,6 +235,7 @@ async function main() {
       tiktokVideoId: videoId,
       tiktokUrl: videoUrl,
       description: video.desc || '',
+      captions: captionTranslations,
       song: {
         title: video.identification.title,
         artist: video.identification.artist,
@@ -194,9 +245,11 @@ async function main() {
       },
       files: {
         video: videoPath,
+        audio: audioPath,
       },
       grove: {
         video: videoUri,
+        thumbnail: thumbnailUri,
       },
       storyMintable: video.identification.storyMintable,
       createdAt: new Date().toISOString(),

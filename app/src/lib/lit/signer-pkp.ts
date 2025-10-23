@@ -11,10 +11,42 @@ import {
   type Hex,
   type LocalAccount,
   type Chain,
+  defineChain,
 } from 'viem'
-import { baseSepolia } from 'viem/chains'
 import { getLitClient } from './client'
 import type { PKPInfo, PKPAuthContext } from './types'
+
+/**
+ * Lens Chain Testnet
+ * https://explorer.testnet.lens.xyz
+ */
+export const lensTestnet = defineChain({
+  id: 37111,
+  name: 'Lens Chain Testnet',
+  network: 'lens-testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'GRASS',
+    symbol: 'GRASS',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.testnet.lens.xyz'],
+      webSocket: ['wss://rpc.testnet.lens.xyz/ws'],
+    },
+    public: {
+      http: ['https://rpc.testnet.lens.xyz'],
+      webSocket: ['wss://rpc.testnet.lens.xyz/ws'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Lens Explorer',
+      url: 'https://explorer.testnet.lens.xyz',
+    },
+  },
+  testnet: true,
+})
 
 const IS_DEV = import.meta.env.DEV
 
@@ -207,7 +239,7 @@ function createPKPAccount(
 export async function createPKPWalletClient(
   pkpInfo: PKPInfo,
   authContext: PKPAuthContext,
-  chain: Chain = baseSepolia
+  chain: Chain = lensTestnet
 ): Promise<WalletClient> {
   if (IS_DEV) {
     console.log('[PKPSigner] Creating PKP wallet client:', {

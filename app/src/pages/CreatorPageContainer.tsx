@@ -117,19 +117,37 @@ export function CreatorPageContainer() {
   console.log('[CreatorPage] Final avatarUrl:', avatarUrl)
 
   // Parse posts data
+  console.log('[CreatorPage] Posts data:', { posts, items: posts?.items, length: posts?.items?.length })
   const postItems = posts?.items || []
 
   // Transform posts to VideoPost format
+  console.log('[CreatorPage] Post items:', postItems.map(p => ({ id: p.id, type: p.__typename, metadataType: p.metadata?.__typename })))
   const videos: VideoPost[] = postItems
-    .filter((post): post is Post => post.__typename === 'Post' && isVideoPost(post))
+    .filter((post): post is Post => {
+      const isPost = post.__typename === 'Post'
+      const isVideo = isVideoPost(post)
+      console.log(`[CreatorPage] Post ${post.id}: isPost=${isPost}, isVideo=${isVideo}, metadataType=${post.metadata?.__typename}`)
+      return isPost && isVideo
+    })
     .map((post) => {
       const hasAttributes = post.metadata?.__typename === 'VideoMetadata'
       const metadata = hasAttributes && 'attributes' in post.metadata ? parseVideoMetadata(post.metadata.attributes) : {}
 
-      // Prioritize thumbnail URI from attributes, fallback to placeholder
-      const thumbnailUrl = metadata.thumbnailUri
-        ? convertGroveUri(metadata.thumbnailUri)
-        : 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video'
+      // Extract thumbnail from video.cover field or attributes
+      let thumbnailUrl = 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video'
+
+      if (metadata.thumbnailUri) {
+        // Check attributes first
+        thumbnailUrl = convertGroveUri(metadata.thumbnailUri)
+      } else if (post.metadata?.__typename === 'VideoMetadata' && 'video' in post.metadata) {
+        // Check video.cover field from Lens metadata
+        const videoMetadata = post.metadata as any
+        const coverUri = videoMetadata.video?.cover
+        if (coverUri) {
+          thumbnailUrl = convertGroveUri(coverUri)
+          console.log(`[CreatorPage] Using video.cover for post ${post.id}:`, coverUri)
+        }
+      }
 
       return {
         id: post.id,
@@ -137,6 +155,8 @@ export function CreatorPageContainer() {
         username: lenshandle || '',
       }
     })
+
+  console.log('[CreatorPage] Videos array:', videos.length, 'Sample:', JSON.stringify(videos.slice(0, 2), null, 2))
 
   // Parse songs from The Graph subgraph and video metadata
   const songsMap = new Map<string, ArtistSong>()

@@ -44,6 +44,7 @@ interface VideoManifest {
   };
   grove: {
     video: string;
+    thumbnail?: string;
     vocals?: string;
     instrumental?: string;
   };
@@ -195,7 +196,7 @@ async function main() {
       video: {
         item: manifest.grove.video,
         type: MediaVideoMimeType.MP4,
-        cover: manifest.grove.video, // Use video as cover (Lens will extract thumbnail)
+        cover: manifest.grove.thumbnail || manifest.grove.video, // Use thumbnail image if available
         altTag: manifest.description || manifest.song.title,
       },
       tags: [

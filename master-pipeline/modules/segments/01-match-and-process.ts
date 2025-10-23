@@ -175,26 +175,33 @@ async function findOrDownloadFullSong(
     }
   }
 
-  // Download from Spotify using spotdl
-  if (!spotify?.url) {
-    throw new Error('No Spotify URL found in metadata. Cannot download song.');
+  // Download from Tidal (LOSSLESS FLAC)
+  if (!spotifyId) {
+    throw new Error('No Spotify ID found in metadata. Cannot download song.');
   }
 
-  console.log(`  Downloading from Spotify: ${spotify.url}`);
+  console.log(`\n  Downloading from Tidal (LOSSLESS)...`);
 
   const downloadDir = join(process.cwd(), 'data', 'songs', geniusId.toString());
   mkdirSync(downloadDir, { recursive: true });
 
-  const { stdout } = await execAsync(
-    `DOTENV_PRIVATE_KEY='${process.env.DOTENV_PRIVATE_KEY}' dotenvx run -f .env -- spotdl download "${spotify.url}" --output "${join(downloadDir, 'original')}"`
-  );
+  const outputPath = join(downloadDir, `${artist} - ${title}.flac`);
 
-  // Find downloaded file
-  const { stdout: findStdout } = await execAsync(`find "${downloadDir}" -name "*.flac" -o -name "*.mp3"`);
-  const downloadedFile = findStdout.trim().split('\n')[0];
+  // Use Tidal downloader
+  const { TidalDownloader } = await import('../../lib/tidal-downloader.js');
+  const downloader = new TidalDownloader();
 
-  if (!downloadedFile || !existsSync(downloadedFile)) {
-    throw new Error('spotdl download failed');
+  try {
+    // Try to download by metadata (artist + title)
+    await downloader.downloadByMetadata(artist, title, outputPath);
+  } catch (error: any) {
+    throw new Error(`Tidal download failed: ${error.message}`);
+  }
+
+  const downloadedFile = outputPath;
+
+  if (!existsSync(downloadedFile)) {
+    throw new Error('Tidal download failed: file not found');
   }
 
   console.log(`   Downloaded: ${downloadedFile}\n`);

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { CreatorPageContainer } from '@/pages/CreatorPageContainer'
@@ -9,7 +9,7 @@ import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
-import { validateUsernameFormat, checkUsernameAvailability } from '@/lib/lens/account-creation'
+import { validateUsernameFormat } from '@/lib/lens/account-creation'
 
 /**
  * AppRouter - Main routing with layout and navigation state
@@ -37,8 +37,7 @@ function AppRouter() {
 
   // Dialog state
   const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const [usernameAvailability, setUsernameAvailability] = useState<'checking' | 'available' | 'unavailable' | null>(null)
-  const checkUsernameTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const [usernameAvailability, setUsernameAvailability] = useState<'available' | 'unavailable' | null>(null)
 
   // Map routes to active tabs
   useEffect(() => {
@@ -117,33 +116,11 @@ function AppRouter() {
       return
     }
 
-    // Clear previous timeout
-    if (checkUsernameTimeoutRef.current) {
-      clearTimeout(checkUsernameTimeoutRef.current)
-    }
-
-    // Set checking state
-    setUsernameAvailability('checking')
-
-    // Debounce: wait 500ms before checking
-    checkUsernameTimeoutRef.current = setTimeout(async () => {
-      try {
-        const result = await checkUsernameAvailability(username)
-
-        if (result.available) {
-          setUsernameAvailability('available')
-          // TODO: Show payment info if required
-          if (result.paymentRequired && result.paymentAmount) {
-            console.log('[App] Payment required:', result.paymentAmount.toString(), 'wei')
-          }
-        } else {
-          setUsernameAvailability('unavailable')
-        }
-      } catch (error) {
-        console.error('[App] Username check error:', error)
-        setUsernameAvailability(null)
-      }
-    }, 500)
+    // Note: We can't check actual availability without authentication
+    // The Lens API requires authentication for canCreateUsername query
+    // Actual availability will be checked during account creation
+    // For now, just validate format and assume available if format is valid
+    setUsernameAvailability('available')
   }, [])
 
   // Hide mobile footer on full-screen pages (song detail, media player, video detail)

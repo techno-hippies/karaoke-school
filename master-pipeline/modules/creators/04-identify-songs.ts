@@ -111,6 +111,18 @@ async function main() {
     logger.info(`  Copyrighted: ${rawVideos.copyrighted.length}`);
     logger.info(`  Copyright-free: ${rawVideos.copyright_free.length}`);
 
+    // Load existing identified videos (idempotency)
+    const identifiedPath = `${videosDir}/identified_videos.json`;
+    let existingData: IdentifiedVideosData | null = null;
+    try {
+      existingData = readJson<IdentifiedVideosData>(identifiedPath);
+      logger.info(`Found existing identified videos file, resuming...`);
+      logger.info(`  Previously identified copyrighted: ${existingData.copyrighted.length}`);
+      logger.info(`  Previously identified copyright-free: ${existingData.copyright_free.length}`);
+    } catch {
+      // No existing file, start fresh
+    }
+
     // Initialize song identification service
     const spotifyConfig = {
       clientId: requireEnv('SPOTIFY_CLIENT_ID'),
@@ -127,13 +139,23 @@ async function main() {
     );
 
     // Process copyrighted videos
-    const identifiedCopyrighted: IdentifiedVideo[] = [];
+    const identifiedCopyrighted: IdentifiedVideo[] = existingData?.copyrighted || [];
+    const identifiedCopyrightFree: IdentifiedVideo[] = existingData?.copyright_free || [];
+
     if (!skipCopyrighted && rawVideos.copyrighted.length > 0) {
       console.log(`\n🎵 Identifying copyrighted songs...\n`);
 
+      // Filter out already identified videos
+      const alreadyIdentifiedIds = new Set(identifiedCopyrighted.map(v => v.id));
+      const unprocessed = rawVideos.copyrighted.filter(v => !alreadyIdentifiedIds.has(v.id));
+
       const toProcess = maxVideos
-        ? rawVideos.copyrighted.slice(0, maxVideos)
-        : rawVideos.copyrighted;
+        ? unprocessed.slice(0, maxVideos)
+        : unprocessed;
+
+      if (toProcess.length === 0) {
+        console.log('  ✓ All copyrighted videos already identified\n');
+      }
 
       for (let i = 0; i < toProcess.length; i++) {
         const video = toProcess[i];
@@ -142,7 +164,7 @@ async function main() {
         );
 
         try {
-          // Extract Spotify data from TikTok video metadata
+          // Fast path: Extract Spotify ID directly from TikTok metadata
           const spotifyInfo = video.music.tt2dsp?.tt_to_dsp_song_infos?.find(
             (info) => info.platform === 3
           );
@@ -152,30 +174,26 @@ async function main() {
             ? `https://open.spotify.com/track/${spotifyTrackId}`
             : null;
 
-          const result = await identificationService.identifyFromTikTok({
-            title: video.music.title,
-            artist: video.music.authorName,
-            spotifyUrl: spotifyUrl || undefined,
-            spotifyTrackId: spotifyTrackId || undefined,
-          });
-
+          // Simple identification: just use TikTok metadata
           identifiedCopyrighted.push({
             ...video,
             identification: {
-              ...result,
+              title: video.music.title,
+              artist: video.music.authorName || 'Unknown',
+              copyrightType: 'copyrighted' as const,
+              spotifyId: spotifyTrackId,
+              spotifyUrl: spotifyUrl || undefined,
+              storyMintable: true, // Assume true for now
               identifiedAt: new Date().toISOString(),
             },
           });
 
           console.log(
-            `   ✓ ${result.title} by ${result.artist} (${result.copyrightType})`
+            `   ✓ ${video.music.title} by ${video.music.authorName || 'Unknown'}`
           );
-          if (result.storyMintable) {
-            console.log(`   ✓ Story Protocol mintable`);
+          if (spotifyTrackId) {
+            console.log(`   ✓ Spotify ID: ${spotifyTrackId}`);
           }
-
-          // Rate limit
-          await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error: any) {
           console.log(`   ✗ Failed: ${error.message}`);
           // Still add the video but without full identification
@@ -190,40 +208,54 @@ async function main() {
             },
           });
         }
+
+        // Save progress after each video (resilience)
+        if ((i + 1) % 5 === 0 || i === toProcess.length - 1) {
+          const progressData: IdentifiedVideosData = {
+            copyrighted: identifiedCopyrighted,
+            copyright_free: identifiedCopyrightFree,
+            identifiedAt: new Date().toISOString(),
+          };
+          writeJson(identifiedPath, progressData);
+        }
       }
     }
 
     // Process copyright-free videos
-    const identifiedCopyrightFree: IdentifiedVideo[] = [];
     if (!skipCopyrightFree && rawVideos.copyright_free.length > 0) {
       console.log(`\n🆓 Processing copyright-free videos...\n`);
 
+      // Filter out already identified videos
+      const alreadyIdentifiedIds = new Set(identifiedCopyrightFree.map(v => v.id));
+      const unprocessed = rawVideos.copyright_free.filter(v => !alreadyIdentifiedIds.has(v.id));
+
       const toProcess = maxVideos
-        ? rawVideos.copyright_free.slice(0, maxVideos)
-        : rawVideos.copyright_free;
+        ? unprocessed.slice(0, maxVideos)
+        : unprocessed;
+
+      if (toProcess.length === 0) {
+        console.log('  ✓ All copyright-free videos already identified\n');
+      }
 
       for (let i = 0; i < toProcess.length; i++) {
         const video = toProcess[i];
         console.log(`[${i + 1}/${toProcess.length}] ${video.music.title}`);
 
         try {
-          const result = await identificationService.identifyFromTikTok({
-            title: video.music.title,
-            artist: video.music.authorName,
-            spotifyUrl: null,
-            spotifyTrackId: null,
-          });
-
+          // Fast path: Copyright-free videos are original sounds
           identifiedCopyrightFree.push({
             ...video,
             identification: {
-              ...result,
+              title: video.music.title,
+              artist: video.music.authorName || 'Original Sound',
+              copyrightType: 'copyright-free' as const,
+              storyMintable: true,
               identifiedAt: new Date().toISOString(),
             },
           });
 
           console.log(
-            `   ✓ ${result.title} (${result.copyrightType}, Story mintable: ${result.storyMintable})`
+            `   ✓ ${video.music.title} (copyright-free, original sound)`
           );
         } catch (error: any) {
           console.log(`   ✗ Failed: ${error.message}`);
@@ -238,17 +270,26 @@ async function main() {
             },
           });
         }
+
+        // Save progress after each video (resilience)
+        if ((i + 1) % 5 === 0 || i === toProcess.length - 1) {
+          const progressData: IdentifiedVideosData = {
+            copyrighted: identifiedCopyrighted,
+            copyright_free: identifiedCopyrightFree,
+            identifiedAt: new Date().toISOString(),
+          };
+          writeJson(identifiedPath, progressData);
+        }
       }
     }
 
-    // Save identified videos
+    // Save identified videos (final)
     const identifiedData: IdentifiedVideosData = {
       copyrighted: identifiedCopyrighted,
       copyright_free: identifiedCopyrightFree,
       identifiedAt: new Date().toISOString(),
     };
 
-    const identifiedPath = `${videosDir}/identified_videos.json`;
     writeJson(identifiedPath, identifiedData);
 
     console.log('\n✅ Song identification complete!');

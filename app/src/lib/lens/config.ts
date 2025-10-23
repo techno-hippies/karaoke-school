@@ -8,9 +8,9 @@
 
 import type { EvmAddress } from '@lens-protocol/client'
 
-// Lens App address (test app on testnet by default)
+// Lens App address (must match backend for sponsorship)
 export const LENS_APP_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_APP_ADDRESS ||
-  '0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7') as EvmAddress
+  '0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0') as EvmAddress
 
 // Lens Custom Namespace (kschool1/*)
 export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||

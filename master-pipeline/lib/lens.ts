@@ -233,6 +233,6 @@ export async function fetchFromGrove(uri: string): Promise<any> {
   const hash = uri.replace('lens://', '');
 
   // Fetch from Grove
-  const response = await fetch(`https://grove.infra.lens.build/${hash}`);
+  const response = await fetch(`https://api.grove.storage/${hash}`);
   return await response.json();
 }

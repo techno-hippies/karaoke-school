@@ -201,32 +201,25 @@ export const ACCOUNT_QUERY = gql`
 /**
  * Check Username Availability Query
  * Validates username against namespace rules
+ *
+ * Note: Using minimal query structure to avoid schema mismatches
+ * We only check __typename and reason, not detailed rule information
  */
 export const CAN_CREATE_USERNAME_QUERY = gql`
   query CanCreateUsername($request: CanCreateUsernameRequest!) {
     canCreateUsername(request: $request) {
-      ... on CanCreateUsernameResponse {
-        canCreate
+      __typename
+      ... on NamespaceOperationValidationPassed {
+        __typename
       }
       ... on NamespaceOperationValidationFailed {
         reason
-        unsatisfiedRules {
-          ... on UsernameTooShortRule {
-            minLength
-          }
-          ... on UsernameTooLongRule {
-            maxLength
-          }
-          ... on UsernameInvalidCharactersRule {
-            allowedCharacters
-          }
-          ... on UsernamePricePerLengthNamespaceRule {
-            config {
-              price
-              length
-            }
-          }
-        }
+      }
+      ... on NamespaceOperationValidationUnknown {
+        __typename
+      }
+      ... on UsernameTaken {
+        __typename
       }
     }
   }
@@ -294,15 +287,6 @@ export interface AccountResponse {
 }
 
 export interface CanCreateUsernameResponse {
-  canCreate?: boolean
+  __typename: 'NamespaceOperationValidationPassed' | 'NamespaceOperationValidationFailed' | 'NamespaceOperationValidationUnknown' | 'UsernameTaken'
   reason?: string
-  unsatisfiedRules?: Array<{
-    minLength?: number
-    maxLength?: number
-    allowedCharacters?: string
-    config?: {
-      price: string
-      length: number
-    }
-  }>
 }

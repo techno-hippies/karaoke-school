@@ -148,4 +148,26 @@ export class GroveService extends BaseService {
       size: buffer.length,
     };
   }
+
+  /**
+   * Upload JSON metadata to Grove storage
+   *
+   * @param params Object containing json data and optional access control
+   * @returns Grove upload result with URI and gateway URL
+   */
+  async uploadJson(params: {
+    json: any;
+    accessControl?: string;
+  }): Promise<GroveUploadResult> {
+    this.log('Uploading JSON metadata to Grove');
+
+    // Convert JSON to buffer (compact format to match hash computation)
+    const jsonString = JSON.stringify(params.json);
+    const buffer = Buffer.from(jsonString, 'utf-8');
+
+    // Upload to Grove
+    const result = await this.uploadBuffer(buffer, 'application/json');
+
+    return result;
+  }
 }

@@ -45,8 +45,8 @@ export interface AuthDialogProps {
   isPKPReady?: boolean
   /** Whether user has connected social account */
   hasSocialAccount?: boolean
-  /** Username availability status */
-  usernameAvailability?: 'checking' | 'available' | 'unavailable' | null
+  /** Username availability status (format validation only, actual availability checked during creation) */
+  usernameAvailability?: 'available' | 'unavailable' | null
   /** Called when user clicks "Create Account" (shows username input) */
   onRegister?: () => void
   /** Called when user submits username and starts registration */
@@ -174,17 +174,11 @@ export function AuthDialog({
                 {/* Availability Indicator */}
                 {username.trim().length >= 6 && (
                   <div className="flex items-center gap-2 text-sm">
-                    {usernameAvailability === 'checking' && (
-                      <>
-                        <Spinner className="size-3" />
-                        <span className="text-muted-foreground">Checking availability...</span>
-                      </>
-                    )}
                     {usernameAvailability === 'available' && (
-                      <span className="text-green-500">✓ Available</span>
+                      <span className="text-green-500">✓ Format valid</span>
                     )}
                     {usernameAvailability === 'unavailable' && (
-                      <span className="text-destructive">✗ Not Available</span>
+                      <span className="text-destructive">✗ Invalid format</span>
                     )}
                   </div>
                 )}
@@ -207,7 +201,6 @@ export function AuthDialog({
                   disabled={
                     username.trim().length < 6 ||
                     isAuthenticating ||
-                    usernameAvailability === 'checking' ||
                     usernameAvailability === 'unavailable'
                   }
                   className="flex-1 h-14 text-base"

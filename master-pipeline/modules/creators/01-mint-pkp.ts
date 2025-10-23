@@ -125,7 +125,6 @@ async function main() {
     console.log(`   Explorer: https://yellowstone-explorer.litprotocol.com/tx/${pkpData.transactionHash}\n`);
 
     // Save to file (use TikTok handle for filesystem)
-    const pkpPath = paths.creatorPkp(tiktokHandle);
     writeJson(pkpPath, pkpData);
 
     logger.success(`PKP data saved to: ${pkpPath}`);
