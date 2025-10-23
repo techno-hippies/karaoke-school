@@ -51,6 +51,7 @@ export interface VideoPlayerProps {
   onPlayFailed?: () => void // Called when autoplay fails
   onTimeUpdate?: (currentTime: number) => void // Called on video timeupdate for karaoke sync
   forceShowThumbnail?: boolean // Keep thumbnail visible even when playing (for locked videos)
+  forceAutoplay?: boolean // Hide thumbnail on first render for video navigation (prevents flash)
   className?: string
 }
 

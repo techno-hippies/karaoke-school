@@ -32,7 +32,7 @@ export function VideoGrid({
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className={cn('px-4 md:px-6', className)}>
+      <div className={cn(className)}>
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
           {Array.from({ length: 12 }).map((_, i) => (
             <div
@@ -48,7 +48,7 @@ export function VideoGrid({
   // Empty state
   if (videos.length === 0) {
     return (
-      <div className={cn('px-4 md:px-6', className)}>
+      <div className={cn(className)}>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-24 h-24 bg-neutral-800 rounded-full flex items-center justify-center mb-4">
             <Video className="w-12 h-12 text-neutral-600" weight="regular" />
@@ -61,7 +61,7 @@ export function VideoGrid({
 
   // Video grid
   return (
-    <div className={cn('px-4 md:px-6', className)}>
+    <div className={cn(className)}>
       <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
         {videos.map((video) => (
           <VideoThumbnail

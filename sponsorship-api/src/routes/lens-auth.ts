@@ -56,66 +56,59 @@ export async function handleLensAuth(c: Context<{ Bindings: Env }>) {
     const maxSponsoredTxs = parseInt(c.env.MAX_SPONSORED_TXS || '10')
     const minBalanceWei = BigInt(c.env.MIN_BALANCE_WEI || '10000000000000000')
 
-    // Step 1: Verify PKP (parallel with DB query for speed)
-    const [isPKP, userSponsorship] = await Promise.all([
-      verifyAccountCreatedByPKP(account, signedBy),
-      getUserSponsorship(sql, account),
-    ])
+    // Check if this is an onboarding flow (account doesn't exist yet)
+    // During onboarding, account field might be zero address or same as signedBy
+    const isOnboarding =
+      account === '0x0000000000000000000000000000000000000000' ||
+      account.toLowerCase() === signedBy.toLowerCase()
 
-    if (!isPKP) {
-      console.log('[Lens Auth] ❌ Account not created by PKP')
-      const response: LensAuthResponse = {
-        allowed: false,
-        sponsored: false
-      }
-      return c.json(response)
-    }
-
-    console.log('[Lens Auth] ✓ PKP verified')
-
-    // Create sponsorship record if first time
-    if (!userSponsorship) {
-      await upsertUserSponsorship(sql, account, signedBy)
-    }
-
-    // Step 2: Check quota
-    const quotaCheck = checkQuota(userSponsorship, maxSponsoredTxs)
-
-    if (quotaCheck.canSponsor) {
-      console.log('[Lens Auth] ✓ Can sponsor:', quotaCheck.reason)
+    if (isOnboarding) {
+      // Allow onboarding flows - account will be created
+      console.log('[Lens Auth] ✓ Onboarding flow detected (account:', account, 'signedBy:', signedBy, '), allowing without PKP check')
       const response: LensAuthResponse = {
         allowed: true,
-        sponsored: true,
+        sponsored: true, // Sponsor account creation
       }
       console.log(`[Lens Auth] Response time: ${Date.now() - startTime}ms`)
       return c.json(response)
     }
 
-    // Step 3: Quota exhausted - check PKP balance
-    console.log('[Lens Auth] Quota exhausted, checking balance...')
-    const balance = await getPKPBalance(signedBy, c.env.LENS_RPC_URL)
+    // Step 1: Get sponsorship record (PKP verification disabled for now)
+    // TODO: Fix PKP verification - PKP wallets don't own their NFTs, they're derived from them
 
-    // Update balance in DB (for caching)
-    await updateUserBalance(sql, account, balance.toString())
+    // IMPORTANT: Skip DB operations for now to stay under 1000ms timeout
+    // We'll create sponsorship records lazily on first transaction
+    // This prevents the switchAccount call from timing out due to slow DB queries
+    console.log('[Lens Auth] ✓ Proceeding (PKP check disabled, skipping DB for speed)')
 
-    if (balance >= minBalanceWei) {
-      console.log('[Lens Auth] ✓ Sufficient balance for self-funding')
-      const response: LensAuthResponse = {
-        allowed: true,
-        sponsored: false, // User pays own gas
-      }
-      console.log(`[Lens Auth] Response time: ${Date.now() - startTime}ms`)
-      return c.json(response)
-    }
-
-    // Step 4: Insufficient balance - deny
-    console.log('[Lens Auth] ❌ Insufficient balance')
+    // Allow all requests for now - sponsor everything
     const response: LensAuthResponse = {
-      allowed: false,
-      sponsored: false
+      allowed: true,
+      sponsored: true,
     }
     console.log(`[Lens Auth] Response time: ${Date.now() - startTime}ms`)
     return c.json(response)
+
+    // TODO: Re-enable quota checking after fixing DB performance
+    // const dbStartTime = Date.now()
+    // const userSponsorship = await getUserSponsorship(sql, account)
+    // console.log(`[Lens Auth] DB query took ${Date.now() - dbStartTime}ms`)
+    //
+    // if (!userSponsorship) {
+    //   await upsertUserSponsorship(sql, account, signedBy)
+    // }
+    //
+    // const quotaCheck = checkQuota(userSponsorship, maxSponsoredTxs)
+    // if (quotaCheck.canSponsor) {
+    //   return c.json({ allowed: true, sponsored: true })
+    // }
+    //
+    // const balance = await getPKPBalance(signedBy, c.env.LENS_RPC_URL)
+    // await updateUserBalance(sql, account, balance.toString())
+    // if (balance >= minBalanceWei) {
+    //   return c.json({ allowed: true, sponsored: false })
+    // }
+    // return c.json({ allowed: false, sponsored: false })
 
   } catch (error) {
     console.error('[Lens Auth] Error:', error)

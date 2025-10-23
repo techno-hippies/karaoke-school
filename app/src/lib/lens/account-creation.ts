@@ -1,11 +1,11 @@
 /**
- * Lens Account Creation - Custom Namespace Support
- * Implements 2-step flow for creating accounts in custom namespaces with payment rules
+ * Lens Account Creation - Global Namespace
+ * Implements 2-step flow for creating accounts in the global lens/* namespace
  *
  * Flow:
  * 1. Create account (no username)
  * 2. Switch to account owner role
- * 3. Create username in custom namespace (with rulesSubject for payment validation)
+ * 3. Create username in global lens/* namespace
  */
 
 import type { SessionClient, Account } from '@lens-protocol/client'
@@ -24,7 +24,6 @@ import {
   type CanCreateUsernameResponse,
   type RawTransaction,
 } from './mutations'
-import { LENS_CUSTOM_NAMESPACE } from './client'
 import { switchToAccountOwner } from './auth'
 
 /**
@@ -75,15 +74,15 @@ async function waitForAccountIndexing(
 }
 
 /**
- * Create account in custom namespace (2-step flow)
+ * Create account in global lens/* namespace (2-step flow)
  *
  * Step 1: Create account without username
  * Step 2: Switch to account owner
- * Step 3: Create username in custom namespace
+ * Step 3: Create username in global lens/* namespace
  *
  * @param sessionClient - Authenticated Lens session (ONBOARDING_USER role)
  * @param walletClient - PKP wallet client for signing transactions
- * @param username - Username to register in custom namespace
+ * @param username - Username to register in global lens/* namespace
  * @param metadataUri - Grove metadata URI for account
  * @returns Created account with username
  */
@@ -93,10 +92,9 @@ export async function createAccountInCustomNamespace(
   username: string,
   metadataUri: string
 ): Promise<Account> {
-  console.log('[Account Creation] ===== Starting custom namespace account creation =====')
+  console.log('[Account Creation] ===== Starting global namespace account creation =====')
   console.log('[Account Creation] Username:', username)
   console.log('[Account Creation] Metadata URI:', metadataUri)
-  console.log('[Account Creation] Custom namespace:', LENS_CUSTOM_NAMESPACE)
 
   // Use SessionClient's internal urql client which is already authenticated
   const urqlClient = (sessionClient as any).urql
@@ -162,8 +160,8 @@ export async function createAccountInCustomNamespace(
   console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
   console.log('[Account Creation] SessionClient urql client updated with new account context')
 
-  // ============ STEP 3: Create Username in Custom Namespace ============
-  console.log('[Account Creation] Step 3/3: Creating username in custom namespace...')
+  // ============ STEP 3: Create Username in Global Namespace ============
+  console.log('[Account Creation] Step 3/3: Creating username in global lens/* namespace...')
 
   const createUsernameResult = await executeMutationWithSession<{ createUsername: CreateUsernameResponse }>(
     CREATE_USERNAME_MUTATION,
@@ -171,7 +169,7 @@ export async function createAccountInCustomNamespace(
       request: {
         username: {
           localName: username,
-          namespace: LENS_CUSTOM_NAMESPACE,
+          // namespace omitted = global lens/* namespace
         },
       },
     }
@@ -186,32 +184,42 @@ export async function createAccountInCustomNamespace(
     // Direct hash response (fully sponsored without signature)
     usernameTxHash = createUsernameData.hash as Hex
     console.log('[Account Creation] ✓ Username created, hash:', usernameTxHash)
-  } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.raw) {
-    // Sponsored transaction requiring signature - submit via backend API
-    console.log('[Account Creation] Sponsored transaction requires signature')
-    console.log('[Account Creation] Reason:', createUsernameData.reason)
-    console.log('[Account Creation] Submitting via sponsorship API...')
+  } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.typedData) {
+    // Sponsored with typedData - sign and broadcast via Lens API (gasless!)
+    console.log('[Account Creation] Sponsored transaction with typedData')
+    console.log('[Account Creation] Signing typedData and broadcasting via Lens API...')
 
-    // Call backend API to submit transaction with funded admin wallet
-    const apiUrl = import.meta.env.VITE_SPONSORSHIP_API_URL || 'http://localhost:8787'
-    const response = await fetch(`${apiUrl}/api/submit-tx`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        account: account.address,
-        operation: 'username',
-        raw: createUsernameData.raw,
-      }),
+    // Sign the typed data with PKP
+    const signature = await walletClient.signTypedData({
+      domain: createUsernameData.typedData.domain,
+      types: createUsernameData.typedData.types,
+      primaryType: 'CreateUsername',
+      message: createUsernameData.typedData.value,
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`API submission failed: ${error.error || response.statusText}`)
-    }
+    // Broadcast via Lens API (gasless - no PKP funds needed!)
+    const broadcastResult = await sessionClient.executeTypedData({
+      id: createUsernameData.id,
+      signature,
+    })
 
-    const result = await response.json()
-    usernameTxHash = result.txHash
-    console.log('[Account Creation] ✓ Transaction submitted by API:', usernameTxHash)
+    if (broadcastResult.isOk()) {
+      usernameTxHash = broadcastResult.value as Hex
+      console.log('[Account Creation] ✓ Transaction broadcast via Lens API:', usernameTxHash)
+    } else {
+      throw new Error(`Broadcast failed: ${broadcastResult.error?.message}`)
+    }
+  } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.raw) {
+    // Sponsored with raw only (fallback - requires PKP to have funds)
+    console.log('[Account Creation] ⚠️  Sponsored transaction returns raw only (not typedData)')
+    console.log('[Account Creation] This requires PKP to have gas funds - registration will likely fail')
+    console.log('[Account Creation] Reason:', createUsernameData.reason)
+
+    throw new Error(
+      'Username creation returned raw transaction instead of typedData. ' +
+      'This requires the PKP wallet to have gas funds, which is not supported. ' +
+      'Please contact support.'
+    )
   } else if (createUsernameData.sponsoredReason !== undefined && !createUsernameData.raw) {
     // Fully sponsored without signature - poll for username
     console.log('[Account Creation] ✓ Fully sponsored username creation')
@@ -240,7 +248,30 @@ export async function createAccountInCustomNamespace(
 
   // Fetch final account with username
   console.log('[Account Creation] Fetching final account state...')
-  const finalAccount = await waitForAccountIndexing(sessionClient, usernameTxHash === '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex ? accountTxHash : usernameTxHash)
+
+  // Wait for username to be indexed by polling the account address
+  let finalAccount: Account | null = null
+  const maxRetries = 10
+  for (let i = 0; i < maxRetries; i++) {
+    console.log(`[Account Creation] Retry ${i + 1}/${maxRetries}: Fetching account by address...`)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    const accountResult = await fetchAccount(sessionClient, { address: account.address })
+
+    if (accountResult.isOk()) {
+      finalAccount = accountResult.value
+      if (finalAccount.username?.localName === username) {
+        console.log('[Account Creation] ✓ Username indexed:', finalAccount.username.localName)
+        break
+      } else {
+        console.log('[Account Creation] Account found but username not yet indexed')
+      }
+    }
+  }
+
+  if (!finalAccount) {
+    throw new Error(`Failed to fetch account after ${maxRetries} retries`)
+  }
 
   console.log('[Account Creation] ===== Account creation complete =====')
   console.log('[Account Creation] Address:', finalAccount.address)
@@ -281,7 +312,7 @@ async function waitForUsernameAssignment(
 }
 
 /**
- * Check if username can be created in custom namespace
+ * Check if username can be created in global lens/* namespace
  *
  * Note: This only checks basic availability, not payment requirements
  * Payment info will be provided when actually creating the username
@@ -303,7 +334,7 @@ export async function checkUsernameAvailability(
       {
         request: {
           localName: username,
-          namespace: LENS_CUSTOM_NAMESPACE,
+          // namespace omitted = global lens/* namespace
         },
       }
     )

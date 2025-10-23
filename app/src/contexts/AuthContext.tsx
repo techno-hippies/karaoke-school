@@ -208,13 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Register with passkey (create new account)
    */
   const register = useCallback(async (username?: string) => {
-    setIsAuthenticating(true)
-    setAuthError(null)
-    setAuthMode('register')
-    setAuthStep('webauthn')
-
     try {
-      const result = await registerWithPasskeyFlow(username, (status) => {
+      // IMPORTANT: Start the async flow immediately before any state updates
+      // to preserve the user gesture for WebAuthn
+      const flowPromise = registerWithPasskeyFlow(username, (status) => {
         setAuthStatus(status)
         // Update step based on status message
         if (status.includes('passkey')) {
@@ -226,7 +223,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
+      // Now update state (after flow has started)
+      setIsAuthenticating(true)
+      setAuthError(null)
+      setAuthMode('register')
+      setAuthStep('webauthn')
+
+      // Wait for result
+      const result = await flowPromise
+
       // Set state from result
+      setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
       setPkpInfo(result.pkpInfo)
       setAuthData(result.authData)
@@ -254,13 +261,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Sign in with passkey (existing account)
    */
   const signIn = useCallback(async () => {
-    setIsAuthenticating(true)
-    setAuthMode('login')
-    setAuthStep('webauthn')
-    setAuthError(null)
-
     try {
-      const result = await signInWithPasskeyFlow((status) => {
+      // IMPORTANT: Start the async flow immediately before any state updates
+      // to preserve the user gesture for WebAuthn
+      const flowPromise = signInWithPasskeyFlow((status) => {
         setAuthStatus(status)
         // Update step based on status message
         if (status.includes('authenticate') || status.includes('device')) {
@@ -272,7 +276,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
+      // Now update state (after flow has started)
+      setIsAuthenticating(true)
+      setAuthMode('login')
+      setAuthStep('webauthn')
+      setAuthError(null)
+
+      // Wait for result
+      const result = await flowPromise
+
       // Set state from result
+      setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
       setPkpInfo(result.pkpInfo)
       setAuthData(result.authData)

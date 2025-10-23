@@ -44,3 +44,9 @@ export function useLensAccount() {
     hasAccount: !!account,
   }
 }
+
+// Re-export specialized hooks
+export { useAccountStats } from './hooks/useAccountStats'
+export { useAccountPosts } from './hooks/useAccountPosts'
+export type { AccountStats, UseAccountStatsResult } from './hooks/useAccountStats'
+export type { LensPost, UseAccountPostsResult } from './hooks/useAccountPosts'

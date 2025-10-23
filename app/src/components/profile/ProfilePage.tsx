@@ -110,7 +110,7 @@ export function ProfilePage({
             </div>
           </div>
 
-          <div className="px-4 mt-2 space-y-4 pb-8">
+          <div className="px-4 md:px-6 mt-2 space-y-4 pb-8">
             {/* Tabs: Dances | Achievements */}
             <Tabs defaultValue="dances" className="w-full">
               <TabsList className="w-full grid grid-cols-2 bg-muted/50">
@@ -118,7 +118,7 @@ export function ProfilePage({
                 <TabsTrigger value="achievements">Achievements</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="dances" className="mt-4 -mx-4 md:-mx-6">
+              <TabsContent value="dances" className="mt-4">
                 <VideoGrid
                   videos={videos}
                   onVideoClick={onVideoClick}

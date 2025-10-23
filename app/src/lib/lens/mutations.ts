@@ -239,6 +239,8 @@ export interface CreateUsernameResponse {
   hash?: string
   reason?: string
   sponsoredReason?: string
+  id?: string
+  typedData?: TypedData
   raw?: RawTransaction
 }
 
@@ -251,6 +253,17 @@ export interface RawTransaction {
   gasLimit: string
   maxPriorityFeePerGas: string
   maxFeePerGas: string
+}
+
+export interface TypedData {
+  types: Record<string, Array<{ name: string; type: string }>>
+  domain: {
+    name: string
+    version: string
+    chainId: string
+    verifyingContract: string
+  }
+  value: Record<string, any>
 }
 
 export interface ChallengeResponse {

@@ -21,7 +21,8 @@ name = "karaoke-school-sponsorship-api-dev"
 # Public env vars (non-sensitive)
 [vars]
 LENS_APP_ADDRESS = "0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0"
-LENS_CUSTOM_NAMESPACE = "0xA5882f62feDC936276ef2e7166723A04Ee12501B"
+# Using global lens/* namespace (custom namespace disabled for now)
+# LENS_CUSTOM_NAMESPACE = "0xa304467aD0C296C2bb11079Bc2748223568D463e"
 LENS_CHAIN_ID = "37111"
 LENS_RPC_URL = "https://rpc.testnet.lens.xyz"
 MAX_SPONSORED_TXS = "10"

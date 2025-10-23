@@ -5,6 +5,7 @@ import type { Env } from './types'
 import { validateLensBearerToken } from './middleware/auth'
 import { handleLensAuth } from './routes/lens-auth'
 import { handleSubmitTx } from './routes/submit-tx'
+import { handleFundPKP } from './routes/fund-pkp'
 
 /**
  * Karaoke School Sponsorship API
@@ -66,6 +67,15 @@ app.post('/api/lens-auth', validateLensBearerToken, handleLensAuth)
  * Performance: Submits tx with funded admin wallet
  */
 app.post('/api/submit-tx', handleSubmitTx)
+
+/**
+ * Fund PKP Endpoint
+ * Sends gas funds to PKP wallets for sponsored transactions
+ *
+ * Security: CORS enabled
+ * Performance: Checks balance before sending
+ */
+app.post('/api/fund-pkp', handleFundPKP)
 
 /**
  * 404 handler

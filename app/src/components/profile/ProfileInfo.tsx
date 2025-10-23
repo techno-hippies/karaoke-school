@@ -25,13 +25,12 @@ export function ProfileInfo({
     center: 'text-center md:text-left'
   }
 
-  // Show display name if it exists and is different from username
-  const showDisplayName = displayName && displayName !== username
+  // Always show username handle below display name
   const primaryName = displayName || username
 
   return (
     <div className={cn(alignmentClasses[alignment], className)}>
-      {/* Primary Name */}
+      {/* Primary Name (Display Name) */}
       <div className="flex items-center gap-2 mb-1 justify-center md:justify-start">
         <h1 className="text-xl md:text-3xl font-bold text-foreground">
           {primaryName}
@@ -44,12 +43,10 @@ export function ProfileInfo({
         )}
       </div>
 
-      {/* Username (if different from display name) */}
-      {showDisplayName && (
-        <h2 className="text-base md:text-xl text-neutral-400 mb-2 md:mb-4">
-          @{username}
-        </h2>
-      )}
+      {/* Username handle (always shown with @) */}
+      <h2 className="text-base md:text-xl text-neutral-400 mb-2 md:mb-4">
+        @{username}
+      </h2>
     </div>
   )
 }

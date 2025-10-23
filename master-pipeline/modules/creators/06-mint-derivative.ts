@@ -41,9 +41,14 @@ interface VideoManifest {
     confidence: number;
   };
   grove: {
-    video: string;
+    video: string; // lens:// URI
+    videoGateway: string; // https://api.grove.storage/... URL
+    thumbnail?: string; // lens:// URI
+    thumbnailGateway?: string; // https://api.grove.storage/... URL
     vocals?: string;
+    vocalsGateway?: string;
     instrumental?: string;
+    instrumentalGateway?: string;
   };
   storyMintable: boolean;
   storyProtocol?: {
@@ -164,7 +169,7 @@ async function main() {
         : manifest.song.title,
       description: manifest.description || `User-generated performance video by ${creatorName} featuring '${manifest.song.title}' by ${manifest.song.artist}. Original composition and recording rights held by respective owners.`,
       createdAt: manifest.createdAt,
-      image: manifest.grove.video, // Thumbnail for display (lens:// URI)
+      image: manifest.grove.thumbnailGateway || manifest.grove.videoGateway, // ✅ Story Protocol needs HTTP URLs
       imageHash: '', // Will be set by hashUrl
       creators: isCopyrighted
         ? [
@@ -206,7 +211,7 @@ async function main() {
           ],
 
       // === REQUIRED FOR COMMERCIAL INFRINGEMENT CHECK ===
-      mediaUrl: manifest.grove.video, // Actual video file (lens:// URI)
+      mediaUrl: manifest.grove.videoGateway, // ✅ Actual video file (HTTP URL for Story Protocol)
       mediaHash: '', // Will be set by hashUrl
       mediaType: 'video/mp4', // MIME type
 

@@ -22,6 +22,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { requireEnv, paths } from '../../lib/config.js';
 import { readJson, writeJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
+import { TranslationService } from '../../services/translation.js';
 import type { CreatorPKP, CreatorLens } from '../../lib/schemas/index.js';
 
 async function main() {
@@ -30,7 +31,6 @@ async function main() {
     options: {
       'tiktok-handle': { type: 'string' },
       'lens-handle': { type: 'string' }, // Optional: custom Lens handle
-      avatar: { type: 'string' }, // Optional: avatar URI
     },
   });
 
@@ -38,18 +38,16 @@ async function main() {
     logger.error('Missing required parameter: --tiktok-handle');
     console.log('\nUsage:');
     console.log('  bun run creators/02-create-lens.ts --tiktok-handle @brookemonk_ --lens-handle brookemonk');
-    console.log('  bun run creators/02-create-lens.ts --tiktok-handle @karaokeking99 --avatar lens://...\n');
+    console.log('  bun run creators/02-create-lens.ts --tiktok-handle @karaokeking99\n');
     console.log('Options:');
     console.log('  --tiktok-handle  TikTok username (with or without @)');
-    console.log('  --lens-handle    Custom Lens handle (defaults to TikTok handle without @ and _)');
-    console.log('  --avatar         Avatar URI on Grove storage (optional)\n');
+    console.log('  --lens-handle    Custom Lens handle (defaults to TikTok handle without @ and _)\n');
     process.exit(1);
   }
 
   // Clean handles
   const tiktokHandle = values['tiktok-handle']!.replace('@', '');
   const lensHandle = values['lens-handle'] || tiktokHandle.replace(/_/g, '');
-  const avatarUri = values.avatar;
 
   logger.header(`Create Lens Account: @${tiktokHandle}`);
   console.log(`   TikTok Handle: @${tiktokHandle}`);
@@ -76,6 +74,27 @@ async function main() {
     const pkpData = readJson<CreatorPKP>(pkpPath);
 
     logger.info(`Loaded PKP: ${pkpData.pkpEthAddress}`);
+
+    // Load manifest to get TikTok profile data
+    const manifestPath = paths.creatorManifest(tiktokHandle);
+    const manifest = readJson<any>(manifestPath);
+    const avatarUrl = manifest.profile?.avatar;
+    const displayName = manifest.displayName || manifest.profile?.nickname || `@${tiktokHandle}`;
+    const bio = manifest.profile?.bio || '';
+
+    if (!avatarUrl) {
+      throw new Error('No avatar found in manifest. Run 03-scrape-videos.ts first to get TikTok profile data.');
+    }
+
+    logger.info(`Display Name: ${displayName}`);
+    logger.info(`Bio: ${bio}`);
+    logger.info(`Avatar URL: ${avatarUrl}`);
+
+    // Translate bio to Vietnamese and Mandarin
+    console.log('\n🌐 Translating bio...');
+    const translationService = new TranslationService();
+    const bioTranslations = bio ? await translationService.translateToMultiple(bio) : {};
+    console.log(`✅ Bio translated to ${Object.keys(bioTranslations).length} languages`);
 
     // Initialize Lens clients
     const lensClient = PublicClient.create({
@@ -116,6 +135,22 @@ async function main() {
     console.log('✅ Authenticated with Lens');
     const sessionClient = authenticated.value;
 
+    // Download and upload avatar to Grove
+    console.log('\n🖼️  Downloading avatar...');
+    const avatarResponse = await fetch(avatarUrl);
+    if (!avatarResponse.ok) {
+      throw new Error(`Failed to download avatar: ${avatarResponse.statusText}`);
+    }
+    const avatarBuffer = await avatarResponse.arrayBuffer();
+
+    console.log('☁️  Uploading avatar to Grove...');
+    const avatarUploadResult = await storage.uploadAsFile(new Uint8Array(avatarBuffer), {
+      name: `${lensHandle}-avatar.jpg`,
+      mimeType: 'image/jpeg',
+      acl: immutable(chains.testnet.id),
+    });
+    console.log(`✅ Avatar uploaded: ${avatarUploadResult.uri}`);
+
     // Create metadata
     console.log('\n📝 Creating account metadata...');
     const attributes = [
@@ -123,12 +158,15 @@ async function main() {
       { type: 'String', key: 'tiktokHandle', value: `@${tiktokHandle}` },
       { type: 'String', key: 'accountType', value: 'tiktok-creator' },
       { type: 'String', key: 'platform', value: 'karaoke-school' },
+      ...(Object.keys(bioTranslations).length > 0
+        ? [{ type: 'JSON' as const, key: 'bioTranslations', value: JSON.stringify(bioTranslations) }]
+        : []),
     ];
 
     const metadata = accountMetadata({
-      name: `@${tiktokHandle}`,
-      bio: `Official Karaoke School account for @${tiktokHandle} - Powered by Lit Protocol PKP`,
-      picture: avatarUri,
+      name: displayName,
+      bio: bio,
+      picture: avatarUploadResult.uri,
       attributes,
     });
 
@@ -144,13 +182,11 @@ async function main() {
     console.log('\n👤 Creating Lens account...');
     console.log(`   Lens Handle: @${lensHandle}`);
 
-    // Get custom namespace from env
-    const customNamespace = requireEnv('LENS_CUSTOM_NAMESPACE');
-
+    // Using global lens/* namespace (namespace parameter omitted)
     const createResult = await createAccountWithUsername(sessionClient, {
       username: {
         localName: lensHandle,
-        namespace: evmAddress(customNamespace), // kschool2/* namespace
+        // namespace omitted = global lens/* namespace
       },
       metadataUri: uploadResult.uri,
     })
@@ -165,12 +201,11 @@ async function main() {
     console.log('✅ Lens Account Created!');
     console.log(`   Tx: ${txHash}`);
 
-    // Fetch account details by username
-    // Note: For custom namespaces, fetchAccount by username works correctly
+    // Fetch account details by username (global lens/* namespace)
     const accountResult = await fetchAccount(sessionClient, {
       username: {
         localName: lensHandle,
-        namespace: evmAddress(customNamespace), // kschool2/* namespace
+        // namespace omitted = global lens/* namespace
       },
     });
 
@@ -191,9 +226,8 @@ async function main() {
     };
 
     console.log(`   Address: ${lensData.lensAccountAddress}`);
-    console.log(`   Username: kschool2/${lensHandle} (assigned on-chain)`);
-    console.log(`   Note: Custom namespace usernames don't appear in account.username field`);
-    console.log(`   Use username query with namespace parameter to verify\n`);
+    console.log(`   Username: lens/${lensHandle} (global namespace)`);
+    console.log(`   Note: Account is associated with app via login.app parameter\n`);
 
     // Save to file
     writeJson(lensPath, lensData);

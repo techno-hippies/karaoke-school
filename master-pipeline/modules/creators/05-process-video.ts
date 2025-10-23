@@ -78,10 +78,14 @@ interface VideoManifest {
     instrumental?: string;
   };
   grove: {
-    video: string;
-    thumbnail?: string;
+    video: string; // lens:// URI
+    videoGateway: string; // https://api.grove.storage/... URL
+    thumbnail?: string; // lens:// URI
+    thumbnailGateway?: string; // https://api.grove.storage/... URL
     vocals?: string;
+    vocalsGateway?: string;
     instrumental?: string;
+    instrumentalGateway?: string;
   };
   storyMintable: boolean;
   createdAt: string;
@@ -216,17 +220,37 @@ async function main() {
       zh: zhTranslation,
     };
 
+    // Step 1.9: Translate video description
+    let descriptionTranslations: Record<string, string> = {};
+    if (video.desc && video.desc.trim()) {
+      console.log('\n🌐 Translating video description...');
+      console.log(`   Original: ${video.desc.substring(0, 60)}...`);
+
+      console.log('   → Vietnamese...');
+      const viDescTranslation = await translationService.translateText(video.desc, 'vi');
+      console.log(`   ✓ vi: ${viDescTranslation.substring(0, 60)}...`);
+
+      console.log('   → Mandarin...');
+      const zhDescTranslation = await translationService.translateText(video.desc, 'zh');
+      console.log(`   ✓ zh: ${zhDescTranslation.substring(0, 60)}...`);
+
+      descriptionTranslations = {
+        vi: viDescTranslation,
+        zh: zhDescTranslation,
+      };
+    }
+
     // Step 2: Upload to Grove
     console.log('\n☁️  Uploading to Grove...');
     const groveService = new GroveService();
 
     const videoResult = await groveService.upload(videoPath, 'video/mp4');
-    const videoUri = videoResult.uri;
-    console.log(`   ✓ Video: ${videoUri}`);
+    console.log(`   ✓ Video: ${videoResult.uri}`);
+    console.log(`   ✓ Gateway: ${videoResult.gatewayUrl}`);
 
     const thumbnailResult = await groveService.upload(thumbnailPath, 'image/jpeg');
-    const thumbnailUri = thumbnailResult.uri;
-    console.log(`   ✓ Thumbnail: ${thumbnailUri}`);
+    console.log(`   ✓ Thumbnail: ${thumbnailResult.uri}`);
+    console.log(`   ✓ Gateway: ${thumbnailResult.gatewayUrl}`);
 
     // Step 3: Create video manifest
     const manifest: VideoManifest = {
@@ -235,6 +259,7 @@ async function main() {
       tiktokVideoId: videoId,
       tiktokUrl: videoUrl,
       description: video.desc || '',
+      descriptionTranslations: Object.keys(descriptionTranslations).length > 0 ? descriptionTranslations : undefined,
       captions: captionTranslations,
       song: {
         title: video.identification.title,
@@ -248,8 +273,10 @@ async function main() {
         audio: audioPath,
       },
       grove: {
-        video: videoUri,
-        thumbnail: thumbnailUri,
+        video: videoResult.uri,
+        videoGateway: videoResult.gatewayUrl,
+        thumbnail: thumbnailResult.uri,
+        thumbnailGateway: thumbnailResult.gatewayUrl,
       },
       storyMintable: video.identification.storyMintable,
       createdAt: new Date().toISOString(),
@@ -266,7 +293,7 @@ async function main() {
     console.log(`   Song: ${manifest.song.title} by ${manifest.song.artist}`);
     console.log(`   Copyright Type: ${manifest.song.copyrightType}`);
     console.log(`   Story Mintable: ${manifest.storyMintable}`);
-    console.log(`   Grove Video: ${videoUri}`);
+    console.log(`   Grove Video: ${manifest.grove.video}`);
 
     console.log('\n✅ Next step:');
     console.log(`   bun run creators/07-post-lens.ts --tiktok-handle @${tiktokHandle} --video-hash ${videoHash}\n`);

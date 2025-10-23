@@ -1,32 +1,47 @@
 import { useNavigate } from 'react-router-dom'
 import { ProfilePage, type Achievement } from '@/components/profile/ProfilePage'
+import { ProfilePageSkeleton } from '@/components/profile/ProfilePageSkeleton'
 import type { VideoPost } from '@/components/video/VideoGrid'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAccountStats } from '@/lib/lens/hooks/useAccountStats'
+import { useAccountPosts } from '@/lib/lens/hooks/useAccountPosts'
 
 /**
  * ProfilePageContainer - Container for the user's own profile
  * Shows Edit Profile button instead of Follow/Message buttons
- *
- * TODO: Connect to real auth context and profile data
- * For now uses mock data
  */
 export function ProfilePageContainer() {
   const navigate = useNavigate()
 
-  // TODO: Replace with real hooks
-  // const { username, displayName, avatarUrl, pkpAddress } = useAuth()
-  // const { following, followers } = useProfileStats(pkpAddress)
-  // const { achievements } = useAchievements(pkpAddress)
-  // const { videos } = useUserVideos(pkpAddress)
+  // ✅ Real auth data from context
+  const { lensAccount, pkpAddress } = useAuth()
 
-  // Mock data for now
-  const mockUsername = 'student123'
-  const mockDisplayName = 'Student User'
-  const mockAvatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=student123'
-  const mockFollowing = 0
-  const mockFollowers = 0
+  // Wait for account to load before fetching related data
+  const { following, followers, isLoading: statsLoading } = useAccountStats(lensAccount?.address)
+  const { posts, isLoading: postsLoading } = useAccountPosts(lensAccount?.address)
 
-  const mockVideos: VideoPost[] = []
+  // Show loading state while account or related data is loading
+  const isLoading = !lensAccount || statsLoading || postsLoading
 
+  if (isLoading) {
+    return <ProfilePageSkeleton />
+  }
+
+  // Extract real profile data (only after loading is complete)
+  const username = lensAccount.username?.localName || 'user' // Handle without @
+  const displayName = lensAccount.metadata?.name || lensAccount.username?.localName || 'User'
+  const avatarUrl = lensAccount.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
+
+  // Convert Lens posts to VideoPost format
+  const videos: VideoPost[] = posts.map(post => ({
+    id: post.id,
+    thumbnailUrl: post.metadata?.asset?.video?.cover || '',
+    duration: '0:00', // TODO: Extract from metadata
+    views: 0, // TODO: Extract from stats
+    likes: 0, // TODO: Extract from stats
+  }))
+
+  // TODO: Achievements from app-specific contract/database
   const mockAchievements: Achievement[] = [
     {
       id: '1',
@@ -62,14 +77,14 @@ export function ProfilePageContainer() {
 
   return (
     <ProfilePage
-      username={mockUsername}
-      displayName={mockDisplayName}
-      avatarUrl={mockAvatarUrl}
-      following={mockFollowing}
-      followers={mockFollowers}
+      username={username}
+      displayName={displayName}
+      avatarUrl={avatarUrl}
+      following={following}
+      followers={followers}
       isVerified={false}
       isOwnProfile={true}
-      videos={mockVideos}
+      videos={videos}
       onVideoClick={handleVideoClick}
       achievements={mockAchievements}
       onBack={() => navigate(-1)}

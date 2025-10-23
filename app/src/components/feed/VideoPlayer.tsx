@@ -18,9 +18,11 @@ export function VideoPlayer({
   onTogglePlay,
   onPlayFailed,
   onTimeUpdate,
+  forceAutoplay = false,
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const isFirstRenderRef = useRef(true)
   const [state, send] = useMachine(videoPlayerMachine, {
     input: {
       videoUrl,
@@ -29,6 +31,11 @@ export function VideoPlayer({
       autoplay: isPlaying,
     },
   })
+
+  // Mark that first render is complete
+  useEffect(() => {
+    isFirstRenderRef.current = false
+  }, [])
 
   // Handle play/pause - delegates to state machine
   const handlePlayPause = () => {
@@ -136,10 +143,27 @@ export function VideoPlayer({
   // Show spinner only when user has interacted (clicked play or autoplay is enabled) and video is loading
   const showSpinner = isLoading && (state.context.shouldAutoplay || hasStartedPlaying)
 
+  // Hide thumbnail on first render when forceAutoplay is true (e.g., video detail navigation)
+  // This prevents the flash of the previous video's thumbnail during navigation
+  const hideThumbnailOnFirstRender = isFirstRenderRef.current && forceAutoplay
+
+  console.log('[VideoPlayer] Thumbnail logic:', {
+    videoUrl,
+    thumbnailUrl,
+    isFirstRender: isFirstRenderRef.current,
+    isPlayingProp: isPlaying,
+    forceAutoplay,
+    shouldAutoplay: state.context.shouldAutoplay,
+    hideThumbnailOnFirstRender,
+    showThumbnail,
+    willShowThumbnail: showThumbnail && !hideThumbnailOnFirstRender,
+    hasStartedPlaying
+  })
+
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
-      {/* Thumbnail - always show when available, z-10 to appear above video until it has visible frames */}
-      {showThumbnail && (
+      {/* Thumbnail - hide on first render when autoplaying to prevent flash during navigation */}
+      {showThumbnail && !hideThumbnailOnFirstRender && (
         <img
           src={state.context.thumbnailUrl}
           alt="Video thumbnail"

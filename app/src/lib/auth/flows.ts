@@ -29,6 +29,7 @@ import {
 export interface AuthFlowResult {
   pkpInfo: PKPInfo
   authData: AuthData
+  pkpAuthContext: import('@/lib/lit').PKPAuthContext
   walletClient: WalletClient
   lensSession: SessionClient
   lensAccount: Account
@@ -187,6 +188,7 @@ export async function registerWithPasskeyFlow(
   return {
     pkpInfo: result.pkpInfo,
     authData: result.authData,
+    pkpAuthContext,
     walletClient,
     lensSession: lensResult.session,
     lensAccount: lensResult.account,
@@ -225,6 +227,7 @@ export async function signInWithPasskeyFlow(
   return {
     pkpInfo: result.pkpInfo,
     authData: result.authData,
+    pkpAuthContext,
     walletClient,
     lensSession: lensResult.session,
     lensAccount: lensResult.account,

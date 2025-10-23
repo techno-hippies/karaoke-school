@@ -2,6 +2,8 @@
 
 This module provides integration with Lens Protocol for social identity and account management in the Karaoke School app.
 
+> **⚠️ IMPORTANT**: We are currently using the **global `lens/*` namespace** for all accounts due to custom namespace sponsorship issues. The documentation below references custom namespaces (`kschool1/*`, `kschool2/*`) but this is **outdated**. See `docs/lens-custom-namespace-issues.md` for details on why we migrated to global namespace.
+
 ## Architecture
 
 ### Core Modules

@@ -13,7 +13,7 @@ import { parseArgs } from 'util';
 import { PublicClient, evmAddress } from '@lens-protocol/client';
 import { post as createPost, fetchAccount } from '@lens-protocol/client/actions';
 import { testnet } from '@lens-protocol/env';
-import { signMessageWith } from '@lens-protocol/client/viem';
+import { signMessageWith, handleOperationWith } from '@lens-protocol/client/viem';
 import { video, MediaVideoMimeType } from '@lens-protocol/metadata';
 import { StorageClient, lensAccountOnly } from '@lens-chain/storage-client';
 import { chains } from '@lens-chain/sdk/viem';
@@ -311,25 +311,20 @@ async function main() {
     console.log('\n📱 Creating Lens post...');
     const postResult = await createPost(sessionClient, {
       contentUri: metadataResult.uri as any,
-    });
+    })
+      .andThen(handleOperationWith(walletClient))
+      .andThen(sessionClient.waitForTransaction);
 
     if (postResult.isErr()) {
-      throw new Error(`Post creation failed: ${postResult.error}`);
+      throw new Error(`Post creation failed: ${postResult.error.message}`);
     }
 
-    const postResponse = postResult.value;
-
-    let postHash: string | undefined;
-    if ('hash' in postResponse) {
-      postHash = postResponse.hash;
-      console.log(`✅ Post created! Hash: ${postHash}`);
-    } else {
-      console.log('ℹ️  Post response:', JSON.stringify(postResponse, null, 2));
-    }
+    const postHash = postResult.value;
+    console.log(`✅ Post created! Hash: ${postHash}`);
 
     // Update manifest
     manifest.lensPost = {
-      hash: postHash || 'unknown',
+      hash: postHash,
       metadataUri: metadataResult.uri,
       postedAt: new Date().toISOString(),
     };
@@ -345,7 +340,7 @@ async function main() {
     if (manifest.storyProtocol) {
       console.log(`   Story IP: ${manifest.storyProtocol.ipId}`);
     }
-    console.log(`   Lens Post: ${postHash || 'unknown'}`);
+    console.log(`   Lens Post: ${postHash}`);
     console.log(`   Feed: ${FEED_ADDRESS}`);
     console.log(`   App: ${APP_ADDRESS}`);
 

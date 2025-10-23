@@ -144,7 +144,7 @@ export function ArtistPage({
                 <TabsTrigger value="songs">Songs</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="dances" className="mt-4 -mx-4 md:-mx-6">
+              <TabsContent value="dances" className="mt-4">
                 <VideoGrid
                   videos={videos}
                   onVideoClick={onVideoClick}

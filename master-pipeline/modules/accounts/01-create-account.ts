@@ -33,7 +33,7 @@
  *   # Emit event to contract (optional)
  *   bun run accounts/01-create-account.ts --username brookemonk --emit-event
  *
- * Note: All accounts are created in the kschool1/* custom namespace
+ * Note: All accounts are created in the global lens/* namespace
  */
 
 import { parseArgs } from 'util';
@@ -90,7 +90,7 @@ async function main() {
     console.log('  bun run accounts/01-create-account.ts --username taylorswift --genius-artist-id 498 --isni 0000000078519858 --verify');
     console.log('  bun run accounts/01-create-account.ts --username charlidamelio --display-name "Charli D\'Amelio"\n');
     console.log('Options:');
-    console.log('  --username           Username in kschool1/* namespace (lowercase, alphanumeric + hyphens/underscores)');
+    console.log('  --username           Username in global lens/* namespace (lowercase, alphanumeric + hyphens/underscores)');
     console.log('  --genius-artist-id   Genius artist ID (for verified artists, avatar fetched automatically from Genius)');
     console.log('  --isni               ISNI code for artists (16 digits, no spaces, e.g., "0000000078519858")');
     console.log('  --display-name       Custom display name (defaults to username)');
@@ -98,7 +98,7 @@ async function main() {
     console.log('  --bio                Custom bio (optional)');
     console.log('  --verify             Mark account as verified (blue check badge)');
     console.log('  --emit-event         Emit AccountCreated event to contract (optional)');
-    console.log('\nNote: All accounts are created in kschool1/* custom namespace\n');
+    console.log('\nNote: All accounts are created in global lens/* namespace\n');
     process.exit(1);
   }
 
@@ -243,9 +243,8 @@ async function main() {
 
     const storage = StorageClient.create();
 
-    // Karaoke School app address and custom namespace
+    // Karaoke School app address (using global lens/* namespace)
     const appAddress = requireEnv('LENS_APP_ADDRESS');
-    const customNamespace = requireEnv('LENS_CUSTOM_NAMESPACE');
     const LENS_API = 'https://api.testnet.lens.xyz/graphql';
 
     // Initialize GraphQL client
@@ -502,8 +501,8 @@ async function main() {
     gqlClient.setHeader('Authorization', `Bearer ${ownerAuthResult.accessToken}`);
     console.log('✅ Switched to account owner');
 
-    // ============ STEP 2C: Create Username in Custom Namespace ============
-    console.log(`\n📝 Creating username kschool1/${username} (step 2/2)...`);
+    // ============ STEP 2C: Create Username in Global Namespace ============
+    console.log(`\n📝 Creating username lens/${username} (step 2/2)...`);
 
     const createUsernameMutation = gql`
       mutation CreateUsername($request: CreateUsernameRequest!) {
@@ -551,7 +550,7 @@ async function main() {
         request: {
           username: {
             localName: username,
-            namespace: customNamespace,
+            // namespace omitted = global lens/* namespace
           },
         },
       });
@@ -702,7 +701,7 @@ async function main() {
     }
 
     console.log('✅ Username created!');
-    console.log(`   Handle: kschool1/${username}`);
+    console.log(`   Handle: lens/${username}`);
     if (usernameTxHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
       console.log(`   Tx: ${usernameTxHash}`);
     }

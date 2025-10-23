@@ -20,16 +20,14 @@ export function CreatorPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
 
-  // Fetch account and posts from Lens (using kschool1 namespace)
-  // Namespace address from master-pipeline/.env
-  const KSCHOOL1_NAMESPACE = '0xA5882f62feDC936276ef2e7166723A04Ee12501B'
+  // Fetch account and posts from Lens (using global lens/* namespace)
   const {
     account,
     posts,
     isLoadingAccount,
     accountError,
     postsError,
-  } = useLensCreator(lenshandle, KSCHOOL1_NAMESPACE)
+  } = useLensCreator(lenshandle)
 
   // Fetch Grove metadata for custom fields (ISNI, verification, geniusArtistId)
   const attributes = (account?.metadata as any)?.attributes as Array<{ key: string; value: string }> | undefined

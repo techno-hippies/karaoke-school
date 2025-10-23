@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { CreatorPageContainer } from '@/pages/CreatorPageContainer'
+import { VideoDetailPage } from '@/pages/VideoDetailPage'
 import { SongPageContainer } from '@/pages/SongPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
 import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
@@ -140,7 +141,7 @@ function AppRouter() {
           <Route path="/" element={<div>Feed</div>} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
-          <Route path="/u/:lenshandle/video/:postId" element={<div>Video Detail</div>} />
+          <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
           <Route path="/song/:geniusId" element={<SongPageContainer />} />
           <Route path="/song/:geniusId/play" element={<MediaPageContainer />} />
           <Route path="/song/:geniusId/segment/:segmentId" element={<div>Study Segment</div>} />

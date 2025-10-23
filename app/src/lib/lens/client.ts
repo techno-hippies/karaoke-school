@@ -6,7 +6,7 @@
 import { PublicClient, testnet, mainnet } from '@lens-protocol/react'
 import './fragments'
 
-export { LENS_APP_ADDRESS, LENS_CUSTOM_NAMESPACE, isLensConfigured } from './config'
+export { LENS_APP_ADDRESS, isLensConfigured } from './config'
 
 // Lens environment (default to testnet)
 const LENS_ENV = import.meta.env.VITE_LENS_ENVIRONMENT === 'mainnet' ? mainnet : testnet

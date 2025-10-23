@@ -8,23 +8,24 @@ import type { Account, Post, EvmAddress } from '@lens-protocol/react'
 
 /**
  * Fetch Lens account by username
- * @param username - Local name (e.g., "brookemonk" for "kschool2/brookemonk")
- * @param namespace - Namespace address (defaults to kschool2 custom namespace: "0xa304467aD0C296C2bb11079Bc2748223568D463e")
+ * @param username - Local name (e.g., "idazeile" for "lens/idazeile")
+ * @param namespace - Optional namespace address. If omitted, uses global lens/* namespace.
  * @returns Account data with loading/error states
  *
- * Note: For custom namespaces, account.username field returns null.
- * Must query username separately with namespace parameter.
+ * Note: By default, queries the global lens/* namespace (namespace parameter omitted).
+ * Pass a namespace address to query custom namespaces.
  */
 export function useLensAccount(username: string | undefined, namespace?: string) {
-  // Default to kschool2 custom namespace
-  const customNamespace = namespace || '0xa304467aD0C296C2bb11079Bc2748223568D463e'
+  console.log('[useLensAccount] Called with username:', username, 'namespace:', namespace || 'global lens/*')
 
-  console.log('[useLensAccount] Called with username:', username, 'namespace:', customNamespace)
+  // Build username object - omit namespace field for global lens/* namespace
+  const usernameParam = username ? {
+    localName: username,
+    ...(namespace ? { namespace } : {}), // Only include namespace if provided
+  } : undefined
+
   const result = useAccount({
-    username: username ? {
-      localName: username,
-      namespace: customNamespace,
-    } : undefined,
+    username: usernameParam,
   })
   console.log('[useLensAccount] Result:', {
     data: result.data,
@@ -64,17 +65,15 @@ export function useLensCreatorPosts(accountAddress: string | undefined) {
 /**
  * Combined hook for creator profile data
  * Fetches both account and posts in a single hook
- * @param username - Local name of the creator (e.g., "brookemonk" for "kschool2/brookemonk")
- * @param namespace - Namespace address (defaults to kschool2: "0xa304467aD0C296C2bb11079Bc2748223568D463e")
+ * @param username - Local name of the creator (e.g., "idazeile" for "lens/idazeile")
+ * @param namespace - Optional namespace address. If omitted, uses global lens/* namespace.
  * @returns Combined account and posts data
  *
- * Note: All creators use the kschool2 custom namespace by default.
+ * Note: By default, all creators use the global lens/* namespace.
+ * Pass a namespace address to query custom namespace creators.
  */
 export function useLensCreator(username: string | undefined, namespace?: string) {
-  // Default to kschool2 custom namespace
-  const customNamespace = namespace || '0xa304467aD0C296C2bb11079Bc2748223568D463e'
-
-  const accountQuery = useLensAccount(username, customNamespace)
+  const accountQuery = useLensAccount(username, namespace)
   const postsQuery = useLensCreatorPosts(accountQuery.data?.address)
 
   return {
