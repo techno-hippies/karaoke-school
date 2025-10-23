@@ -146,11 +146,13 @@ export function VideoPlayer({
   // Hide thumbnail on first render when forceAutoplay is true (e.g., video detail navigation)
   // This prevents the flash of the previous video's thumbnail during navigation
   const hideThumbnailOnFirstRender = isFirstRenderRef.current && forceAutoplay
+  // Also hide thumbnail once video has started playing
+  const hideThumbnail = hideThumbnailOnFirstRender || hasStartedPlaying
 
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
-      {/* Thumbnail - hide on first render when autoplaying to prevent flash during navigation */}
-      {showThumbnail && !hideThumbnailOnFirstRender && (
+      {/* Thumbnail - hide on first render when autoplaying OR when video is playing */}
+      {showThumbnail && !hideThumbnail && (
         <img
           src={state.context.thumbnailUrl}
           alt="Video thumbnail"
@@ -158,16 +160,15 @@ export function VideoPlayer({
         />
       )}
 
-      {/* Video element - z-20 when playing (above thumbnail), z-0 when paused (below thumbnail) */}
+      {/* Video element - always z-20 (above thumbnail) */}
       {showVideo && (
         <video
           ref={videoRef}
-          className={cn(
-            "absolute inset-0 w-full h-full object-cover",
-            hasStartedPlaying ? "z-20" : "z-0"
-          )}
+          className="absolute inset-0 w-full h-full object-cover z-20"
+          style={{ transform: 'translateZ(0)' }} // Force GPU layer for Chromium
           loop
           playsInline
+          preload="auto" // Eager load for better rendering
           muted={isMuted}
           onClick={(e) => {
             e.stopPropagation()
