@@ -6,16 +6,26 @@ import { verifyAccountCreatedByPKP } from '../lib/pkp-check'
 import { getPKPBalance } from '../lib/balance-check'
 
 /**
+ * Backend wallet whitelist
+ * These addresses are allowed to authenticate without PKP verification
+ * Used by the master pipeline to create accounts for TikTok creators
+ */
+const BACKEND_WHITELISTED_WALLETS = [
+  '0x0C6433789d14050aF47198B2751f6689731Ca79C', // Master pipeline admin wallet
+]
+
+/**
  * Lens Authorization Endpoint
  *
  * Called by Lens API to determine if a user should be sponsored
  * Must respond within 500ms with { allowed: boolean, sponsored?: boolean }
  *
  * Flow:
- * 1. Verify account was created by a PKP (anti-spam)
- * 2. Check sponsorship quota from DB
- * 3. If quota exhausted, check PKP balance
- * 4. Return sponsorship decision
+ * 1. Check if backend wallet (whitelist bypass)
+ * 2. Verify account was created by a PKP (anti-spam)
+ * 3. Check sponsorship quota from DB
+ * 4. If quota exhausted, check PKP balance
+ * 5. Return sponsorship decision
  */
 export async function handleLensAuth(c: Context<{ Bindings: Env }>) {
   const startTime = Date.now()
@@ -26,6 +36,19 @@ export async function handleLensAuth(c: Context<{ Bindings: Env }>) {
     const { account, signedBy } = body
 
     console.log('[Lens Auth] Request:', { account, signedBy })
+
+    // Check if backend wallet (bypass PKP verification)
+    const isBackendWallet = BACKEND_WHITELISTED_WALLETS.includes(signedBy.toLowerCase())
+
+    if (isBackendWallet) {
+      console.log('[Lens Auth] ✓ Backend wallet whitelisted')
+      const response: LensAuthResponse = {
+        allowed: true,
+        sponsored: false, // Backend pays its own gas
+      }
+      console.log(`[Lens Auth] Response time: ${Date.now() - startTime}ms`)
+      return c.json(response)
+    }
 
     // Get DB connection
     const sql = getDb(c.env.DATABASE_URL)

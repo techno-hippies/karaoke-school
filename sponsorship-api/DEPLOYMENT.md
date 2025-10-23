@@ -177,9 +177,24 @@ Database (Neon PostgreSQL)
 Lens Chain (testnet)
 ```
 
+### Authorization Flow
+
+**Frontend Users (PKP-based)**:
+1. User creates Lens account with PKP
+2. PKP signs transactions
+3. API verifies PKP ownership via Chronicle Yellowstone
+4. Sponsorship granted if quota available or balance sufficient
+
+**Backend Pipeline (Whitelisted)**:
+1. Master pipeline uses admin EOA wallet (`0x0C6433789d14050aF47198B2751f6689731Ca79C`)
+2. Wallet is whitelisted in `src/routes/lens-auth.ts`
+3. Bypasses PKP verification (backend pays own gas)
+4. Creates Lens accounts for TikTok creators with PKP metadata
+
 ## 🎯 Features Implemented
 
 - ✅ PKP verification (Lit Protocol integration)
+- ✅ Backend wallet whitelist (allows master pipeline operations)
 - ✅ Sponsorship quota management (10 free txs)
 - ✅ Balance checking (require 0.01 GRASS after quota)
 - ✅ Transaction submission proxy
