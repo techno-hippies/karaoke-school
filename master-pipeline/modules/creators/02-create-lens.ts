@@ -144,9 +144,13 @@ async function main() {
     console.log('\n👤 Creating Lens account...');
     console.log(`   Lens Handle: @${lensHandle}`);
 
+    // Get custom namespace from env
+    const customNamespace = requireEnv('LENS_CUSTOM_NAMESPACE');
+
     const createResult = await createAccountWithUsername(sessionClient, {
       username: {
         localName: lensHandle,
+        namespace: evmAddress(customNamespace), // kschool1/* namespace
       },
       metadataUri: uploadResult.uri,
     })
@@ -163,7 +167,10 @@ async function main() {
 
     // Fetch account details
     const accountResult = await fetchAccount(sessionClient, {
-      username: { localName: lensHandle },
+      username: {
+        localName: lensHandle,
+        namespace: evmAddress(customNamespace), // kschool1/* namespace
+      },
     });
 
     if (accountResult.isErr() || !accountResult.value) {
