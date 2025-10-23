@@ -147,19 +147,6 @@ export function VideoPlayer({
   // This prevents the flash of the previous video's thumbnail during navigation
   const hideThumbnailOnFirstRender = isFirstRenderRef.current && forceAutoplay
 
-  console.log('[VideoPlayer] Thumbnail logic:', {
-    videoUrl,
-    thumbnailUrl,
-    isFirstRender: isFirstRenderRef.current,
-    isPlayingProp: isPlaying,
-    forceAutoplay,
-    shouldAutoplay: state.context.shouldAutoplay,
-    hideThumbnailOnFirstRender,
-    showThumbnail,
-    willShowThumbnail: showThumbnail && !hideThumbnailOnFirstRender,
-    hasStartedPlaying
-  })
-
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
       {/* Thumbnail - hide on first render when autoplaying to prevent flash during navigation */}

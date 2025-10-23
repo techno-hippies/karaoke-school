@@ -41,8 +41,6 @@ export function VideoDetailPage() {
   // Use current post if available, otherwise use previous post to prevent flash
   const displayPost = post || prevPostRef.current
 
-  console.log('[VideoDetailPage] Post data:', { post, loading, error, displayPost })
-
   // Calculate current video index and total
   const { currentVideoIndex, totalVideos } = useMemo(() => {
     if (!allPosts.length) return { currentVideoIndex: 0, totalVideos: 0 }
@@ -143,8 +141,6 @@ export function VideoDetailPage() {
 
   // Format created date
   const createdAt = displayPost.createdAt ? new Date(displayPost.createdAt).toLocaleDateString() : undefined
-
-  console.log('[VideoDetailPage] Rendering with key:', displayPost?.id ?? postId)
 
   return (
     <VideoPlaybackProvider>

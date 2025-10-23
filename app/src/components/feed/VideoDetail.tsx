@@ -183,10 +183,7 @@ export function VideoDetail({
           ref={videoContainerRef}
           className="relative bg-background rounded-lg overflow-hidden cursor-pointer"
           style={{ height: '90vh', width: 'calc(90vh * 9 / 16)', maxWidth: '100%' }}
-          onClick={(e) => {
-            console.log('[VideoDetail] Container clicked!', e.target)
-            handleTogglePlay()
-          }}
+          onClick={handleTogglePlay}
         >
           {/* Video Player */}
           <VideoPlayer
