@@ -150,7 +150,7 @@ async function main() {
     const createResult = await createAccountWithUsername(sessionClient, {
       username: {
         localName: lensHandle,
-        namespace: evmAddress(customNamespace), // kschool1/* namespace
+        namespace: evmAddress(customNamespace), // kschool2/* namespace
       },
       metadataUri: uploadResult.uri,
     })
@@ -170,7 +170,7 @@ async function main() {
     const accountResult = await fetchAccount(sessionClient, {
       username: {
         localName: lensHandle,
-        namespace: evmAddress(customNamespace), // kschool1/* namespace
+        namespace: evmAddress(customNamespace), // kschool2/* namespace
       },
     });
 
@@ -191,7 +191,7 @@ async function main() {
     };
 
     console.log(`   Address: ${lensData.lensAccountAddress}`);
-    console.log(`   Username: kschool1/${lensHandle} (assigned on-chain)`);
+    console.log(`   Username: kschool2/${lensHandle} (assigned on-chain)`);
     console.log(`   Note: Custom namespace usernames don't appear in account.username field`);
     console.log(`   Use username query with namespace parameter to verify\n`);
 

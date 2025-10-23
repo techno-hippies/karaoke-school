@@ -8,16 +8,16 @@ import type { Account, Post, EvmAddress } from '@lens-protocol/react'
 
 /**
  * Fetch Lens account by username
- * @param username - Local name (e.g., "brookemonk" for "kschool1/brookemonk")
- * @param namespace - Namespace address (defaults to kschool1 custom namespace: "0xA5882f62feDC936276ef2e7166723A04Ee12501B")
+ * @param username - Local name (e.g., "brookemonk" for "kschool2/brookemonk")
+ * @param namespace - Namespace address (defaults to kschool2 custom namespace: "0xa304467aD0C296C2bb11079Bc2748223568D463e")
  * @returns Account data with loading/error states
  *
  * Note: For custom namespaces, account.username field returns null.
  * Must query username separately with namespace parameter.
  */
 export function useLensAccount(username: string | undefined, namespace?: string) {
-  // Default to kschool1 custom namespace
-  const customNamespace = namespace || '0xA5882f62feDC936276ef2e7166723A04Ee12501B'
+  // Default to kschool2 custom namespace
+  const customNamespace = namespace || '0xa304467aD0C296C2bb11079Bc2748223568D463e'
 
   console.log('[useLensAccount] Called with username:', username, 'namespace:', customNamespace)
   const result = useAccount({
@@ -64,15 +64,15 @@ export function useLensCreatorPosts(accountAddress: string | undefined) {
 /**
  * Combined hook for creator profile data
  * Fetches both account and posts in a single hook
- * @param username - Local name of the creator (e.g., "brookemonk" for "kschool1/brookemonk")
- * @param namespace - Namespace address (defaults to kschool1: "0xA5882f62feDC936276ef2e7166723A04Ee12501B")
+ * @param username - Local name of the creator (e.g., "brookemonk" for "kschool2/brookemonk")
+ * @param namespace - Namespace address (defaults to kschool2: "0xa304467aD0C296C2bb11079Bc2748223568D463e")
  * @returns Combined account and posts data
  *
- * Note: All creators use the kschool1 custom namespace by default.
+ * Note: All creators use the kschool2 custom namespace by default.
  */
 export function useLensCreator(username: string | undefined, namespace?: string) {
-  // Default to kschool1 custom namespace
-  const customNamespace = namespace || '0xA5882f62feDC936276ef2e7166723A04Ee12501B'
+  // Default to kschool2 custom namespace
+  const customNamespace = namespace || '0xa304467aD0C296C2bb11079Bc2748223568D463e'
 
   const accountQuery = useLensAccount(username, customNamespace)
   const postsQuery = useLensCreatorPosts(accountQuery.data?.address)
