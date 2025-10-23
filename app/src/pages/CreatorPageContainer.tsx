@@ -35,7 +35,6 @@ export function CreatorPageContainer() {
   // Extract Grove metadata URI from attributes
   const groveMetadataUriAttr = attributes?.find(attr => attr.key === 'groveMetadataUri')
   const metadataUri = groveMetadataUriAttr?.value
-  console.log('[CreatorPage] Grove metadata URI:', metadataUri)
 
   const {
     data: groveMetadata,
@@ -100,32 +99,13 @@ export function CreatorPageContainer() {
   // Check verification status from Grove metadata
   const verified = groveMetadata?.verification?.verified ?? false
 
-  // Log Grove metadata for debugging
-  if (groveMetadata) {
-    console.log('[CreatorPage] Grove metadata:', {
-      username: groveMetadata.username,
-      displayName: groveMetadata.displayName,
-      verified,
-      isni: groveMetadata.isni,
-      geniusArtistId: groveMetadata.geniusArtistId,
-      avatarUri: groveMetadata.avatarUri,
-    })
-  }
-
-  console.log('[CreatorPage] Final avatarUrl:', avatarUrl)
-
   // Parse posts data
-  console.log('[CreatorPage] Posts data:', { posts, items: posts?.items, length: posts?.items?.length })
   const postItems = posts?.items || []
 
   // Transform posts to VideoPost format
-  console.log('[CreatorPage] Post items:', postItems.map(p => ({ id: p.id, type: p.__typename, metadataType: p.metadata?.__typename })))
   const videos: VideoPost[] = postItems
     .filter((post): post is Post => {
-      const isPost = post.__typename === 'Post'
-      const isVideo = isVideoPost(post)
-      console.log(`[CreatorPage] Post ${post.id}: isPost=${isPost}, isVideo=${isVideo}, metadataType=${post.metadata?.__typename}`)
-      return isPost && isVideo
+      return post.__typename === 'Post' && isVideoPost(post)
     })
     .map((post) => {
       const hasAttributes = post.metadata?.__typename === 'VideoMetadata'
@@ -143,7 +123,6 @@ export function CreatorPageContainer() {
         const coverUri = videoMetadata.video?.cover
         if (coverUri) {
           thumbnailUrl = convertGroveUri(coverUri)
-          console.log(`[CreatorPage] Using video.cover for post ${post.id}:`, coverUri)
         }
       }
 
@@ -154,14 +133,11 @@ export function CreatorPageContainer() {
       }
     })
 
-  console.log('[CreatorPage] Videos array:', videos.length, 'Sample:', JSON.stringify(videos.slice(0, 2), null, 2))
-
   // Parse songs from The Graph subgraph and video metadata
   const songsMap = new Map<string, ArtistSong>()
 
   // Add songs from The Graph subgraph with enriched metadata (higher priority)
   if (enrichedSongs) {
-    console.log('[CreatorPage] Enriched songs from The Graph:', enrichedSongs)
     enrichedSongs.forEach((song) => {
       songsMap.set(song.geniusId, {
         id: song.geniusId,
