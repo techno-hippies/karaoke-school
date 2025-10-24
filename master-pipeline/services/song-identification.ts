@@ -227,7 +227,13 @@ export class SongIdentificationService extends BaseService {
     }
 
     try {
-      const query = `${title} ${artist}`;
+      // Clean title: remove version suffixes that confuse Genius search
+      // Examples: "- Remastered 2009", "- Live", "- Acoustic", "- Radio Edit", etc.
+      const cleanTitle = title
+        .replace(/\s*-\s*(Remastered|Live|Acoustic|Radio Edit|Extended|Remix|Version|Album Version|Single Version|Explicit|Clean).*$/i, '')
+        .trim();
+
+      const query = `${cleanTitle} ${artist}`;
       const response = await fetch(
         `https://api.genius.com/search?q=${encodeURIComponent(query)}&access_token=${this.geniusConfig.apiKey}`
       );
@@ -243,9 +249,25 @@ export class SongIdentificationService extends BaseService {
         return null;
       }
 
-      // Return first match (Genius search is pretty accurate)
-      return hits[0].result.id;
-    } catch {
+      // Validate: find first hit where artist name matches (case-insensitive, partial match)
+      const normalizeArtist = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const expectedArtist = normalizeArtist(artist);
+
+      for (const hit of hits) {
+        const resultArtist = normalizeArtist(hit.result.primary_artist?.name || '');
+
+        // Check if artist names match (either direction for partial matches)
+        if (resultArtist.includes(expectedArtist) || expectedArtist.includes(resultArtist)) {
+          this.log(`✓ Validated Genius match: "${hit.result.title}" by ${hit.result.primary_artist?.name}`);
+          return hit.result.id;
+        }
+      }
+
+      // No validated match found
+      this.log(`⚠️  No artist-validated Genius match found for: ${cleanTitle} by ${artist}`);
+      return null;
+    } catch (error: any) {
+      this.log(`⚠️  Genius search error: ${error.message}`);
       return null;
     }
   }
