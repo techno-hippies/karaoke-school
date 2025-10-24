@@ -147,9 +147,9 @@ export const LensPostSchema = z.object({
 export type LensPost = z.infer<typeof LensPostSchema>;
 
 /**
- * Video Manifest (Complete)
+ * Video Manifest (Artist Flow - with audio matching & separation)
  */
-export const VideoManifestSchema = z.object({
+export const ArtistVideoManifestSchema = z.object({
   videoHash: z.string().min(1).describe('Unique video identifier'),
   creatorHandle: z.string().min(1),
   tiktokVideoId: z.string().min(1),
@@ -168,7 +168,125 @@ export const VideoManifestSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-export type VideoManifest = z.infer<typeof VideoManifestSchema>;
+export type ArtistVideoManifest = z.infer<typeof ArtistVideoManifestSchema>;
+
+/**
+ * Creator Song Info
+ */
+export const CreatorSongSchema = z.object({
+  title: z.string().min(1),
+  artist: z.string().min(1),
+  copyrightType: z.enum(['copyrighted', 'copyright-free']),
+  spotifyId: z.string().optional(),
+  isrc: z.string().optional(),
+  geniusId: z.number().int().positive().optional(),
+});
+
+export type CreatorSong = z.infer<typeof CreatorSongSchema>;
+
+/**
+ * Creator Video Files
+ */
+export const CreatorVideoFilesSchema = z.object({
+  video: z.string().min(1).describe('Path to processed video file'),
+  audio: z.string().min(1).describe('Path to extracted audio'),
+});
+
+export type CreatorVideoFiles = z.infer<typeof CreatorVideoFilesSchema>;
+
+/**
+ * Creator Grove Storage
+ */
+export const CreatorGroveSchema = z.object({
+  video: z.string().startsWith('lens://'),
+  videoGateway: z.string().url(),
+  thumbnail: z.string().startsWith('lens://').optional(),
+  thumbnailGateway: z.string().url().optional(),
+});
+
+export type CreatorGrove = z.infer<typeof CreatorGroveSchema>;
+
+/**
+ * Creator Video Captions
+ */
+export const CreatorCaptionsSchema = z.object({
+  en: z.string().min(1),
+  vi: z.string().min(1),
+  zh: z.string().min(1),
+});
+
+export type CreatorCaptions = z.infer<typeof CreatorCaptionsSchema>;
+
+/**
+ * Creator Story Protocol Data
+ */
+export const CreatorStoryProtocolSchema = z.object({
+  ipId: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  metadataUri: z.string().startsWith('lens://'),
+  metadataGatewayUrl: z.string().url().optional(),
+  licenseTermsIds: z.array(z.string()).optional(),
+  royaltyVault: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  mintedAt: z.string().datetime(),
+});
+
+export type CreatorStoryProtocol = z.infer<typeof CreatorStoryProtocolSchema>;
+
+/**
+ * Creator Lens Post
+ */
+export const CreatorLensPostSchema = z.object({
+  hash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  metadataUri: z.string().startsWith('lens://'),
+  postedAt: z.string().datetime(),
+});
+
+export type CreatorLensPost = z.infer<typeof CreatorLensPostSchema>;
+
+/**
+ * Video Manifest (Creator Flow - direct TikTok posting)
+ */
+export const CreatorVideoManifestSchema = z.object({
+  videoHash: z.string().min(1).describe('Unique video identifier'),
+  creatorHandle: z.string().min(1),
+  tiktokVideoId: z.string().min(1),
+  tiktokUrl: z.string().url(),
+  description: z.string(),
+  descriptionTranslations: z.record(z.string(), z.string()).optional(),
+  captions: CreatorCaptionsSchema.optional(),
+
+  song: CreatorSongSchema,
+  mlc: MLCDataSchema.optional().describe('Required for copyrighted content'),
+
+  files: CreatorVideoFilesSchema,
+  grove: CreatorGroveSchema,
+
+  storyMintable: z.boolean(),
+  storyProtocol: CreatorStoryProtocolSchema.optional(),
+  lensPost: CreatorLensPostSchema.optional(),
+
+  createdAt: z.string().datetime(),
+}).refine(
+  (data) => {
+    // Copyrighted content MUST have MLC data
+    if (data.song.copyrightType === 'copyrighted') {
+      return data.mlc !== undefined;
+    }
+    return true;
+  },
+  {
+    message: "Copyrighted content requires MLC data",
+    path: ["mlc"],
+  }
+);
+
+export type CreatorVideoManifest = z.infer<typeof CreatorVideoManifestSchema>;
+
+/**
+ * Legacy alias for backward compatibility
+ */
+export const VideoManifestSchema = ArtistVideoManifestSchema;
+export type VideoManifest = ArtistVideoManifest;
 
 /**
  * Song Identification Result (from TikTok music metadata)

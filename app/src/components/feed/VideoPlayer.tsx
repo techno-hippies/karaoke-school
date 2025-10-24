@@ -22,7 +22,6 @@ export function VideoPlayer({
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const isFirstRenderRef = useRef(true)
   const [state, send] = useMachine(videoPlayerMachine, {
     input: {
       videoUrl,
@@ -31,11 +30,6 @@ export function VideoPlayer({
       autoplay: isPlaying,
     },
   })
-
-  // Mark that first render is complete
-  useEffect(() => {
-    isFirstRenderRef.current = false
-  }, [])
 
   // Handle play/pause - delegates to state machine
   const handlePlayPause = () => {
@@ -68,7 +62,6 @@ export function VideoPlayer({
         const errorMsg = `Code ${video.error.code}: ${video.error.message || 'Unknown error'}`
         // Only log non-empty errors
         if (video.error.message) {
-          console.error('[VideoPlayer] Video error:', errorMsg)
         }
         send({ type: 'VIDEO_ERROR', error: errorMsg })
       }
@@ -140,19 +133,14 @@ export function VideoPlayer({
   const isLoading = state.matches('loading') || state.matches({ loaded: 'attemptingPlay' })
   // Show play button if not autoplay and hasn't started playing yet (including during loading)
   const showPlayButton = !state.context.shouldAutoplay && !hasStartedPlaying
-  // Show spinner only when user has interacted (clicked play or autoplay is enabled) and video is loading
-  const showSpinner = isLoading && (state.context.shouldAutoplay || hasStartedPlaying)
-
-  // Hide thumbnail on first render when forceAutoplay is true (e.g., video detail navigation)
-  // This prevents the flash of the previous video's thumbnail during navigation
-  const hideThumbnailOnFirstRender = isFirstRenderRef.current && forceAutoplay
-  // Also hide thumbnail once video has started playing
-  const hideThumbnail = hideThumbnailOnFirstRender || hasStartedPlaying
+  // Show spinner only when loading, user has interacted, AND no thumbnail available
+  // If we have a thumbnail, it serves as the loading state - no spinner needed
+  const showSpinner = isLoading && (state.context.shouldAutoplay || hasStartedPlaying) && !showThumbnail
 
   return (
     <div className={cn('relative w-full h-full bg-black', className)}>
-      {/* Thumbnail - hide on first render when autoplaying OR when video is playing */}
-      {showThumbnail && !hideThumbnail && (
+      {/* Thumbnail - always show when available, z-10 to appear above video until it has visible frames */}
+      {showThumbnail && (
         <img
           src={state.context.thumbnailUrl}
           alt="Video thumbnail"
@@ -160,15 +148,22 @@ export function VideoPlayer({
         />
       )}
 
-      {/* Video element - always z-20 (above thumbnail) */}
+      {/* Video element - z-20 when playing (above thumbnail), z-0 when paused (below thumbnail) */}
       {showVideo && (
         <video
           ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover z-20"
-          style={{ transform: 'translateZ(0)' }} // Force GPU layer for Chromium
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover",
+            hasStartedPlaying ? "z-20" : "z-0"
+          )}
+          style={{
+            backgroundColor: 'black',
+            objectFit: 'cover',
+            willChange: 'transform',
+          }}
           loop
           playsInline
-          preload="auto" // Eager load for better rendering
+          preload="auto"
           muted={isMuted}
           onClick={(e) => {
             e.stopPropagation()

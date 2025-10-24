@@ -164,35 +164,37 @@ async function main() {
         );
 
         try {
-          // Fast path: Extract Spotify ID directly from TikTok metadata
+          // Extract Spotify ID from TikTok metadata
           const spotifyInfo = video.music.tt2dsp?.tt_to_dsp_song_infos?.find(
             (info) => info.platform === 3
           );
 
           const spotifyTrackId = spotifyInfo?.song_id;
-          const spotifyUrl = spotifyTrackId
-            ? `https://open.spotify.com/track/${spotifyTrackId}`
-            : null;
 
-          // Simple identification: just use TikTok metadata
+          // Use full identification service to get ISRC and MLC data
+          const result = await identificationService.identifyFromTikTok({
+            title: video.music.title,
+            artist: video.music.authorName || 'Unknown',
+            spotifyTrackId: spotifyTrackId,
+            spotifyUrl: spotifyTrackId
+              ? `https://open.spotify.com/track/${spotifyTrackId}`
+              : undefined,
+          });
+
           identifiedCopyrighted.push({
             ...video,
             identification: {
-              title: video.music.title,
-              artist: video.music.authorName || 'Unknown',
-              copyrightType: 'copyrighted' as const,
-              spotifyId: spotifyTrackId,
-              spotifyUrl: spotifyUrl || undefined,
-              storyMintable: true, // Assume true for now
+              ...result,
               identifiedAt: new Date().toISOString(),
             },
           });
 
-          console.log(
-            `   ✓ ${video.music.title} by ${video.music.authorName || 'Unknown'}`
-          );
-          if (spotifyTrackId) {
-            console.log(`   ✓ Spotify ID: ${spotifyTrackId}`);
+          console.log(`   ✓ ${result.title} by ${result.artist}`);
+          if (result.spotifyId) {
+            console.log(`   ✓ Spotify ID: ${result.spotifyId}`);
+          }
+          if (result.mlcData) {
+            console.log(`   ✓ MLC Song Code: ${result.mlcData.mlcSongCode}`);
           }
         } catch (error: any) {
           console.log(`   ✗ Failed: ${error.message}`);

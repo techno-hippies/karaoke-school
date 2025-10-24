@@ -10,6 +10,9 @@ import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
 import { useGroveAccountMetadata } from '@/hooks/useGroveAccountMetadata'
 import { useArtistSongsWithMetadata } from '@/hooks/useArtistSongsV2'
+import { useFollow } from '@/hooks/useFollow'
+import { useFollowers } from '@/hooks/useFollowers'
+import { useFollowing } from '@/hooks/useFollowing'
 import { Spinner } from '@/components/ui/spinner'
 import {
   convertGroveUri,
@@ -25,6 +28,7 @@ export function CreatorPageContainer() {
     account,
     posts,
     isLoadingAccount,
+    isLoadingPosts,
     accountError,
     postsError,
   } = useLensCreator(lenshandle)
@@ -47,6 +51,21 @@ export function CreatorPageContainer() {
     data: enrichedSongs,
     isLoading: isLoadingSongs,
   } = useArtistSongsWithMetadata(geniusArtistId)
+
+  // Fetch follow state and follower counts
+  const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({
+    targetAccountAddress: account?.address || '',
+  })
+
+  const { count: followersCount } = useFollowers({
+    accountAddress: account?.address,
+    enabled: !!account,
+  })
+
+  const { count: followingCount } = useFollowing({
+    accountAddress: account?.address,
+    enabled: !!account,
+  })
 
   // Loading state
   if (isLoadingAccount || isLoadingGroveMetadata || isLoadingSongs) {
@@ -179,11 +198,13 @@ export function CreatorPageContainer() {
     navigate(`/u/${lenshandle}/video/${video.id}`)
   }
 
-  // Handle follow action
-  const handleFollow = () => {
-    // TODO: Implement follow using Lens SDK
-    // Requires authenticated SessionClient
-    console.log('[CreatorPage] Follow clicked for:', account.address)
+  // Handle follow/unfollow action (toggle)
+  const handleFollow = async () => {
+    try {
+      await handleFollowAction()
+    } catch (error) {
+      console.error('[CreatorPage] Follow action failed:', error)
+    }
   }
 
   // Log errors for posts if any
@@ -198,15 +219,16 @@ export function CreatorPageContainer() {
       avatarUrl={avatarUrl}
       isVerified={verified}
       isOwnProfile={false} // TODO: Check if current user matches creator
-      following={0}
-      followers={0}
-      isFollowing={false} // TODO: Query follow status from Lens
-      isFollowLoading={false}
+      following={followingCount}
+      followers={followersCount}
+      isFollowing={isFollowing}
+      isFollowLoading={isFollowLoading}
       videos={videos}
       onVideoClick={handleVideoClick}
+      isLoadingVideos={isLoadingPosts}
       songs={songs}
       onBack={() => navigate(-1)}
-      onFollow={handleFollow}
+      onFollow={canFollow || isFollowing ? handleFollow : undefined}
     />
   )
 }

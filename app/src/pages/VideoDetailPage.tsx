@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useRef, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePost, useAccount } from '@lens-protocol/react'
 import { Spinner } from '@/components/ui/spinner'
 import { VideoDetail } from '@/components/feed/VideoDetail'
@@ -13,23 +13,48 @@ import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { convertGroveUri, parseVideoMetadata } from '@/lib/lens/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAccountPosts } from '@/lib/lens/hooks/useAccountPosts'
+import { useSongVideos } from '@/hooks/useSongVideos'
+import { useFollow } from '@/hooks/useFollow'
+import { useLike } from '@/hooks/useLike'
 
 export function VideoDetailPage() {
   const { lenshandle, postId } = useParams<{ lenshandle: string; postId: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { hasLensAccount } = useAuth()
 
   // Keep track of previous post data to prevent flash
   const prevPostRef = useRef<any>(null)
 
+  // Detect context from query params
+  const fromContext = searchParams.get('from')
+  const songIdParam = searchParams.get('songId')
+  const songId = songIdParam ? parseInt(songIdParam) : undefined
+
   // Fetch the account to get the address
   const { data: account } = useAccount({ username: { localName: lenshandle! } })
 
-  // Fetch all posts from this creator for navigation
+  // Fetch videos based on context
+  // If from song page: fetch song videos, otherwise fetch all creator videos
   const { posts: allPosts } = useAccountPosts(account?.address)
+  const { data: songVideos } = useSongVideos(fromContext === 'song' ? songId : undefined)
+
+  // Use appropriate video list based on context
+  const videoList = fromContext === 'song' && songVideos ? songVideos : allPosts
 
   // Fetch current post from Lens
   const { data: post, loading, error } = usePost({ post: postId! })
+
+  // Fetch follow state
+  const authorAddress = post?.author?.address || prevPostRef.current?.author?.address
+  const { isFollowing, canFollow, follow: handleFollowAction } = useFollow({
+    targetAccountAddress: authorAddress || '',
+  })
+
+  // Fetch like state
+  const { isLiked, canLike, like, unlike } = useLike({
+    postId: postId || '',
+  })
 
   // Store current post as previous when it changes
   useEffect(() => {
@@ -43,40 +68,39 @@ export function VideoDetailPage() {
 
   // Calculate current video index and total
   const { currentVideoIndex, totalVideos } = useMemo(() => {
-    if (!allPosts.length) return { currentVideoIndex: 0, totalVideos: 0 }
+    if (!videoList.length) return { currentVideoIndex: 0, totalVideos: 0 }
 
-    const index = allPosts.findIndex(p => p.id === postId)
+    const index = videoList.findIndex(v => v.id === postId)
     return {
       currentVideoIndex: index >= 0 ? index : 0,
-      totalVideos: allPosts.length,
+      totalVideos: videoList.length,
     }
-  }, [allPosts, postId])
+  }, [videoList, postId])
 
   // Navigation handlers
   const handleNavigatePrevious = () => {
     if (currentVideoIndex > 0) {
-      const prevPost = allPosts[currentVideoIndex - 1]
-      navigate(`/u/${lenshandle}/video/${prevPost.id}`)
+      const prevVideo = videoList[currentVideoIndex - 1]
+      // Preserve query params when navigating
+      const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
+      navigate(`/u/${lenshandle}/video/${prevVideo.id}${queryString}`)
     }
   }
 
   const handleNavigateNext = () => {
-    if (currentVideoIndex < allPosts.length - 1) {
-      const nextPost = allPosts[currentVideoIndex + 1]
-      navigate(`/u/${lenshandle}/video/${nextPost.id}`)
+    if (currentVideoIndex < videoList.length - 1) {
+      const nextVideo = videoList[currentVideoIndex + 1]
+      // Preserve query params when navigating
+      const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
+      navigate(`/u/${lenshandle}/video/${nextVideo.id}${queryString}`)
     }
   }
 
-  // Only show loading on initial load, not on navigation
-  if (loading && !prevPostRef.current) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-black">
-        <Spinner size="lg" className="text-white" />
-      </div>
-    )
-  }
+  // Skip loading spinner - show content immediately with thumbnail
+  // The VideoPlayer will handle loading state with thumbnail
 
-  if (error || !displayPost) {
+  // Only show error if not loading - otherwise wait for data
+  if (!loading && (error || !displayPost)) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-black text-white gap-4 px-4">
         <h1 className="text-xl font-bold">Video not found</h1>
@@ -89,6 +113,11 @@ export function VideoDetailPage() {
         </button>
       </div>
     )
+  }
+
+  // Still loading and no data - show nothing (will render when data arrives)
+  if (loading && !displayPost) {
+    return null
   }
 
   // Parse video metadata
@@ -118,9 +147,9 @@ export function VideoDetailPage() {
   const attributes = videoMetadata.attributes || []
   const metadata = parseVideoMetadata(attributes)
 
-  const songName = metadata.songName || 'Unknown Song'
-  const artistName = metadata.artistName || 'Unknown Artist'
-  const geniusId = metadata.geniusId
+  const songName = metadata.song_name || 'Unknown Song'
+  const artistName = metadata.artist_name || 'Unknown Artist'
+  const geniusId = metadata.genius_id
   const grade = metadata.grade
 
   const videoUrl = videoUri ? convertGroveUri(videoUri) : ''
@@ -135,7 +164,7 @@ export function VideoDetailPage() {
 
   // Get stats
   const stats = displayPost.stats
-  const likes = stats?.reactions || 0
+  const likes = stats?.upvotes || 0
   const comments = stats?.comments || 0
   const shares = stats?.mirrors || 0
 
@@ -164,8 +193,8 @@ export function VideoDetailPage() {
         likes={likes}
         comments={comments}
         shares={shares}
-        isLiked={false} // TODO: Get from Lens reactions
-        isFollowing={false} // TODO: Get from Lens following
+        isLiked={isLiked}
+        isFollowing={isFollowing}
         canInteract={hasLensAccount}
         commentsData={[]} // TODO: Fetch comments from Lens
         // Navigation
@@ -175,9 +204,18 @@ export function VideoDetailPage() {
         onNavigateNext={handleNavigateNext}
         // Handlers
         onClose={() => navigate(`/u/${lenshandle}`)}
-        onLikeClick={() => {
-          console.log('[VideoDetailPage] Like clicked')
-          // TODO: Implement Lens reaction
+        onLikeClick={async () => {
+          if (canLike) {
+            try {
+              if (isLiked) {
+                await unlike()
+              } else {
+                await like()
+              }
+            } catch (error) {
+              console.error('[VideoDetailPage] Like action failed:', error)
+            }
+          }
         }}
         onCommentClick={() => {
           console.log('[VideoDetailPage] Comment clicked')
@@ -186,9 +224,14 @@ export function VideoDetailPage() {
           console.log('[VideoDetailPage] Share clicked')
           // TODO: Implement Lens mirror
         }}
-        onFollowClick={() => {
-          console.log('[VideoDetailPage] Follow clicked')
-          // TODO: Implement Lens follow
+        onFollowClick={async () => {
+          if (canFollow) {
+            try {
+              await handleFollowAction()
+            } catch (error) {
+              console.error('[VideoDetailPage] Follow action failed:', error)
+            }
+          }
         }}
         onProfileClick={() => navigate(`/u/${username}`)}
         onAudioClick={geniusId ? () => navigate(`/song/${geniusId}`) : undefined}

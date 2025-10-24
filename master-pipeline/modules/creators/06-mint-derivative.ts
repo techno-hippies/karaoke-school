@@ -2,8 +2,11 @@
 /**
  * Creator Module 06: Mint Story Protocol Derivative
  *
- * Mints creator video as derivative IP Asset on Story Protocol
- * Implements 18% creator / 82% rights holders revenue split
+ * Mints creator video as derivative IP Asset on Story Protocol.
+ * Implements 18% creator / 82% rights holders revenue split.
+ *
+ * Network: Story Protocol Aeneid Testnet (chainId: 1315)
+ * Explorer: https://aeneid.explorer.story.foundation
  *
  * Handles BOTH copyrighted and copyright-free content:
  * - Copyrighted: Derivative work with 18/82 split
@@ -14,13 +17,15 @@
  */
 
 import { parseArgs } from 'util';
-import { type Address } from 'viem';
+import { type Address, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { StoryClient, StoryConfig, PILFlavor } from '@story-protocol/core-sdk';
 import { requireEnv, paths } from '../../lib/config.js';
 import { readJson, writeJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
-import { StoryProtocolService, type IPAssetMetadata } from '../../services/story-protocol.js';
 import { GroveService } from '../../services/grove.js';
+import { buildSongMetadata, hashMetadata } from '../../services/story-metadata.js';
+import { CreatorVideoManifestSchema } from '../../lib/schemas/creator.js';
 
 interface VideoManifest {
   videoHash: string;
@@ -105,9 +110,17 @@ async function main() {
   logger.header(`Mint Story Protocol Derivative: ${videoHash}`);
 
   try {
-    // Load video manifest
+    // Load and validate video manifest
     const manifestPath = paths.creatorVideoManifest(tiktokHandle, videoHash);
-    const manifest = readJson<VideoManifest>(manifestPath);
+    const manifestData = readJson<VideoManifest>(manifestPath);
+
+    const validationResult = CreatorVideoManifestSchema.safeParse(manifestData);
+    if (!validationResult.success) {
+      throw new Error(
+        `Invalid video manifest: ${validationResult.error.message}`
+      );
+    }
+    const manifest = validationResult.data;
 
     logger.info(`Video: ${manifest.song.title}`);
     logger.info(`Copyright: ${manifest.song.copyrightType}`);
@@ -131,198 +144,142 @@ async function main() {
     const creatorManifestPath = paths.creatorManifest(tiktokHandle);
     const creatorManifest = readJson<CreatorManifest>(creatorManifestPath);
 
-    // Use Lens account address as recipient (matches working implementation)
+    // Use Lens account address as recipient
     const recipientAddress = creatorManifest.identifiers.lensAccountAddress as Address;
 
-    // Initialize services
+    // Initialize Story Protocol client
     const privateKey = requireEnv('PRIVATE_KEY');
     const spgNftContract = (process.env.STORY_SPG_NFT_CONTRACT || process.env.SPG_NFT_CONTRACT) as Address | undefined;
-    const safeWallet = process.env.SAFE_WALLET as Address | undefined;
 
     if (!spgNftContract) {
       throw new Error('STORY_SPG_NFT_CONTRACT or SPG_NFT_CONTRACT environment variable not set');
     }
 
-    // Get wallet address from private key (for metadata creators array)
-    const formattedKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-    const account = privateKeyToAccount(formattedKey as `0x${string}`);
+    const formattedKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as `0x${string}`;
+    const account = privateKeyToAccount(formattedKey);
     const walletAddress = account.address;
 
-    const storyService = new StoryProtocolService({
-      privateKey,
-      spgNftContract,
-      safeWallet,
-    });
+    const config: StoryConfig = {
+      account: account,
+      transport: http(process.env.STORY_RPC_URL || 'https://aeneid.storyrpc.io'),
+      chainId: 1315, // Aeneid testnet
+    };
 
+    const client = StoryClient.newClient(config);
+    const networkName = config.chainId === 1315 ? 'AENEID TESTNET' : 'MAINNET';
+    console.log(`✅ Connected to Story Protocol ${networkName}`);
+    console.log(`   Chain ID: ${config.chainId}`);
+    console.log(`   RPC: ${process.env.STORY_RPC_URL || 'https://aeneid.storyrpc.io'}`);
+    console.log(`   Wallet: ${account.address}\n`);
+
+    const currency = (process.env.STORY_CURRENCY as Address | undefined) || '0x1514000000000000000000000000000000000000';
     const groveService = new GroveService();
 
     // Build metadata
-    console.log('\n📝 Building IP Asset metadata...');
-
-    const isCopyrighted = manifest.song.copyrightType === 'copyrighted';
-    const creatorName = creatorManifest.displayName || manifest.creatorHandle;
-
-    const metadata: IPAssetMetadata = {
-      // === REQUIRED FOR STORY EXPLORER ===
-      title: isCopyrighted
-        ? `${manifest.song.title} - ${manifest.song.artist}`
-        : manifest.song.title,
-      description: manifest.description || `User-generated performance video by ${creatorName} featuring '${manifest.song.title}' by ${manifest.song.artist}. Original composition and recording rights held by respective owners.`,
-      createdAt: manifest.createdAt,
-      image: manifest.grove.thumbnailGateway || manifest.grove.videoGateway, // ✅ Story Protocol needs HTTP URLs
-      imageHash: '', // Will be set by hashUrl
-      creators: isCopyrighted
-        ? [
-            {
-              name: creatorName,
-              address: walletAddress,
-              contributionPercent: 18,
-              role: 'derivative_performer',
-              description: `User-generated performance video creator`,
-              socialMedia: [
-                { platform: 'TikTok', url: manifest.tiktokUrl },
-              ],
-            },
-            {
-              name: manifest.song.artist,
-              address: '0x0000000000000000000000000000000000000000' as Address,
-              contributionPercent: 82,
-              role: 'original_rights_holder',
-              description: 'Original artist(s) and rights holder(s); detailed credits in rights_metadata.mlc_data',
-              ...(manifest.song.spotifyId || manifest.song.geniusId ? {
-                socialMedia: [
-                  ...(manifest.song.spotifyId ? [{ platform: 'Spotify', url: `https://open.spotify.com/track/${manifest.song.spotifyId}` }] : []),
-                  ...(manifest.song.geniusId ? [{ platform: 'Genius', url: `https://genius.com/songs/${manifest.song.geniusId}` }] : []),
-                ]
-              } : {}),
-            },
-          ]
-        : [
-            {
-              name: creatorName,
-              address: walletAddress,
-              contributionPercent: 100,
-              role: 'original_creator',
-              description: 'Original content creator',
-              socialMedia: [
-                { platform: 'TikTok', url: manifest.tiktokUrl },
-              ],
-            },
-          ],
-
-      // === REQUIRED FOR COMMERCIAL INFRINGEMENT CHECK ===
-      mediaUrl: manifest.grove.videoGateway, // ✅ Actual video file (HTTP URL for Story Protocol)
-      mediaHash: '', // Will be set by hashUrl
-      mediaType: 'video/mp4', // MIME type
-
-      // === OPTIONAL STANDARD FIELDS ===
-      ipType: 'Music', // Type of IP Asset
-      tags: ['karaoke', 'cover', 'music', 'lipsync', manifest.song.copyrightType],
-
-      // === CUSTOM EXTENSIONS (allowed by standard) ===
-      original_work: {
-        title: manifest.song.title,
-        primary_artists: [manifest.song.artist],
-        recording_label: 'Unknown',
-        isrc: null,
-        iswc: null,
-        mlc_work_id: null,
-        source_url: manifest.song.spotifyId
-          ? `https://open.spotify.com/track/${manifest.song.spotifyId}`
-          : null,
-        genius_url: manifest.song.geniusId
-          ? `https://genius.com/songs/${manifest.song.geniusId}`
-          : null,
-        genius_id: manifest.song.geniusId || null,
-        ownership_claim_status: 'unverified', // or 'verified' if you have licenses
-      },
-      derivative_details: {
-        video_url: manifest.tiktokUrl,
-        duration_seconds: null, // Could be extracted from video metadata
-        start_offset_seconds: 0,
-        audio_used: 'varies',
-        notes: `User-generated performance video incorporating the song. Specific type (e.g., lip-sync, dance, or vocal cover) and audio elements vary.`,
-      },
-      royalty_allocation_proposal: [
-        { party: 'creator', pct: 18 },
-        { party: 'rights_holders', pct: 82 },
-      ],
-      license_hint: {
-        default: 'social_non_commercial',
-        human_readable: 'Non-commercial social sharing only; underlying composition and recording remain third-party-owned.',
-        terms_url: 'https://karaoke.school/terms/lipsync',
-      },
-      provenance: {
-        created_at: manifest.createdAt,
-        uploader: walletAddress,
-        tiktok_url: manifest.tiktokUrl,
-        tiktok_video_id: manifest.tiktokVideoId,
-        copyright_type: manifest.song.copyrightType,
-      },
-    };
-
-    // Hash image and media URLs
-    console.log('🔐 Hashing media URLs...');
-    metadata.imageHash = await storyService.hashUrl(metadata.image);
-    metadata.mediaHash = await storyService.hashUrl(metadata.mediaUrl);
+    console.log('\n📝 Building IP Asset metadata (hashing media files)...');
+    const metadata = await buildSongMetadata(
+      manifest,
+      tiktokHandle,
+      walletAddress
+    );
 
     console.log(`   ✓ Image hash: ${metadata.imageHash.slice(0, 20)}...`);
     console.log(`   ✓ Media hash: ${metadata.mediaHash.slice(0, 20)}...`);
 
-    // Upload metadata to Grove
+    // Upload metadata to Grove Storage
     console.log('\n☁️  Uploading metadata to Grove...');
     const groveResult = await groveService.uploadJson({
       json: metadata,
       accessControl: 'immutable',
     });
-    const metadataUri = groveResult.gatewayUrl; // Use HTTP gateway URL for Story Protocol
-    console.log(`   ✓ Metadata URI: ${metadataUri}`);
 
-    // Mint IP Asset
+    const metadataUri = groveResult.gatewayUrl; // Use HTTP gateway URL for Story Protocol
+    const metadataHash = hashMetadata(metadata);
+
+    console.log(`   ✓ Metadata URI: ${metadataUri.slice(0, 60)}...`);
+    console.log(`   ✓ Metadata Hash: ${metadataHash.slice(0, 20)}...`);
+
+    // Mint IP Asset on Story Protocol
+    const isCopyrighted = manifest.song.copyrightType === 'copyrighted';
     console.log('\n⛓️  Minting IP Asset on Story Protocol...');
     console.log(`   Type: ${isCopyrighted ? 'Derivative (18/82 split)' : 'Original (100% creator)'}`);
     console.log(`   Recipient: ${recipientAddress} (Lens account)`);
 
-    const mintResult = await storyService.mintIPAsset({
-      metadata,
-      metadataUri,
-      recipient: recipientAddress, // Mint to creator's Lens account (matches working implementation)
-      commercialRevShare: isCopyrighted ? 18 : 0, // 18% for derivatives, 0% for originals
-      mintingFee: 0,
+    const response = await client.ipAsset.registerIpAsset({
+      nft: {
+        type: "mint",
+        spgNftContract: spgNftContract!,
+        recipient: recipientAddress,
+      },
+      ipMetadata: {
+        ipMetadataURI: metadataUri,
+        ipMetadataHash: metadataHash,
+        nftMetadataURI: metadataUri,
+        nftMetadataHash: metadataHash,
+      },
+      licenseTermsData: [
+        {
+          terms: PILFlavor.commercialRemix({
+            defaultMintingFee: 0,
+            commercialRevShare: isCopyrighted ? 18 : 0,
+            currency: currency,
+            override: {
+              uri: 'https://raw.githubusercontent.com/piplabs/pil-document/ad67bb632a310d2557f8abcccd428e4c9c798db1/off-chain-terms/CommercialRemix.json',
+            },
+          }),
+        },
+      ],
+      deadline: BigInt(Date.now() + 1000 * 60 * 5), // 5 min deadline for signature
     });
 
     console.log('\n✅ IP Asset minted!');
-    console.log(`   IP ID: ${mintResult.ipId}`);
-    console.log(`   Transaction: ${mintResult.txHash}`);
-    if (mintResult.royaltyVault) {
-      console.log(`   Royalty Vault: ${mintResult.royaltyVault}`);
+    console.log(`   IP ID: ${response.ipId}`);
+    console.log(`   Transaction: ${response.txHash}`);
+    if ('licenseTermsIds' in response && response.licenseTermsIds && response.licenseTermsIds.length > 0) {
+      console.log(`   License Terms IDs: ${response.licenseTermsIds.join(', ')}`);
     }
-    if (mintResult.licenseTermsIds) {
-      console.log(`   License Terms: ${mintResult.licenseTermsIds.join(', ')}`);
+
+    // Get royalty vault
+    let royaltyVault: string | undefined;
+    try {
+      royaltyVault = await client.royalty.getRoyaltyVaultAddress(response.ipId!);
+      console.log(`   Royalty Vault: ${royaltyVault}`);
+    } catch (error: any) {
+      console.log(`   ⚠️  Could not get royalty vault: ${error.message}`);
     }
 
     // Update manifest
     manifest.storyProtocol = {
-      ipId: mintResult.ipId,
-      txHash: mintResult.txHash,
+      ipId: response.ipId!,
+      txHash: response.txHash!,
       metadataUri: groveResult.uri, // Store lens:// URI
       metadataGatewayUrl: groveResult.gatewayUrl, // Store HTTP gateway URL
-      licenseTermsIds: mintResult.licenseTermsIds,
-      royaltyVault: mintResult.royaltyVault,
+      licenseTermsIds: ('licenseTermsIds' in response && response.licenseTermsIds)
+        ? response.licenseTermsIds.map(id => id.toString())
+        : undefined,
+      royaltyVault,
       mintedAt: new Date().toISOString(),
     };
 
     writeJson(manifestPath, manifest);
     logger.success(`Manifest updated: ${manifestPath}`);
 
+    // Determine explorer URL based on network
+    const explorerUrl = config.chainId === 1315
+      ? `https://aeneid.explorer.story.foundation/ipa/${response.ipId}`
+      : `https://explorer.story.foundation/ipa/${response.ipId}`;
+
     console.log('\n📊 Summary:');
     console.log(`   Video Hash: ${videoHash}`);
-    console.log(`   Creator: ${creatorName}`);
+    console.log(`   Creator: ${tiktokHandle}`);
     console.log(`   Song: ${manifest.song.title} by ${manifest.song.artist}`);
-    console.log(`   Copyright: ${manifest.song.copyrightType}`);
+    console.log(`   Copyright Type: ${manifest.song.copyrightType}`);
     console.log(`   Revenue Split: ${isCopyrighted ? '18% creator / 82% rights holders' : '100% creator'}`);
-    console.log(`   IP Asset ID: ${mintResult.ipId}`);
-    console.log(`   Story Explorer: https://explorer.story.foundation/ipa/${mintResult.ipId}`);
+    console.log(`   Story Mintable: ${manifest.storyMintable}`);
+    console.log(`   IP Asset ID: ${response.ipId}`);
+    console.log(`   Network: ${networkName} (chainId: ${config.chainId})`);
+    console.log(`\n🔗 View on Story Explorer (${networkName}):`);
+    console.log(`   ${explorerUrl}`);
 
     console.log('\n✅ Next step:');
     console.log(`   bun run creators/07-post-lens.ts --tiktok-handle @${tiktokHandle} --video-hash ${videoHash}\n`);

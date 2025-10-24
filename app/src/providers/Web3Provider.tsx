@@ -8,10 +8,6 @@ import type { ReactNode } from 'react'
 const queryClient = new QueryClient()
 
 export function Web3Provider({ children }: { children: ReactNode }) {
-  console.log('[Web3Provider] Rendering with lensClient:', lensClient)
-  console.log('[Web3Provider] LensProvider:', LensProvider)
-  console.log('[Web3Provider] queryClient:', queryClient)
-
   return (
     <WagmiProvider config={config}>
       <LensProvider client={lensClient}>

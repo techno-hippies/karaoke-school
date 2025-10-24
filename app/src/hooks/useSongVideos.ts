@@ -34,7 +34,7 @@ export function useSongVideos(geniusId?: number) {
         filter: {
           metadata: {
             tags: {
-              oneOf: [`genius_id:${geniusId}`],
+              oneOf: [`genius-${geniusId}`],
             },
           },
         },
@@ -45,21 +45,40 @@ export function useSongVideos(geniusId?: number) {
       }
 
       // Transform to VideoPost format
-      const videos: VideoPost[] = result.value.items.map((post: any) => ({
-        id: post.id,
-        thumbnailUrl: post.metadata?.cover?.optimized?.uri || post.metadata?.image?.optimized?.uri || 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video',
-        username: post.author?.username?.value || post.author?.address.slice(0, 8),
-        author: {
-          address: post.author.address,
-          username: post.author?.username?.value,
-          name: post.author?.metadata?.name,
-          picture: post.author?.metadata?.picture,
-        },
-        metadata: {
-          content: post.metadata?.content,
-          attributes: post.metadata?.attributes || [],
-        },
-      }))
+      const videos: VideoPost[] = result.value.items.map((post: any) => {
+        // Extract thumbnail from video.cover field
+        let thumbnailUrl = 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video'
+
+        if (post.metadata?.__typename === 'VideoMetadata' && post.metadata.video?.cover) {
+          thumbnailUrl = post.metadata.video.cover
+        } else if (post.metadata?.cover?.optimized?.uri) {
+          thumbnailUrl = post.metadata.cover.optimized.uri
+        } else if (post.metadata?.image?.optimized?.uri) {
+          thumbnailUrl = post.metadata.image.optimized.uri
+        }
+
+        // Extract username without namespace prefix (lens/username -> username)
+        const fullUsername = post.author?.username?.value || ''
+        const username = fullUsername.includes('/')
+          ? fullUsername.split('/')[1]
+          : fullUsername || post.author?.address.slice(0, 8)
+
+        return {
+          id: post.id,
+          thumbnailUrl,
+          username,
+          author: {
+            address: post.author.address,
+            username: fullUsername,
+            name: post.author?.metadata?.name,
+            picture: post.author?.metadata?.picture,
+          },
+          metadata: {
+            content: post.metadata?.content,
+            attributes: post.metadata?.attributes || [],
+          },
+        }
+      })
 
       return videos
     },

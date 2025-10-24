@@ -23,6 +23,7 @@ import { logger } from '../../lib/logger.js';
 import { GroveService } from '../../services/grove.js';
 import { VoxtralService } from '../../services/voxtral.js';
 import { TranslationService } from '../../services/translation.js';
+import { CreatorVideoManifestSchema } from '../../lib/schemas/creator.js';
 
 interface IdentifiedVideo {
   id: string;
@@ -43,6 +44,7 @@ interface IdentifiedVideo {
     spotifyId?: string;
     isrc?: string;
     geniusId?: number;
+    mlcData?: any;
     storyMintable: boolean;
   };
 }
@@ -64,8 +66,10 @@ interface VideoManifest {
     artist: string;
     copyrightType: 'copyrighted' | 'copyright-free';
     spotifyId?: string;
+    isrc?: string;
     geniusId?: number;
   };
+  mlc?: any;
   match?: {
     startTime: number;
     endTime: number;
@@ -184,7 +188,36 @@ async function main() {
     await $`yt-dlp --no-warnings --quiet -o ${videoPath} ${videoUrl}`;
     console.log(`   ✓ Downloaded: ${videoPath}`);
 
-    // Step 1.5: Download TikTok thumbnail (creator-chosen cover image)
+    // Step 1.5: Convert video to H.264 for Chrome compatibility
+    console.log('\n🔄 Converting video to H.264 (Chrome compatibility)...');
+    const tempVideoPath = `${videoDir}/video_h264.mp4`;
+
+    try {
+      // Check current codec
+      const codecCheck = await $`ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 ${videoPath}`.text();
+      const currentCodec = codecCheck.trim();
+      console.log(`   Current codec: ${currentCodec}`);
+
+      if (currentCodec !== 'h264') {
+        console.log(`   Converting ${currentCodec} → H.264...`);
+        // Convert to H.264 with settings optimized for web playback
+        await $`ffmpeg -i ${videoPath} -c:v libx264 -crf 23 -preset medium -profile:v high -c:a aac -b:a 128k -movflags +faststart -y ${tempVideoPath}`;
+
+        // Replace original with converted version
+        await $`mv ${tempVideoPath} ${videoPath}`;
+        console.log(`   ✓ Converted to H.264`);
+      } else {
+        console.log(`   ✓ Already H.264, no conversion needed`);
+      }
+    } catch (error) {
+      console.log(`   ⚠️ Codec detection failed, encoding anyway to be safe`);
+      // If codec check fails, convert anyway to ensure H.264
+      await $`ffmpeg -i ${videoPath} -c:v libx264 -crf 23 -preset medium -profile:v high -c:a aac -b:a 128k -movflags +faststart -y ${tempVideoPath}`;
+      await $`mv ${tempVideoPath} ${videoPath}`;
+      console.log(`   ✓ Converted to H.264`);
+    }
+
+    // Step 1.6: Download TikTok thumbnail (creator-chosen cover image)
     const thumbnailPath = `${videoDir}/thumbnail.jpg`;
     console.log('\n🖼️  Downloading TikTok thumbnail...');
     await $`curl -s -o ${thumbnailPath} "${video.video.cover}"`;
@@ -266,8 +299,10 @@ async function main() {
         artist: video.identification.artist,
         copyrightType: video.identification.copyrightType,
         spotifyId: video.identification.spotifyId,
+        isrc: video.identification.isrc,
         geniusId: video.identification.geniusId,
       },
+      mlc: video.identification.mlcData,
       files: {
         video: videoPath,
         audio: audioPath,
@@ -281,6 +316,14 @@ async function main() {
       storyMintable: video.identification.storyMintable,
       createdAt: new Date().toISOString(),
     };
+
+    // Validate manifest against schema
+    const validationResult = CreatorVideoManifestSchema.safeParse(manifest);
+    if (!validationResult.success) {
+      throw new Error(
+        `Invalid video manifest: ${validationResult.error.message}`
+      );
+    }
 
     const manifestPath = paths.creatorVideoManifest(tiktokHandle, videoHash);
     writeJson(manifestPath, manifest);

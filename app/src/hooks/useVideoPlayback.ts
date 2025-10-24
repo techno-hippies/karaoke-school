@@ -88,7 +88,6 @@ export function useVideoPlayback({
   }, [isPlaying, isMuted, setUserInteracted])
 
   const handlePlayFailed = useCallback(() => {
-    console.log('[useVideoPlayback] Autoplay failed, showing play button')
     setIsPlaying(false)
   }, [])
 

@@ -88,9 +88,6 @@ export function useAccountPosts(accountAddress: string | undefined): UseAccountP
         setHasMore(!!postsData.pageInfo?.next)
         setCursor(postsData.pageInfo?.next)
 
-        console.log('[useAccountPosts] Posts data:', postsData)
-        console.log('[useAccountPosts] TODO: Verify post structure and extract video metadata')
-
       } catch (err) {
         if (cancelled) return
         console.error('[useAccountPosts] Error:', err)

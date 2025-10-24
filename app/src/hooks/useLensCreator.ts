@@ -16,30 +16,15 @@ import type { Account, Post, EvmAddress } from '@lens-protocol/react'
  * Pass a namespace address to query custom namespaces.
  */
 export function useLensAccount(username: string | undefined, namespace?: string) {
-  console.log('[useLensAccount] Called with username:', username, 'namespace:', namespace || 'global lens/*')
-
   // Build username object - omit namespace field for global lens/* namespace
   const usernameParam = username ? {
     localName: username,
     ...(namespace ? { namespace } : {}), // Only include namespace if provided
   } : undefined
 
-  const result = useAccount({
+  return useAccount({
     username: usernameParam,
   })
-  console.log('[useLensAccount] Result:', {
-    data: result.data,
-    loading: result.loading,
-    error: result.error
-  })
-  if (result.data) {
-    console.log('[useLensAccount] Account details:', {
-      address: result.data.address,
-      username: result.data.username,
-      metadata: result.data.metadata,
-    })
-  }
-  return result
 }
 
 /**
@@ -49,17 +34,12 @@ export function useLensAccount(username: string | undefined, namespace?: string)
  * @returns Posts data with loading/error states
  */
 export function useLensCreatorPosts(accountAddress: string | undefined) {
-  console.log('[useLensCreatorPosts] Called with accountAddress:', accountAddress)
-
   // usePosts expects an object with filter. Pass undefined filter if no address yet.
-  const result = usePosts({
+  return usePosts({
     filter: accountAddress ? {
       authors: [evmAddress(accountAddress as EvmAddress)],
     } : undefined,
   })
-
-  console.log('[useLensCreatorPosts] Result:', { data: result.data, loading: result.loading, error: result.error })
-  return result
 }
 
 /**

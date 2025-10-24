@@ -35,6 +35,7 @@ export interface ArtistPageProps {
   // Videos tab
   videos?: VideoPost[]
   onVideoClick?: (video: VideoPost) => void
+  isLoadingVideos?: boolean
 
   // Songs tab
   songs?: ArtistSong[]
@@ -63,6 +64,7 @@ export function ArtistPage({
   isFollowLoading = false,
   videos = [],
   onVideoClick,
+  isLoadingVideos = false,
   songs = [],
   onBack,
   onFollow,
@@ -148,6 +150,7 @@ export function ArtistPage({
                 <VideoGrid
                   videos={videos}
                   onVideoClick={onVideoClick}
+                  isLoading={isLoadingVideos}
                   showUsernames={false}
                 />
               </TabsContent>

@@ -205,6 +205,7 @@ async function main() {
         manifest.song.copyrightType,
         ...(manifest.song.copyrightType === 'copyrighted' ? ['cover', 'licensed'] : ['original']),
         ...(manifest.storyProtocol ? ['story-protocol'] : []),
+        ...(manifest.song.geniusId ? [`genius-${manifest.song.geniusId}`] : []),
       ],
       attributes: [
         {

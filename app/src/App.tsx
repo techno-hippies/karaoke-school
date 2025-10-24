@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { LensProvider } from '@lens-protocol/react'
+import { HomePage } from '@/pages/HomePage'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { CreatorPageContainer } from '@/pages/CreatorPageContainer'
@@ -9,8 +12,21 @@ import { MediaPageContainer } from '@/pages/MediaPageContainer'
 import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthDialog } from '@/components/layout/AuthDialog'
+import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { validateUsernameFormat } from '@/lib/lens/account-creation'
+import { lensClient } from '@/lib/lens/client'
+
+// React Query client for data fetching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 /**
  * AppRouter - Main routing with layout and navigation state
@@ -138,7 +154,7 @@ function AppRouter() {
         hideMobileFooter={!!hideMobileFooter}
       >
         <Routes>
-          <Route path="/" element={<div>Feed</div>} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
@@ -168,6 +184,8 @@ function AppRouter() {
         onUsernameBack={handleUsernameBack}
         onUsernameChange={checkUsernameAvailabilityDebounced}
       />
+
+      <Toaster />
     </>
   )
 }
@@ -188,11 +206,17 @@ function AppRouter() {
  */
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRouter />
-      </AuthProvider>
-    </BrowserRouter>
+    <LensProvider client={lensClient}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <VideoPlaybackProvider>
+              <AppRouter />
+            </VideoPlaybackProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </LensProvider>
   )
 }
 

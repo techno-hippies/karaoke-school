@@ -49,12 +49,8 @@ export function SongPageContainer() {
   // Extract metadata from enriched song
   const metadata = songData.metadata
 
-  // Transform Lens videos to VideoGrid format
-  const videos: VideoPost[] = (videosData || []).map((video: LensVideoPost) => ({
-    id: video.id,
-    thumbnailUrl: video.thumbnailUrl || 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video',
-    username: video.author.username || video.author.address.slice(0, 8),
-  }))
+  // Transform Lens videos to VideoGrid format (already transformed in hook)
+  const videos: VideoPost[] = videosData || []
 
   // Mock leaderboard (TODO: fetch from LeaderboardV1 when deployed)
   const leaderboard: LeaderboardEntry[] = []
@@ -91,8 +87,9 @@ export function SongPageContainer() {
       }}
       videos={videos}
       onVideoClick={(video) => {
-        // TODO: Navigate to video detail page
-        console.log('Video clicked:', video)
+        console.log('[SongPage] Video clicked:', video)
+        console.log('[SongPage] Navigating to:', `/u/${video.username}/video/${video.id}?from=song&songId=${geniusId}`)
+        navigate(`/u/${video.username}/video/${video.id}?from=song&songId=${geniusId}`)
       }}
       leaderboardEntries={leaderboard}
       currentUser={undefined} // TODO: Fetch current user rank
