@@ -50,7 +50,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
       setIsCheckingLikes(true)
       try {
         const posts = postsData.items.filter(
-          (post): post is Post => post.metadata?.__typename === 'VideoMetadata'
+          (post): post is Post => 'metadata' in post && post.metadata?.__typename === 'VideoMetadata'
         )
         const likedMap = await batchCheckLikedPosts(lensSession, posts, lensAccount.address)
         setLikedPostsMap(likedMap)
@@ -65,11 +65,16 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
   }, [lensSession, lensAccount?.address, postsData?.items, isAuthenticated])
 
   // Transform Lens posts to VideoPostData using shared utility
+  console.log('[ForYouFeed] Posts data:', postsData)
+  console.log('[ForYouFeed] Number of posts:', postsData?.items?.length)
+
   const videoPosts = transformLensPostsToVideoData(
-    postsData?.items ?? [],
+    (postsData?.items ?? []).filter((post): post is Post => 'metadata' in post),
     likedPostsMap,
     isAuthenticated
   )
+
+  console.log('[ForYouFeed] Transformed video posts:', videoPosts)
 
   return <>{children(videoPosts, loading || isCheckingLikes)}</>
 }

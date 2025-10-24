@@ -30,12 +30,20 @@ interface VideoManifest {
   tiktokUrl: string;
   description: string;
   descriptionTranslations?: Record<string, string>;
+  transcription?: {
+    languages: {
+      en: any;
+      vi?: any;
+      zh?: any;
+    };
+  };
   song: {
     title: string;
     artist: string;
     copyrightType: 'copyrighted' | 'copyright-free';
     spotifyId?: string;
     geniusId?: number;
+    coverUri?: string; // Album art URI from song metadata
   };
   match?: {
     startTime: number;
@@ -238,6 +246,15 @@ async function main() {
           key: 'artist_name',
           value: manifest.song.artist,
         },
+        ...(manifest.song.coverUri
+          ? [
+              {
+                type: 'String' as const,
+                key: 'album_art',
+                value: manifest.song.coverUri,
+              },
+            ]
+          : []),
         ...(manifest.song.spotifyId
           ? [
               {
@@ -294,6 +311,15 @@ async function main() {
                 type: 'String' as const,
                 key: 'instrumental_uri',
                 value: manifest.grove.instrumental,
+              },
+            ]
+          : []),
+        ...(manifest.transcription
+          ? [
+              {
+                type: 'JSON' as const,
+                key: 'transcriptions',
+                value: JSON.stringify(manifest.transcription),
               },
             ]
           : []),

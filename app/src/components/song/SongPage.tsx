@@ -36,6 +36,7 @@ export interface SongPageProps {
   // Videos - can provide manually or via geniusId query
   geniusId?: number // Query all videos for this song across creators
   videos?: VideoPost[] // Manual override (for Storybook)
+  isLoadingVideos?: boolean
   onVideoClick?: (video: VideoPost) => void
   // Leaderboard tab
   leaderboardEntries: LeaderboardEntry[]
@@ -60,6 +61,7 @@ export function SongPage({
   onKaraoke,
   geniusId,
   videos: manualVideos,
+  isLoadingVideos: manualIsLoadingVideos,
   onVideoClick,
   leaderboardEntries,
   currentUser,
@@ -68,10 +70,14 @@ export function SongPage({
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Query videos by genius_id (queries Lens for all creator videos of this song)
-  const { data: queriedVideos, isLoading: videosLoading } = useSongVideos(geniusId)
+  // Only used when videos are not provided manually (Storybook mode)
+  const { data: queriedVideos, isLoading: queriedIsLoadingVideos } = useSongVideos(
+    manualVideos ? undefined : geniusId
+  )
 
-  // Use manual videos if provided (for Storybook), otherwise use queried videos
+  // Use manual videos/loading if provided (for container), otherwise use queried
   const videos = manualVideos ?? queriedVideos ?? []
+  const videosLoading = manualIsLoadingVideos ?? queriedIsLoadingVideos
 
   return (
     <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
@@ -147,16 +153,11 @@ export function SongPage({
               </TabsList>
 
               <TabsContent value="videos" className="mt-4 -mx-4 md:-mx-6">
-                {videosLoading ? (
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    Loading videos...
-                  </div>
-                ) : (
-                  <VideoGrid
-                    videos={videos}
-                    onVideoClick={onVideoClick}
-                  />
-                )}
+                <VideoGrid
+                  videos={videos}
+                  isLoading={videosLoading}
+                  onVideoClick={onVideoClick}
+                />
               </TabsContent>
 
               <TabsContent value="students" className="mt-4">

@@ -162,12 +162,24 @@ export const SegmentManifestSchema = z.object({
 
   processing: z.object({
     demucs: z.boolean(),
-    falEnhancement: z.boolean(),
+    falEnhancement: z.boolean().describe('REQUIRED: Must be true for copyright compliance'),
   }),
 
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime().optional(),
-});
+}).refine(
+  (data) => {
+    // COPYRIGHT COMPLIANCE: If Grove URIs exist, fal.ai enhancement MUST have been applied
+    if (data.grove?.instrumentalUri) {
+      return data.processing.falEnhancement === true;
+    }
+    return true;
+  },
+  {
+    message: "COPYRIGHT VIOLATION: Cannot upload instrumental to Grove without fal.ai audio-to-audio transformation. Set processing.falEnhancement to true.",
+    path: ['processing', 'falEnhancement'],
+  }
+);
 
 export type SegmentManifest = z.infer<typeof SegmentManifestSchema>;
 
@@ -197,4 +209,27 @@ export function hasLanguage(
  */
 export function getAvailableLanguages(alignment: SegmentAlignmentMetadata): string[] {
   return Object.keys(alignment.lyrics.languages);
+}
+
+/**
+ * COPYRIGHT COMPLIANCE: Verify segment is safe to upload
+ *
+ * This function ensures fal.ai audio-to-audio transformation has been applied
+ * before uploading instrumental audio to Grove or registering on-chain.
+ *
+ * @throws Error if segment contains copyrighted audio
+ */
+export function assertCopyrightCompliance(manifest: SegmentManifest): void {
+  if (!manifest.processing.falEnhancement) {
+    throw new Error(
+      'COPYRIGHT VIOLATION: Cannot upload segment without fal.ai audio-to-audio transformation. ' +
+      'The instrumental track contains copyrighted audio and must be transformed first.'
+    );
+  }
+
+  if (!manifest.processing.demucs) {
+    throw new Error(
+      'PROCESSING ERROR: Demucs vocal separation must be completed before upload.'
+    );
+  }
 }

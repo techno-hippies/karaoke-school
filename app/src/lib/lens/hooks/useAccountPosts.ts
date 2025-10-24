@@ -6,27 +6,12 @@
  */
 
 import { useState, useEffect } from 'react'
-import type { EvmAddress } from '@lens-protocol/client'
+import type { EvmAddress, Post as LensPost } from '@lens-protocol/client'
 import { fetchPosts } from '@lens-protocol/client/actions'
 import { evmAddress } from '@lens-protocol/client'
 import { lensClient } from '../client'
 
-export interface LensPost {
-  id: string
-  metadata?: {
-    asset?: {
-      video?: {
-        cover?: string
-        duration?: number
-      }
-    }
-  }
-  stats?: {
-    reactions: number
-    comments: number
-    reposts: number
-  }
-}
+export type { LensPost }
 
 export interface UseAccountPostsResult {
   posts: LensPost[]
@@ -84,9 +69,10 @@ export function useAccountPosts(accountAddress: string | undefined): UseAccountP
 
         // TODO: Map posts to our format and extract pagination
         // Lens SDK should return { items: Post[], pageInfo: { next: string } }
-        setPosts(postsData.items || [])
+        const items = Array.from(postsData.items || []).filter((post: any) => post.__typename === 'Post')
+        setPosts(items as any)
         setHasMore(!!postsData.pageInfo?.next)
-        setCursor(postsData.pageInfo?.next)
+        setCursor(postsData.pageInfo?.next ?? undefined)
 
       } catch (err) {
         if (cancelled) return
@@ -125,9 +111,10 @@ export function useAccountPosts(accountAddress: string | undefined): UseAccountP
 
       const postsData = result.value
 
-      setPosts(prev => [...prev, ...(postsData.items || [])])
+      const items = Array.from(postsData.items || []).filter((post: any) => post.__typename === 'Post')
+      setPosts(prev => [...prev, ...items] as any)
       setHasMore(!!postsData.pageInfo?.next)
-      setCursor(postsData.pageInfo?.next)
+      setCursor(postsData.pageInfo?.next ?? undefined)
 
     } catch (err) {
       console.error('[useAccountPosts] Load more error:', err)

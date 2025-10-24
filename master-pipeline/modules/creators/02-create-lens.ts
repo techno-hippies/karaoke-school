@@ -135,21 +135,8 @@ async function main() {
     console.log('✅ Authenticated with Lens');
     const sessionClient = authenticated.value;
 
-    // Download and upload avatar to Grove
-    console.log('\n🖼️  Downloading avatar...');
-    const avatarResponse = await fetch(avatarUrl);
-    if (!avatarResponse.ok) {
-      throw new Error(`Failed to download avatar: ${avatarResponse.statusText}`);
-    }
-    const avatarBuffer = await avatarResponse.arrayBuffer();
-
-    console.log('☁️  Uploading avatar to Grove...');
-    const avatarUploadResult = await storage.uploadAsFile(new Uint8Array(avatarBuffer), {
-      name: `${lensHandle}-avatar.jpg`,
-      mimeType: 'image/jpeg',
-      acl: immutable(chains.testnet.id),
-    });
-    console.log(`✅ Avatar uploaded: ${avatarUploadResult.uri}`);
+    // We can use the TikTok avatar URL directly without uploading to Grove
+    console.log('\n🖼️  Using avatar URL:', avatarUrl);
 
     // Create metadata
     console.log('\n📝 Creating account metadata...');
@@ -166,7 +153,7 @@ async function main() {
     const metadata = accountMetadata({
       name: displayName,
       bio: bio,
-      picture: avatarUploadResult.uri,
+      picture: avatarUrl,
       attributes,
     });
 

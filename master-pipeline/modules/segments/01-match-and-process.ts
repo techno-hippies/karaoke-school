@@ -8,16 +8,23 @@
  * 3. Match segment to full song timestamps
  * 4. Crop matched segment
  * 5. Demucs vocal separation
- * 6. Optional fal.ai enhancement
+ * 6. fal.ai audio-to-audio transformation (REQUIRED for copyright compliance)
  * 7. Upload to Grove storage
  * 8. Save segment metadata
+ *
+ * COPYRIGHT NOTICE:
+ * The fal.ai audio-to-audio step is REQUIRED to transform copyrighted instrumental
+ * audio into a derivative work. Uploading untransformed copyrighted audio to Grove
+ * is a copyright violation and will cause the pipeline to fail.
  *
  * Usage:
  *   bun segments/01-match-and-process.ts \
  *     --genius-id 4712978 \
- *     --tiktok-url "https://www.tiktok.com/music/Cruel-Summer-7211414788142794754" \
- *     [--skip-demucs] \
- *     [--skip-fal]
+ *     --tiktok-url "https://www.tiktok.com/music/Cruel-Summer-7211414788142794754"
+ *
+ * Flags (use with caution):
+ *   [--skip-demucs]  Skip vocal separation (for testing only, blocks Grove upload)
+ *   [--skip-fal]     Skip fal.ai (BLOCKS GROVE UPLOAD - copyright violation)
  *
  * Next Steps:
  *   Run 02-register-segment.ts to register on blockchain
@@ -42,7 +49,7 @@ import {
   isValidTikTokMusicUrl,
 } from '../../services/tiktok.js';
 import { buildSegmentMetadataV2, addBackendTranslations } from './build-segment-metadata-v2.js';
-import { validateSegmentManifest } from '../../lib/schemas/segment-v2.js';
+import { validateSegmentManifest, assertCopyrightCompliance } from '../../lib/schemas/segment-v2.js';
 import { buildSegmentLyrics, buildTranslatedLyrics } from '../../lib/segment-lyrics-helpers.js';
 import { TranslationService } from '../../services/translation.js';
 import { uploadMutableAlignment } from '../../lib/grove-acl-config.js';
@@ -393,6 +400,15 @@ async function main() {
       console.log('\nStep 7.1: Skipping translations (--skip-translations)');
     }
 
+    // COPYRIGHT COMPLIANCE CHECK: Ensure fal.ai transformation was applied
+    if (!skipDemucs && skipFal) {
+      throw new Error(
+        '\n❌ COPYRIGHT VIOLATION: Cannot upload segment without fal.ai audio-to-audio transformation.\n' +
+        '   The instrumental track contains copyrighted audio and must be transformed first.\n' +
+        '   Remove --skip-fal flag to enable fal.ai enhancement.\n'
+      );
+    }
+
     // Step 8: Upload to Grove
     console.log('\nStep 8: Uploading to Grove...');
     const grove = new GroveService({ chainId: 37111 }); // Lens testnet
@@ -469,6 +485,9 @@ async function main() {
     const manifestPath = join(segmentDir, 'manifest.json');
     // Validate manifest before saving
     const validatedManifest = validateSegmentManifest(manifest);
+
+    // COPYRIGHT COMPLIANCE: Double-check before saving
+    assertCopyrightCompliance(validatedManifest);
 
     writeFileSync(manifestPath, JSON.stringify(validatedManifest, null, 2));
     console.log(`   Saved: ${manifestPath}`);

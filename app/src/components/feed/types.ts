@@ -52,7 +52,15 @@ export interface VideoPlayerProps {
   onTimeUpdate?: (currentTime: number) => void // Called on video timeupdate for karaoke sync
   forceShowThumbnail?: boolean // Keep thumbnail visible even when playing (for locked videos)
   forceAutoplay?: boolean // Hide thumbnail on first render for video navigation (prevents flash)
+  captionTracks?: CaptionTrack[] // WebVTT caption tracks
   className?: string
+}
+
+export interface CaptionTrack {
+  src: string // WebVTT file URL or data URL
+  srclang: string // Language code (e.g., 'en', 'zh', 'vi')
+  label: string // Display name (e.g., 'English', '中文', 'Tiếng Việt')
+  default?: boolean // Whether this track is default
 }
 
 export interface KaraokeOverlayProps {

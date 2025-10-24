@@ -66,7 +66,6 @@ export function VideoDetail({
     isPlaying,
     isMuted,
     currentTime,
-    setIsMuted,
     handleTogglePlay,
     handlePlayFailed,
     handleTimeUpdate: onTimeUpdate,

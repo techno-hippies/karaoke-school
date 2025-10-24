@@ -45,6 +45,34 @@ export interface SegmentMetadata {
 }
 
 /**
+ * Transform Grove segment format to frontend format
+ * Converts lyrics.languages.{en,vi,zh} to lyrics.original + lyrics.translations
+ */
+function transformSegmentMetadata(groveData: any): SegmentMetadata {
+  // Extract languages from Grove format
+  const languages = groveData.lyrics?.languages || {}
+  const languageKeys = Object.keys(languages)
+
+  // First language is original (typically 'en')
+  const originalLang = languageKeys[0] || 'en'
+  const original = languages[originalLang]
+
+  // Remaining languages are translations
+  const translations: any = {}
+  languageKeys.slice(1).forEach((lang) => {
+    translations[lang] = languages[lang]
+  })
+
+  return {
+    ...groveData,
+    lyrics: {
+      original: original || { language: originalLang, lines: [] },
+      translations: Object.keys(translations).length > 0 ? translations : undefined,
+    },
+  }
+}
+
+/**
  * Fetch segment metadata from Grove storage
  *
  * @param metadataUri - Grove URI (lens://...)
@@ -65,8 +93,9 @@ export function useSegmentMetadata(metadataUri?: string) {
         throw new Error(`Failed to fetch segment metadata: ${response.status}`)
       }
 
-      const data = await response.json() as SegmentMetadata
-      return data
+      const groveData = await response.json()
+      const transformed = transformSegmentMetadata(groveData)
+      return transformed
     },
     enabled: !!metadataUri,
     staleTime: 300000, // 5 minutes (segment metadata is immutable)

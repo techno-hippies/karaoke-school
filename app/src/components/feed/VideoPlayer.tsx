@@ -18,7 +18,7 @@ export function VideoPlayer({
   onTogglePlay,
   onPlayFailed,
   onTimeUpdate,
-  forceAutoplay = false,
+  captionTracks,
   className
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -169,7 +169,19 @@ export function VideoPlayer({
             e.stopPropagation()
             handlePlayPause()
           }}
-        />
+        >
+          {/* Native caption tracks */}
+          {captionTracks?.map((track) => (
+            <track
+              key={track.srclang}
+              kind="captions"
+              src={track.src}
+              srcLang={track.srclang}
+              label={track.label}
+              default={track.default}
+            />
+          ))}
+        </video>
       )}
 
       {/* Fallback for no media */}

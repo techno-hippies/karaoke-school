@@ -7,7 +7,6 @@
 import { useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePost, useAccount } from '@lens-protocol/react'
-import { Spinner } from '@/components/ui/spinner'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { convertGroveUri, parseVideoMetadata } from '@/lib/lens/utils'
@@ -141,11 +140,48 @@ export function VideoDetailPage() {
   const videoUri = videoMetadata.video?.item
   const coverUri = videoMetadata.video?.cover
   const title = videoMetadata.title || 'Untitled'
-  const content = videoMetadata.content || ''
+  const rawContent = videoMetadata.content || ''
 
-  // Parse custom attributes
+  // Parse custom attributes first (need for translations)
   const attributes = videoMetadata.attributes || []
   const metadata = parseVideoMetadata(attributes)
+
+  // Get browser language for translations
+  const browserLang = navigator.language.toLowerCase()
+  const langMap: Record<string, string> = {
+    'en': 'en',
+    'en-us': 'en',
+    'zh-cn': 'zh',
+    'zh': 'zh',
+    'vi': 'vi',
+    'vi-vn': 'vi'
+  }
+  const userLang = langMap[browserLang] || 'zh' // Default to Mandarin
+
+  // Get translated description if available
+  let translatedContent = rawContent
+  if (metadata.description_translations) {
+    try {
+      const translations = JSON.parse(metadata.description_translations)
+      translatedContent = translations[userLang] || rawContent
+    } catch (err) {
+      console.warn('[VideoDetailPage] Failed to parse description translations:', err)
+    }
+  }
+
+  // Clean up content: Remove copyright lines and duplicate song info
+  const content = translatedContent
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim()
+      // Remove copyright lines
+      if (trimmed.startsWith('📄 Copyright:')) return false
+      // Remove duplicate song title lines (already shown in music section)
+      if (trimmed.startsWith('🎵')) return false
+      return true
+    })
+    .join('\n')
+    .trim()
 
   const songName = metadata.song_name || 'Unknown Song'
   const artistName = metadata.artist_name || 'Unknown Artist'
@@ -155,12 +191,90 @@ export function VideoDetailPage() {
   const videoUrl = videoUri ? convertGroveUri(videoUri) : ''
   const thumbnailUrl = coverUri ? convertGroveUri(coverUri) : ''
 
+  // Extract karaoke lines from transcriptions attribute
+  let karaokeLines
+  const transcriptionsJson = metadata.transcriptions
+
+  if (transcriptionsJson) {
+    try {
+      const transcriptionsData = JSON.parse(transcriptionsJson)
+      const englishData = transcriptionsData.languages?.en
+
+      if (englishData?.segments) {
+        // Get browser language for translation
+        // Default to Mandarin (zh) for any unsupported language (not English)
+        const browserLang = navigator.language.toLowerCase()
+        const langMap: Record<string, string> = {
+          'en': 'en',
+          'en-us': 'en',
+          'zh-cn': 'zh',
+          'zh': 'zh',
+          'vi': 'vi',
+          'vi-vn': 'vi'
+        }
+        const translationLang = langMap[browserLang] || 'zh' // ✨ Default to Mandarin
+
+        const translationData = translationLang !== 'en'
+          ? transcriptionsData.languages?.[translationLang]
+          : null
+
+        karaokeLines = englishData.segments.map((segment: any, index: number) => {
+          const translation = translationData?.segments?.[index]?.text
+
+          // If browser is not English and we have a translation, swap primary and translation
+          // Show native language as primary, English as translation
+          const shouldSwap = translationLang !== 'en' && translation
+
+          const line = {
+            text: shouldSwap ? translation : segment.text,
+            translation: shouldSwap ? segment.text : translation,
+            start: segment.start,
+            end: segment.end,
+            words: segment.words?.map((word: any) => ({
+              text: word.word || word.text,
+              start: word.start,
+              end: word.end,
+            })),
+          }
+
+          if (index === 0) {
+            console.log('[VideoDetailPage] First karaoke line after swap:')
+            console.log('  translationLang:', translationLang)
+            console.log('  shouldSwap:', shouldSwap)
+            console.log('  original EN text:', segment.text)
+            console.log('  original translation:', translation)
+            console.log('  final line.text:', line.text)
+            console.log('  final line.translation:', line.translation)
+          }
+
+          return line
+        })
+      }
+    } catch (err) {
+      console.warn('[VideoDetailPage] Failed to parse transcriptions:', err)
+    }
+  }
+
   // Get author info
   const author = displayPost.author
   const username = author?.handle?.localName || lenshandle || 'unknown'
-  const userAvatar = author?.metadata?.picture?.__typename === 'ImageSet'
-    ? author.metadata.picture.optimized?.uri
-    : undefined
+
+  // Extract avatar URI - handle both ImageSet and direct URI
+  let userAvatar: string | undefined
+  const picture = author?.metadata?.picture
+  if (picture) {
+    if (typeof picture === 'string') {
+      userAvatar = convertGroveUri(picture)
+    } else if (picture.__typename === 'ImageSet') {
+      const uri = picture.optimized?.uri || picture.raw?.uri
+      userAvatar = uri ? convertGroveUri(uri) : undefined
+    }
+  }
+
+  // Fallback to dicebear if no avatar
+  if (!userAvatar && author?.address) {
+    userAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${author.address}`
+  }
 
   // Get stats
   const stats = displayPost.stats
@@ -193,6 +307,7 @@ export function VideoDetailPage() {
         likes={likes}
         comments={comments}
         shares={shares}
+        karaokeLines={karaokeLines}
         isLiked={isLiked}
         isFollowing={isFollowing}
         canInteract={hasLensAccount}

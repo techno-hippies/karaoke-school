@@ -4,7 +4,6 @@ import { useSongWithMetadata } from '@/hooks/useSongV2'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
-import type { VideoPost as LensVideoPost } from '@/hooks/useSongVideos'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
 export function SongPageContainer() {
@@ -17,7 +16,7 @@ export function SongPageContainer() {
   const { data: songData, isLoading: isLoadingSong, error: songError } = useSongWithMetadata(songId)
 
   // Fetch creator videos from Lens (by genius_id attribute)
-  const { data: videosData } = useSongVideos(songId)
+  const { data: videosData, isLoading: isLoadingVideos } = useSongVideos(songId)
 
   // Loading state
   if (isLoadingSong) {
@@ -86,6 +85,7 @@ export function SongPageContainer() {
         console.log('Navigate to artist:', songData.geniusArtistId)
       }}
       videos={videos}
+      isLoadingVideos={isLoadingVideos}
       onVideoClick={(video) => {
         console.log('[SongPage] Video clicked:', video)
         console.log('[SongPage] Navigating to:', `/u/${video.username}/video/${video.id}?from=song&songId=${geniusId}`)

@@ -123,17 +123,21 @@ export class AudioMatchingService {
       throw new Error('No lyrics found in LRCLib');
     }
 
-    if (!lrcMatch.syncedLyrics) {
-      throw new Error('No synced lyrics available in LRCLib');
-    }
-
     console.log(`  ✓ Found: ${lrcMatch.trackName} by ${lrcMatch.artistName}`);
     console.log(`  LRCLib ID: ${lrcMatch.id}`);
-    console.log(`  Synced lines: ${lrcMatch.syncedLyrics.split('\n').length}`);
-    console.log();
 
-    // Convert synced lyrics to plain text for forced alignment
-    const plainLyrics = this.lrclib.getPlainLyrics(lrcMatch.syncedLyrics);
+    // Get plain text lyrics for forced alignment
+    let plainLyrics: string;
+    if (lrcMatch.syncedLyrics) {
+      console.log(`  Using synced lyrics (${lrcMatch.syncedLyrics.split('\n').length} lines)`);
+      plainLyrics = this.lrclib.getPlainLyrics(lrcMatch.syncedLyrics);
+    } else if (lrcMatch.plainLyrics) {
+      console.log(`  Using plain lyrics (synced not available)`);
+      plainLyrics = lrcMatch.plainLyrics;
+    } else {
+      throw new Error('No lyrics available in LRCLib match');
+    }
+
     const lineCount = plainLyrics.split('\n').length;
     console.log(`  ✓ Extracted ${lineCount} lines of plain text\n`);
 

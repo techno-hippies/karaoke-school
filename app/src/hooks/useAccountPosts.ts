@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { lensClient } from '@/lib/lens'
-import { account, post, evmAddress } from '@lens-protocol/client'
+import { evmAddress } from '@lens-protocol/client'
+import { fetchAccount, fetchPosts } from '@lens-protocol/client/actions'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
@@ -48,36 +49,35 @@ export function useAccountPosts(accountAddress?: string) {
       }
 
       // Fetch account by address
-      const accountResult = await lensClient.query({
-        account: account({
-          address: evmAddress(accountAddress),
-        }),
+      const accountResult = await fetchAccount(lensClient as any, {
+        address: evmAddress(accountAddress),
       })
 
-      if (!accountResult.isOk()) {
+      if (accountResult.isErr()) {
         throw new Error(`Failed to fetch account: ${accountResult.error?.message}`)
       }
 
       const accountData = accountResult.value
+      if (!accountData) {
+        throw new Error('Account not found')
+      }
 
       // Fetch posts by account
-      const postsResult = await lensClient.query({
-        posts: post({
-          filter: {
-            authors: [accountData.address],
-          },
-        }),
+      const postsResult = await fetchPosts(lensClient as any, {
+        filter: {
+          authors: [accountData.address],
+        },
       })
 
-      if (!postsResult.isOk()) {
+      if (postsResult.isErr()) {
         throw new Error(`Failed to fetch posts: ${postsResult.error?.message}`)
       }
 
-      const posts = postsResult.value.items
+      const posts = Array.from(postsResult.value.items)
 
       // Fetch metadata for each post
-      const videoPosts: VideoPost[] = await Promise.all(
-        posts.map(async (p) => {
+      const videoPosts = (await Promise.all(
+        posts.map(async (p: any) => {
           try {
             // Fetch metadata from Grove
             const metadataUrl = convertGroveUri(p.metadata)
@@ -117,10 +117,10 @@ export function useAccountPosts(accountAddress?: string) {
             return null
           }
         })
-      )
+      )).filter((p): p is VideoPost => p !== null)
 
-      // Filter out failed posts
-      return videoPosts.filter((p): p is VideoPost => p !== null)
+      // Return filtered posts
+      return videoPosts
     },
     enabled: !!accountAddress,
     staleTime: 30000, // 30 seconds

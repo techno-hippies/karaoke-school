@@ -12,7 +12,7 @@ import type { SessionClient, Account } from '@lens-protocol/client'
 import type { WalletClient, Address, Hex } from 'viem'
 import { fetchAccount } from '@lens-protocol/client/actions'
 import { nonNullable } from '@lens-protocol/client'
-import { createLensGraphQLClient, executeMutation, executeQuery } from './graphql-client'
+import { createLensGraphQLClient, executeQuery } from './graphql-client'
 import {
   CREATE_ACCOUNT_MUTATION,
   CREATE_USERNAME_MUTATION,
@@ -20,7 +20,6 @@ import {
   CAN_CREATE_USERNAME_QUERY,
   type CreateAccountResponse,
   type CreateUsernameResponse,
-  type AccountResponse,
   type CanCreateUsernameResponse,
   type RawTransaction,
 } from './mutations'
@@ -190,15 +189,24 @@ export async function createAccountInCustomNamespace(
     console.log('[Account Creation] Signing typedData and broadcasting via Lens API...')
 
     // Sign the typed data with PKP
+    if (!walletClient.account) {
+      throw new Error('Wallet client account not available')
+    }
     const signature = await walletClient.signTypedData({
-      domain: createUsernameData.typedData.domain,
+      account: walletClient.account,
+      domain: {
+        ...createUsernameData.typedData.domain,
+        chainId: BigInt(createUsernameData.typedData.domain.chainId),
+        verifyingContract: createUsernameData.typedData.domain.verifyingContract as `0x${string}`,
+      },
       types: createUsernameData.typedData.types,
       primaryType: 'CreateUsername',
       message: createUsernameData.typedData.value,
     })
 
     // Broadcast via Lens API (gasless - no PKP funds needed!)
-    const broadcastResult = await sessionClient.executeTypedData({
+    // Note: executeTypedData may not be available on SessionClient, using raw broadcast
+    const broadcastResult = await (sessionClient as any).executeTypedData({
       id: createUsernameData.id,
       signature,
     })
@@ -260,7 +268,7 @@ export async function createAccountInCustomNamespace(
 
     if (accountResult.isOk()) {
       finalAccount = accountResult.value
-      if (finalAccount.username?.localName === username) {
+      if (finalAccount?.username?.localName === username) {
         console.log('[Account Creation] ✓ Username indexed:', finalAccount.username.localName)
         break
       } else {

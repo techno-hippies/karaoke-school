@@ -72,7 +72,7 @@ export function transformLensPostToVideoData(
   }
 
   // Extract video URLs - check both old and new Lens metadata structures
-  const rawVideoUrl = video.video?.item || video.video?.optimized?.uri || video.video?.raw?.uri
+  const rawVideoUrl = video.video?.item
   const rawThumbnailUrl = video.video?.cover
 
   // Convert lens:// URIs to Grove storage URLs
@@ -88,6 +88,9 @@ export function transformLensPostToVideoData(
   const userAvatar = convertGroveUri(avatarUri) ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author.address}`
 
+  const albumArt = getAttribute('album_art')
+  const musicImageUrl = albumArt ? convertGroveUri(albumArt) : undefined
+
   return {
     id: post.id,
     videoUrl,
@@ -99,9 +102,9 @@ export function transformLensPostToVideoData(
     description: video.content,
     musicTitle: getAttribute('song_name'),
     musicAuthor: getAttribute('artist_name'),
-    musicImageUrl: getAttribute('album_art'),
+    musicImageUrl,
     geniusId,
-    createdAt: post.createdAt,
+    createdAt: (post as any).createdAt,
     likes: post.stats?.upvotes ?? 0,
     comments: post.stats?.comments ?? 0,
     shares: post.stats?.reposts ?? 0,

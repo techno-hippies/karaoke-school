@@ -1,7 +1,5 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { evmAddress } from '@lens-protocol/react'
-import { fetchAccount } from '@lens-protocol/client/actions'
 import { VideoPost } from './VideoPost'
 import { useAuth } from '@/contexts/AuthContext'
 import { followAccount, unfollowAccount } from '@/lib/lens/follow'

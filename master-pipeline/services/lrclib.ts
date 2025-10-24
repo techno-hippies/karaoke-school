@@ -92,6 +92,7 @@ export class LRCLibService extends BaseService {
   /**
    * Get best matching lyrics with album fallback
    * Follows match-and-segment logic: try with album first, then retry without
+   * Filters out instrumentals and prefers synced lyrics over plain
    *
    * @param trackName Song title
    * @param artistName Artist name
@@ -117,9 +118,10 @@ export class LRCLibService extends BaseService {
 
       if (response.ok) {
         const results = await response.json();
-        if (results.length > 0) {
-          this.log(`Found ${results.length} matches with album`);
-          const best = results[0];
+        const filtered = this.filterAndSortResults(results);
+        if (filtered.length > 0) {
+          this.log(`Found ${filtered.length} matches with album`);
+          const best = filtered[0];
           this.log(`Best match: ${best.trackName} by ${best.artistName} (ID: ${best.id})`);
           return best;
         }
@@ -137,11 +139,34 @@ export class LRCLibService extends BaseService {
       return null;
     }
 
+    // Filter instrumentals and sort by preference (synced > plain)
+    const filtered = this.filterAndSortResults(results);
+
+    if (filtered.length === 0) {
+      this.log('No results with lyrics found (all were instrumentals)');
+      return null;
+    }
+
     // Return first result (best match)
-    const best = results[0];
+    const best = filtered[0];
     this.log(`Best match: ${best.trackName} by ${best.artistName} (ID: ${best.id})`);
 
     return best;
+  }
+
+  /**
+   * Filter out instrumentals and sort by quality
+   * Priority: synced lyrics > plain lyrics
+   */
+  private filterAndSortResults(results: LRCLibSearchResult[]): LRCLibSearchResult[] {
+    return results
+      .filter((r) => !r.instrumental && (r.syncedLyrics || r.plainLyrics))
+      .sort((a, b) => {
+        // Prefer synced lyrics over plain
+        const aScore = a.syncedLyrics ? 2 : 1;
+        const bScore = b.syncedLyrics ? 2 : 1;
+        return bScore - aScore;
+      });
   }
 
   /**

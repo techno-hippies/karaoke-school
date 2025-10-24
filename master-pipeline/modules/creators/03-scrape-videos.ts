@@ -126,15 +126,21 @@ async function main() {
   logger.header(`Scrape Videos: @${tiktokHandle}`);
 
   try {
-    // Load existing PKP and Lens data
+    // Load existing PKP data
     const pkpPath = paths.creatorPkp(tiktokHandle);
-    const lensPath = paths.creatorLens(tiktokHandle);
-
     const pkpData = readJson<CreatorPKP>(pkpPath);
-    const lensData = readJson<CreatorLens>(lensPath);
 
     logger.info(`PKP: ${pkpData.pkpEthAddress}`);
-    logger.info(`Lens: @${lensData.lensHandle}`);
+
+    // Load Lens data if it exists (optional - may not be created yet)
+    const lensPath = paths.creatorLens(tiktokHandle);
+    let lensData: CreatorLens | null = null;
+    try {
+      lensData = readJson<CreatorLens>(lensPath);
+      logger.info(`Lens: @${lensData.lensHandle}`);
+    } catch {
+      logger.info('Lens account not created yet (will be created after scraping)');
+    }
 
     // Run Python scraper
     console.log(`\n🎬 Scraping TikTok videos for @${tiktokHandle}...`);
@@ -194,13 +200,13 @@ async function main() {
         displayName: scraperResult.profile.nickname || `@${tiktokHandle}`,
         identifiers: {
           tiktokHandle: `@${tiktokHandle}`,
-          lensHandle: lensData.lensHandle,
+          lensHandle: lensData?.lensHandle || '', // Will be filled in after Lens account creation
           pkpAddress: pkpData.pkpEthAddress,
-          lensAccountAddress: lensData.lensAccountAddress,
+          lensAccountAddress: lensData?.lensAccountAddress || '', // Will be filled in after Lens account creation
         },
         profile: scraperResult.profile,
         pkp: pkpData,
-        lens: lensData,
+        lens: lensData || {} as any, // Will be filled in after Lens account creation
         videos: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

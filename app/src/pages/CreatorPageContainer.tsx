@@ -108,7 +108,12 @@ export function CreatorPageContainer() {
   }
 
   // Parse account metadata
+  console.log('[CreatorPage] DEBUG - Grove metadata:', groveMetadata)
+  console.log('[CreatorPage] DEBUG - Lens account.metadata:', account.metadata)
+  console.log('[CreatorPage] DEBUG - Lens account.metadata.name:', account.metadata?.name)
+  console.log('[CreatorPage] DEBUG - Lens handle (URL param):', lenshandle)
   const displayName = groveMetadata?.displayName || account.metadata?.name || lenshandle || 'Unknown Creator'
+  console.log('[CreatorPage] DEBUG - Final displayName:', displayName)
   const avatarUrl = groveMetadata?.avatarUri
     ? convertGroveUri(groveMetadata.avatarUri)
     : account.metadata?.picture
@@ -130,20 +135,28 @@ export function CreatorPageContainer() {
       const hasAttributes = post.metadata?.__typename === 'VideoMetadata'
       const metadata = hasAttributes && 'attributes' in post.metadata ? parseVideoMetadata(post.metadata.attributes) : {}
 
+      console.log('[CreatorPage] Post ID:', post.id)
+      console.log('[CreatorPage] Metadata:', post.metadata)
+      console.log('[CreatorPage] Attributes:', metadata)
+
       // Extract thumbnail from video.cover field or attributes
       let thumbnailUrl = 'https://placehold.co/400x711/8b5cf6/ffffff?text=Video'
 
       if (metadata.thumbnailUri) {
         // Check attributes first
+        console.log('[CreatorPage] Using thumbnail from attributes:', metadata.thumbnailUri)
         thumbnailUrl = convertGroveUri(metadata.thumbnailUri)
       } else if (post.metadata?.__typename === 'VideoMetadata' && 'video' in post.metadata) {
         // Check video.cover field from Lens metadata
         const videoMetadata = post.metadata as any
         const coverUri = videoMetadata.video?.cover
+        console.log('[CreatorPage] Cover URI from Lens:', coverUri)
         if (coverUri) {
           thumbnailUrl = convertGroveUri(coverUri)
         }
       }
+
+      console.log('[CreatorPage] Final thumbnail URL:', thumbnailUrl)
 
       return {
         id: post.id,
@@ -200,6 +213,14 @@ export function CreatorPageContainer() {
 
   // Handle follow/unfollow action (toggle)
   const handleFollow = async () => {
+    // Check if user is logged in
+    if (!canFollow && !isFollowing) {
+      // TODO: Show login modal or redirect to login
+      console.log('[CreatorPage] User must log in to follow')
+      alert('Please log in to follow this creator')
+      return
+    }
+
     try {
       await handleFollowAction()
     } catch (error) {
@@ -228,7 +249,7 @@ export function CreatorPageContainer() {
       isLoadingVideos={isLoadingPosts}
       songs={songs}
       onBack={() => navigate(-1)}
-      onFollow={canFollow || isFollowing ? handleFollow : undefined}
+      onFollow={handleFollow}
     />
   )
 }

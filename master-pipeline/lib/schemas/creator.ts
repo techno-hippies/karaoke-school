@@ -180,6 +180,7 @@ export const CreatorSongSchema = z.object({
   spotifyId: z.string().optional(),
   isrc: z.string().optional(),
   geniusId: z.number().int().positive().optional(),
+  coverUri: z.string().optional().describe('Album art URI from song metadata'),
 });
 
 export type CreatorSong = z.infer<typeof CreatorSongSchema>;

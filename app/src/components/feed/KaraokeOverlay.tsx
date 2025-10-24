@@ -51,6 +51,9 @@ export function KaraokeOverlay({
   // Don't render if no lyrics or no current line (AFTER all hooks)
   if (!currentLine) return null
 
+  console.log('[KaraokeOverlay] Rendering line:', currentLine.text)
+  console.log('[KaraokeOverlay] Translation:', currentLine.translation)
+
   return (
     <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-20 animate-in fade-in duration-300', className)}>
       <div className="flex justify-center px-8">

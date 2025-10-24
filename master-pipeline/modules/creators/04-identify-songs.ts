@@ -311,6 +311,9 @@ async function main() {
 
     console.log('\n✅ Next step:');
     console.log(`   bun run creators/05-process-video.ts --tiktok-handle @${tiktokHandle} --video-id <video_id>\n`);
+
+    // Force exit to close lingering HTTP connections (Spotify/Genius APIs)
+    process.exit(0);
   } catch (error: any) {
     logger.error(`Failed to identify songs: ${error.message}`);
     console.error(error);

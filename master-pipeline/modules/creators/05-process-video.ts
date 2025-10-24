@@ -17,13 +17,21 @@
 import { parseArgs } from 'util';
 import { $ } from 'bun';
 import { createHash } from 'crypto';
+import { join } from 'path';
 import { paths } from '../../lib/config.js';
 import { readJson, writeJson, ensureDir } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
 import { GroveService } from '../../services/grove.js';
-import { VoxtralService } from '../../services/voxtral.js';
-import { TranslationService } from '../../services/translation.js';
+import { ElevenLabsService, ElevenLabsWord } from '../../services/elevenlabs.js';
+import { OpenRouterService } from '../../services/openrouter.js';
 import { CreatorVideoManifestSchema } from '../../lib/schemas/creator.js';
+import { segmentExists, buildTikTokMusicUrl } from '../../lib/segment-helpers.js';
+import { getSongMetadata } from '../../lib/subgraph.js';
+import type {
+  TranscriptionData,
+  TranscriptionSegment,
+  VideoTranscription,
+} from '../../lib/types/transcription.js';
 
 interface IdentifiedVideo {
   id: string;
@@ -56,11 +64,7 @@ interface VideoManifest {
   tiktokUrl: string;
   description: string;
   descriptionTranslations?: Record<string, string>;
-  captions?: {
-    en: string;
-    vi: string;
-    zh: string;
-  };
+  transcription?: VideoTranscription;
   song: {
     title: string;
     artist: string;
@@ -68,6 +72,7 @@ interface VideoManifest {
     spotifyId?: string;
     isrc?: string;
     geniusId?: number;
+    coverUri?: string; // Album art URI from song metadata
   };
   mlc?: any;
   match?: {
@@ -95,12 +100,128 @@ interface VideoManifest {
   createdAt: string;
 }
 
+/**
+ * Group words into natural karaoke segments/lines
+ * Based on pauses, punctuation, and duration limits
+ */
+function groupWordsIntoSegments(words: ElevenLabsWord[]): TranscriptionSegment[] {
+  if (words.length === 0) return [];
+
+  const segments: TranscriptionSegment[] = [];
+  let currentLine: Array<{ word: string; start: number; end: number }> = [];
+
+  const MAX_LINE_DURATION = 5.0; // Max 5 seconds per line
+  const MAX_WORDS_PER_LINE = 10; // Max 10 words per line
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const wordData = {
+      word: word.text,
+      start: word.start,
+      end: word.end,
+    };
+
+    currentLine.push(wordData);
+
+    // Check if we should end this line
+    const lineStart = currentLine[0].start;
+    const lineEnd = word.end;
+    const lineDuration = lineEnd - lineStart;
+    const isLastWord = i === words.length - 1;
+    const nextWordHasPause =
+      !isLastWord && words[i + 1].start - word.end > 0.3; // 300ms pause
+
+    const shouldEndLine =
+      isLastWord ||
+      currentLine.length >= MAX_WORDS_PER_LINE ||
+      lineDuration >= MAX_LINE_DURATION ||
+      nextWordHasPause ||
+      word.text.endsWith('.') ||
+      word.text.endsWith('!') ||
+      word.text.endsWith('?');
+
+    if (shouldEndLine && currentLine.length > 0) {
+      const lineText = currentLine.map((w) => w.word).join(' ');
+      segments.push({
+        start: currentLine[0].start,
+        end: currentLine[currentLine.length - 1].end,
+        text: lineText,
+        words: currentLine,
+      });
+      currentLine = [];
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * Translate text using OpenRouter/Gemini
+ */
+async function translateText(
+  text: string,
+  targetLang: string,
+  openRouterService: OpenRouterService
+): Promise<string> {
+  const languageNames: Record<string, string> = {
+    vi: 'Vietnamese',
+    zh: 'Mandarin Chinese (Simplified)',
+  };
+
+  const prompt = `Translate the following English text to ${languageNames[targetLang]}.
+Preserve the meaning and tone as accurately as possible.
+Only return the translated text, nothing else.
+
+English text:
+${text}`;
+
+  const response = await openRouterService.chat([
+    {
+      role: 'user',
+      content: prompt,
+    },
+  ]);
+
+  const translatedText = response.choices[0]?.message?.content?.trim();
+
+  if (!translatedText) {
+    throw new Error('Empty translation response');
+  }
+
+  return translatedText;
+}
+
+/**
+ * Distribute timing proportionally for translated segment
+ * Since different languages have different word counts, we scale timing
+ */
+function distributeTranslatedTiming(
+  originalSegment: TranscriptionSegment,
+  translatedText: string
+): TranscriptionSegment {
+  const translatedWords = translatedText.trim().split(/\s+/);
+  const segmentDuration = originalSegment.end - originalSegment.start;
+  const timePerWord = segmentDuration / translatedWords.length;
+
+  return {
+    start: originalSegment.start,
+    end: originalSegment.end,
+    text: translatedText,
+    words: translatedWords.map((word, index) => ({
+      word,
+      start: originalSegment.start + index * timePerWord,
+      end: originalSegment.start + (index + 1) * timePerWord,
+    })),
+  };
+}
+
 async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
       'tiktok-handle': { type: 'string' },
       'video-id': { type: 'string' },
+      'create-segment': { type: 'boolean', default: false },
     },
   });
 
@@ -109,13 +230,15 @@ async function main() {
     console.log('\nUsage:');
     console.log('  bun run creators/05-process-video.ts --tiktok-handle @brookemonk_ --video-id 7123456789\n');
     console.log('Options:');
-    console.log('  --tiktok-handle  TikTok username (with or without @)');
-    console.log('  --video-id       TikTok video ID\n');
+    console.log('  --tiktok-handle   TikTok username (with or without @)');
+    console.log('  --video-id        TikTok video ID');
+    console.log('  --create-segment  Auto-create segment if song doesn\'t have one (optional)\n');
     process.exit(1);
   }
 
   const tiktokHandle = values['tiktok-handle']!.replace('@', '');
   const videoId = values['video-id']!;
+  const createSegment = values['create-segment'] || false;
 
   logger.header(`Process Video: ${videoId}`);
 
@@ -229,48 +352,100 @@ async function main() {
     await $`ffmpeg -i ${videoPath} -vn -ar 16000 -ac 1 -b:a 128k -y ${audioPath}`;
     console.log(`   ✓ Extracted: ${audioPath}`);
 
-    // Step 1.7: Speech-to-Text with Voxtral
-    console.log('\n💬 Transcribing audio (Voxtral STT)...');
-    const voxtralService = new VoxtralService();
-    const transcription = await voxtralService.transcribe(audioPath, 'en');
-    console.log(`   ✓ Transcribed (${transcription.language}): ${transcription.text.substring(0, 80)}...`);
+    // Step 1.7: Speech-to-Text with ElevenLabs (word-level timestamps)
+    console.log('\n💬 Transcribing audio with word-level timing (ElevenLabs STT)...');
+    const elevenLabsService = new ElevenLabsService();
+    const transcriptionResult = await elevenLabsService.transcribe(audioPath, 'en');
+    console.log(`   ✓ Transcribed: ${transcriptionResult.words.length} words`);
+    console.log(`   ✓ Text: "${transcriptionResult.text.substring(0, 80)}..."`);
 
-    // Step 1.8: Translate to Vietnamese + Mandarin
-    console.log('\n🌐 Translating captions...');
-    const translationService = new TranslationService();
+    // Step 1.8: Group words into karaoke segments
+    console.log('\n📊 Grouping words into karaoke segments...');
+    const englishSegments = groupWordsIntoSegments(transcriptionResult.words);
+    console.log(`   ✓ Created ${englishSegments.length} segments from ${transcriptionResult.words.length} words`);
 
-    console.log('   → Vietnamese...');
-    const viTranslation = await translationService.translateText(transcription.text, 'vi');
-    console.log(`   ✓ vi: ${viTranslation.substring(0, 60)}...`);
-
-    console.log('   → Mandarin...');
-    const zhTranslation = await translationService.translateText(transcription.text, 'zh');
-    console.log(`   ✓ zh: ${zhTranslation.substring(0, 60)}...`);
-
-    const captionTranslations = {
-      en: transcription.text,
-      vi: viTranslation,
-      zh: zhTranslation,
+    const englishData: TranscriptionData = {
+      language: 'en',
+      text: transcriptionResult.text,
+      segments: englishSegments,
     };
 
-    // Step 1.9: Translate video description
+    // Step 1.9: Translate segments to Vietnamese + Mandarin
+    console.log('\n🌐 Translating segments with timing distribution...');
+    const openRouterService = new OpenRouterService();
+    const targetLanguages = ['vi', 'zh'] as const;
+
+    const translatedData: Record<string, TranscriptionData> = {};
+
+    for (const targetLang of targetLanguages) {
+      console.log(`   → ${targetLang === 'vi' ? 'Vietnamese' : 'Mandarin'}...`);
+      const translatedSegments: TranscriptionSegment[] = [];
+
+      for (let i = 0; i < englishSegments.length; i++) {
+        const segment = englishSegments[i];
+        try {
+          const translatedText = await translateText(
+            segment.text,
+            targetLang,
+            openRouterService
+          );
+          const translatedSegment = distributeTranslatedTiming(segment, translatedText);
+          translatedSegments.push(translatedSegment);
+
+          // Rate limit: wait 500ms between requests
+          if (i < englishSegments.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          console.warn(`      ⚠️  Translation failed for segment ${i + 1}, using placeholder`);
+          translatedSegments.push({
+            ...segment,
+            text: `[Translation failed: ${segment.text}]`,
+          });
+        }
+      }
+
+      const fullTranslatedText = translatedSegments.map((s) => s.text).join(' ');
+      translatedData[targetLang] = {
+        language: targetLang,
+        text: fullTranslatedText,
+        segments: translatedSegments,
+      };
+
+      console.log(`   ✓ ${targetLang}: ${translatedSegments.length} segments translated`);
+    }
+
+    // Create VideoTranscription object
+    const videoTranscription: VideoTranscription = {
+      languages: {
+        en: englishData,
+        vi: translatedData.vi,
+        zh: translatedData.zh,
+      },
+      generatedAt: new Date().toISOString(),
+      elevenLabsModel: 'scribe_v1',
+      translationModel: 'google/gemini-2.5-flash-lite-preview-09-2025',
+    };
+
+    // Step 1.10: Translate video description
     let descriptionTranslations: Record<string, string> = {};
     if (video.desc && video.desc.trim()) {
       console.log('\n🌐 Translating video description...');
       console.log(`   Original: ${video.desc.substring(0, 60)}...`);
 
-      console.log('   → Vietnamese...');
-      const viDescTranslation = await translationService.translateText(video.desc, 'vi');
-      console.log(`   ✓ vi: ${viDescTranslation.substring(0, 60)}...`);
+      for (const targetLang of targetLanguages) {
+        try {
+          console.log(`   → ${targetLang === 'vi' ? 'Vietnamese' : 'Mandarin'}...`);
+          const translation = await translateText(video.desc, targetLang, openRouterService);
+          descriptionTranslations[targetLang] = translation;
+          console.log(`   ✓ ${targetLang}: ${translation.substring(0, 60)}...`);
 
-      console.log('   → Mandarin...');
-      const zhDescTranslation = await translationService.translateText(video.desc, 'zh');
-      console.log(`   ✓ zh: ${zhDescTranslation.substring(0, 60)}...`);
-
-      descriptionTranslations = {
-        vi: viDescTranslation,
-        zh: zhDescTranslation,
-      };
+          // Rate limit
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch (error) {
+          console.warn(`   ⚠️  Description translation to ${targetLang} failed`);
+        }
+      }
     }
 
     // Step 2: Upload to Grove
@@ -285,6 +460,21 @@ async function main() {
     console.log(`   ✓ Thumbnail: ${thumbnailResult.uri}`);
     console.log(`   ✓ Gateway: ${thumbnailResult.gatewayUrl}`);
 
+    // Fetch song cover image from The Graph if geniusId is available
+    let songCoverUri: string | undefined;
+    if (video.identification.geniusId) {
+      console.log(`\n📀 Fetching song metadata from The Graph...`);
+      try {
+        const songMetadata = await getSongMetadata(video.identification.geniusId);
+        songCoverUri = songMetadata?.coverUri;
+        if (songCoverUri) {
+          console.log(`   ✓ Found album art: ${songCoverUri}`);
+        }
+      } catch (error) {
+        console.warn(`   ⚠ Failed to fetch song metadata:`, error);
+      }
+    }
+
     // Step 3: Create video manifest
     const manifest: VideoManifest = {
       videoHash,
@@ -293,7 +483,7 @@ async function main() {
       tiktokUrl: videoUrl,
       description: video.desc || '',
       descriptionTranslations: Object.keys(descriptionTranslations).length > 0 ? descriptionTranslations : undefined,
-      captions: captionTranslations,
+      transcription: videoTranscription,
       song: {
         title: video.identification.title,
         artist: video.identification.artist,
@@ -301,6 +491,7 @@ async function main() {
         spotifyId: video.identification.spotifyId,
         isrc: video.identification.isrc,
         geniusId: video.identification.geniusId,
+        coverUri: songCoverUri,
       },
       mlc: video.identification.mlcData,
       files: {
@@ -337,6 +528,37 @@ async function main() {
     console.log(`   Copyright Type: ${manifest.song.copyrightType}`);
     console.log(`   Story Mintable: ${manifest.storyMintable}`);
     console.log(`   Grove Video: ${manifest.grove.video}`);
+
+    // Optional: Auto-create segment if requested and song has geniusId
+    if (createSegment && manifest.song.geniusId && video.music?.id) {
+      console.log('\n🎵 Checking if segment exists for this song...');
+
+      const hasSegment = await segmentExists(manifest.song.geniusId);
+
+      if (hasSegment) {
+        console.log(`   ✓ Segment already exists for genius ID ${manifest.song.geniusId}`);
+      } else {
+        console.log(`   ⚠️  No segment found for genius ID ${manifest.song.geniusId}`);
+        console.log('   📝 Creating segment...');
+
+        // Build TikTok music URL
+        const musicUrl = buildTikTokMusicUrl(manifest.song.title, video.music.id);
+        console.log(`   Music URL: ${musicUrl}`);
+
+        try {
+          // Run segment pipeline
+          const segmentScript = join(process.cwd(), 'modules', 'segments', '01-match-and-process.ts');
+          const result = await $`bun ${segmentScript} --genius-id ${manifest.song.geniusId} --tiktok-url ${musicUrl}`.quiet();
+
+          console.log('   ✅ Segment created successfully!');
+          console.log(`   📂 Segment saved to: data/songs/${manifest.song.geniusId}/`);
+        } catch (error: any) {
+          console.warn(`   ⚠️  Failed to create segment: ${error.message}`);
+          console.warn('   You can manually create it later with:');
+          console.warn(`   bun modules/segments/01-match-and-process.ts --genius-id ${manifest.song.geniusId} --tiktok-url "${musicUrl}"`);
+        }
+      }
+    }
 
     console.log('\n✅ Next step:');
     console.log(`   bun run creators/07-post-lens.ts --tiktok-handle @${tiktokHandle} --video-hash ${videoHash}\n`);

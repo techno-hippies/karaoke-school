@@ -85,14 +85,7 @@ async function onboardCreator(options: OnboardingOptions) {
       await runCommand(cmd, 'Mint PKP');
     });
 
-    // Step 2: Create Lens Account (with bio translation)
-    await checkpoints.run('lens', async () => {
-      const lensArg = lensHandle ? `--lens-handle ${lensHandle}` : '';
-      const cmd = `bun modules/creators/02-create-lens.ts --tiktok-handle ${tiktokHandle} ${lensArg}`;
-      await runCommand(cmd, 'Create Lens Account');
-    });
-
-    // Step 3: Scrape Videos (optional)
+    // Step 2: Scrape Videos (needed for display name and avatar)
     if (!skipScrape) {
       await checkpoints.run('scrape', async () => {
         const limitArg = videoLimit ? `--limit ${videoLimit}` : '';
@@ -102,6 +95,13 @@ async function onboardCreator(options: OnboardingOptions) {
     } else {
       console.log('\n⊘ Skipping video scraping (--skip-scrape)');
     }
+
+    // Step 3: Create Lens Account (uses display name from scrape)
+    await checkpoints.run('lens', async () => {
+      const lensArg = lensHandle ? `--lens-handle ${lensHandle}` : '';
+      const cmd = `bun modules/creators/02-create-lens.ts --tiktok-handle ${tiktokHandle} ${lensArg}`;
+      await runCommand(cmd, 'Create Lens Account');
+    });
 
     // Step 4: Identify Songs (optional)
     if (!skipIdentify && !skipScrape) {

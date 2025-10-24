@@ -14,7 +14,7 @@ export function ProfilePageContainer() {
   const navigate = useNavigate()
 
   // ✅ Real auth data from context
-  const { lensAccount, pkpAddress } = useAuth()
+  const { lensAccount } = useAuth()
 
   // Wait for account to load before fetching related data
   const { following, followers, isLoading: statsLoading } = useAccountStats(lensAccount?.address)
@@ -35,10 +35,11 @@ export function ProfilePageContainer() {
   // Convert Lens posts to VideoPost format
   const videos: VideoPost[] = posts.map(post => ({
     id: post.id,
-    thumbnailUrl: post.metadata?.asset?.video?.cover || '',
+    thumbnailUrl: (post.metadata as any)?.asset?.video?.cover || '',
     duration: '0:00', // TODO: Extract from metadata
     views: 0, // TODO: Extract from stats
     likes: 0, // TODO: Extract from stats
+    username: username,
   }))
 
   // TODO: Achievements from app-specific contract/database

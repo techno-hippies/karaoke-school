@@ -28,7 +28,6 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
   const [videoPosts, setVideoPosts] = useState<VideoPostData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [likedPostsMap, setLikedPostsMap] = useState<Map<string, boolean>>(new Map())
 
   useEffect(() => {
     async function loadTimeline() {
@@ -80,7 +79,6 @@ export function FollowingFeed({ children }: FollowingFeedProps) {
         if (lensAccount?.address) {
           try {
             likedMap = await batchCheckLikedPosts(lensSession, timelinePosts, lensAccount.address)
-            setLikedPostsMap(likedMap)
           } catch (err) {
             console.error('[FollowingFeed] Error checking likes:', err)
           }

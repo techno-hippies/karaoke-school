@@ -73,36 +73,38 @@ export function MediaPageContainer() {
   }
 
   // Transform V2 lyrics format to LyricLine[] format
-  const originalLanguage = 'en' // English is always required in V2
-  const originalLyrics = segmentMetadata.lyrics.languages[originalLanguage]
+  const originalLyrics = segmentMetadata.lyrics.original
 
-  // Get available translation languages (all except English)
-  const availableLanguages = Object.keys(segmentMetadata.lyrics.languages).filter(lang => lang !== 'en')
+  // Get available translation languages
+  const availableLanguages = segmentMetadata.lyrics.translations
+    ? Object.keys(segmentMetadata.lyrics.translations)
+    : []
 
   // Determine preferred language based on browser settings
   const preferredLanguage = getPreferredLanguage(availableLanguages)
 
-  const lyrics = originalLyrics.lines.map((line, index) => {
+  const lyrics = originalLyrics.lines.map((line: any, index: number) => {
     // Build translations object from V2 format
     const translations: Record<string, string> = {}
 
     // Add translations from other languages
-    Object.entries(segmentMetadata.lyrics.languages).forEach(([lang, lyricsData]) => {
-      if (lang !== originalLanguage) {
+    if (segmentMetadata.lyrics.translations) {
+      Object.entries(segmentMetadata.lyrics.translations).forEach(([lang, lyricsData]: [string, any]) => {
         const translatedLine = lyricsData.lines[index]
         if (translatedLine) {
-          translations[lang] = translatedLine.text
+          // Combine words into text (Grove uses 'text' not 'word')
+          translations[lang] = translatedLine.words.map((w: any) => w.text).join(' ')
         }
-      }
-    })
+      })
+    }
 
     return {
       lineIndex: index,
-      originalText: line.text,
+      originalText: line.words.map((w: any) => w.text).join(' '),
       translations: Object.keys(translations).length > 0 ? translations : undefined,
       start: line.start,
       end: line.end,
-      words: line.words.map(w => ({
+      words: line.words.map((w: any) => ({
         text: w.text,
         start: w.start,
         end: w.end,

@@ -84,6 +84,8 @@ export function useLike({
     },
     enabled: hasValidPostId,
     staleTime: 30000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     // Refetch when hasLensAccount changes (when session becomes available)
   })
 
@@ -95,14 +97,6 @@ export function useLike({
   const isLiked = operations?.hasUpvoted ?? localIsLiked
   // canLike: user is logged in, has valid post, and hasn't upvoted yet (can unlike if already liked)
   const canLike = !!(hasLensAccount && hasValidPostId)
-
-  if (post?.stats) {
-    console.log('[useLike] Stats:', {
-      reactions: post.stats.reactions,
-      upvotes: post.stats.upvotes,
-      downvotes: post.stats.downvotes,
-    })
-  }
 
   // Update local state when server state changes
   useEffect(() => {
