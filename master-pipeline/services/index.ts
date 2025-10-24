@@ -20,3 +20,4 @@ export * from './grove.js';
 export * from './story-protocol.js';
 export * from './song-identification.js';
 export * from './tiktok.js';
+export * from './spotdl.js';

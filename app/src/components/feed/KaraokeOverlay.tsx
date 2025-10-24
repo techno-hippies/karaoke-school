@@ -35,11 +35,19 @@ export function KaraokeOverlay({
 
   // Process words for highlighting (MUST be before early return)
   const highlightedWords = useMemo(() => {
-    if (!currentLine || !currentLine.words || currentLine.words.length === 0) {
-      // No word-level timing, return whole line if we have one
-      return currentLine ? [{ text: currentLine.text, isSung: true }] : []
+    if (!currentLine) return []
+
+    // Check if this is English text by looking for ASCII characters
+    const isEnglish = /^[\x00-\x7F\s]*$/.test(currentLine.text)
+
+    // Only use word-level highlighting for English text
+    // For other languages, show the full line (translation has no word timings)
+    if (!isEnglish || !currentLine.words || currentLine.words.length === 0) {
+      // Show whole line
+      return [{ text: currentLine.text, isSung: true }]
     }
 
+    // English with word-level timing
     const words = currentLine.words.map(word => ({
       ...word,
       isSung: currentTime >= word.start && currentTime < word.end
@@ -50,9 +58,6 @@ export function KaraokeOverlay({
 
   // Don't render if no lyrics or no current line (AFTER all hooks)
   if (!currentLine) return null
-
-  console.log('[KaraokeOverlay] Rendering line:', currentLine.text)
-  console.log('[KaraokeOverlay] Translation:', currentLine.translation)
 
   return (
     <div className={cn('absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent pt-6 pb-12 pointer-events-none z-20 animate-in fade-in duration-300', className)}>

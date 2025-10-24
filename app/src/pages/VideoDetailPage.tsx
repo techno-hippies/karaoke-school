@@ -225,7 +225,7 @@ export function VideoDetailPage() {
           // Show native language as primary, English as translation
           const shouldSwap = translationLang !== 'en' && translation
 
-          const line = {
+          return {
             text: shouldSwap ? translation : segment.text,
             translation: shouldSwap ? segment.text : translation,
             start: segment.start,
@@ -236,18 +236,6 @@ export function VideoDetailPage() {
               end: word.end,
             })),
           }
-
-          if (index === 0) {
-            console.log('[VideoDetailPage] First karaoke line after swap:')
-            console.log('  translationLang:', translationLang)
-            console.log('  shouldSwap:', shouldSwap)
-            console.log('  original EN text:', segment.text)
-            console.log('  original translation:', translation)
-            console.log('  final line.text:', line.text)
-            console.log('  final line.translation:', line.translation)
-          }
-
-          return line
         })
       }
     } catch (err) {
