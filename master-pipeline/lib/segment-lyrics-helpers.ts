@@ -120,8 +120,8 @@ export function buildSegmentLyrics(
     const lineStart = wordGroup[0].start;
     const lineEnd = wordGroup[wordGroup.length - 1].end;
 
-    // Reconstruct line text from words (includes spaces)
-    const lineText = wordGroup.map(w => w.text).join('');
+    // Reconstruct line text from words (add spaces between words)
+    const lineText = wordGroup.map(w => w.text).join(' ');
 
     // Words keep segment-relative timing (same as line timing)
     // This makes it easier to sync with MP3 playback
