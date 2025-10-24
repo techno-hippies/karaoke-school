@@ -4,11 +4,6 @@
   "type": "module",
   "description": "Master pipeline for karaoke school: artists, songs, and segments",
   "scripts": {
-    "pipeline-artist": "dotenvx run -- bun run scripts/pipeline-artist.ts",
-    "pipeline-song": "dotenvx run -- bun run scripts/pipeline-song.ts",
-    "pipeline-full": "dotenvx run -- bun run scripts/pipeline-full.ts",
-    "validate": "bun run scripts/validate-data.ts",
-    "sync-contracts": "dotenvx run -- bun run scripts/sync-contracts.ts",
     "test": "bun test"
   },
   "dependencies": {
