@@ -77,13 +77,19 @@ async function processVideo(
   try {
     tracker.markStarted(videoId);
 
-    // Step 1: Process video (download, STT, translate, Grove upload, manifest)
-    const processCmd = `bun modules/creators/05-process-video.ts --tiktok-handle ${tiktokHandle} --video-id ${videoId}`;
-    const { stdout } = await execAsync(processCmd);
+    // Use the complete video upload flow workflow orchestrator
+    // This handles: process video → register song → process segment → post to Lens
+    const skipFlags = [
+      skipStory ? '--skip-segment' : '', // Story minting handled separately
+      skipLens ? '--skip-lens' : '',
+    ].filter(Boolean).join(' ');
+
+    const flowCmd = `bun modules/creators/09-video-upload-flow.ts --tiktok-handle ${tiktokHandle} --video-id ${videoId} ${skipFlags}`;
+    const { stdout } = await execAsync(flowCmd);
 
     // Check for errors
-    if (stdout.includes('Error') || stdout.includes('Failed')) {
-      throw new Error('Processing failed - check logs');
+    if (stdout.includes('❌') || stdout.includes('failed')) {
+      throw new Error('Video upload flow failed - check logs');
     }
 
     tracker.updateStep(videoId, 'download', true);
@@ -97,7 +103,12 @@ async function processVideo(
       throw new Error('Could not extract video hash from output');
     }
 
-    // Optional: Story Protocol minting
+    // Mark lens as complete if not skipped (handled by upload flow)
+    if (!skipLens) {
+      tracker.updateStep(videoId, 'lens', true);
+    }
+
+    // Optional: Story Protocol minting (separate from segment processing)
     if (!skipStory) {
       try {
         const mintCmd = `bun modules/creators/06-mint-derivative.ts --tiktok-handle ${tiktokHandle} --video-hash ${videoHash}`;
@@ -110,22 +121,6 @@ async function processVideo(
         }
       } catch (error: any) {
         console.log(`  ⚠️  Story Protocol minting failed: ${error.message} (non-fatal)`);
-      }
-    }
-
-    // Optional: Lens posting
-    if (!skipLens) {
-      try {
-        const lensCmd = `bun modules/creators/07-post-lens.ts --tiktok-handle ${tiktokHandle} --video-hash ${videoHash}`;
-        const { stdout: lensOutput } = await execAsync(lensCmd);
-
-        if (lensOutput.includes('Error') || lensOutput.includes('Failed')) {
-          console.log(`  ⚠️  Lens posting failed (non-fatal)`);
-        } else {
-          tracker.updateStep(videoId, 'lens', true);
-        }
-      } catch (error: any) {
-        console.log(`  ⚠️  Lens posting failed: ${error.message} (non-fatal)`);
       }
     }
 
@@ -272,6 +267,53 @@ async function main() {
 
     const stats = tracker.getStats();
     console.log(`\n📊 Current progress: ${stats.completed} completed, ${stats.failed} failed, ${stats.skipped} skipped\n`);
+
+    // Auto-create artists before processing videos
+    console.log('🎨 Checking and auto-creating artists...\n');
+
+    // Extract unique artists from videos to be processed
+    interface UniqueArtist {
+      geniusId: number;
+      name: string;
+    }
+
+    const uniqueArtists = new Map<number, UniqueArtist>();
+
+    for (const video of toProcess) {
+      const geniusId = video.identification?.geniusId;
+      const artistName = video.identification?.artist;
+
+      if (geniusId && artistName) {
+        if (!uniqueArtists.has(geniusId)) {
+          uniqueArtists.set(geniusId, { geniusId, name: artistName });
+        }
+      }
+    }
+
+    console.log(`Found ${uniqueArtists.size} unique artists to verify`);
+
+    // Auto-create each artist if needed
+    for (const [geniusId, artist] of uniqueArtists) {
+      console.log(`\n→ Checking artist: ${artist.name} (Genius ID: ${geniusId})`);
+
+      try {
+        const autoCreateCmd = `bun modules/creators/10-auto-create-artist.ts --genius-id ${geniusId} --genius-artist-name "${artist.name}"`;
+        const { stdout } = await execAsync(autoCreateCmd);
+
+        if (stdout.includes('already exists')) {
+          console.log(`  ✓ Artist already registered`);
+        } else if (stdout.includes('auto-creation complete')) {
+          console.log(`  ✓ Artist created successfully`);
+        } else {
+          console.log(`  ✓ Artist check complete`);
+        }
+      } catch (error: any) {
+        console.log(`  ⚠️  Artist auto-creation warning: ${error.message}`);
+        console.log(`  ℹ️  Will continue with video processing anyway`);
+      }
+    }
+
+    console.log('\n✅ Artist verification complete\n');
 
     console.log('🎬 Processing videos...\n');
 
