@@ -153,7 +153,7 @@ async function main() {
     const artistHandle = normalizeArtistName(geniusArtistName);
     const isniArg = isni ? `--isni ${isni}` : '';
 
-    const createCmd = `bun modules/artists/create-artist.ts --username ${artistHandle} --genius-artist-id ${geniusId} ${isniArg}`;
+    const createCmd = `bun modules/artists/create-artist.ts --name ${artistHandle} --genius-id ${geniusId} --display-name "${geniusArtistName}" ${isniArg}`;
 
     console.log(`→ Running: ${createCmd}\n`);
     const { stdout, stderr } = await execAsync(createCmd);
