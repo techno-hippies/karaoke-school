@@ -46,6 +46,8 @@ async function main() {
     logger.success(`PKP data saved to: ${pkpPath}`);
     logger.detail('PKP Address', pkpData.pkpEthAddress);
     logger.detail('Token ID', pkpData.pkpTokenId);
+
+    process.exit(0);
   } catch (error: any) {
     logger.error(`Failed to mint PKP: ${error.message}`);
     process.exit(1);

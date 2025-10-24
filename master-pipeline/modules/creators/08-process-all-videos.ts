@@ -51,6 +51,7 @@ interface IdentifiedVideosData {
 interface ProcessingOptions {
   tiktokHandle: string;
   maxVideos?: number;
+  copyrightedOnly: boolean;
   skipStory: boolean;
   skipLens: boolean;
   resume: boolean;
@@ -167,6 +168,7 @@ async function main() {
     options: {
       'tiktok-handle': { type: 'string' },
       max: { type: 'string' },
+      'copyrighted-only': { type: 'boolean', default: false },
       'skip-story': { type: 'boolean', default: false },
       'skip-lens': { type: 'boolean', default: false },
       resume: { type: 'boolean', default: false },
@@ -185,20 +187,22 @@ async function main() {
     console.log('  bun modules/creators/08-process-all-videos.ts --tiktok-handle swiftysavvy --resume');
     console.log('  bun modules/creators/08-process-all-videos.ts --tiktok-handle swiftysavvy --parallel 3\n');
     console.log('Options:');
-    console.log('  --tiktok-handle   TikTok username (with or without @)');
-    console.log('  --max             Maximum number of videos to process');
-    console.log('  --resume          Resume from last successful video');
-    console.log('  --retry-failed    Retry previously failed videos');
-    console.log('  --parallel N      Process N videos concurrently (default: 1)');
-    console.log('  --max-retries N   Maximum retry attempts per video (default: 3)');
-    console.log('  --rate-limit MS   Delay between videos in ms (default: 2000)');
-    console.log('  --skip-story      Skip Story Protocol minting');
-    console.log('  --skip-lens       Skip Lens posting\n');
+    console.log('  --tiktok-handle      TikTok username (with or without @)');
+    console.log('  --max                Maximum number of videos to process');
+    console.log('  --copyrighted-only   Only process copyrighted videos (safety flag)');
+    console.log('  --resume             Resume from last successful video');
+    console.log('  --retry-failed       Retry previously failed videos');
+    console.log('  --parallel N         Process N videos concurrently (default: 1)');
+    console.log('  --max-retries N      Maximum retry attempts per video (default: 3)');
+    console.log('  --rate-limit MS      Delay between videos in ms (default: 2000)');
+    console.log('  --skip-story         Skip Story Protocol minting');
+    console.log('  --skip-lens          Skip Lens posting\n');
     process.exit(1);
   }
 
   const tiktokHandle = values['tiktok-handle']!.replace('@', '');
   const maxVideos = values.max ? parseInt(values.max) : undefined;
+  const copyrightedOnly = values['copyrighted-only'] || false;
   const skipStory = values['skip-story'] || false;
   const skipLens = values['skip-lens'] || false;
   const resume = values.resume || false;
@@ -210,6 +214,7 @@ async function main() {
   const options: ProcessingOptions = {
     tiktokHandle,
     maxVideos,
+    copyrightedOnly,
     skipStory,
     skipLens,
     resume,
@@ -230,10 +235,12 @@ async function main() {
     const identifiedPath = `${videosDir}/identified_videos.json`;
     const identifiedData = readJson<IdentifiedVideosData>(identifiedPath);
 
-    const allVideos = [
-      ...identifiedData.copyrighted,
-      ...identifiedData.copyright_free,
-    ];
+    const allVideos = copyrightedOnly
+      ? identifiedData.copyrighted
+      : [
+          ...identifiedData.copyrighted,
+          ...identifiedData.copyright_free,
+        ];
 
     // Initialize progress tracking for all videos
     const allVideoIds = allVideos.map((v) => v.id);

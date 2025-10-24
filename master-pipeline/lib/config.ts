@@ -19,39 +19,26 @@ export function loadNetworkConfig(): NetworkConfig {
   return {
     litNetwork: env.LIT_NETWORK || 'chronicle-yellowstone',
     lensNetwork: env.LENS_NETWORK || 'lens-testnet',
-    contractsNetwork: env.CONTRACTS_NETWORK || 'base-sepolia',
-    contractsRpcUrl: env.CONTRACTS_RPC_URL || 'https://sepolia.base.org',
-    contractsChainId: 84532, // Base Sepolia
+    contractsNetwork: 'lens-testnet', // All events on Lens Chain
+    contractsRpcUrl: env.LENS_CHAIN_RPC_URL || 'https://rpc.testnet.lens.xyz',
+    contractsChainId: 37111, // Lens Chain testnet
   };
 }
 
 /**
- * Load contract addresses from config file
+ * Load contract addresses from environment (Lens Chain event emitters)
  */
 export function loadContractAddresses(): ContractAddresses {
-  try {
-    const contractsPath = join(CONFIG_DIR, 'contracts.json');
-    const contracts = JSON.parse(readFileSync(contractsPath, 'utf-8'));
+  const env = process.env;
 
-    return {
-      artistRegistry: contracts.ArtistRegistryV1,
-      songRegistry: contracts.SongRegistryV1,
-      segmentRegistry: contracts.SegmentRegistryV1,
-      performanceRegistry: contracts.PerformanceRegistryV1,
-      studentProfile: contracts.StudentProfileV1,
-      leaderboard: contracts.LeaderboardV1,
-    };
-  } catch (error) {
-    console.warn('⚠️  Contract addresses not found. Please deploy contracts first.');
-    return {
-      artistRegistry: '0x0000000000000000000000000000000000000000',
-      songRegistry: '0x0000000000000000000000000000000000000000',
-      segmentRegistry: '0x0000000000000000000000000000000000000000',
-      performanceRegistry: '0x0000000000000000000000000000000000000000',
-      studentProfile: '0x0000000000000000000000000000000000000000',
-      leaderboard: '0x0000000000000000000000000000000000000000',
-    };
-  }
+  return {
+    artistRegistry: (env.ACCOUNT_EVENTS_ADDRESS || '0x0000000000000000000000000000000000000000') as any,
+    songRegistry: (env.SONG_EVENTS_ADDRESS || '0x0000000000000000000000000000000000000000') as any,
+    segmentRegistry: (env.SEGMENT_EVENTS_ADDRESS || '0x0000000000000000000000000000000000000000') as any,
+    performanceRegistry: (env.PERFORMANCE_GRADER_ADDRESS || '0x0000000000000000000000000000000000000000') as any,
+    studentProfile: '0x0000000000000000000000000000000000000000' as any,
+    leaderboard: '0x0000000000000000000000000000000000000000' as any,
+  };
 }
 
 /**

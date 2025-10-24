@@ -279,38 +279,44 @@ data/accounts/{username}.json
 
 ## Missing Connections
 
-### 1. ⚠️ Automated Segment Creation
-**Current:** Manual TikTok segment URL required
-**Needed:** Auto-create from Spotify ID using new services
+### 1. ✅ Automated Segment Creation (COMPLETED)
+**Status:** Fully implemented and integrated
+**Location:** `modules/segments/auto-create-segment.ts`
 
-**Solution:**
-```typescript
-// modules/segments/auto-create-segment.ts
-async function autoCreateSegment(geniusId: number, spotifyId: string) {
-  // 1. Download song (SpotDL) ✅
-  const songPath = await spotdl.download(spotifyId);
+**Features:**
+- SpotDL download (FLAC, 23MB avg)
+- LRCLIB synced lyrics fetch
+- Gemini AI segment selection (20-40s, iconic parts)
+- ElevenLabs STT word-level alignment
+- Demucs vocal separation (Modal H100)
+- fal.ai audio enhancement
+- Grove upload + translations (VI, ZH)
 
-  // 2. Get lyrics (LRCLIB) ✅
-  const lyrics = await lrclib.getBestMatch(title, artist);
-
-  // 3. Select segment (Gemini) ✅
-  const segment = await selector.selectIconicSegment(
-    lyrics.syncedLyrics, title, artist, duration
-  );
-
-  // 4. Process segment (existing)
-  await cropAudio(songPath, segment.startTime, segment.endTime);
-  await demucs(...);
-  await falAI(...);
-  await grove.upload(...);
-}
+**Usage:**
+```bash
+bun modules/segments/auto-create-segment.ts \
+  --genius-id 8434253 \
+  --spotify-id 0V3wPSX9ygBnCm8psDIegu
 ```
 
-### 2. ⚠️ Song → Segment Linking
-**Current:** Segments exist separately, no automatic creation
-**Needed:** When processing video, auto-create segment if missing
+**Integrated into video processing:**
+```bash
+# Automatically creates segment if missing
+bun modules/creators/05-process-video.ts \
+  --tiktok-handle @creator \
+  --video-id 123 \
+  --create-segment
+```
 
-**Integration Point:** `modules/creators/05-process-video.ts:533-561`
+### 2. ✅ Song → Segment Linking (COMPLETED)
+**Status:** Fully integrated into video processing
+**Location:** `modules/creators/05-process-video.ts:532-566`
+
+**How it works:**
+1. Video processing identifies song (Genius ID + Spotify ID)
+2. Checks if segment exists for song
+3. If missing and `--create-segment` flag → auto-creates segment
+4. Links video to segment in manifest
 
 ### 3. ⚠️ Artist Auto-Creation
 **Current:** Artists created manually

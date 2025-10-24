@@ -9,7 +9,7 @@
  */
 
 import { parseArgs } from 'util';
-import { registerArtist } from '../../lib/contracts.js';
+import { emitAccountCreated } from '../../lib/event-emitter.js';
 import { paths } from '../../lib/config.js';
 import { readJson, writeJson } from '../../lib/fs.js';
 import { logger } from '../../lib/logger.js';
@@ -47,13 +47,23 @@ async function main() {
     logger.info(`Loaded PKP: ${pkpData.pkpEthAddress}`);
     logger.info(`Loaded Lens: ${lensData.lensAccountAddress}`);
 
-    // Register in contract
-    const onchainData = await registerArtist({
+    // Emit AccountCreated event to Lens Chain
+    const txHash = await emitAccountCreated({
+      lensAccountAddress: lensData.lensAccountAddress,
+      pkpAddress: pkpData.pkpEthAddress,
+      username: lensData.lensHandle,
+      metadataUri: lensData.metadataUri,
+      geniusArtistId,
+    });
+
+    const onchainData = {
       geniusArtistId,
       pkpAddress: pkpData.pkpEthAddress,
       lensHandle: lensData.lensHandle,
       lensAccountAddress: lensData.lensAccountAddress,
-    });
+      registeredAt: new Date().toISOString(),
+      transactionHash: txHash,
+    };
 
     // Load identifiers from Lens metadata
     const identifiers = {
@@ -86,7 +96,9 @@ async function main() {
     logger.detail('Lens Handle', lensData.lensHandle);
     logger.detail('Tx Hash', onchainData.transactionHash);
 
-    logger.success(`\nArtist profile ready at: /a/${lensData.lensHandle}`);
+    logger.success(`\nArtist profile ready at: /u/${lensData.lensHandle}`);
+
+    process.exit(0);
   } catch (error: any) {
     logger.error(`Failed to register artist: ${error.message}`);
     process.exit(1);

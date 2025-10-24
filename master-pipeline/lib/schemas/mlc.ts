@@ -51,10 +51,10 @@ export const MLCDataSchema = z.object({
   writers: z.array(MLCWriterSchema).min(1).describe('Song writers/composers'),
   publishers: z.array(MLCPublisherSchema).min(1).describe('Publishing companies'),
   totalPublisherShare: z.number()
-    .gte(98)
+    .gte(0)
     .lte(100)
-    .describe('Total publisher share (must be ≥98% for Story Protocol)'),
-  storyMintable: z.boolean().describe('Whether song meets Story Protocol requirements'),
+    .describe('Total publisher share (≥98% required for Story Protocol)'),
+  storyMintable: z.boolean().describe('Whether song meets Story Protocol requirements (totalPublisherShare ≥98%)'),
 });
 
 export type MLCData = z.infer<typeof MLCDataSchema>;

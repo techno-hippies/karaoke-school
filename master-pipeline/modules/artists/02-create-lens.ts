@@ -44,6 +44,27 @@ async function main() {
 
   logger.header(`Create Lens Account: ${artistName}`);
 
+  // Fetch avatar from Genius API
+  let avatarUri: string | undefined;
+  try {
+    console.log(`🎨 Fetching avatar from Genius API (ID: ${geniusArtistId})...`);
+    const geniusApiKey = process.env.GENIUS_API_KEY;
+    if (geniusApiKey) {
+      const response = await fetch(`https://api.genius.com/artists/${geniusArtistId}`, {
+        headers: { 'Authorization': `Bearer ${geniusApiKey}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        avatarUri = data?.response?.artist?.image_url;
+        if (avatarUri) {
+          console.log(`✅ Avatar: ${avatarUri}\n`);
+        }
+      }
+    }
+  } catch (error) {
+    console.log('⚠️  Failed to fetch avatar from Genius, continuing without it\n');
+  }
+
   try {
     // Load PKP data
     const pkpPath = paths.artistPkp(artistName);
@@ -60,6 +81,7 @@ async function main() {
       luminateId,
       musicbrainzId,
       spotifyArtistId,
+      avatarUri,
     });
 
     // Create username
@@ -75,6 +97,8 @@ async function main() {
     logger.success(`Lens data saved to: ${lensPath}`);
     logger.detail('Lens Handle', lensData.lensHandle);
     logger.detail('Account Address', lensData.lensAccountAddress);
+
+    process.exit(0);
   } catch (error: any) {
     logger.error(`Failed to create Lens account: ${error.message}`);
     process.exit(1);
