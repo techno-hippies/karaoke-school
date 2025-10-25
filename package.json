@@ -1,0 +1,11 @@
+{
+  "name": "freyr-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Freyr download service for karaoke pipeline",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts"
+  },
+  "dependencies": {}
+}
