@@ -9,8 +9,31 @@ Processes TikTok creator videos into karaoke-ready content:
 2. **Auto-create artist accounts** if they don't exist
 3. **Auto-register songs** on blockchain if new
 4. **Process videos**: Download, transcribe (STT), translate (vi/zh), upload to Grove
-5. **Optional**: Mint as IP Assets on Story Protocol
-6. **Optional**: Post to Lens with translated metadata
+5. **Create karaoke segments**: Vocal separation + fal.ai enhancement
+6. **Post to Lens** with translated metadata
+7. **Optional**: Mint as IP Assets on Story Protocol
+
+## ⚡ Recommended Workflows
+
+**For batch processing (EASIEST):**
+```bash
+# Complete workflow with artist auto-creation
+bun modules/creators/08-process-all-videos.ts --tiktok-handle @creator --parallel 2
+```
+
+**For single video:**
+```bash
+# Step 1: Create artist if new (manual check required)
+bun modules/creators/10-auto-create-artist.ts --genius-id 498 --genius-artist-name "Artist"
+
+# Step 2: Complete video workflow
+bun modules/creators/09-video-upload-flow.ts --tiktok-handle @creator --video-id 7123456789
+```
+
+**Architecture:**
+- `05-process-video.ts` = Partial (download/transcribe only)
+- `09-video-upload-flow.ts` = Complete single video (song + segment + lens)
+- `08-process-all-videos.ts` = Complete batch (auto-creates artists + uses 09 for each video)
 
 ## 🏗️ Architecture
 
@@ -47,7 +70,7 @@ pip install -r requirements.txt
 
 ### Process Videos for a Creator
 
-The most common workflow - process individual TikTok videos:
+**Single Video (Complete Pipeline):**
 
 ```bash
 # 1. Scrape creator's videos
@@ -56,30 +79,36 @@ bun modules/creators/03-scrape-videos.ts --tiktok-handle @idazeile
 # 2. Identify songs (Spotify/Genius matching)
 bun modules/creators/04-identify-songs.ts --tiktok-handle @idazeile
 
-# 3. Process a single video (FULL PIPELINE)
-bun modules/creators/05-process-video.ts \
+# 3. Auto-create artist if needed (run once per new artist)
+bun modules/creators/10-auto-create-artist.ts \
+  --genius-id 498 \
+  --genius-artist-name "Billy Joel"
+
+# 4. Process video with COMPLETE WORKFLOW
+bun modules/creators/09-video-upload-flow.ts \
   --tiktok-handle @idazeile \
   --video-id 7545183541190053142
 
-# What 05-process-video does:
-# ✅ Checks if song exists (The Graph query)
-# ✅ Auto-creates artist if needed (via 10-auto-create-artist.ts)
-# ✅ Auto-registers song if needed (via songs/01-create-song.ts)
-# ✅ Downloads video + thumbnail
+# What 09-video-upload-flow does:
+# ✅ Downloads video + thumbnail (via 05-process-video.ts)
 # ✅ Extracts audio
-# ✅ Transcribes audio (Voxtral STT)
+# ✅ Transcribes audio (ElevenLabs STT)
 # ✅ Translates captions (en → vi, zh)
 # ✅ Translates description (en → vi, zh)
 # ✅ Uploads to Grove
-# ✅ Creates manifest with all metadata
+# ✅ Registers song to subgraph (via 01-register-song.ts)
+# ✅ Creates karaoke segment (via 01-match-and-process.ts)
+# ✅ Posts to Lens with translations (via 07-post-lens.ts)
 
-# 4. (Optional) Mint on Story Protocol
-bun modules/creators/06-mint-derivative.ts \
+# Skip optional steps:
+bun modules/creators/09-video-upload-flow.ts \
   --tiktok-handle @idazeile \
-  --video-hash <hash-from-manifest>
+  --video-id 7545183541190053142 \
+  --skip-segment \
+  --skip-lens
 
-# 5. (Optional) Post to Lens
-bun modules/creators/07-post-lens.ts \
+# 5. (Optional) Mint on Story Protocol
+bun modules/creators/06-mint-derivative.ts \
   --tiktok-handle @idazeile \
   --video-hash <hash-from-manifest>
 ```
@@ -87,7 +116,10 @@ bun modules/creators/07-post-lens.ts \
 ### Batch Process All Videos
 
 ```bash
-# Process all videos with progress tracking and resume capability
+# Process all videos with FULL AUTO-CREATION
+# ✅ Auto-creates all artists first
+# ✅ Uses 09-video-upload-flow.ts for each video
+# ✅ Progress tracking and resume capability
 bun modules/creators/08-process-all-videos.ts \
   --tiktok-handle @idazeile \
   --parallel 2
@@ -196,7 +228,7 @@ bun modules/creators/04-identify-songs.ts --tiktok-handle @creator
 Uses Spotify/Genius matching to identify music in videos.
 
 #### 05-process-video.ts
-**Process single video (MAIN ENTRY POINT)**
+**Download and process video (partial workflow)**
 
 ```bash
 bun modules/creators/05-process-video.ts \
@@ -204,17 +236,39 @@ bun modules/creators/05-process-video.ts \
   --video-id 7545183541190053142
 ```
 
-This is the **core script** for processing individual videos. It:
-- Auto-creates artist if doesn't exist (calls 10-auto-create-artist.ts)
-- Auto-registers song if doesn't exist (calls songs/01-create-song.ts)
+**Note: This is a PARTIAL workflow. Use 09-video-upload-flow.ts for complete processing.**
+
+This script only:
 - Downloads video + thumbnail
 - Transcribes audio (STT)
 - Translates captions & description (vi, zh)
 - Uploads to Grove
 - Creates manifest with all metadata
 
+Does NOT:
+- Register songs
+- Create segments
+- Post to Lens
+
+#### 09-video-upload-flow.ts
+**Complete single video workflow (RECOMMENDED)**
+
+```bash
+bun modules/creators/09-video-upload-flow.ts \
+  --tiktok-handle @creator \
+  --video-id 7545183541190053142
+```
+
+This is the **complete workflow orchestrator** for single videos. It:
+- Processes video (calls 05-process-video.ts)
+- Registers song to subgraph (calls 01-register-song.ts)
+- Creates karaoke segment (calls 01-match-and-process.ts)
+- Posts to Lens (calls 07-post-lens.ts)
+
+**Note: You must create artist first using 10-auto-create-artist.ts if new artist**
+
 #### 08-process-all-videos.ts
-**Batch process with progress tracking**
+**Batch process with auto-artist creation**
 
 ```bash
 bun modules/creators/08-process-all-videos.ts \
@@ -223,7 +277,9 @@ bun modules/creators/08-process-all-videos.ts \
   --resume
 ```
 
-Features:
+This is the **most complete workflow** - handles everything automatically:
+- Auto-creates all artists FIRST (calls 10-auto-create-artist.ts for each)
+- Processes all videos (calls 09-video-upload-flow.ts for each)
 - Parallel processing (configurable concurrency)
 - Progress tracking with `progress.json`
 - Resume capability on failure
@@ -533,8 +589,13 @@ bun modules/creators/03-scrape-videos.ts --tiktok-handle @creator
 # Identify songs
 bun modules/creators/04-identify-songs.ts --tiktok-handle @creator
 
-# Process video (handles artist/song auto-creation)
-bun modules/creators/05-process-video.ts \
+# Create artist if new (check The Graph first)
+bun modules/creators/10-auto-create-artist.ts \
+  --genius-id 498 \
+  --genius-artist-name "Billy Joel"
+
+# Process video with complete workflow
+bun modules/creators/09-video-upload-flow.ts \
   --tiktok-handle @creator \
   --video-id 7545183541190053142
 ```

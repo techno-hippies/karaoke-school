@@ -39,7 +39,7 @@ export class FalAIService extends BaseService {
       ...config,
     });
 
-    this.maxPollAttempts = config.maxPollAttempts || 60;
+    this.maxPollAttempts = config.maxPollAttempts || 180; // 6 minutes
     this.pollInterval = config.pollInterval || 2000;
   }
 

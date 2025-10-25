@@ -2,11 +2,13 @@
 /**
  * Creator Module 00: Unified Creator Onboarding
  *
- * Complete onboarding workflow for a new TikTok creator:
+ * Core onboarding workflow for a new TikTok creator:
  * 1. Mint PKP (Lit Protocol wallet)
  * 2. Create Lens account with translated bio
- * 3. Scrape TikTok videos
- * 4. Identify songs via Spotify/Genius
+ * 3. (Optional) Scrape TikTok videos for discovery
+ *
+ * Song identification is a SEPARATE step - run manually when needed:
+ *   bun modules/creators/04-identify-songs.ts --tiktok-handle @handle
  *
  * With checkpoint-based resume capability on failure
  *
@@ -31,7 +33,6 @@ interface OnboardingOptions {
   videoLimit?: number;
   resume: boolean;
   skipScrape?: boolean;
-  skipIdentify?: boolean;
 }
 
 /**
@@ -59,7 +60,7 @@ async function runCommand(command: string, stepName: string): Promise<string> {
  * Main onboarding workflow
  */
 async function onboardCreator(options: OnboardingOptions) {
-  const { tiktokHandle, lensHandle, videoLimit, resume, skipScrape, skipIdentify } = options;
+  const { tiktokHandle, lensHandle, videoLimit, resume, skipScrape } = options;
 
   logger.header(`Onboard Creator: @${tiktokHandle}`);
 
@@ -103,17 +104,10 @@ async function onboardCreator(options: OnboardingOptions) {
       await runCommand(cmd, 'Create Lens Account');
     });
 
-    // Step 4: Identify Songs (optional)
-    if (!skipIdentify && !skipScrape) {
-      await checkpoints.run('identify', async () => {
-        const cmd = `bun modules/creators/04-identify-songs.ts --tiktok-handle ${tiktokHandle}`;
-        await runCommand(cmd, 'Identify Songs');
-      });
-    } else if (skipScrape) {
-      console.log('\n⊘ Skipping song identification (no videos scraped)');
-    } else {
-      console.log('\n⊘ Skipping song identification (--skip-identify)');
-    }
+    // Step 4: Identify Songs (opt-in only, not part of core onboarding)
+    // Song identification is a separate batch operation and should be run manually
+    // Use: bun modules/creators/04-identify-songs.ts --tiktok-handle @handle
+    console.log('\n⊘ Song identification skipped (run separately when needed)');
 
     // Success!
     console.log('\n════════════════════════════════════════════════════════════');
@@ -121,8 +115,9 @@ async function onboardCreator(options: OnboardingOptions) {
     console.log(`Creator: @${tiktokHandle}`);
     console.log(`Lens Handle: @${lensHandle || tiktokHandle.replace(/_/g, '')}`);
     console.log('\n✅ Next steps:');
-    console.log(`   1. Process videos: bun modules/creators/08-process-all-videos.ts --tiktok-handle ${tiktokHandle}`);
-    console.log(`   2. Or process single video: bun modules/creators/05-process-video.ts --tiktok-handle ${tiktokHandle} --video-id <ID>`);
+    console.log(`   1. Identify songs: bun modules/creators/04-identify-songs.ts --tiktok-handle ${tiktokHandle}`);
+    console.log(`   2. Process single video: bun modules/creators/09-video-upload-flow.ts --tiktok-handle ${tiktokHandle} --video-id <ID>`);
+    console.log(`   3. Or batch process: bun modules/creators/08-process-all-videos.ts --tiktok-handle ${tiktokHandle}`);
     console.log('════════════════════════════════════════════════════════════\n');
   } catch (error: any) {
     const lastCompleted = checkpoints.getLastCompleted();
@@ -153,7 +148,6 @@ async function main() {
       'video-limit': { type: 'string' },
       resume: { type: 'boolean', default: false },
       'skip-scrape': { type: 'boolean', default: false },
-      'skip-identify': { type: 'boolean', default: false },
     },
   });
 

@@ -102,7 +102,7 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       'tiktok-handle': { type: 'string' },
-      limit: { type: 'string', default: '50' },
+      limit: { type: 'string', default: '200' },
       'no-copyright-free': { type: 'boolean', default: false },
     },
   });

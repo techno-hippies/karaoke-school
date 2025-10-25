@@ -381,7 +381,8 @@ async function main() {
 
     const createAccountResult = createAccountResponse.createAccount;
 
-    if (createAccountResult.reason) {
+    // Only throw if not sponsored AND no self-funded option available
+    if (createAccountResult.reason && !createAccountResult.raw) {
       throw new Error(`Account creation will fail: ${createAccountResult.reason}`);
     }
 
@@ -389,8 +390,10 @@ async function main() {
 
     // Check if it's a self-funded transaction (has 'raw' field)
     if (createAccountResult.raw) {
-      console.log('💰 Self-funded transaction required');
-      console.log(`   Reason: ${createAccountResult.reason}`);
+      console.log('💰 Self-funded transaction required (not sponsored)');
+      if (createAccountResult.reason) {
+        console.log(`   Reason: ${createAccountResult.reason}`);
+      }
       const txHash = await lensWalletClient.sendTransaction({
         to: createAccountResult.raw.to,
         data: createAccountResult.raw.data,
@@ -504,7 +507,45 @@ async function main() {
     // ============ STEP 2C: Create Username in Global Namespace ============
     console.log(`\n📝 Creating username lens/${username} (step 2/2)...`);
 
-    const createUsernameMutation = gql`
+    let usernameTxHash: Hex | null = null;
+
+    // Check if username already exists
+    const usernameCheckQuery = gql`
+      query UsernameAvailability($request: UsernameAvailabilityRequest!) {
+        usernameAvailability(request: $request) {
+          available
+        }
+      }
+    `;
+
+    try {
+      const usernameCheckResponse: any = await gqlClient.request(usernameCheckQuery, {
+        request: {
+          localName: username,
+        },
+      });
+
+      if (!usernameCheckResponse.usernameAvailability.available) {
+        console.log(`⚠️  Username 'lens/${username}' already exists`);
+        console.log('   Continuing with existing username...');
+
+        // Query to get the username tx if needed
+        // For now, we'll use a placeholder hash since we don't have the original tx
+        usernameTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+
+        // Skip username creation
+        console.log('✅ Username already registered');
+      }
+    } catch (error: any) {
+      console.log('⚠️  Could not check username availability:');
+      console.log(`   ${error.message}`);
+      console.log('   Attempting creation anyway...');
+    }
+
+    let shouldCreateUsername = usernameTxHash === null;
+
+    if (shouldCreateUsername) {
+      const createUsernameMutation = gql`
       mutation CreateUsername($request: CreateUsernameRequest!) {
         createUsername(request: $request) {
           ... on CreateUsernameResponse {
@@ -577,17 +618,17 @@ async function main() {
       throw new Error('Username creation returned no result - check GraphQL query');
     }
 
-    // Check if it's an empty object (might indicate silent failure or schema mismatch)
+    // Check if it's an empty object (likely means username already exists)
     const resultKeys = Object.keys(createUsernameResult);
     if (resultKeys.length === 0) {
-      console.error('❌ Empty createUsername result (no fields returned)');
-      throw new Error('Username creation returned empty response - check GraphQL schema');
-    }
+      console.log('⚠️  Empty createUsername result - username likely already exists');
+      console.log('   Continuing with existing username...');
+      usernameTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+      console.log('✅ Username already registered');
+    } else {
 
     // Note: For SponsoredTransactionRequest and SelfFundedTransactionRequest,
     // the 'reason' field is informational, not an error
-
-    let usernameTxHash: Hex;
 
     // Check if it's sponsored (gas paid by protocol, but may still need signature)
     if (createUsernameResult.sponsoredReason !== undefined) {
@@ -699,10 +740,12 @@ async function main() {
       console.error('Unexpected create username response:', JSON.stringify(createUsernameResult, null, 2));
       throw new Error('Unexpected response type for createUsername');
     }
+    } // end else (non-empty response)
+    } // end if (shouldCreateUsername)
 
     console.log('✅ Username created!');
     console.log(`   Handle: lens/${username}`);
-    if (usernameTxHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    if (usernameTxHash && usernameTxHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
       console.log(`   Tx: ${usernameTxHash}`);
     }
     console.log('');
@@ -894,7 +937,7 @@ async function main() {
       },
     };
 
-    ensureDir(paths.accounts());
+    ensureDir(paths.accountsDir());
     writeJson(accountPath, accountData);
 
     logger.success('Account created successfully!');

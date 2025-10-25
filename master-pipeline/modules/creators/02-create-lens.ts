@@ -219,6 +219,11 @@ async function main() {
     // Save to file
     writeJson(lensPath, lensData);
 
+    // Update manifest with Lens identifiers
+    manifest.identifiers.lensHandle = lensData.lensHandle;
+    manifest.identifiers.lensAccountAddress = lensData.lensAccountAddress;
+    writeJson(manifestPath, manifest);
+
     logger.success(`Lens data saved to: ${lensPath}`);
     logger.detail('Lens Handle', `@${lensData.lensHandle}`);
     logger.detail('Account Address', lensData.lensAccountAddress);

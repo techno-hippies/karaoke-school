@@ -73,6 +73,7 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       'tiktok-handle': { type: 'string' },
+      'video-id': { type: 'string' }, // Optional: identify only this video
       max: { type: 'string' }, // Optional: max videos to process
       'skip-copyrighted': { type: 'boolean', default: false },
       'skip-copyright-free': { type: 'boolean', default: false },
@@ -93,6 +94,7 @@ async function main() {
   }
 
   const tiktokHandle = values['tiktok-handle']!.replace('@', '');
+  const videoId = values['video-id'];
   const maxVideos = values.max ? parseInt(values.max) : undefined;
   const skipCopyrighted = values['skip-copyrighted'];
   const skipCopyrightFree = values['skip-copyright-free'];
@@ -103,7 +105,25 @@ async function main() {
     // Load raw videos
     const videosDir = paths.creator(tiktokHandle);
     const rawVideosPath = `${videosDir}/raw_videos.json`;
-    const rawVideos = readJson<RawVideosData>(rawVideosPath);
+    let rawVideos = readJson<RawVideosData>(rawVideosPath);
+
+    // Filter to single video if specified
+    if (videoId) {
+      const copyrightedVideo = rawVideos.copyrighted.find(v => v.id === videoId);
+      const copyrightFreeVideo = rawVideos.copyright_free.find(v => v.id === videoId);
+
+      if (!copyrightedVideo && !copyrightFreeVideo) {
+        throw new Error(`Video ${videoId} not found in raw videos`);
+      }
+
+      rawVideos = {
+        copyrighted: copyrightedVideo ? [copyrightedVideo] : [],
+        copyright_free: copyrightFreeVideo ? [copyrightFreeVideo] : [],
+        scrapedAt: rawVideos.scrapedAt,
+      };
+
+      logger.info(`Processing single video: ${videoId}`);
+    }
 
     const totalVideos =
       rawVideos.copyrighted.length + rawVideos.copyright_free.length;

@@ -132,20 +132,26 @@ async function main() {
       console.log(`\n🎵 Song: ${manifest.song.title} by ${manifest.song.artist}`);
       console.log(`   Genius ID: ${manifest.song.geniusId}`);
 
-      // Get genius artist ID from raw videos data
-      const rawVideosPath = `${creatorDir}/raw_videos.json`;
-      let geniusArtistId = 'unknown';
+      // Get genius artist ID from identification data
+      const identifiedPath = `${creatorDir}/identified_videos.json`;
+      let geniusArtistId: number | string = 'unknown';
 
       try {
-        const rawVideos = readJson<any>(rawVideosPath);
-        const allVideos = [...(rawVideos.copyrighted || []), ...(rawVideos.copyright_free || [])];
+        const identifiedVideos = readJson<any>(identifiedPath);
+        const allVideos = [
+          ...(identifiedVideos.copyrighted || []),
+          ...(identifiedVideos.copyright_free || []),
+        ];
         const video = allVideos.find((v: any) => v.id === videoId);
 
-        if (video?.identification?.geniusData?.primary_artist?.id) {
-          geniusArtistId = video.identification.geniusData.primary_artist.id;
+        if (video?.identification?.geniusArtistId) {
+          geniusArtistId = video.identification.geniusArtistId;
+          console.log(`   Genius Artist ID: ${geniusArtistId}`);
+        } else {
+          console.log('   ⚠️  No genius artist ID found in identification data');
         }
       } catch (error) {
-        console.log('   ⚠️  Could not find genius artist ID, will try to register anyway');
+        console.log('   ⚠️  Could not read identification data');
       }
 
       const spotifyArg = manifest.song.spotifyId ? `--spotify-id ${manifest.song.spotifyId}` : '';

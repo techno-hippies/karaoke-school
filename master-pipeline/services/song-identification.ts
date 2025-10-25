@@ -87,10 +87,13 @@ export class SongIdentificationService extends BaseService {
 
     // Optional: Try to find on Genius for lyrics
     let geniusId: number | undefined;
+    let geniusArtistId: number | undefined;
     if (this.geniusConfig) {
-      geniusId = await this.findInGenius(spotifyData.name, spotifyData.artists[0]);
-      if (geniusId) {
-        this.log(`✓ Genius ID: ${geniusId}`);
+      const geniusData = await this.findInGenius(spotifyData.name, spotifyData.artists[0]);
+      if (geniusData) {
+        geniusId = geniusData.songId;
+        geniusArtistId = geniusData.artistId;
+        this.log(`✓ Genius ID: ${geniusId}, Artist ID: ${geniusArtistId}`);
       }
     }
 
@@ -118,6 +121,7 @@ export class SongIdentificationService extends BaseService {
       isrc: spotifyData.isrc,
       album: spotifyData.album,
       geniusId,
+      geniusArtistId,
       mlcData,
       storyMintable,
     };
@@ -221,7 +225,10 @@ export class SongIdentificationService extends BaseService {
   /**
    * Search for song on Genius (optional - for lyrics)
    */
-  private async findInGenius(title: string, artist: string): Promise<number | null> {
+  private async findInGenius(
+    title: string,
+    artist: string
+  ): Promise<{ songId: number; artistId: number } | null> {
     if (!this.geniusConfig) {
       return null;
     }
@@ -259,7 +266,10 @@ export class SongIdentificationService extends BaseService {
         // Check if artist names match (either direction for partial matches)
         if (resultArtist.includes(expectedArtist) || expectedArtist.includes(resultArtist)) {
           this.log(`✓ Validated Genius match: "${hit.result.title}" by ${hit.result.primary_artist?.name}`);
-          return hit.result.id;
+          return {
+            songId: hit.result.id,
+            artistId: hit.result.primary_artist.id,
+          };
         }
       }
 
@@ -285,6 +295,9 @@ export class SongIdentificationService extends BaseService {
       const maxPages = 10;
 
       while (page < maxPages) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const response = await fetch(`${searchUrl}?page=${page}&size=50`, {
           method: 'POST',
           headers: {
@@ -292,7 +305,9 @@ export class SongIdentificationService extends BaseService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ title }),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
 
         if (!response.ok) {
           break;
@@ -330,13 +345,18 @@ export class SongIdentificationService extends BaseService {
     try {
       const url = `https://api.ptl.themlc.com/api/dsp-recording/matched/${songCode}?page=1&limit=10&order=matchedAmount&direction=desc`;
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
           'Origin': 'https://portal.themlc.com',
           'Referer': 'https://portal.themlc.com/',
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!response.ok) return false;
 
@@ -364,7 +384,7 @@ export class SongIdentificationService extends BaseService {
       }
     }
 
-    const totalShare = directShare + adminShare;
+    const totalShare = Math.min(100, directShare + adminShare);
     const storyMintable = totalShare >= 98 && work.writers.length > 0;
 
     return {
