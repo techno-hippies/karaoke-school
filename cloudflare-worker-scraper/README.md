@@ -1,57 +1,264 @@
-# TikTok Scraper - Cloudflare Worker + Neon DB
+# TikTok Scraper & Music Enrichment API
 
-Serverless TikTok video scraper with automatic Spotify + Genius enrichment.
+**Version:** 2.0.0
+**Architecture:** Hono + Modular Routes
+**Deployed:** https://tiktok-scraper.deletion-backup782.workers.dev
 
-## Features
+A highly organized Cloudflare Worker that scrapes TikTok videos and automatically enriches music metadata through a cascading pipeline of industry-standard music databases.
 
-✅ **Scrapes TikTok creator videos** via fetch API (no Python dependencies)
-✅ **Stores in Neon PostgreSQL** with JSONB for flexibility
-✅ **Idempotent upserts** - safe to re-run, updates stats
-✅ **Extracts key fields** for fast queries (Spotify ID, copyright status, stats)
-✅ **Automatic Spotify enrichment** - fetches track metadata when new songs are scraped
-✅ **Automatic Genius enrichment** - matches songs with lyrics and metadata (artist-validated)
-✅ **Queryable analytics** - top tracks, copyright analysis, creator stats
+---
 
-## Architecture
+## 🎯 What This Does
+
+1. **Scrapes TikTok videos** with copyright detection and Spotify track IDs
+2. **Automatically enriches** music metadata through a 7-stage pipeline:
+   - TikTok Videos → Spotify Tracks → Genius Songs → MusicBrainz (Artists/Recordings/Works) → Quansic
+3. **Stores everything** in Neon PostgreSQL with JSONB + indexed columns
+4. **Normalizes track titles** with Gemini Flash 2.5 Lite for better matching
+5. **Provides monitoring** to track enrichment cascade completion
+
+---
+
+## 📊 Architecture
 
 ```
-Cloudflare Worker (TypeScript)
-  ├─ TikTok scraping (fetch API)
-  ├─ Spotify enrichment (automatic after scrape)
-  ├─ Genius enrichment (automatic after Spotify enrichment)
-  └─ Neon DB upserts
-
-Neon PostgreSQL
-  ├─ tiktok_creators (profiles)
-  ├─ tiktok_scraped_videos (JSONB + indexed fields)
-  ├─ spotify_tracks (enriched metadata: title, artists, ISRC, album)
-  └─ genius_songs (lyrics metadata: song ID, artist, URL)
+┌─────────────────┐
+│  TikTok Videos  │
+└────────┬────────┘
+         │ Spotify Track ID detection
+         ↓
+┌─────────────────┐
+│ Spotify Tracks  │ ← Fetch track metadata (title, artists, ISRC, album)
+└────────┬────────┘
+         ├─→ Spotify Artists ← Fetch artist metadata (genres, followers)
+         │                   │
+         │                   ↓
+         │         ┌──────────────────────┐
+         │         │ MusicBrainz Artists  │ ← Match by name, get ISNI
+         │         └──────────┬───────────┘
+         │                    │
+         │                    ↓
+         │         ┌──────────────────────┐
+         │         │  Quansic Artists     │ ← Enrich with IPN, Luminate ID
+         │         └──────────────────────┘
+         │
+         ├─→ Genius Songs ← Match by normalized title/artist
+         │
+         └─→ MusicBrainz Recordings ← Match by ISRC
+                    │
+                    ↓
+         ┌──────────────────────┐
+         │ MusicBrainz Works    │ ← Composition info (ISWC)
+         └──────────────────────┘
 ```
 
-## Database Schema
+---
 
-**tiktok_creators table:**
-- `tiktok_handle` (PK)
-- `sec_uid`, `nickname`, `follower_count`
-- `raw_profile` (JSONB - full TikTok profile data)
+## 🚀 Quick Start
 
-**tiktok_scraped_videos table:**
-- `video_id` (PK)
-- Indexed fields: `spotify_track_id`, `copyright_status`, `play_count`, `created_at`
-- `raw_data` (JSONB - full TikTok video data)
+### Scrape a TikTok Creator
+```bash
+# Scrape 10 videos (auto-enriches in background)
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/scrape/gioscottii?limit=10"
 
-**spotify_tracks table:**
-- `spotify_track_id` (PK)
-- `title`, `artists[]`, `album`, `isrc`, `popularity`
-- `raw_data` (JSONB - full Spotify API response)
+# Scrape ALL videos (no limit)
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/scrape/idazeile"
+```
 
-**genius_songs table:**
-- `genius_song_id` (PK)
-- `spotify_track_id` (FK to spotify_tracks)
-- `title`, `artist_name`, `genius_artist_id`, `url`
-- `raw_data` (JSONB - full Genius API response)
+### Monitor Enrichment Progress
+```bash
+# Check enrichment cascade for a creator
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
 
-## Setup
+# View pending enrichment queue
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
+```
+
+### Manual Enrichment Triggers
+```bash
+# Enrich Spotify tracks
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich?limit=50"
+
+# Enrich MusicBrainz recordings
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-musicbrainz?type=recordings&limit=10"
+
+# Normalize tracks with Gemini and retry matching
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/normalize-and-match?limit=5"
+
+# Enrich with Quansic (IPN, Luminate ID)
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-quansic?limit=10"
+```
+
+---
+
+## 📍 API Endpoints Reference
+
+### **Scraper Routes**
+
+| Endpoint | Method | Description | Example |
+|----------|--------|-------------|---------|
+| `/scrape/:handle` | GET | Scrape TikTok videos (auto-enriches) | `/scrape/gioscottii?limit=10` |
+| `/stats/:handle` | GET | Get creator statistics | `/stats/gioscottii` |
+| `/top-tracks` | GET | Top Spotify tracks by views | `/top-tracks?limit=20` |
+
+### **Enrichment Routes**
+
+| Endpoint | Method | Description | Params |
+|----------|--------|-------------|--------|
+| `/enrich` | POST | Enrich Spotify tracks | `?limit=100` |
+| `/enrich-artists` | POST | Enrich Spotify artists | `?limit=50` |
+| `/enrich-musicbrainz` | POST | Enrich MusicBrainz data | `?type=artists\|recordings&limit=5` |
+| `/enrich-genius` | POST | Enrich Genius songs | `?limit=50` |
+| `/normalize-and-match` | POST | Normalize with Gemini + retry MB | `?limit=5` |
+| `/enrich-quansic` | POST | Enrich with Quansic | `?limit=10` |
+
+### **Monitoring Routes** 🔥
+
+| Endpoint | Method | Description | Example |
+|----------|--------|-------------|---------|
+| `/cascade-status` | GET | View enrichment completion % | `?handle=gioscottii` |
+| `/enrichment-queue` | GET | Show pending items per stage | - |
+
+---
+
+## 📈 Cascade Status Example
+
+```bash
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
+```
+
+**Response:**
+```json
+{
+  "handle": "gioscottii",
+  "cascade": [
+    {
+      "stage": "Spotify Tracks",
+      "total": "6",
+      "enriched": "5",
+      "pct": "83.3"
+    },
+    {
+      "stage": "Genius Songs",
+      "total": "5",
+      "enriched": "5",
+      "pct": "100.0"
+    },
+    {
+      "stage": "MusicBrainz Recordings",
+      "total": "5",
+      "enriched": "2",
+      "pct": "40.0"
+    },
+    {
+      "stage": "MusicBrainz Works",
+      "total": "2",
+      "enriched": "2",
+      "pct": "100.0"
+    }
+  ]
+}
+```
+
+---
+
+## 🔍 Enrichment Queue Example
+
+```bash
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
+```
+
+**Response:**
+```json
+{
+  "queue": {
+    "spotify_tracks": {
+      "count": 4,
+      "sample": ["0jjZh3fHqW2JciT1b19oAN", "..."]
+    },
+    "musicbrainz_artists": {
+      "count": 18,
+      "sample": [
+        {
+          "name": "The Hollies",
+          "spotify_id": "6waa8mKu91GjzD4NlONlNJ"
+        }
+      ]
+    },
+    "musicbrainz_recordings": {
+      "count": 3,
+      "sample": [
+        {
+          "title": "Aleph",
+          "isrc": "FRZ111300562"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "total_pending": 27
+  }
+}
+```
+
+---
+
+## 🗄️ Database Schema
+
+### Core Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `tiktok_creators` | Creator profiles | `tiktok_handle`, `name`, `follower_count` |
+| `tiktok_scraped_videos` | Video metadata | `video_id`, `spotify_track_id`, `copyright_status`, `play_count` |
+| `spotify_tracks` | Track metadata | `spotify_track_id`, `title`, `artists`, `isrc` |
+| `spotify_artists` | Artist metadata | `spotify_artist_id`, `name`, `genres`, `popularity` |
+| `genius_songs` | Genius enrichment | `genius_song_id`, `spotify_track_id`, `url` |
+| `musicbrainz_artists` | MB artist data | `mbid`, `isnis`, `ipi`, `country` |
+| `musicbrainz_recordings` | MB recording data | `recording_mbid`, `isrc`, `spotify_track_id` |
+| `musicbrainz_works` | MB work/composition | `work_mbid`, `iswc`, `title` |
+| `quansic_artists` | Quansic enrichment | `isni`, `ipn`, `luminate_id`, `name_variants` |
+
+All tables use **JSONB** for raw API responses + **indexed columns** for fast queries.
+
+---
+
+## 🎨 Key Features
+
+### ✅ **JSONB-First Schema**
+- Stores complete API responses in `raw_data` JSONB column
+- Extracts key fields as indexed columns for fast queries
+- Never loses data, always queryable
+
+### ✅ **Idempotent Upserts**
+- All operations use `ON CONFLICT DO UPDATE`
+- Safe to re-run scrapes without duplicates
+- Last update timestamp tracked
+
+### ✅ **Background Enrichment**
+- Runs automatically after every scrape
+- Non-blocking (doesn't slow down API responses)
+- Processes 5-50 items per stage per scrape
+
+### ✅ **Track Normalization**
+- Uses Gemini Flash 2.5 Lite to normalize track titles
+- Removes version suffixes: "Slowed Down", "Remaster", "Live at..."
+- Improved MusicBrainz match rate from 15% → 84.6%
+
+### ✅ **Rate Limiting**
+- MusicBrainz: 1 request/second
+- Genius: 100ms delay between requests
+- Quansic: 200ms delay between requests
+- Spotify: Batch requests (50 items max)
+
+### ✅ **Batch Processing**
+- Handles Cloudflare's 50 subrequest limit
+- Chunks large operations
+- Efficient API usage
+
+---
+
+## 🔧 Setup
 
 ### 1. Install Dependencies
 
@@ -63,172 +270,137 @@ bun install
 ### 2. Set Secrets
 
 ```bash
-# Neon database URL
 wrangler secret put NEON_DATABASE_URL
-
-# Spotify API credentials
 wrangler secret put SPOTIFY_CLIENT_ID
 wrangler secret put SPOTIFY_CLIENT_SECRET
-
-# Genius API credentials
 wrangler secret put GENIUS_API_KEY
+wrangler secret put OPENROUTER_API_KEY
+wrangler secret put QUANSIC_SESSION_COOKIE
 ```
 
 ### 3. Deploy
 
 ```bash
-bun run deploy
+wrangler deploy
 ```
 
-## API Endpoints
+---
 
-### Scrape Creator Videos
+## 📦 Tech Stack
+
+- **Runtime:** Cloudflare Workers (Edge)
+- **Framework:** Hono (routing)
+- **Database:** Neon PostgreSQL (serverless)
+- **APIs:**
+  - TikTok (unofficial API)
+  - Spotify Web API
+  - Genius API
+  - MusicBrainz API
+  - OpenRouter (Gemini Flash 2.5 Lite)
+  - Quansic Explorer
+
+---
+
+## 🎯 Use Cases
+
+### 1. **Track Popular Copyrighted Music on TikTok**
+```bash
+# Find top tracks by views
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/top-tracks?limit=10"
+```
+
+### 2. **Build Karaoke Catalog from Viral Videos**
+- Scrape viral creators
+- Get complete music metadata (ISRC, ISWC)
+- Identify compositions for licensing
+
+### 3. **Monitor Creator Statistics**
+```bash
+# Track follower/view growth
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/stats/gioscottii"
+```
+
+### 4. **Music Rights Research**
+- Get ISNIs, IPNs, ISRCs, ISWCs
+- Link recordings to works
+- Find rights holders via Quansic
+
+---
+
+## 🔄 Enrichment Pipeline Workflow
+
+### Automatic (Background)
+Every time you scrape a creator, the worker automatically:
+1. Fetches unenriched Spotify tracks (limit: 50)
+2. Fetches unenriched Spotify artists (limit: 20)
+3. Fetches unenriched Genius songs (limit: 20)
+4. Fetches unenriched MusicBrainz artists (limit: 5)
+5. Fetches unenriched MusicBrainz recordings (limit: 5)
+6. Fetches unenriched Quansic artists (limit: 5)
+
+### Manual (On-Demand)
+When you need to backfill or prioritize specific enrichment:
 
 ```bash
-# Scrape videos (auto-enriches Spotify + Genius)
-curl https://tiktok-scraper.deletion-backup782.workers.dev/scrape/idazeile
+# 1. Check what's pending
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
 
-# Limit to 20 videos
-curl https://tiktok-scraper.deletion-backup782.workers.dev/scrape/idazeile?limit=20
+# 2. Trigger specific enrichment
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-musicbrainz?type=recordings&limit=20"
+
+# 3. Verify progress
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "creator": {
-    "handle": "@idazeile",
-    "nickname": "Ida Zeile",
-    "followers": 225900
-  },
-  "scraped": {
-    "videos": 20,
-    "inserted": 20
-  },
-  "stats": {
-    "totalVideos": 44,
-    "totalViews": 16219011,
-    "copyrightedCount": 17,
-    "copyrightFreeCount": 27
-  }
-}
-```
+---
 
-**Note:** Spotify and Genius enrichment run automatically in the background after scraping (cascading: Spotify → Genius).
-
-### Manual Spotify Enrichment
+## 📊 Example: Complete Workflow
 
 ```bash
-# Enrich up to 100 tracks
-curl -X POST https://tiktok-scraper.deletion-backup782.workers.dev/enrich
+# 1. Scrape a creator
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/scrape/gioscottii?limit=10"
+# Returns: 10 videos scraped, 5 copyrighted, background enrichment started
 
-# Limit enrichment
-curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich?limit=50"
+# 2. Wait 10-15 seconds for background enrichment
+
+# 3. Check cascade status
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
+# Returns:
+# - Spotify Tracks: 83% enriched
+# - Genius Songs: 100% enriched
+# - MusicBrainz Recordings: 40% enriched
+
+# 4. Manually trigger missing enrichment
+curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/normalize-and-match?limit=5"
+# Normalizes titles with Gemini, retries MusicBrainz matching
+
+# 5. Check again
+curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
+# Returns: MusicBrainz Recordings now 100% enriched
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "service": "spotify",
-  "enriched": 13,
-  "total": 16
-}
-```
+---
 
-### Manual Genius Enrichment
+## 🎓 Best Practices
 
-```bash
-# Enrich up to 50 tracks
-curl -X POST https://tiktok-scraper.deletion-backup782.workers.dev/enrich-genius
+### Cascade Management
 
-# Limit enrichment
-curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-genius?limit=20"
-```
+1. **Monitor first**: Use `/cascade-status?handle=X` to identify gaps
+2. **Prioritize bottlenecks**: If MusicBrainz is 0%, trigger `/enrich-musicbrainz`
+3. **Use normalization**: For low match rates, use `/normalize-and-match`
+4. **Let background work**: Automatic enrichment catches up over time
 
-**Response:**
-```json
-{
-  "success": true,
-  "service": "genius",
-  "enriched": 8,
-  "total": 10
-}
-```
+### Rate Limiting
 
-### Get Creator Stats
+- **MusicBrainz**: Slow (1 req/sec), use small batches (limit=5-10)
+- **Spotify/Genius**: Fast, use larger batches (limit=50-100)
+- **Quansic**: Medium (200ms delay), use medium batches (limit=10-20)
 
-```bash
-curl https://tiktok-scraper.deletion-backup782.workers.dev/stats/idazeile
-```
+---
 
-### Get Top Spotify Tracks
-
-```bash
-curl "https://tiktok-scraper.deletion-backup782.workers.dev/top-tracks?limit=20"
-```
-
-## Automatic Enrichment Pipeline
-
-**Cascading enrichment flow:**
-1. **TikTok scrape**: Worker extracts `spotify_track_id` from TikTok metadata
-2. **Spotify enrichment**: Automatically fetches missing track data (title, artists, ISRC, album, popularity)
-3. **Genius enrichment**: After Spotify enrichment, searches Genius for lyrics metadata with artist validation
-4. All enrichment runs in background, doesn't block scraping response
-
-**Spotify enrichment:**
-- Batch processing: 50 tracks per request
-- Failed/deleted tracks are skipped
-
-**Genius enrichment:**
-- Artist-validated matching (normalizes artist names for accurate matches)
-- Title cleaning (removes "Remastered", "Live", etc. suffixes)
-- Rate limiting: 100ms delay between requests
-- Only enriches tracks that have Spotify metadata
-
-## SQL Queries
-
-### Tracks with full metadata (Spotify + Genius)
-
-```sql
-SELECT
-  v.video_id,
-  v.play_count,
-  s.title,
-  s.artists,
-  s.album,
-  s.isrc,
-  s.popularity,
-  g.genius_song_id,
-  g.artist_name,
-  g.url as genius_url
-FROM tiktok_scraped_videos v
-JOIN spotify_tracks s ON v.spotify_track_id = s.spotify_track_id
-LEFT JOIN genius_songs g ON s.spotify_track_id = g.spotify_track_id
-WHERE v.copyright_status = 'copyrighted'
-ORDER BY v.play_count DESC
-LIMIT 20;
-```
-
-### Top tracks by total views
-
-```sql
-SELECT
-  s.spotify_track_id,
-  s.title,
-  s.artists,
-  s.isrc,
-  COUNT(*) as video_count,
-  SUM(v.play_count) as total_views
-FROM tiktok_scraped_videos v
-JOIN spotify_tracks s ON v.spotify_track_id = s.spotify_track_id
-GROUP BY s.spotify_track_id, s.title, s.artists, s.isrc
-ORDER BY total_views DESC
-LIMIT 20;
-```
+## 📝 SQL Queries
 
 ### Find unenriched tracks
-
 ```sql
 SELECT DISTINCT v.spotify_track_id
 FROM tiktok_scraped_videos v
@@ -237,40 +409,38 @@ WHERE v.spotify_track_id IS NOT NULL
   AND s.spotify_track_id IS NULL;
 ```
 
-## Batch Scraping (Free Tier)
-
-Cloudflare Workers free tier has 50 subrequests limit. Use the batch script:
-
-```bash
-cd cloudflare-worker-scraper
-./scripts/scrape-all.sh creator_handle 30
+### Top copyrighted tracks
+```sql
+SELECT spotify_track_id, COUNT(*) as video_count, SUM(play_count) as total_views
+FROM tiktok_scraped_videos
+WHERE copyright_status = 'copyrighted'
+GROUP BY spotify_track_id
+ORDER BY total_views DESC
+LIMIT 20;
 ```
 
-This automatically:
-- Scrapes in batches of 30 videos
-- Waits 2s between requests
-- Handles pagination
-- Auto-enriches Spotify tracks after each batch
-
-## Development
-
-```bash
-# Install dependencies
-bun install
-
-# Run locally
-bun run dev
-
-# Deploy
-bun run deploy
-
-# View logs
-bun run tail
+### Artists with ISNIs but no Quansic data
+```sql
+SELECT ma.name, ma.isnis
+FROM musicbrainz_artists ma
+LEFT JOIN quansic_artists qa ON ma.isnis[1] = qa.isni
+WHERE ma.isnis IS NOT NULL
+  AND array_length(ma.isnis, 1) > 0
+  AND qa.isni IS NULL;
 ```
 
-## Next Steps
+---
 
-1. **Track history** - monitor play count changes over time
-2. **Analytics API** - trending tracks, growth metrics
-3. **Webhook notifications** - alert on viral videos
-4. **Lyrics scraping** - fetch full lyrics from Genius URLs
+## 🔗 Useful Links
+
+- **API Root:** https://tiktok-scraper.deletion-backup782.workers.dev
+- **Neon Dashboard:** https://console.neon.tech
+- **Cloudflare Dashboard:** https://dash.cloudflare.com
+- **MusicBrainz:** https://musicbrainz.org
+- **Quansic Explorer:** https://explorer.quansic.com
+
+---
+
+## 📄 License
+
+Private - Karaoke School V1 Project
