@@ -14,6 +14,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import scraper from './routes/scraper';
 import enrichment from './routes/enrichment';
+import monitoring from './routes/monitoring';
 import { TikTokScraper } from './tiktok-scraper';
 import { NeonDB } from './neon';
 import type { Env } from './types';
@@ -26,6 +27,7 @@ app.use('/*', cors());
 // Mount route modules
 app.route('/', scraper);
 app.route('/', enrichment);
+app.route('/', monitoring);
 
 // Root endpoint - API info
 app.get('/', (c) => {
@@ -46,6 +48,11 @@ app.get('/', (c) => {
       'POST /enrich-genius': 'Manually enrich Genius songs',
       'POST /normalize-and-match': 'Normalize track titles with Gemini and retry MusicBrainz matching',
       'POST /enrich-quansic': 'Enrich artists with Quansic (IPN, Luminate ID, name variants)',
+
+      // Monitoring routes
+      'GET /cascade-status?handle=:handle': 'View enrichment pipeline completion (all creators or specific)',
+      'GET /enrichment-queue': 'Show pending enrichment items at each stage',
+      'POST /backfill?stage=all|spotify|genius|musicbrainz': 'Trigger backfill (not yet implemented)',
     },
     pipeline: [
       'TikTok Videos',
