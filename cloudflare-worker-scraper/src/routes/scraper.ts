@@ -210,7 +210,8 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     const viableArtists = await db.sql`
       SELECT DISTINCT sa.spotify_artist_id, sa.name
       FROM spotify_artists sa
-      JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+      JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
+      JOIN spotify_tracks st ON sta.spotify_track_id = st.spotify_track_id
       LEFT JOIN musicbrainz_artists ma ON sa.spotify_artist_id = ma.spotify_artist_id
       WHERE st.has_iswc = true
         AND ma.spotify_artist_id IS NULL
@@ -229,7 +230,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     if (env.GENIUS_API_KEY) {
       const genius = new GeniusService(env.GENIUS_API_KEY);
       const viableGeniusTracks = await db.sql`
-        SELECT st.spotify_track_id, st.title, st.artists->0->>'name' as artist
+        SELECT st.spotify_track_id, st.title, st.raw_data->'artists'->0->>'name' as artist
         FROM spotify_tracks st
         LEFT JOIN genius_songs gs ON st.spotify_track_id = gs.spotify_track_id
         WHERE st.has_iswc = true
@@ -258,7 +259,8 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     const viableMBArtists = await db.sql`
       SELECT DISTINCT sa.spotify_artist_id, sa.name
       FROM spotify_artists sa
-      JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+      JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
+      JOIN spotify_tracks st ON sta.spotify_track_id = st.spotify_track_id
       LEFT JOIN musicbrainz_artists ma ON sa.spotify_artist_id = ma.spotify_artist_id
       WHERE st.has_iswc = true
         AND ma.spotify_artist_id IS NULL
@@ -295,7 +297,8 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
         SELECT DISTINCT ma.name, ma.mbid, ma.isnis
         FROM musicbrainz_artists ma
         JOIN spotify_artists sa ON ma.spotify_artist_id = sa.spotify_artist_id
-        JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+        JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
+        JOIN spotify_tracks st ON sta.spotify_track_id = st.spotify_track_id
         LEFT JOIN quansic_artists qa ON ma.isnis[1] = qa.isni
         WHERE st.has_iswc = true
           AND ma.isnis IS NOT NULL
