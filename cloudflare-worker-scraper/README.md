@@ -213,11 +213,17 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
 | `tiktok_scraped_videos` | Video metadata | `video_id`, `spotify_track_id`, `copyright_status`, `play_count` |
 | `spotify_tracks` | Track metadata | `spotify_track_id`, `title`, `artists`, `isrc` |
 | `spotify_artists` | Artist metadata | `spotify_artist_id`, `name`, `genres`, `popularity` |
-| `genius_songs` | Genius enrichment | `genius_song_id`, `spotify_track_id`, `url` |
+| `genius_songs` | Genius song data | `genius_song_id`, `spotify_track_id`, `url` |
+| `genius_artists` | Genius artist metadata | `genius_artist_id`, `name`, `followers_count`, `instagram_name`, `is_verified` |
+| `genius_song_referents` | Lyrics annotations | `referent_id`, `genius_song_id`, `fragment`, `votes_total`, `annotations` |
 | `musicbrainz_artists` | MB artist data | `mbid`, `isnis`, `ipi`, `country` |
 | `musicbrainz_recordings` | MB recording data | `recording_mbid`, `isrc`, `spotify_track_id` |
 | `musicbrainz_works` | MB work/composition | `work_mbid`, `iswc`, `title` |
 | `quansic_artists` | Quansic enrichment | `isni`, `ipn`, `luminate_id`, `name_variants` |
+| `quansic_recordings` | Quansic ISRC → ISWC (PRIMARY) | `isrc`, `iswc`, `work_title`, `composers` |
+| `quansic_works` | Quansic work enrichment | `iswc`, `title`, `contributors` |
+| `mlc_works` | MLC licensing (corroboration) | `mlc_song_code`, `iswc`, `writers`, `publishers` |
+| `mlc_recordings` | MLC ISRC discovery | `isrc`, `mlc_song_code` |
 
 All tables use **JSONB** for raw API responses + **indexed columns** for fast queries.
 
@@ -250,6 +256,16 @@ All tables use **JSONB** for raw API responses + **indexed columns** for fast qu
 - Genius: 100ms delay between requests
 - Quansic: 200ms delay between requests
 - Spotify: Batch requests (50 items max)
+
+### ⚠️ **Known Limitations**
+
+**Quansic Enrichment:**
+- Artists can have multiple ISNIs across different databases
+- MusicBrainz may store a different ISNI than Quansic's primary ISNI
+- When ISNI mismatch occurs, enrichment returns 404
+- **Workaround**: The code attempts fallback lookups by MusicBrainz ID, but Quansic API support is limited
+- **Expected success rate**: ~60% (depends on ISNI alignment between databases)
+- **Example**: Kavinsky has ISNI `0000000359429111` in MusicBrainz but `0000000089683047` in Quansic
 
 ### ✅ **Batch Processing**
 - Handles Cloudflare's 50 subrequest limit

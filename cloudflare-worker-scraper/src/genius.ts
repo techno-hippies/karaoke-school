@@ -10,6 +10,15 @@ export interface GeniusSongData {
   artist_name: string;
   genius_artist_id: number;
   url: string;
+
+  // Structured metadata (extracted from raw_data)
+  language: string | null;          // ISO 639-1 code (e.g., "en", "ko", "ja")
+  release_date: string | null;      // YYYY-MM-DD format
+  lyrics_state: string | null;      // "complete", "incomplete", etc.
+  annotation_count: number;
+  pyongs_count: number;
+  apple_music_id: string | null;
+
   raw_data: Record<string, unknown>;
 }
 
@@ -80,6 +89,15 @@ export class GeniusService {
             artist_name: result.primary_artist?.name || artist,
             genius_artist_id: result.primary_artist?.id || 0,
             url: result.url,
+
+            // Extract structured fields
+            language: result.language || null,
+            release_date: result.release_date || null,
+            lyrics_state: result.lyrics_state || null,
+            annotation_count: result.annotation_count || 0,
+            pyongs_count: result.pyongs_count || 0,
+            apple_music_id: result.apple_music_id || null,
+
             raw_data: result,
           };
         }

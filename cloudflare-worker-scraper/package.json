@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.1",
+    "csv-parse": "^6.1.0",
     "hono": "^4.10.3"
   }
 }

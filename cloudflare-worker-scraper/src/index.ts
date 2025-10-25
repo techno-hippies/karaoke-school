@@ -15,6 +15,11 @@ import { cors } from 'hono/cors';
 import scraper from './routes/scraper';
 import enrichment from './routes/enrichment';
 import monitoring from './routes/monitoring';
+import karaoke from './routes/karaoke';
+import genius from './routes/genius';
+import mlc from './routes/mlc';
+import audio from './routes/audio';
+import lyrics from './routes/lyrics';
 import { TikTokScraper } from './tiktok-scraper';
 import { NeonDB } from './neon';
 import type { Env } from './types';
@@ -28,6 +33,11 @@ app.use('/*', cors());
 app.route('/', scraper);
 app.route('/', enrichment);
 app.route('/', monitoring);
+app.route('/', karaoke);
+app.route('/', genius);
+app.route('/', mlc);
+app.route('/', audio);
+app.route('/', lyrics);
 
 // Root endpoint - API info
 app.get('/', (c) => {
@@ -48,21 +58,58 @@ app.get('/', (c) => {
       'POST /enrich-genius': 'Manually enrich Genius songs',
       'POST /normalize-and-match': 'Normalize track titles with Gemini and retry MusicBrainz matching',
       'POST /enrich-quansic': 'Enrich artists with Quansic (IPN, Luminate ID, name variants)',
+      'POST /enrich-lyrics': 'Fetch lyrics from LRCLIB (synced + plain text)',
+
+      // Genius routes
+      'POST /enrich-genius-artists': 'Enrich Genius artist metadata (social media, followers, images)',
+      'POST /enrich-song-referents': 'Fetch lyrics annotations (referents) for Genius songs',
+      'GET /genius/artists/:id': 'Get Genius artist by ID',
+      'GET /genius/songs/:id/referents': 'Get all referents for a song',
+      'GET /genius/referents/top': 'Get top-voted referents across all songs',
+
+      // MLC licensing routes (corroboration)
+      'POST /enrich-mlc-by-iswc': 'Corroborate ISWCs from Quansic + add licensing data (writers, publishers)',
+      'GET /mlc/works/:songCode': 'Get MLC work by song code',
+      'GET /mlc/recordings/isrc/:isrc': 'Get MLC recording by ISRC',
+
+      // Lyrics routes
+      'GET /lyrics/:spotify_track_id': 'Get lyrics for a specific track',
+      'GET /lyrics-stats': 'Get lyrics enrichment statistics',
 
       // Monitoring routes
       'GET /cascade-status?handle=:handle': 'View enrichment pipeline completion (all creators or specific)',
       'GET /enrichment-queue': 'Show pending enrichment items at each stage',
+      'GET /worker-status': 'Show recent enrichment activity and worker health',
       'POST /backfill?stage=all|spotify|genius|musicbrainz': 'Trigger backfill (not yet implemented)',
+
+      // Karaoke production routes
+      'POST /karaoke/create': 'Start karaoke production for a Spotify track',
+      'POST /karaoke/download': 'Download track audio via freyr service',
+      'POST /karaoke/select-segment': 'Select best 190s segment for fal.ai processing',
+      'POST /karaoke/extract-segment': 'Extract selected segment from audio',
+      'GET /karaoke/lyrics?spotify_track_id=:id': 'Fetch synced lyrics from LRCLib',
+      'GET /karaoke/status?spotify_track_id=:id': 'Check karaoke production status',
+
+      // Audio download workflow routes (Grove storage + Neon DB)
+      'GET /audio/ready-for-download?limit=:limit': 'Get tracks ready for audio download (ISWC + MLC ≥98%)',
+      'POST /audio/download-tracks?limit=:limit': 'Download audio for ready tracks → Grove → Neon',
+      'GET /audio/status/:spotify_track_id': 'Get audio file status for a track',
+      'GET /audio/stats': 'Get audio download statistics',
     },
     pipeline: [
       'TikTok Videos',
-      '→ Spotify Tracks',
+      '→ Spotify Tracks (ISRC)',
+      '→ ISWC Lookup (GATE: only continue if ISWC found)',
       '→ Spotify Artists',
       '→ Genius Songs',
-      '→ MusicBrainz Artists (ISNI)',
+      '→ Genius Artists (social media, followers, verification)',
+      '→ Song Referents (lyrics annotations)',
+      '→ MusicBrainz Artists (ISNI, social media)',
       '→ MusicBrainz Recordings (ISRC)',
       '→ MusicBrainz Works (ISWC)',
+      '→ LRCLIB Lyrics (synced + plain text)',
       '→ Quansic Enrichment (IPN, Luminate ID)',
+      '→ MLC Licensing (writers, publishers, Story Protocol compliance)',
     ],
     features: [
       'JSONB-first schema with indexed columns',
@@ -75,42 +122,24 @@ app.get('/', (c) => {
   });
 });
 
-// Scheduled cron job (optional)
+// Scheduled cron job - Runs enrichment pipeline every 5 minutes
 export default {
   fetch: app.fetch,
 
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    console.log('Cron triggered:', event.scheduledTime);
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log('🕐 Cron triggered:', event.scheduledTime);
+    console.log('🚀 Running continuous enrichment pipeline...');
 
-    // Example: Scrape predefined creators (fetches ALL videos)
-    const creators = ['idazeile', 'brookemonk_']; // Add your target creators
-
-    const scraper = new TikTokScraper();
     const db = new NeonDB(env.NEON_DATABASE_URL);
 
-    for (const handle of creators) {
-      try {
-        console.log(`Scraping @${handle}...`);
+    // Import and run enrichment directly
+    const { runEnrichmentPipeline } = await import('./routes/scraper');
 
-        const profile = await scraper.getUserProfile(handle);
-        if (!profile) continue;
-
-        await db.upsertCreator(profile);
-
-        // Fetch ALL videos (no limit)
-        const videos = await scraper.getUserVideos(profile.secUid);
-        const videoRecords = videos.map((video) => ({
-          video,
-          tiktokHandle: handle,
-          spotifyTrackId: scraper.extractSpotifyId(video),
-          copyrightStatus: scraper.getCopyrightStatus(video),
-        }));
-
-        const inserted = await db.batchUpsertVideos(videoRecords);
-        console.log(`@${handle}: ${inserted}/${videos.length} videos upserted`);
-      } catch (error) {
-        console.error(`Failed to scrape @${handle}:`, error);
-      }
+    try {
+      await runEnrichmentPipeline(env, db);
+      console.log('✅ Enrichment cycle complete');
+    } catch (error) {
+      console.error('❌ Enrichment failed:', error);
     }
   },
 };

@@ -8,6 +8,7 @@ export interface Env {
   GENIUS_API_KEY: string;
   OPENROUTER_API_KEY: string;
   QUANSIC_SESSION_COOKIE: string;
+  QUANSIC_SERVICE_URL: string;
 }
 
 /**

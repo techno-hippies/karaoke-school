@@ -16,6 +16,20 @@ export interface MusicBrainzArtistData {
   birth_date: string | null;
   death_date: string | null;
   disambiguation: string | null;
+
+  // Social media identifiers
+  tiktok_handle?: string | null;
+  instagram_handle?: string | null;
+  twitter_handle?: string | null;
+  facebook_handle?: string | null;
+  youtube_channel?: string | null;
+  soundcloud_handle?: string | null;
+
+  // Other external IDs
+  wikidata_id?: string | null;
+  genius_slug?: string | null;
+  discogs_id?: string | null;
+
   raw_data: Record<string, unknown>;
 }
 
@@ -33,7 +47,101 @@ export interface MusicBrainzWorkData {
   iswc: string | null;
   title: string;
   type: string | null;
+  language: string | null;  // ISO 639-3 code (e.g., "eng", "kor", "jpn")
   raw_data: Record<string, unknown>;
+}
+
+/**
+ * Extract social media identifiers from MusicBrainz URL relations
+ * Based on musicbrainz-psql reference implementation
+ */
+function extractSocialIdentifiers(relations: any[]): {
+  spotify_artist_id?: string;
+  tiktok_handle?: string;
+  instagram_handle?: string;
+  twitter_handle?: string;
+  facebook_handle?: string;
+  youtube_channel?: string;
+  soundcloud_handle?: string;
+  wikidata_id?: string;
+  genius_slug?: string;
+  discogs_id?: string;
+} {
+  const identifiers: ReturnType<typeof extractSocialIdentifiers> = {};
+
+  if (!relations || relations.length === 0) {
+    return identifiers;
+  }
+
+  for (const rel of relations) {
+    if (!rel.url) continue;
+
+    const url = rel.url.resource || String(rel.url);
+
+    // Extract Spotify ID
+    if (url.includes('spotify.com/artist/')) {
+      const match = url.match(/spotify\.com\/artist\/([a-zA-Z0-9]+)/);
+      if (match) identifiers.spotify_artist_id = match[1];
+    }
+
+    // Extract TikTok handle
+    else if (url.includes('tiktok.com/@')) {
+      const match = url.match(/tiktok\.com\/@([^/?]+)/);
+      if (match) identifiers.tiktok_handle = match[1];
+    }
+
+    // Extract Instagram handle
+    else if (url.includes('instagram.com/')) {
+      const match = url.match(/instagram\.com\/([^/?]+)/);
+      if (match && match[1] !== 'p') {
+        identifiers.instagram_handle = match[1];
+      }
+    }
+
+    // Extract Twitter/X handle
+    else if (url.includes('twitter.com/') || url.includes('x.com/')) {
+      const match = url.match(/(?:twitter|x)\.com\/([^/?]+)/);
+      if (match) identifiers.twitter_handle = match[1];
+    }
+
+    // Extract Facebook handle
+    else if (url.includes('facebook.com/')) {
+      const match = url.match(/facebook\.com\/([^/?]+)/);
+      if (match) identifiers.facebook_handle = match[1];
+    }
+
+    // Extract YouTube channel
+    else if (url.includes('youtube.com/')) {
+      const match = url.match(/youtube\.com\/(channel|c|user)\/([^/?]+)/);
+      if (match) identifiers.youtube_channel = match[2];
+    }
+
+    // Extract SoundCloud handle
+    else if (url.includes('soundcloud.com/')) {
+      const match = url.match(/soundcloud\.com\/([^/?]+)/);
+      if (match) identifiers.soundcloud_handle = match[1];
+    }
+
+    // Extract Wikidata ID
+    else if (url.includes('wikidata.org')) {
+      const match = url.match(/wikidata\.org\/(entity|wiki)\/(Q\d+)/);
+      if (match) identifiers.wikidata_id = match[2];
+    }
+
+    // Extract Genius slug
+    else if (url.includes('genius.com/artists/')) {
+      const match = url.match(/genius\.com\/artists\/([^/?]+)/);
+      if (match) identifiers.genius_slug = match[1];
+    }
+
+    // Extract Discogs ID
+    else if (url.includes('discogs.com/artist/')) {
+      const match = url.match(/discogs\.com\/artist\/(\d+)/);
+      if (match) identifiers.discogs_id = match[1];
+    }
+  }
+
+  return identifiers;
 }
 
 export class MusicBrainzService {
@@ -109,23 +217,12 @@ export class MusicBrainzService {
     const artist = await response.json() as any;
     await this.rateLimitDelay();
 
-    // Extract Spotify ID from URL relationships
-    let spotifyId: string | undefined;
-    if (artist.relations) {
-      for (const rel of artist.relations) {
-        if (rel.type === 'streaming' && rel.url?.resource?.includes('spotify.com/artist/')) {
-          const match = rel.url.resource.match(/artist\/([a-zA-Z0-9]+)/);
-          if (match) {
-            spotifyId = match[1];
-            break;
-          }
-        }
-      }
-    }
+    // Extract all social media identifiers from URL relationships
+    const socialIds = extractSocialIdentifiers(artist.relations || []);
 
     return {
       mbid: artist.id,
-      spotify_artist_id: spotifyId,
+      spotify_artist_id: socialIds.spotify_artist_id || undefined,
       name: artist.name,
       sort_name: artist['sort-name'],
       type: artist.type || null,
@@ -136,6 +233,20 @@ export class MusicBrainzService {
       birth_date: artist['life-span']?.begin || null,
       death_date: artist['life-span']?.end || null,
       disambiguation: artist.disambiguation || null,
+
+      // Social media identifiers
+      tiktok_handle: socialIds.tiktok_handle || null,
+      instagram_handle: socialIds.instagram_handle || null,
+      twitter_handle: socialIds.twitter_handle || null,
+      facebook_handle: socialIds.facebook_handle || null,
+      youtube_channel: socialIds.youtube_channel || null,
+      soundcloud_handle: socialIds.soundcloud_handle || null,
+
+      // Other external IDs
+      wikidata_id: socialIds.wikidata_id || null,
+      genius_slug: socialIds.genius_slug || null,
+      discogs_id: socialIds.discogs_id || null,
+
       raw_data: artist,
     };
   }
@@ -215,6 +326,7 @@ export class MusicBrainzService {
       iswc: work.iswcs?.[0] || null,
       title: work.title,
       type: work.type || null,
+      language: work.language || null,  // ISO 639-3 code
       raw_data: work,
     };
   }

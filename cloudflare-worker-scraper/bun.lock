@@ -5,6 +5,7 @@
       "name": "cloudflare-worker-scraper",
       "dependencies": {
         "@neondatabase/serverless": "^0.10.1",
+        "csv-parse": "^6.1.0",
         "hono": "^4.10.3",
       },
       "devDependencies": {
@@ -223,6 +224,8 @@
     "color-string": ["color-string@1.9.1", "", { "dependencies": { "color-name": "^1.0.0", "simple-swizzle": "^0.2.2" } }, "sha512-shrVawQFojnZv6xM40anx4CkoDP+fZsw/ZerEMsW/pyzsRbElpsL/DBVW7q3ExxwusdNXI3lXpuhEZkzs8p5Eg=="],
 
     "cookie": ["cookie@0.7.2", "", {}, "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w=="],
+
+    "csv-parse": ["csv-parse@6.1.0", "", {}, "sha512-CEE+jwpgLn+MmtCpVcPtiCZpVtB6Z2OKPTr34pycYYoL7sxdOkXDdQ4lRiw6ioC0q6BLqhc6cKweCVvral8yhw=="],
 
     "data-uri-to-buffer": ["data-uri-to-buffer@2.0.2", "", {}, "sha512-ND9qDTLc6diwj+Xe5cdAgVTbLVdXbtxTJRXRhli8Mowuaan+0EJOtdqJ0QCHNSSPyoXGx9HX2/VMnKeC34AChA=="],
 

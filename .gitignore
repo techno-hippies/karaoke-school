@@ -81,3 +81,5 @@ lit-actions/src/stt/keys/
 
 # IDE
 .claude/
+.~lock.*
+tiktoks_to_scrape.csv

@@ -320,6 +320,10 @@ enrichment.post('/enrich-quansic', async (c) => {
     return c.json({ error: 'Quansic session cookie not configured' }, 500);
   }
 
+  // Debug: log cookie length to verify it exists
+  const cookieLength = c.env.QUANSIC_SESSION_COOKIE.length;
+  console.log(`Quansic session cookie configured (length: ${cookieLength} chars)`);
+
   const quansic = new QuansicService(c.env.QUANSIC_SESSION_COOKIE);
   const db = new NeonDB(c.env.NEON_DATABASE_URL);
   const limit = parseInt(c.req.query('limit') || '10');
@@ -369,6 +373,549 @@ enrichment.post('/enrich-quansic', async (c) => {
     enriched,
     total: unenrichedArtists.length,
     results,
+  });
+});
+
+/**
+ * POST /enrich-quansic-recordings
+ * Enrich recordings by ISRC (PRIMARY - fills ISWC gaps)
+ */
+enrichment.post('/enrich-quansic-recordings', async (c) => {
+  // Debug: Log what we're receiving
+  console.log('QUANSIC_SERVICE_URL:', c.env.QUANSIC_SERVICE_URL);
+  console.log('All env keys:', Object.keys(c.env));
+
+  if (!c.env.QUANSIC_SERVICE_URL) {
+    return c.json({
+      error: 'QUANSIC_SERVICE_URL not configured',
+      debug: {
+        has_url: !!c.env.QUANSIC_SERVICE_URL,
+        env_keys: Object.keys(c.env)
+      }
+    }, 500);
+  }
+
+  const db = new NeonDB(c.env.NEON_DATABASE_URL);
+  const quansicUrl = c.env.QUANSIC_SERVICE_URL;
+  const limit = parseInt(c.req.query('limit') || '10');
+
+  // Get Spotify tracks with ISRCs that haven't been enriched through Quansic yet
+  const unenriched = await db.sql`
+    SELECT DISTINCT st.isrc, st.spotify_track_id, st.title
+    FROM spotify_tracks st
+    LEFT JOIN quansic_recordings qr ON st.isrc = qr.isrc
+    WHERE st.isrc IS NOT NULL
+    AND qr.isrc IS NULL
+    LIMIT ${limit}
+  `;
+
+  if (unenriched.length === 0) {
+    return c.json({ message: 'No recordings with ISRC but no ISWC to enrich' });
+  }
+
+  console.log(`Enriching ${unenriched.length} recordings with Quansic (ISRC → ISWC)...`);
+
+  const results = [];
+  let enriched = 0;
+
+  for (const rec of unenriched) {
+    try {
+      const response = await fetch(`${quansicUrl}/enrich-recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isrc: rec.isrc,
+          spotify_track_id: rec.spotify_track_id,
+          recording_mbid: null  // Not from MusicBrainz yet
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Quansic API error: ${response.status}`);
+      }
+
+      const { data } = await response.json();
+
+      // Extract ISWC from works array if not in top-level (Quansic service bug workaround)
+      let iswc = data.iswc;
+      let workTitle = data.work_title;
+
+      if (!iswc && data.raw_data?.recording?.works?.length > 0) {
+        const work = data.raw_data.recording.works[0];
+        iswc = work.iswc || null;
+        workTitle = work.title || null;
+      }
+
+      // Store in quansic_recordings table
+      await db.sql`
+        INSERT INTO quansic_recordings (
+          isrc, recording_mbid, spotify_track_id, title, iswc, work_title,
+          duration_ms, release_date, artists, composers, platform_ids, q2_score,
+          raw_data, enriched_at
+        ) VALUES (
+          ${data.isrc},
+          ${null},  -- Not from MusicBrainz yet
+          ${data.spotify_track_id || rec.spotify_track_id},
+          ${data.title},
+          ${iswc},
+          ${workTitle},
+          ${data.duration_ms},
+          ${data.release_date},
+          ${JSON.stringify(data.artists)},
+          ${JSON.stringify(data.composers)},
+          ${JSON.stringify(data.platform_ids)},
+          ${data.q2_score},
+          ${JSON.stringify(data.raw_data)},
+          NOW()
+        )
+        ON CONFLICT (isrc) DO UPDATE SET
+          iswc = EXCLUDED.iswc,
+          work_title = EXCLUDED.work_title,
+          composers = EXCLUDED.composers,
+          platform_ids = EXCLUDED.platform_ids,
+          raw_data = EXCLUDED.raw_data,
+          enriched_at = NOW()
+      `;
+
+      enriched++;
+      results.push({
+        isrc: rec.isrc,
+        title: rec.title,
+        iswc,
+        work_title: workTitle,
+        composers_count: data.composers.length
+      });
+
+      console.log(`✓ Enriched ${rec.title} (ISRC: ${rec.isrc}) → ISWC: ${iswc || 'none'}`);
+    } catch (error) {
+      console.error(`Failed to enrich ${rec.isrc}:`, error);
+      results.push({
+        isrc: rec.isrc,
+        title: rec.title,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  return c.json({
+    success: true,
+    service: 'quansic-recordings',
+    enriched,
+    total: unenriched.length,
+    results
+  });
+});
+
+/**
+ * POST /enrich-quansic-works
+ * Enrich works by ISWC
+ */
+enrichment.post('/enrich-quansic-works', async (c) => {
+  if (!c.env.QUANSIC_SERVICE_URL) {
+    return c.json({ error: 'QUANSIC_SERVICE_URL not configured' }, 500);
+  }
+
+  const db = new NeonDB(c.env.NEON_DATABASE_URL);
+  const quansicUrl = c.env.QUANSIC_SERVICE_URL;
+  const limit = parseInt(c.req.query('limit') || '10');
+
+  // Get works with ISWC that need enrichment
+  const unenriched = await db.sql`
+    SELECT w.iswc, w.work_mbid, w.title
+    FROM musicbrainz_works w
+    LEFT JOIN quansic_works qw ON w.iswc = qw.iswc
+    WHERE w.iswc IS NOT NULL
+    AND qw.iswc IS NULL
+    LIMIT ${limit}
+  `;
+
+  if (unenriched.length === 0) {
+    return c.json({ message: 'No works with ISWC to enrich' });
+  }
+
+  console.log(`Enriching ${unenriched.length} works with Quansic (ISWC → Composers)...`);
+
+  const results = [];
+  let enriched = 0;
+
+  for (const work of unenriched) {
+    try {
+      const response = await fetch(`${quansicUrl}/enrich-work`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          iswc: work.iswc,
+          work_mbid: work.work_mbid
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Quansic API error: ${response.status}`);
+      }
+
+      const { data } = await response.json();
+
+      // Store in quansic_works table
+      await db.sql`
+        INSERT INTO quansic_works (
+          iswc, work_mbid, title, contributors, recording_count,
+          q1_score, sample_recordings, raw_data, enriched_at
+        ) VALUES (
+          ${data.iswc},
+          ${work.work_mbid},
+          ${data.title},
+          ${JSON.stringify(data.contributors)},
+          ${data.recording_count},
+          ${data.q1_score},
+          ${JSON.stringify(data.sample_recordings)},
+          ${JSON.stringify(data.raw_data)},
+          NOW()
+        )
+        ON CONFLICT (iswc) DO UPDATE SET
+          contributors = EXCLUDED.contributors,
+          recording_count = EXCLUDED.recording_count,
+          q1_score = EXCLUDED.q1_score,
+          sample_recordings = EXCLUDED.sample_recordings,
+          raw_data = EXCLUDED.raw_data,
+          enriched_at = NOW()
+      `;
+
+      enriched++;
+      results.push({
+        iswc: work.iswc,
+        title: work.title,
+        contributors_count: data.contributors.length,
+        recording_count: data.recording_count,
+        q1_score: data.q1_score
+      });
+
+      console.log(`✓ Enriched ${work.title} (ISWC: ${work.iswc}) → ${data.contributors.length} contributors`);
+    } catch (error) {
+      console.error(`Failed to enrich ${work.iswc}:`, error);
+      results.push({
+        iswc: work.iswc,
+        title: work.title,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  return c.json({
+    success: true,
+    service: 'quansic-works',
+    enriched,
+    total: unenriched.length,
+    results
+  });
+});
+
+/**
+ * POST /enrich-iswc
+ * Manually trigger ISWC lookup (MusicBrainz → Quansic → MLC)
+ * This is the CRITICAL GATE - sets has_iswc flag
+ */
+enrichment.post('/enrich-iswc', async (c) => {
+  const db = new NeonDB(c.env.NEON_DATABASE_URL);
+  const musicbrainz = new MusicBrainzService();
+  const limit = parseInt(c.req.query('limit') || '20');
+
+  // Get tracks that need ISWC lookup
+  const tracksNeedingIswc = await db.sql`
+    SELECT spotify_track_id, title, isrc
+    FROM spotify_tracks
+    WHERE isrc IS NOT NULL
+      AND has_iswc IS NULL
+    LIMIT ${limit}
+  `;
+
+  if (tracksNeedingIswc.length === 0) {
+    return c.json({ message: 'No tracks need ISWC lookup' });
+  }
+
+  console.log(`Checking ISWC for ${tracksNeedingIswc.length} tracks...`);
+  const results = [];
+  let foundIswc = 0;
+
+  for (const track of tracksNeedingIswc) {
+    let iswc: string | null = null;
+    let iswcSource: string | null = null;
+    const allSources: { source: string; iswc: string | null }[] = [];
+
+    try {
+      // Try 1: MusicBrainz (fast, ~40% success)
+      console.log(`  Trying MusicBrainz for ${track.title}...`);
+      const mbResult = await musicbrainz.searchRecordingByISRC(track.isrc);
+
+      if (mbResult?.recordings?.length > 0) {
+        const recording = mbResult.recordings[0];
+
+        // Check if recording has work relations with ISWC
+        if (recording.relations) {
+          for (const rel of recording.relations) {
+            if (rel.type === 'performance' && rel.work) {
+              const work = await musicbrainz.getWork(rel.work.id);
+              if (work.iswc) {
+                iswc = work.iswc;
+                iswcSource = 'musicbrainz';
+                allSources.push({ source: 'musicbrainz', iswc: work.iswc });
+                console.log(`  ✓ MusicBrainz: ${iswc}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (!iswc) {
+        allSources.push({ source: 'musicbrainz', iswc: null });
+      }
+
+      // Try 2: Quansic (slow but cleanest ~85% success) - ALWAYS try for corroboration
+      if (c.env.QUANSIC_SERVICE_URL) {
+        console.log(`  Trying Quansic for ${track.title}...`);
+        const quansicResponse = await fetch(`${c.env.QUANSIC_SERVICE_URL}/enrich-recording`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            isrc: track.isrc,
+            spotify_track_id: track.spotify_track_id,
+            recording_mbid: null
+          })
+        });
+
+        if (quansicResponse.ok) {
+          const { data } = await quansicResponse.json();
+
+          // Extract ISWC (might be in works array due to Quansic service structure)
+          let quansicIswc = data.iswc;
+          if (!quansicIswc && data.raw_data?.recording?.works?.length > 0) {
+            quansicIswc = data.raw_data.recording.works[0].iswc;
+          }
+
+          if (quansicIswc) {
+            if (!iswc) {
+              iswc = quansicIswc;
+              iswcSource = 'quansic';
+            }
+            allSources.push({ source: 'quansic', iswc: quansicIswc });
+            console.log(`  ✓ Quansic: ${quansicIswc}`);
+          } else {
+            allSources.push({ source: 'quansic', iswc: null });
+          }
+        } else {
+          allSources.push({ source: 'quansic', iswc: null });
+        }
+      }
+
+      // Try 3: MLC corroboration (ONLY if we found ISWC from MB or Quansic)
+      // MLC cannot search by ISRC - only by ISWC, work title, writer, etc.
+      if (iswc) {
+        console.log(`  Trying MLC for corroboration (ISWC: ${iswc})...`);
+        const mlcSearchUrl = 'https://api.ptl.themlc.com/api2v/public/search/works?page=0&size=10';
+
+        // Normalize ISWC for MLC (remove dashes/dots)
+        const mlcIswc = iswc.replace(/[-\.]/g, '');
+
+        const mlcResponse = await fetch(mlcSearchUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Content-Type': 'application/json',
+            'Origin': 'https://portal.themlc.com',
+            'Referer': 'https://portal.themlc.com/',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-site',
+          },
+          body: JSON.stringify({ iswc: mlcIswc })
+        });
+
+        try {
+          if (mlcResponse.ok) {
+            const mlcData = await mlcResponse.json();
+            console.log(`  MLC response:`, JSON.stringify(mlcData).substring(0, 200));
+
+            if (mlcData.content && mlcData.content.length > 0) {
+              const mlcWork = mlcData.content[0];
+              if (mlcWork.iswc) {
+                allSources.push({ source: 'mlc', iswc: mlcWork.iswc });
+                console.log(`  ✓ MLC corroborates: ${mlcWork.iswc} (song: ${mlcWork.mlcSongCode})`);
+              } else {
+                allSources.push({ source: 'mlc', iswc: null });
+                console.log(`  ⚠️  MLC work has no ISWC`);
+              }
+            } else {
+              allSources.push({ source: 'mlc', iswc: null });
+              console.log(`  ⚠️  MLC: No work found for ISWC ${mlcIswc}`);
+            }
+          } else {
+            const errorText = await mlcResponse.text();
+            allSources.push({ source: 'mlc', iswc: null });
+            console.log(`  ⚠️  MLC API error: ${mlcResponse.status} - ${errorText.substring(0, 100)}`);
+          }
+        } catch (mlcError) {
+          allSources.push({ source: 'mlc', iswc: null });
+          console.error(`  ❌ MLC error:`, mlcError);
+        }
+      } else {
+        // No ISWC to corroborate
+        allSources.push({ source: 'mlc', iswc: null });
+      }
+
+      // Update track with ISWC result
+      await db.sql`
+        UPDATE spotify_tracks
+        SET has_iswc = ${!!iswc},
+            iswc_source = ${iswcSource}
+        WHERE spotify_track_id = ${track.spotify_track_id}
+      `;
+
+      if (iswc) {
+        foundIswc++;
+        results.push({
+          spotify_track_id: track.spotify_track_id,
+          title: track.title,
+          isrc: track.isrc,
+          iswc,
+          iswc_source: iswcSource,
+          has_iswc: true,
+          all_sources: allSources,
+        });
+        console.log(`  ✅ ISWC found for "${track.title}": ${iswc} (source: ${iswcSource})`);
+        console.log(`  All sources:`, JSON.stringify(allSources));
+      } else {
+        results.push({
+          spotify_track_id: track.spotify_track_id,
+          title: track.title,
+          isrc: track.isrc,
+          has_iswc: false,
+          message: 'No ISWC found - will skip deep enrichment',
+          all_sources: allSources,
+        });
+        console.log(`  ❌ No ISWC found for "${track.title}" - will skip deep enrichment`);
+        console.log(`  All sources:`, JSON.stringify(allSources));
+      }
+
+    } catch (error) {
+      console.error(`  Error checking ISWC for ${track.title}:`, error);
+      // Mark as checked but not found
+      await db.sql`
+        UPDATE spotify_tracks
+        SET has_iswc = false
+        WHERE spotify_track_id = ${track.spotify_track_id}
+      `;
+      results.push({
+        spotify_track_id: track.spotify_track_id,
+        title: track.title,
+        isrc: track.isrc,
+        has_iswc: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return c.json({
+    success: true,
+    service: 'iswc-lookup',
+    checked: tracksNeedingIswc.length,
+    found_iswc: foundIswc,
+    found_percentage: ((foundIswc / tracksNeedingIswc.length) * 100).toFixed(1) + '%',
+    results,
+  });
+});
+
+/**
+ * GET /test-quansic
+ * Test Quansic ISRC lookup directly
+ */
+enrichment.get('/test-quansic', async (c) => {
+  const testIsrc = 'USRC11902726'; // The Adults Are Talking
+  const testTrackId = '5ruzrDWcT0vuJIOMW7gMnW';
+
+  if (!c.env.QUANSIC_SERVICE_URL) {
+    return c.json({ error: 'QUANSIC_SERVICE_URL not configured' });
+  }
+
+  console.log(`Testing Quansic with ISRC: ${testIsrc}`);
+
+  const quansicResponse = await fetch(`${c.env.QUANSIC_SERVICE_URL}/enrich-recording`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      isrc: testIsrc,
+      spotify_track_id: testTrackId,
+      recording_mbid: null
+    })
+  });
+
+  const responseText = await quansicResponse.text();
+
+  return c.json({
+    isrc: testIsrc,
+    url: c.env.QUANSIC_SERVICE_URL + '/enrich-recording',
+    status: quansicResponse.status,
+    statusText: quansicResponse.statusText,
+    ok: quansicResponse.ok,
+    body: responseText,
+    parsed: (() => {
+      try {
+        return JSON.parse(responseText);
+      } catch {
+        return null;
+      }
+    })()
+  });
+});
+
+/**
+ * GET /test-mlc-corroboration
+ * Test MLC ISWC corroboration directly
+ */
+enrichment.get('/test-mlc-corroboration', async (c) => {
+  const testIswc = 'T-931.596.136-5'; // The Adults Are Talking
+  const mlcIswc = testIswc.replace(/[-\.]/g, ''); // T9315961365
+
+  const mlcSearchUrl = 'https://api.ptl.themlc.com/api2v/public/search/works?page=0&size=10';
+
+  console.log(`Testing MLC with ISWC: ${testIswc} → ${mlcIswc}`);
+
+  const mlcResponse = await fetch(mlcSearchUrl, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Content-Type': 'application/json',
+      'Origin': 'https://portal.themlc.com',
+      'Referer': 'https://portal.themlc.com/',
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'same-site',
+    },
+    body: JSON.stringify({ iswc: mlcIswc })
+  });
+
+  const responseText = await mlcResponse.text();
+
+  return c.json({
+    original_iswc: testIswc,
+    normalized_iswc: mlcIswc,
+    url: mlcSearchUrl,
+    status: mlcResponse.status,
+    statusText: mlcResponse.statusText,
+    ok: mlcResponse.ok,
+    headers: Object.fromEntries(mlcResponse.headers.entries()),
+    body: responseText,
+    parsed: (() => {
+      try {
+        return JSON.parse(responseText);
+      } catch {
+        return null;
+      }
+    })()
   });
 });
 

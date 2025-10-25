@@ -17,17 +17,18 @@ const scraper = new Hono<{ Bindings: Env }>();
 /**
  * Background enrichment pipeline
  * Runs async to enrich newly scraped data
+ * NEW: ISWC gate - only enriches tracks that have ISWC
  */
-async function runEnrichmentPipeline(env: Env, db: NeonDB) {
+export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
   try {
-    // Step 1: Spotify enrichment
+    // Step 1: Spotify enrichment (gets ISRC)
     if (!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET) {
       console.log('Spotify credentials not configured, skipping enrichment');
       return;
     }
 
     const spotify = new SpotifyService(env.SPOTIFY_CLIENT_ID, env.SPOTIFY_CLIENT_SECRET);
-    const unenrichedSpotifyTracks = await db.getUnenrichedSpotifyTracks(50);
+    const unenrichedSpotifyTracks = await db.getUnenrichedSpotifyTracks(100); // Increased for paid plan (1,000 subrequest limit)
 
     if (unenrichedSpotifyTracks.length > 0) {
       console.log(`Enriching ${unenrichedSpotifyTracks.length} Spotify tracks...`);
@@ -36,24 +37,210 @@ async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log(`✓ Enriched ${enriched} Spotify tracks`);
     }
 
-    // Step 2: Spotify Artist enrichment (extract from tracks)
-    const unenrichedArtists = await db.getUnenrichedSpotifyArtists(20);
-    if (unenrichedArtists.length > 0) {
-      console.log(`Enriching ${unenrichedArtists.length} Spotify artists...`);
-      const artistData = await spotify.fetchArtists(unenrichedArtists);
+    // Step 2: ISWC LOOKUP (CRITICAL GATE - determines if track is viable)
+    console.log('🔍 Step 2: ISWC Lookup (MusicBrainz → Quansic → MLC)...');
+    const tracksNeedingIswc = await db.sql`
+      SELECT spotify_track_id, title, isrc
+      FROM spotify_tracks
+      WHERE isrc IS NOT NULL
+        AND has_iswc IS NULL
+      LIMIT 30
+    `;
+
+    if (tracksNeedingIswc.length > 0) {
+      console.log(`Checking ISWC for ${tracksNeedingIswc.length} tracks...`);
+      const musicbrainz = new MusicBrainzService();
+      let foundIswc = 0;
+
+      for (const track of tracksNeedingIswc) {
+        const iswcSources: { [key: string]: string | null } = {
+          musicbrainz: null,
+          quansic: null,
+          mlc: null,
+        };
+
+        try {
+          // Try 1: MusicBrainz (fast, ~40% success)
+          console.log(`  Trying MusicBrainz for ${track.title}...`);
+          try {
+            const mbResult = await musicbrainz.searchRecordingByISRC(track.isrc);
+            if (mbResult?.recordings?.length > 0) {
+              const recording = mbResult.recordings[0];
+              if (recording.relations) {
+                for (const rel of recording.relations) {
+                  if (rel.type === 'performance' && rel.work) {
+                    const work = await musicbrainz.getWork(rel.work.id);
+                    if (work.iswc) {
+                      iswcSources.musicbrainz = work.iswc;
+                      console.log(`  ✓ MusicBrainz: ${work.iswc}`);
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (mbError) {
+            console.log(`  ✗ MusicBrainz failed:`, mbError);
+          }
+
+          // Try 2: Quansic (slow but reliable ~85% success)
+          if (env.QUANSIC_SERVICE_URL) {
+            console.log(`  Trying Quansic for ${track.title}...`);
+            try {
+              const quansicResponse = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich-recording`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  isrc: track.isrc,
+                  spotify_track_id: track.spotify_track_id,
+                  recording_mbid: null
+                })
+              });
+
+              if (quansicResponse.ok) {
+                const { data } = await quansicResponse.json();
+                const quansicIswc = data.iswc || data.raw_data?.works?.[0]?.iswc;
+                if (quansicIswc) {
+                  iswcSources.quansic = quansicIswc;
+                  console.log(`  ✓ Quansic: ${quansicIswc}`);
+                }
+              }
+            } catch (quansicError) {
+              console.log(`  ✗ Quansic failed:`, quansicError);
+            }
+          }
+
+          // Try 3: MLC corroboration (if we got ISWC from MB or Quansic)
+          const tempIswc = iswcSources.musicbrainz || iswcSources.quansic;
+          if (tempIswc) {
+            console.log(`  Trying MLC for corroboration (ISWC: ${tempIswc})...`);
+            try {
+              const mlcIswc = tempIswc.replace(/[-\.]/g, '');
+              const mlcResponse = await fetch('https://api.ptl.themlc.com/api2v/public/search/works?page=0&size=10', {
+                method: 'POST',
+                headers: {
+                  'Accept': 'application/json, text/plain, */*',
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                },
+                body: JSON.stringify({ iswc: mlcIswc })
+              });
+
+              if (mlcResponse.ok) {
+                const mlcData = await mlcResponse.json();
+                if (mlcData.content?.length > 0 && mlcData.content[0].iswc) {
+                  iswcSources.mlc = mlcData.content[0].iswc;
+                  console.log(`  ✓ MLC: ${mlcData.content[0].iswc}`);
+                }
+              }
+            } catch (mlcError) {
+              console.log(`  ✗ MLC failed:`, mlcError);
+            }
+          }
+
+          // Corroboration logic
+          const iswcValues = Object.values(iswcSources).filter(v => v !== null);
+          const uniqueIswcs = [...new Set(iswcValues)];
+
+          let finalIswc: string | null = null;
+          let hasIswc = false;
+
+          if (uniqueIswcs.length === 0) {
+            // No sources found ISWC
+            hasIswc = false;
+            console.log(`  ❌ No ISWC found for "${track.title}"`);
+          } else if (uniqueIswcs.length === 1) {
+            // All sources agree OR only 1 source - use it
+            finalIswc = uniqueIswcs[0];
+            hasIswc = true;
+            if (iswcValues.length >= 2) {
+              console.log(`  ✅ CORROBORATED: ${finalIswc} (${iswcValues.length} sources agree)`);
+            } else {
+              console.log(`  ✅ SINGLE SOURCE: ${finalIswc} (${iswcValues.length} source)`);
+            }
+          } else {
+            // Sources disagree - find majority
+            const counts = uniqueIswcs.map(iswc => ({
+              iswc,
+              count: iswcValues.filter(v => v === iswc).length
+            }));
+            const maxCount = Math.max(...counts.map(c => c.count));
+
+            if (maxCount >= 2) {
+              // Majority wins
+              finalIswc = counts.find(c => c.count === maxCount)!.iswc;
+              hasIswc = true;
+              console.log(`  ✅ MAJORITY: ${finalIswc} (${maxCount}/3 sources)`);
+            } else {
+              // All 3 disagree - don't trust any
+              hasIswc = false;
+              console.log(`  ⚠️ CONFLICT: All sources disagree - skipping (${JSON.stringify(iswcSources)})`);
+            }
+          }
+
+          // Update track with corroboration results
+          await db.sql`
+            UPDATE spotify_tracks
+            SET has_iswc = ${hasIswc},
+                iswc_source = ${hasIswc ? JSON.stringify(iswcSources) : null}
+            WHERE spotify_track_id = ${track.spotify_track_id}
+          `;
+
+          if (hasIswc) {
+            foundIswc++;
+          }
+
+        } catch (error) {
+          console.error(`  Error checking ISWC for ${track.title}:`, error);
+          // Mark as checked but not found
+          await db.sql`
+            UPDATE spotify_tracks
+            SET has_iswc = false
+            WHERE spotify_track_id = ${track.spotify_track_id}
+          `;
+        }
+      }
+
+      console.log(`✓ ISWC Lookup: ${foundIswc}/${tracksNeedingIswc.length} tracks have ISWC`);
+    }
+
+    // Step 3: ONLY enrich tracks WITH ISWC (spotify_artists, genius, etc.)
+    // Filter: only enrich artists from tracks that have ISWC
+    console.log('🎯 Step 3: Enriching ONLY tracks with ISWC...');
+    const viableArtists = await db.sql`
+      SELECT DISTINCT sa.spotify_artist_id, sa.name
+      FROM spotify_artists sa
+      JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+      LEFT JOIN musicbrainz_artists ma ON sa.spotify_artist_id = ma.spotify_artist_id
+      WHERE st.has_iswc = true
+        AND ma.spotify_artist_id IS NULL
+      LIMIT 20
+    `;
+
+    if (viableArtists.length > 0) {
+      console.log(`Enriching ${viableArtists.length} Spotify artists (from tracks with ISWC)...`);
+      const artistIds = viableArtists.map((a: any) => a.spotify_artist_id);
+      const artistData = await spotify.fetchArtists(artistIds);
       const enrichedArtists = await db.batchUpsertSpotifyArtists(artistData);
       console.log(`✓ Enriched ${enrichedArtists} Spotify artists`);
     }
 
-    // Step 3: Genius enrichment (triggered after Spotify track enrichment)
+    // Step 4: Genius enrichment (ONLY for tracks with ISWC)
     if (env.GENIUS_API_KEY) {
       const genius = new GeniusService(env.GENIUS_API_KEY);
-      const unenrichedGeniusTracks = await db.getUnenrichedGeniusTracks(20);
+      const viableGeniusTracks = await db.sql`
+        SELECT st.spotify_track_id, st.title, st.artists->0->>'name' as artist
+        FROM spotify_tracks st
+        LEFT JOIN genius_songs gs ON st.spotify_track_id = gs.spotify_track_id
+        WHERE st.has_iswc = true
+          AND gs.spotify_track_id IS NULL
+        LIMIT 20
+      `;
 
-      if (unenrichedGeniusTracks.length > 0) {
-        console.log(`Enriching ${unenrichedGeniusTracks.length} Genius songs...`);
+      if (viableGeniusTracks.length > 0) {
+        console.log(`Enriching ${viableGeniusTracks.length} Genius songs (from tracks with ISWC)...`);
         const geniusData = await genius.searchBatch(
-          unenrichedGeniusTracks.map(t => ({
+          viableGeniusTracks.map((t: any) => ({
             title: t.title,
             artist: t.artist,
             spotifyTrackId: t.spotify_track_id,
@@ -66,15 +253,23 @@ async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log('Genius API key not configured, skipping Genius enrichment');
     }
 
-    // Step 4: MusicBrainz Artist enrichment (match with Spotify artists)
+    // Step 5: MusicBrainz Artist enrichment (ONLY for artists from tracks with ISWC)
     const musicbrainz = new MusicBrainzService();
-    const unenrichedMBArtists = await db.getUnenrichedMusicBrainzArtists(5); // Low limit due to rate limiting
+    const viableMBArtists = await db.sql`
+      SELECT DISTINCT sa.spotify_artist_id, sa.name
+      FROM spotify_artists sa
+      JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+      LEFT JOIN musicbrainz_artists ma ON sa.spotify_artist_id = ma.spotify_artist_id
+      WHERE st.has_iswc = true
+        AND ma.spotify_artist_id IS NULL
+      LIMIT 5
+    `;
 
-    if (unenrichedMBArtists.length > 0) {
-      console.log(`Enriching ${unenrichedMBArtists.length} MusicBrainz artists...`);
+    if (viableMBArtists.length > 0) {
+      console.log(`Enriching ${viableMBArtists.length} MusicBrainz artists (from tracks with ISWC)...`);
       let enrichedMBArtists = 0;
 
-      for (const artist of unenrichedMBArtists) {
+      for (const artist of viableMBArtists) {
         try {
           const searchResult = await musicbrainz.searchArtist(artist.name);
           if (searchResult?.artists?.length > 0) {
@@ -93,55 +288,27 @@ async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log(`✓ Enriched ${enrichedMBArtists} MusicBrainz artists`);
     }
 
-    // Step 5: MusicBrainz Recording enrichment (match by ISRC)
-    const unenrichedMBRecordings = await db.getUnenrichedMusicBrainzRecordings(5); // Low limit due to rate limiting
-
-    if (unenrichedMBRecordings.length > 0) {
-      console.log(`Enriching ${unenrichedMBRecordings.length} MusicBrainz recordings...`);
-      let enrichedMBRecordings = 0;
-
-      for (const track of unenrichedMBRecordings) {
-        try {
-          const result = await musicbrainz.searchRecordingByISRC(track.isrc);
-          if (result?.recordings?.length > 0) {
-            const recording = result.recordings[0];
-            const mbRecording = await musicbrainz.getRecording(recording.id);
-            mbRecording.spotify_track_id = track.spotify_track_id;
-            await db.upsertMusicBrainzRecording(mbRecording);
-            enrichedMBRecordings++;
-
-            // Extract and store associated works (compositions)
-            if (recording.relations) {
-              for (const rel of recording.relations) {
-                if (rel.type === 'performance' && rel.work) {
-                  const work = await musicbrainz.getWork(rel.work.id);
-                  await db.upsertMusicBrainzWork(work);
-                  await db.linkWorkToRecording(work.work_mbid, mbRecording.recording_mbid);
-                  console.log(`✓ Linked work ${work.title} (ISWC: ${work.iswc || 'N/A'})`);
-                }
-              }
-            }
-
-            console.log(`✓ Matched ISRC ${track.isrc} → ${mbRecording.recording_mbid}`);
-          }
-        } catch (error) {
-          console.error(`Failed to enrich MusicBrainz recording ${track.isrc}:`, error);
-        }
-      }
-
-      console.log(`✓ Enriched ${enrichedMBRecordings} MusicBrainz recordings`);
-    }
-
-    // Step 6: Quansic enrichment (for artists with ISNIs)
+    // Step 6: Quansic enrichment (ONLY for artists from tracks with ISWC)
     if (env.QUANSIC_SESSION_COOKIE) {
       const quansic = new QuansicService(env.QUANSIC_SESSION_COOKIE);
-      const unenrichedQuansicArtists = await db.getUnenrichedQuansicArtists(5);
+      const viableQuansicArtists = await db.sql`
+        SELECT DISTINCT ma.name, ma.mbid, ma.isnis
+        FROM musicbrainz_artists ma
+        JOIN spotify_artists sa ON ma.spotify_artist_id = sa.spotify_artist_id
+        JOIN spotify_tracks st ON st.artists::jsonb @> jsonb_build_array(jsonb_build_object('id', sa.spotify_artist_id))
+        LEFT JOIN quansic_artists qa ON ma.isnis[1] = qa.isni
+        WHERE st.has_iswc = true
+          AND ma.isnis IS NOT NULL
+          AND array_length(ma.isnis, 1) > 0
+          AND qa.isni IS NULL
+        LIMIT 5
+      `;
 
-      if (unenrichedQuansicArtists.length > 0) {
-        console.log(`Enriching ${unenrichedQuansicArtists.length} artists with Quansic...`);
+      if (viableQuansicArtists.length > 0) {
+        console.log(`Enriching ${viableQuansicArtists.length} artists with Quansic (from tracks with ISWC)...`);
         let enrichedQuansic = 0;
 
-        for (const artist of unenrichedQuansicArtists) {
+        for (const artist of viableQuansicArtists) {
           try {
             for (const isni of artist.isnis) {
               const quansicData = await quansic.enrichArtist(isni, artist.mbid);
@@ -158,6 +325,92 @@ async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       }
     } else {
       console.log('Quansic session cookie not configured, skipping Quansic enrichment');
+    }
+
+    // Step 7: LRCLIB Lyrics enrichment (ONLY for tracks with ISWC)
+    console.log('🎵 Step 7: LRCLIB Lyrics enrichment (from tracks with ISWC)...');
+    const { LRCLIBService, calculateMatchScore } = await import('../lrclib');
+    const lrclib = new LRCLIBService();
+
+    const tracksNeedingLyrics = await db.sql`
+      SELECT
+        st.spotify_track_id,
+        st.title,
+        st.artists[1] as artist,
+        st.album as album_name,
+        ROUND(st.duration_ms / 1000) as duration
+      FROM spotify_tracks st
+      LEFT JOIN spotify_track_lyrics stl
+        ON st.spotify_track_id = stl.spotify_track_id
+      WHERE st.has_iswc = true
+        AND st.duration_ms IS NOT NULL
+        AND st.artists IS NOT NULL
+        AND st.album IS NOT NULL
+        AND stl.spotify_track_id IS NULL
+      LIMIT 10
+    `;
+
+    if (tracksNeedingLyrics.length > 0) {
+      console.log(`Fetching lyrics for ${tracksNeedingLyrics.length} tracks (from tracks with ISWC)...`);
+      let enrichedLyrics = 0;
+      let instrumental = 0;
+
+      for (const track of tracksNeedingLyrics) {
+        try {
+          // Try exact match first
+          let lyricsData = await lrclib.getLyrics({
+            track_name: track.title,
+            artist_name: track.artist,
+            album_name: track.album_name,
+            duration: track.duration,
+          });
+
+          let confidenceScore = 1.0;
+
+          // Fallback to search if needed
+          if (!lyricsData) {
+            const searchResults = await lrclib.searchLyrics({
+              track_name: track.title,
+              artist_name: track.artist,
+            });
+
+            if (searchResults.length > 0) {
+              const scoredResults = searchResults.map(result => ({
+                result,
+                score: calculateMatchScore(result, {
+                  title: track.title,
+                  artist: track.artist,
+                  album: track.album_name,
+                  duration: track.duration,
+                }),
+              }));
+
+              const bestMatch = scoredResults
+                .filter(s => s.score >= 0.7)
+                .sort((a, b) => b.score - a.score)[0];
+
+              if (bestMatch) {
+                lyricsData = bestMatch.result;
+                confidenceScore = bestMatch.score;
+              }
+            }
+          }
+
+          if (lyricsData) {
+            await db.upsertLyrics(track.spotify_track_id, lyricsData, confidenceScore);
+            if (lyricsData.instrumental) {
+              instrumental++;
+            } else {
+              enrichedLyrics++;
+            }
+            console.log(`✓ Lyrics for ${track.title} (synced: ${!!lyricsData.syncedLyrics}, instrumental: ${lyricsData.instrumental})`);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch lyrics for ${track.title}:`, error);
+        }
+      }
+
+      console.log(`✓ Enriched ${enrichedLyrics} tracks with lyrics, ${instrumental} instrumental`);
     }
   } catch (error) {
     console.error('Enrichment failed:', error);

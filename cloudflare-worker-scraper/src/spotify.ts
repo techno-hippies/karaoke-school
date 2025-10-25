@@ -3,6 +3,25 @@
  * Fetches track metadata for enrichment
  */
 
+/**
+ * Normalize Spotify release dates to PostgreSQL date format
+ * Handles: "2008" → "2008-01-01", "2008-10" → "2008-10-01", "2008-10-15" → "2008-10-15"
+ */
+function normalizeReleaseDate(date: string): string | null {
+  if (!date) return null;
+
+  const parts = date.split('-');
+  if (parts.length === 1) {
+    // Year only: "2008" → "2008-01-01"
+    return `${parts[0]}-01-01`;
+  } else if (parts.length === 2) {
+    // Year-Month: "2008-10" → "2008-10-01"
+    return `${parts[0]}-${parts[1]}-01`;
+  }
+  // Already full date: "2008-10-15"
+  return date;
+}
+
 export interface SpotifyTrackData {
   spotify_track_id: string;
   title: string;
@@ -95,7 +114,7 @@ export class SpotifyService {
       artists: track.artists.map((a: any) => a.name),
       album: track.album.name,
       isrc: track.external_ids?.isrc || '',
-      release_date: track.album.release_date,
+      release_date: normalizeReleaseDate(track.album.release_date),
       duration_ms: track.duration_ms,
       popularity: track.popularity || 0,
       raw_data: track,
@@ -142,7 +161,7 @@ export class SpotifyService {
           artists: track.artists.map((a: any) => a.name),
           album: track.album.name,
           isrc: track.external_ids?.isrc || '',
-          release_date: track.album.release_date,
+          release_date: normalizeReleaseDate(track.album.release_date),
           duration_ms: track.duration_ms,
           popularity: track.popularity || 0,
           raw_data: track,

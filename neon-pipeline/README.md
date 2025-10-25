@@ -109,6 +109,21 @@ bun src/import/03-enrich-metadata.ts
 - `medium` - 1 source validated
 - `low` - Unvalidated/inferred
 
+## Known Issues
+
+### ISNI Mismatches Across Databases
+
+Artists can have multiple ISNIs, and different databases may store different ones:
+- **MusicBrainz** uses one set of ISNIs (community-edited)
+- **Quansic** uses another set (industry-provided)
+- When these don't overlap, Quansic enrichment fails with 404
+
+**Example:**
+- Kavinsky: MusicBrainz ISNI `0000000359429111` ≠ Quansic ISNI `0000000089683047`
+- Macklemore: MusicBrainz ISNI `0000000388129177` ≠ Quansic ISNI `0000000372864847`
+
+**Current workaround:** Code attempts fallback lookup by MusicBrainz ID, but Quansic API support is limited (~60% success rate)
+
 ## Project Structure
 
 ```
