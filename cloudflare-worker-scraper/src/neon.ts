@@ -25,7 +25,7 @@ export class NeonDB {
       INSERT INTO tiktok_creators (
         tiktok_handle,
         sec_uid,
-        nickname,
+        name,
         follower_count,
         raw_profile,
         last_scraped_at
@@ -41,7 +41,7 @@ export class NeonDB {
       ON CONFLICT (tiktok_handle)
       DO UPDATE SET
         sec_uid = EXCLUDED.sec_uid,
-        nickname = EXCLUDED.nickname,
+        name = EXCLUDED.name,
         follower_count = EXCLUDED.follower_count,
         raw_profile = EXCLUDED.raw_profile,
         last_scraped_at = NOW()

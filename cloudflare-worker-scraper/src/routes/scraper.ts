@@ -214,7 +214,7 @@ scraper.get('/scrape/:handle', async (c) => {
     success: true,
     creator: {
       handle: `@${handle}`,
-      nickname: profile.nickname,
+      name: profile.nickname,
       followers: profile.stats.followerCount,
     },
     scraped: {

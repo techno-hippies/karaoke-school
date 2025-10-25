@@ -78,7 +78,7 @@ export interface TikTokAPIResponse {
 export interface CreatorRecord {
   tiktok_handle: string;
   sec_uid: string;
-  nickname: string;
+  name: string;
   follower_count: number;
   raw_profile: Record<string, unknown>;
   last_scraped_at: Date;
