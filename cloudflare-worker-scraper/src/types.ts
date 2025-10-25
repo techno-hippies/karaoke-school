@@ -1,4 +1,16 @@
 /**
+ * Cloudflare Worker Environment
+ */
+export interface Env {
+  NEON_DATABASE_URL: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_CLIENT_SECRET: string;
+  GENIUS_API_KEY: string;
+  OPENROUTER_API_KEY: string;
+  QUANSIC_SESSION_COOKIE: string;
+}
+
+/**
  * TikTok API Response Types
  */
 
