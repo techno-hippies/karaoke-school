@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: freyr-download-service
+    runtime: node
+    plan: starter
+    buildCommand: |
+      # Install system dependencies
+      apt-get update && apt-get install -y ffmpeg python3 python3-pip curl
+      # Install yt-dlp
+      curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+      chmod a+rx /usr/local/bin/yt-dlp
+      # Install Bun
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$HOME/.bun/bin:$PATH"
+      # Install freyr
+      npm install -g freyr
+      # Install app dependencies
+      bun install
+    startCommand: bun run index.ts
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DOWNLOADS_DIR
+        value: /tmp/freyr-downloads
+      - key: SEGMENTS_DIR
+        value: /tmp/freyr-segments
