@@ -9,7 +9,6 @@ import { NeonDB } from '../neon';
 import { SpotifyService } from '../spotify';
 import { GeniusService } from '../genius';
 import { MusicBrainzService } from '../musicbrainz';
-import { QuansicService } from '../quansic';
 import type { Env } from '../types';
 
 const scraper = new Hono<{ Bindings: Env }>();
@@ -66,13 +65,26 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
             const mbResult = await musicbrainz.searchRecordingByISRC(track.isrc);
             if (mbResult?.recordings?.length > 0) {
               const recording = mbResult.recordings[0];
+
+              // Get and store full recording data
+              const mbRecording = await musicbrainz.getRecording(recording.id);
+              mbRecording.spotify_track_id = track.spotify_track_id;
+              await db.upsertMusicBrainzRecording(mbRecording);
+              console.log(`  ✓ Stored MusicBrainz recording: ${mbRecording.recording_mbid}`);
+
+              // Extract and store associated works
               if (recording.relations) {
                 for (const rel of recording.relations) {
                   if (rel.type === 'performance' && rel.work) {
                     const work = await musicbrainz.getWork(rel.work.id);
+
+                    // Store work and link to recording
+                    await db.upsertMusicBrainzWork(work);
+                    await db.linkWorkToRecording(work.work_mbid, mbRecording.recording_mbid);
+
                     if (work.iswc) {
                       iswcSources.musicbrainz = work.iswc;
-                      console.log(`  ✓ MusicBrainz: ${work.iswc}`);
+                      console.log(`  ✓ MusicBrainz ISWC: ${work.iswc} (work: ${work.work_mbid})`);
                       break;
                     }
                   }
@@ -99,10 +111,51 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
 
               if (quansicResponse.ok) {
                 const { data } = await quansicResponse.json();
-                const quansicIswc = data.iswc || data.raw_data?.works?.[0]?.iswc;
+
+                // Extract ISWC from works array if not in top-level
+                let quansicIswc = data.iswc;
+                let workTitle = data.work_title;
+
+                if (!quansicIswc && data.raw_data?.recording?.works?.length > 0) {
+                  const work = data.raw_data.recording.works[0];
+                  quansicIswc = work.iswc || null;
+                  workTitle = work.title || null;
+                }
+
+                // Store in quansic_recordings table
+                await db.sql`
+                  INSERT INTO quansic_recordings (
+                    isrc, recording_mbid, spotify_track_id, title, iswc, work_title,
+                    duration_ms, release_date, artists, composers, platform_ids, q2_score,
+                    raw_data, enriched_at
+                  ) VALUES (
+                    ${data.isrc},
+                    ${null},
+                    ${data.spotify_track_id || track.spotify_track_id},
+                    ${data.title},
+                    ${quansicIswc},
+                    ${workTitle},
+                    ${data.duration_ms},
+                    ${data.release_date},
+                    ${JSON.stringify(data.artists)},
+                    ${JSON.stringify(data.composers)},
+                    ${JSON.stringify(data.platform_ids)},
+                    ${data.q2_score},
+                    ${JSON.stringify(data.raw_data)},
+                    NOW()
+                  )
+                  ON CONFLICT (isrc) DO UPDATE SET
+                    iswc = EXCLUDED.iswc,
+                    work_title = EXCLUDED.work_title,
+                    composers = EXCLUDED.composers,
+                    platform_ids = EXCLUDED.platform_ids,
+                    raw_data = EXCLUDED.raw_data,
+                    enriched_at = NOW()
+                `;
+
                 if (quansicIswc) {
                   iswcSources.quansic = quansicIswc;
-                  console.log(`  ✓ Quansic: ${quansicIswc}`);
+                  console.log(`  ✓ Quansic: ${quansicIswc} (stored in quansic_recordings)`);
                 }
               }
             } catch (quansicError) {
@@ -291,8 +344,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     }
 
     // Step 6: Quansic enrichment (ONLY for artists from tracks with ISWC)
-    if (env.QUANSIC_SESSION_COOKIE) {
-      const quansic = new QuansicService(env.QUANSIC_SESSION_COOKIE);
+    if (env.QUANSIC_SERVICE_URL) {
       const viableQuansicArtists = await db.sql`
         SELECT DISTINCT ma.name, ma.mbid, ma.isnis
         FROM musicbrainz_artists ma
@@ -314,10 +366,24 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
         for (const artist of viableQuansicArtists) {
           try {
             for (const isni of artist.isnis) {
-              const quansicData = await quansic.enrichArtist(isni, artist.mbid);
-              await db.upsertQuansicArtist(quansicData);
-              enrichedQuansic++;
-              console.log(`✓ Enriched ${artist.name} (ISNI: ${isni})`);
+              // Call Quansic service endpoint
+              const quansicResponse = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  isni: isni,
+                  musicbrainz_mbid: artist.mbid
+                })
+              });
+
+              if (quansicResponse.ok) {
+                const { data } = await quansicResponse.json();
+                await db.upsertQuansicArtist(data);
+                enrichedQuansic++;
+                console.log(`✓ Enriched ${artist.name} (ISNI: ${isni})`);
+              } else {
+                console.error(`Quansic artist enrichment failed for ${artist.name} (${quansicResponse.status})`);
+              }
             }
           } catch (error) {
             console.error(`Failed to enrich ${artist.name} with Quansic:`, error);
@@ -327,7 +393,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
         console.log(`✓ Enriched ${enrichedQuansic} artists with Quansic`);
       }
     } else {
-      console.log('Quansic session cookie not configured, skipping Quansic enrichment');
+      console.log('Quansic service URL not configured, skipping Quansic artist enrichment');
     }
 
     // Step 7: LRCLIB Lyrics enrichment (ONLY for tracks with ISWC)
