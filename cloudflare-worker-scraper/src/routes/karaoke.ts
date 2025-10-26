@@ -13,6 +13,8 @@
 
 import { Hono } from 'hono';
 import { NeonDB } from '../neon';
+import { DemucsService, type DemucsWebhookPayload } from '../demucs';
+import { GroveService } from '../grove';
 import type { Env } from '../types';
 
 const karaoke = new Hono<{ Bindings: Env }>();
@@ -367,6 +369,149 @@ karaoke.get('/karaoke/lyrics', async (c) => {
 });
 
 /**
+ * POST /karaoke/separate
+ * Submit Demucs separation job (async via Modal + webhook)
+ */
+karaoke.post('/karaoke/separate', async (c) => {
+  const { spotify_track_id } = await c.req.json();
+
+  if (!spotify_track_id) {
+    return c.json({ error: 'spotify_track_id required' }, 400);
+  }
+
+  const db = new NeonDB(c.env.NEON_DATABASE_URL);
+  const MODAL_DEMUCS_ENDPOINT = c.env.MODAL_DEMUCS_ENDPOINT;
+  const WORKER_URL = c.env.WORKER_URL;
+
+  if (!MODAL_DEMUCS_ENDPOINT) {
+    return c.json({ error: 'MODAL_DEMUCS_ENDPOINT not configured' }, 500);
+  }
+
+  if (!WORKER_URL) {
+    return c.json({ error: 'WORKER_URL not configured' }, 500);
+  }
+
+  // Get audio URL from database
+  const audioResult = await db.sql`
+    SELECT taf.grove_url, st.title, st.artists
+    FROM track_audio_files taf
+    INNER JOIN spotify_tracks st ON taf.spotify_track_id = st.spotify_track_id
+    WHERE taf.spotify_track_id = ${spotify_track_id}
+  `;
+
+  if (audioResult.length === 0) {
+    return c.json({ error: 'Audio file not found. Download track first via /audio/download-tracks' }, 404);
+  }
+
+  const { grove_url, title, artists } = audioResult[0];
+
+  // Submit job to Modal
+  const jobId = crypto.randomUUID();
+  const demucs = new DemucsService(MODAL_DEMUCS_ENDPOINT);
+
+  const result = await demucs.separateAsync(
+    grove_url,
+    `${WORKER_URL}/webhooks/demucs-complete`,
+    jobId
+  );
+
+  // Update database
+  await db.sql`
+    INSERT INTO karaoke_productions (
+      spotify_track_id,
+      modal_job_id,
+      processing_status
+    )
+    VALUES (${spotify_track_id}, ${jobId}, 'separating')
+    ON CONFLICT (spotify_track_id)
+    DO UPDATE SET
+      modal_job_id = EXCLUDED.modal_job_id,
+      processing_status = 'separating',
+      updated_at = NOW()
+  `;
+
+  return c.json({
+    success: true,
+    job_id: jobId,
+    status: 'processing',
+    track: { title, artists },
+    message: 'Demucs separation started. Webhook will be called when complete.',
+  });
+});
+
+/**
+ * POST /webhooks/demucs-complete
+ * Webhook handler for Demucs separation completion
+ */
+karaoke.post('/webhooks/demucs-complete', async (c) => {
+  const payload: DemucsWebhookPayload = await c.req.json();
+  const db = new NeonDB(c.env.NEON_DATABASE_URL);
+
+  console.log(`[Webhook] Demucs job ${payload.job_id} - status: ${payload.status}`);
+
+  // Handle failure
+  if (payload.status === 'failed') {
+    await db.sql`
+      UPDATE karaoke_productions
+      SET processing_status = 'failed',
+          error_message = ${payload.error || 'Unknown error'},
+          updated_at = NOW()
+      WHERE modal_job_id = ${payload.job_id}
+    `;
+
+    return c.json({ received: true, status: 'failed' });
+  }
+
+  // Handle success - upload to Grove
+  try {
+    const grove = new GroveService(37111); // Lens testnet
+
+    console.log(`[Webhook] Uploading vocals to Grove...`);
+    const vocalsResult = await grove.uploadBase64(payload.vocals_base64!, 'audio/mp3');
+
+    console.log(`[Webhook] Uploading instrumental to Grove...`);
+    const instrumentalResult = await grove.uploadBase64(payload.instrumental_base64!, 'audio/mp3');
+
+    console.log(`[Webhook] Vocals CID: ${vocalsResult.cid}`);
+    console.log(`[Webhook] Instrumental CID: ${instrumentalResult.cid}`);
+
+    // Update database with Grove CIDs
+    await db.sql`
+      UPDATE karaoke_productions
+      SET vocals_cid = ${vocalsResult.cid},
+          vocals_uri = ${vocalsResult.uri},
+          vocals_gateway_url = ${vocalsResult.gatewayUrl},
+          instrumental_cid = ${instrumentalResult.cid},
+          instrumental_uri = ${instrumentalResult.uri},
+          instrumental_gateway_url = ${instrumentalResult.gatewayUrl},
+          processing_status = 'separated',
+          separation_duration_seconds = ${payload.duration},
+          updated_at = NOW()
+      WHERE modal_job_id = ${payload.job_id}
+    `;
+
+    return c.json({
+      received: true,
+      status: 'completed',
+      vocals_cid: vocalsResult.cid,
+      instrumental_cid: instrumentalResult.cid,
+    });
+  } catch (error) {
+    console.error(`[Webhook] Failed to upload to Grove:`, error);
+
+    await db.sql`
+      UPDATE karaoke_productions
+      SET processing_status = 'failed',
+          error_message = ${error instanceof Error ? error.message : 'Grove upload failed'},
+          updated_at = NOW()
+      WHERE modal_job_id = ${payload.job_id}
+    `;
+
+    return c.json({ received: true, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
+/**
  * GET /karaoke/status
  * Check processing status of a karaoke production
  */
@@ -385,6 +530,15 @@ karaoke.get('/karaoke/status', async (c) => {
       p.production_id,
       p.spotify_track_id,
       p.processing_status,
+      p.modal_job_id,
+      p.vocals_cid,
+      p.vocals_uri,
+      p.vocals_gateway_url,
+      p.instrumental_cid,
+      p.instrumental_uri,
+      p.instrumental_gateway_url,
+      p.separation_duration_seconds,
+      p.error_message,
       d.download_status,
       d.download_completed_at,
       s.segment_start_ms,
