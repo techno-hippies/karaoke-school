@@ -1,0 +1,14 @@
+{
+  "name": "quansic-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Quansic ISNI enrichment service with Playwright auth",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "playwright": "^1.40.0"
+  }
+}

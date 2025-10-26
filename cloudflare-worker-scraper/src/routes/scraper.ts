@@ -346,7 +346,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     // Step 6: Quansic enrichment (ONLY for artists from tracks with ISWC)
     if (env.QUANSIC_SERVICE_URL) {
       const viableQuansicArtists = await db.sql`
-        SELECT DISTINCT ma.name, ma.mbid, ma.isnis
+        SELECT DISTINCT ma.name, ma.mbid, ma.isnis, ma.spotify_artist_id
         FROM musicbrainz_artists ma
         JOIN spotify_artists sa ON ma.spotify_artist_id = sa.spotify_artist_id
         JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
@@ -366,13 +366,14 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
         for (const artist of viableQuansicArtists) {
           try {
             for (const isni of artist.isnis) {
-              // Call Quansic service endpoint
+              // Call Quansic service endpoint with Spotify ID fallback
               const quansicResponse = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   isni: isni,
-                  musicbrainz_mbid: artist.mbid
+                  musicbrainz_mbid: artist.mbid,
+                  spotify_artist_id: artist.spotify_artist_id
                 })
               });
 
