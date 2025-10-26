@@ -1,0 +1,41 @@
+---
+version: "2.2"
+
+services:
+  bmi:
+    image: t3333chn0000/bmi-service:v1.0.1
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+        accept:
+          - webdisplay
+    env:
+      - PORT=3000
+      - NODE_ENV=production
+
+profiles:
+  compute:
+    bmi:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 20Gi
+            # Ephemeral storage for browser cache
+
+  placement:
+    akash:
+      pricing:
+        bmi:
+          denom: uakt
+          amount: 10000  # Max bid per block (~$0.01-0.03/hour)
+
+deployment:
+  bmi:
+    akash:
+      profile: bmi
+      count: 1

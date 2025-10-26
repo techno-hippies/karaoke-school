@@ -1,0 +1,14 @@
+{
+  "name": "bmi-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BMI Songview scraper service with Playwright",
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "playwright": "^1.40.0"
+  }
+}
