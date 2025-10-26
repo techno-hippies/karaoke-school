@@ -227,7 +227,7 @@ export class MusicBrainzService {
       sort_name: artist['sort-name'],
       type: artist.type || null,
       isnis: artist.isnis || [],
-      ipi: artist.ipi || null,
+      ipi: artist.ipis?.[0] || null, // Extract first IPI from array
       country: artist.country || null,
       gender: artist.gender || null,
       birth_date: artist['life-span']?.begin || null,

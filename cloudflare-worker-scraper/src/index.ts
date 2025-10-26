@@ -60,7 +60,7 @@ app.get('/', (c) => {
       'POST /enrich-genius': 'Manually enrich Genius songs',
       'POST /normalize-and-match': 'Normalize track titles with Gemini and retry MusicBrainz matching',
       'POST /enrich-quansic': 'Enrich artists with Quansic (IPN, Luminate ID, name variants)',
-      'POST /enrich-lyrics': 'Fetch lyrics from LRCLIB (synced + plain text)',
+      'POST /enrich-lyrics': 'Multi-source lyrics (LRCLIB + Lyrics.ovh) with automatic AI normalization',
 
       // Genius routes
       'POST /enrich-genius-artists': 'Enrich Genius artist metadata (social media, followers, images)',
@@ -116,7 +116,7 @@ app.get('/', (c) => {
       '→ MusicBrainz Artists (ISNI, social media)',
       '→ MusicBrainz Recordings (ISRC)',
       '→ MusicBrainz Works (ISWC)',
-      '→ LRCLIB Lyrics (synced + plain text)',
+      '→ Multi-Source Lyrics (LRCLIB + Lyrics.ovh → AI normalization if corroborated)',
       '→ Quansic Enrichment (IPN, Luminate ID)',
       '→ MLC Licensing (writers, publishers, Story Protocol compliance)',
       '→ BMI Songview (ISWC verification, publisher details, reconciliation status)',

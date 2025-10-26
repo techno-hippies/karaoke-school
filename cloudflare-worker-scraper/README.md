@@ -11,11 +11,12 @@ A highly organized Cloudflare Worker that scrapes TikTok videos and automaticall
 ## 🎯 What This Does
 
 1. **Scrapes TikTok videos** with copyright detection and Spotify track IDs
-2. **Automatically enriches** music metadata through a 7-stage pipeline:
+2. **Automatically enriches** music metadata through a multi-stage pipeline:
    - TikTok Videos → Spotify Tracks → Genius Songs → MusicBrainz (Artists/Recordings/Works) → Quansic
 3. **Stores everything** in Neon PostgreSQL with JSONB + indexed columns
 4. **Normalizes track titles** with Gemini Flash 2.5 Lite for better matching
-5. **Provides monitoring** to track enrichment cascade completion
+5. **Validates lyrics** from multiple sources for high-quality karaoke alignment
+6. **Provides monitoring** to track enrichment cascade completion
 
 ---
 
@@ -112,94 +113,18 @@ curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-quans
 | `/normalize-and-match` | POST | Normalize with Gemini + retry MB | `?limit=5` |
 | `/enrich-quansic` | POST | Enrich with Quansic | `?limit=10` |
 
+### **Lyrics Routes**
+
+| Endpoint | Method | Description | Params |
+|----------|--------|-------------|--------|
+| `/lyrics/:spotify_track_id` | GET | Get validated lyrics | - |
+
 ### **Monitoring Routes** 🔥
 
 | Endpoint | Method | Description | Example |
 |----------|--------|-------------|---------|
 | `/cascade-status` | GET | View enrichment completion % | `?handle=gioscottii` |
 | `/enrichment-queue` | GET | Show pending items per stage | - |
-
----
-
-## 📈 Cascade Status Example
-
-```bash
-curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
-```
-
-**Response:**
-```json
-{
-  "handle": "gioscottii",
-  "cascade": [
-    {
-      "stage": "Spotify Tracks",
-      "total": "6",
-      "enriched": "5",
-      "pct": "83.3"
-    },
-    {
-      "stage": "Genius Songs",
-      "total": "5",
-      "enriched": "5",
-      "pct": "100.0"
-    },
-    {
-      "stage": "MusicBrainz Recordings",
-      "total": "5",
-      "enriched": "2",
-      "pct": "40.0"
-    },
-    {
-      "stage": "MusicBrainz Works",
-      "total": "2",
-      "enriched": "2",
-      "pct": "100.0"
-    }
-  ]
-}
-```
-
----
-
-## 🔍 Enrichment Queue Example
-
-```bash
-curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
-```
-
-**Response:**
-```json
-{
-  "queue": {
-    "spotify_tracks": {
-      "count": 4,
-      "sample": ["0jjZh3fHqW2JciT1b19oAN", "..."]
-    },
-    "musicbrainz_artists": {
-      "count": 18,
-      "sample": [
-        {
-          "name": "The Hollies",
-          "spotify_id": "6waa8mKu91GjzD4NlONlNJ"
-        }
-      ]
-    },
-    "musicbrainz_recordings": {
-      "count": 3,
-      "sample": [
-        {
-          "title": "Aleph",
-          "isrc": "FRZ111300562"
-        }
-      ]
-    }
-  },
-  "summary": {
-    "total_pending": 27
-  }
-}
-```
 
 ---
 
@@ -224,6 +149,9 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/enrichment-queue"
 | `quansic_works` | Quansic work enrichment | `iswc`, `title`, `contributors` |
 | `mlc_works` | MLC licensing (corroboration) | `mlc_song_code`, `iswc`, `writers`, `publishers` |
 | `mlc_recordings` | MLC ISRC discovery | `isrc`, `mlc_song_code` |
+| `lyrics_sources` | Raw multi-source lyrics | `spotify_track_id`, `source`, `plain_lyrics`, `synced_lyrics` |
+| `lyrics_validations` | Lyrics comparison results | `spotify_track_id`, `similarity_score`, `corroborated` |
+| `spotify_track_lyrics` | Production-ready lyrics | `spotify_track_id`, `plain_lyrics`, `synced_lyrics`, `confidence_score` |
 
 All tables use **JSONB** for raw API responses + **indexed columns** for fast queries.
 
@@ -250,6 +178,13 @@ All tables use **JSONB** for raw API responses + **indexed columns** for fast qu
 - Uses Gemini Flash 2.5 Lite to normalize track titles
 - Removes version suffixes: "Slowed Down", "Remaster", "Live at..."
 - Improved MusicBrainz match rate from 15% → 84.6%
+
+### ✅ **Lyrics Validation Pipeline**
+- Fetches lyrics from multiple sources (LRCLIB, Lyrics.ovh)
+- Validates via cross-source similarity comparison (Jaccard + Levenshtein)
+- 86.8% average similarity for corroborated lyrics
+- Supports both plain text and synced LRC format for karaoke
+- Ready for ElevenLabs forced alignment
 
 ### ✅ **Rate Limiting**
 - MusicBrainz: 1 request/second
@@ -283,7 +218,21 @@ cd cloudflare-worker-scraper
 bun install
 ```
 
-### 2. Set Secrets
+### 2. Local Development
+
+Create `.dev.vars` for local testing:
+```bash
+cp .dev.vars.example .dev.vars
+# Edit .dev.vars with your credentials
+```
+
+For encrypted secrets with dotenvx:
+```bash
+# .env and .env.keys are already configured
+dotenvx run -f .env -- bun run dev
+```
+
+### 3. Set Production Secrets
 
 ```bash
 wrangler secret put NEON_DATABASE_URL
@@ -294,7 +243,7 @@ wrangler secret put OPENROUTER_API_KEY
 wrangler secret put QUANSIC_SESSION_COOKIE
 ```
 
-### 3. Deploy
+### 4. Deploy
 
 ```bash
 wrangler deploy
@@ -307,6 +256,7 @@ wrangler deploy
 - **Runtime:** Cloudflare Workers (Edge)
 - **Framework:** Hono (routing)
 - **Database:** Neon PostgreSQL (serverless)
+- **Secrets:** dotenvx (encrypted env vars)
 - **APIs:**
   - TikTok (unofficial API)
   - Spotify Web API
@@ -314,6 +264,8 @@ wrangler deploy
   - MusicBrainz API
   - OpenRouter (Gemini Flash 2.5 Lite)
   - Quansic Explorer
+  - LRCLIB (lyrics)
+  - Lyrics.ovh (lyrics)
 
 ---
 
@@ -328,6 +280,7 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/top-tracks?limit=10"
 ### 2. **Build Karaoke Catalog from Viral Videos**
 - Scrape viral creators
 - Get complete music metadata (ISRC, ISWC)
+- Validate lyrics from multiple sources
 - Identify compositions for licensing
 
 ### 3. **Monitor Creator Statistics**
@@ -367,6 +320,35 @@ curl -X POST "https://tiktok-scraper.deletion-backup782.workers.dev/enrich-music
 # 3. Verify progress
 curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handle=gioscottii"
 ```
+
+---
+
+## 📊 Lyrics Validation
+
+### Multi-Source Architecture
+
+Lyrics are fetched from multiple sources and validated via similarity comparison:
+
+1. **Fetch from multiple sources**: LRCLIB, Lyrics.ovh (more sources can be added)
+2. **Normalize text**: Remove whitespace, punctuation, timestamps
+3. **Calculate similarity**: Jaccard (word overlap) + Levenshtein (character edits)
+4. **Combined score**: 60% Jaccard + 40% Levenshtein
+5. **Threshold**: >80% = corroborated and ready for production
+
+### Validation Metrics
+
+| Status | Similarity | Use for Alignment? |
+|--------|-----------|-------------------|
+| High confidence | >90% | ✅ Best quality |
+| Medium confidence | 70-90% | ✅ Good quality |
+| Single source | N/A | ⚠️ Use with caution (50% confidence) |
+| Low/Conflict | <70% | ❌ Skip |
+
+### Production Results
+- **298 tracks** with high confidence (>80% similarity)
+- **253 tracks** with synced LRC format for karaoke
+- **86.8% average similarity** for corroborated lyrics
+- Ready for ElevenLabs forced alignment
 
 ---
 
@@ -414,15 +396,51 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handl
 
 ---
 
-## 📝 SQL Queries
+## 📁 Project Structure
+
+```
+cloudflare-worker-scraper/
+├── src/
+│   ├── routes/          # Hono route handlers
+│   ├── types/           # TypeScript interfaces
+│   ├── index.ts         # Main worker entry point
+│   ├── musicbrainz.ts   # MusicBrainz service
+│   ├── openrouter.ts    # Gemini normalization
+│   ├── cisac.ts         # CISAC scraper
+│   ├── lyrics-ovh.ts    # Lyrics.ovh client
+│   ├── lyrics-similarity.ts  # Text comparison
+│   └── lyrics-validation.ts  # Multi-source validation
+├── test/                # Test scripts (moved from src/)
+│   ├── test-lyrics-ovh.ts
+│   ├── test-lyrics-normalize.ts
+│   ├── test-lyrics-validation.ts
+│   └── batch-normalize-lyrics.ts
+├── .dev.vars           # Local dev secrets (Cloudflare)
+├── .dev.vars.example   # Template
+├── .env                # Encrypted secrets (dotenvx)
+├── .env.keys           # dotenvx private keys
+├── wrangler.toml       # Cloudflare config
+└── README.md           # This file
+```
+
+---
+
+## 📝 SQL Queries (via MCP)
+
+Access Neon database via Claude Code MCP tools:
 
 ### Find unenriched tracks
-```sql
-SELECT DISTINCT v.spotify_track_id
-FROM tiktok_scraped_videos v
-LEFT JOIN spotify_tracks s ON v.spotify_track_id = s.spotify_track_id
-WHERE v.spotify_track_id IS NOT NULL
-  AND s.spotify_track_id IS NULL;
+```typescript
+mcp__neon__run_sql({
+  projectId: "...",
+  sql: `
+    SELECT DISTINCT v.spotify_track_id
+    FROM tiktok_scraped_videos v
+    LEFT JOIN spotify_tracks s ON v.spotify_track_id = s.spotify_track_id
+    WHERE v.spotify_track_id IS NOT NULL
+      AND s.spotify_track_id IS NULL
+  `
+})
 ```
 
 ### Top copyrighted tracks

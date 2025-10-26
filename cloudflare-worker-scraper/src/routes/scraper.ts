@@ -10,6 +10,7 @@ import { SpotifyService } from '../spotify';
 import { GeniusService } from '../genius';
 import { MusicBrainzService } from '../musicbrainz';
 import { BMIService } from '../bmi';
+import { CISACService } from '../cisac';
 import type { Env } from '../types';
 
 const scraper = new Hono<{ Bindings: Env }>();
@@ -38,12 +39,12 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     }
 
     // Step 2: ISWC LOOKUP (CRITICAL GATE - determines if track is viable)
-    console.log('🔍 Step 2: ISWC Lookup (MusicBrainz → Quansic → MLC)...');
+    console.log('🔍 Step 2: ISWC Lookup (BMI → MusicBrainz → Quansic → MLC)...');
     const tracksNeedingIswc = await db.sql`
       SELECT spotify_track_id, title, isrc
       FROM spotify_tracks
       WHERE isrc IS NOT NULL
-        AND has_iswc IS NULL
+        AND (has_iswc IS NULL OR (has_iswc = false AND bmi_checked IS NULL))
       LIMIT 30
     `;
 
@@ -55,6 +56,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       for (const track of tracksNeedingIswc) {
         const iswcSources: { [key: string]: string | null } = {
           bmi: null,
+          cisac: null,
           musicbrainz: null,
           quansic: null,
           mlc: null,
@@ -71,7 +73,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
                 FROM spotify_track_artists sta
                 JOIN spotify_artists sa ON sta.spotify_artist_id = sa.spotify_artist_id
                 WHERE sta.spotify_track_id = ${track.spotify_track_id}
-                ORDER BY sta.position ASC
+                ORDER BY sta.artist_position ASC
                 LIMIT 1
               `;
 
@@ -82,6 +84,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
                 if (bmiData?.iswc) {
                   iswcSources.bmi = bmiData.iswc;
                   console.log(`  ✓ BMI DISCOVERED: ${bmiData.iswc}`);
+                  console.log(`  DEBUG: writers=${JSON.stringify(bmiData.writers)}, publishers=${JSON.stringify(bmiData.publishers)}`);
 
                   // Store BMI work immediately
                   await db.sql`
@@ -111,6 +114,63 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
               }
             } catch (bmiError) {
               console.log(`  ✗ BMI title search failed:`, bmiError);
+            }
+
+            // Mark BMI as checked (regardless of success/failure)
+            await db.sql`
+              UPDATE spotify_tracks
+              SET bmi_checked = true
+              WHERE spotify_track_id = ${track.spotify_track_id}
+            `;
+          }
+
+          // Try 1B: CISAC title search (ISWC DISCOVERY - authoritative ISWC source)
+          if (env.CISAC_SERVICE_URL) {
+            console.log(`  Trying CISAC title search for "${track.title}"...`);
+            try {
+              // Get first artist as performer (same as BMI)
+              const performerResult = await db.sql`
+                SELECT sa.name
+                FROM spotify_track_artists sta
+                JOIN spotify_artists sa ON sta.spotify_artist_id = sa.spotify_artist_id
+                WHERE sta.spotify_track_id = ${track.spotify_track_id}
+                ORDER BY sta.artist_position ASC
+                LIMIT 1
+              `;
+
+              if (performerResult.length > 0) {
+                const cisacService = new CISACService(env.CISAC_SERVICE_URL);
+                const cisacData = await cisacService.searchByTitle(track.title, performerResult[0].name);
+
+                if (cisacData?.iswc) {
+                  iswcSources.cisac = cisacData.iswc;
+                  console.log(`  ✓ CISAC DISCOVERED: ${cisacData.iswc}`);
+
+                  // Store CISAC work immediately
+                  await db.sql`
+                    INSERT INTO cisac_works (
+                      iswc, title, iswc_status,
+                      composers, authors, publishers, other_titles, raw_data
+                    ) VALUES (
+                      ${cisacData.iswc},
+                      ${cisacData.title},
+                      ${cisacData.iswc_status},
+                      ${JSON.stringify(cisacData.composers)}::jsonb,
+                      ${JSON.stringify(cisacData.authors)}::jsonb,
+                      ${JSON.stringify(cisacData.publishers)}::jsonb,
+                      ${JSON.stringify(cisacData.other_titles || [])}::jsonb,
+                      ${JSON.stringify(cisacData)}::jsonb
+                    )
+                    ON CONFLICT (iswc) DO UPDATE SET
+                      raw_data = EXCLUDED.raw_data,
+                      updated_at = NOW()
+                  `;
+                } else {
+                  console.log(`  ✗ CISAC title search: no match found`);
+                }
+              }
+            } catch (cisacError) {
+              console.log(`  ✗ CISAC title search failed:`, cisacError);
             }
           }
 
@@ -256,6 +316,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
               if (bmiData?.iswc) {
                 iswcSources.bmi = bmiData.iswc;
                 console.log(`  ✓ BMI CORROBORATED: ${bmiData.iswc}`);
+                console.log(`  DEBUG: writers=${JSON.stringify(bmiData.writers)}, publishers=${JSON.stringify(bmiData.publishers)}`);
 
                 // Store BMI work
                 await db.sql`
@@ -282,6 +343,42 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
               }
             } catch (bmiError) {
               console.log(`  ✗ BMI ISWC search failed:`, bmiError);
+            }
+          }
+
+          // Try 5B: CISAC ISWC search (ISWC CORROBORATION - only if we have candidate and CISAC title didn't find it)
+          if (tempIswc && env.CISAC_SERVICE_URL && !iswcSources.cisac) {
+            console.log(`  Trying CISAC ISWC corroboration (ISWC: ${tempIswc})...`);
+            try {
+              const cisacService = new CISACService(env.CISAC_SERVICE_URL);
+              const cisacData = await cisacService.searchByISWC(tempIswc);
+
+              if (cisacData?.iswc) {
+                iswcSources.cisac = cisacData.iswc;
+                console.log(`  ✓ CISAC CORROBORATED: ${cisacData.iswc}`);
+
+                // Store CISAC work
+                await db.sql`
+                  INSERT INTO cisac_works (
+                    iswc, title, iswc_status,
+                    composers, authors, publishers, other_titles, raw_data
+                  ) VALUES (
+                    ${cisacData.iswc},
+                    ${cisacData.title},
+                    ${cisacData.iswc_status},
+                    ${JSON.stringify(cisacData.composers)}::jsonb,
+                    ${JSON.stringify(cisacData.authors)}::jsonb,
+                    ${JSON.stringify(cisacData.publishers)}::jsonb,
+                    ${JSON.stringify(cisacData.other_titles || [])}::jsonb,
+                    ${JSON.stringify(cisacData)}::jsonb
+                  )
+                  ON CONFLICT (iswc) DO UPDATE SET
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+                `;
+              }
+            } catch (cisacError) {
+              console.log(`  ✗ CISAC ISWC search failed:`, cisacError);
             }
           }
 
@@ -620,21 +717,18 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       }
     }
 
-    // Step 5: MusicBrainz Artist enrichment (ONLY for artists from tracks with ISWC)
+    // Step 5: MusicBrainz Artist enrichment (all artists to enable ISWC discovery)
     const musicbrainz = new MusicBrainzService();
     const viableMBArtists = await db.sql`
       SELECT DISTINCT sa.spotify_artist_id, sa.name
       FROM spotify_artists sa
-      JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
-      JOIN spotify_tracks st ON sta.spotify_track_id = st.spotify_track_id
       LEFT JOIN musicbrainz_artists ma ON sa.spotify_artist_id = ma.spotify_artist_id
-      WHERE st.has_iswc = true
-        AND ma.spotify_artist_id IS NULL
+      WHERE ma.spotify_artist_id IS NULL
       LIMIT 5
     `;
 
     if (viableMBArtists.length > 0) {
-      console.log(`Enriching ${viableMBArtists.length} MusicBrainz artists (from tracks with ISWC)...`);
+      console.log(`Enriching ${viableMBArtists.length} MusicBrainz artists...`);
       let enrichedMBArtists = 0;
 
       for (const artist of viableMBArtists) {
@@ -656,24 +750,20 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log(`✓ Enriched ${enrichedMBArtists} MusicBrainz artists`);
     }
 
-    // Step 6: Quansic enrichment (ONLY for artists from tracks with ISWC)
+    // Step 6: Quansic enrichment (all MusicBrainz artists with ISNIs to enable ISWC discovery)
     if (env.QUANSIC_SERVICE_URL) {
       const viableQuansicArtists = await db.sql`
         SELECT DISTINCT ma.name, ma.mbid, ma.isnis, ma.spotify_artist_id
         FROM musicbrainz_artists ma
-        JOIN spotify_artists sa ON ma.spotify_artist_id = sa.spotify_artist_id
-        JOIN spotify_track_artists sta ON sa.spotify_artist_id = sta.spotify_artist_id
-        JOIN spotify_tracks st ON sta.spotify_track_id = st.spotify_track_id
         LEFT JOIN quansic_artists qa ON ma.isnis[1] = qa.isni
-        WHERE st.has_iswc = true
-          AND ma.isnis IS NOT NULL
+        WHERE ma.isnis IS NOT NULL
           AND array_length(ma.isnis, 1) > 0
           AND qa.isni IS NULL
         LIMIT 5
       `;
 
       if (viableQuansicArtists.length > 0) {
-        console.log(`Enriching ${viableQuansicArtists.length} artists with Quansic (from tracks with ISWC)...`);
+        console.log(`Enriching ${viableQuansicArtists.length} artists with Quansic...`);
         let enrichedQuansic = 0;
 
         for (const artist of viableQuansicArtists) {
@@ -815,7 +905,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
           AND mlw.iswc IS NULL
       ) combined
       ORDER BY priority, iswc
-      LIMIT 5
+      LIMIT 20
     `;
 
     if (worksNeedingMLC.length > 0) {
@@ -968,10 +1058,122 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log(`✓ Enriched ${enrichedMLC} works with MLC licensing data`);
     }
 
-    // Step 7: LRCLIB Lyrics enrichment (ONLY for tracks with ISWC)
-    console.log('🎵 Step 7: LRCLIB Lyrics enrichment (from tracks with ISWC)...');
-    const { LRCLIBService, calculateMatchScore } = await import('../lrclib');
-    const lrclib = new LRCLIBService();
+    // Step 7: CISAC IPI enrichment (discover ALL works by creators with known IPIs)
+    console.log('🔢 Step 7: CISAC IPI-based work discovery (comprehensive catalog vacuum)...');
+    console.log('DEBUG env.CISAC_SERVICE_URL:', env.CISAC_SERVICE_URL ? 'SET' : 'UNDEFINED', typeof env.CISAC_SERVICE_URL, 'value:', env.CISAC_SERVICE_URL);
+
+    if (env.CISAC_SERVICE_URL) {
+      const cisacService = new CISACService(env.CISAC_SERVICE_URL);
+
+      const viableIPIs = await db.sql`
+        SELECT ai.name_number, ai.ipi_with_zeros, ai.creator_name, ai.source
+        FROM all_ipis ai
+        LEFT JOIN ipi_search_log isl ON ai.name_number = isl.name_number
+        WHERE isl.name_number IS NULL
+        ORDER BY
+          CASE ai.source
+            WHEN 'musicbrainz' THEN 1  -- Prioritize performers (artists we care about)
+            WHEN 'quansic' THEN 2
+            ELSE 3
+          END
+        LIMIT 3
+      `;
+
+      if (viableIPIs.length > 0) {
+        console.log(`Searching CISAC for ${viableIPIs.length} IPIs to discover their work catalogs...`);
+        let totalWorksFound = 0;
+
+        for (const ipi of viableIPIs) {
+          try {
+            console.log(`  Searching IPI ${ipi.name_number} (${ipi.creator_name} from ${ipi.source})...`);
+
+            // Search CISAC by name number (returns ALL works by this creator)
+            const works = await cisacService.searchByNameNumber(ipi.name_number);
+
+            // Store all discovered works
+            for (const work of works) {
+              try {
+                // Upsert into cisac_works (ISWC is primary key, prevents duplicates)
+                await db.sql`
+                  INSERT INTO cisac_works (
+                    iswc, title, iswc_status, raw_data, fetched_at, updated_at
+                  ) VALUES (
+                    ${work.iswc},
+                    ${work.title},
+                    ${work.iswc_status},
+                    ${JSON.stringify(work)}::jsonb,
+                    NOW(),
+                    NOW()
+                  )
+                  ON CONFLICT (iswc)
+                  DO UPDATE SET
+                    title = EXCLUDED.title,
+                    iswc_status = EXCLUDED.iswc_status,
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+                `;
+                totalWorksFound++;
+              } catch (error) {
+                console.error(`    Error storing work ${work.iswc}:`, error);
+              }
+            }
+
+            // Log search in ipi_search_log
+            await db.sql`
+              INSERT INTO ipi_search_log (
+                name_number, ipi_with_zeros, creator_name, source, works_found, searched_at
+              ) VALUES (
+                ${ipi.name_number},
+                ${ipi.ipi_with_zeros},
+                ${ipi.creator_name},
+                ${ipi.source},
+                ${works.length},
+                NOW()
+              )
+              ON CONFLICT (name_number)
+              DO UPDATE SET
+                works_found = EXCLUDED.works_found,
+                searched_at = NOW(),
+                last_error = NULL
+            `;
+
+            console.log(`  ✓ Found ${works.length} works for ${ipi.creator_name}`);
+          } catch (error: any) {
+            console.error(`  ❌ Error searching IPI ${ipi.name_number}:`, error);
+
+            // Log error in ipi_search_log
+            await db.sql`
+              INSERT INTO ipi_search_log (
+                name_number, ipi_with_zeros, creator_name, source, works_found, searched_at, last_error
+              ) VALUES (
+                ${ipi.name_number},
+                ${ipi.ipi_with_zeros},
+                ${ipi.creator_name},
+                ${ipi.source},
+                0,
+                NOW(),
+                ${error.message}
+              )
+              ON CONFLICT (name_number)
+              DO UPDATE SET
+                last_error = EXCLUDED.last_error,
+                searched_at = NOW()
+            `;
+          }
+        }
+
+        console.log(`✓ Discovered ${totalWorksFound} total works from ${viableIPIs.length} IPIs`);
+      }
+    } else {
+      console.log('CISAC service URL not configured, skipping IPI enrichment');
+    }
+
+    // Step 8: Multi-source lyrics enrichment with AI normalization (ONLY for tracks with ISWC)
+    console.log('🎵 Step 8: Multi-source lyrics + AI normalization (from tracks with ISWC)...');
+    const { LyricsValidationService } = await import('../lyrics-validation');
+    const { OpenRouterService } = await import('../openrouter');
+    const validationService = new LyricsValidationService();
+    const openrouter = env.OPENROUTER_API_KEY ? new OpenRouterService(env.OPENROUTER_API_KEY) : null;
 
     const tracksNeedingLyrics = await db.sql`
       SELECT
@@ -979,7 +1181,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
         st.title,
         st.artists[1] as artist,
         st.album as album_name,
-        ROUND(st.duration_ms / 1000) as duration
+        st.duration_ms
       FROM spotify_tracks st
       LEFT JOIN spotify_track_lyrics stl
         ON st.spotify_track_id = stl.spotify_track_id
@@ -994,69 +1196,129 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     if (tracksNeedingLyrics.length > 0) {
       console.log(`Fetching lyrics for ${tracksNeedingLyrics.length} tracks (from tracks with ISWC)...`);
       let enrichedLyrics = 0;
+      let normalizedLyrics = 0;
       let instrumental = 0;
 
       for (const track of tracksNeedingLyrics) {
         try {
-          // Try exact match first
-          let lyricsData = await lrclib.getLyrics({
-            track_name: track.title,
-            artist_name: track.artist,
-            album_name: track.album_name,
-            duration: track.duration,
+          // Fetch from both LRCLIB + Lyrics.ovh
+          const validation = await validationService.validateTrack({
+            spotify_track_id: track.spotify_track_id,
+            title: track.title,
+            artist: track.artist,
+            album: track.album_name,
+            duration_ms: track.duration_ms,
           });
 
-          let confidenceScore = 1.0;
-
-          // Fallback to search if needed
-          if (!lyricsData) {
-            const searchResults = await lrclib.searchLyrics({
-              track_name: track.title,
-              artist_name: track.artist,
-            });
-
-            if (searchResults.length > 0) {
-              const scoredResults = searchResults.map(result => ({
-                result,
-                score: calculateMatchScore(result, {
-                  title: track.title,
-                  artist: track.artist,
-                  album: track.album_name,
-                  duration: track.duration,
-                }),
-              }));
-
-              const bestMatch = scoredResults
-                .filter(s => s.score >= 0.7)
-                .sort((a, b) => b.score - a.score)[0];
-
-              if (bestMatch) {
-                lyricsData = bestMatch.result;
-                confidenceScore = bestMatch.score;
-              }
-            }
+          if (!validation.lrclib_lyrics && !validation.lyrics_ovh_lyrics) {
+            continue;
           }
 
-          if (lyricsData) {
-            await db.upsertLyrics(track.spotify_track_id, lyricsData, confidenceScore);
-            if (lyricsData.instrumental) {
-              instrumental++;
-            } else {
-              enrichedLyrics++;
-            }
-            console.log(`✓ Lyrics for ${track.title} (synced: ${!!lyricsData.syncedLyrics}, instrumental: ${lyricsData.instrumental})`);
+          let finalLyrics: string;
+          let finalSource: string;
+          let confidenceScore: number;
+          let normalizationReasoning: string | null = null;
+
+          // Both sources + high similarity → AI normalize
+          if (
+            openrouter &&
+            validation.lrclib_lyrics &&
+            validation.lyrics_ovh_lyrics &&
+            validation.corroborated &&
+            validation.similarity_score &&
+            validation.similarity_score >= 0.80
+          ) {
+            const aiResult = await openrouter.normalizeLyrics(
+              validation.lrclib_lyrics,
+              validation.lyrics_ovh_lyrics,
+              track.title,
+              track.artist
+            );
+
+            finalLyrics = aiResult.normalizedLyrics;
+            finalSource = 'ai_normalized';
+            confidenceScore = validation.similarity_score;
+            normalizationReasoning = aiResult.reasoning;
+
+            // Store AI normalized source
+            await db.sql`
+              INSERT INTO lyrics_sources (spotify_track_id, source, plain_lyrics, char_count, line_count)
+              VALUES (${track.spotify_track_id}, 'ai_normalized', ${finalLyrics}, ${finalLyrics.length}, ${finalLyrics.split('\n').length})
+              ON CONFLICT (spotify_track_id, source) DO UPDATE SET
+                plain_lyrics = EXCLUDED.plain_lyrics, char_count = EXCLUDED.char_count,
+                line_count = EXCLUDED.line_count, fetched_at = NOW()
+            `;
+
+            normalizedLyrics++;
+            console.log(`✓ AI normalized: ${track.title} (similarity: ${(validation.similarity_score * 100).toFixed(1)}%)`);
+          } else {
+            // Single source or low confidence
+            finalLyrics = validation.lrclib_lyrics || validation.lyrics_ovh_lyrics!;
+            finalSource = validation.primary_source || 'lrclib';
+            confidenceScore = validation.similarity_score || 0.5;
+            console.log(`✓ Single source: ${track.title} (${finalSource})`);
           }
+
+          // Store in production table
+          await db.sql`
+            INSERT INTO spotify_track_lyrics (
+              spotify_track_id, plain_lyrics, source, confidence_score, fetched_at, updated_at
+            ) VALUES (
+              ${track.spotify_track_id}, ${finalLyrics}, ${finalSource}, ${confidenceScore}, NOW(), NOW()
+            )
+            ON CONFLICT (spotify_track_id) DO UPDATE SET
+              plain_lyrics = EXCLUDED.plain_lyrics, source = EXCLUDED.source,
+              confidence_score = EXCLUDED.confidence_score, updated_at = NOW()
+          `;
+
+          // Store raw sources for audit
+          if (validation.lrclib_lyrics) {
+            await db.sql`
+              INSERT INTO lyrics_sources (spotify_track_id, source, plain_lyrics, char_count, line_count)
+              VALUES (${track.spotify_track_id}, 'lrclib', ${validation.lrclib_lyrics}, ${validation.lrclib_lyrics.length}, ${validation.lrclib_lyrics.split('\n').length})
+              ON CONFLICT (spotify_track_id, source) DO UPDATE SET plain_lyrics = EXCLUDED.plain_lyrics, fetched_at = NOW()
+            `;
+          }
+          if (validation.lyrics_ovh_lyrics) {
+            await db.sql`
+              INSERT INTO lyrics_sources (spotify_track_id, source, plain_lyrics, char_count, line_count)
+              VALUES (${track.spotify_track_id}, 'lyrics_ovh', ${validation.lyrics_ovh_lyrics}, ${validation.lyrics_ovh_lyrics.length}, ${validation.lyrics_ovh_lyrics.split('\n').length})
+              ON CONFLICT (spotify_track_id, source) DO UPDATE SET plain_lyrics = EXCLUDED.plain_lyrics, fetched_at = NOW()
+            `;
+          }
+
+          // Store validation
+          if (validation.similarity_score !== null) {
+            await db.sql`
+              INSERT INTO lyrics_validations (
+                spotify_track_id, sources_compared, primary_source, similarity_score,
+                jaccard_similarity, corroborated, validation_status, validation_notes,
+                ai_normalized, normalized_at, normalization_reasoning
+              ) VALUES (
+                ${track.spotify_track_id}, ${[validation.primary_source]}, ${validation.primary_source},
+                ${validation.similarity_score}, ${validation.similarity_score}, ${validation.corroborated},
+                ${validation.validation_status}, ${validation.notes}, ${normalizationReasoning !== null},
+                ${normalizationReasoning ? db.sql`NOW()` : null}, ${normalizationReasoning}
+              )
+              ON CONFLICT (spotify_track_id) DO UPDATE SET
+                similarity_score = EXCLUDED.similarity_score, corroborated = EXCLUDED.corroborated,
+                ai_normalized = EXCLUDED.ai_normalized, normalized_at = EXCLUDED.normalized_at,
+                normalization_reasoning = EXCLUDED.normalization_reasoning
+            `;
+          }
+
+          enrichedLyrics++;
         } catch (error) {
           console.error(`Failed to fetch lyrics for ${track.title}:`, error);
         }
       }
 
-      console.log(`✓ Enriched ${enrichedLyrics} tracks with lyrics, ${instrumental} instrumental`);
+      console.log(`✓ Enriched ${enrichedLyrics} tracks with lyrics (${normalizedLyrics} AI normalized)`);
     }
 
     // Step 8: Audio Download (Freyr → Grove IPFS storage)
     if (env.FREYR_SERVICE_URL && env.ACOUSTID_API_KEY) {
-      console.log('🎧 Step 8: Audio Download (tracks with ISWC + MLC ≥98%)...');
+      console.log('🎧 Step 8: Audio Download (tracks with corroborated ISWC)...');
 
       const readyTracks = await db.sql`
         SELECT
@@ -1064,16 +1326,13 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
           st.title,
           st.artists,
           st.isrc,
-          mlw.total_publisher_share
+          st.iswc_source
         FROM spotify_tracks st
         LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
-        LEFT JOIN mlc_recordings mlr ON st.isrc = mlr.isrc
-        LEFT JOIN mlc_works mlw ON mlr.mlc_song_code = mlw.mlc_song_code
         WHERE taf.spotify_track_id IS NULL
           AND st.has_iswc = true
-          AND mlw.total_publisher_share >= 98
-        ORDER BY mlw.total_publisher_share DESC, st.spotify_track_id
-        LIMIT 2
+        ORDER BY st.spotify_track_id
+        LIMIT 10
       `;
 
       if (readyTracks.length > 0) {
@@ -1120,7 +1379,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
 
         console.log(`✓ Downloaded ${downloaded} audio files to Grove`);
       } else {
-        console.log('No tracks ready for audio download (need ISWC + MLC ≥98%)');
+        console.log('No tracks ready for audio download (need corroborated ISWC)');
       }
     } else {
       if (!env.FREYR_SERVICE_URL) {

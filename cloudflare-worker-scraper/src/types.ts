@@ -9,6 +9,10 @@ export interface Env {
   OPENROUTER_API_KEY: string;
   QUANSIC_SESSION_COOKIE: string;
   QUANSIC_SERVICE_URL: string;
+  BMI_SERVICE_URL?: string;
+  CISAC_SERVICE_URL?: string;
+  FREYR_SERVICE_URL?: string;
+  ACOUSTID_API_KEY?: string;
 }
 
 /**

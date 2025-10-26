@@ -178,6 +178,82 @@ Your response:`;
   }
 
   /**
+   * Normalize lyrics from multiple sources for forced alignment
+   *
+   * Takes two versions of lyrics (e.g., from LRCLIB and Lyrics.ovh) and produces
+   * a clean, standardized version optimized for ElevenLabs forced alignment.
+   *
+   * @param lrclibLyrics Lyrics from LRCLIB
+   * @param lyricsOvhLyrics Lyrics from Lyrics.ovh
+   * @param trackTitle Song title for context
+   * @param artist Artist name for context
+   * @returns Normalized lyrics suitable for forced alignment
+   */
+  async normalizeLyrics(
+    lrclibLyrics: string,
+    lyricsOvhLyrics: string,
+    trackTitle: string,
+    artist: string
+  ): Promise<{
+    normalizedLyrics: string;
+    reasoning: string;
+  }> {
+    console.log(`Normalizing lyrics for "${trackTitle}" by ${artist}`);
+
+    const prompt = `You are a lyrics normalization expert for audio forced alignment. Given two versions of the same song lyrics, produce ONE clean, standardized version optimized for speech-to-text alignment with audio.
+
+SONG: "${trackTitle}" by ${artist}
+
+VERSION 1 (LRCLIB):
+${lrclibLyrics.substring(0, 2000)}${lrclibLyrics.length > 2000 ? '...' : ''}
+
+VERSION 2 (Lyrics.ovh):
+${lyricsOvhLyrics.substring(0, 2000)}${lyricsOvhLyrics.length > 2000 ? '...' : ''}
+
+NORMALIZATION RULES:
+1. **Remove ad-libs in parentheses**: "(ooh)", "(yeah)", "(Check it out)" - unless they're actually sung
+2. **Standardize spelling**: Use proper spelling - "you" not "u", "with" not "wit" UNLESS it's phonetically different when sung
+3. **Preserve phonetic slang**: Keep "gon'" (not "going to"), "tryna", "gonna", "'cause" - they sound different
+4. **Remove metadata**: [Chorus], [Verse 2], [x2], timestamps
+5. **Remove backing vocal markers**: Unless they're main vocals
+6. **Keep only audibly sung words**: What you'd hear in the audio
+7. **Reasonable line breaks**: Match musical phrasing, but don't over-segment
+8. **No copyright notices**: Remove any "Lyrics provided by" text
+9. **Merge best parts**: Use context from both versions to get the most accurate lyrics
+
+CRITICAL OUTPUT FORMAT:
+Return ONLY the normalized lyrics. No explanation. No reasoning header. Just the clean lyrics text that matches what's sung in the audio.
+
+After the lyrics, on a new line, add:
+---REASONING---
+[One paragraph explaining your normalization decisions]
+
+Your response:`;
+
+    const response = await this.chat([
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ]);
+
+    const answer = response.choices[0].message.content;
+
+    // Split lyrics from reasoning
+    const parts = answer.split('---REASONING---');
+    const normalizedLyrics = parts[0].trim();
+    const reasoning = parts[1]?.trim() || 'No reasoning provided';
+
+    console.log(`Normalized lyrics: ${normalizedLyrics.length} characters`);
+    console.log(`Reasoning: ${reasoning.substring(0, 100)}...`);
+
+    return {
+      normalizedLyrics,
+      reasoning,
+    };
+  }
+
+  /**
    * Select best 190s segment for karaoke production (fal.ai limit)
    *
    * @param title Song title

@@ -11,33 +11,26 @@ const audio = new Hono<{ Bindings: Env }>();
 
 /**
  * GET /audio/ready-for-download
- * Get tracks that are ready for audio download (have ISWC + MLC licensing ≥98%)
+ * Get tracks that are ready for audio download (have corroborated ISWC)
  */
 audio.get('/audio/ready-for-download', async (c) => {
   const db = new NeonDB(c.env.NEON_DATABASE_URL);
   const limit = parseInt(c.req.query('limit') || '20');
 
-  // Get tracks with complete licensing data that don't have audio files yet
-  // NEW: Uses has_iswc flag (set by ISWC lookup in background enrichment)
+  // Get tracks with corroborated ISWC that don't have audio files yet
+  // NEW: Decoupled from MLC - just needs has_iswc = true
   const result = await db.sql`
     SELECT
       st.spotify_track_id,
       st.title,
       st.artists,
       st.isrc,
-      st.iswc_source,
-      mlw.total_publisher_share,
-      mlw.mlc_song_code,
-      mlw.writers,
-      mlw.publishers
+      st.iswc_source
     FROM spotify_tracks st
     LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
-    LEFT JOIN mlc_recordings mlr ON st.isrc = mlr.isrc
-    LEFT JOIN mlc_works mlw ON mlr.mlc_song_code = mlw.mlc_song_code
     WHERE taf.spotify_track_id IS NULL  -- No audio file yet
-      AND st.has_iswc = true  -- Has ISWC from any source (musicbrainz, quansic, or mlc)
-      AND mlw.total_publisher_share >= 98  -- Story Protocol requirement
-    ORDER BY mlw.total_publisher_share DESC, st.spotify_track_id
+      AND st.has_iswc = true  -- Has corroborated ISWC from 2+ sources
+    ORDER BY st.spotify_track_id
     LIMIT ${limit}
   `;
 
@@ -48,13 +41,7 @@ audio.get('/audio/ready-for-download', async (c) => {
       title: track.title,
       artists: track.artists,
       isrc: track.isrc,
-      iswc_source: track.iswc_source,  // musicbrainz, quansic, or mlc
-      licensing: {
-        total_publisher_share: track.total_publisher_share,
-        mlc_song_code: track.mlc_song_code,
-        writers_count: track.writers?.length || 0,
-        publishers_count: track.publishers?.length || 0,
-      }
+      iswc_source: track.iswc_source,  // Object showing which sources found the ISWC
     }))
   });
 });
@@ -75,22 +62,19 @@ audio.post('/audio/download-tracks', async (c) => {
   const db = new NeonDB(c.env.NEON_DATABASE_URL);
   const limit = parseInt(c.req.query('limit') || '5');
 
-  // Get ready tracks (NEW: uses has_iswc flag)
+  // Get ready tracks (NEW: decoupled from MLC - just needs corroborated ISWC)
   const readyTracks = await db.sql`
     SELECT
       st.spotify_track_id,
       st.title,
       st.artists,
       st.isrc,
-      mlw.total_publisher_share
+      st.iswc_source
     FROM spotify_tracks st
     LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
-    LEFT JOIN mlc_recordings mlr ON st.isrc = mlr.isrc
-    LEFT JOIN mlc_works mlw ON mlr.mlc_song_code = mlw.mlc_song_code
     WHERE taf.spotify_track_id IS NULL
-      AND st.has_iswc = true  -- Has ISWC from any source
-      AND mlw.total_publisher_share >= 98
-    ORDER BY mlw.total_publisher_share DESC, st.spotify_track_id
+      AND st.has_iswc = true  -- Has corroborated ISWC from 2+ sources
+    ORDER BY st.spotify_track_id
     LIMIT ${limit}
   `;
 
@@ -246,11 +230,8 @@ audio.get('/audio/stats', async (c) => {
     SELECT COUNT(*) as count
     FROM spotify_tracks st
     LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
-    LEFT JOIN mlc_recordings mlr ON st.isrc = mlr.isrc
-    LEFT JOIN mlc_works mlw ON mlr.mlc_song_code = mlw.mlc_song_code
     WHERE taf.spotify_track_id IS NULL
       AND st.has_iswc = true
-      AND mlw.total_publisher_share >= 98
   `;
 
   const statsData = stats[0] as any;
