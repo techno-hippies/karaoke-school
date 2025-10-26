@@ -313,8 +313,15 @@ async function searchBySpotifyId(spotifyId: string, cookie: string): Promise<any
   const parties = data.results?.parties;
 
   if (parties && parties.length > 0) {
-    console.log(`Found via Spotify search! Primary ISNI: ${parties[0].ids.isnis?.[0] || 'N/A'}`);
-    return { party: parties[0] };
+    // If multiple parties, prefer the one with more complete data
+    const bestParty = parties.reduce((best: any, current: any) => {
+      const bestIsnis = best?.ids?.isnis?.length || 0;
+      const currentIsnis = current?.ids?.isnis?.length || 0;
+      return currentIsnis > bestIsnis ? current : best;
+    }, parties[0]);
+
+    console.log(`Found via Spotify search! Primary ISNI: ${bestParty.ids.isnis?.[0] || 'N/A'} (from ${parties.length} results)`);
+    return { party: bestParty };
   }
 
   return null;

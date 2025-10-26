@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   quansic:
-    image: t3333chn0000/quansic-service:v1.1  # Updated with Spotify ID fallback for artist enrichment
+    image: t3333chn0000/quansic-service:v1.1.1  # Updated with multi-party selection for Spotify search
     expose:
       - port: 3000
         as: 80
