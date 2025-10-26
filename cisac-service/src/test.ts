@@ -16,23 +16,27 @@ async function main() {
   });
 
   try {
-    // Test with a well-known song
-    const results = await cisac.search({
-      title: 'Yesterday',
-      artist: 'The Beatles',
-    });
+    // Test API search with known ISWC (Born to Make You Happy - Britney Spears)
+    const iswc = 'T0001559074';
+    console.log(`\nTesting API search for ISWC: ${iswc}`);
 
-    console.log('\n=== Search Results ===');
-    if (results.length > 0) {
-      results.forEach((result, index) => {
-        console.log(`\n[${index + 1}]`);
-        console.log(`ISWC: ${result.iswc}`);
-        console.log(`Title: ${result.title}`);
-        console.log(`Creators: ${result.creators}`);
-        console.log(`Status: ${result.status}`);
+    const data = await cisac.searchByIswc(iswc);
+
+    console.log('\n=== API Search Results ===');
+    console.log(`ISWC: ${data.iswc}`);
+    console.log(`Original Title: ${data.originalTitle}`);
+    console.log(`Status: ${data.iswcStatus}`);
+    console.log(`\nInterested Parties (${data.interestedParties.length}):`);
+    data.interestedParties.forEach((party: any, index: number) => {
+      console.log(`  ${index + 1}. ${party.name} (${party.role}) - ${party.affiliation}`);
+    });
+    console.log(`\nWorks Found: ${data.works.length}`);
+
+    if (data.otherTitles && data.otherTitles.length > 0) {
+      console.log(`\nOther Titles (${data.otherTitles.length}):`);
+      data.otherTitles.slice(0, 5).forEach((title: any) => {
+        console.log(`  - ${title.title} (${title.type})`);
       });
-    } else {
-      console.log('No results found');
     }
 
   } catch (error) {

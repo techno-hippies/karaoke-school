@@ -282,28 +282,46 @@ export class CISACService {
 
       await this.page.screenshot({ path: 'cisac-service/after_click.png' });
 
-      // Check if we're on the search page with multiple possible selectors
-      const pageState = await this.page.evaluate(() => {
-        return {
-          hasSearchForm: !!document.querySelector('#search-form, form[action*="search"], input[name="title"], input#title'),
-          hasLandingPage: !!document.querySelector('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]'),
-          hasRecaptcha: !!document.querySelector('iframe[src*="recaptcha"]'),
-          title: document.title,
-          body: document.body?.textContent?.substring(0, 200)
-        };
-      });
+      // Now we should see the language selection page
+      console.log('Waiting for language selection page...');
 
-      console.log('Page state after click:', JSON.stringify(pageState, null, 2));
+      // Wait for language buttons to appear
+      try {
+        await this.page.waitForSelector('a[href="/search"] button:has-text("English")', {
+          timeout: 10000,
+          state: 'visible'
+        });
 
-      if (pageState.hasSearchForm) {
-        console.log('Successfully navigated to search page');
-        return true;
-      } else if (pageState.hasLandingPage || pageState.hasRecaptcha) {
-        console.error('Still on landing/terms page after clicking button');
-        return false;
-      } else {
-        console.error('Unknown page state after clicking button');
-        await this.page.screenshot({ path: 'cisac-service/navigation_failed.png' });
+        console.log('Language selection page loaded, clicking English...');
+        await this.page.click('a[href="/search"] button:has-text("English")');
+
+        // Wait for navigation to search page
+        await this.page.waitForLoadState('networkidle', { timeout: 15000 });
+
+        console.log('Waiting for React app to fully hydrate...');
+        await this.page.waitForTimeout(3000);
+
+        const finalUrl = this.page.url();
+        console.log('Final URL after language selection:', finalUrl);
+
+        await this.page.screenshot({ path: 'cisac-service/search_page.png' });
+
+        // Check if we reached the search page
+        const hasSearchPage = await this.page.evaluate(() => {
+          return !!document.querySelector('#root, [class*="SearchForm"], input[name="title"]');
+        });
+
+        if (hasSearchPage) {
+          console.log('Successfully reached search page');
+          return true;
+        } else {
+          console.error('Did not reach search page after language selection');
+          return false;
+        }
+
+      } catch (e) {
+        console.error('Error during language selection:', e);
+        await this.page.screenshot({ path: 'cisac-service/language_selection_error.png' });
         return false;
       }
 
@@ -312,6 +330,178 @@ export class CISACService {
       await this.page.screenshot({ path: 'cisac-service/error.png' });
       return false;
     }
+  }
+
+  private async getAuthToken(): Promise<string> {
+    if (!this.page) throw new Error('Page not initialized');
+
+    console.log('Extracting auth token from page...');
+
+    // Wait a bit more for the app to fully load and set the token
+    await this.page.waitForTimeout(2000);
+
+    // Debug: check what's in localStorage and sessionStorage
+    const debug = await this.page.evaluate(() => {
+      const localKeys: string[] = [];
+      const sessionKeys: string[] = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) localKeys.push(key);
+      }
+
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) sessionKeys.push(key);
+      }
+
+      // Check clientAppConfiguration
+      const config = localStorage.getItem('clientAppConfiguration');
+
+      return { localKeys, sessionKeys, hasConfig: !!config };
+    });
+    console.log('Storage debug:', debug);
+
+    // Extract bearer token from localStorage and sessionStorage
+    const token = await this.page.evaluate(() => {
+      // Check sessionStorage first
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          const value = sessionStorage.getItem(key);
+          if (value) {
+            try {
+              const parsed = JSON.parse(value);
+              if (parsed.access_token) return parsed.access_token;
+              if (parsed.token) return parsed.token;
+            } catch {
+              if (value.startsWith('eyJ')) return value;
+            }
+          }
+        }
+      }
+
+      // Check localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const value = localStorage.getItem(key);
+          if (value) {
+            try {
+              const parsed = JSON.parse(value);
+              if (parsed.access_token) return parsed.access_token;
+              if (parsed.token) return parsed.token;
+            } catch {
+              if (value.startsWith('eyJ')) return value;
+            }
+          }
+        }
+      }
+
+      return null;
+    });
+
+    if (token) {
+      console.log('Successfully extracted auth token from storage');
+      return token;
+    }
+
+    // If not in storage, intercept a network request to get the token
+    console.log('Token not in storage, waiting for API requests...');
+
+    let interceptedToken: string | null = null;
+
+    // Listen to all requests
+    this.page.on('request', (request) => {
+      const headers = request.headers();
+      if (headers['authorization'] && headers['authorization'].startsWith('Bearer ') && !interceptedToken) {
+        interceptedToken = headers['authorization'].replace('Bearer ', '');
+        console.log('Intercepted bearer token from request to:', request.url());
+      }
+    });
+
+    // Wait for page to make initial requests (app loads and gets token)
+    console.log('Waiting for app to make API requests...');
+    await this.page.waitForTimeout(5000);
+
+    // If still no token, try triggering a search to force an API call
+    if (!interceptedToken) {
+      console.log('No token yet, triggering a dummy search to capture auth token...');
+
+      try {
+        // Type a dummy ISWC in the search field
+        const searchInput = await this.page.waitForSelector('input[type="text"], input[name="iswc"], input[placeholder*="ISWC" i]', { timeout: 5000 });
+        if (searchInput) {
+          await searchInput.fill('T0000000001'); // Dummy ISWC
+          await this.page.waitForTimeout(500);
+
+          // Try to submit or trigger search
+          const searchButton = await this.page.locator('button[type="submit"], button:has-text("Search")').first();
+          if (searchButton) {
+            await searchButton.click();
+            console.log('Clicked search button, waiting for API request...');
+            await this.page.waitForTimeout(3000);
+          }
+        }
+      } catch (e) {
+        console.log('Could not trigger search:', e);
+      }
+    }
+
+    if (!interceptedToken) {
+      throw new Error('Failed to extract authentication token - no API requests with Authorization header observed');
+    }
+
+    console.log('Successfully intercepted auth token');
+    return interceptedToken;
+  }
+
+  async searchByIswc(iswc: string): Promise<any> {
+    if (!this.page) await this.init();
+    if (!this.page) throw new Error('Failed to initialize browser');
+
+    console.log(`Searching CISAC by ISWC: ${iswc}`);
+
+    // Navigate to CISAC and accept terms if needed
+    await this.page.goto(this.BASE_URL);
+    const hasLandingPage = await this.page.locator('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]').count() > 0;
+
+    if (hasLandingPage) {
+      console.log('Found terms page, accepting...');
+      const accepted = await this.acceptTerms();
+      if (!accepted) {
+        throw new Error('Failed to accept terms');
+      }
+    }
+
+    // Get auth token
+    const token = await this.getAuthToken();
+    if (!token) {
+      throw new Error('Failed to get authentication token');
+    }
+
+    console.log('Got auth token, making API request...');
+
+    // Make API request using Playwright's request context
+    const response = await this.page.request.get(
+      `https://cisaciswcprod.azure-api.net/iswc/searchByIswc?iswc=${iswc}`,
+      {
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'Authorization': `Bearer ${token}`,
+          'Origin': 'https://iswcnet.cisac.org',
+          'Referer': 'https://iswcnet.cisac.org/',
+          'Request-Source': 'PORTAL',
+        }
+      }
+    );
+
+    if (!response.ok()) {
+      throw new Error(`API request failed: ${response.status()} ${response.statusText()}`);
+    }
+
+    const data = await response.json();
+    return data;
   }
 
   async search(params: CISACSearchParams): Promise<CISACSearchResult[]> {
