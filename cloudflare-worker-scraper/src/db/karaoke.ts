@@ -4,7 +4,7 @@
  */
 
 import { NeonDBBase } from './base';
-import type { LRCLIBLyricsData } from '../lrclib';
+import type { LRCLIBLyricsData } from '../services/lrclib';
 
 export class KaraokeDB extends NeonDBBase {
   /**

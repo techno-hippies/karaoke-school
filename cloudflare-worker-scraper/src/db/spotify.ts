@@ -4,7 +4,7 @@
  */
 
 import { NeonDBBase } from './base';
-import type { SpotifyTrackData, SpotifyArtistData } from '../spotify';
+import type { SpotifyTrackData, SpotifyArtistData } from '../services/spotify';
 
 export class SpotifyDB extends NeonDBBase {
   /**

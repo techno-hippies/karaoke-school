@@ -4,7 +4,7 @@
  */
 
 import { NeonDBBase } from './base';
-import type { QuansicArtistData } from '../quansic';
+import type { QuansicArtistData } from '../services/quansic';
 
 export class QuansicDB extends NeonDBBase {
   /**

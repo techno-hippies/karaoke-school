@@ -4,7 +4,7 @@
  */
 
 import { NeonDBBase } from './base';
-import type { GeniusSongData } from '../genius';
+import type { GeniusSongData } from '../services/genius';
 
 export class GeniusDB extends NeonDBBase {
   /**

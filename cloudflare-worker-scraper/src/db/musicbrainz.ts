@@ -4,7 +4,7 @@
  */
 
 import { NeonDBBase } from './base';
-import type { MusicBrainzArtistData, MusicBrainzRecordingData, MusicBrainzWorkData } from '../musicbrainz';
+import type { MusicBrainzArtistData, MusicBrainzRecordingData, MusicBrainzWorkData } from '../services/musicbrainz';
 
 export class MusicBrainzDB extends NeonDBBase {
   /**
