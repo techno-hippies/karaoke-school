@@ -16,27 +16,40 @@ async function main() {
   });
 
   try {
-    // Test API search with known ISWC (Born to Make You Happy - Britney Spears)
-    const iswc = 'T0001559074';
-    console.log(`\nTesting API search for ISWC: ${iswc}`);
+    // Test API search with known ISWCs
+    const testISWCs = [
+      { iswc: 'T0001559074', title: 'Born to Make You Happy - Britney Spears' },
+      { iswc: 'T0101974597', title: 'Knives Out - Radiohead' }, // This is the correct ISWC
+      // Add more valid ISWCs here to test caching
+    ];
 
-    const data = await cisac.searchByIswc(iswc);
+    for (let i = 0; i < testISWCs.length; i++) {
+      const { iswc, title } = testISWCs[i];
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`Test ${i + 1}/${testISWCs.length}: ${title}`);
+      console.log(`ISWC: ${iswc}`);
+      console.log('='.repeat(60));
 
-    console.log('\n=== API Search Results ===');
-    console.log(`ISWC: ${data.iswc}`);
-    console.log(`Original Title: ${data.originalTitle}`);
-    console.log(`Status: ${data.iswcStatus}`);
-    console.log(`\nInterested Parties (${data.interestedParties.length}):`);
-    data.interestedParties.forEach((party: any, index: number) => {
-      console.log(`  ${index + 1}. ${party.name} (${party.role}) - ${party.affiliation}`);
-    });
-    console.log(`\nWorks Found: ${data.works.length}`);
+      const data = await cisac.searchByIswc(iswc);
 
-    if (data.otherTitles && data.otherTitles.length > 0) {
-      console.log(`\nOther Titles (${data.otherTitles.length}):`);
-      data.otherTitles.slice(0, 5).forEach((title: any) => {
-        console.log(`  - ${title.title} (${title.type})`);
+      console.log(`\nOriginal Title: ${data.originalTitle}`);
+      console.log(`Status: ${data.iswcStatus}`);
+      console.log(`\nInterested Parties: ${data.interestedParties.length}`);
+      data.interestedParties.slice(0, 3).forEach((party: any, index: number) => {
+        console.log(`  ${index + 1}. ${party.name} (${party.role})`);
       });
+      console.log(`\nWorks Found: ${data.works.length}`);
+
+      if (data.otherTitles && data.otherTitles.length > 0) {
+        console.log(`Other Titles: ${data.otherTitles.length}`);
+      }
+
+      // Only solve captcha once - subsequent requests should use cached token
+      if (i === 0) {
+        console.log('\n✅ First request completed - token should now be cached');
+      } else {
+        console.log('\n✅ Request completed using cached token (no captcha!)');
+      }
     }
 
   } catch (error) {

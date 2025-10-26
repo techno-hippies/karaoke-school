@@ -13,6 +13,8 @@ export class CISACService {
   private page: Page | null = null;
   private solver: Solver;
   private config: CISACServiceConfig;
+  private cachedToken: string | null = null;
+  private tokenExpiry: number | null = null;
 
   private readonly BASE_URL = 'https://iswcnet.cisac.org/';
 
@@ -332,10 +334,39 @@ export class CISACService {
     }
   }
 
-  private async getAuthToken(): Promise<string> {
-    if (!this.page) throw new Error('Page not initialized');
+  private isTokenValid(): boolean {
+    if (!this.cachedToken || !this.tokenExpiry) {
+      return false;
+    }
+    // Check if token expires in more than 5 minutes (300 seconds buffer)
+    const now = Math.floor(Date.now() / 1000);
+    return this.tokenExpiry > now + 300;
+  }
 
-    console.log('Extracting auth token from page...');
+  private decodeTokenExpiry(token: string): number | null {
+    try {
+      // JWT format: header.payload.signature
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+
+      // Decode base64 payload
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      return payload.exp || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getAuthToken(): Promise<string> {
+    // Check if we have a valid cached token
+    if (this.isTokenValid()) {
+      console.log('Using cached token (valid for', this.tokenExpiry! - Math.floor(Date.now() / 1000), 'more seconds)');
+      return this.cachedToken!;
+    }
+
+    console.log('No valid cached token, extracting new token...');
+
+    if (!this.page) throw new Error('Page not initialized');
 
     // Wait a bit more for the app to fully load and set the token
     await this.page.waitForTimeout(2000);
@@ -453,6 +484,16 @@ export class CISACService {
     }
 
     console.log('Successfully intercepted auth token');
+
+    // Cache the token and its expiry
+    this.cachedToken = interceptedToken;
+    this.tokenExpiry = this.decodeTokenExpiry(interceptedToken);
+
+    if (this.tokenExpiry) {
+      const validFor = this.tokenExpiry - Math.floor(Date.now() / 1000);
+      console.log(`Token cached, valid for ${validFor} seconds (~${Math.floor(validFor / 60)} minutes)`);
+    }
+
     return interceptedToken;
   }
 
@@ -462,19 +503,24 @@ export class CISACService {
 
     console.log(`Searching CISAC by ISWC: ${iswc}`);
 
-    // Navigate to CISAC and accept terms if needed
-    await this.page.goto(this.BASE_URL);
-    const hasLandingPage = await this.page.locator('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]').count() > 0;
+    // Only bypass captcha if we don't have a valid cached token
+    if (!this.isTokenValid()) {
+      console.log('No valid token cached, need to bypass captcha...');
 
-    if (hasLandingPage) {
-      console.log('Found terms page, accepting...');
-      const accepted = await this.acceptTerms();
-      if (!accepted) {
-        throw new Error('Failed to accept terms');
+      // Navigate to CISAC and accept terms if needed
+      await this.page.goto(this.BASE_URL);
+      const hasLandingPage = await this.page.locator('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]').count() > 0;
+
+      if (hasLandingPage) {
+        console.log('Found terms page, accepting...');
+        const accepted = await this.acceptTerms();
+        if (!accepted) {
+          throw new Error('Failed to accept terms');
+        }
       }
     }
 
-    // Get auth token
+    // Get auth token (will use cache if valid)
     const token = await this.getAuthToken();
     if (!token) {
       throw new Error('Failed to get authentication token');
