@@ -268,24 +268,19 @@ async function searchByISNI(isni: string, cookie: string): Promise<any> {
 }
 
 /**
- * Search for artist party by Spotify ID using entity search
+ * Search for artist party by Spotify ID using direct search endpoint
  * Fallback when ISNI lookups fail (handles secondary ISNIs)
  */
 async function searchBySpotifyId(spotifyId: string, cookie: string): Promise<any> {
-  const url = 'https://explorer.quansic.com/api/log/entitySearch';
+  const url = `https://explorer.quansic.com/api/q/search/party/spotifyId/${spotifyId}`;
 
   const response = await fetch(url, {
-    method: 'POST',
+    method: 'GET',
     headers: {
       'cookie': cookie,
       'accept': 'application/json',
-      'content-type': 'application/json',
       'user-agent': 'Mozilla/5.0',
     },
-    body: JSON.stringify({
-      entityType: 'spotifyId',
-      searchTerm: spotifyId,
-    }),
   });
 
   if (!response.ok) {
@@ -299,6 +294,7 @@ async function searchBySpotifyId(spotifyId: string, cookie: string): Promise<any
 
   const responseText = await response.text();
   if (!responseText || responseText.trim() === '') {
+    console.log('Spotify entity search returned empty response');
     return null;
   }
 
@@ -310,6 +306,7 @@ async function searchBySpotifyId(spotifyId: string, cookie: string): Promise<any
     return null;
   }
 
+  console.log(`Spotify search response:`, JSON.stringify(data).substring(0, 500));
   const parties = data.results?.parties;
 
   if (parties && parties.length > 0) {

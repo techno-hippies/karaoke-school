@@ -316,15 +316,13 @@ enrichment.post('/normalize-and-match', async (c) => {
  * Manually enrich artists with Quansic data (IPN, Luminate ID, name variants)
  */
 enrichment.post('/enrich-quansic', async (c) => {
-  if (!c.env.QUANSIC_SESSION_COOKIE) {
-    return c.json({ error: 'Quansic session cookie not configured' }, 500);
+  if (!c.env.QUANSIC_SERVICE_URL) {
+    return c.json({ error: 'Quansic service URL not configured' }, 500);
   }
 
-  // Debug: log cookie length to verify it exists
-  const cookieLength = c.env.QUANSIC_SESSION_COOKIE.length;
-  console.log(`Quansic session cookie configured (length: ${cookieLength} chars)`);
+  console.log(`Using Quansic service: ${c.env.QUANSIC_SERVICE_URL}`);
 
-  const quansic = new QuansicService(c.env.QUANSIC_SESSION_COOKIE);
+  const quansic = new QuansicService(c.env.QUANSIC_SERVICE_URL);
   const db = new NeonDB(c.env.NEON_DATABASE_URL);
   const limit = parseInt(c.req.query('limit') || '10');
 
@@ -344,7 +342,11 @@ enrichment.post('/enrich-quansic', async (c) => {
     try {
       // Enrich each ISNI
       for (const isni of artist.isnis) {
-        const quansicData = await quansic.enrichArtist(isni, artist.mbid);
+        const quansicData = await quansic.enrichArtist(
+          isni,
+          artist.mbid,
+          artist.spotify_artist_id
+        );
         await db.upsertQuansicArtist(quansicData);
         enriched++;
 
@@ -357,6 +359,7 @@ enrichment.post('/enrich-quansic', async (c) => {
         });
 
         console.log(`✓ Enriched ${artist.name} (ISNI: ${isni})`);
+
       }
     } catch (error) {
       console.error(`Failed to enrich ${artist.name}:`, error);

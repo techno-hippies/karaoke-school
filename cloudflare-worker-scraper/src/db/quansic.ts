@@ -14,9 +14,10 @@ export class QuansicDB extends NeonDBBase {
     mbid: string;
     name: string;
     isnis: string[];
+    spotify_artist_id?: string;
   }>> {
     const result = await this.sql`
-      SELECT ma.mbid, ma.name, ma.isnis
+      SELECT ma.mbid, ma.name, ma.isnis, ma.spotify_artist_id
       FROM musicbrainz_artists ma
       LEFT JOIN quansic_artists qa ON ma.isnis[1] = qa.isni
       WHERE ma.isnis IS NOT NULL
@@ -29,6 +30,7 @@ export class QuansicDB extends NeonDBBase {
       mbid: row.mbid,
       name: row.name,
       isnis: row.isnis,
+      spotify_artist_id: row.spotify_artist_id || undefined,
     }));
   }
 

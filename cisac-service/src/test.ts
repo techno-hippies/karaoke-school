@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { CISACService } from './cisac-service.js';
+import { convertISWCFormat } from './utils.js';
 
 async function main() {
   const apiKey = process.env.TWOCAPTCHA_API_KEY;
@@ -16,41 +17,59 @@ async function main() {
   });
 
   try {
-    // Test API search with known ISWCs
-    const testISWCs = [
-      { iswc: 'T0001559074', title: 'Born to Make You Happy - Britney Spears' },
-      { iswc: 'T0101974597', title: 'Knives Out - Radiohead' }, // This is the correct ISWC
-      // Add more valid ISWCs here to test caching
+    // Test token caching with real ISWCs from Neon database
+    // Format: Database uses T-XXX.XXX.XXX-X, CISAC needs TXXXXXXXXXX (remove dashes/dots only)
+
+    // ISWCs from Neon database (MusicBrainz format)
+    const dbISWCs = [
+      { iswc: 'T-910.940.292-8', title: 'Nightcall' },
+      { iswc: 'T-061.239.697-0', title: 'Somebody That I Used to Know' },
+      { iswc: 'T-801.384.775-2', title: 'Be My Lover' },
+      { iswc: 'T-070.145.563-1', title: "Somebody's Watching Me" },
     ];
 
+    // Convert to CISAC format
+    const testISWCs = dbISWCs.map(({ iswc, title }) => ({
+      dbFormat: iswc,
+      cisacFormat: convertISWCFormat(iswc),
+      title,
+    }));
+
+    console.log(`\n🎵 Testing CISAC token caching with ${testISWCs.length} ISWCs from database`);
+    console.log(`Format conversion: T-XXX.XXX.XXX-X → TXXXXXXXXXX (remove dashes/dots)\n`);
+    console.log(`Note: Only first request will solve captcha, rest use cached token!\n`);
+
     for (let i = 0; i < testISWCs.length; i++) {
-      const { iswc, title } = testISWCs[i];
+      const { dbFormat, cisacFormat, title } = testISWCs[i];
       console.log(`\n${'='.repeat(60)}`);
       console.log(`Test ${i + 1}/${testISWCs.length}: ${title}`);
-      console.log(`ISWC: ${iswc}`);
+      console.log(`Database format: ${dbFormat}`);
+      console.log(`CISAC format: ${cisacFormat}`);
       console.log('='.repeat(60));
 
-      const data = await cisac.searchByIswc(iswc);
+      try {
+        const data = await cisac.searchByIswc(cisacFormat);
 
-      console.log(`\nOriginal Title: ${data.originalTitle}`);
-      console.log(`Status: ${data.iswcStatus}`);
-      console.log(`\nInterested Parties: ${data.interestedParties.length}`);
-      data.interestedParties.slice(0, 3).forEach((party: any, index: number) => {
-        console.log(`  ${index + 1}. ${party.name} (${party.role})`);
-      });
-      console.log(`\nWorks Found: ${data.works.length}`);
+        console.log(`\n✅ SUCCESS!`);
+        console.log(`   Original Title: ${data.originalTitle}`);
+        console.log(`   Status: ${data.iswcStatus}`);
+        console.log(`   Interested Parties: ${data.interestedParties.length}`);
+        console.log(`   Works Found: ${data.works.length}`);
 
-      if (data.otherTitles && data.otherTitles.length > 0) {
-        console.log(`Other Titles: ${data.otherTitles.length}`);
-      }
-
-      // Only solve captcha once - subsequent requests should use cached token
-      if (i === 0) {
-        console.log('\n✅ First request completed - token should now be cached');
-      } else {
-        console.log('\n✅ Request completed using cached token (no captcha!)');
+        if (i === 0) {
+          console.log('\n🔑 First request - captcha solved, token cached for ~59 minutes');
+        } else {
+          console.log('\n🔑 Using cached token (no captcha!)');
+        }
+      } catch (error: any) {
+        console.log(`\n❌ FAILED: ${error.message}`);
       }
     }
+
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`✅ TOKEN CACHING TEST COMPLETE`);
+    console.log(`   Cost savings: 1 captcha for ${testISWCs.length} requests!`);
+    console.log('='.repeat(60));
 
   } catch (error) {
     console.error('Error:', error);

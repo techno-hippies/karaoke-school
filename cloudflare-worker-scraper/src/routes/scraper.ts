@@ -9,6 +9,7 @@ import { NeonDB } from '../neon';
 import { SpotifyService } from '../spotify';
 import { GeniusService } from '../genius';
 import { MusicBrainzService } from '../musicbrainz';
+import { BMIService } from '../bmi';
 import type { Env } from '../types';
 
 const scraper = new Hono<{ Bindings: Env }>();
@@ -53,13 +54,67 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
 
       for (const track of tracksNeedingIswc) {
         const iswcSources: { [key: string]: string | null } = {
+          bmi: null,
           musicbrainz: null,
           quansic: null,
           mlc: null,
         };
 
         try {
-          // Try 1: MusicBrainz (fast, ~40% success)
+          // Try 1: BMI title search (ISWC DISCOVERY - independent, only needs title+performer from Spotify)
+          if (env.BMI_SERVICE_URL) {
+            console.log(`  Trying BMI title search for "${track.title}"...`);
+            try {
+              // Get first artist as performer
+              const performerResult = await db.sql`
+                SELECT sa.name
+                FROM spotify_track_artists sta
+                JOIN spotify_artists sa ON sta.spotify_artist_id = sa.spotify_artist_id
+                WHERE sta.spotify_track_id = ${track.spotify_track_id}
+                ORDER BY sta.position ASC
+                LIMIT 1
+              `;
+
+              if (performerResult.length > 0) {
+                const bmiService = new BMIService(env.BMI_SERVICE_URL);
+                const bmiData = await bmiService.searchByTitle(track.title, performerResult[0].name);
+
+                if (bmiData?.iswc) {
+                  iswcSources.bmi = bmiData.iswc;
+                  console.log(`  ✓ BMI DISCOVERED: ${bmiData.iswc}`);
+
+                  // Store BMI work immediately
+                  await db.sql`
+                    INSERT INTO bmi_works (
+                      bmi_work_id, iswc, ascap_work_id, title,
+                      writers, publishers, performers, shares,
+                      status, raw_data
+                    ) VALUES (
+                      ${bmiData.bmi_work_id},
+                      ${bmiData.iswc},
+                      ${bmiData.ascap_work_id},
+                      ${bmiData.title},
+                      ${JSON.stringify(bmiData.writers)}::jsonb,
+                      ${JSON.stringify(bmiData.publishers)}::jsonb,
+                      ${JSON.stringify(bmiData.performers)}::jsonb,
+                      ${JSON.stringify(bmiData.shares)}::jsonb,
+                      ${bmiData.status},
+                      ${JSON.stringify(bmiData)}::jsonb
+                    )
+                    ON CONFLICT (bmi_work_id) DO UPDATE SET
+                      raw_data = EXCLUDED.raw_data,
+                      updated_at = NOW()
+                  `;
+                } else {
+                  console.log(`  ✗ BMI title search: no match found`);
+                }
+              }
+            } catch (bmiError) {
+              console.log(`  ✗ BMI title search failed:`, bmiError);
+            }
+          }
+
+          // Try 2: MusicBrainz (ISRC-based, ~40% success)
           console.log(`  Trying MusicBrainz for ${track.title}...`);
           try {
             const mbResult = await musicbrainz.searchRecordingByISRC(track.isrc);
@@ -95,7 +150,7 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
             console.log(`  ✗ MusicBrainz failed:`, mbError);
           }
 
-          // Try 2: Quansic (slow but reliable ~85% success)
+          // Try 3: Quansic (ISRC-based, ~85% success)
           if (env.QUANSIC_SERVICE_URL) {
             console.log(`  Trying Quansic for ${track.title}...`);
             try {
@@ -163,8 +218,8 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
             }
           }
 
-          // Try 3: MLC corroboration (if we got ISWC from MB or Quansic)
-          const tempIswc = iswcSources.musicbrainz || iswcSources.quansic;
+          // Try 4: MLC corroboration (if we got ISWC from BMI, MB, or Quansic)
+          const tempIswc = iswcSources.bmi || iswcSources.musicbrainz || iswcSources.quansic;
           if (tempIswc) {
             console.log(`  Trying MLC for corroboration (ISWC: ${tempIswc})...`);
             try {
@@ -188,6 +243,45 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
               }
             } catch (mlcError) {
               console.log(`  ✗ MLC failed:`, mlcError);
+            }
+          }
+
+          // Try 5: BMI ISWC search (ISWC CORROBORATION - only if we have candidate and BMI title didn't find it)
+          if (tempIswc && env.BMI_SERVICE_URL && !iswcSources.bmi) {
+            console.log(`  Trying BMI ISWC corroboration (ISWC: ${tempIswc})...`);
+            try {
+              const bmiService = new BMIService(env.BMI_SERVICE_URL);
+              const bmiData = await bmiService.searchByISWC(tempIswc);
+
+              if (bmiData?.iswc) {
+                iswcSources.bmi = bmiData.iswc;
+                console.log(`  ✓ BMI CORROBORATED: ${bmiData.iswc}`);
+
+                // Store BMI work
+                await db.sql`
+                  INSERT INTO bmi_works (
+                    bmi_work_id, iswc, ascap_work_id, title,
+                    writers, publishers, performers, shares,
+                    status, raw_data
+                  ) VALUES (
+                    ${bmiData.bmi_work_id},
+                    ${bmiData.iswc},
+                    ${bmiData.ascap_work_id},
+                    ${bmiData.title},
+                    ${JSON.stringify(bmiData.writers)}::jsonb,
+                    ${JSON.stringify(bmiData.publishers)}::jsonb,
+                    ${JSON.stringify(bmiData.performers)}::jsonb,
+                    ${JSON.stringify(bmiData.shares)}::jsonb,
+                    ${bmiData.status},
+                    ${JSON.stringify(bmiData)}::jsonb
+                  )
+                  ON CONFLICT (bmi_work_id) DO UPDATE SET
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+                `;
+              }
+            } catch (bmiError) {
+              console.log(`  ✗ BMI ISWC search failed:`, bmiError);
             }
           }
 
@@ -307,6 +401,225 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log('Genius API key not configured, skipping Genius enrichment');
     }
 
+    // Step 4.5: Genius Artist enrichment (from genius_songs)
+    if (env.GENIUS_API_KEY) {
+      const unenrichedArtists = await db.sql`
+        SELECT DISTINCT gs.genius_artist_id
+        FROM genius_songs gs
+        LEFT JOIN genius_artists ga ON gs.genius_artist_id = ga.genius_artist_id
+        WHERE ga.genius_artist_id IS NULL
+        LIMIT 20
+      `;
+
+      if (unenrichedArtists.length > 0) {
+        console.log(`Enriching ${unenrichedArtists.length} Genius artists...`);
+        let enrichedArtists = 0;
+
+        for (const row of unenrichedArtists) {
+          try {
+            const artistId = row.genius_artist_id;
+            const response = await fetch(`https://api.genius.com/artists/${artistId}`, {
+              headers: {
+                'Authorization': `Bearer ${env.GENIUS_API_KEY}`,
+              },
+            });
+
+            if (!response.ok) {
+              console.error(`Failed to fetch Genius artist ${artistId}: ${response.status}`);
+              continue;
+            }
+
+            const data = await response.json() as any;
+            const artist = data.response?.artist;
+
+            if (!artist) {
+              console.error(`No artist data for Genius artist ${artistId}`);
+              continue;
+            }
+
+            // Upsert into genius_artists table
+            await db.sql`
+              INSERT INTO genius_artists (
+                genius_artist_id,
+                name,
+                alternate_names,
+                is_verified,
+                is_meme_verified,
+                followers_count,
+                image_url,
+                header_image_url,
+                instagram_name,
+                twitter_name,
+                facebook_name,
+                url,
+                api_path,
+                raw_data
+              ) VALUES (
+                ${artist.id},
+                ${artist.name},
+                ${artist.alternate_names || []},
+                ${artist.is_verified || false},
+                ${artist.is_meme_verified || false},
+                ${artist.followers_count || 0},
+                ${artist.image_url},
+                ${artist.header_image_url},
+                ${artist.instagram_name},
+                ${artist.twitter_name},
+                ${artist.facebook_name},
+                ${artist.url},
+                ${artist.api_path},
+                ${JSON.stringify(artist)}::jsonb
+              )
+              ON CONFLICT (genius_artist_id)
+              DO UPDATE SET
+                name = EXCLUDED.name,
+                alternate_names = EXCLUDED.alternate_names,
+                is_verified = EXCLUDED.is_verified,
+                is_meme_verified = EXCLUDED.is_meme_verified,
+                followers_count = EXCLUDED.followers_count,
+                image_url = EXCLUDED.image_url,
+                header_image_url = EXCLUDED.header_image_url,
+                instagram_name = EXCLUDED.instagram_name,
+                twitter_name = EXCLUDED.twitter_name,
+                facebook_name = EXCLUDED.facebook_name,
+                url = EXCLUDED.url,
+                api_path = EXCLUDED.api_path,
+                raw_data = EXCLUDED.raw_data,
+                updated_at = NOW()
+            `;
+
+            enrichedArtists++;
+            console.log(`✓ Enriched Genius artist: ${artist.name}`);
+
+            // Rate limiting: 100ms between requests
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (error) {
+            console.error(`Error enriching Genius artist:`, error);
+          }
+        }
+
+        console.log(`✓ Enriched ${enrichedArtists} Genius artists`);
+      }
+    }
+
+    // Step 4.6: Genius Song Referents (lyrics annotations)
+    if (env.GENIUS_API_KEY) {
+      const unenrichedSongs = await db.sql`
+        SELECT gs.genius_song_id
+        FROM genius_songs gs
+        LEFT JOIN genius_song_referents sr ON gs.genius_song_id = sr.genius_song_id
+        WHERE sr.referent_id IS NULL
+        GROUP BY gs.genius_song_id
+        LIMIT 10
+      `;
+
+      if (unenrichedSongs.length > 0) {
+        console.log(`Enriching referents for ${unenrichedSongs.length} Genius songs...`);
+        let totalReferents = 0;
+
+        for (const row of unenrichedSongs) {
+          try {
+            const songId = row.genius_song_id;
+            const perSong = 20; // Referents per song
+
+            const response = await fetch(
+              `https://api.genius.com/referents?song_id=${songId}&per_page=${perSong}&text_format=dom`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${env.GENIUS_API_KEY}`,
+                },
+              }
+            );
+
+            if (!response.ok) {
+              console.error(`Failed to fetch referents for song ${songId}: ${response.status}`);
+              continue;
+            }
+
+            const data = await response.json() as any;
+            const referents = data.response?.referents || [];
+
+            if (referents.length === 0) {
+              continue;
+            }
+
+            // Upsert each referent
+            let insertedCount = 0;
+            for (const ref of referents) {
+              try {
+                const firstAnnotation = ref.annotations?.[0];
+
+                await db.sql`
+                  INSERT INTO genius_song_referents (
+                    referent_id,
+                    genius_song_id,
+                    fragment,
+                    classification,
+                    votes_total,
+                    comment_count,
+                    is_verified,
+                    annotator_id,
+                    annotator_login,
+                    url,
+                    path,
+                    api_path,
+                    annotations,
+                    raw_data
+                  ) VALUES (
+                    ${ref.id},
+                    ${songId},
+                    ${ref.fragment || ''},
+                    ${ref.classification},
+                    ${firstAnnotation?.votes_total || 0},
+                    ${firstAnnotation?.comment_count || 0},
+                    ${firstAnnotation?.verified || false},
+                    ${ref.annotator_id},
+                    ${ref.annotator_login},
+                    ${ref.url},
+                    ${ref.path},
+                    ${ref.api_path},
+                    ${JSON.stringify(ref.annotations || [])}::jsonb,
+                    ${JSON.stringify(ref)}::jsonb
+                  )
+                  ON CONFLICT (referent_id)
+                  DO UPDATE SET
+                    fragment = EXCLUDED.fragment,
+                    classification = EXCLUDED.classification,
+                    votes_total = EXCLUDED.votes_total,
+                    comment_count = EXCLUDED.comment_count,
+                    is_verified = EXCLUDED.is_verified,
+                    annotator_id = EXCLUDED.annotator_id,
+                    annotator_login = EXCLUDED.annotator_login,
+                    url = EXCLUDED.url,
+                    path = EXCLUDED.path,
+                    api_path = EXCLUDED.api_path,
+                    annotations = EXCLUDED.annotations,
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+                `;
+
+                insertedCount++;
+                totalReferents++;
+              } catch (error) {
+                console.error(`Error inserting referent ${ref.id}:`, error);
+              }
+            }
+
+            if (insertedCount > 0) {
+              console.log(`✓ Song ${songId}: ${insertedCount} referents`);
+            }
+
+            // Rate limiting: 200ms between songs
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (error) {
+            console.error(`Error enriching referents for song:`, error);
+          }
+        }
+
+        console.log(`✓ Enriched ${totalReferents} total referents across ${unenrichedSongs.length} songs`);
+      }
+    }
+
     // Step 5: MusicBrainz Artist enrichment (ONLY for artists from tracks with ISWC)
     const musicbrainz = new MusicBrainzService();
     const viableMBArtists = await db.sql`
@@ -397,6 +710,264 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       console.log('Quansic service URL not configured, skipping Quansic artist enrichment');
     }
 
+    // Step 6.5: Quansic Work enrichment (ISWC → Composers)
+    if (env.QUANSIC_SERVICE_URL) {
+      console.log('🎼 Step 6.5: Quansic Work enrichment (ISWC → Composers)...');
+
+      const worksNeedingEnrichment = await db.sql`
+        SELECT w.iswc, w.work_mbid, w.title
+        FROM musicbrainz_works w
+        LEFT JOIN quansic_works qw ON w.iswc = qw.iswc
+        WHERE w.iswc IS NOT NULL
+          AND qw.iswc IS NULL
+        LIMIT 5
+      `;
+
+      if (worksNeedingEnrichment.length > 0) {
+        console.log(`Enriching ${worksNeedingEnrichment.length} works with Quansic (ISWC → Composers)...`);
+        let enrichedWorks = 0;
+
+        for (const work of worksNeedingEnrichment) {
+          try {
+            const response = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich-work`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                iswc: work.iswc,
+                work_mbid: work.work_mbid
+              })
+            });
+
+            if (!response.ok) {
+              console.error(`Quansic work enrichment failed for ${work.iswc}: ${response.status}`);
+              continue;
+            }
+
+            const { data } = await response.json();
+
+            // Store in quansic_works table
+            await db.sql`
+              INSERT INTO quansic_works (
+                iswc, work_mbid, title, contributors, recording_count,
+                q1_score, sample_recordings, raw_data, enriched_at
+              ) VALUES (
+                ${data.iswc},
+                ${work.work_mbid},
+                ${data.title},
+                ${JSON.stringify(data.contributors)},
+                ${data.recording_count},
+                ${data.q1_score},
+                ${JSON.stringify(data.sample_recordings)},
+                ${JSON.stringify(data.raw_data)},
+                NOW()
+              )
+              ON CONFLICT (iswc) DO UPDATE SET
+                contributors = EXCLUDED.contributors,
+                recording_count = EXCLUDED.recording_count,
+                q1_score = EXCLUDED.q1_score,
+                sample_recordings = EXCLUDED.sample_recordings,
+                raw_data = EXCLUDED.raw_data,
+                enriched_at = NOW()
+            `;
+
+            enrichedWorks++;
+            console.log(`✓ Enriched work "${work.title}" (${data.contributors?.length || 0} composers)`);
+          } catch (error) {
+            console.error(`Failed to enrich work ${work.iswc}:`, error);
+          }
+        }
+
+        console.log(`✓ Enriched ${enrichedWorks} works with composer data`);
+      }
+    } else {
+      console.log('Quansic service URL not configured, skipping Quansic work enrichment');
+    }
+
+    // Step 6.6: MLC Licensing enrichment (ISWC → Writers, Publishers for Story Protocol)
+    console.log('📜 Step 6.6: MLC Licensing enrichment (ISWC → Writers, Publishers)...');
+
+    const worksNeedingMLC = await db.sql`
+      SELECT isrc, iswc, work_title, title FROM (
+        -- Try Quansic recordings first (PRIMARY source)
+        SELECT
+          qr.isrc,
+          qr.iswc,
+          qr.work_title,
+          qr.title,
+          1 as priority
+        FROM quansic_recordings qr
+        LEFT JOIN mlc_works mlw ON qr.iswc = mlw.iswc
+        WHERE qr.iswc IS NOT NULL
+          AND mlw.iswc IS NULL
+
+        UNION ALL
+
+        -- Fallback to MusicBrainz works
+        SELECT
+          NULL as isrc,
+          mw.iswc,
+          mw.title as work_title,
+          mw.title,
+          2 as priority
+        FROM musicbrainz_works mw
+        LEFT JOIN mlc_works mlw ON mw.iswc = mlw.iswc
+        WHERE mw.iswc IS NOT NULL
+          AND mlw.iswc IS NULL
+      ) combined
+      ORDER BY priority, iswc
+      LIMIT 5
+    `;
+
+    if (worksNeedingMLC.length > 0) {
+      console.log(`Enriching ${worksNeedingMLC.length} works with MLC licensing data...`);
+      let enrichedMLC = 0;
+
+      for (const rec of worksNeedingMLC) {
+        try {
+          const iswc = rec.iswc as string;
+
+          // Search MLC by ISWC
+          const searchUrl = 'https://api.ptl.themlc.com/api2v/public/search/works?page=0&size=50';
+          const response = await fetch(searchUrl, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json, text/plain, */*',
+              'Content-Type': 'application/json',
+              'Origin': 'https://portal.themlc.com',
+              'Referer': 'https://portal.themlc.com/',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+            body: JSON.stringify({ iswc }),
+          });
+
+          if (!response.ok) {
+            console.error(`MLC search failed for ${iswc}: ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json() as any;
+          const mlcWorks = data.content || [];
+
+          if (mlcWorks.length === 0) {
+            console.log(`No MLC match for ${iswc}`);
+            continue;
+          }
+
+          const mlcWork = mlcWorks[0];
+
+          // Calculate total publisher share
+          let directShare = 0;
+          let adminShare = 0;
+
+          for (const pub of mlcWork.originalPublishers || []) {
+            directShare += pub.publisherShare || 0;
+            for (const admin of pub.administratorPublishers || []) {
+              adminShare += admin.publisherShare || 0;
+            }
+          }
+
+          const totalShare = directShare + adminShare;
+
+          // Prepare writers and publishers
+          const writers = mlcWork.writers.map((w: any) => ({
+            name: `${w.firstName || ''} ${w.lastName || ''}`.trim() || 'Unknown',
+            ipi: w.ipiNumber || null,
+            role: w.roleCode === 11 ? 'Composer' : 'Writer',
+            share: w.writerShare || 0,
+          }));
+
+          const publishers = mlcWork.originalPublishers.map((p: any) => ({
+            name: p.publisherName,
+            ipi: p.ipiNumber || '',
+            share: p.publisherShare || 0,
+            administrators: (p.administratorPublishers || []).map((a: any) => ({
+              name: a.publisherName,
+              ipi: a.ipiNumber || '',
+              share: a.publisherShare || 0,
+            })),
+          }));
+
+          // Upsert into mlc_works
+          await db.sql`
+            INSERT INTO mlc_works (
+              mlc_song_code,
+              title,
+              iswc,
+              total_publisher_share,
+              writers,
+              publishers,
+              raw_data
+            ) VALUES (
+              ${mlcWork.songCode},
+              ${mlcWork.title},
+              ${mlcWork.iswc || null},
+              ${totalShare},
+              ${JSON.stringify(writers)}::jsonb,
+              ${JSON.stringify(publishers)}::jsonb,
+              ${JSON.stringify(mlcWork)}::jsonb
+            )
+            ON CONFLICT (mlc_song_code)
+            DO UPDATE SET
+              title = EXCLUDED.title,
+              iswc = EXCLUDED.iswc,
+              total_publisher_share = EXCLUDED.total_publisher_share,
+              writers = EXCLUDED.writers,
+              publishers = EXCLUDED.publishers,
+              raw_data = EXCLUDED.raw_data,
+              updated_at = NOW()
+          `;
+
+          // Fetch all recordings for this work (discovers alternate ISRCs)
+          const recordingsUrl = `https://api.ptl.themlc.com/api/dsp-recording/matched/${mlcWork.songCode}?page=1&limit=50&order=matchedAmount&direction=desc`;
+          const recResponse = await fetch(recordingsUrl, {
+            headers: {
+              'Accept': 'application/json, text/plain, */*',
+              'Origin': 'https://portal.themlc.com',
+              'Referer': 'https://portal.themlc.com/',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          });
+
+          if (recResponse.ok) {
+            const recData = await recResponse.json() as any;
+            const recordings = recData.recordings || [];
+
+            // Store all discovered ISRCs
+            for (const mlcRec of recordings) {
+              if (mlcRec.isrc) {
+                await db.sql`
+                  INSERT INTO mlc_recordings (
+                    isrc,
+                    mlc_song_code,
+                    raw_data
+                  ) VALUES (
+                    ${mlcRec.isrc},
+                    ${mlcWork.songCode},
+                    ${JSON.stringify(mlcRec)}::jsonb
+                  )
+                  ON CONFLICT (isrc)
+                  DO UPDATE SET
+                    mlc_song_code = EXCLUDED.mlc_song_code,
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+                `;
+              }
+            }
+
+            enrichedMLC++;
+            console.log(`✓ Enriched "${mlcWork.title}" (${writers.length} writers, ${publishers.length} publishers, ${totalShare}% share, ${recordings.length} recordings)`);
+          }
+
+          // Rate limiting: 200ms between requests
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } catch (error) {
+          console.error(`Failed to enrich MLC work ${rec.iswc}:`, error);
+        }
+      }
+
+      console.log(`✓ Enriched ${enrichedMLC} works with MLC licensing data`);
+    }
+
     // Step 7: LRCLIB Lyrics enrichment (ONLY for tracks with ISWC)
     console.log('🎵 Step 7: LRCLIB Lyrics enrichment (from tracks with ISWC)...');
     const { LRCLIBService, calculateMatchScore } = await import('../lrclib');
@@ -482,6 +1053,85 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
 
       console.log(`✓ Enriched ${enrichedLyrics} tracks with lyrics, ${instrumental} instrumental`);
     }
+
+    // Step 8: Audio Download (Freyr → Grove IPFS storage)
+    if (env.FREYR_SERVICE_URL && env.ACOUSTID_API_KEY) {
+      console.log('🎧 Step 8: Audio Download (tracks with ISWC + MLC ≥98%)...');
+
+      const readyTracks = await db.sql`
+        SELECT
+          st.spotify_track_id,
+          st.title,
+          st.artists,
+          st.isrc,
+          mlw.total_publisher_share
+        FROM spotify_tracks st
+        LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
+        LEFT JOIN mlc_recordings mlr ON st.isrc = mlr.isrc
+        LEFT JOIN mlc_works mlw ON mlr.mlc_song_code = mlw.mlc_song_code
+        WHERE taf.spotify_track_id IS NULL
+          AND st.has_iswc = true
+          AND mlw.total_publisher_share >= 98
+        ORDER BY mlw.total_publisher_share DESC, st.spotify_track_id
+        LIMIT 2
+      `;
+
+      if (readyTracks.length > 0) {
+        console.log(`Downloading audio for ${readyTracks.length} tracks...`);
+        let downloaded = 0;
+
+        for (const track of readyTracks) {
+          try {
+            const artists = track.artists as any[];
+            const primaryArtist = artists[0]?.name || 'Unknown';
+
+            console.log(`Downloading: ${track.title} - ${primaryArtist}`);
+
+            const response = await fetch(`${env.FREYR_SERVICE_URL}/download-and-store`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                spotify_track_id: track.spotify_track_id,
+                expected_title: track.title,
+                expected_artist: primaryArtist,
+                acoustid_api_key: env.ACOUSTID_API_KEY,
+                neon_database_url: env.NEON_DATABASE_URL,
+                chain_id: 37111, // Lens Network
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error(`Failed to download ${track.spotify_track_id}: ${errorData.message}`);
+              continue;
+            }
+
+            const data = await response.json();
+            downloaded++;
+
+            console.log(`✓ Downloaded "${track.title}" (CID: ${data.grove_cid}, ${data.download_method}, verified: ${data.verification?.verified})`);
+
+            // Rate limiting: 3 seconds between downloads
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } catch (error) {
+            console.error(`Error downloading ${track.spotify_track_id}:`, error);
+          }
+        }
+
+        console.log(`✓ Downloaded ${downloaded} audio files to Grove`);
+      } else {
+        console.log('No tracks ready for audio download (need ISWC + MLC ≥98%)');
+      }
+    } else {
+      if (!env.FREYR_SERVICE_URL) {
+        console.log('FREYR_SERVICE_URL not configured, skipping audio download');
+      }
+      if (!env.ACOUSTID_API_KEY) {
+        console.log('ACOUSTID_API_KEY not configured, skipping audio download');
+      }
+    }
+
+    console.log('✅ Enrichment cycle complete');
   } catch (error) {
     console.error('Enrichment failed:', error);
   }

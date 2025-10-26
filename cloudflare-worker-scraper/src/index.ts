@@ -18,6 +18,7 @@ import monitoring from './routes/monitoring';
 import karaoke from './routes/karaoke';
 import genius from './routes/genius';
 import mlc from './routes/mlc';
+import bmi from './routes/bmi';
 import audio from './routes/audio';
 import lyrics from './routes/lyrics';
 import { TikTokScraper } from './tiktok-scraper';
@@ -36,6 +37,7 @@ app.route('/', monitoring);
 app.route('/', karaoke);
 app.route('/', genius);
 app.route('/', mlc);
+app.route('/', bmi);
 app.route('/', audio);
 app.route('/', lyrics);
 
@@ -71,6 +73,13 @@ app.get('/', (c) => {
       'POST /enrich-mlc-by-iswc': 'Corroborate ISWCs from Quansic + add licensing data (writers, publishers)',
       'GET /mlc/works/:songCode': 'Get MLC work by song code',
       'GET /mlc/recordings/isrc/:isrc': 'Get MLC recording by ISRC',
+
+      // BMI Songview routes (ISWC verification & discovery)
+      'POST /enrich-bmi-by-iswc': 'Verify ISWCs from Quansic/MusicBrainz + add BMI publisher data',
+      'POST /enrich-bmi-by-title': 'Discover ISWCs for tracks without them (title + performer search)',
+      'GET /bmi/works/:bmi_work_id': 'Get BMI work by work ID',
+      'GET /bmi/works/iswc/:iswc': 'Get BMI work by ISWC',
+      'GET /bmi/stats': 'Get BMI enrichment statistics',
 
       // Lyrics routes
       'GET /lyrics/:spotify_track_id': 'Get lyrics for a specific track',
@@ -110,6 +119,7 @@ app.get('/', (c) => {
       '→ LRCLIB Lyrics (synced + plain text)',
       '→ Quansic Enrichment (IPN, Luminate ID)',
       '→ MLC Licensing (writers, publishers, Story Protocol compliance)',
+      '→ BMI Songview (ISWC verification, publisher details, reconciliation status)',
     ],
     features: [
       'JSONB-first schema with indexed columns',

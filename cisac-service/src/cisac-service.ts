@@ -56,6 +56,22 @@ export class CISACService {
     console.log('Browser closed');
   }
 
+  /**
+   * Check if cached token is still valid
+   */
+  public isTokenCached(): boolean {
+    return this.isTokenValid();
+  }
+
+  /**
+   * Get seconds until token expires (0 if no valid token)
+   */
+  public getTokenExpiresIn(): number {
+    if (!this.tokenExpiry) return 0;
+    const now = Math.floor(Date.now() / 1000);
+    return Math.max(0, this.tokenExpiry - now);
+  }
+
   private async solveCaptcha(sitekey: string): Promise<string> {
     console.log('Solving reCAPTCHA with 2captcha...');
     console.log('Sitekey:', sitekey);
@@ -528,26 +544,43 @@ export class CISACService {
 
     console.log('Got auth token, making API request...');
 
-    // Make API request using Playwright's request context
-    const response = await this.page.request.get(
-      `https://cisaciswcprod.azure-api.net/iswc/searchByIswc?iswc=${iswc}`,
-      {
-        headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'Authorization': `Bearer ${token}`,
-          'Origin': 'https://iswcnet.cisac.org',
-          'Referer': 'https://iswcnet.cisac.org/',
-          'Request-Source': 'PORTAL',
+    // Make API request using native fetch (more reliable in containers than Playwright's request context)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    try {
+      const response = await fetch(
+        `https://cisaciswcprod.azure-api.net/iswc/searchByIswc?iswc=${iswc}`,
+        {
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Authorization': `Bearer ${token}`,
+            'Origin': 'https://iswcnet.cisac.org',
+            'Referer': 'https://iswcnet.cisac.org/',
+            'Request-Source': 'PORTAL',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          },
+          signal: controller.signal,
         }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
-    );
 
-    if (!response.ok()) {
-      throw new Error(`API request failed: ${response.status()} ${response.statusText()}`);
+      const data = await response.json();
+      console.log('API request successful, got response');
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('API request timed out after 30 seconds');
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    return data;
   }
 
   async search(params: CISACSearchParams): Promise<CISACSearchResult[]> {
