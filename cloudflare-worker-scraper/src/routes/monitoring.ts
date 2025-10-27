@@ -167,6 +167,42 @@ monitoring.get('/enrichment-queue', async (c) => {
 monitoring.get('/worker-status', async (c) => {
   const db = new NeonDB(c.env.NEON_DATABASE_URL);
 
+  // Get TikTok → Karaoke pipeline breakdown
+  const pipelineStats = await db.sql`
+    SELECT
+      COUNT(DISTINCT tsv.video_id) as total_copyrighted_videos,
+      COUNT(DISTINCT CASE WHEN st.has_iswc = true THEN tsv.video_id END) as videos_with_iswc,
+      COUNT(DISTINCT CASE WHEN stl.spotify_track_id IS NOT NULL THEN tsv.video_id END) as videos_with_lyrics,
+      COUNT(DISTINCT CASE WHEN taf.spotify_track_id IS NOT NULL THEN tsv.video_id END) as videos_with_audio,
+      COUNT(DISTINCT CASE WHEN ks.spotify_track_id IS NOT NULL THEN tsv.video_id END) as videos_with_segments,
+      COUNT(DISTINCT CASE WHEN tsa.spotify_track_id IS NOT NULL AND tsa.separation_status = 'completed' THEN tsv.video_id END) as videos_with_demucs,
+      COUNT(DISTINCT CASE WHEN ks.fal_segment_grove_cid IS NOT NULL THEN tsv.video_id END) as videos_with_cropped_segment
+    FROM tiktok_scraped_videos tsv
+    LEFT JOIN spotify_tracks st ON tsv.spotify_track_id = st.spotify_track_id
+    LEFT JOIN spotify_track_lyrics stl ON st.spotify_track_id = stl.spotify_track_id
+    LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
+    LEFT JOIN karaoke_segments ks ON st.spotify_track_id = ks.spotify_track_id
+    LEFT JOIN track_separated_audio tsa ON st.spotify_track_id = tsa.spotify_track_id
+    WHERE tsv.copyright_status = 'copyrighted'
+  `;
+
+  // Get bottleneck details
+  const bottlenecks = await db.sql`
+    SELECT
+      COUNT(*) FILTER (WHERE st.has_iswc = true AND stl.spotify_track_id IS NULL) as lyrics_needed,
+      COUNT(*) FILTER (WHERE stl.spotify_track_id IS NOT NULL AND taf.spotify_track_id IS NULL) as audio_needed,
+      COUNT(*) FILTER (WHERE taf.spotify_track_id IS NOT NULL AND tsa.spotify_track_id IS NULL) as demucs_needed,
+      COUNT(*) FILTER (WHERE tsa.separation_status = 'completed' AND tsa.instrumental_grove_cid IS NOT NULL AND ks.fal_segment_start_ms IS NOT NULL AND ks.fal_segment_grove_cid IS NULL) as crop_needed
+    FROM spotify_tracks st
+    LEFT JOIN spotify_track_lyrics stl ON st.spotify_track_id = stl.spotify_track_id
+    LEFT JOIN track_audio_files taf ON st.spotify_track_id = taf.spotify_track_id
+    LEFT JOIN karaoke_segments ks ON st.spotify_track_id = ks.spotify_track_id
+    LEFT JOIN track_separated_audio tsa ON st.spotify_track_id = tsa.spotify_track_id
+    WHERE st.spotify_track_id IN (
+      SELECT spotify_track_id FROM tiktok_scraped_videos WHERE copyright_status = 'copyrighted'
+    )
+  `;
+
   // Get recent enrichment activity by checking fetched_at timestamps
   const recentActivity = await db.sql`
     WITH recent_enrichments AS (
@@ -250,10 +286,67 @@ monitoring.get('/worker-status', async (c) => {
     ? Math.round((Date.now() - new Date(lastWorkerActivity).getTime()) / 1000)
     : null;
 
+  const pipeline = pipelineStats[0];
+  const bottleneck = bottlenecks[0];
+
   return c.json({
     status: timeSinceLastActivity !== null && timeSinceLastActivity < 300 ? 'active' : 'idle',
     last_activity: lastWorkerActivity,
     seconds_since_activity: timeSinceLastActivity,
+
+    // TikTok → Karaoke Pipeline
+    tiktok_karaoke_pipeline: {
+      '1_scraped_videos': {
+        count: parseInt(pipeline.total_copyrighted_videos),
+        description: 'TikTok videos scraped with copyrighted music',
+      },
+      '2_iswc_discovered': {
+        count: parseInt(pipeline.videos_with_iswc),
+        percent: Math.round((parseInt(pipeline.videos_with_iswc) / parseInt(pipeline.total_copyrighted_videos)) * 100),
+        description: 'Videos with ISWC found (BMI/CISAC/MusicBrainz/Quansic/MLC)',
+        cron: 'Every 3 minutes',
+      },
+      '3_lyrics_enriched': {
+        count: parseInt(pipeline.videos_with_lyrics),
+        percent: Math.round((parseInt(pipeline.videos_with_lyrics) / parseInt(pipeline.videos_with_iswc)) * 100),
+        description: 'Videos with synced lyrics (LRCLIB + Lyrics.ovh)',
+        cron: 'Every 15 minutes',
+      },
+      '4_audio_downloaded': {
+        count: parseInt(pipeline.videos_with_audio),
+        percent: Math.round((parseInt(pipeline.videos_with_audio) / parseInt(pipeline.videos_with_lyrics)) * 100),
+        description: 'Full audio downloaded (Freyr + Grove + AcoustID verification)',
+        cron: 'Every 25 minutes',
+        bottleneck: parseInt(bottleneck.audio_needed) > 0 ? `⚠️ ${bottleneck.audio_needed} tracks waiting for download` : null,
+      },
+      '5_segments_selected': {
+        count: parseInt(pipeline.videos_with_segments),
+        percent: Math.round((parseInt(pipeline.videos_with_segments) / parseInt(pipeline.videos_with_lyrics)) * 100),
+        description: 'Best 190s segment selected (Gemini Flash 2.5 Lite)',
+        cron: 'Every 45 minutes',
+      },
+      '6_demucs_separated': {
+        count: parseInt(pipeline.videos_with_demucs),
+        percent: Math.round((parseInt(pipeline.videos_with_demucs) / parseInt(pipeline.videos_with_audio)) * 100),
+        description: 'Vocal/instrumental separation complete (Demucs MDX)',
+        cron: 'Every 35 minutes',
+        bottleneck: parseInt(bottleneck.demucs_needed) > 0 ? `⚠️ ${bottleneck.demucs_needed} tracks waiting for Demucs` : null,
+      },
+      '7_segments_cropped': {
+        count: parseInt(pipeline.videos_with_cropped_segment),
+        percent: Math.round((parseInt(pipeline.videos_with_cropped_segment) / parseInt(pipeline.videos_with_demucs)) * 100),
+        description: 'Instrumental 190s segments cropped (FFmpeg on Akash)',
+        cron: 'Every 50 minutes',
+        bottleneck: parseInt(bottleneck.crop_needed) > 0 ? `⚠️ ${bottleneck.crop_needed} tracks ready for cropping` : null,
+      },
+      '8_fal_ai_processing': {
+        count: 0,
+        percent: 0,
+        description: '190s audio-to-audio enhancement for karaoke (fal.ai)',
+        status: 'Not yet implemented',
+      },
+    },
+
     recent_hour: {
       enrichments_by_stage: recentActivity,
       iswc_lookups: iswcActivity[0] || { found_iswc: 0, no_iswc: 0, last_checked: null },

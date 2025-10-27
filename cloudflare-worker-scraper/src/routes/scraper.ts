@@ -4,13 +4,13 @@
  */
 
 import { Hono } from 'hono';
-import { TikTokScraper } from '../tiktok-scraper';
+import { TikTokScraper } from '../services/tiktok-scraper';
 import { NeonDB } from '../neon';
-import { SpotifyService } from '../spotify';
-import { GeniusService } from '../genius';
-import { MusicBrainzService } from '../musicbrainz';
-import { BMIService } from '../bmi';
-import { CISACService } from '../cisac';
+import { SpotifyService } from '../services/spotify';
+import { GeniusService } from '../services/genius';
+import { MusicBrainzService } from '../services/musicbrainz';
+import { BMIService } from '../services/bmi';
+import { CISACService } from '../services/cisac';
 import type { Env } from '../types';
 
 const scraper = new Hono<{ Bindings: Env }>();
@@ -41,10 +41,10 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
     // Step 2: ISWC LOOKUP (CRITICAL GATE - determines if track is viable)
     console.log('🔍 Step 2: ISWC Lookup (BMI → MusicBrainz → Quansic → MLC)...');
     const tracksNeedingIswc = await db.sql`
-      SELECT spotify_track_id, title, isrc
+      SELECT spotify_track_id, title, isrc, has_iswc
       FROM spotify_tracks
       WHERE isrc IS NOT NULL
-        AND (has_iswc IS NULL OR (has_iswc = false AND bmi_checked IS NULL))
+        AND (has_iswc IS NULL OR has_iswc = false OR bmi_checked IS NULL OR bmi_checked = false)
       LIMIT 30
     `;
 
@@ -54,13 +54,26 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
       let foundIswc = 0;
 
       for (const track of tracksNeedingIswc) {
-        const iswcSources: { [key: string]: string | null } = {
+        // Load existing ISWC sources to preserve data from previous runs
+        let iswcSources: { [key: string]: string | null } = {
           bmi: null,
           cisac: null,
           musicbrainz: null,
           quansic: null,
           mlc: null,
         };
+
+        // Merge with existing sources if track has them
+        if (track.has_iswc) {
+          const existingTrack = await db.sql`
+            SELECT iswc_source FROM spotify_tracks WHERE spotify_track_id = ${track.spotify_track_id}
+          `;
+          if (existingTrack[0]?.iswc_source) {
+            const existing = existingTrack[0].iswc_source as any;
+            iswcSources = { ...iswcSources, ...existing };
+            console.log(`  📋 Loading existing ISWCs: ${JSON.stringify(existing)}`);
+          }
+        }
 
         try {
           // Try 1: BMI title search (ISWC DISCOVERY - independent, only needs title+performer from Spotify)
@@ -1088,7 +1101,8 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
             console.log(`  Searching IPI ${ipi.name_number} (${ipi.creator_name} from ${ipi.source})...`);
 
             // Search CISAC by name number (returns ALL works by this creator)
-            const works = await cisacService.searchByNameNumber(ipi.name_number);
+            // Convert string to integer (database stores as text, API expects number)
+            const works = await cisacService.searchByNameNumber(parseInt(ipi.name_number, 10));
 
             // Store all discovered works
             for (const work of works) {
@@ -1341,8 +1355,9 @@ export async function runEnrichmentPipeline(env: Env, db: NeonDB) {
 
         for (const track of readyTracks) {
           try {
-            const artists = track.artists as any[];
-            const primaryArtist = artists[0]?.name || 'Unknown';
+            // Artists is stored as string array: ["Ariana Grande"], not objects
+            const artists = track.artists as string[];
+            const primaryArtist = artists[0] || 'Unknown';
 
             console.log(`Downloading: ${track.title} - ${primaryArtist}`);
 

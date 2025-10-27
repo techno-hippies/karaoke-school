@@ -5,11 +5,11 @@
 
 import { Hono } from 'hono';
 import { NeonDB } from '../neon';
-import { SpotifyService } from '../spotify';
-import { GeniusService } from '../genius';
-import { MusicBrainzService } from '../musicbrainz';
-import { OpenRouterService } from '../openrouter';
-import { QuansicService } from '../quansic';
+import { SpotifyService } from '../services/spotify';
+import { GeniusService } from '../services/genius';
+import { MusicBrainzService } from '../services/musicbrainz';
+import { OpenRouterService } from '../services/openrouter';
+import { QuansicService } from '../services/quansic';
 import type { Env } from '../types';
 
 const enrichment = new Hono<{ Bindings: Env }>();

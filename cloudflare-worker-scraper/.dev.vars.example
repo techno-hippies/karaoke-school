@@ -2,3 +2,13 @@
 # Copy this file to .dev.vars and fill in your actual values
 
 NEON_DATABASE_URL="postgresql://[user]:[password]@[endpoint].neon.tech/neondb?sslmode=require"
+FAL_API_KEY=
+
+# Demucs GPU Separation
+# Mode: 'local' (your RTX 3080) or 'modal' (cloud H200)
+DEMUCS_MODE=local
+DEMUCS_LOCAL_ENDPOINT=http://localhost:8001
+MODAL_DEMUCS_ENDPOINT=https://your-username--demucs-karaoke-fastapi-app.modal.run
+
+# Worker webhook endpoint
+WORKER_URL=https://your-worker.workers.dev

@@ -47,10 +47,13 @@ export class LRCLIBService {
       });
 
       if (response.status === 404) {
+        // Cancel response body to prevent Cloudflare Worker deadlock
+        await response.body?.cancel();
         return null; // Track not found
       }
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(`LRCLIB API error: ${response.status}`);
       }
 
@@ -95,6 +98,7 @@ export class LRCLIBService {
       });
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(`LRCLIB API error: ${response.status}`);
       }
 
@@ -119,10 +123,12 @@ export class LRCLIBService {
       });
 
       if (response.status === 404) {
+        await response.body?.cancel();
         return null;
       }
 
       if (!response.ok) {
+        await response.body?.cancel();
         throw new Error(`LRCLIB API error: ${response.status}`);
       }
 

@@ -142,6 +142,7 @@ export class CISACService {
       console.log('Grecaptcha config debug:', JSON.stringify(configDebug, null, 2));
 
       // Consolidated injection: Set value, dispatch events, override getResponse, call callbacks
+      console.log('Starting token injection...');
       const injectionDebug = await this.page.evaluate((captchaToken) => {
         const debug: any = {};
 
@@ -233,6 +234,12 @@ export class CISACService {
 
       console.log('Injection debug:', JSON.stringify(injectionDebug, null, 2));
 
+      // Check if injection was successful
+      if (!injectionDebug.callbackCalled && !injectionDebug.dataCallbackExecuted) {
+        console.warn('WARNING: No callbacks were executed during injection. Button may not enable.');
+        console.warn('This usually means: 1) 2captcha token is invalid, 2) CISAC changed their reCAPTCHA implementation');
+      }
+
       console.log('Token injected, waiting for reCAPTCHA to validate and button to enable...');
 
       // Wait longer for reCAPTCHA to validate the token
@@ -253,12 +260,24 @@ export class CISACService {
       try {
         const button = await this.page.waitForSelector(
           'button:has-text("I agree"):not([disabled])',
-          { timeout: 15000, state: 'visible' }
+          { timeout: 30000, state: 'visible' }
         );
 
         if (!button) {
           console.error('Button did not become enabled');
           await this.page.screenshot({ path: 'cisac-service/button_not_enabled.png' });
+
+          // Debug: Check if button exists but is still disabled
+          const buttonState = await this.page.evaluate(() => {
+            const btn = document.querySelector('button:has-text("I agree")');
+            return {
+              exists: !!btn,
+              disabled: btn?.hasAttribute('disabled'),
+              innerHTML: btn?.innerHTML
+            };
+          });
+          console.error('Button state:', JSON.stringify(buttonState, null, 2));
+
           return false;
         }
 
@@ -531,7 +550,17 @@ export class CISACService {
         console.log('Found terms page, accepting...');
         const accepted = await this.acceptTerms();
         if (!accepted) {
-          throw new Error('Failed to accept terms');
+          console.error('Failed to accept terms, invalidating cache');
+          this.cachedToken = null;
+          this.tokenExpiry = null;
+
+          // Mark page as closed to force reinitialization on next request
+          if (this.page) {
+            await this.page.close().catch(() => {});
+            this.page = null;
+          }
+
+          throw new Error('Failed to accept terms - please retry request');
         }
       }
     }
@@ -567,6 +596,10 @@ export class CISACService {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        if (response.status === 404) {
+          console.log('  No results found (404)');
+          return null;
+        }
         const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
@@ -583,72 +616,291 @@ export class CISACService {
     }
   }
 
-  async search(params: CISACSearchParams): Promise<CISACSearchResult[]> {
+  /**
+   * Search CISAC by title and optional contributor last name using the API endpoint.
+   * This uses the searchByTitleAndContributor API which is much faster than browser automation.
+   *
+   * @param title - Work title to search for
+   * @param lastName - Optional creator/composer last name to narrow search
+   * @returns API response with work data including ISWC, composers, publishers, etc.
+   */
+  async searchByTitleAndContributor(title: string, lastName?: string): Promise<any> {
     if (!this.page) await this.init();
     if (!this.page) throw new Error('Failed to initialize browser');
 
-    try {
-      console.log(`Searching CISAC for: ${params.title}${params.artist ? ` by ${params.artist}` : ''}`);
+    console.log(`Searching CISAC by title: "${title}"${lastName ? ` and contributor: "${lastName}"` : ''}`);
 
-      // Navigate to CISAC
-      console.log('Navigating to CISAC...');
+    // Only bypass captcha if we don't have a valid cached token
+    if (!this.isTokenValid()) {
+      console.log('No valid token cached, need to bypass captcha...');
+
+      // Navigate to CISAC and accept terms if needed
       await this.page.goto(this.BASE_URL);
-
-      // Check if we need to accept terms
       const hasLandingPage = await this.page.locator('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]').count() > 0;
 
       if (hasLandingPage) {
         console.log('Found terms page, accepting...');
         const accepted = await this.acceptTerms();
         if (!accepted) {
-          throw new Error('Failed to accept terms');
+          console.error('Failed to accept terms, invalidating cache');
+          this.cachedToken = null;
+          this.tokenExpiry = null;
+
+          // Mark page as closed to force reinitialization on next request
+          if (this.page) {
+            await this.page.close().catch(() => {});
+            this.page = null;
+          }
+
+          throw new Error('Failed to accept terms - please retry request');
         }
-      } else {
-        console.log('No terms page found, already on search page');
+      }
+    }
+
+    // Get auth token (will use cache if valid)
+    const token = await this.getAuthToken();
+    if (!token) {
+      throw new Error('Failed to get authentication token');
+    }
+
+    console.log('Got auth token, making API request...');
+
+    // Build request body
+    const requestBody: any = {
+      titles: [{ title: title, type: "OT" }]
+    };
+
+    // Add contributor last name if provided
+    if (lastName) {
+      requestBody.interestedParties = [{
+        lastName: lastName,
+        baseNumber: "",
+        role: "C"  // C = Composer
+      }];
+    }
+
+    // Make API request using native fetch (more reliable in containers than Playwright's request context)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    try {
+      const response = await fetch(
+        'https://cisaciswcprod.azure-api.net/iswc/searchByTitleAndContributor',
+        {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Origin': 'https://iswcnet.cisac.org',
+            'Referer': 'https://iswcnet.cisac.org/',
+            'Request-Source': 'PORTAL',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('  No results found (404)');
+          return null;
+        }
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
-      // Wait for search form
-      console.log('Looking for search form...');
-      await this.page.waitForSelector('#search-form, form[action*="search"]', { timeout: 10000 });
+      const data = await response.json();
+      console.log('API request successful, got response');
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('API request timed out after 30 seconds');
+      }
+      throw error;
+    }
+  }
 
-      // Fill in search form
-      console.log('Filling search form...');
-      await this.page.fill('#title, input[name="title"]', params.title);
+  /**
+   * Search CISAC by IPI name number to get ALL works by a creator.
+   * This is the most comprehensive search method, returning 50-100+ works per IPI.
+   *
+   * Name number = IPI with leading zeros stripped: "00453265264" → 453265264
+   *
+   * @param nameNumber - IPI name number (integer, no leading zeros)
+   * @returns Array of ALL works by this creator (composers, authors, publishers)
+   */
+  async searchByNameNumber(nameNumber: number): Promise<any> {
+    // Check if browser needs initialization or restart
+    if (!this.page || this.page.isClosed()) {
+      console.log('Browser not initialized or closed, initializing...');
+      await this.init();
+    }
+    if (!this.page) throw new Error('Failed to initialize browser');
 
+    console.log(`Searching CISAC by name number (IPI): ${nameNumber}`);
+
+    // Only bypass captcha if we don't have a valid cached token
+    if (!this.isTokenValid()) {
+      console.log('No valid token cached, need to bypass captcha...');
+
+      // Navigate to CISAC and accept terms if needed
+      try {
+        await this.page.goto(this.BASE_URL);
+      } catch (error: any) {
+        if (error.message.includes('closed')) {
+          console.error('Page was closed, reinitializing browser...');
+          await this.init();
+          await this.page!.goto(this.BASE_URL);
+        } else {
+          throw error;
+        }
+      }
+      const hasLandingPage = await this.page.locator('.LandingPage_textContainer__S5S5c, [class*="LandingPage"]').count() > 0;
+
+      if (hasLandingPage) {
+        console.log('Found terms page, accepting...');
+        const accepted = await this.acceptTerms();
+        if (!accepted) {
+          console.error('Failed to accept terms, invalidating cache');
+          this.cachedToken = null;
+          this.tokenExpiry = null;
+
+          // Mark page as closed to force reinitialization on next request
+          if (this.page) {
+            await this.page.close().catch(() => {});
+            this.page = null;
+          }
+
+          throw new Error('Failed to accept terms - please retry request');
+        }
+      }
+    }
+
+    // Get auth token (will use cache if valid)
+    const token = await this.getAuthToken();
+    if (!token) {
+      throw new Error('Failed to get authentication token');
+    }
+
+    console.log('Got auth token, making API request...');
+
+    // Build request body with name number
+    const requestBody: any = {
+      titles: [],
+      interestedParties: [{
+        lastName: "",
+        baseNumber: "",
+        nameNumber: nameNumber
+        // role field omitted - returns all works (composer, author, publisher)
+      }]
+    };
+
+    console.log('Request body:', JSON.stringify(requestBody));
+
+    // Make API request using native fetch (more reliable in containers than Playwright's request context)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout (can return 50-100+ works)
+
+    try {
+      const response = await fetch(
+        'https://cisaciswcprod.azure-api.net/iswc/searchByTitleAndContributor',
+        {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Origin': 'https://iswcnet.cisac.org',
+            'Referer': 'https://iswcnet.cisac.org/',
+            'Request-Source': 'PORTAL',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('  No results found for name number (404)');
+          return [];
+        }
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`  ❌ CISAC API error (${response.status}):`, errorText);
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log(`API request successful, got ${Array.isArray(data) ? data.length : 0} works`);
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('API request timed out after 45 seconds');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Search CISAC by title and optional artist name.
+   * Now uses the API endpoint instead of browser automation for better reliability.
+   *
+   * @param params - Search parameters (title and optional artist)
+   * @returns Array of search results with ISWC, title, creators, and status
+   */
+  async search(params: CISACSearchParams): Promise<CISACSearchResult[]> {
+    try {
+      console.log(`Searching CISAC for: ${params.title}${params.artist ? ` by ${params.artist}` : ''}`);
+
+      // Use the API endpoint for searching
+      // If artist is provided, extract potential last name (simple approach: take last word)
+      let lastName: string | undefined;
       if (params.artist) {
-        await this.page.fill('#artist, input[name="artist"]', params.artist);
+        // Simple extraction: take the last word as surname
+        // This works for "Sabrina Carpenter" -> "Carpenter", "The Strokes" -> "Strokes", etc.
+        const words = params.artist.trim().split(/\s+/);
+        lastName = words[words.length - 1];
       }
 
-      // Submit search
-      console.log('Submitting search...');
-      await this.page.click('button[type="submit"]');
+      const apiResponse = await this.searchByTitleAndContributor(params.title, lastName);
 
-      // Wait for results
-      console.log('Waiting for results...');
-      await this.page.waitForSelector('table, .results', { timeout: 10000 });
+      // Transform API response to match CISACSearchResult[] format
+      // API returns an array of works directly
+      const results: CISACSearchResult[] = [];
 
-      // Extract results
-      const results = await this.page.evaluate(() => {
-        const rows = document.querySelectorAll('table tbody tr, .result-row');
-        return Array.from(rows).map(row => {
-          const cells = row.querySelectorAll('td, .cell');
-          return {
-            iswc: cells[0]?.textContent?.trim() || '',
-            title: cells[1]?.textContent?.trim() || '',
-            creators: cells[2]?.textContent?.trim() || '',
-            status: cells[3]?.textContent?.trim() || '',
-          };
-        }).filter(result => result.iswc); // Filter out empty results
-      });
+      if (apiResponse && Array.isArray(apiResponse)) {
+        for (const workGroup of apiResponse) {
+          // Extract creators from interestedParties (role "C" = Composer, "A" = Author)
+          const creators: string[] = [];
+          if (workGroup.interestedParties && Array.isArray(workGroup.interestedParties)) {
+            const composersAndAuthors = workGroup.interestedParties.filter((ip: any) =>
+              ip.role === 'C' || ip.role === 'A'
+            );
+            creators.push(...composersAndAuthors.map((ip: any) => ip.name || '').filter(Boolean));
+          }
 
-      console.log(`Found ${results.length} results`);
+          results.push({
+            iswc: workGroup.iswc || '',
+            title: workGroup.originalTitle || '',
+            creators: creators.join(', '),
+            status: workGroup.iswcStatus || 'VALID',
+          });
+        }
+      }
+
+      console.log(`Found ${results.length} results from API`);
       return results;
 
     } catch (error) {
       console.error('Error searching CISAC:', error);
-      if (this.page) {
-        await this.page.screenshot({ path: 'cisac-service/search_error.png' });
-      }
       throw error;
     }
   }

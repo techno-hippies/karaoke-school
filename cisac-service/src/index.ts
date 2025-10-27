@@ -23,6 +23,15 @@ interface SearchByISWCRequest {
   iswc: string;
 }
 
+interface SearchByTitleRequest {
+  title: string;
+  artist?: string;
+}
+
+interface SearchByNameNumberRequest {
+  nameNumber: number;
+}
+
 /**
  * Get or initialize CISAC service
  */
@@ -114,6 +123,72 @@ app.post('/search/iswc', async (c) => {
     });
   } catch (error: any) {
     console.error('CISAC search error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/search/title', async (c) => {
+  try {
+    const body = await c.req.json<SearchByTitleRequest>();
+    const { title, artist } = body;
+
+    if (!title) {
+      return c.json({ error: 'title is required' }, 400);
+    }
+
+    console.log(`🔍 Searching CISAC for title: "${title}"${artist ? ` by ${artist}` : ''}`);
+
+    const service = getCISACService();
+    const results = await service.search({ title, artist });
+
+    if (!results || results.length === 0) {
+      return c.json({
+        success: true,
+        data: [],
+        message: 'No results found'
+      });
+    }
+
+    return c.json({
+      success: true,
+      count: results.length,
+      data: results
+    });
+  } catch (error: any) {
+    console.error('CISAC search error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post('/search/name-number', async (c) => {
+  try {
+    const body = await c.req.json<SearchByNameNumberRequest>();
+    const { nameNumber } = body;
+
+    if (!nameNumber || typeof nameNumber !== 'number') {
+      return c.json({ error: 'nameNumber is required and must be a number' }, 400);
+    }
+
+    console.log(`🔍 Searching CISAC for name number (IPI): ${nameNumber}`);
+
+    const service = getCISACService();
+    const results = await service.searchByNameNumber(nameNumber);
+
+    if (!results || results.length === 0) {
+      return c.json({
+        success: true,
+        data: [],
+        message: 'No works found for this name number'
+      });
+    }
+
+    return c.json({
+      success: true,
+      count: results.length,
+      data: results
+    });
+  } catch (error: any) {
+    console.error('CISAC name number search error:', error);
     return c.json({ error: error.message }, 500);
   }
 });

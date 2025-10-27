@@ -21,7 +21,11 @@ import mlc from './routes/mlc';
 import bmi from './routes/bmi';
 import audio from './routes/audio';
 import lyrics from './routes/lyrics';
-import { TikTokScraper } from './tiktok-scraper';
+import lyricsReEnrichment from './routes/lyrics-re-enrichment';
+import manualTriggers from './routes/manual-triggers';
+import webhooks from './routes/webhooks';
+import translations from './routes/translations';
+import { TikTokScraper } from './services/tiktok-scraper';
 import { NeonDB } from './neon';
 import type { Env } from './types';
 
@@ -40,6 +44,10 @@ app.route('/', mlc);
 app.route('/', bmi);
 app.route('/', audio);
 app.route('/', lyrics);
+app.route('/', lyricsReEnrichment);
+app.route('/', manualTriggers);
+app.route('/', webhooks);
+app.route('/translations', translations);
 
 // Root endpoint - API info
 app.get('/', (c) => {
@@ -104,6 +112,21 @@ app.get('/', (c) => {
       'POST /audio/download-tracks?limit=:limit': 'Download audio for ready tracks → Grove → Neon',
       'GET /audio/status/:spotify_track_id': 'Get audio file status for a track',
       'GET /audio/stats': 'Get audio download statistics',
+
+      // Manual trigger routes (for testing and bulk population)
+      'POST /trigger/audio-download?limit=:limit': 'Manually trigger audio download cron',
+      'POST /trigger/iswc-discovery?limit=:limit': 'Manually trigger ISWC discovery cron',
+      'POST /trigger/spotify-enrichment?limit=:limit': 'Manually trigger Spotify enrichment cron',
+      'POST /trigger/genius-enrichment': 'Manually trigger Genius enrichment cron',
+      'POST /trigger/musicbrainz-enrichment': 'Manually trigger MusicBrainz enrichment cron',
+      'POST /trigger/quansic-enrichment': 'Manually trigger Quansic enrichment cron',
+      'POST /trigger/licensing-enrichment': 'Manually trigger licensing enrichment cron',
+      'POST /trigger/cisac-ipi-discovery': 'Manually trigger CISAC IPI discovery cron',
+      'POST /trigger/lyrics-enrichment': 'Manually trigger lyrics enrichment cron',
+      'POST /trigger/lyrics-translation': 'Manually trigger lyrics translation cron (zh, vi, id)',
+      'POST /trigger/segment-selection?limit=:limit': 'Manually trigger segment selection cron (Gemini)',
+      'POST /trigger/elevenlabs-alignment?limit=:limit': 'Manually trigger ElevenLabs word alignment cron',
+      'POST /trigger/all': 'Manually trigger ALL enrichment handlers in sequence',
     },
     pipeline: [
       'TikTok Videos',
@@ -132,24 +155,199 @@ app.get('/', (c) => {
   });
 });
 
-// Scheduled cron job - Runs enrichment pipeline every 5 minutes
+// Multiple scheduled cron jobs - Each enrichment stage runs independently
 export default {
   fetch: app.fetch,
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log('🕐 Cron triggered:', event.scheduledTime);
-    console.log('🚀 Running continuous enrichment pipeline...');
 
-    const db = new NeonDB(env.NEON_DATABASE_URL);
+    // Determine which cron(s) to run based on the current minute
+    const now = new Date(event.scheduledTime);
+    const minute = now.getMinutes();
+    const hour = now.getHours();
 
-    // Import and run enrichment directly
-    const { runEnrichmentPipeline } = await import('./routes/scraper');
+    // Map minutes to handlers (multiple can run at same time)
+    const handlers: Array<{ name: string; handler: () => Promise<void> }> = [];
 
-    try {
-      await runEnrichmentPipeline(env, db);
-      console.log('✅ Enrichment cycle complete');
-    } catch (error) {
-      console.error('❌ Enrichment failed:', error);
+    // Every 3 minutes: ISWC Discovery (0, 3, 6, 9, ...)
+    if (minute % 3 === 0) {
+      handlers.push({
+        name: 'ISWC Discovery',
+        handler: async () => {
+          const { default: runISWCDiscovery } = await import('./crons/iswc-discovery');
+          await runISWCDiscovery(env);
+        }
+      });
     }
+
+    // Every 5 minutes: Spotify Enrichment (0, 5, 10, ...)
+    if (minute % 5 === 0) {
+      handlers.push({
+        name: 'Spotify Enrichment',
+        handler: async () => {
+          const { default: runSpotifyEnrichment } = await import('./crons/spotify-enrichment');
+          await runSpotifyEnrichment(env);
+        }
+      });
+    }
+
+    // Every 10 minutes: Genius Enrichment (0, 10, 20, ...)
+    if (minute % 10 === 0) {
+      handlers.push({
+        name: 'Genius Enrichment',
+        handler: async () => {
+          const { default: runGeniusEnrichment } = await import('./crons/genius-enrichment');
+          await runGeniusEnrichment(env);
+        }
+      });
+    }
+
+    // Every 12 minutes: MusicBrainz Enrichment (0, 12, 24, 36, 48)
+    if (minute % 12 === 0) {
+      handlers.push({
+        name: 'MusicBrainz Enrichment',
+        handler: async () => {
+          const { default: runMusicBrainzEnrichment } = await import('./crons/musicbrainz-enrichment');
+          await runMusicBrainzEnrichment(env);
+        }
+      });
+    }
+
+    // Every 15 minutes: Lyrics Enrichment (0, 15, 30, 45)
+    if (minute % 15 === 0) {
+      handlers.push({
+        name: 'Lyrics Enrichment',
+        handler: async () => {
+          const { default: runLyricsEnrichment } = await import('./crons/lyrics-enrichment');
+          await runLyricsEnrichment(env);
+        }
+      });
+    }
+
+    // Every 20 minutes: Quansic Enrichment (0, 20, 40)
+    if (minute % 20 === 0) {
+      handlers.push({
+        name: 'Quansic Enrichment',
+        handler: async () => {
+          const { default: runQuansicEnrichment } = await import('./crons/quansic-enrichment');
+          await runQuansicEnrichment(env);
+        }
+      });
+    }
+
+    // Every 25 minutes: Audio Download (0, 25, 50)
+    if (minute % 25 === 0) {
+      handlers.push({
+        name: 'Audio Download',
+        handler: async () => {
+          const { default: runAudioDownload } = await import('./crons/audio-download');
+          await runAudioDownload(env);
+        }
+      });
+    }
+
+    // Every 30 minutes: Licensing Enrichment (0, 30)
+    if (minute % 30 === 0) {
+      handlers.push({
+        name: 'Licensing Enrichment',
+        handler: async () => {
+          const { default: runLicensingEnrichment } = await import('./crons/licensing-enrichment');
+          await runLicensingEnrichment(env);
+        }
+      });
+    }
+
+    // Every 35 minutes: Demucs Separation (0, 35)
+    if (minute % 35 === 0) {
+      handlers.push({
+        name: 'Demucs Separation',
+        handler: async () => {
+          const { default: runDemucsSeparation } = await import('./crons/demucs-separation');
+          await runDemucsSeparation(env);
+        }
+      });
+    }
+
+    // Every 40 minutes: ElevenLabs Word Alignment (0, 40)
+    if (minute % 40 === 0) {
+      handlers.push({
+        name: 'ElevenLabs Alignment',
+        handler: async () => {
+          const { default: runElevenLabsAlignment } = await import('./crons/elevenlabs-alignment');
+          await runElevenLabsAlignment(env);
+        }
+      });
+    }
+
+    // Every 45 minutes: Segment Selection (0, 45)
+    if (minute % 45 === 0) {
+      handlers.push({
+        name: 'Segment Selection',
+        handler: async () => {
+          const { default: runSegmentSelection } = await import('./crons/segment-selection');
+          await runSegmentSelection(env);
+        }
+      });
+    }
+
+    // Every 50 minutes: FFmpeg Crop (0, 50)
+    if (minute % 50 === 0) {
+      handlers.push({
+        name: 'FFmpeg Crop',
+        handler: async () => {
+          const { default: runFFmpegCrop } = await import('./crons/ffmpeg-crop');
+          await runFFmpegCrop(env);
+        }
+      });
+    }
+
+    // Every 55 minutes: Lyrics Translation (0, 55)
+    if (minute % 55 === 0) {
+      handlers.push({
+        name: 'Lyrics Translation',
+        handler: async () => {
+          const { default: runLyricsTranslation } = await import('./crons/lyrics-translation');
+          await runLyricsTranslation(env);
+        }
+      });
+    }
+
+    // Every 2 hours: CISAC IPI Discovery (0:00, 2:00, 4:00, ...)
+    if (hour % 2 === 0 && minute === 0) {
+      handlers.push({
+        name: 'CISAC IPI Discovery',
+        handler: async () => {
+          const { default: runCISACIPIDiscovery } = await import('./crons/cisac-ipi-discovery');
+          await runCISACIPIDiscovery(env);
+        }
+      });
+    }
+
+    if (handlers.length === 0) {
+      console.log('⏭️ No handlers scheduled for this minute');
+      return;
+    }
+
+    console.log(`🚀 Running ${handlers.length} enrichment handler(s): ${handlers.map(h => h.name).join(', ')}`);
+
+    // Run all handlers in parallel with error isolation
+    const results = await Promise.allSettled(
+      handlers.map(async ({ name, handler }) => {
+        try {
+          console.log(`▶️ Starting: ${name}`);
+          await handler();
+          console.log(`✅ Completed: ${name}`);
+        } catch (error) {
+          console.error(`❌ Failed: ${name}`, error);
+          throw error; // Re-throw to mark as rejected in Promise.allSettled
+        }
+      })
+    );
+
+    // Summary
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    console.log(`📊 Summary: ${succeeded} succeeded, ${failed} failed`);
   },
 };

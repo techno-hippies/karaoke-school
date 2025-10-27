@@ -13,8 +13,8 @@
 
 import { Hono } from 'hono';
 import { NeonDB } from '../neon';
-import { DemucsService, type DemucsWebhookPayload } from '../demucs';
-import { GroveService } from '../grove';
+import { DemucsService, type DemucsWebhookPayload } from '../services/demucs';
+import { GroveService } from '../services/grove';
 import type { Env } from '../types';
 
 const karaoke = new Hono<{ Bindings: Env }>();
@@ -452,8 +452,8 @@ karaoke.post('/webhooks/demucs-complete', async (c) => {
   // Handle failure
   if (payload.status === 'failed') {
     await db.sql`
-      UPDATE karaoke_productions
-      SET processing_status = 'failed',
+      UPDATE track_separated_audio
+      SET separation_status = 'failed',
           error_message = ${payload.error || 'Unknown error'},
           updated_at = NOW()
       WHERE modal_job_id = ${payload.job_id}
@@ -477,15 +477,16 @@ karaoke.post('/webhooks/demucs-complete', async (c) => {
 
     // Update database with Grove CIDs
     await db.sql`
-      UPDATE karaoke_productions
-      SET vocals_cid = ${vocalsResult.cid},
-          vocals_uri = ${vocalsResult.uri},
-          vocals_gateway_url = ${vocalsResult.gatewayUrl},
-          instrumental_cid = ${instrumentalResult.cid},
-          instrumental_uri = ${instrumentalResult.uri},
-          instrumental_gateway_url = ${instrumentalResult.gatewayUrl},
-          processing_status = 'separated',
+      UPDATE track_separated_audio
+      SET vocals_grove_cid = ${vocalsResult.cid},
+          vocals_grove_url = ${vocalsResult.uri},
+          vocals_file_size_bytes = ${payload.vocals_size || null},
+          instrumental_grove_cid = ${instrumentalResult.cid},
+          instrumental_grove_url = ${instrumentalResult.uri},
+          instrumental_file_size_bytes = ${payload.instrumental_size || null},
+          separation_status = 'completed',
           separation_duration_seconds = ${payload.duration},
+          completed_at = NOW(),
           updated_at = NOW()
       WHERE modal_job_id = ${payload.job_id}
     `;
@@ -500,8 +501,8 @@ karaoke.post('/webhooks/demucs-complete', async (c) => {
     console.error(`[Webhook] Failed to upload to Grove:`, error);
 
     await db.sql`
-      UPDATE karaoke_productions
-      SET processing_status = 'failed',
+      UPDATE track_separated_audio
+      SET separation_status = 'failed',
           error_message = ${error instanceof Error ? error.message : 'Grove upload failed'},
           updated_at = NOW()
       WHERE modal_job_id = ${payload.job_id}

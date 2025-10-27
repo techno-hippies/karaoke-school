@@ -298,14 +298,41 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/stats/gioscottii"
 
 ## 🔄 Enrichment Pipeline Workflow
 
-### Automatic (Background)
-Every time you scrape a creator, the worker automatically:
-1. Fetches unenriched Spotify tracks (limit: 50)
-2. Fetches unenriched Spotify artists (limit: 20)
-3. Fetches unenriched Genius songs (limit: 20)
-4. Fetches unenriched MusicBrainz artists (limit: 5)
-5. Fetches unenriched MusicBrainz recordings (limit: 5)
-6. Fetches unenriched Quansic artists (limit: 5)
+### Automatic (Multiple Independent Crons)
+
+**Architecture:** 9 specialized cron jobs run independently with optimal frequencies:
+
+| Cron Schedule | Handler | Purpose | Priority |
+|--------------|---------|---------|----------|
+| `*/3 * * * *` (every 3 min) | **ISWC Discovery** | BMI/CISAC/MusicBrainz/Quansic/MLC ISWC lookup + corroboration | 🔥 Critical |
+| `*/5 * * * *` (every 5 min) | **Spotify Enrichment** | Fetch Spotify tracks (ISRC) + artists | High |
+| `*/10 * * * *` (every 10 min) | **Genius Enrichment** | Songs + artists + referents (lyrics annotations) | Medium |
+| `*/15 * * * *` (every 15 min) | **MusicBrainz Enrichment** | Artist matching (ISNI, IPI, social media) | Medium |
+| `*/20 * * * *` (every 20 min) | **Quansic Enrichment** | Artist (IPN, Luminate ID) + Work (composers) | Medium |
+| `*/30 * * * *` (every 30 min) | **Licensing Enrichment** | MLC works (writers, publishers, share %) | Medium |
+| `0 */2 * * *` (every 2 hours) | **CISAC IPI Discovery** | Comprehensive catalog vacuum by IPI | Low (batch) |
+| `*/15 * * * *` (every 15 min) | **Lyrics Enrichment** | Multi-source (LRCLIB + Lyrics.ovh) + AI normalization | Medium |
+| `*/30 * * * *` (every 30 min) | **Audio Download** | Freyr download + Grove IPFS + AcoustID verification | Low (expensive) |
+
+**Benefits:**
+- ✅ **Parallel execution**: ISWC discovery runs every 3 min while CISAC IPI runs every 2 hours
+- ✅ **Rate limit isolation**: Each service gets its own time budget (no MusicBrainz vs Genius conflicts)
+- ✅ **Granular monitoring**: Track success/failure per enrichment type
+- ✅ **Resource optimization**: Expensive operations (audio download) run less frequently
+- ✅ **Error isolation**: One cron failure doesn't stop the others
+
+**Example Timeline (first hour):**
+```
+00:00 - ISWC Discovery, Spotify, Genius, MusicBrainz, Quansic, Licensing, CISAC IPI, Lyrics, Audio
+00:03 - ISWC Discovery
+00:05 - ISWC Discovery, Spotify
+00:06 - ISWC Discovery
+00:09 - ISWC Discovery
+00:10 - ISWC Discovery, Spotify, Genius
+00:12 - ISWC Discovery
+00:15 - ISWC Discovery, Spotify, MusicBrainz, Lyrics
+...
+```
 
 ### Manual (On-Demand)
 When you need to backfill or prioritize specific enrichment:
@@ -401,27 +428,44 @@ curl "https://tiktok-scraper.deletion-backup782.workers.dev/cascade-status?handl
 ```
 cloudflare-worker-scraper/
 ├── src/
-│   ├── routes/          # Hono route handlers
-│   ├── types/           # TypeScript interfaces
-│   ├── index.ts         # Main worker entry point
-│   ├── musicbrainz.ts   # MusicBrainz service
-│   ├── openrouter.ts    # Gemini normalization
-│   ├── cisac.ts         # CISAC scraper
-│   ├── lyrics-ovh.ts    # Lyrics.ovh client
-│   ├── lyrics-similarity.ts  # Text comparison
-│   └── lyrics-validation.ts  # Multi-source validation
-├── test/                # Test scripts (moved from src/)
+│   ├── routes/              # Hono route handlers (API endpoints)
+│   ├── crons/               # Independent cron handlers (NEW!)
+│   │   ├── iswc-discovery.ts        # ISWC lookup (BMI/CISAC/MB/Quansic/MLC)
+│   │   ├── spotify-enrichment.ts    # Spotify tracks + artists
+│   │   ├── genius-enrichment.ts     # Genius songs + artists + referents
+│   │   ├── musicbrainz-enrichment.ts # MusicBrainz artist matching
+│   │   ├── quansic-enrichment.ts    # Quansic artists + works
+│   │   ├── licensing-enrichment.ts  # MLC licensing data
+│   │   ├── cisac-ipi-discovery.ts   # CISAC catalog vacuum by IPI
+│   │   ├── lyrics-enrichment.ts     # Multi-source lyrics + AI
+│   │   └── audio-download.ts        # Freyr + Grove + AcoustID
+│   ├── services/            # External API clients
+│   ├── types/               # TypeScript interfaces
+│   ├── index.ts             # Main worker entry point + cron router
+│   ├── neon.ts              # Neon DB client
+│   ├── musicbrainz.ts       # MusicBrainz service
+│   ├── openrouter.ts        # Gemini normalization
+│   ├── lyrics-ovh.ts        # Lyrics.ovh client
+│   ├── lyrics-similarity.ts # Text comparison
+│   └── lyrics-validation.ts # Multi-source validation
+├── test/                    # Test scripts
 │   ├── test-lyrics-ovh.ts
 │   ├── test-lyrics-normalize.ts
 │   ├── test-lyrics-validation.ts
 │   └── batch-normalize-lyrics.ts
-├── .dev.vars           # Local dev secrets (Cloudflare)
-├── .dev.vars.example   # Template
-├── .env                # Encrypted secrets (dotenvx)
-├── .env.keys           # dotenvx private keys
-├── wrangler.toml       # Cloudflare config
-└── README.md           # This file
+├── .dev.vars               # Local dev secrets (Cloudflare)
+├── .dev.vars.example       # Template
+├── .env                    # Encrypted secrets (dotenvx)
+├── .env.keys               # dotenvx private keys
+├── wrangler.toml           # Cloudflare config (multiple cron triggers)
+└── README.md               # This file
 ```
+
+**Key Architecture Changes (v2.1):**
+- 🔥 **Split single cron into 9 specialized handlers** (`src/crons/`)
+- ✅ **Independent execution** with optimal frequencies (3min to 2 hours)
+- ✅ **Error isolation** via `Promise.allSettled` (one failure doesn't stop others)
+- ✅ **Parallel processing** at minute boundaries (e.g., 00:00 runs all 9 handlers)
 
 ---
 

@@ -13,6 +13,12 @@ export interface Env {
   CISAC_SERVICE_URL?: string;
   FREYR_SERVICE_URL?: string;
   ACOUSTID_API_KEY?: string;
+  WORKER_URL?: string;
+
+  // Demucs configuration
+  DEMUCS_MODE?: 'local' | 'modal'; // Default: 'local'
+  DEMUCS_LOCAL_ENDPOINT?: string; // Default: 'http://localhost:8000'
+  MODAL_DEMUCS_ENDPOINT?: string; // Modal fallback endpoint
 }
 
 /**

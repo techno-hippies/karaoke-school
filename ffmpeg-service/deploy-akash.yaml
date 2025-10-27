@@ -1,0 +1,41 @@
+---
+version: "2.2"
+
+services:
+  ffmpeg:
+    image: t3333chn0000/ffmpeg-service:v1.0.2
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+        accept:
+          - webdisplay
+    env:
+      - PORT=3000
+      - NODE_ENV=production
+
+profiles:
+  compute:
+    ffmpeg:
+      resources:
+        cpu:
+          units: 1  # 1 vCPU is enough for ffmpeg cropping
+        memory:
+          size: 2Gi  # 2GB for processing audio files
+        storage:
+          - size: 10Gi
+            # Ephemeral storage for temp audio files
+
+  placement:
+    akash:
+      pricing:
+        ffmpeg:
+          denom: uakt
+          amount: 5000  # ~$0.005-0.015/hour (~$2-4/month)
+
+deployment:
+  ffmpeg:
+    akash:
+      profile: ffmpeg
+      count: 1

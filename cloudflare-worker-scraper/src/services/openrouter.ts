@@ -45,7 +45,17 @@ export class OpenRouterService {
   /**
    * Send chat completion request to OpenRouter
    */
-  async chat(messages: OpenRouterMessage[]): Promise<OpenRouterResponse> {
+  async chat(messages: OpenRouterMessage[], responseFormat?: any): Promise<OpenRouterResponse> {
+    const body: any = {
+      model: this.model,
+      messages,
+    };
+
+    // Add structured output schema if provided
+    if (responseFormat) {
+      body.response_format = responseFormat;
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -54,10 +64,7 @@ export class OpenRouterService {
         'HTTP-Referer': 'https://tiktok-scraper.workers.dev',
         'X-Title': 'TikTok Track Normalizer',
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -254,13 +261,13 @@ Your response:`;
   }
 
   /**
-   * Select best 190s segment for karaoke production (fal.ai limit)
+   * Select best 190s segment for karaoke production AND optimal TikTok clip
    *
    * @param title Song title
    * @param artist Artist name
    * @param durationMs Total song duration in milliseconds
    * @param syncedLyrics LRC-formatted synced lyrics with timestamps
-   * @returns Start and end time in milliseconds + reasoning
+   * @returns Karaoke segment (190s) and TikTok clip (15-50s)
    */
   async selectKaraokeSegment(
     title: string,
@@ -270,91 +277,140 @@ Your response:`;
   ): Promise<{
     startMs: number;
     endMs: number;
-    reasoning: string;
+    tiktokClipStartMs: number;
+    tiktokClipEndMs: number;
   }> {
-    console.log(`Selecting best 190s segment for "${title}" by ${artist} (${(durationMs / 1000).toFixed(0)}s total)`);
+    console.log(`Selecting segments for "${title}" by ${artist} (${(durationMs / 1000).toFixed(0)}s total)`);
 
-    const prompt = `You are a karaoke segment selector. I need you to select the BEST 190 seconds (3 minutes 10 seconds) from this song for karaoke production.
+    const durationSeconds = Math.floor(durationMs / 1000);
+
+    const prompt = `You are an expert at selecting the most impactful segments from songs for different purposes.
 
 SONG: "${title}" by ${artist}
-TOTAL DURATION: ${(durationMs / 1000).toFixed(1)} seconds
-SEGMENT LIMIT: Exactly 190 seconds (3:10)
+TOTAL DURATION: ${durationSeconds} seconds (${Math.floor(durationSeconds / 60)}:${(durationSeconds % 60).toString().padStart(2, '0')})
 
-SYNCED LYRICS (LRC format):
-${syncedLyrics}
+SYNCED LYRICS (LRC format with timestamps):
+${syncedLyrics.substring(0, 3000)}${syncedLyrics.length > 3000 ? '\n...[truncated]' : ''}
 
-SELECTION CRITERIA (in order of priority):
-1. MUST include the chorus/hook (most recognizable part)
-2. Prefer the MAIN CHORUS (not intro/outro)
-3. Should start at a natural song boundary (verse/chorus start, not mid-phrase)
-4. Avoid starting in the middle of a sentence
-5. Should end at a natural boundary (not cut off mid-word)
-6. Prioritize musical/lyrical completeness over arbitrary timing
-7. Prefer segments with high energy and singability
+YOUR TASK: Select TWO segments from this song:
 
-IMPORTANT:
-- The segment MUST be exactly 190 seconds (190000 milliseconds)
-- Start time must be >= 0
-- End time must be <= total duration
-- Calculate: endMs = startMs + 190000
+1. **KARAOKE SEGMENT (190 seconds for full karaoke experience)**
+   - Must be EXACTLY 190 seconds (190000ms)
+   - Include the main chorus and most singable parts
+   - Should feel like a complete musical experience
+   - Start and end at natural boundaries (verse/chorus transitions)
+   - Prioritize vocal prominence and sing-along value
 
-CRITICAL: Respond with ONLY these three lines. No explanation before. No reasoning after.
+2. **TIKTOK CLIP (15-50 seconds for viral potential)**
+   - Must be between 15-50 seconds
+   - The MOST iconic, memorable, culturally significant part
+   - The part everyone knows and recognizes
+   - Usually the main hook/chorus
+   - Maximum emotional impact and recognizability
+   - This clip MUST be WITHIN the 190s karaoke segment
 
-Format:
-START_MS: [start time in milliseconds]
-END_MS: [end time in milliseconds]
-REASON: [one sentence explaining why this is the best segment]
+IMPORTANT CONSTRAINTS:
+- Karaoke segment: start_ms >= 0, end_ms <= ${durationMs}, duration = 190000ms
+- TikTok clip: MUST be within the karaoke segment boundaries
+- TikTok clip: duration between 15000-50000ms
+- Both must start/end at natural musical boundaries`;
 
-Your response:`;
+    // Define structured output schema (no reasoning to save tokens)
+    const responseFormat = {
+      type: 'json_schema',
+      json_schema: {
+        name: 'segment_selection',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            karaoke_segment: {
+              type: 'object',
+              properties: {
+                start_ms: {
+                  type: 'number',
+                  description: 'Start time in milliseconds (>= 0)'
+                },
+                end_ms: {
+                  type: 'number',
+                  description: 'End time in milliseconds (<= track duration)'
+                }
+              },
+              required: ['start_ms', 'end_ms'],
+              additionalProperties: false
+            },
+            tiktok_clip: {
+              type: 'object',
+              properties: {
+                start_ms: {
+                  type: 'number',
+                  description: 'Start time in milliseconds (must be within karaoke segment)'
+                },
+                end_ms: {
+                  type: 'number',
+                  description: 'End time in milliseconds (must be within karaoke segment)'
+                }
+              },
+              required: ['start_ms', 'end_ms'],
+              additionalProperties: false
+            }
+          },
+          required: ['karaoke_segment', 'tiktok_clip'],
+          additionalProperties: false
+        }
+      }
+    };
 
     const response = await this.chat([
       {
         role: 'user',
         content: prompt,
       },
-    ]);
+    ], responseFormat);
 
-    const answer = response.choices[0].message.content;
-    console.log(`Gemini segment selection:\n${answer}`);
+    const content = response.choices[0].message.content;
+    const result = JSON.parse(content);
 
-    // Parse response
-    const startMatch = answer.match(/START[_\s]*MS:\s*(\d+)/i);
-    const endMatch = answer.match(/END[_\s]*MS:\s*(\d+)/i);
-    const reasonMatch = answer.match(/REASON:\s*(.+)/i);
+    console.log(`Karaoke segment: ${(result.karaoke_segment.start_ms / 1000).toFixed(1)}s - ${(result.karaoke_segment.end_ms / 1000).toFixed(1)}s`);
+    console.log(`TikTok clip: ${(result.tiktok_clip.start_ms / 1000).toFixed(1)}s - ${(result.tiktok_clip.end_ms / 1000).toFixed(1)}s`);
 
-    if (!startMatch || !endMatch) {
-      throw new Error(`Failed to parse segment selection: ${answer}`);
-    }
-
-    const startMs = parseInt(startMatch[1]);
-    const endMs = parseInt(endMatch[1]);
-    const reasoning = reasonMatch ? reasonMatch[1].trim() : 'No reason provided';
-
-    // Validate segment
-    if (endMs - startMs !== 190000) {
-      console.warn(`Segment duration is ${endMs - startMs}ms, adjusting to 190000ms`);
-      return {
-        startMs,
-        endMs: startMs + 190000,
-        reasoning,
-      };
-    }
+    // Validate and adjust karaoke segment
+    let startMs = Math.max(0, Math.min(result.karaoke_segment.start_ms, durationMs - 190000));
+    let endMs = startMs + 190000;
 
     if (endMs > durationMs) {
-      console.warn(`Segment extends beyond song duration, adjusting...`);
-      return {
-        startMs: durationMs - 190000,
-        endMs: durationMs,
-        reasoning,
-      };
+      startMs = durationMs - 190000;
+      endMs = durationMs;
     }
 
-    console.log(`Selected segment: ${(startMs / 1000).toFixed(1)}s - ${(endMs / 1000).toFixed(1)}s`);
+    // Validate TikTok clip
+    let tiktokStartMs = result.tiktok_clip.start_ms;
+    let tiktokEndMs = result.tiktok_clip.end_ms;
+    let tiktokDuration = tiktokEndMs - tiktokStartMs;
+
+    // Ensure TikTok clip is within bounds
+    if (tiktokStartMs < startMs) tiktokStartMs = startMs;
+    if (tiktokEndMs > endMs) tiktokEndMs = endMs;
+
+    // Ensure TikTok clip duration is within 15-50s
+    tiktokDuration = tiktokEndMs - tiktokStartMs;
+    if (tiktokDuration < 15000) {
+      tiktokEndMs = tiktokStartMs + 15000;
+    } else if (tiktokDuration > 50000) {
+      tiktokEndMs = tiktokStartMs + 50000;
+    }
+
+    // Final validation
+    if (tiktokEndMs > endMs) {
+      tiktokStartMs = endMs - 30000; // Default to 30s clip at end
+      tiktokEndMs = endMs;
+    }
 
     return {
       startMs,
       endMs,
-      reasoning,
+      tiktokClipStartMs: tiktokStartMs,
+      tiktokClipEndMs: tiktokEndMs,
     };
   }
 }

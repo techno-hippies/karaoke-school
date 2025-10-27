@@ -5,8 +5,8 @@
 
 import { Hono } from 'hono';
 import { NeonDB } from '../neon';
-import { LyricsValidationService } from '../lyrics-validation';
-import { OpenRouterService } from '../openrouter';
+import { LyricsValidationService } from '../services/lyrics-validation';
+import { OpenRouterService } from '../services/openrouter';
 import type { Env } from '../types';
 
 const lyrics = new Hono<{ Bindings: Env }>();

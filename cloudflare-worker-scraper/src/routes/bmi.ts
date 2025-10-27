@@ -8,7 +8,7 @@
 
 import { Hono } from 'hono';
 import { NeonDB } from '../neon';
-import { BMIService, type BMIWorkData } from '../bmi';
+import { BMIService, type BMIWorkData } from '../services/bmi';
 import type { Env } from '../types';
 
 const bmi = new Hono<{ Bindings: Env }>();

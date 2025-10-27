@@ -3,6 +3,27 @@
  * Searches and fetches artist, recording, and work metadata
  */
 
+/**
+ * Normalize partial dates to PostgreSQL-compatible format
+ * "1967-07" → "1967-07-01"
+ * "1997" → "1997-01-01"
+ * "" → null
+ */
+function normalizeDateOrNull(date: string | undefined | null): string | null {
+  if (!date) return null;
+
+  const parts = date.split('-');
+  if (parts.length === 1) {
+    // Year only: "1997" → "1997-01-01"
+    return `${parts[0]}-01-01`;
+  } else if (parts.length === 2) {
+    // Year-Month: "1967-07" → "1967-07-01"
+    return `${parts[0]}-${parts[1]}-01`;
+  }
+  // Already full date or invalid
+  return date;
+}
+
 export interface MusicBrainzArtistData {
   mbid: string;
   spotify_artist_id?: string;
@@ -230,8 +251,8 @@ export class MusicBrainzService {
       ipi: artist.ipis?.[0] || null, // Extract first IPI from array
       country: artist.country || null,
       gender: artist.gender || null,
-      birth_date: artist['life-span']?.begin || null,
-      death_date: artist['life-span']?.end || null,
+      birth_date: normalizeDateOrNull(artist['life-span']?.begin),
+      death_date: normalizeDateOrNull(artist['life-span']?.end),
       disambiguation: artist.disambiguation || null,
 
       // Social media identifiers

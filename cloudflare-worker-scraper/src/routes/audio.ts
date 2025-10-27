@@ -89,9 +89,9 @@ audio.post('/audio/download-tracks', async (c) => {
 
   for (const track of readyTracks) {
     try {
-      // Extract primary artist for search
-      const artists = track.artists as any[];
-      const primaryArtist = artists[0]?.name || 'Unknown';
+      // Artists is stored as string array: ["Ariana Grande"], not objects
+      const artists = track.artists as string[];
+      const primaryArtist = artists[0] || 'Unknown';
 
       console.log(`Downloading: ${track.title} - ${primaryArtist} (${track.spotify_track_id})`);
 
