@@ -1,0 +1,20 @@
+{
+  "name": "spotify-import",
+  "version": "1.0.0",
+  "description": "Import Spotify dataset into Neon database",
+  "scripts": {
+    "create-tables": "dotenvx run -f .env -- bun create-tables.ts",
+    "import-data": "dotenvx run -f .env -- bun import-all.ts",
+    "verify": "dotenvx run -f .env -- bun verify-import.ts",
+    "check": "dotenvx run -f .env -- bun check-spotify-import.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "bun": "^1.0.0"
+  },
+  "dependencies": {
+    "postgres": "^3.4.0",
+    "@neondatabase/serverless": "^1.0.2"
+  }
+}

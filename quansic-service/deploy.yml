@@ -1,0 +1,57 @@
+---
+version: "2.2"
+
+services:
+  quansic:
+    image: t3333chn0000/quansic-service:v1.3  # Fixed auth + account pool with working credentials
+    expose:
+      - port: 3000
+        as: 80
+        to:
+          - global: true
+        accept:
+          - webdisplay
+    env:
+      - PORT=3000
+      - NODE_ENV=production
+
+      # Account pool (add 3-5 accounts for rotation)
+      - QUANSIC_EMAIL=colorfulbritte@tiffincrane.com
+      - QUANSIC_PASSWORD=Junkyjunky710!
+      - QUANSIC_EMAIL_2=magentaaarika@tiffincrane.com
+      - QUANSIC_PASSWORD_2=Junkyjunky710!
+      - QUANSIC_EMAIL_3=rioeqtbrvdfqi@questtechsystems.com
+      - QUANSIC_PASSWORD_3=Junkyjunky710!
+      # - QUANSIC_EMAIL_4=account4@example.com      # Optional 4th account
+      # - QUANSIC_PASSWORD_4=Password4!
+      # - QUANSIC_EMAIL_5=account5@example.com      # Optional 5th account
+      # - QUANSIC_PASSWORD_5=Password5!
+
+      # Rotation settings (optional - defaults shown)
+      - REQUESTS_PER_ACCOUNT=50                     # Rotate after N requests
+      - ROTATION_INTERVAL_MS=1800000                # Or after 30 minutes (in ms)
+
+profiles:
+  compute:
+    quansic:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 20Gi
+            # Ephemeral storage for browser cache
+
+  placement:
+    akash:
+      pricing:
+        quansic:
+          denom: uakt
+          amount: 10000  # Max bid per block (~$0.01-0.03/hour)
+
+deployment:
+  quansic:
+    akash:
+      profile: quansic
+      count: 1

@@ -1,0 +1,19 @@
+{
+  "name": "karaoke-pipeline",
+  "version": "1.0.0",
+  "description": "19-step GRC20 karaoke minting pipeline",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "hono": "^4.7.11",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "wrangler": "^4.36.0"
+  }
+}

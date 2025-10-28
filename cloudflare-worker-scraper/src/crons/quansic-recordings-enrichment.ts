@@ -26,15 +26,14 @@ export default async function runQuansicRecordingsEnrichment(env: Env): Promise<
 
   try {
     // Get ISRCs that need Quansic enrichment (priority: no existing quansic_recordings)
+    // Note: failed_quansic_lookups table commented out for now - create it later for optimization
     const isrcsNeedingEnrichment = await db.sql`
-      SELECT st.spotify_track_id, st.title, st.isrc, st.recording_mbid
+      SELECT st.spotify_track_id, st.title, st.isrc, mbr.recording_mbid, st.has_iswc, st.bmi_checked
       FROM spotify_tracks st
       LEFT JOIN quansic_recordings qr ON st.isrc = qr.isrc
-      LEFT JOIN failed_quansic_lookups fql ON st.isrc = fql.isrc
+      LEFT JOIN musicbrainz_recordings mbr ON st.spotify_track_id = mbr.spotify_track_id
       WHERE st.isrc IS NOT NULL
         AND qr.isrc IS NULL
-        AND st.has_isrc = true
-        AND fql.isrc IS NULL  -- Exclude known failed ISRCs
       ORDER BY 
         -- Prioritize tracks that have failed BMI/CISAC lookups (need Quansic more)
         (st.bmi_checked IS NULL OR st.bmi_checked = false) DESC,

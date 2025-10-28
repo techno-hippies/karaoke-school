@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   quansic:
-    image: t3333chn0000/quansic-service:v1.1  # Enhanced error handling and rate limiting
+    image: t3333chn0000/quansic-service:v1.3  # Fixed auth + account pool with working credentials
     expose:
       - port: 3000
         as: 80
@@ -14,8 +14,18 @@ services:
     env:
       - PORT=3000
       - NODE_ENV=production
-      - QUANSIC_EMAIL=
-      - QUANSIC_PASSWORD=
+
+      # Account pool (add 3-5 accounts for rotation)
+      - QUANSIC_EMAIL=colorfulbritte@tiffincrane.com
+      - QUANSIC_PASSWORD=Junkyjunky710!
+      - QUANSIC_EMAIL_2=magentaaarika@tiffincrane.com
+      - QUANSIC_PASSWORD_2=Junkyjunky710!
+      - QUANSIC_EMAIL_3=rioeqtbrvdfqi@questtechsystems.com
+      - QUANSIC_PASSWORD_3=Junkyjunky710!
+
+      # Rotation settings (optional - defaults shown)
+      - REQUESTS_PER_ACCOUNT=50                     # Rotate after N requests
+      - ROTATION_INTERVAL_MS=1800000                # Or after 30 minutes (in ms)
 
 profiles:
   compute:

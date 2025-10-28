@@ -6,6 +6,10 @@
   "scripts": {
     "setup": "dotenvx run -f .env -- bun run scripts/01-setup-space.ts",
     "define-types": "dotenvx run -f .env -- bun run scripts/02-define-types.ts",
+    "validate": "dotenvx run -f .env -- bun run scripts/validate-catalog.ts",
+    "enrich-mb": "dotenvx run -f .env -- bun run scripts/enrich-musicbrainz.ts",
+    "corroborate": "dotenvx run -f .env -- bun run scripts/run-corroboration.ts",
+    "import-artists": "dotenvx run -f .env -- bun run scripts/03-import-artists.ts",
     "import-works": "dotenvx run -f .env -- bun run scripts/03-import-works.ts",
     "import-segments": "dotenvx run -f .env -- bun run scripts/04-import-segments.ts",
     "link-musicbrainz": "dotenvx run -f .env -- bun run scripts/05-link-musicbrainz.ts",

@@ -16,7 +16,7 @@ import { KaraokeDB } from './db/karaoke';
  * Uses composition pattern to combine domain-specific DB classes
  */
 export class NeonDB {
-  private sql: ReturnType<typeof neon>;
+  public sql: ReturnType<typeof neon>;
 
   // Domain-specific DB instances
   private tiktok: TikTokDB;

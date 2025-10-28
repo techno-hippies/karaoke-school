@@ -327,7 +327,27 @@ enrichment.post('/enrich-quansic', async (c) => {
   const limit = parseInt(c.req.query('limit') || '10');
 
   // Get MusicBrainz artists with ISNIs that need Quansic enrichment
-  const unenrichedArtists = await db.getUnenrichedQuansicArtists(limit);
+  // Pre-insert stub records to claim them and prevent retries on failures
+  const unenrichedArtists = await db.sql`
+    WITH artists_with_isnis AS (
+      SELECT ma.mbid, ma.name, ma.isnis, ma.spotify_artist_id
+      FROM musicbrainz_artists ma
+      WHERE ma.isnis IS NOT NULL
+        AND array_length(ma.isnis, 1) > 0
+    ),
+    uninriched_isnis AS (
+      SELECT awi.mbid, awi.name, awi.isnis[1] as isni, awi.spotify_artist_id
+      FROM artists_with_isnis awi
+      LEFT JOIN quansic_artists qa ON awi.isnis[1] = qa.isni
+      WHERE qa.isni IS NULL
+      LIMIT ${limit}
+    )
+    INSERT INTO quansic_artists (isni, musicbrainz_mbid, fetched_at, updated_at)
+    SELECT isni, mbid, NOW(), NOW()
+    FROM uninriched_isnis
+    ON CONFLICT (isni) DO NOTHING
+    RETURNING mbid, name, isni, spotify_artist_id
+  `;
 
   if (unenrichedArtists.length === 0) {
     return c.json({ message: 'No artists with ISNIs to enrich' });
@@ -340,31 +360,29 @@ enrichment.post('/enrich-quansic', async (c) => {
 
   for (const artist of unenrichedArtists) {
     try {
-      // Enrich each ISNI
-      for (const isni of artist.isnis) {
-        const quansicData = await quansic.enrichArtist(
-          isni,
-          artist.mbid,
-          artist.spotify_artist_id
-        );
-        await db.upsertQuansicArtist(quansicData);
-        enriched++;
+      // Enrich the first ISNI (the one we pre-inserted)
+      const quansicData = await quansic.enrichArtist(
+        artist.isni,
+        artist.mbid,
+        artist.spotify_artist_id
+      );
+      await db.upsertQuansicArtist(quansicData);
+      enriched++;
 
-        results.push({
-          name: artist.name,
-          isni,
-          ipn: quansicData.ipn,
-          luminate_id: quansicData.luminate_id,
-          name_variants_count: quansicData.name_variants.length,
-        });
+      results.push({
+        name: artist.name,
+        isni: artist.isni,
+        ipn: quansicData.ipn,
+        luminate_id: quansicData.luminate_id,
+        name_variants_count: quansicData.name_variants.length,
+      });
 
-        console.log(`✓ Enriched ${artist.name} (ISNI: ${isni})`);
-
-      }
+      console.log(`✓ Enriched ${artist.name} (ISNI: ${artist.isni})`);
     } catch (error) {
       console.error(`Failed to enrich ${artist.name}:`, error);
       results.push({
         name: artist.name,
+        isni: artist.isni,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -403,13 +421,21 @@ enrichment.post('/enrich-quansic-recordings', async (c) => {
   const limit = parseInt(c.req.query('limit') || '10');
 
   // Get Spotify tracks with ISRCs that haven't been enriched through Quansic yet
+  // Pre-insert stub records to claim them and prevent concurrent processing
   const unenriched = await db.sql`
-    SELECT DISTINCT st.isrc, st.spotify_track_id, st.title
-    FROM spotify_tracks st
-    LEFT JOIN quansic_recordings qr ON st.isrc = qr.isrc
-    WHERE st.isrc IS NOT NULL
-    AND qr.isrc IS NULL
-    LIMIT ${limit}
+    WITH to_enrich AS (
+      SELECT DISTINCT st.isrc, st.spotify_track_id, st.title
+      FROM spotify_tracks st
+      LEFT JOIN quansic_recordings qr ON st.isrc = qr.isrc
+      WHERE st.isrc IS NOT NULL
+      AND qr.isrc IS NULL
+      LIMIT ${limit}
+    )
+    INSERT INTO quansic_recordings (isrc, spotify_track_id, title, enriched_at)
+    SELECT isrc, spotify_track_id, title, NOW()
+    FROM to_enrich
+    ON CONFLICT (isrc) DO NOTHING
+    RETURNING isrc, spotify_track_id, title
   `;
 
   if (unenriched.length === 0) {
@@ -522,14 +548,33 @@ enrichment.post('/enrich-quansic-works', async (c) => {
   const quansicUrl = c.env.QUANSIC_SERVICE_URL;
   const limit = parseInt(c.req.query('limit') || '10');
 
-  // Get works with ISWC that need enrichment
+  // Get works with ISWC that need enrichment from BOTH CISAC (primary) and MusicBrainz
+  // Pre-insert stub records to claim them and prevent retries on failures
   const unenriched = await db.sql`
-    SELECT w.iswc, w.work_mbid, w.title
-    FROM musicbrainz_works w
-    LEFT JOIN quansic_works qw ON w.iswc = qw.iswc
-    WHERE w.iswc IS NOT NULL
-    AND qw.iswc IS NULL
-    LIMIT ${limit}
+    WITH to_enrich AS (
+      -- CISAC works (primary source - 14,349 ISWCs)
+      SELECT DISTINCT cw.iswc, NULL::text as work_mbid, cw.title
+      FROM cisac_works cw
+      LEFT JOIN quansic_works qw ON cw.iswc = qw.iswc
+      WHERE cw.iswc IS NOT NULL
+      AND qw.iswc IS NULL
+      
+      UNION
+      
+      -- MusicBrainz works (secondary source - 242 works)
+      SELECT mbw.iswc, mbw.work_mbid, mbw.title
+      FROM musicbrainz_works mbw
+      LEFT JOIN quansic_works qw ON mbw.iswc = qw.iswc
+      WHERE mbw.iswc IS NOT NULL
+      AND qw.iswc IS NULL
+      
+      LIMIT ${limit}
+    )
+    INSERT INTO quansic_works (iswc, work_mbid, title, enriched_at)
+    SELECT iswc, work_mbid, title, NOW()
+    FROM to_enrich
+    ON CONFLICT (iswc) DO NOTHING
+    RETURNING iswc, work_mbid, title
   `;
 
   if (unenriched.length === 0) {

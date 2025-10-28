@@ -8,7 +8,7 @@
     "dev": "bun run --watch index.ts"
   },
   "dependencies": {
-    "hono": "^4.0.0",
-    "playwright": "^1.40.0"
+    "hono": "^4.10.3",
+    "playwright": "^1.56.1"
   }
 }

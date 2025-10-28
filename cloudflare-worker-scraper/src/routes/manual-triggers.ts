@@ -7,8 +7,47 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../types';
+import { NeonDB } from '../neon';
 
 const manualTriggers = new Hono<{ Bindings: Env }>();
+
+/**
+ * POST /trigger/pipeline?step=8&limit=50
+ * Manually trigger unified pipeline (all steps or specific step)
+ *
+ * Examples:
+ * - POST /trigger/pipeline (run all enabled steps with limit=50)
+ * - POST /trigger/pipeline?step=8 (run Step 8 only with limit=50)
+ * - POST /trigger/pipeline?step=8&limit=10 (run Step 8 with limit=10)
+ */
+manualTriggers.post('/trigger/pipeline', async (c) => {
+  const step = c.req.query('step') ? parseInt(c.req.query('step')!) : undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+
+  console.log(`🚀 Manual trigger: Unified Pipeline${step ? ` (Step ${step})` : ' (All steps)'}`);
+
+  try {
+    const { runUnifiedPipeline } = await import('../processors/unified-pipeline');
+    await runUnifiedPipeline(c.env, { step, limit });
+
+    return c.json({
+      success: true,
+      handler: 'Unified Pipeline',
+      message: step ? `Step ${step} completed` : 'All steps completed',
+      step,
+      limit,
+    });
+  } catch (error: any) {
+    console.error('Unified pipeline failed:', error);
+    return c.json({
+      success: false,
+      handler: 'Unified Pipeline',
+      error: error.message,
+      step,
+      limit,
+    }, 500);
+  }
+});
 
 /**
  * POST /trigger/audio-download?limit=10
@@ -914,6 +953,55 @@ manualTriggers.post('/trigger/artist-images', async (c) => {
       success: false,
       handler: 'Artist Image Generation',
       error: error.message,
+    }, 500);
+  }
+});
+
+/**
+ * POST /create-failed-quansic-table
+ * Create the failed_quansic_lookups table for tracking failed ISRC lookups
+ */
+manualTriggers.post('/create-failed-quansic-table', async (c) => {
+  console.log('🔧 Creating failed_quansic_lookups table...');
+
+  try {
+    const db = new NeonDB(c.env.NEON_DATABASE_URL);
+    
+    // Create the table
+    await db.sql(`
+      CREATE TABLE IF NOT EXISTS failed_quansic_lookups (
+        isrc VARCHAR(12) PRIMARY KEY,
+        error_type VARCHAR(50) NOT NULL,
+        error_details TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        retry_count INTEGER DEFAULT 1
+      )
+    `);
+
+    // Create indexes
+    await db.sql(`
+      CREATE INDEX IF NOT EXISTS idx_failed_quansic_lookups_error_type ON failed_quansic_lookups(error_type)
+    `);
+
+    await db.sql(`
+      CREATE INDEX IF NOT EXISTS idx_failed_quansic_lookups_created_at ON failed_quansic_lookups(created_at)
+    `);
+
+    // Test the table
+    const result = await db.sql(`SELECT COUNT(*) as count FROM failed_quansic_lookups`);
+    
+    return c.json({
+      success: true,
+      message: 'failed_quansic_lookups table created successfully',
+      current_entries: result[0]?.count || 0
+    });
+
+  } catch (error: any) {
+    console.error('Error creating table:', error);
+    return c.json({
+      error: error.message,
+      success: false
     }, 500);
   }
 });

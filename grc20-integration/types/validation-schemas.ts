@@ -61,75 +61,76 @@ export const SocialHandleSchema = z.string().regex(
 // ============ Musical Artist Schema ============
 
 export const MusicalArtistMintSchema = z.object({
-  // Core identity (required)
+  // Core identity (REQUIRED)
   name: z.string().min(1, 'Artist name required').max(255),
 
   // Genius ID is REQUIRED (primary source of truth)
   geniusId: z.number().int().positive('Genius artist ID required'),
 
-  // External IDs (optional but recommended)
-  mbid: MBIDSchema.optional(),
-  spotifyId: z.string().optional(),
-  wikidataId: z.string().optional(),
-  discogsId: z.string().optional(),
+  // External IDs (MBID required for linking)
+  mbid: MBIDSchema, // REQUIRED - needed for MusicBrainz ecosystem
+  spotifyId: z.string().nullish(),
+  wikidataId: z.string().nullish(),
+  discogsId: z.string().nullish(),
 
-  // Industry identifiers (optional)
-  isni: ISNISchema.optional(),
-  ipi: IPISchema.optional(),
+  // Industry identifiers (ISNI strongly recommended, IPI optional)
+  isni: ISNISchema, // REQUIRED - authoritative artist identifier
+  ipi: IPISchema.nullish(), // Optional but valuable for rights management
 
   // Alternate names & metadata
-  alternateNames: z.array(z.string()).optional(),
-  sortName: z.string().optional(),
-  disambiguation: z.string().optional(),
+  alternateNames: z.array(z.string()).nullish(),
+  sortName: z.string().nullish(),
+  disambiguation: z.string().nullish(),
 
   // Social media handles (at least ONE recommended)
-  instagramHandle: SocialHandleSchema.optional(),
-  tiktokHandle: SocialHandleSchema.optional(),
-  twitterHandle: SocialHandleSchema.optional(),
-  facebookHandle: SocialHandleSchema.optional(),
-  youtubeChannel: SocialHandleSchema.optional(),
-  soundcloudHandle: SocialHandleSchema.optional(),
+  instagramHandle: SocialHandleSchema.nullish(),
+  tiktokHandle: SocialHandleSchema.nullish(),
+  twitterHandle: SocialHandleSchema.nullish(),
+  facebookHandle: SocialHandleSchema.nullish(),
+  youtubeChannel: SocialHandleSchema.nullish(),
+  soundcloudHandle: SocialHandleSchema.nullish(),
 
   // External profile URLs
-  geniusUrl: z.string().url().optional(),
-  spotifyUrl: z.string().url().optional(),
-  appleMusicUrl: z.string().url().optional(),
+  geniusUrl: z.string().url().nullish(),
+  spotifyUrl: z.string().url().nullish(),
+  appleMusicUrl: z.string().url().nullish(),
 
-  // Visual assets (REQUIRED - can be generated via fal.ai seedream from Genius/Wikipedia)
-  imageUrl: z.string().url('Artist image required'),
-  headerImageUrl: z.string().url().optional(),
+  // Visual assets (REQUIRED for now - but allow missing temporarily)
+  imageUrl: z.string().url().nullish(), // TODO: Make required after generating all images
+  headerImageUrl: z.string().url().nullish(),
 
   // Biographical info
-  type: z.enum(['Person', 'Group', 'Orchestra', 'Choir', 'Character', 'Other']).optional(),
-  country: z.string().length(2).optional(), // ISO country code
-  gender: z.enum(['Male', 'Female', 'Non-binary', 'Other']).optional(),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // YYYY-MM-DD
-  deathDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  type: z.enum(['Person', 'Group', 'Orchestra', 'Choir', 'Character', 'Other']).nullish(),
+  country: z.string().length(2).nullish(), // ISO country code
+  gender: z.enum(['Male', 'Female', 'Non-binary', 'Other']).nullish(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(), // YYYY-MM-DD
+  deathDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
 
   // Popularity metrics
-  genres: z.array(z.string()).optional(),
-  spotifyFollowers: z.number().int().nonnegative().optional(),
-  spotifyPopularity: z.number().int().min(0).max(100).optional(),
-  geniusFollowers: z.number().int().nonnegative().optional(),
-  isVerified: z.boolean().optional(),
+  genres: z.array(z.string()).nullish(),
+  spotifyFollowers: z.number().int().nonnegative().nullish(),
+  spotifyPopularity: z.number().int().min(0).max(100).nullish(),
+  geniusFollowers: z.number().int().nonnegative().nullish(),
+  isVerified: z.boolean().nullish(),
 
   // App-specific (optional - social layer)
-  lensAccount: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(), // Ethereum address
+  lensAccount: z.string().regex(/^0x[a-fA-F0-9]{40}$/).nullish(), // Ethereum address
 
 }).strict().refine(
   (data) => {
-    const socialLinks = [
-      data.instagramHandle,
+    // Require at least ONE music-oriented social platform
+    const musicPlatforms = [
       data.tiktokHandle,
-      data.twitterHandle,
-      data.geniusUrl,
-      data.spotifyUrl
+      data.youtubeChannel,
+      data.soundcloudHandle,
+      data.spotifyUrl,
+      data.geniusUrl
     ].filter(Boolean);
-    return socialLinks.length >= 1;
+    return musicPlatforms.length >= 1;
   },
   {
-    message: 'Artist should have at least one social/streaming link for discoverability',
-    path: ['instagramHandle']
+    message: 'Artist must have at least one music-oriented platform (TikTok/YouTube/SoundCloud/Spotify/Genius)',
+    path: ['tiktokHandle']
   }
 );
 
@@ -147,24 +148,24 @@ export const MusicalWorkMintSchema = z.object({
   // Genius URL (derived from ID but useful for direct access)
   geniusUrl: z.string().url(),
 
-  // Industry identifiers (optional)
-  iswc: ISWCSchema.optional(),
+  // Industry identifiers (ISWC REQUIRED for Songverse_v1)
+  iswc: ISWCSchema, // REQUIRED - authoritative work identifier
 
   // External IDs (optional but recommended)
-  spotifyId: z.string().optional(), // Representative recording
-  appleMusicId: z.string().optional(),
-  wikidataId: z.string().optional(),
+  spotifyId: z.string().nullish(), // Representative recording
+  appleMusicId: z.string().nullish(),
+  wikidataId: z.string().nullish(),
 
-  // Relationships (at least one composer required)
-  composerMbids: z.array(MBIDSchema).min(1, 'Work must have at least one composer'),
+  // Relationships (at least one composer recommended but not enforced yet)
+  composerMbids: z.array(MBIDSchema).default([]), // TODO: Enforce min(1) after linking composers
 
   // Metadata
-  language: z.string().length(2).optional(), // ISO 639-1 code
-  releaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  language: z.string().length(2).nullish(), // ISO 639-1 code
+  releaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
 
   // Popularity/engagement
-  geniusAnnotationCount: z.number().int().nonnegative().optional(),
-  geniusPyongsCount: z.number().int().nonnegative().optional(),
+  geniusAnnotationCount: z.number().int().nonnegative().nullish(),
+  geniusPyongsCount: z.number().int().nonnegative().nullish(),
 
 }).strict();
 

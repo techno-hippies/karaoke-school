@@ -1,0 +1,255 @@
+#!/usr/bin/env bun
+/**
+ * Processor: Enrich with MusicBrainz
+ * Looks up recordings, works, and artists in MusicBrainz for canonical IDs
+ *
+ * Usage:
+ *   bun src/processors/04-enrich-musicbrainz.ts [batchSize]
+ */
+
+import { query, transaction, close } from '../db/neon';
+import {
+  lookupRecordingByISRC,
+  lookupWork,
+  lookupWorkByISWC,
+  lookupArtist,
+  extractISNI,
+} from '../services/musicbrainz';
+import {
+  upsertMBRecordingSQL,
+  upsertMBWorkSQL,
+  upsertMBArtistSQL,
+  updatePipelineMBSQL,
+  logMBProcessingSQL,
+} from '../db/musicbrainz';
+
+async function main() {
+  const args = process.argv.slice(2);
+  const batchSize = args[0] ? parseInt(args[0]) : 10;
+
+  console.log('🎵 MusicBrainz Enrichment');
+  console.log(`📊 Batch size: ${batchSize}`);
+  console.log('');
+
+  // Find tracks that need MusicBrainz enrichment
+  console.log('⏳ Finding tracks ready for MusicBrainz enrichment...');
+
+  const tracksToProcess = await query<{
+    id: number;
+    tiktok_video_id: string;
+    spotify_track_id: string;
+    spotify_artist_id: string;
+    isrc: string;
+    iswc: string;
+    title: string;
+  }>(`
+    SELECT
+      tp.id,
+      tp.tiktok_video_id,
+      tp.spotify_track_id,
+      tp.spotify_artist_id,
+      st.isrc,
+      tp.iswc,
+      st.title
+    FROM track_pipeline tp
+    JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    WHERE tp.status = 'iswc_found'
+      AND tp.has_iswc = TRUE
+      AND st.isrc IS NOT NULL
+      AND tp.iswc IS NOT NULL
+    ORDER BY tp.id
+    LIMIT ${batchSize}
+  `);
+
+  if (tracksToProcess.length === 0) {
+    console.log('✅ No tracks need MusicBrainz enrichment. All caught up!');
+    return;
+  }
+
+  console.log(`✅ Found ${tracksToProcess.length} tracks to process`);
+  console.log('');
+
+  // Check cache for existing MusicBrainz data
+  const isrcs = tracksToProcess.map(t => t.isrc);
+  const cachedRecordings = await query<{
+    isrc: string;
+    recording_mbid: string;
+    work_mbid: string | null;
+  }>(`
+    SELECT isrc, recording_mbid, work_mbid
+    FROM musicbrainz_recordings
+    WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
+  `);
+
+  const cachedISRCs = new Set(cachedRecordings.map(r => r.isrc));
+  const uncachedTracks = tracksToProcess.filter(t => !cachedISRCs.has(t.isrc));
+
+  console.log(`💾 Cache hits: ${cachedRecordings.length}`);
+  console.log(`🌐 API requests needed: ${uncachedTracks.length}`);
+  console.log('');
+
+  // Fetch uncached tracks from MusicBrainz API
+  const sqlStatements: string[] = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  if (uncachedTracks.length > 0) {
+    console.log('⏳ Fetching from MusicBrainz...');
+
+    for (const track of uncachedTracks) {
+      try {
+        console.log(`  🔍 ${track.title} (${track.isrc})`);
+
+        // Step 1: Lookup recording by ISRC
+        const recording = await lookupRecordingByISRC(track.isrc);
+
+        if (!recording) {
+          console.log(`     ❌ Recording not found in MusicBrainz`);
+          sqlStatements.push(
+            logMBProcessingSQL(
+              track.spotify_track_id,
+              'failed',
+              'Recording not found in MusicBrainz'
+            )
+          );
+          failCount++;
+          continue;
+        }
+
+        console.log(`     ✅ Recording: ${recording.title}`);
+        console.log(`        MBID: ${recording.id}`);
+
+        // Store recording
+        sqlStatements.push(upsertMBRecordingSQL(recording, track.isrc));
+
+        // Step 2: Lookup work if linked
+        const workRel = recording.relations?.find(
+          rel => rel.type === 'performance' && rel.work
+        );
+
+        let workMbid: string | null = null;
+
+        if (workRel?.work) {
+          workMbid = workRel.work.id;
+          console.log(`     ✅ Work: ${workRel.work.title}`);
+          console.log(`        MBID: ${workMbid}`);
+
+          // Fetch full work details by MBID
+          const work = await lookupWork(workMbid);
+
+          if (work) {
+            console.log(`        Contributors: ${work.relations?.filter(r => r.artist).length || 0}`);
+            sqlStatements.push(upsertMBWorkSQL(work));
+
+            // Step 3: Fetch artist details for contributors
+            const artistMbids = work.relations
+              ?.filter(rel => rel.artist)
+              .map(rel => rel.artist!.id) || [];
+
+            for (const artistMbid of artistMbids.slice(0, 3)) { // Limit to 3 to avoid rate limits
+              try {
+                const artist = await lookupArtist(artistMbid);
+                if (artist) {
+                  const isni = extractISNI(artist);
+                  sqlStatements.push(
+                    upsertMBArtistSQL(artist, isni || undefined)
+                  );
+                }
+              } catch (error: any) {
+                console.warn(`        ⚠️  Failed to fetch artist ${artistMbid}`);
+              }
+            }
+          }
+        } else {
+          console.log(`     ⚠️  No work linked`);
+        }
+
+        // Update pipeline
+        sqlStatements.push(
+          updatePipelineMBSQL(track.spotify_track_id, recording.id, workMbid)
+        );
+
+        // Log success
+        sqlStatements.push(
+          logMBProcessingSQL(
+            track.spotify_track_id,
+            'success',
+            'MusicBrainz enrichment complete',
+            {
+              recording_mbid: recording.id,
+              work_mbid: workMbid,
+            }
+          )
+        );
+
+        successCount++;
+      } catch (error: any) {
+        console.log(`     ❌ Error: ${error.message}`);
+        sqlStatements.push(
+          logMBProcessingSQL(
+            track.spotify_track_id,
+            'failed',
+            error.message
+          )
+        );
+        failCount++;
+      }
+    }
+
+    console.log('');
+  }
+
+  // Update pipeline status for cached tracks
+  console.log('⏳ Updating pipeline entries...');
+
+  for (const track of tracksToProcess.filter(t => cachedISRCs.has(t.isrc))) {
+    const cached = cachedRecordings.find(r => r.isrc === track.isrc);
+    if (cached) {
+      sqlStatements.push(
+        updatePipelineMBSQL(
+          track.spotify_track_id,
+          cached.recording_mbid,
+          cached.work_mbid
+        )
+      );
+
+      sqlStatements.push(
+        logMBProcessingSQL(
+          track.spotify_track_id,
+          'success',
+          'Used cached MusicBrainz data',
+          { source: 'cache' }
+        )
+      );
+    }
+  }
+
+  // Execute all SQL statements
+  if (sqlStatements.length > 0) {
+    try {
+      await transaction(sqlStatements);
+      console.log(`✅ Executed ${sqlStatements.length} SQL statements`);
+    } catch (error) {
+      console.error('❌ Failed to execute transaction:', error);
+      throw error;
+    }
+  }
+
+  console.log('');
+  console.log('📊 Summary:');
+  console.log(`   - Total tracks: ${tracksToProcess.length}`);
+  console.log(`   - Cache hits: ${cachedRecordings.length}`);
+  console.log(`   - API fetches: ${successCount}`);
+  console.log(`   - Failed: ${failCount}`);
+  console.log('');
+  console.log('✅ Done! Tracks moved to: metadata_enriched');
+}
+
+main()
+  .catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await close();
+  });

@@ -5,6 +5,8 @@ API service for enriching music metadata with Quansic as the **PRIMARY** data so
 ## Features
 
 - **Playwright Authentication**: Automated login to Quansic with session management
+- **Account Pool Management**: Automatic account rotation and creation on auth failures
+- **Auto-Recovery**: Creates new accounts automatically when authentication times out
 - **ISNI Enrichment**: Fetch artist data including IPN, Luminate ID, Gracenote ID, etc.
 - **ISRC Enrichment**: Fetch recording metadata, work ISWCs, composers, and platform IDs (PRIMARY)
 - **ISWC Enrichment**: Fetch work metadata, composers with ISNIs/IPIs, and sample recordings
@@ -130,6 +132,38 @@ Response includes:
 Check if session is valid
 ```bash
 curl https://your-akash-url/session-status
+```
+
+### `GET /account-pool` **(NEW)**
+View account pool status and rotation info
+```bash
+curl https://your-akash-url/account-pool
+```
+
+Response:
+```json
+{
+  "current_index": 0,
+  "total_accounts": 3,
+  "accounts": [
+    {
+      "index": 0,
+      "email": "primary@example.com",
+      "status": "active",
+      "failure_count": 0,
+      "last_used": "2025-01-15T10:30:00.000Z",
+      "is_current": true
+    },
+    {
+      "index": 1,
+      "email": "happytiger1234@tiffincrane.com",
+      "status": "active",
+      "failure_count": 0,
+      "last_used": "never",
+      "is_current": false
+    }
+  ]
+}
 ```
 
 ## Local Development
@@ -350,6 +384,49 @@ quansic_works.work_mbid → musicbrainz_works.work_mbid
 quansic_artists.musicbrainz_mbid → musicbrainz_artists.mbid
 ```
 
+## Account Pool & Proactive Rotation
+
+The service uses **multiple accounts with smart rotation** to avoid rate limits:
+
+### Setup (3-5 Accounts Recommended)
+
+1. **Manually create 3-5 Quansic accounts** at https://explorer.quansic.com/app-register
+2. **Add them to your deployment config:**
+
+```yaml
+env:
+  # Primary account
+  - QUANSIC_EMAIL=account1@example.com
+  - QUANSIC_PASSWORD=Password1!
+
+  # Backup accounts
+  - QUANSIC_EMAIL_2=account2@example.com
+  - QUANSIC_PASSWORD_2=Password2!
+  - QUANSIC_EMAIL_3=account3@example.com
+  - QUANSIC_PASSWORD_3=Password3!
+
+  # Optional: tune rotation behavior
+  - REQUESTS_PER_ACCOUNT=50        # Rotate after 50 requests
+  - ROTATION_INTERVAL_MS=1800000   # Or after 30 minutes
+```
+
+### How It Works
+
+1. **Proactive Rotation** - Rotates BEFORE hitting limits:
+   - After N requests (default: 50)
+   - After time interval (default: 30 minutes)
+   - When account fails
+
+2. **Round-Robin** - Cycles through all accounts evenly
+
+3. **Failure Handling** - Marks failed accounts, auto-resets after cooldown
+
+4. **Monitoring**: `GET /account-pool` shows:
+   - Current account
+   - Request counts per account
+   - Requests until rotation
+   - Account status
+
 ## Troubleshooting
 
 ### Session expired errors
@@ -359,6 +436,11 @@ The service auto-re-authenticates when sessions expire. If you see persistent er
 curl -X POST https://your-akash-url/enrich \
   -H "Content-Type: application/json" \
   -d '{"isni": "...", "force_reauth": true}'
+```
+
+### View account pool status
+```bash
+curl https://your-akash-url/account-pool
 ```
 
 ### Playwright browser crashes

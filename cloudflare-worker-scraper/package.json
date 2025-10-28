@@ -25,6 +25,7 @@
     "wrangler": "^3.95.0"
   },
   "dependencies": {
+    "@fal-ai/serverless-client": "^0.15.0",
     "@neondatabase/serverless": "^0.10.1",
     "csv-parse": "^6.1.0",
     "hono": "^4.10.3"

@@ -179,6 +179,17 @@ export default {
     // Map minutes to handlers (multiple can run at same time)
     const handlers: Array<{ name: string; handler: () => Promise<void> }> = [];
 
+    // Every 5 minutes: Unified Pipeline (all enabled steps)
+    if (minute % 5 === 0) {
+      handlers.push({
+        name: 'Unified Pipeline',
+        handler: async () => {
+          const { runUnifiedPipeline } = await import('./processors/unified-pipeline');
+          await runUnifiedPipeline(env, { limit: 50 });
+        }
+      });
+    }
+
     // Every 3 minutes: ISWC Discovery (0, 3, 6, 9, ...)
     if (minute % 3 === 0) {
       handlers.push({

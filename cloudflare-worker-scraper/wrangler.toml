@@ -19,8 +19,8 @@ crons = [
   "*/20 * * * *",  # Quansic Enrichment (artists + works)
   "*/30 * * * *",  # Licensing Enrichment (MLC + BMI corroboration)
   "*/31 * * * *",  # CISAC IPI Discovery (every 31 minutes - catalog vacuum)
-  "*/15 * * * *",  # Lyrics Enrichment (multi-source + AI)
-  "*/25 * * * *",  # Audio Download (Freyr + Grove + AcoustID) - changed from 30 to avoid overlap
+  "*/14 * * * *",  # Lyrics Enrichment (multi-source + AI)
+  "*/15 * * * *",  # Audio Download (Freyr + Grove + AcoustID) - increased frequency
   "*/35 * * * *",  # Demucs Separation (Modal GPU vocal/instrumental separation)
   "*/40 * * * *",  # ElevenLabs Word Alignment (forced alignment for karaoke)
   "*/45 * * * *",  # Segment Selection (Gemini Flash - iconic 190s for tracks >190s)

@@ -7,8 +7,8 @@
 
 import { Ipfs, Graph, getWalletClient } from '@graphprotocol/grc-20';
 import { privateKeyToAccount } from 'viem/accounts';
-import { config, validateConfig } from '../config';
-import { defineAllMusicTypes } from '../types/music-types';
+import { config } from '../config';
+import { createMusicEntityTypes } from '../types/music-entity-types';
 import fs from 'fs';
 import path from 'path';
 
@@ -39,7 +39,7 @@ async function main() {
 
   // Generate all type definitions
   console.log('⏳ Generating type definitions...');
-  const { ops, properties, types } = await defineAllMusicTypes();
+  const { ops, properties, types } = await createMusicEntityTypes();
 
   console.log(`   Created ${Object.keys(properties).length} properties`);
   console.log(`   Created ${Object.keys(types).length} types`);

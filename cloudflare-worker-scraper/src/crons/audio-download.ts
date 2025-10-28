@@ -44,7 +44,7 @@ export default async function runAudioDownload(env: Env): Promise<void> {
       WHERE taf.spotify_track_id IS NULL
         AND st.has_iswc = true
       ORDER BY st.popularity DESC NULLS LAST
-      LIMIT 20
+      LIMIT 100
     `;
 
     if (readyTracks.length === 0) {
@@ -52,18 +52,29 @@ export default async function runAudioDownload(env: Env): Promise<void> {
       return;
     }
 
-    console.log(`Downloading audio for ${readyTracks.length} tracks...`);
-    let downloaded = 0;
+    console.log(`Submitting ${readyTracks.length} tracks for audio download (fire-and-forget)...`);
+    let submitted = 0;
 
-    for (const track of readyTracks) {
+    // Add delay between submissions to avoid overwhelming Freyr service
+    const BATCH_DELAY_MS = 2000; // 2 seconds between submissions
+
+    // Fire-and-forget: submit all downloads without waiting
+    // Freyr service will write results to Neon DB when each download completes
+    const promises = readyTracks.map(async (track, index) => {
       try {
         // Artists is stored as string array: ["Ariana Grande"], not objects
         const artists = track.artists as string[];
         const primaryArtist = artists[0] || 'Unknown';
 
-        console.log(`Downloading: ${track.title} - ${primaryArtist}`);
+        // Add delay between submissions to avoid overwhelming Freyr
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        }
 
-        const response = await fetch(`${env.FREYR_SERVICE_URL}/download-and-store`, {
+        console.log(`Submitting: ${track.title} - ${primaryArtist}`);
+
+        // Fire request without waiting for completion
+        fetch(`${env.FREYR_SERVICE_URL}/download-and-store`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -74,27 +85,19 @@ export default async function runAudioDownload(env: Env): Promise<void> {
             neon_database_url: env.NEON_DATABASE_URL,
             chain_id: 37111, // Lens Network
           }),
+        }).catch(error => {
+          console.error(`Failed to submit ${track.spotify_track_id}:`, error);
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error(`Failed to download ${track.spotify_track_id}: ${errorData.message}`);
-          continue;
-        }
-
-        const data = await response.json();
-        downloaded++;
-
-        console.log(`✓ Downloaded "${track.title}" (CID: ${data.grove_cid}, ${data.download_method}, verified: ${data.verification?.verified})`);
-
-        // Rate limiting: 3 seconds between downloads
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        submitted++;
       } catch (error) {
-        console.error(`Error downloading ${track.spotify_track_id}:`, error);
+        console.error(`Error submitting ${track.spotify_track_id}:`, error);
       }
-    }
+    });
 
-    console.log(`✅ Audio Download: ${downloaded} audio files downloaded to Grove`);
+    await Promise.all(promises);
+
+    console.log(`✅ Audio Download: ${submitted} tracks submitted to Freyr service`);
   } catch (error) {
     console.error('❌ Audio Download failed:', error);
     throw error;

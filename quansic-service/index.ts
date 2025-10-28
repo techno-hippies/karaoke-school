@@ -19,6 +19,21 @@ let sessionCookie: string | null = null;
 let sessionExpiry: number = 0; // Timestamp when session expires
 const SESSION_DURATION = 3600000; // 1 hour
 
+// Account pool management
+interface AccountCredentials {
+  email: string;
+  password: string;
+  status: 'active' | 'failed' | 'banned';
+  lastUsed: number;
+  failureCount: number;
+  requestCount: number; // Track requests per account
+}
+
+const accountPool: AccountCredentials[] = [];
+let currentAccountIndex = 0;
+const REQUESTS_PER_ACCOUNT = parseInt(process.env.REQUESTS_PER_ACCOUNT || '50'); // Rotate after N requests
+const ROTATION_INTERVAL_MS = parseInt(process.env.ROTATION_INTERVAL_MS || '1800000'); // 30 minutes default
+
 interface QuansicArtistData {
   isni: string;
   musicbrainz_mbid?: string;
@@ -75,18 +90,61 @@ async function getBrowser(): Promise<Browser> {
 }
 
 /**
- * Authenticate with Quansic and get session cookie
+ * Generate a random email address
  */
-async function authenticate(email: string, password: string): Promise<string> {
+function generateEmail(): string {
+  const adjectives = ['happy', 'quick', 'bright', 'clever', 'smooth', 'calm', 'bold', 'wise', 'noble', 'swift'];
+  const nouns = ['tiger', 'falcon', 'river', 'mountain', 'ocean', 'storm', 'forest', 'thunder', 'phoenix', 'dragon'];
+  const domains = ['tiffincrane.com', 'mailinator.com', 'guerrillamail.com'];
+
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const num = Math.floor(Math.random() * 9999);
+  const domain = domains[Math.floor(Math.random() * domains.length)];
+
+  return `${adj}${noun}${num}@${domain}`;
+}
+
+/**
+ * Generate a strong password meeting Quansic requirements
+ * Must be at least 8 characters long, have at least one digit and at least one uppercase letter
+ */
+function generatePassword(): string {
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  const special = '!@#$%^&*';
+
+  // Ensure requirements are met
+  let password = '';
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]; // At least one uppercase
+  password += digits[Math.floor(Math.random() * digits.length)]; // At least one digit
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += special[Math.floor(Math.random() * special.length)];
+
+  // Fill remaining characters
+  const allChars = lowercase + uppercase + digits + special;
+  for (let i = password.length; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+/**
+ * Register a new Quansic account
+ */
+async function registerAccount(email: string, password: string): Promise<boolean> {
   const browser = await getBrowser();
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    console.log('🔐 Authenticating with Quansic...');
+    console.log(`📝 Registering new account: ${email}...`);
 
-    // Navigate to login page (use domcontentloaded for Akash compatibility)
-    await page.goto('https://explorer.quansic.com/app-login', {
+    // Navigate to registration page
+    await page.goto('https://explorer.quansic.com/app-register', {
       waitUntil: 'domcontentloaded',
       timeout: 90000
     });
@@ -94,18 +152,259 @@ async function authenticate(email: string, password: string): Promise<string> {
     // Wait for form to be visible
     await page.waitForSelector('input[name="email"]', { timeout: 30000 });
 
+    // Fill in registration form
+    await page.fill('input[name="email"]', email);
+    await page.fill('input[name="password"]', password);
+    await page.fill('input[name="confirmPassword"]', password);
+    await page.fill('input[name="name"]', 'Music Researcher');
+    await page.fill('input[name="company"]', 'Research Institute');
+
+    // Check the terms and conditions checkbox (click the label, not the input)
+    await page.click('label.mat-checkbox-layout');
+
+    // Wait a bit for form validation
+    await page.waitForTimeout(1000);
+
+    // Wait for the form to be fully ready (all inputs filled and checkbox checked)
+    await page.waitForTimeout(2000);
+
+    // Find and click the submit button
+    // Try multiple approaches to find the button
+    let buttonClicked = false;
+
+    // First try: wait for any button to become enabled
+    try {
+      await page.waitForSelector('button.mat-raised-button:not([disabled])', { timeout: 5000 });
+      await Promise.all([
+        page.waitForURL(/explorer\.quansic\.com\/(?!app-register)/, {
+          waitUntil: 'domcontentloaded',
+          timeout: 90000
+        }),
+        page.click('button.mat-raised-button:not([disabled])')
+      ]);
+      buttonClicked = true;
+    } catch (e) {
+      console.log('Failed with mat-raised-button selector, trying alternatives...');
+    }
+
+    // Second try: Look for button by text content
+    if (!buttonClicked) {
+      try {
+        const buttons = await page.$$('button');
+        for (const button of buttons) {
+          const text = await button.textContent();
+          if (text && (text.toLowerCase().includes('register') || text.toLowerCase().includes('sign up') || text.toLowerCase().includes('create account'))) {
+            await Promise.all([
+              page.waitForURL(/explorer\.quansic\.com\/(?!app-register)/, {
+                waitUntil: 'domcontentloaded',
+                timeout: 90000
+              }),
+              button.click()
+            ]);
+            buttonClicked = true;
+            break;
+          }
+        }
+      } catch (e) {
+        console.log('Failed to find button by text content');
+      }
+    }
+
+    if (!buttonClicked) {
+      throw new Error('Could not find registration button');
+    }
+
+    console.log(`✅ Account registered successfully: ${email}`);
+    return true;
+
+  } catch (error: any) {
+    console.error(`❌ Registration failed for ${email}:`, error.message);
+    return false;
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * Initialize account pool with all accounts from env vars
+ * Supports: QUANSIC_EMAIL, QUANSIC_EMAIL_2, QUANSIC_EMAIL_3, etc.
+ */
+function initializeAccountPool() {
+  let accountIndex = 1;
+
+  // Load primary account
+  const email = process.env.QUANSIC_EMAIL;
+  const password = process.env.QUANSIC_PASSWORD;
+
+  if (email && password) {
+    accountPool.push({
+      email,
+      password,
+      status: 'active',
+      lastUsed: 0,
+      failureCount: 0,
+      requestCount: 0
+    });
+    console.log(`📋 Account 1: ${email}`);
+  }
+
+  // Load additional accounts (QUANSIC_EMAIL_2, QUANSIC_EMAIL_3, etc.)
+  while (true) {
+    accountIndex++;
+    const extraEmail = process.env[`QUANSIC_EMAIL_${accountIndex}`];
+    const extraPassword = process.env[`QUANSIC_PASSWORD_${accountIndex}`];
+
+    if (!extraEmail || !extraPassword) {
+      break;
+    }
+
+    accountPool.push({
+      email: extraEmail,
+      password: extraPassword,
+      status: 'active',
+      lastUsed: 0,
+      failureCount: 0,
+      requestCount: 0
+    });
+    console.log(`📋 Account ${accountIndex}: ${extraEmail}`);
+  }
+
+  console.log(`✅ Initialized account pool with ${accountPool.length} account(s)`);
+  console.log(`🔄 Rotation settings: ${REQUESTS_PER_ACCOUNT} requests or ${ROTATION_INTERVAL_MS / 60000} minutes per account`);
+}
+
+/**
+ * Get next available account from pool with proactive rotation
+ */
+async function getNextAccount(): Promise<AccountCredentials> {
+  if (accountPool.length === 0) {
+    throw new Error('No accounts configured. Set QUANSIC_EMAIL and QUANSIC_PASSWORD environment variables.');
+  }
+
+  const currentAccount = accountPool[currentAccountIndex];
+
+  // Check if current account needs rotation
+  const shouldRotate =
+    currentAccount.requestCount >= REQUESTS_PER_ACCOUNT ||
+    (Date.now() - currentAccount.lastUsed) > ROTATION_INTERVAL_MS ||
+    currentAccount.status !== 'active';
+
+  if (shouldRotate && accountPool.length > 1) {
+    console.log(`🔄 Rotating from ${currentAccount.email} (requests: ${currentAccount.requestCount}, status: ${currentAccount.status})`);
+
+    // Find next active account
+    let nextIndex = (currentAccountIndex + 1) % accountPool.length;
+    let attempts = 0;
+
+    while (attempts < accountPool.length) {
+      const nextAccount = accountPool[nextIndex];
+      if (nextAccount.status === 'active' && nextAccount.failureCount < 3) {
+        currentAccountIndex = nextIndex;
+        console.log(`✅ Rotated to ${nextAccount.email}`);
+        return nextAccount;
+      }
+      nextIndex = (nextIndex + 1) % accountPool.length;
+      attempts++;
+    }
+
+    // All accounts are failed, reset counters and try again
+    console.log('⚠️ All accounts failed, resetting failure counts...');
+    accountPool.forEach(acc => {
+      if (acc.status === 'failed') {
+        acc.status = 'active';
+        acc.failureCount = 0;
+        acc.requestCount = 0;
+      }
+    });
+  }
+
+  return accountPool[currentAccountIndex];
+}
+
+/**
+ * Mark current account as failed and get next account
+ */
+async function rotateAccount(): Promise<AccountCredentials> {
+  if (accountPool.length > 0 && currentAccountIndex < accountPool.length) {
+    const currentAccount = accountPool[currentAccountIndex];
+    currentAccount.failureCount++;
+
+    if (currentAccount.failureCount >= 3) {
+      currentAccount.status = 'banned';
+      console.log(`🚫 Account marked as banned: ${currentAccount.email}`);
+    } else {
+      currentAccount.status = 'failed';
+      console.log(`⚠️ Account marked as failed: ${currentAccount.email} (${currentAccount.failureCount}/3)`);
+    }
+  }
+
+  return await getNextAccount();
+}
+
+/**
+ * Authenticate with Quansic and get session cookie
+ */
+async function authenticate(email: string, password: string, retryWithNewAccount = true): Promise<string> {
+  const browser = await getBrowser();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  try {
+    console.log(`🔐 Authenticating with Quansic (${email})...`);
+
+    // Navigate to login page (use domcontentloaded for Akash compatibility)
+    console.log('📄 Navigating to login page...');
+    await page.goto('https://explorer.quansic.com/app-login', {
+      waitUntil: 'domcontentloaded',
+      timeout: 90000
+    });
+
+    // Wait for form to be visible
+    console.log('⏳ Waiting for email field...');
+    await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+
     // Fill in credentials
+    console.log('✍️ Filling credentials...');
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="password"]', password);
 
-    // Click login button and wait for navigation
-    await Promise.all([
-      page.waitForURL(/explorer\.quansic\.com\/(?!app-login)/, {
+    console.log('🖱️ Clicking login button...');
+    // Click login button
+    await page.click('button:has-text("Login")');
+
+    // Wait for either navigation or error message
+    console.log('⏳ Waiting for response...');
+    try {
+      await page.waitForURL(/explorer\.quansic\.com\/(?!app-login)/, {
         waitUntil: 'domcontentloaded',
-        timeout: 90000
-      }),
-      page.click('button:has-text("Login")')
-    ]);
+        timeout: 10000  // Shorter timeout to check for errors faster
+      });
+      console.log('✅ Navigation completed');
+    } catch (navError) {
+      // Check if we're still on login page - might be an error
+      const currentUrl = page.url();
+      console.log(`⚠️ Still on URL: ${currentUrl}`);
+
+      // Take screenshot for debugging
+      await page.screenshot({ path: '/tmp/quansic-login-debug.png' });
+      console.log('📸 Screenshot saved to /tmp/quansic-login-debug.png');
+
+      // Check for error messages
+      const errorText = await page.textContent('body').catch(() => '');
+      if (errorText.toLowerCase().includes('invalid') ||
+          errorText.toLowerCase().includes('incorrect') ||
+          errorText.toLowerCase().includes('error')) {
+        throw new Error(`Login failed - possible error on page. Check screenshot.`);
+      }
+
+      // If no error found, wait a bit longer
+      console.log('⏳ No immediate error found, waiting longer for navigation...');
+      await page.waitForURL(/explorer\.quansic\.com\/(?!app-login)/, {
+        waitUntil: 'domcontentloaded',
+        timeout: 80000
+      });
+      console.log('✅ Navigation completed (after extended wait)');
+    }
 
     // Extract cookies
     const cookies = await context.cookies();
@@ -115,10 +414,31 @@ async function authenticate(email: string, password: string): Promise<string> {
 
     console.log('✅ Authentication successful');
 
+    // Mark account as active on success
+    if (accountPool.length > 0 && currentAccountIndex < accountPool.length) {
+      accountPool[currentAccountIndex].status = 'active';
+      accountPool[currentAccountIndex].lastUsed = Date.now();
+      accountPool[currentAccountIndex].failureCount = 0;
+    }
+
     return sessionCookieStr;
 
   } catch (error: any) {
     console.error('❌ Authentication failed:', error.message);
+
+    // If timeout or navigation error, try rotating to a new account
+    if (retryWithNewAccount && (error.message.includes('Timeout') || error.message.includes('forURL'))) {
+      console.log('🔄 Timeout detected, rotating to new account...');
+
+      try {
+        const newAccount = await rotateAccount();
+        return await authenticate(newAccount.email, newAccount.password, false);
+      } catch (rotateError: any) {
+        console.error('❌ Account rotation failed:', rotateError.message);
+        throw new Error(`Failed to authenticate after account rotation: ${rotateError.message}`);
+      }
+    }
+
     throw new Error(`Quansic authentication failed: ${error.message}`);
   } finally {
     await context.close();
@@ -137,18 +457,27 @@ function isSessionValid(): boolean {
  */
 async function ensureSession(forceReauth = false): Promise<string> {
   if (!forceReauth && isSessionValid() && sessionCookie) {
+    // Increment request count for current account
+    if (accountPool[currentAccountIndex]) {
+      accountPool[currentAccountIndex].requestCount++;
+    }
     return sessionCookie;
   }
 
-  const email = process.env.QUANSIC_EMAIL;
-  const password = process.env.QUANSIC_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error('QUANSIC_EMAIL and QUANSIC_PASSWORD environment variables required');
+  // Initialize account pool on first use
+  if (accountPool.length === 0) {
+    initializeAccountPool();
   }
 
-  sessionCookie = await authenticate(email, password);
+  // Get an account to use (will rotate if needed)
+  const account = await getNextAccount();
+
+  sessionCookie = await authenticate(account.email, account.password);
   sessionExpiry = Date.now() + SESSION_DURATION;
+
+  // Reset request count on new session
+  account.requestCount = 0;
+  account.lastUsed = Date.now();
 
   return sessionCookie;
 }
@@ -588,13 +917,24 @@ app.use('*', cors());
 
 // Routes
 app.get('/health', (c) => {
+  const activeAccounts = accountPool.filter(a => a.status === 'active').length;
+  const failedAccounts = accountPool.filter(a => a.status === 'failed').length;
+  const bannedAccounts = accountPool.filter(a => a.status === 'banned').length;
+
   return c.json({
     status: 'healthy',
     uptime: process.uptime(),
     session_valid: isSessionValid(),
     session_expires_in: sessionExpiry > 0 ? Math.max(0, sessionExpiry - Date.now()) : 0,
+    account_pool: {
+      total: accountPool.length,
+      active: activeAccounts,
+      failed: failedAccounts,
+      banned: bannedAccounts,
+      current_account: accountPool[currentAccountIndex]?.email || 'none'
+    },
     service: 'quansic-enrichment-service',
-    version: '1.1.0'
+    version: '1.2.0'
   });
 });
 
@@ -627,6 +967,27 @@ app.get('/session-status', (c) => {
     valid: isSessionValid(),
     expires_in: sessionExpiry > 0 ? Math.max(0, sessionExpiry - Date.now()) : 0,
     has_cookie: sessionCookie !== null
+  });
+});
+
+app.get('/account-pool', (c) => {
+  const poolStatus = accountPool.map((account, index) => ({
+    index,
+    email: account.email,
+    status: account.status,
+    failure_count: account.failureCount,
+    request_count: account.requestCount,
+    requests_until_rotation: Math.max(0, REQUESTS_PER_ACCOUNT - account.requestCount),
+    last_used: account.lastUsed > 0 ? new Date(account.lastUsed).toISOString() : 'never',
+    is_current: index === currentAccountIndex
+  }));
+
+  return c.json({
+    current_index: currentAccountIndex,
+    total_accounts: accountPool.length,
+    rotation_threshold: REQUESTS_PER_ACCOUNT,
+    rotation_interval_minutes: ROTATION_INTERVAL_MS / 60000,
+    accounts: poolStatus
   });
 });
 
