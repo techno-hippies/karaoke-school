@@ -25,6 +25,7 @@ import lyricsReEnrichment from './routes/lyrics-re-enrichment';
 import manualTriggers from './routes/manual-triggers';
 import webhooks from './routes/webhooks';
 import translations from './routes/translations';
+import artistImages from './routes/artist-images';
 import { TikTokScraper } from './services/tiktok-scraper';
 import { NeonDB } from './neon';
 import type { Env } from './types';
@@ -48,6 +49,7 @@ app.route('/', lyricsReEnrichment);
 app.route('/', manualTriggers);
 app.route('/', webhooks);
 app.route('/translations', translations);
+app.route('/', artistImages);
 
 // Root endpoint - API info
 app.get('/', (c) => {
@@ -113,6 +115,12 @@ app.get('/', (c) => {
       'GET /audio/status/:spotify_track_id': 'Get audio file status for a track',
       'GET /audio/stats': 'Get audio download statistics',
 
+      // Artist Image routes (fal.ai derivative generation)
+      'POST /generate-artist-images?limit=:limit': 'Generate derivative artist images via fal.ai Seedream',
+      'POST /poll-artist-images?limit=:limit': 'Poll pending fal.ai image generation requests',
+      'GET /artist-images/stats': 'Get artist image generation statistics',
+      'GET /artist-images/:spotify_artist_id': 'Get generated image for a specific artist',
+
       // Manual trigger routes (for testing and bulk population)
       'POST /trigger/audio-download?limit=:limit': 'Manually trigger audio download cron',
       'POST /trigger/iswc-discovery?limit=:limit': 'Manually trigger ISWC discovery cron',
@@ -126,6 +134,7 @@ app.get('/', (c) => {
       'POST /trigger/lyrics-translation': 'Manually trigger lyrics translation cron (zh, vi, id)',
       'POST /trigger/segment-selection?limit=:limit': 'Manually trigger segment selection cron (Gemini)',
       'POST /trigger/elevenlabs-alignment?limit=:limit': 'Manually trigger ElevenLabs word alignment cron',
+      'POST /trigger/artist-images?limit=:limit': 'Manually trigger artist image generation cron (fal.ai)',
       'POST /trigger/all': 'Manually trigger ALL enrichment handlers in sequence',
     },
     pipeline: [
@@ -225,10 +234,21 @@ export default {
       });
     }
 
-    // Every 20 minutes: Quansic Enrichment (0, 20, 40)
+    // Every 15 minutes: Quansic Recordings Enrichment (0, 15, 30, 45)
+    if (minute % 15 === 0) {
+      handlers.push({
+        name: 'Quansic Recordings Enrichment',
+        handler: async () => {
+          const { default: runQuansicRecordingsEnrichment } = await import('./crons/quansic-recordings-enrichment');
+          await runQuansicRecordingsEnrichment(env);
+        }
+      });
+    }
+
+    // Every 20 minutes: Quansic Artists/Works Enrichment (0, 20, 40)
     if (minute % 20 === 0) {
       handlers.push({
-        name: 'Quansic Enrichment',
+        name: 'Quansic Artists/Works Enrichment',
         handler: async () => {
           const { default: runQuansicEnrichment } = await import('./crons/quansic-enrichment');
           await runQuansicEnrichment(env);
@@ -320,6 +340,17 @@ export default {
         handler: async () => {
           const { default: runCISACIPIDiscovery } = await import('./crons/cisac-ipi-discovery');
           await runCISACIPIDiscovery(env);
+        }
+      });
+    }
+
+    // Every hour: Artist Image Generation (0, 60, 120, ...)
+    if (minute === 0) {
+      handlers.push({
+        name: 'Artist Image Generation',
+        handler: async () => {
+          const { default: runArtistImageGeneration } = await import('./crons/artist-images');
+          await runArtistImageGeneration(env);
         }
       });
     }

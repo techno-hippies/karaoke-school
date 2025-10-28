@@ -693,7 +693,18 @@ app.post('/enrich-recording', async (c) => {
 
     console.log(`🎵 Recording enrichment: ISRC ${isrc}`);
 
-    const result = await enrichRecording(isrc, spotify_track_id, recording_mbid, force_reauth);
+    let result;
+    try {
+      result = await enrichRecording(isrc, spotify_track_id, recording_mbid, force_reauth);
+    } catch (error: any) {
+      // Handle session expiration gracefully
+      if (error.message === 'SESSION_EXPIRED' && !force_reauth) {
+        console.log(`Session expired for ISRC ${isrc}, retrying with reauth...`);
+        result = await enrichRecording(isrc, spotify_track_id, recording_mbid, true);
+      } else {
+        throw error;
+      }
+    }
 
     if (!result) {
       return c.json({ error: 'No recording found for this ISRC' }, 404);

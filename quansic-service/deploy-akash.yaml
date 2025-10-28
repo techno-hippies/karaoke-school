@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   quansic:
-    image: t3333chn0000/quansic-service:v1.1.4  # Fixed Spotify search endpoint
+    image: t3333chn0000/quansic-service:v1.1  # Enhanced error handling and rate limiting
     expose:
       - port: 3000
         as: 80

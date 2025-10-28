@@ -143,11 +143,36 @@ manualTriggers.post('/trigger/musicbrainz-enrichment', async (c) => {
 });
 
 /**
+ * POST /trigger/quansic-recordings-enrichment
+ * Manually trigger Quansic recordings enrichment (ISRC → ISWC)
+ */
+manualTriggers.post('/trigger/quansic-recordings-enrichment', async (c) => {
+  console.log('🎵 Manual trigger: Quansic Recordings Enrichment');
+
+  try {
+    const { default: runQuansicRecordingsEnrichment } = await import('../crons/quansic-recordings-enrichment');
+    await runQuansicRecordingsEnrichment(c.env);
+
+    return c.json({
+      success: true,
+      handler: 'Quansic Recordings Enrichment',
+      message: 'Quansic recordings enrichment completed',
+    });
+  } catch (error: any) {
+    console.error('Manual Quansic Recordings Enrichment failed:', error);
+    return c.json({
+      error: error.message,
+      handler: 'Quansic Recordings Enrichment',
+    }, 500);
+  }
+});
+
+/**
  * POST /trigger/quansic-enrichment
  * Manually trigger Quansic enrichment (artists + works)
  */
 manualTriggers.post('/trigger/quansic-enrichment', async (c) => {
-  console.log('🔮 Manual trigger: Quansic Enrichment');
+  console.log('🔮 Manual trigger: Quansic Artists/Works Enrichment');
 
   try {
     const { default: runQuansicEnrichment } = await import('../crons/quansic-enrichment');
@@ -155,8 +180,8 @@ manualTriggers.post('/trigger/quansic-enrichment', async (c) => {
 
     return c.json({
       success: true,
-      handler: 'Quansic Enrichment',
-      message: 'Quansic enrichment completed',
+      handler: 'Quansic Artists/Works Enrichment',
+      message: 'Quansic artists/works enrichment completed',
     });
   } catch (error: any) {
     console.error('Quansic enrichment failed:', error);
@@ -865,6 +890,32 @@ manualTriggers.post('/trigger/all', async (c) => {
       failed,
     },
   });
+});
+
+/**
+ * POST /trigger/artist-images?limit=10
+ * Manually trigger artist image generation
+ */
+manualTriggers.post('/trigger/artist-images', async (c) => {
+  console.log('🎨 Manual trigger: Artist Image Generation');
+
+  try {
+    const { default: runArtistImageGeneration } = await import('../crons/artist-images');
+    await runArtistImageGeneration(c.env);
+
+    return c.json({
+      success: true,
+      handler: 'Artist Image Generation',
+      message: 'Artist image generation completed',
+    });
+  } catch (error: any) {
+    console.error('Artist image generation failed:', error);
+    return c.json({
+      success: false,
+      handler: 'Artist Image Generation',
+      error: error.message,
+    }, 500);
+  }
 });
 
 export default manualTriggers;

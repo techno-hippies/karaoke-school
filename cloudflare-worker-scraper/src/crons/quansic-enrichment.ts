@@ -32,7 +32,7 @@ export default async function runQuansicEnrichment(env: Env): Promise<void> {
       WHERE ma.isnis IS NOT NULL
         AND array_length(ma.isnis, 1) > 0
         AND qa.isni IS NULL
-      LIMIT 5
+      LIMIT 50
     `;
 
     if (viableQuansicArtists.length > 0) {
@@ -42,6 +42,9 @@ export default async function runQuansicEnrichment(env: Env): Promise<void> {
       for (const artist of viableQuansicArtists) {
         try {
           for (const isni of artist.isnis) {
+            // Add rate limiting to prevent hitting API limits
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
             // Call Quansic service endpoint with Spotify ID fallback
             const quansicResponse = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich`, {
               method: 'POST',
@@ -79,7 +82,7 @@ export default async function runQuansicEnrichment(env: Env): Promise<void> {
       LEFT JOIN quansic_works qw ON w.iswc = qw.iswc
       WHERE w.iswc IS NOT NULL
         AND qw.iswc IS NULL
-      LIMIT 5
+      LIMIT 50
     `;
 
     if (worksNeedingEnrichment.length > 0) {
@@ -88,6 +91,9 @@ export default async function runQuansicEnrichment(env: Env): Promise<void> {
 
       for (const work of worksNeedingEnrichment) {
         try {
+          // Add rate limiting to prevent hitting API limits
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
           const response = await fetch(`${env.QUANSIC_SERVICE_URL}/enrich-work`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
