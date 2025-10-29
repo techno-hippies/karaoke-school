@@ -60,12 +60,7 @@ CREATE INDEX idx_videos_copyrighted ON tiktok_videos(is_copyrighted, spotify_tra
   WHERE is_copyrighted = TRUE AND spotify_track_id IS NOT NULL;
 CREATE INDEX idx_videos_created ON tiktok_videos(video_created_at DESC);
 
--- Optional: Store full TikTok API responses separately (for debugging)
-CREATE TABLE IF NOT EXISTS tiktok_raw_data (
-  video_id TEXT PRIMARY KEY REFERENCES tiktok_videos(video_id) ON DELETE CASCADE,
-  raw_response JSONB NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+
 
 -- Triggers for updated_at
 CREATE OR REPLACE FUNCTION update_timestamp()

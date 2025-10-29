@@ -86,20 +86,7 @@ export function upsertVideoSQL(video: Video): string {
   ]) + ' RETURNING video_id, spotify_track_id, is_copyrighted';
 }
 
-/**
- * Generate SQL to store raw TikTok response (optional, for debugging)
- */
-export function upsertRawDataSQL(videoId: string, rawResponse: any): string {
-  return buildUpsert(
-    'tiktok_raw_data',
-    {
-      video_id: videoId,
-      raw_response: rawResponse,
-    },
-    'video_id',
-    ['raw_response']
-  );
-}
+
 
 /**
  * Convert TikTok API video to our Video type

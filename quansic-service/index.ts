@@ -10,6 +10,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { chromium, Browser, BrowserContext } from 'playwright';
+import { chromium as playwrightExtra } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 const app = new Hono();
 
@@ -76,15 +78,23 @@ interface EnrichWorkRequest {
 }
 
 /**
- * Initialize Playwright browser (headless Chrome)
+ * Initialize Playwright browser with stealth mode (headless Chrome)
  */
 async function getBrowser(): Promise<Browser> {
   if (!browser) {
-    console.log('🌐 Launching Playwright browser...');
-    browser = await chromium.launch({
+    console.log('🌐 Launching Playwright browser with stealth...');
+    // Add stealth plugin
+    playwrightExtra.use(StealthPlugin());
+    browser = await playwrightExtra.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process'
+      ]
+    }) as unknown as Browser;
   }
   return browser;
 }
@@ -342,11 +352,71 @@ async function rotateAccount(): Promise<AccountCredentials> {
 }
 
 /**
+ * Human-like random delay
+ */
+async function humanDelay(minMs: number = 800, maxMs: number = 2500): Promise<void> {
+  const delay = Math.random() * (maxMs - minMs) + minMs;
+  await new Promise(resolve => setTimeout(resolve, delay));
+}
+
+/**
+ * Simulate human typing with random speed
+ */
+async function humanType(page: any, selector: string, text: string): Promise<void> {
+  await page.click(selector); // Focus the input
+  await humanDelay(300, 800); // Think before typing
+
+  for (const char of text) {
+    await page.keyboard.type(char);
+    // Random typing speed: 50-200ms per character
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 150 + 50));
+  }
+
+  await humanDelay(200, 600); // Pause after typing
+}
+
+/**
+ * Move mouse in human-like path before clicking
+ */
+async function humanClick(page: any, selector: string): Promise<void> {
+  const element = await page.$(selector);
+  if (!element) {
+    throw new Error(`Element not found: ${selector}`);
+  }
+
+  const box = await element.boundingBox();
+  if (!box) {
+    throw new Error(`Cannot get bounding box for: ${selector}`);
+  }
+
+  // Move mouse to random position near element
+  const targetX = box.x + (box.width * 0.3) + (Math.random() * box.width * 0.4);
+  const targetY = box.y + (box.height * 0.3) + (Math.random() * box.height * 0.4);
+
+  await page.mouse.move(targetX, targetY, { steps: 10 + Math.floor(Math.random() * 15) });
+  await humanDelay(100, 400); // Pause before clicking
+  await element.click();
+}
+
+/**
  * Authenticate with Quansic and get session cookie
  */
 async function authenticate(email: string, password: string, retryWithNewAccount = true): Promise<string> {
   const browser = await getBrowser();
-  const context = await browser.newContext();
+
+  // Randomize browser fingerprint
+  const viewportWidth = 1366 + Math.floor(Math.random() * 554); // 1366-1920
+  const viewportHeight = 768 + Math.floor(Math.random() * 312); // 768-1080
+  const timezones = ['America/New_York', 'America/Chicago', 'America/Los_Angeles', 'America/Denver', 'Europe/London'];
+  const locales = ['en-US', 'en-GB', 'en-CA'];
+
+  const context = await browser.newContext({
+    viewport: { width: viewportWidth, height: viewportHeight },
+    locale: locales[Math.floor(Math.random() * locales.length)],
+    timezoneId: timezones[Math.floor(Math.random() * timezones.length)],
+    deviceScaleFactor: 1 + Math.random() * 0.5,
+  });
+
   const page = await context.newPage();
 
   try {
@@ -359,18 +429,32 @@ async function authenticate(email: string, password: string, retryWithNewAccount
       timeout: 90000
     });
 
+    // Human-like reading delay
+    await humanDelay(1500, 3000);
+
     // Wait for form to be visible
     console.log('⏳ Waiting for email field...');
     await page.waitForSelector('input[name="email"]', { timeout: 30000 });
 
-    // Fill in credentials
-    console.log('✍️ Filling credentials...');
-    await page.fill('input[name="email"]', email);
-    await page.fill('input[name="password"]', password);
+    // Scroll a bit (humans often do this)
+    await page.mouse.wheel(0, Math.random() * 100);
+    await humanDelay(500, 1200);
+
+    // Fill in credentials with human typing
+    console.log('✍️ Typing email...');
+    await humanType(page, 'input[name="email"]', email);
+
+    await humanDelay(600, 1400); // Pause between fields
+
+    console.log('✍️ Typing password...');
+    await humanType(page, 'input[name="password"]', password);
+
+    // Pause before submitting (humans review what they typed)
+    await humanDelay(1000, 2500);
 
     console.log('🖱️ Clicking login button...');
-    // Click login button
-    await page.click('button:has-text("Login")');
+    // Click login button with mouse movement
+    await humanClick(page, 'button:has-text("Login")');
 
     // Wait for either navigation or error message
     console.log('⏳ Waiting for response...');
@@ -393,8 +477,12 @@ async function authenticate(email: string, password: string, retryWithNewAccount
       const errorText = await page.textContent('body').catch(() => '');
       if (errorText.toLowerCase().includes('invalid') ||
           errorText.toLowerCase().includes('incorrect') ||
-          errorText.toLowerCase().includes('error')) {
-        throw new Error(`Login failed - possible error on page. Check screenshot.`);
+          errorText.toLowerCase().includes('error') ||
+          errorText.toLowerCase().includes('failed') ||
+          errorText.toLowerCase().includes('authentication')) {
+        // Extract specific error message if visible
+        const errorMsg = await page.textContent('.error, .alert, [class*="error"], [class*="alert"]').catch(() => '');
+        throw new Error(`Login failed - ${errorMsg || 'Authentication error detected'}. Check screenshot at /tmp/quansic-login-debug.png`);
       }
 
       // If no error found, wait a bit longer

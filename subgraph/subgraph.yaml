@@ -6,7 +6,7 @@ schema:
 dataSources:
   - kind: ethereum
     name: SongEvents
-    network: lens-testnet
+    network: local
     source:
       address: "0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d"
       abi: SongEvents
@@ -24,11 +24,15 @@ dataSources:
       eventHandlers:
         - event: SongRegistered(indexed uint32,string,indexed address,uint32,uint64)
           handler: handleSongRegistered
+        - event: SongMetadataUpdated(indexed uint32,string,indexed address,uint64)
+          handler: handleSongMetadataUpdated
+        - event: SongToggled(indexed uint32,bool,uint64)
+          handler: handleSongToggled
       file: ./src/mappings.ts
 
   - kind: ethereum
     name: SegmentEvents
-    network: lens-testnet
+    network: local
     source:
       address: "0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8"
       abi: SegmentEvents
@@ -45,15 +49,44 @@ dataSources:
         - name: SegmentEvents
           file: ./abis/SegmentEvents.json
       eventHandlers:
-        - event: SegmentRegistered(indexed bytes32,indexed uint32,string,string,indexed address,uint64)
+        - event: SegmentRegistered(indexed bytes32,indexed string,string,uint32,uint32,string,indexed address,uint64)
           handler: handleSegmentRegistered
-        - event: SegmentProcessed(indexed bytes32,string,string,string,uint64)
+        - event: SegmentProcessed(indexed bytes32,string,string,uint8,string,uint64)
           handler: handleSegmentProcessed
+        - event: SegmentToggled(indexed bytes32,bool,uint64)
+          handler: handleSegmentToggled
+      file: ./src/mappings.ts
+
+  - kind: ethereum
+    name: TranslationEvents
+    network: local
+    source:
+      address: "0x0000000000000000000000000000000000000000"
+      abi: TranslationEvents
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Translation
+        - Segment
+        - GlobalStats
+      abis:
+        - name: TranslationEvents
+          file: ./abis/TranslationEvents.json
+      eventHandlers:
+        - event: TranslationAdded(indexed bytes32,indexed string,string,string,uint16,bool,indexed address,uint64)
+          handler: handleTranslationAdded
+        - event: TranslationUpdated(indexed bytes32,indexed string,string,bool,indexed address,uint64)
+          handler: handleTranslationUpdated
+        - event: TranslationToggled(indexed bytes32,indexed string,bool,uint64)
+          handler: handleTranslationToggled
       file: ./src/mappings.ts
 
   - kind: ethereum
     name: PerformanceGrader
-    network: lens-testnet
+    network: local
     source:
       address: "0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0"
       abi: PerformanceGrader
@@ -73,11 +106,13 @@ dataSources:
       eventHandlers:
         - event: PerformanceGraded(indexed uint256,indexed bytes32,indexed address,uint16,string,uint64)
           handler: handlePerformanceGraded
+        - event: PerformanceSubmitted(indexed uint256,indexed bytes32,indexed address,string,uint64)
+          handler: handlePerformanceSubmitted
       file: ./src/mappings.ts
 
   - kind: ethereum
     name: AccountEvents
-    network: lens-testnet
+    network: local
     source:
       address: "0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22"
       abi: AccountEvents
@@ -97,4 +132,6 @@ dataSources:
           handler: handleAccountCreated
         - event: AccountMetadataUpdated(indexed address,string,indexed address,uint64)
           handler: handleAccountMetadataUpdated
+        - event: AccountVerified(indexed address,bool,indexed address,uint64)
+          handler: handleAccountVerified
       file: ./src/mappings.ts

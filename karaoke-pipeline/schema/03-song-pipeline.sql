@@ -1,7 +1,7 @@
--- Track Pipeline State Machine
--- Single source of truth for track processing status
+-- Song Pipeline State Machine
+-- Single source of truth for song processing status
 
-CREATE TABLE IF NOT EXISTS track_pipeline (
+CREATE TABLE IF NOT EXISTS song_pipeline (
   id SERIAL PRIMARY KEY,
 
   -- Identity (video → track linkage)
@@ -47,16 +47,16 @@ CREATE TABLE IF NOT EXISTS track_pipeline (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_pipeline_status ON track_pipeline(status)
+CREATE INDEX idx_pipeline_status ON song_pipeline(status)
   WHERE status NOT IN ('minted', 'failed');
 
-CREATE INDEX idx_pipeline_retry ON track_pipeline(status, last_attempted_at, retry_count)
+CREATE INDEX idx_pipeline_retry ON song_pipeline(status, last_attempted_at, retry_count)
   WHERE status NOT IN ('minted', 'failed');
 
-CREATE INDEX idx_pipeline_spotify ON track_pipeline(spotify_track_id);
-CREATE INDEX idx_pipeline_video ON track_pipeline(tiktok_video_id);
-CREATE INDEX idx_pipeline_isrc ON track_pipeline(isrc) WHERE isrc IS NOT NULL;
-CREATE INDEX idx_pipeline_iswc ON track_pipeline(iswc) WHERE iswc IS NOT NULL;
+CREATE INDEX idx_pipeline_spotify ON song_pipeline(spotify_track_id);
+CREATE INDEX idx_pipeline_video ON song_pipeline(tiktok_video_id);
+CREATE INDEX idx_pipeline_isrc ON song_pipeline(isrc) WHERE isrc IS NOT NULL;
+CREATE INDEX idx_pipeline_iswc ON song_pipeline(iswc) WHERE iswc IS NOT NULL;
 
 -- Views for monitoring
 CREATE OR REPLACE VIEW pipeline_summary AS
@@ -67,7 +67,7 @@ SELECT
   MIN(updated_at) as oldest_updated,
   MAX(updated_at) as newest_updated,
   COUNT(*) FILTER (WHERE retry_count >= 3) as max_retries_reached
-FROM track_pipeline
+FROM song_pipeline
 GROUP BY status
 ORDER BY
   CASE status
@@ -86,34 +86,31 @@ ORDER BY
   END;
 
 -- View for GRC20 minting (with all joined data)
-CREATE OR REPLACE VIEW tracks_ready_to_mint AS
+CREATE OR REPLACE VIEW songs_ready_to_mint AS
 SELECT
-  tp.*,
+  sp.*,
   st.title,
   st.artists,
-  tm.audio_grove_cid,
-  tm.vocals_grove_cid,
-  tm.instrumental_grove_cid,
-  tm.enhanced_instrumental_grove_cid,
-  tm.word_timing_grove_cid,
-  tm.artist_image_grove_cid,
-  tl.plain_text as lyrics_plain,
-  tl.synced_lrc as lyrics_synced,
-  tl.grove_cid as lyrics_grove_cid,
+  sa.grove_cid as audio_grove_cid,
+  sa.duration_ms as audio_duration_ms,
+  -- Future: Add stems, alignment, enhanced audio, images when those tables exist
+  sl.plain_text as lyrics_plain,
+  sl.synced_lrc as lyrics_synced,
+  sl.grove_cid as lyrics_grove_cid,
   v.video_url as tiktok_url,
   v.creator_username as tiktok_creator
-FROM track_pipeline tp
-JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-LEFT JOIN track_media tm ON tp.spotify_track_id = tm.spotify_track_id
-LEFT JOIN track_lyrics tl ON tp.spotify_track_id = tl.spotify_track_id
-LEFT JOIN tiktok_videos v ON tp.tiktok_video_id = v.video_id
-WHERE tp.status = 'ready_to_mint'
-  AND tp.has_iswc = TRUE
-  AND tp.has_lyrics = TRUE
-  AND tp.has_audio = TRUE;
+FROM song_pipeline sp
+JOIN spotify_tracks st ON sp.spotify_track_id = st.spotify_track_id
+LEFT JOIN song_audio sa ON sp.spotify_track_id = sa.spotify_track_id
+LEFT JOIN song_lyrics sl ON sp.spotify_track_id = sl.spotify_track_id
+LEFT JOIN tiktok_videos v ON sp.tiktok_video_id = v.video_id
+WHERE sp.status = 'ready_to_mint'
+  AND sp.has_iswc = TRUE
+  AND sp.has_lyrics = TRUE
+  AND sp.has_audio = TRUE;
 
 -- Trigger to update updated_at
-CREATE TRIGGER track_pipeline_update
-  BEFORE UPDATE ON track_pipeline
+CREATE TRIGGER song_pipeline_update
+  BEFORE UPDATE ON song_pipeline
   FOR EACH ROW
   EXECUTE FUNCTION update_timestamp();

@@ -8,17 +8,19 @@ pragma solidity ^0.8.19;
  *
  * Purpose:
  * - Enable subgraph indexing for segment queries
- * - Track segment processing pipeline
- * - Replace SegmentRegistryV1 storage with off-chain Grove data
+ * - Track segment processing pipeline (karaoke audio + translations)
+ * - Reference GRC-20 work entity UUIDs (public music metadata layer)
+ * - Store karaoke-specific data (segments, translations) in Grove
  *
  * Data Flow:
- * 1. Upload segment metadata to Grove (lens://segment-{hash}.json)
- * 2. Call emitSegmentRegistered() for initial registration
- * 3. After processing, call emitSegmentProcessed() with asset URIs
- * 4. The Graph indexes events for queries
+ * 1. Query GRC-20 for work entity ID (by ISWC/Spotify ID)
+ * 2. Build segment metadata with timing, translations → Grove
+ * 3. Call emitSegmentRegistered() with GRC-20 work UUID
+ * 4. After processing, call emitSegmentProcessed() with asset URIs
+ * 5. The Graph indexes events for app queries
  *
- * Gas Cost: ~30k per event (vs ~180k for V1 registration)
- * Savings: ~83%
+ * Gas Cost: ~35k per event (minimal on-chain footprint)
+ * Storage: Grove/IPFS (permanent, queryable via GRC-20 graph)
  */
 contract SegmentEvents {
 
@@ -26,17 +28,21 @@ contract SegmentEvents {
 
     /**
      * @notice Emitted when a segment is registered (before processing)
-     * @param segmentHash Unique segment hash (keccak256(geniusId, tiktokSegmentId))
-     * @param geniusId Genius song ID
-     * @param tiktokSegmentId TikTok music page ID
-     * @param metadataUri Grove URI for full metadata (lens://...)
+     * @param segmentHash Unique segment hash (keccak256(spotifyTrackId, segmentStartMs))
+     * @param grc20WorkId GRC-20 musical work entity UUID (references public metadata layer)
+     * @param spotifyTrackId Spotify track ID (for fast lookups + audio matching)
+     * @param segmentStartMs Start time in milliseconds (fal segment timing)
+     * @param segmentEndMs End time in milliseconds (fal segment timing)
+     * @param metadataUri Grove URI for full metadata (grove://...)
      * @param registeredBy Address that registered the segment
      * @param timestamp Block timestamp
      */
     event SegmentRegistered(
         bytes32 indexed segmentHash,
-        uint32 indexed geniusId,
-        string tiktokSegmentId,
+        string indexed grc20WorkId,
+        string spotifyTrackId,
+        uint32 segmentStartMs,
+        uint32 segmentEndMs,
         string metadataUri,
         address indexed registeredBy,
         uint64 timestamp
@@ -46,14 +52,16 @@ contract SegmentEvents {
      * @notice Emitted when segment processing completes
      * @param segmentHash Unique segment hash
      * @param instrumentalUri Grove URI for instrumental (PRIMARY - users karaoke over this)
-     * @param alignmentUri Grove URI for alignment metadata (word-level timing)
-     * @param metadataUri Updated Grove URI with asset links
+     * @param alignmentUri Grove URI for alignment metadata (ElevenLabs word-level timing)
+     * @param translationCount Number of translations available (es, zh, ja, ko, etc.)
+     * @param metadataUri Updated Grove URI with asset links (includes translation URIs)
      * @param timestamp Block timestamp
      */
     event SegmentProcessed(
         bytes32 indexed segmentHash,
         string instrumentalUri,
         string alignmentUri,
+        uint8 translationCount,
         string metadataUri,
         uint64 timestamp
     );
@@ -74,22 +82,28 @@ contract SegmentEvents {
 
     /**
      * @notice Emit segment registration event
-     * @param segmentHash Unique segment identifier
-     * @param geniusId Genius song ID
-     * @param tiktokSegmentId TikTok music page ID
+     * @param segmentHash Unique segment identifier (keccak256(spotifyTrackId, segmentStartMs))
+     * @param grc20WorkId GRC-20 musical work entity UUID
+     * @param spotifyTrackId Spotify track ID
+     * @param segmentStartMs Segment start time in milliseconds
+     * @param segmentEndMs Segment end time in milliseconds
      * @param metadataUri Grove URI for metadata
      * @dev Anyone can call - no authorization needed
      */
     function emitSegmentRegistered(
         bytes32 segmentHash,
-        uint32 geniusId,
-        string calldata tiktokSegmentId,
+        string calldata grc20WorkId,
+        string calldata spotifyTrackId,
+        uint32 segmentStartMs,
+        uint32 segmentEndMs,
         string calldata metadataUri
     ) external {
         emit SegmentRegistered(
             segmentHash,
-            geniusId,
-            tiktokSegmentId,
+            grc20WorkId,
+            spotifyTrackId,
+            segmentStartMs,
+            segmentEndMs,
             metadataUri,
             msg.sender,
             uint64(block.timestamp)
@@ -99,20 +113,23 @@ contract SegmentEvents {
     /**
      * @notice Emit segment processing completion event
      * @param segmentHash Unique segment identifier
-     * @param instrumentalUri Grove URI for instrumental
-     * @param alignmentUri Grove URI for alignment metadata
-     * @param metadataUri Updated Grove URI with asset links
+     * @param instrumentalUri Grove URI for instrumental (enhanced via Fal.ai)
+     * @param alignmentUri Grove URI for alignment metadata (ElevenLabs word timing)
+     * @param translationCount Number of translations available
+     * @param metadataUri Updated Grove URI with asset links (includes translation URIs)
      */
     function emitSegmentProcessed(
         bytes32 segmentHash,
         string calldata instrumentalUri,
         string calldata alignmentUri,
+        uint8 translationCount,
         string calldata metadataUri
     ) external {
         emit SegmentProcessed(
             segmentHash,
             instrumentalUri,
             alignmentUri,
+            translationCount,
             metadataUri,
             uint64(block.timestamp)
         );
@@ -136,15 +153,15 @@ contract SegmentEvents {
 
     /**
      * @notice Helper: Generate segment hash (for consistency)
-     * @param geniusId Genius song ID
-     * @param tiktokSegmentId TikTok segment ID
+     * @param spotifyTrackId Spotify track ID
+     * @param segmentStartMs Segment start time in milliseconds
      * @return Segment hash (keccak256)
      */
-    function getSegmentHash(uint32 geniusId, string calldata tiktokSegmentId)
+    function getSegmentHash(string calldata spotifyTrackId, uint32 segmentStartMs)
         external
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(geniusId, tiktokSegmentId));
+        return keccak256(abi.encodePacked(spotifyTrackId, segmentStartMs));
     }
 }

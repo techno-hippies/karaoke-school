@@ -64,13 +64,17 @@ export async function close(): Promise<void> {
 
 /**
  * Helper to format values for SQL
+ * All arrays are treated as JSONB for consistency
  */
 export function sqlValue(value: any): string {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   if (value instanceof Date) return `'${value.toISOString()}'`;
-  if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
+  if (Array.isArray(value) || typeof value === 'object') {
+    // All arrays and objects are JSONB
+    return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
+  }
   return String(value);
 }
 

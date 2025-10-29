@@ -1,5 +1,6 @@
 """
 A registered song on the platform
+Note: GRC-20 handles public music metadata, this is for app-specific song data
 """
 type Song @entity(immutable: false) {
   id: ID! # geniusId
@@ -9,38 +10,68 @@ type Song @entity(immutable: false) {
   geniusArtistId: BigInt!
   registeredAt: BigInt!
 
-  # Relations
-  segments: [Segment!]! @derivedFrom(field: "song")
-
-  # Computed/aggregated fields
+  # Legacy relation - used for existing data
+  # New segments reference GRC-20 work IDs directly
   segmentCount: Int!
   performanceCount: Int!
+  translationCount: Int! # Total translations across all segments
 }
 
 """
-A processed segment of a song (TikTok audio)
+A processed segment of a song (karaoke audio with translations)
+References GRC-20 work entity for music metadata (decoupled design)
 """
 type Segment @entity(immutable: false) {
   id: ID! # segmentHash
   segmentHash: Bytes!
-  song: Song!
-  geniusId: BigInt!
-  tiktokSegmentId: String!
+  
+  # GRC-20 Reference (Public Music Metadata Layer)
+  grc20WorkId: String! # GRC-20 musical work entity UUID (primary reference)
+  
+  # App-specific data
+  spotifyTrackId: String! # Spotify track ID for audio matching
+  segmentStartMs: Int! # Start time in milliseconds
+  segmentEndMs: Int! # End time in milliseconds
   metadataUri: String!
   registeredBy: Bytes!
   registeredAt: BigInt!
 
   # Set after processing
-  instrumentalUri: String
-  alignmentUri: String
+  instrumentalUri: String # Grove URI for instrumental (primary audio)
+  alignmentUri: String # Grove URI for alignment metadata (ElevenLabs word timing)
   processedAt: BigInt
+  translationCount: Int! # Number of translations available
 
   # Relations
   performances: [Performance!]! @derivedFrom(field: "segment")
+  translations: [Translation!]! @derivedFrom(field: "segment")
 
   # Computed
   performanceCount: Int!
   averageScore: BigDecimal!
+  hasInstrumental: Boolean!
+  hasAlignments: Boolean!
+}
+
+"""
+A multi-language translation for a segment
+"""
+type Translation @entity(immutable: false) {
+  id: ID! # segmentHash + languageCode
+  segment: Segment!
+  segmentHash: Bytes!
+  languageCode: String! # ISO 639-1 code (es, zh, ja, ko, etc.)
+  translationUri: String! # Grove URI for translation JSON (line-level + word timing)
+  translationSource: String! # AI model used (e.g., "gemini-flash-2.5")
+  confidenceScore: Int! # 0-10000 (model confidence × 10000)
+  validated: Boolean! # Human-verified translation
+  addedBy: Bytes!
+  addedAt: BigInt!
+  updatedAt: BigInt
+  enabled: Boolean! # Whether translation is available
+
+  # Computed
+  confidenceLevel: String! # HIGH, MEDIUM, LOW based on confidenceScore
 }
 
 """
@@ -52,8 +83,8 @@ type Performance @entity(immutable: true) {
   segment: Segment!
   performer: Account!
   performerAddress: Bytes!
-  score: Int!
-  metadataUri: String!
+  score: Int! # 0-10000 (basis points)
+  metadataUri: String! # Grove URI for full performance metadata
   gradedAt: BigInt!
 
   # Denormalized for queries
@@ -73,6 +104,7 @@ type Account @entity(immutable: false) {
   geniusArtistId: Int # 0 if not an artist
   createdAt: BigInt!
   updatedAt: BigInt!
+  verified: Boolean! # Account verification status
 
   # Relations
   performances: [Performance!]! @derivedFrom(field: "performer")
@@ -81,6 +113,7 @@ type Account @entity(immutable: false) {
   performanceCount: Int!
   totalScore: BigInt!
   averageScore: BigDecimal!
+  bestScore: Int!
 }
 
 """
@@ -92,4 +125,20 @@ type GlobalStats @entity(immutable: false) {
   totalSegments: Int!
   totalPerformances: Int!
   totalAccounts: Int!
+  totalTranslations: Int!
+  enabledTranslations: Int!
+}
+
+"""
+Leaderboard entry for segment performances
+"""
+type SegmentLeaderboard @entity(immutable: false) {
+  id: ID! # segmentHash
+  segment: Segment!
+  totalPerformers: Int!
+  averageScore: BigDecimal!
+  highestScore: Int!
+  lowestScore: Int!
+  createdAt: BigInt!
+  updatedAt: BigInt!
 }

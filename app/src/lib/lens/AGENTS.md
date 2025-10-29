@@ -78,9 +78,113 @@ VITE_LENS_APP_ADDRESS=0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7
 - Check `useAuth()` context before assuming connection
 
 **Namespace Issues**:
-- Currently using global namespace
-- Custom namespaces need sponsorship setup
+- Currently using global namespace (not custom `kschool2/*`)
+- Custom namespaces only return `raw` transactions, requiring PKP wallet gas funds
+- Global namespace supports typedData relay for gasless operations
 - Username validation format: lowercase, alphanumeric, underscores, 6+ chars
+
+## Custom Namespace Implementation History
+
+### Key Discovery: Transaction Types
+
+**Custom Namespace Limitation**:
+Custom namespaces in Lens Protocol V3 return only `raw` transactions for username creation, not `typedData`. This means PKP wallets must have gas funds to submit transactions, defeating the gasless sponsorship goal.
+
+```typescript
+// Custom namespace returns:
+type SponsoredTransactionRequest {
+  reason: String
+  sponsoredReason: String
+  raw: RawTransaction  // Requires PKP gas funds
+  // NO "id" field for relay
+  // NO "typedData" field for gasless relay
+}
+```
+
+**Global Namespace Advantage**:
+Global namespace returns `typedData` + `id`, enabling gasless relay via Lens API:
+
+```typescript
+// Global namespace returns:
+{
+  id: "transaction_id",
+  typedData: { ... },  // Can be signed by PKP without gas
+}
+// Gasless execution via sessionClient.executeTypedData()
+```
+
+### Failed Approaches
+
+**1. Funding PKPs (Security Risk)**:
+```typescript
+// Attempted solution: Send 0.01 GRASS to PKP before username creation
+// Problem: Bot networks can exploit, draining funding wallet
+// Result: Abandoned - creates financial attack vector
+```
+
+**2. Admin Wallet Submission**:
+```typescript
+// Attempted solution: Backend admin submits transaction on behalf of PKP
+// Problem: Transaction must be signed BY account owner (PKP)
+// Result: Failed with status 0x0 - requires PKP signature
+```
+
+**3. PKP Verification Bug**:
+```typescript
+// WRONG (current implementation):
+const pkpBalance = await publicClient.readContract({
+  address: PKP_NFT_CONTRACT,
+  functionName: 'balanceOf',
+  args: [pkpWalletAddress], // ❌ Always returns 0
+})
+
+// Correct approach: Verify NFT owner matches expected minter
+```
+
+### Technical Implementation Details
+
+**Transaction Flow Analysis**:
+
+1. **Create Account** (✅ Fully sponsored)
+   - User role: ONBOARDING_USER
+   - Returns `hash` (no signature needed)
+   - Works perfectly with sponsorship
+
+2. **Switch to Account Owner** (✅ Works after DB optimization)
+   - User role: Switch ONBOARDING_USER → ACCOUNT_OWNER
+   - Returns `hash` (fully sponsored)
+   - Previously failed due to 820ms DB queries exceeding 1000ms timeout
+
+3. **Create Username** (❌ Requires PKP funds in custom namespace)
+   - User role: ACCOUNT_OWNER
+   - Custom namespace: Returns `raw` only (needs PKP gas)
+   - Global namespace: Returns `typedData` + `id` (gasless relay)
+
+**Transaction Type Comparison**:
+
+| Type | Signature | PKP Funds | Use Case |
+|------|-----------|-----------|----------|
+| `hash` | ❌ No | ❌ No | Simple operations (account creation) |
+| `typedData` + `id` | ✅ Yes | ❌ No | Gasless relay (global namespace) |
+| `raw` | ✅ Yes | ✅ **YES** | Direct RPC submission (custom namespace) |
+
+## Recommendations
+
+**Current Implementation** (✅ Completed 2025-10-23):
+- **Switched to global Lens namespace** for gasless account creation
+- Simplified flow: no custom namespace complexity
+- Full sponsorship support via typedData relay
+
+**Files Modified**:
+- `src/lib/lens/account-creation.ts` - Removed namespace parameter
+- `src/lib/lens/config.ts` - Disabled custom namespace config
+- Sponsorship API optimized (DB bypass for performance)
+
+**Future Investigation**:
+1. Fix PKP verification (use `ownerOf` instead of `balanceOf`)
+2. Optimize sponsorship API database queries
+3. Re-enable quota tracking once DB performance resolved
+4. Research if custom namespaces can support typedData in future
 
 ## Data Flow
 

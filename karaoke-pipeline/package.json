@@ -5,7 +5,12 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "pipeline": "bun run-pipeline.ts",
+    "pipeline:all": "bun run-pipeline.ts --all --limit=50",
+    "pipeline:step": "bun run-pipeline.ts",
+    "scrape": "dotenvx run -f .env -- bun src/processors/01-scrape-tiktok.ts",
+    "test:pipeline": "bun run-pipeline.ts --step=2 --limit=1"
   },
   "dependencies": {
     "@spotify/web-api-ts-sdk": "^1.2.0",

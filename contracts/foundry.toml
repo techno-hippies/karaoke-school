@@ -23,7 +23,7 @@ mode = "3"
 
 # RPC endpoints
 [rpc_endpoints]
-lens-testnet = "${LENS_CHAIN_RPC_URL}"
+lens-testnet = "https://rpc.testnet.lens.xyz"
 lens-mainnet = "https://rpc.lens.xyz"
 
 # Etherscan verification

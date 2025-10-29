@@ -26,7 +26,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
       tp.spotify_track_id,
       tp.isrc,
       st.title
-    FROM track_pipeline tp
+    FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
     WHERE tp.status = 'spotify_resolved'
       AND tp.isrc IS NOT NULL
@@ -59,7 +59,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
 
         // Update pipeline with cached ISWC
         await db.sql`
-          UPDATE track_pipeline
+          UPDATE song_pipeline
           SET
             status = 'iswc_found',
             has_iswc = TRUE,
@@ -116,7 +116,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
 
               // Update pipeline
               await db.sql`
-                UPDATE track_pipeline
+                UPDATE song_pipeline
                 SET
                   status = 'iswc_found',
                   has_iswc = TRUE,
@@ -150,7 +150,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
       console.log(`   ❌ ${track.title} - NO ISWC FOUND (gate failed)`);
 
       await db.sql`
-        UPDATE track_pipeline
+        UPDATE song_pipeline
         SET
           status = 'failed',
           error_message = 'No ISWC found in Quansic or MusicBrainz',
@@ -174,7 +174,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
 
       // Increment retry count
       await db.sql`
-        UPDATE track_pipeline
+        UPDATE song_pipeline
         SET
           retry_count = retry_count + 1,
           error_message = ${error.message},

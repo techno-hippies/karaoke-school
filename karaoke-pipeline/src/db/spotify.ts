@@ -7,6 +7,26 @@ import { buildUpsert } from './neon';
 import type { SpotifyTrackInfo, SpotifyArtistInfo } from '../services/spotify';
 
 /**
+ * Normalize Spotify release date to PostgreSQL DATE format
+ * Spotify returns: "1976", "1976-01", or "1976-01-15"
+ * PostgreSQL DATE expects: "YYYY-MM-DD"
+ */
+function normalizeReleaseDate(releaseDate: string | null): string | null {
+  if (!releaseDate) return null;
+
+  // Already full date
+  if (releaseDate.length === 10) return releaseDate;
+
+  // Year only: pad to YYYY-01-01
+  if (releaseDate.length === 4) return `${releaseDate}-01-01`;
+
+  // Year-month: pad to YYYY-MM-01
+  if (releaseDate.length === 7) return `${releaseDate}-01`;
+
+  return releaseDate;
+}
+
+/**
  * Generate SQL to upsert a Spotify track
  */
 export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
@@ -17,7 +37,7 @@ export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
     album: track.album,
     isrc: track.isrc,
     duration_ms: track.duration_ms,
-    release_date: track.release_date,
+    release_date: normalizeReleaseDate(track.release_date),
     popularity: track.popularity,
     spotify_url: track.spotify_url,
     preview_url: track.preview_url,
@@ -61,7 +81,7 @@ export function upsertSpotifyArtistSQL(artist: SpotifyArtistInfo): string {
 }
 
 /**
- * Generate SQL to create track_pipeline entry
+ * Generate SQL to create song_pipeline entry
  */
 export function createPipelineEntrySQL(
   videoId: string,
@@ -77,7 +97,7 @@ export function createPipelineEntrySQL(
     spotify_artist_id: primaryArtistId,
   };
 
-  return buildUpsert('track_pipeline', data, 'tiktok_video_id', [
+  return buildUpsert('song_pipeline', data, 'tiktok_video_id', [
     'spotify_track_id',
     'status',
     'isrc',

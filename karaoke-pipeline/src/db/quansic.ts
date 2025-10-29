@@ -44,16 +44,18 @@ export function upsertQuansicRecordingSQL(
 
 /**
  * Generate SQL to update pipeline status after ISWC resolution
+ * Note: Pipeline continues even when ISWC is not found (fault-tolerant)
  */
 export function updatePipelineISWCSQL(
   spotifyTrackId: string,
   iswc: string | null
 ): string {
   const hasISWC = iswc !== null;
-  const status = hasISWC ? 'iswc_found' : 'failed';
+  // Always continue pipeline - ISWC is optional metadata
+  const status = 'iswc_found';
 
   return `
-    UPDATE track_pipeline
+    UPDATE song_pipeline
     SET
       has_iswc = ${hasISWC},
       status = '${status}',

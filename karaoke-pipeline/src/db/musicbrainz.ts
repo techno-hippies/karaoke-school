@@ -7,6 +7,26 @@ import { buildUpsert } from './neon';
 import type { MBRecording, MBWork, MBArtist } from '../services/musicbrainz';
 
 /**
+ * Normalize date to PostgreSQL DATE format
+ * MusicBrainz returns: "1976", "1976-01", or "1976-01-15"
+ * PostgreSQL DATE expects: "YYYY-MM-DD"
+ */
+function normalizeDate(date: string | null): string | null {
+  if (!date) return null;
+
+  // Already full date
+  if (date.length === 10) return date;
+
+  // Year only: pad to YYYY-01-01
+  if (date.length === 4) return `${date}-01-01`;
+
+  // Year-month: pad to YYYY-MM-01
+  if (date.length === 7) return `${date}-01`;
+
+  return date;
+}
+
+/**
  * Generate SQL to upsert MusicBrainz recording
  */
 export function upsertMBRecordingSQL(
@@ -29,7 +49,7 @@ export function upsertMBRecordingSQL(
     })) || [],
     work_mbid: workMbid,
     tags: recording.tags || [],
-    first_release_date: recording['first-release-date'] || null,
+    first_release_date: normalizeDate(recording['first-release-date'] || null),
     video: recording.video || false,
   };
 
@@ -75,21 +95,56 @@ export function upsertMBWorkSQL(work: MBWork): string {
  */
 export function upsertMBArtistSQL(
   artist: MBArtist,
-  isni?: string,
   spotifyArtistId?: string
 ): string {
-  const urls: Record<string, string> = {};
+  const socialMedia: Record<string, string> = {};
+  const streaming: Record<string, string> = {};
+  const allUrls: Record<string, string> = {};
 
+  // Helper to extract a unique identifier from URL
+  const getUrlKey = (type: string, url: string): string => {
+    try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.replace(/^www\./, '');
+
+      // Extract ID from path if available
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      const id = pathParts[pathParts.length - 1];
+
+      // Create unique key: type.domain or type.domain.id
+      if (id && id.length < 50) {
+        return `${type}.${domain}.${id}`;
+      }
+      return `${type}.${domain}`;
+    } catch {
+      // Fallback if URL parsing fails
+      return `${type}.${Date.now()}`;
+    }
+  };
+
+  let urlIndex = 0;
   artist.relations?.forEach(rel => {
     if (rel.type && rel.url?.resource) {
-      // Extract URL type from the resource URL
-      if (rel.url.resource.includes('wikidata.org')) {
-        urls.wikidata = rel.url.resource;
-      } else if (rel.url.resource.includes('wikipedia.org')) {
-        urls.wikipedia = rel.url.resource;
-      } else if (rel.url.resource.includes('discogs.com')) {
-        urls.discogs = rel.url.resource;
+      const url = rel.url.resource;
+
+      // Categorize URLs
+      if (rel.type === 'social network') {
+        if (url.includes('facebook.com')) socialMedia.facebook = url;
+        else if (url.includes('twitter.com')) socialMedia.twitter = url;
+        else if (url.includes('instagram.com')) socialMedia.instagram = url;
+        else if (url.includes('tiktok.com')) socialMedia.tiktok = url;
+        else if (url.includes('youtube.com')) socialMedia.youtube = url;
+      } else if (rel.type === 'free streaming' || rel.type === 'streaming') {
+        if (url.includes('spotify.com')) streaming.spotify = url;
+        else if (url.includes('apple.com')) streaming.apple_music = url;
+        else if (url.includes('deezer.com')) streaming.deezer = url;
       }
+
+      // Store ALL URLs with unique keys
+      const key = getUrlKey(rel.type, url);
+      // If key already exists (rare edge case), append index
+      const finalKey = allUrls[key] ? `${key}.${urlIndex++}` : key;
+      allUrls[finalKey] = url;
     }
   });
 
@@ -98,10 +153,16 @@ export function upsertMBArtistSQL(
     name: artist.name,
     artist_type: artist.type || null,
     country: artist.country || null,
+    gender: artist.gender || null,
+    birth_date: normalizeDate(artist['life-span']?.begin || null),
     begin_area: artist.begin_area?.name || null,
-    isni: isni || null,
+    isnis: artist.isnis || null,
+    ipis: artist.ipis || null,
     spotify_artist_id: spotifyArtistId || null,
-    urls: Object.keys(urls).length > 0 ? urls : null,
+    urls: Object.keys(allUrls).length > 0 ? allUrls : null,
+    social_media: Object.keys(socialMedia).length > 0 ? socialMedia : null,
+    streaming: Object.keys(streaming).length > 0 ? streaming : null,
+    all_urls: Object.keys(allUrls).length > 0 ? allUrls : null,
     genres: artist.genres?.map(g => ({ name: g.name, count: g.count })) || [],
     tags: artist.tags || [],
   };
@@ -110,13 +171,19 @@ export function upsertMBArtistSQL(
     'name',
     'artist_type',
     'country',
+    'gender',
+    'birth_date',
     'begin_area',
-    'isni',
+    'isnis',
+    'ipis',
     'spotify_artist_id',
     'urls',
+    'social_media',
+    'streaming',
+    'all_urls',
     'genres',
     'tags',
-  ]) + ' RETURNING artist_mbid, isni';
+  ]) + ' RETURNING artist_mbid, isnis';
 }
 
 /**
@@ -128,7 +195,7 @@ export function updatePipelineMBSQL(
   workMbid: string | null
 ): string {
   return `
-    UPDATE track_pipeline
+    UPDATE song_pipeline
     SET
       status = 'metadata_enriched',
       recording_mbid = '${recordingMbid}',

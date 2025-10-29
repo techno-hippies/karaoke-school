@@ -34,11 +34,21 @@ forge script script/DeployEvents.s.sol:DeployEvents \
   -vvvv
 ```
 
-## Contracts
+## Deployed Contracts (Lens Testnet)
 
-- **SongEvents**: Song registration events (~28k gas)
-- **SegmentEvents**: Segment processing events (~30k gas)
-- **PerformanceGrader**: PKP-verified grading (~48k gas)
-- **AccountEvents**: Account tracking (optional, ~25k gas)
+> **Chain ID**: 37111 | **RPC**: https://rpc.testnet.lens.xyz
+
+- **PerformanceGrader**: `0x788A245B9AAB4E29D0152424b72bcB8Ac7c1E260` ✅
+  - PKP-verified grading (~48k gas)
+  - Trusted PKP: `0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23`
+
+- **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
+  - Song registration events (~28k gas)
+
+- **SegmentEvents**: `0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8` ✅
+  - Segment processing events (~30k gas)
+
+- **AccountEvents**: `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` ✅
+  - Account tracking (optional, ~25k gas)
 
 See contract source files in `src/events/` for full documentation.

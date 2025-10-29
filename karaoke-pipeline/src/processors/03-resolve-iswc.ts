@@ -9,6 +9,7 @@
 
 import { query, transaction, close } from '../db/neon';
 import { enrichRecording, checkHealth } from '../services/quansic';
+import { searchBMI } from '../services/bmi';
 import {
   upsertQuansicRecordingSQL,
   updatePipelineISWCSQL,
@@ -45,14 +46,16 @@ async function main() {
     spotify_track_id: string;
     isrc: string;
     title: string;
+    artist: string | null;
   }>(`
     SELECT
       tp.id,
       tp.tiktok_video_id,
       tp.spotify_track_id,
       st.isrc,
-      st.title
-    FROM track_pipeline tp
+      st.title,
+      st.artists->0->>'name' as artist
+    FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
     WHERE tp.status = 'spotify_resolved'
       AND st.isrc IS NOT NULL
@@ -105,46 +108,103 @@ async function main() {
           track.spotify_track_id
         );
 
+        let finalISWC: string | null = null;
+        let quansicData = null;
+
         if (!result.success || !result.data) {
-          console.log(`     ❌ Failed: ${result.error || 'No data returned'}`);
+          console.log(`     ❌ Quansic failed: ${result.error || 'No data returned'}`);
+
+          // Try BMI fallback immediately when Quansic fails
+          if (track.artist) {
+            const bmiResult = await searchBMI(track.title, track.artist);
+            if (bmiResult?.iswc) {
+              finalISWC = bmiResult.iswc;
+              console.log(`     📖 BMI found ISWC: ${finalISWC}`);
+
+              // Log BMI source
+              sqlStatements.push(
+                logQuansicProcessingSQL(
+                  track.spotify_track_id,
+                  track.isrc,
+                  'success',
+                  `Quansic failed, ISWC found via BMI fallback`,
+                  { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
+                )
+              );
+            }
+          }
+
+          // Still move pipeline forward (fault-tolerant)
+          sqlStatements.push(
+            updatePipelineISWCSQL(track.spotify_track_id, finalISWC)
+          );
+
+          if (!finalISWC) {
+            sqlStatements.push(
+              logQuansicProcessingSQL(
+                track.spotify_track_id,
+                track.isrc,
+                'success',
+                `Quansic API failed: ${result.error || 'No data returned'}. BMI also had no results. Continuing without ISWC.`
+              )
+            );
+          }
+
+          failCount++;
+          if (finalISWC) iswcFoundCount++;
+          continue;
+        }
+
+        quansicData = result.data;
+        finalISWC = quansicData.iswc;
+
+        console.log(`     ✅ ${quansicData.title}`);
+        console.log(`        ISWC: ${quansicData.iswc || 'N/A'}`);
+        console.log(`        Work: ${quansicData.work_title || 'N/A'}`);
+        console.log(`        Composers: ${quansicData.composers.length}`);
+
+        // If Quansic doesn't have ISWC, try BMI fallback
+        if (!finalISWC && track.artist) {
+          const bmiResult = await searchBMI(track.title, track.artist);
+          if (bmiResult?.iswc) {
+            finalISWC = bmiResult.iswc;
+            console.log(`     📖 BMI found ISWC: ${finalISWC}`);
+
+            // Log BMI source
+            sqlStatements.push(
+              logQuansicProcessingSQL(
+                track.spotify_track_id,
+                track.isrc,
+                'success',
+                `ISWC found via BMI fallback`,
+                { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
+              )
+            );
+          }
+        }
+
+        const hasISWC = !!finalISWC;
+
+        // Store Quansic recording data
+        sqlStatements.push(upsertQuansicRecordingSQL(quansicData));
+
+        // Update pipeline status with final ISWC (from Quansic or BMI)
+        sqlStatements.push(
+          updatePipelineISWCSQL(track.spotify_track_id, finalISWC)
+        );
+
+        // Log Quansic success
+        if (quansicData.iswc) {
           sqlStatements.push(
             logQuansicProcessingSQL(
               track.spotify_track_id,
               track.isrc,
-              'failed',
-              result.error || 'No data returned'
+              'success',
+              `ISWC found in Quansic`,
+              { iswc: quansicData.iswc, work_title: quansicData.work_title }
             )
           );
-          failCount++;
-          continue;
         }
-
-        const data = result.data;
-        const hasISWC = !!data.iswc;
-
-        console.log(`     ✅ ${data.title}`);
-        console.log(`        ISWC: ${data.iswc || 'N/A'}`);
-        console.log(`        Work: ${data.work_title || 'N/A'}`);
-        console.log(`        Composers: ${data.composers.length}`);
-
-        // Store Quansic recording data
-        sqlStatements.push(upsertQuansicRecordingSQL(data));
-
-        // Update pipeline status
-        sqlStatements.push(
-          updatePipelineISWCSQL(track.spotify_track_id, data.iswc)
-        );
-
-        // Log success
-        sqlStatements.push(
-          logQuansicProcessingSQL(
-            track.spotify_track_id,
-            track.isrc,
-            'success',
-            `ISWC ${hasISWC ? 'found' : 'not available'}`,
-            { iswc: data.iswc, work_title: data.work_title }
-          )
-        );
 
         successCount++;
         if (hasISWC) iswcFoundCount++;
@@ -174,21 +234,57 @@ async function main() {
   for (const track of tracksToProcess.filter(t => cachedISRCs.has(t.isrc))) {
     const cached = cachedRecordings.find(r => r.isrc === track.isrc);
     if (cached) {
-      sqlStatements.push(
-        updatePipelineISWCSQL(track.spotify_track_id, cached.iswc)
-      );
+      let finalISWC = cached.iswc;
+
+      // If cached ISWC is null, try BMI fallback
+      if (!finalISWC && track.artist) {
+        const bmiResult = await searchBMI(track.title, track.artist);
+        if (bmiResult?.iswc) {
+          finalISWC = bmiResult.iswc;
+          console.log(`     📖 BMI found ISWC for cached track: ${finalISWC}`);
+
+          // Log BMI source
+          sqlStatements.push(
+            logQuansicProcessingSQL(
+              track.spotify_track_id,
+              track.isrc,
+              'success',
+              `Cached Quansic had no ISWC, found via BMI fallback`,
+              { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
+            )
+          );
+        }
+      }
 
       sqlStatements.push(
-        logQuansicProcessingSQL(
-          track.spotify_track_id,
-          track.isrc,
-          'success',
-          'Used cached Quansic data',
-          { source: 'cache' }
-        )
+        updatePipelineISWCSQL(track.spotify_track_id, finalISWC)
       );
 
-      if (cached.iswc) iswcFoundCount++;
+      // Log cache usage if no BMI was needed
+      if (cached.iswc) {
+        sqlStatements.push(
+          logQuansicProcessingSQL(
+            track.spotify_track_id,
+            track.isrc,
+            'success',
+            'Used cached Quansic data',
+            { source: 'cache' }
+          )
+        );
+      } else if (!finalISWC) {
+        // Neither cache nor BMI had ISWC
+        sqlStatements.push(
+          logQuansicProcessingSQL(
+            track.spotify_track_id,
+            track.isrc,
+            'success',
+            'Cached Quansic had no ISWC, BMI also had no results',
+            { source: 'cache' }
+          )
+        );
+      }
+
+      if (finalISWC) iswcFoundCount++;
     }
   }
 

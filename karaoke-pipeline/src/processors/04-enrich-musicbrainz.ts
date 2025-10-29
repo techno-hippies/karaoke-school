@@ -13,7 +13,6 @@ import {
   lookupWork,
   lookupWorkByISWC,
   lookupArtist,
-  extractISNI,
 } from '../services/musicbrainz';
 import {
   upsertMBRecordingSQL,
@@ -40,7 +39,7 @@ async function main() {
     spotify_track_id: string;
     spotify_artist_id: string;
     isrc: string;
-    iswc: string;
+    iswc: string | null;
     title: string;
   }>(`
     SELECT
@@ -51,12 +50,10 @@ async function main() {
       st.isrc,
       tp.iswc,
       st.title
-    FROM track_pipeline tp
+    FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
     WHERE tp.status = 'iswc_found'
-      AND tp.has_iswc = TRUE
       AND st.isrc IS NOT NULL
-      AND tp.iswc IS NOT NULL
     ORDER BY tp.id
     LIMIT ${batchSize}
   `);
@@ -105,11 +102,17 @@ async function main() {
 
         if (!recording) {
           console.log(`     ❌ Recording not found in MusicBrainz`);
+
+          // Still move pipeline forward (fault-tolerant)
+          sqlStatements.push(
+            updatePipelineMBSQL(track.spotify_track_id, null, null)
+          );
+
           sqlStatements.push(
             logMBProcessingSQL(
               track.spotify_track_id,
-              'failed',
-              'Recording not found in MusicBrainz'
+              'success',
+              'Recording not found in MusicBrainz, continuing without MB data'
             )
           );
           failCount++;
@@ -150,9 +153,8 @@ async function main() {
               try {
                 const artist = await lookupArtist(artistMbid);
                 if (artist) {
-                  const isni = extractISNI(artist);
                   sqlStatements.push(
-                    upsertMBArtistSQL(artist, isni || undefined)
+                    upsertMBArtistSQL(artist)
                   );
                 }
               } catch (error: any) {

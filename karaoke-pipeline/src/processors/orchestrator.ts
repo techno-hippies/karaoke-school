@@ -10,6 +10,9 @@
 
 import type { Env } from '../types';
 import { processISWCDiscovery } from './step-08-iswc-discovery';
+import { processGeniusEnrichment } from './07-genius-enrichment';
+import { processForcedAlignment } from './06-forced-alignment';
+import { processLyricsTranslation } from './07-translate-lyrics';
 
 interface PipelineStep {
   number: number;
@@ -35,6 +38,38 @@ export async function runUnifiedPipeline(env: Env, options?: {
   }
 
   const steps: PipelineStep[] = [
+    // Step 6: ElevenLabs Forced Alignment
+    {
+      number: 6,
+      name: 'ElevenLabs Forced Alignment',
+      status: 'audio_downloaded',
+      nextStatus: 'alignment_complete',
+      processor: processForcedAlignment,
+      enabled: true
+    },
+
+    // Step 7: Genius Enrichment (Metadata Corroboration)
+    // Note: This is a parallel enrichment step that doesn't change status
+    // It enriches tracks with Genius metadata for lyrics corroboration
+    {
+      number: 7,
+      name: 'Genius Enrichment',
+      status: 'lyrics_ready', // Also processes audio_downloaded, alignment_complete
+      nextStatus: 'lyrics_ready', // Doesn't change status (parallel enrichment)
+      processor: processGeniusEnrichment,
+      enabled: true
+    },
+
+    // Step 7b: Lyrics Translation (Multi-Language)
+    {
+      number: 7.5, // Sub-step after alignment
+      name: 'Lyrics Translation',
+      status: 'alignment_complete',
+      nextStatus: 'translations_ready',
+      processor: processLyricsTranslation,
+      enabled: true
+    },
+
     // Step 8: ISWC Discovery (THE GATE)
     {
       number: 8,

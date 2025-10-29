@@ -4,6 +4,26 @@
 
 ---
 
+## 🔧 Database Configuration
+
+**IMPORTANT: Always use the correct Neon project when querying via MCP!**
+
+**Active Database (USE THIS ONE):**
+- **Project ID:** `frosty-smoke-70266868`
+- **Project Name:** KS1
+- **Region:** EU (aws-eu-central-1)
+- **Pipeline Table:** `song_pipeline`
+- **Created:** 2025-10-28
+
+**Old Database (DO NOT USE):**
+- **Project ID:** `plain-wave-99802895`
+- **Project Name:** OLD_ARCHIVED
+- **Region:** Singapore (aws-ap-southeast-1)
+- **Pipeline Table:** `track_pipeline`
+- **Status:** Archived - Do not query this database
+
+---
+
 ## 🎯 Project Overview
 
 Karaoke School is a decentralized karaoke platform for language learning that:

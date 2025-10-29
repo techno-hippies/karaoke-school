@@ -78,7 +78,15 @@ export interface MBArtist {
   name: string;
   type?: string;
   country?: string;
+  gender?: string;
+  'life-span'?: {
+    begin?: string;
+    end?: string | null;
+    ended: boolean;
+  };
   begin_area?: { name: string };
+  isnis?: string[];
+  ipis?: string[];
   genres?: Array<{ id: string; name: string; count: number }>;
   tags?: Array<{ name: string; count: number }>;
   relations?: Array<{
@@ -181,21 +189,3 @@ export async function lookupArtist(mbid: string): Promise<MBArtist | null> {
   }
 }
 
-/**
- * Extract ISNI from artist relations
- */
-export function extractISNI(artist: MBArtist): string | null {
-  if (!artist.relations) return null;
-
-  const isniRel = artist.relations.find(rel =>
-    rel.type === 'isni' && rel.url?.resource
-  );
-
-  if (isniRel?.url?.resource) {
-    // Extract ISNI from URL: https://isni.org/isni/0000000121331720
-    const match = isniRel.url.resource.match(/\/([0-9X]{16})$/);
-    return match ? match[1] : null;
-  }
-
-  return null;
-}

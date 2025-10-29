@@ -35,12 +35,16 @@ export class SegmentProcessed__Params {
     return this._event.parameters[2].value.toString();
   }
 
+  get translationCount(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
   get metadataUri(): string {
-    return this._event.parameters[3].value.toString();
+    return this._event.parameters[4].value.toString();
   }
 
   get timestamp(): BigInt {
-    return this._event.parameters[4].value.toBigInt();
+    return this._event.parameters[5].value.toBigInt();
   }
 }
 
@@ -61,24 +65,32 @@ export class SegmentRegistered__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get geniusId(): BigInt {
-    return this._event.parameters[1].value.toBigInt();
+  get grc20WorkId(): Bytes {
+    return this._event.parameters[1].value.toBytes();
   }
 
-  get tiktokSegmentId(): string {
+  get spotifyTrackId(): string {
     return this._event.parameters[2].value.toString();
   }
 
+  get segmentStartMs(): BigInt {
+    return this._event.parameters[3].value.toBigInt();
+  }
+
+  get segmentEndMs(): BigInt {
+    return this._event.parameters[4].value.toBigInt();
+  }
+
   get metadataUri(): string {
-    return this._event.parameters[3].value.toString();
+    return this._event.parameters[5].value.toString();
   }
 
   get registeredBy(): Address {
-    return this._event.parameters[4].value.toAddress();
+    return this._event.parameters[6].value.toAddress();
   }
 
   get timestamp(): BigInt {
-    return this._event.parameters[5].value.toBigInt();
+    return this._event.parameters[7].value.toBigInt();
   }
 }
 
@@ -113,13 +125,13 @@ export class SegmentEvents extends ethereum.SmartContract {
     return new SegmentEvents("SegmentEvents", address);
   }
 
-  getSegmentHash(geniusId: BigInt, tiktokSegmentId: string): Bytes {
+  getSegmentHash(spotifyTrackId: string, segmentStartMs: BigInt): Bytes {
     let result = super.call(
       "getSegmentHash",
-      "getSegmentHash(uint32,string):(bytes32)",
+      "getSegmentHash(string,uint32):(bytes32)",
       [
-        ethereum.Value.fromUnsignedBigInt(geniusId),
-        ethereum.Value.fromString(tiktokSegmentId),
+        ethereum.Value.fromString(spotifyTrackId),
+        ethereum.Value.fromUnsignedBigInt(segmentStartMs),
       ],
     );
 
@@ -127,15 +139,15 @@ export class SegmentEvents extends ethereum.SmartContract {
   }
 
   try_getSegmentHash(
-    geniusId: BigInt,
-    tiktokSegmentId: string,
+    spotifyTrackId: string,
+    segmentStartMs: BigInt,
   ): ethereum.CallResult<Bytes> {
     let result = super.tryCall(
       "getSegmentHash",
-      "getSegmentHash(uint32,string):(bytes32)",
+      "getSegmentHash(string,uint32):(bytes32)",
       [
-        ethereum.Value.fromUnsignedBigInt(geniusId),
-        ethereum.Value.fromString(tiktokSegmentId),
+        ethereum.Value.fromString(spotifyTrackId),
+        ethereum.Value.fromUnsignedBigInt(segmentStartMs),
       ],
     );
     if (result.reverted) {
@@ -175,8 +187,12 @@ export class EmitSegmentProcessedCall__Inputs {
     return this._call.inputValues[2].value.toString();
   }
 
+  get translationCount(): i32 {
+    return this._call.inputValues[3].value.toI32();
+  }
+
   get metadataUri(): string {
-    return this._call.inputValues[3].value.toString();
+    return this._call.inputValues[4].value.toString();
   }
 }
 
@@ -209,16 +225,24 @@ export class EmitSegmentRegisteredCall__Inputs {
     return this._call.inputValues[0].value.toBytes();
   }
 
-  get geniusId(): BigInt {
-    return this._call.inputValues[1].value.toBigInt();
+  get grc20WorkId(): string {
+    return this._call.inputValues[1].value.toString();
   }
 
-  get tiktokSegmentId(): string {
+  get spotifyTrackId(): string {
     return this._call.inputValues[2].value.toString();
   }
 
+  get segmentStartMs(): BigInt {
+    return this._call.inputValues[3].value.toBigInt();
+  }
+
+  get segmentEndMs(): BigInt {
+    return this._call.inputValues[4].value.toBigInt();
+  }
+
   get metadataUri(): string {
-    return this._call.inputValues[3].value.toString();
+    return this._call.inputValues[5].value.toString();
   }
 }
 

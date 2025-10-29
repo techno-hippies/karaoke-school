@@ -37,7 +37,7 @@ async function main() {
     WHERE v.is_copyrighted = TRUE
       AND v.spotify_track_id IS NOT NULL
       AND NOT EXISTS (
-        SELECT 1 FROM track_pipeline tp
+        SELECT 1 FROM song_pipeline tp
         WHERE tp.tiktok_video_id = v.video_id
       )
     ORDER BY v.play_count DESC
@@ -148,7 +148,7 @@ async function main() {
     console.log('');
   }
 
-  // Step 4: Create track_pipeline entries for all videos
+  // Step 4: Create song_pipeline entries for all videos
   console.log('⏳ Creating pipeline entries...');
 
   // For cached tracks, create pipeline entries immediately
