@@ -1,3 +1,2 @@
-// Song components
-export { SongItem } from './SongItem'
+// Song-specific components (excluding SongItem which is in ui/)
 export { SongPage } from './SongPage'

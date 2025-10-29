@@ -2,13 +2,11 @@
 
 ## Core Commands
 
-• **Development**: `npm run dev` (Vite dev server)
-• **Build**: `npm run build` (TypeScript + Vite production build)
-• **Lint**: `npm run lint` (ESLint with strict rules)
-• **Storybook**: `npm run storybook` (component documentation)
-• **Preview**: `npm run preview` (preview production build)
-• **Tests**: `npm run test` (Vitest test runner)
-• **Test Coverage**: `npm run test:coverage` (run tests with coverage)
+• **Development**: `bun run dev` (Vite dev server)
+• **Build**: `bun run build` (TypeScript + Vite production build)
+• **Lint**: `bun run lint` (ESLint with strict rules)
+• **Storybook**: `bun run storybook` (component documentation)
+• **Preview**: `bun run preview` (preview production build)
 
 ## Project Layout
 

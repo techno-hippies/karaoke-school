@@ -13,4 +13,4 @@ export {
   type AccountStats,
   type Achievement,
   type Verification,
-} from '../../../master-pipeline/lib/schemas/grove/account'
+} from '../../../archived/master-pipeline/lib/schemas/grove/account'
