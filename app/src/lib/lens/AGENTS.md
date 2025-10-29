@@ -115,6 +115,7 @@ WebAuthn Passkey → PKP Wallet → Lens Session Resume → Account Owner Role
 
 **Debug Steps**:
 1. Check browser WebAuthn support
-2. Verify environment variables
+2. Verify environment variables (`npm run lint`)
 3. Test with 6+ character username
 4. Monitor Lens API responses
+5. Run tests: `npm run test`

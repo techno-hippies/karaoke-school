@@ -172,7 +172,7 @@ export function VideoDetailPage() {
   // Clean up content: Remove copyright lines and duplicate song info
   const content = translatedContent
     .split('\n')
-    .filter(line => {
+    .filter((line: string) => {
       const trimmed = line.trim()
       // Remove copyright lines
       if (trimmed.startsWith('📄 Copyright:')) return false
