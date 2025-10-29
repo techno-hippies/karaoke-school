@@ -19,4 +19,37 @@ export default defineConfig({
   define: {
     'global': 'globalThis',
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Lit Protocol chunks
+          if (id.includes('@lit-protocol')) {
+            return 'lit-core';
+          }
+          
+          // Lens Protocol chunks
+          if (id.includes('@lens-protocol')) {
+            return 'lens-core';
+          }
+          
+          // Web3/EVM chunks
+          if (id.includes('viem') || id.includes('wagmi')) {
+            return 'web3-core';
+          }
+          
+          // React Router and state management
+          if (id.includes('react-router') || id.includes('@tanstack')) {
+            return 'routing';
+          }
+          
+          // UI components
+          if (id.includes('@radix-ui') || id.includes('@phosphor-icons')) {
+            return 'ui-libs';
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000, // Increase limit to 1MB since we've chunked things
+  },
 })
