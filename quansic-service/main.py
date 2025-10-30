@@ -228,7 +228,7 @@ async def enrich_recording(
     try:
         logger.info(f"🎵 Recording enrichment request: ISRC {request.isrc}")
         
-        recording_data = await service.get_recording_data(
+        recording_data = service.get_recording_data(
             isrc=request.isrc,
             spotify_track_id=request.spotify_track_id,
             recording_mbid=request.recording_mbid,

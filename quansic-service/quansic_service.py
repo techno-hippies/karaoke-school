@@ -80,9 +80,14 @@ class QuansicService:
 
         # Check if we have a valid cached session
         cache_key = f"{account.email}_{account.status}"
+        logger.info(f"Cache key: {cache_key}, force_reauth: {force_reauth}")
+        logger.info(f"Session cache keys: {list(self.session_cache.keys())}")
+
         if not force_reauth and self._is_session_valid(cache_key):
-            logger.debug(f"Using cached session for {account.email}")
+            logger.info(f"✅ Using cached session for {account.email}")
             return self.session_cache[cache_key]
+        else:
+            logger.info(f"❌ Cache miss - will authenticate. force_reauth={force_reauth}, valid={self._is_session_valid(cache_key)}")
 
         try:
             # Run hrequests authentication in separate thread to avoid event loop conflict
@@ -124,22 +129,47 @@ class QuansicService:
                 logger.info(f"Sleep complete, proceeding to form fill...")
 
                 # Find and fill login form
-                logger.debug(f"Waiting for email input...")
-                page.awaitSelector('input[name="email"]', timeout=30000)
-
-                # Take screenshot before filling
+                logger.info(f"Checking page content...")
+                # Dump page HTML to see what's actually there
                 try:
-                    page.screenshot(path='/tmp/quansic-before-fill.png')
-                    logger.debug("Screenshot saved: /tmp/quansic-before-fill.png")
-                except:
-                    pass
+                    page_html = page.html.html[:1000] if hasattr(page, 'html') else "No HTML"
+                    logger.info(f"Page HTML preview: {page_html[:200]}...")
 
-                logger.debug(f"Typing email: {account.email}")
-                page.type('input[name="email"]', account.email)
+                    # Try to find email input with different selectors
+                    selectors_to_try = [
+                        'input[name="email"]',
+                        'input[type="email"]',
+                        'input[id="email"]',
+                        '#email',
+                        'input[placeholder*="mail" i]',
+                        'input[placeholder*="Email" i]'
+                    ]
+
+                    for selector in selectors_to_try:
+                        try:
+                            if page.isVisible(selector):
+                                logger.info(f"✅ Found email input with selector: {selector}")
+                                email_selector = selector
+                                break
+                        except:
+                            continue
+                    else:
+                        logger.error(f"❌ Could not find email input with any selector!")
+                        raise Exception("Email input not found on page")
+
+                except Exception as e:
+                    logger.error(f"Error checking page: {e}")
+                    raise
+
+                # Use underlying Playwright page for direct control
+                logger.info(f"Typing email into {email_selector}...")
+                page.page.fill(email_selector, account.email)
+                logger.info(f"Email filled successfully")
                 time.sleep(random.uniform(0.5, 1.5))
 
-                logger.debug(f"Typing password...")
-                page.type('input[name="password"]', account.password)
+                logger.info(f"Typing password...")
+                page.page.fill('input[name="password"]', account.password)
+                logger.info(f"Password filled successfully")
                 time.sleep(random.uniform(1, 3))
 
                 # Take screenshot after filling
@@ -194,7 +224,46 @@ class QuansicService:
 
                 # Extract cookies as string (like TypeScript implementation)
                 cookie_str = '; '.join([f'{c.name}={c.value}' for c in page.cookies])
-                logger.debug(f"Extracted {len(page.cookies)} cookies")
+                logger.info(f"Extracted {len(page.cookies)} cookies")
+
+                # Log cookie expiration info
+                import base64
+                from datetime import datetime
+
+                for cookie in page.cookies:
+                    if cookie.expires and cookie.expires > 0:
+                        expires_timestamp = cookie.expires
+                        expires_dt = datetime.fromtimestamp(expires_timestamp)
+                        time_until_expiry = expires_timestamp - time.time()
+                        hours_until_expiry = time_until_expiry / 3600
+                        logger.info(f"Cookie '{cookie.name}': expires at {expires_dt} ({hours_until_expiry:.1f} hours from now)")
+                    else:
+                        # If it's a JWT, try to decode the expiration from the token
+                        if 'jwt' in cookie.name.lower():
+                            try:
+                                # JWT format: header.payload.signature
+                                parts = cookie.value.split('.')
+                                if len(parts) == 3:
+                                    # Decode payload (add padding if needed)
+                                    payload = parts[1]
+                                    payload += '=' * (4 - len(payload) % 4)
+                                    decoded = base64.urlsafe_b64decode(payload)
+                                    import json
+                                    jwt_data = json.loads(decoded)
+
+                                    if 'exp' in jwt_data:
+                                        exp_timestamp = jwt_data['exp']
+                                        exp_dt = datetime.fromtimestamp(exp_timestamp)
+                                        time_until_expiry = exp_timestamp - time.time()
+                                        hours_until_expiry = time_until_expiry / 3600
+                                        logger.info(f"Cookie '{cookie.name}': JWT expires at {exp_dt} ({hours_until_expiry:.1f} hours from now)")
+                                    else:
+                                        logger.info(f"Cookie '{cookie.name}': JWT with no expiration")
+                            except Exception as e:
+                                logger.debug(f"Could not decode JWT '{cookie.name}': {e}")
+                                logger.info(f"Cookie '{cookie.name}': session cookie (no expiry set)")
+                        else:
+                            logger.info(f"Cookie '{cookie.name}': session cookie (no expiry set)")
 
                 return cookie_str
 
