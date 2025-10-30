@@ -84,3 +84,7 @@ lit-actions/src/stt/keys/
 .~lock.*
 tiktoks_to_scrape.csv
 quansic-service/bin/
+
+# Wrangler build artifacts
+*.wrangler/
+.wrangler/tmp/

@@ -1,23 +1,28 @@
 # Karaoke Pipeline
 
-**7-step pipeline to process TikTok videos into karaoke segments**
+**Complete pipeline to process TikTok videos into karaoke segments with multi-language translations**
 
-Status: `tiktok_scraped` → `spotify_resolved` → `iswc_found` → `metadata_enriched` → `lyrics_ready` → `audio_downloaded` (+ Genius enrichment)
+**Status flow:**
+```
+tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
+lyrics_ready → audio_downloaded → alignment_complete → translations_ready
+```
 
 ---
 
 ## Quick Start
 
 ```bash
-# Run entire pipeline (steps 2-7) with 50 items per step
+# Scrape TikTok creator first
+bun run scrape @charleenweiss 20
+
+# Run entire pipeline (steps 3, 6.5, 7, 7.5) with 50 items per step
 bun run pipeline:all
 
 # Run single step
-bun run pipeline --step=2 --limit=10
-bun run pipeline --step=7 --limit=20    # Genius enrichment only
-
-# Scrape TikTok creator first
-bun run scrape @gioscottii 10
+bun run pipeline --step=3 --limit=25    # ISWC Discovery only
+bun run pipeline --step=6.5 --limit=10  # Forced Alignment only
+bun run pipeline --step=7.5 --limit=10  # Translation only
 
 # Test pipeline with 1 item
 bun run test:pipeline
@@ -27,62 +32,30 @@ bun run test:pipeline
 
 ## Pipeline Steps
 
-| Step | Processor | Status Transition | What it Does |
-|------|-----------|-------------------|--------------|
-| 1 | Scrape TikTok | `n/a → tiktok_scraped` | Downloads TikTok videos from creator |
-| 2 | Resolve Spotify | `tiktok_scraped → spotify_resolved` | Gets Spotify metadata (track + artist) |
-| 3 | Resolve ISWC | `spotify_resolved → iswc_found` | Finds ISWC codes via Quansic |
-| 4 | Enrich MusicBrainz | `iswc_found → metadata_enriched` | Adds MusicBrainz metadata |
-| 5 | Discover Lyrics | `metadata_enriched → lyrics_ready` | Fetches synced lyrics from LRCLIB |
-| 6 | Download Audio | `lyrics_ready → audio_downloaded` | Downloads audio via slsk → Grove IPFS |
-| 7 | Genius Enrichment | `lyrics_ready → lyrics_ready` | Enriches with Genius metadata (parallel) |
+| Step | Name | Status Transition | What it Does | Required |
+|------|------|-------------------|--------------|----------|
+| 1 | Scrape TikTok | `n/a → tiktok_scraped` | Downloads TikTok videos from creator | Manual |
+| 2 | Resolve Spotify | `tiktok_scraped → spotify_resolved` | Gets Spotify metadata (track + artist) | Queued |
+| 3 | ISWC Discovery | `spotify_resolved → iswc_found` | Finds ISWC codes (gate for GRC-20) | ✅ |
+| 4 | Enrich MusicBrainz | `iswc_found → metadata_enriched` | Adds MusicBrainz metadata | Queued |
+| 5 | Discover Lyrics | `metadata_enriched → lyrics_ready` | Fetches synced lyrics from LRCLIB | Queued |
+| 6 | Download Audio | `lyrics_ready → audio_downloaded` | Downloads audio via Soulseek → Grove | Queued |
+| 6.5 | ElevenLabs Forced Alignment | `audio_downloaded → alignment_complete` | Word-level timing for karaoke | ✅ |
+| 7 | Genius Enrichment | `lyrics_ready+ → lyrics_ready` | Enriches with Genius metadata (parallel) | ✅ Optional |
+| 7.5 | Lyrics Translation | `alignment_complete → translations_ready` | Multi-language (zh, vi, id) with word timing | ✅ |
+| 8 | Audio Separation | `audio_downloaded → stems_separated` | Extract instrumental via Demucs | Optional |
 
 ---
 
 ## Usage Examples
 
-### 1. Process Existing Videos
+### 1. Complete Workflow (Fresh Start)
 
 ```bash
-# Run full pipeline (steps 2-7)
-bun run pipeline:all
+# 1. Scrape TikTok videos from creator
+bun run scrape @charleenweiss 20
 
-# This will:
-# - Resolve Spotify metadata for 50 videos
-# - Find ISWC codes for 50 tracks
-# - Enrich with MusicBrainz data for 50 tracks
-# - Discover lyrics for 50 tracks
-# - Download audio for 50 tracks
-# - Enrich with Genius metadata for 50 tracks
-```
-
-### 2. Run Single Step
-
-```bash
-# Only run Step 3 (Resolve ISWC) for 25 tracks
-bun run pipeline --step=3 --limit=25
-
-# Only run Step 6 (Download Audio) for 5 tracks
-bun run pipeline --step=6 --limit=5
-```
-
-### 3. Scrape Fresh Videos
-
-```bash
-# Scrape 10 videos from @gioscottii
-bun run scrape @gioscottii 10
-
-# Then run full pipeline
-bun run pipeline:all
-```
-
-### 4. Complete Workflow (Fresh Start)
-
-```bash
-# 1. Scrape TikTok videos
-bun run scrape @gioscottii 20
-
-# 2. Run entire pipeline
+# 2. Run full pipeline (steps 3, 6.5, 7, 7.5)
 bun run pipeline:all
 
 # 3. Check results in database
@@ -93,6 +66,39 @@ dotenvx run -f .env -- bun -e "
 "
 ```
 
+### 2. Run Specific Steps Only
+
+```bash
+# Only run Step 3 (ISWC Discovery) for 25 tracks
+bun run pipeline --step=3 --limit=25
+
+# Only run Step 6.5 (Forced Alignment) for 10 tracks
+bun run pipeline --step=6.5 --limit=10
+
+# Only run Step 7.5 (Translation) for 15 tracks
+bun run pipeline --step=7.5 --limit=15
+
+# Only run Step 7 (Genius enrichment) for 20 tracks
+bun run pipeline --step=7 --limit=20
+```
+
+### 3. Process Different Creator
+
+```bash
+# Scrape videos from another creator
+bun run scrape @gioscottii 30
+
+# Then run full pipeline
+bun run pipeline:all
+```
+
+### 4. Test Pipeline with One Track
+
+```bash
+bun run test:pipeline
+# This runs step 2 (Spotify resolution) with limit=1
+```
+
 ---
 
 ## Advanced Usage
@@ -100,26 +106,27 @@ dotenvx run -f .env -- bun -e "
 ### Run Specific Steps with Custom Limits
 
 ```bash
-# Download CLI runner help
-bun run-pipeline.ts --help
+# Run ISWC discovery with 50 items
+bun run pipeline --step=3 --limit=50
 
-# Run steps 3-4 only
-bun run pipeline --step=3 --limit=10
-bun run pipeline --step=4 --limit=10
+# Run forced alignment with 25 items
+bun run pipeline --step=6.5 --limit=25
+
+# Run translation with 100 items
+bun run pipeline --step=7.5 --limit=100
 
 # Scrape with custom creator and limit
-bun src/processors/01-scrape-tiktok.ts @username 50
+dotenvx run -f .env -- bun src/processors/01-scrape-tiktok.ts @username 50
 ```
 
 ### Manual Step Execution
 
 ```bash
-# Run processors directly
-dotenvx run -f .env -- bun src/processors/02-resolve-spotify.ts 10
+# Run processors directly with dotenvx
 dotenvx run -f .env -- bun src/processors/03-resolve-iswc.ts 10
-dotenvx run -f .env -- bun src/processors/04-enrich-musicbrainz.ts 10
-dotenvx run -f .env -- bun src/processors/05-discover-lyrics.ts 10
-dotenvx run -f .env -- bun src/processors/06-download-audio.ts 10
+dotenvx run -f .env -- bun src/processors/06-forced-alignment.ts 10
+dotenvx run -f .env -- bun src/processors/07-translate-lyrics.ts 10
+dotenvx run -f .env -- bun src/processors/07-genius-enrichment.ts 10
 ```
 
 ---
@@ -324,11 +331,14 @@ IRYS_PRIVATE_KEY=...
 | Status | Description | Next Step |
 |--------|-------------|-----------|
 | `tiktok_scraped` | Video scraped from TikTok | → Step 2 (Spotify) |
-| `spotify_resolved` | Spotify metadata resolved | → Step 3 (ISWC) |
-| `iswc_found` | ISWC code discovered | → Step 4 (MusicBrainz) |
-| `metadata_enriched` | MusicBrainz metadata added | → Step 5 (Lyrics) |
-| `lyrics_ready` | Synced lyrics fetched | → Step 6 (Audio) |
-| `audio_downloaded` | Audio on Grove IPFS | ✅ Complete |
+| `spotify_resolved` | Spotify metadata resolved | → Step 3 (ISWC Discovery) |
+| `iswc_found` | ISWC code discovered (**gate**) | → Step 4 (MusicBrainz - Queued) |
+| `metadata_enriched` | MusicBrainz metadata added | → Step 5 (Lyrics Discovery - Queued) |
+| `lyrics_ready` | Synced lyrics fetched | → Step 6 (Download Audio - Queued) |
+| `audio_downloaded` | Audio on Grove IPFS | → Step 6.5 (Forced Alignment) |
+| `stems_separated` | Instrumental extracted (optional) | → Step 6.5 (Forced Alignment) |
+| `alignment_complete` | Word-level timing generated | → Step 7.5 (Lyrics Translation) |
+| `translations_ready` | Multi-language translations done | ✅ Ready for karaoke UI |
 
 ---
 
@@ -362,8 +372,17 @@ curl -X POST http://localhost:8787/trigger?step=3&limit=10
 **Q: How do I process just one track to test?**
 
 ```bash
-bun run test:pipeline  # Runs step 2 with limit=1
+bun run test:pipeline  # Runs step 2 (Spotify) with limit=1
 ```
+
+**Q: What are the currently enabled steps?**
+
+- ✅ Step 3: ISWC Discovery (required gate)
+- ✅ Step 6.5: ElevenLabs Forced Alignment (word-level timing)
+- ✅ Step 7: Genius Enrichment (optional metadata)
+- ✅ Step 7.5: Lyrics Translation (zh, vi, id)
+
+Steps 2, 4, 5, 6 are queued (need export functions or external services).
 
 **Q: Can I run steps in parallel?**
 
@@ -381,17 +400,22 @@ bun run scrape @creator_username 50
 
 **Q: How long does the full pipeline take?**
 
-Depends on batch size and external API speed:
-- Step 2 (Spotify): ~1s per track
-- Step 3 (ISWC): ~2s per track
-- Step 4 (MusicBrainz): ~1s per track
-- Step 5 (Lyrics): ~1s per track
-- Step 6 (Audio): ~30-60s per track
-- Step 7 (Genius): ~2s per track (with rate limiting)
+For 50 tracks through enabled steps:
+- Step 3 (ISWC): ~2s per track = ~100s
+- Step 6.5 (Alignment): ~3-5s per track = ~150-250s
+- Step 7 (Genius): ~0.5s per track = ~25s (optional)
+- Step 7.5 (Translation): ~2-3s per track = ~100-150s
+
+Total: ~5-10 minutes for 50 tracks
 
 **Q: Can I skip steps?**
 
-No, each step requires the previous status. You can manually update status in DB if needed (not recommended).
+No, each enabled step requires the previous status. Steps can be individually disabled in `orchestrator.ts`.
+
+**Q: What's the difference between Forced Alignment and Audio Separation?**
+
+- **Forced Alignment (Step 6.5)**: Takes lyrics + audio (full or instrumental), returns word-level timing
+- **Audio Separation (Step 8)**: Takes full audio, extracts instrumental stem (optional preprocessing)
 
 ---
 

@@ -371,11 +371,125 @@ async function main() {
   console.log('✅ Done! Tracks moved to: lyrics_ready');
 }
 
-main()
-  .catch((error) => {
-    console.error('❌ Fatal error:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await close();
-  });
+/**
+ * Export function for orchestrator
+ */
+export async function processDiscoverLyrics(_env: any, limit: number = 50): Promise<void> {
+  console.log(`[Step 5] Discover Lyrics (limit: ${limit})`);
+
+  const tracksToProcess = await query<{
+    spotify_track_id: string;
+    title: string;
+    artist: string;
+  }>(`
+    SELECT
+      tp.spotify_track_id,
+      st.title,
+      st.artists->0->>'name' as artist
+    FROM song_pipeline tp
+    JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    WHERE tp.status = 'metadata_enriched'
+      AND tp.has_lyrics = FALSE
+    ORDER BY tp.id
+    LIMIT ${limit}
+  `);
+
+  if (tracksToProcess.length === 0) {
+    console.log('✓ No tracks need lyrics discovery');
+    return;
+  }
+
+  console.log(`Found ${tracksToProcess.length} tracks`);
+
+  const cachedLyrics = await query<{
+    spotify_track_id: string;
+    source: string;
+  }>(`
+    SELECT DISTINCT spotify_track_id, source
+    FROM song_lyrics
+    WHERE spotify_track_id = ANY(ARRAY[${tracksToProcess.map(t => `'${t.spotify_track_id}'`).join(',')}])
+  `);
+
+  const cachedIds = new Set(cachedLyrics.map(l => l.spotify_track_id));
+  const uncachedTracks = tracksToProcess.filter(t => !cachedIds.has(t.spotify_track_id));
+
+  console.log(`   Cache hits: ${cachedLyrics.length}, API requests: ${uncachedTracks.length}`);
+
+  const sqlStatements: string[] = [];
+  let successCount = 0;
+  let normalizedCount = 0;
+  let failCount = 0;
+
+  for (const track of uncachedTracks) {
+    try {
+      const lyricsA = await lrclib.searchLyrics(track.title, track.artist);
+      const lyricsB = await lyricsOvh.getLyrics(track.artist, track.title);
+
+      let selectedLyrics = lyricsA || lyricsB;
+      if (!selectedLyrics) {
+        failCount++;
+        continue;
+      }
+
+      let source = lyricsA ? 'lrclib' : 'lyrics.ovh';
+      let normalized = selectedLyrics;
+      let languages = { primary: 'en', breakdown: [{ code: 'en', percentage: 100 }], confidence: 0.5 };
+
+      if (selectedLyrics) {
+        try {
+          const langResult = await detectLanguages(selectedLyrics);
+          languages = langResult;
+          normalized = await normalizeLyrics(selectedLyrics);
+          normalizedCount++;
+          source = 'normalized';
+        } catch (error) {
+          // Continue without normalization
+        }
+      }
+
+      sqlStatements.push(
+        upsertLyricsSQL({
+          spotify_track_id: track.spotify_track_id,
+          source,
+          normalized_lyrics: normalized,
+          raw_lyrics: selectedLyrics,
+          language_data: languages,
+        })
+      );
+
+      sqlStatements.push(
+        updatePipelineLyricsSQL(track.spotify_track_id, true)
+      );
+
+      successCount++;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error: any) {
+      failCount++;
+    }
+  }
+
+  // Update cached tracks
+  for (const track of tracksToProcess.filter(t => cachedIds.has(t.spotify_track_id))) {
+    sqlStatements.push(
+      updatePipelineLyricsSQL(track.spotify_track_id, true)
+    );
+  }
+
+  if (sqlStatements.length > 0) {
+    await transaction(sqlStatements);
+  }
+
+  console.log(`✅ Step 5 Complete: ${successCount} fetched, ${normalizedCount} normalized, ${failCount} failed`);
+}
+
+// Only run main() if this file is executed directly, not when imported
+if (import.meta.main) {
+  main()
+    .catch((error) => {
+      console.error('❌ Fatal error:', error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await close();
+    });
+}

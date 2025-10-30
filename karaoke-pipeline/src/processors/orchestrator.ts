@@ -1,15 +1,34 @@
 /**
  * Unified Pipeline Processor
  *
- * Orchestrates all 19 steps of the GRC20 minting pipeline.
- * Can be triggered manually (POST /trigger/pipeline) or via cron (every 5 min).
+ * Orchestrates the complete karaoke processing pipeline (steps 2-7.5):
  *
- * Each step processes tracks in its current status and advances them to the next.
- * Steps run sequentially to maintain data dependencies and rate limits.
+ * Status flow:
+ * tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
+ * lyrics_ready → audio_downloaded → alignment_complete → translations_ready
+ *
+ * Can be triggered manually or via cron. Steps run sequentially based on status dependencies.
+ * Each step processes tracks and advances them to the next status.
+ *
+ * STEPS:
+ * - Step 2: Resolve Spotify Metadata (enabled)
+ * - Step 3: ISWC Discovery (enabled optional - gate for GRC-20)
+ * - Step 4: MusicBrainz Enrichment (enabled optional - metadata)
+ * - Step 5: Discover Lyrics (enabled optional - synced lyrics)
+ * - Step 6: Download Audio (enabled - fire-and-forget via audio-download-service)
+ * - Step 6.5: ElevenLabs Forced Alignment (enabled - word timing)
+ * - Step 7: Genius Enrichment (enabled optional - metadata)
+ * - Step 7.5: Multi-language Translation (enabled - zh, vi, id)
+ *
+ * NOTE: Step 8 (Audio Separation) is handled separately - not part of this orchestrator
  */
 
 import type { Env } from '../types';
+import { resolveSpotifyMetadata } from './02-resolve-spotify';
 import { processISWCDiscovery } from './step-08-iswc-discovery';
+import { processMusicBrainzEnrichment } from './04-enrich-musicbrainz';
+import { processDiscoverLyrics } from './05-discover-lyrics';
+import { processDownloadAudio } from './06-download-audio';
 import { processGeniusEnrichment } from './07-genius-enrichment';
 import { processForcedAlignment } from './06-forced-alignment';
 import { processLyricsTranslation } from './07-translate-lyrics';
@@ -17,80 +36,131 @@ import { processLyricsTranslation } from './07-translate-lyrics';
 interface PipelineStep {
   number: number;
   name: string;
-  status: string;
-  nextStatus: string;
+  description: string;
+  status: string;          // Required input status
+  nextStatus: string;      // Output status after step
   processor: (env: Env, limit: number) => Promise<void>;
   enabled: boolean;
+  optional?: boolean;      // Won't block pipeline if disabled
 }
 
 export async function runUnifiedPipeline(env: Env, options?: {
-  step?: number;  // Run specific step only
-  limit?: number; // Tracks per step (default: 50)
+  step?: number;           // Run specific step only
+  limit?: number;          // Tracks per step (default: 50)
 }): Promise<void> {
   const limit = options?.limit || 50;
   const targetStep = options?.step;
 
-  console.log('🚀 Unified Pipeline Starting...');
+  console.log('🎵 Karaoke Pipeline - Unified Orchestrator');
+  console.log(`📊 Complete status flow:`);
+  console.log(`   tiktok_scraped → spotify_resolved → iswc_found`);
+  console.log(`   → metadata_enriched → lyrics_ready → audio_downloaded`);
+  console.log(`   → alignment_complete → translations_ready\n`);
+
   if (targetStep) {
-    console.log(`   Running step ${targetStep} only (limit: ${limit})`);
+    console.log(`🎯 Running step ${targetStep} only (limit: ${limit})\n`);
   } else {
-    console.log(`   Running all steps (limit: ${limit} per step)\n`);
+    console.log(`🚀 Running all enabled steps (limit: ${limit} per step)\n`);
   }
 
   const steps: PipelineStep[] = [
-    // Step 6: ElevenLabs Forced Alignment
+    // ==================== EARLY PIPELINE STEPS ====================
+
+    // Step 2: Resolve Spotify Metadata
+    {
+      number: 2,
+      name: 'Resolve Spotify Metadata',
+      description: 'Get track metadata and ISRC codes from Spotify API',
+      status: 'tiktok_scraped',
+      nextStatus: 'spotify_resolved',
+      processor: resolveSpotifyMetadata,
+      enabled: true
+    },
+
+    // Step 3: ISWC Discovery (THE GATE)
+    {
+      number: 3,
+      name: 'ISWC Discovery',
+      description: 'Resolve ISWC codes via Quansic (gate: required for GRC-20)',
+      status: 'spotify_resolved',
+      nextStatus: 'iswc_found',
+      processor: processISWCDiscovery,
+      enabled: true,
+      optional: true  // Don't block pipeline - has retry logic now
+    },
+
+    // ==================== MIDDLE PIPELINE STEPS ====================
+
+    // Step 4: MusicBrainz Enrichment
+    {
+      number: 4,
+      name: 'MusicBrainz Enrichment',
+      description: 'Add MusicBrainz metadata (recordings, works, artists)',
+      status: 'iswc_found',
+      nextStatus: 'metadata_enriched',
+      processor: processMusicBrainzEnrichment,
+      enabled: true,
+      optional: true  // Don't block pipeline - has retry logic now
+    },
+
+    // Step 5: Discover Lyrics
+    {
+      number: 5,
+      name: 'Discover Lyrics',
+      description: 'Fetch synced lyrics from LRCLIB/Lyrics.ovh with AI normalization',
+      status: 'metadata_enriched',
+      nextStatus: 'lyrics_ready',
+      processor: processDiscoverLyrics,
+      enabled: true,
+      optional: true  // Don't block pipeline - has retry logic now
+    },
+
+    // Step 6: Download Audio
     {
       number: 6,
+      name: 'Download Audio',
+      description: 'Submit audio downloads to audio-download-service',
+      status: 'lyrics_ready',
+      nextStatus: 'audio_downloaded',
+      processor: processDownloadAudio,
+      enabled: true
+    },
+
+    // ==================== NEW AUDIO PROCESSING STEPS ====================
+
+    // Step 6.5: ElevenLabs Forced Alignment
+    {
+      number: 6.5,
       name: 'ElevenLabs Forced Alignment',
+      description: 'Get word-level timing from lyrics (critical for karaoke)',
       status: 'audio_downloaded',
       nextStatus: 'alignment_complete',
       processor: processForcedAlignment,
       enabled: true
     },
 
-    // Step 7: Genius Enrichment (Metadata Corroboration)
-    // Note: This is a parallel enrichment step that doesn't change status
-    // It enriches tracks with Genius metadata for lyrics corroboration
+    // Step 7: Genius Enrichment (PARALLEL - no status change)
     {
       number: 7,
       name: 'Genius Enrichment',
-      status: 'lyrics_ready', // Also processes audio_downloaded, alignment_complete
-      nextStatus: 'lyrics_ready', // Doesn't change status (parallel enrichment)
+      description: 'Enrich with Genius metadata & annotations (for future trivia/images)',
+      status: 'lyrics_ready',  // Also processes: audio_downloaded, alignment_complete
+      nextStatus: 'lyrics_ready',  // Doesn't change status
       processor: processGeniusEnrichment,
-      enabled: true
+      enabled: true,
+      optional: true
     },
 
-    // Step 7b: Lyrics Translation (Multi-Language)
+    // Step 7.5: Multi-Language Lyrics Translation
     {
-      number: 7.5, // Sub-step after alignment
+      number: 7.5,
       name: 'Lyrics Translation',
+      description: 'Translate lyrics to zh, vi, id with word timing',
       status: 'alignment_complete',
       nextStatus: 'translations_ready',
       processor: processLyricsTranslation,
       enabled: true
     },
-
-    // Step 8: ISWC Discovery (THE GATE)
-    {
-      number: 8,
-      name: 'ISWC Discovery',
-      status: 'spotify_resolved',
-      nextStatus: 'iswc_found',
-      processor: processISWCDiscovery,
-      enabled: true
-    },
-
-    // Step 9: MusicBrainz Metadata Enrichment
-    // {
-    //   number: 9,
-    //   name: 'MusicBrainz Enrichment',
-    //   status: 'iswc_found',
-    //   nextStatus: 'metadata_enriched',
-    //   processor: processMusicBrainzEnrichment,
-    //   enabled: false // TODO: implement
-    // },
-
-    // Steps 10-19: TODO
   ];
 
   // Filter to enabled steps (and specific step if requested)
@@ -101,26 +171,29 @@ export async function runUnifiedPipeline(env: Env, options?: {
   });
 
   if (stepsToRun.length === 0) {
-    console.log('⚠️ No steps to run (all disabled or step not found)');
+    console.log('⚠️  No steps to run (all disabled or step not found)');
     return;
   }
 
   const startTime = Date.now();
-  const results: { step: number; name: string; success: boolean; error?: string }[] = [];
+  const results: Array<{ step: number; name: string; success: boolean; error?: string }> = [];
+
+  console.log(`📋 Running ${stepsToRun.length} steps:\n`);
 
   // Run each step sequentially
   for (const step of stepsToRun) {
     const stepStart = Date.now();
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`Step ${step.number}: ${step.name}`);
+    console.log(`${'='.repeat(70)}`);
+    console.log(`Step ${step.number}: ${step.name}${step.optional ? ' [OPTIONAL]' : ''}`);
+    console.log(`${step.description}`);
     console.log(`Status: ${step.status} → ${step.nextStatus}`);
-    console.log(`${'='.repeat(60)}`);
+    console.log(`${'='.repeat(70)}`);
 
     try {
       await step.processor(env, limit);
 
       const duration = ((Date.now() - stepStart) / 1000).toFixed(1);
-      console.log(`✅ Step ${step.number} completed in ${duration}s`);
+      console.log(`\n✅ Step ${step.number} completed in ${duration}s`);
 
       results.push({
         step: step.number,
@@ -128,7 +201,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
         success: true
       });
     } catch (error: any) {
-      console.error(`❌ Step ${step.number} failed:`, error.message);
+      console.error(`\n❌ Step ${step.number} failed: ${error.message}`);
 
       results.push({
         step: step.number,
@@ -137,7 +210,12 @@ export async function runUnifiedPipeline(env: Env, options?: {
         error: error.message
       });
 
-      // Continue to next step even if one fails
+      // If required step fails, stop pipeline
+      // If optional step fails, continue
+      if (!step.optional) {
+        console.error(`\n⚠️  Required step failed. Stopping pipeline.`);
+        break;
+      }
     }
   }
 
@@ -146,17 +224,20 @@ export async function runUnifiedPipeline(env: Env, options?: {
   const succeeded = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success).length;
 
-  console.log(`\n${'='.repeat(60)}`);
+  console.log(`\n${'='.repeat(70)}`);
   console.log(`🏁 Pipeline Complete (${totalDuration}s)`);
-  console.log(`   ✅ Succeeded: ${succeeded} / ${results.length}`);
-  console.log(`   ❌ Failed: ${failed} / ${results.length}`);
+  console.log(`   ✅ Succeeded: ${succeeded}/${results.length}`);
+  if (failed > 0) {
+    console.log(`   ❌ Failed: ${failed}/${results.length}`);
+  }
+  console.log(`${'='.repeat(70)}\n`);
 
   if (failed > 0) {
-    console.log('\n   Failed steps:');
+    console.log('Failed steps:');
     results.filter(r => !r.success).forEach(r => {
-      console.log(`   - Step ${r.step}: ${r.name} - ${r.error}`);
+      console.log(`  - Step ${r.step}: ${r.name}`);
+      if (r.error) console.log(`    Error: ${r.error}`);
     });
+    console.log('');
   }
-
-  console.log(`${'='.repeat(60)}\n`);
 }

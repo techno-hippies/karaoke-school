@@ -28,10 +28,16 @@ from typing import Optional
 import subprocess
 import requests
 import traceback
+import asyncio
+from asyncio import Queue
 from fastapi import FastAPI, HTTPException, Form, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Demucs Local API")
+
+# Sequential job queue - only one demucs process at a time
+job_queue: Queue = None
+processing_active = False
 
 
 def separate_audio(
@@ -122,63 +128,96 @@ def separate_audio(
         }
 
 
-def process_async_job(
-    job_id: str,
-    audio_url: str,
-    webhook_url: str,
-    model: str,
-    output_format: str,
-    mp3_bitrate: int
-):
-    """Background task to process separation and call webhook."""
-    try:
-        print(f"[Job {job_id}] 🚀 Starting async separation...")
+async def process_job_worker():
+    """
+    Sequential worker that processes jobs from the queue one at a time.
+    This ensures only ONE demucs process runs on the GPU at any time.
+    """
+    global processing_active
+    print("[Worker] 🚀 Sequential job worker started")
 
-        # Download audio
-        print(f"[Job {job_id}] Downloading from {audio_url}")
-        audio_resp = requests.get(audio_url, timeout=120)
-        audio_resp.raise_for_status()
-        audio_data = audio_resp.content
-
-        # Separate
-        result = separate_audio(audio_data, model, output_format, mp3_bitrate)
-
-        print(f"[Job {job_id}] ✅ Separation complete!")
-
-        # POST to webhook
-        print(f"[Job {job_id}] 📞 Calling webhook: {webhook_url}")
-
-        webhook_payload = {
-            "job_id": job_id,
-            "status": "completed",
-            "vocals_base64": result["vocals_base64"],
-            "instrumental_base64": result["instrumental_base64"],
-            "vocals_size": result["vocals_size"],
-            "instrumental_size": result["instrumental_size"],
-            "model": result["model"],
-            "format": result["format"],
-            "duration": result["duration"]
-        }
-
-        webhook_resp = requests.post(webhook_url, json=webhook_payload, timeout=120)
-        webhook_resp.raise_for_status()
-
-        print(f"[Job {job_id}] ✅ Webhook called: HTTP {webhook_resp.status_code}")
-
-    except Exception as e:
-        error_details = traceback.format_exc()
-        print(f"[Job {job_id}] ❌ Failed: {str(e)}")
-        print(f"[Job {job_id}] Traceback:\n{error_details}")
-
-        # Notify webhook of failure
+    while True:
         try:
-            requests.post(webhook_url, json={
-                "job_id": job_id,
-                "status": "failed",
-                "error": str(e)
-            }, timeout=30)
-        except:
-            pass
+            # Wait for next job
+            job = await job_queue.get()
+
+            if job is None:  # Shutdown signal
+                break
+
+            job_id = job["job_id"]
+            audio_url = job["audio_url"]
+            webhook_url = job["webhook_url"]
+            model = job["model"]
+            output_format = job["output_format"]
+            mp3_bitrate = job["mp3_bitrate"]
+
+            processing_active = True
+            print(f"[Worker] Processing job {job_id} (queue size: {job_queue.qsize()})")
+
+            try:
+                # Download audio
+                print(f"[Job {job_id}] Downloading from {audio_url}")
+                audio_resp = requests.get(audio_url, timeout=120)
+                audio_resp.raise_for_status()
+                audio_data = audio_resp.content
+
+                # Separate (BLOCKING - only one at a time)
+                result = separate_audio(audio_data, model, output_format, mp3_bitrate)
+
+                print(f"[Job {job_id}] ✅ Separation complete!")
+
+                # POST to webhook
+                print(f"[Job {job_id}] 📞 Calling webhook: {webhook_url}")
+
+                webhook_payload = {
+                    "job_id": job_id,
+                    "status": "completed",
+                    "vocals_base64": result["vocals_base64"],
+                    "instrumental_base64": result["instrumental_base64"],
+                    "vocals_size": result["vocals_size"],
+                    "instrumental_size": result["instrumental_size"],
+                    "model": result["model"],
+                    "format": result["format"],
+                    "duration": result["duration"]
+                }
+
+                webhook_resp = requests.post(webhook_url, json=webhook_payload, timeout=120)
+                webhook_resp.raise_for_status()
+
+                print(f"[Job {job_id}] ✅ Webhook called: HTTP {webhook_resp.status_code}")
+
+            except Exception as e:
+                error_details = traceback.format_exc()
+                print(f"[Job {job_id}] ❌ Failed: {str(e)}")
+                print(f"[Job {job_id}] Traceback:\n{error_details}")
+
+                # Notify webhook of failure
+                try:
+                    requests.post(webhook_url, json={
+                        "job_id": job_id,
+                        "status": "failed",
+                        "error": str(e)
+                    }, timeout=30)
+                except:
+                    pass
+
+            finally:
+                processing_active = False
+                job_queue.task_done()
+
+        except Exception as e:
+            print(f"[Worker] Error in worker loop: {e}")
+            traceback.print_exc()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize job queue and start worker on startup."""
+    global job_queue
+    job_queue = Queue()
+    # Start the sequential worker
+    asyncio.create_task(process_job_worker())
+    print("[Startup] Sequential job queue initialized")
 
 
 @app.get("/")
@@ -274,7 +313,6 @@ async def separate_sync_endpoint(request: Request):
 
 @app.post("/separate-async")
 async def separate_async_endpoint(
-    background_tasks: BackgroundTasks,
     job_id: str = Form(...),
     audio_url: str = Form(...),
     webhook_url: str = Form(...),
@@ -284,6 +322,7 @@ async def separate_async_endpoint(
 ):
     """
     Asynchronous Demucs separation with webhook notification.
+    Jobs are processed SEQUENTIALLY (one GPU process at a time).
     Returns immediately, POSTs result to webhook when done.
 
     Form Parameters:
@@ -298,7 +337,8 @@ async def separate_async_endpoint(
     {
         "success": true,
         "job_id": "...",
-        "status": "processing"
+        "status": "queued",
+        "queue_position": 3
     }
 
     Webhook will receive on completion:
@@ -311,31 +351,34 @@ async def separate_async_endpoint(
     }
     """
     try:
-        # Add to background tasks
-        background_tasks.add_task(
-            process_async_job,
-            job_id=job_id,
-            audio_url=audio_url,
-            webhook_url=webhook_url,
-            model=model,
-            output_format=output_format,
-            mp3_bitrate=mp3_bitrate
-        )
+        # Add job to sequential queue
+        job = {
+            "job_id": job_id,
+            "audio_url": audio_url,
+            "webhook_url": webhook_url,
+            "model": model,
+            "output_format": output_format,
+            "mp3_bitrate": mp3_bitrate
+        }
 
-        print(f"[API] Spawned async job {job_id}")
+        await job_queue.put(job)
+
+        queue_size = job_queue.qsize()
+        print(f"[API] Job {job_id} added to queue (position: {queue_size})")
 
         return {
             "success": True,
             "job_id": job_id,
-            "status": "processing",
-            "message": "Demucs separation started. Webhook will be called when complete."
+            "status": "queued",
+            "queue_position": queue_size,
+            "message": f"Job queued. Will process sequentially (queue size: {queue_size})."
         }
 
     except Exception as e:
         error_details = traceback.format_exc()
         print(f"API Error: {str(e)}")
         print(f"Full traceback:\n{error_details}")
-        raise HTTPException(500, f"Failed to start separation: {str(e)}")
+        raise HTTPException(500, f"Failed to queue separation: {str(e)}")
 
 
 if __name__ == "__main__":

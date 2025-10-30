@@ -29,18 +29,19 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy uv configuration files
-COPY pyproject.toml ./
+# Copy configuration and application code
+COPY pyproject.toml README.md ./
 COPY uv.lock* ./
+COPY . .
 
 # Install uv package manager
 RUN pip install uv
 
 # Install dependencies using uv
-RUN uv pip install --system -e . 
+RUN uv pip install --system -e .
 
-# Copy application code
-COPY . .
+# Pre-initialize hrequests to download CGO library (must be done as root before switching user)
+RUN python -c "import hrequests; print('✓ hrequests initialized')"
 
 # Create non-root user
 RUN useradd -m -u 1000 quansic && \

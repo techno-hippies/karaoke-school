@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS lyrics_translations (
   -- Translation metadata
   translation_source TEXT NOT NULL DEFAULT 'gemini-flash-2.5-lite',  -- AI model used
   confidence_score NUMERIC(3,2),                                 -- 0.00 to 1.00
-  validated BOOLEAN DEFAULT FALSE,                               -- Human verified
 
   -- Source language (from song_lyrics.language_data)
   source_language_code TEXT,  -- 'en', 'ko', etc.
@@ -45,9 +44,6 @@ CREATE INDEX idx_lyrics_translations_track
 CREATE INDEX idx_lyrics_translations_language
   ON lyrics_translations(language_code);
 
-CREATE INDEX idx_lyrics_translations_validated
-  ON lyrics_translations(validated) WHERE validated = TRUE;
-
 CREATE INDEX idx_lyrics_translations_grove
   ON lyrics_translations(grove_cid) WHERE grove_cid IS NOT NULL;
 
@@ -65,7 +61,6 @@ CREATE OR REPLACE VIEW translation_coverage_summary AS
 SELECT
   language_code,
   COUNT(*) as total_translations,
-  COUNT(*) FILTER (WHERE validated = TRUE) as validated_count,
   ROUND(AVG(confidence_score), 2) as avg_confidence,
   COUNT(*) FILTER (WHERE grove_cid IS NOT NULL) as stored_on_grove,
   COUNT(DISTINCT spotify_track_id) as unique_tracks
@@ -85,7 +80,6 @@ SELECT
       'grove_cid', lt.grove_cid,
       'grove_url', lt.grove_url,
       'confidence_score', lt.confidence_score,
-      'validated', lt.validated
     )
   ) as translations
 FROM lyrics_translations lt

@@ -1,40 +1,50 @@
 # Claude Code Context - Karaoke Pipeline
 
-**Purpose**: 6-step TikTok → karaoke pipeline processing videos into audio segments with lyrics for minting
+**Purpose**: Complete TikTok → karaoke pipeline: videos to multi-language transcribed karaoke segments with word-level timing
 
 ## Core Architecture
 
-**6-Step Pipeline**: `tiktok_scraped` → `spotify_resolved` → `iswc_found` → `metadata_enriched` → `lyrics_ready` → `audio_downloaded`
+**Complete Pipeline**:
+```
+tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched
+→ lyrics_ready → audio_downloaded → alignment_complete → translations_ready
+```
 
-**Main Entry Point**: `run-pipeline.ts` CLI orchestrator with individual step processors in `src/processors/`
+**Main Entry Point**: `orchestrator.ts` unified processor with individual step handlers in `src/processors/`
+**CLI Runner**: `run-pipeline.ts` for backward compatibility
 
 ## Essential Commands
 
 ```bash
-# Run entire pipeline (steps 2-6)
+# 1. Scrape TikTok videos
+bun run scrape @charleenweiss 20
+
+# 2. Run enabled pipeline steps (3, 6.5, 7, 7.5)
 bun run pipeline:all
 
-# Run specific step
-bun run pipeline --step=3 --limit=10    # ISWC Discovery for 10 tracks
-bun run pipeline --step=6 --limit=5     # Audio Download for 5 tracks
-
-# Scrape fresh TikTok content
-bun run scrape @username 20            # Scrape 20 videos from creator
+# Run specific step only
+bun run pipeline --step=3 --limit=10     # ISWC Discovery for 10 tracks
+bun run pipeline --step=6.5 --limit=5    # Forced Alignment for 5 tracks
+bun run pipeline --step=7.5 --limit=15   # Translation for 15 tracks
 
 # Test single track
-bun run test:pipeline                  # Run step 2 with 1 track
+bun run test:pipeline                    # Run step 2 with 1 track
 ```
 
 ## Pipeline Step Breakdown
 
-| Step | Processor | Status Transition | Dependencies |
-|------|-----------|-------------------|--------------|
-| 1 | `01-scrape-tiktok.ts` | → `tiktok_scraped` | TikTok API |
-| 2 | `02-resolve-spotify.ts` | `tiktok_scraped` → `spotify_resolved` | Spotify API |
-| 3 | `03-resolve-iswc.ts` | `spotify_resolved` → `iswc_found` | Quansic Service |
-| 4 | `04-enrich-musicbrainz.ts` | `iswc_found` → `metadata_enriched` | MusicBrainz API |
-| 5 | `05-discover-lyrics.ts` | `metadata_enriched` → `lyrics_ready` | LRCLIB API |
-| 6 | `06-download-audio.ts` | `lyrics_ready` → `audio_downloaded` | Soulseek + Grove IPFS |
+| Step | Processor | Status Transition | Enabled | Purpose |
+|------|-----------|-------------------|---------|---------|
+| 1 | `01-scrape-tiktok.ts` | → `tiktok_scraped` | Manual | Scrape creator videos |
+| 2 | `02-resolve-spotify.ts` | `tiktok_scraped` → `spotify_resolved` | Queued | Get Spotify metadata |
+| 3 | `03-resolve-iswc.ts` | `spotify_resolved` → `iswc_found` | ✅ | **GATE**: Resolve ISWC codes |
+| 4 | `04-enrich-musicbrainz.ts` | `iswc_found` → `metadata_enriched` | Queued | Add MusicBrainz data |
+| 5 | `05-discover-lyrics.ts` | `metadata_enriched` → `lyrics_ready` | Queued | Fetch synced lyrics |
+| 6 | `06-download-audio.ts` | `lyrics_ready` → `audio_downloaded` | Queued | Download audio to Grove |
+| 6.5 | `06-forced-alignment.ts` | `audio_downloaded` → `alignment_complete` | ✅ | ElevenLabs word timing |
+| 7 | `07-genius-enrichment.ts` | `lyrics_ready` (parallel) | ✅ Optional | Genius annotations |
+| 7.5 | `07-translate-lyrics.ts` | `alignment_complete` → `translations_ready` | ✅ | Multi-language translation |
+| 8 | `08-separate-audio.ts` | `audio_downloaded` → `stems_separated` | ❌ Optional | Extract instrumental |
 
 ## Database Schema
 

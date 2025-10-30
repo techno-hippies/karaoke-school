@@ -232,11 +232,182 @@ async function main() {
   console.log('✅ Done! Videos moved to pipeline with status: spotify_resolved');
 }
 
-main()
-  .catch((error) => {
-    console.error('❌ Fatal error:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await close();
-  });
+/**
+ * Export function for orchestrator
+ */
+export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Promise<void> {
+  const args = [limit.toString()];
+  const batchSize = args[0] ? parseInt(args[0]) : 10;
+
+  console.log(`[Step 2] Spotify Metadata Resolver (limit: ${limit})`);
+
+  const unprocessedVideos = await query<{
+    video_id: string;
+    spotify_track_id: string;
+    creator_username: string;
+  }>(`
+    SELECT v.video_id, v.spotify_track_id, v.creator_username
+    FROM tiktok_videos v
+    WHERE v.is_copyrighted = TRUE
+      AND v.spotify_track_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM song_pipeline tp
+        WHERE tp.tiktok_video_id = v.video_id
+      )
+    ORDER BY v.play_count DESC
+    LIMIT ${batchSize}
+  `);
+
+  if (unprocessedVideos.length === 0) {
+    console.log('✓ No unprocessed videos (all caught up!)');
+    return;
+  }
+
+  console.log(`Found ${unprocessedVideos.length} videos to process`);
+
+  const trackIds = unprocessedVideos.map(v => v.spotify_track_id);
+  const cachedTracks = await query<{
+    spotify_track_id: string;
+    isrc: string | null;
+  }>(`
+    SELECT spotify_track_id, isrc
+    FROM spotify_tracks
+    WHERE spotify_track_id = ANY(ARRAY[${trackIds.map(id => `'${id}'`).join(',')}])
+  `);
+
+  const cachedTrackIds = new Set(cachedTracks.map(t => t.spotify_track_id));
+  const uncachedVideos = unprocessedVideos.filter(v => !cachedTrackIds.has(v.spotify_track_id));
+
+  console.log(`   Cache hits: ${cachedTracks.length}, API requests: ${uncachedVideos.length}`);
+
+  const sqlStatements: string[] = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  if (uncachedVideos.length > 0) {
+    for (const video of uncachedVideos) {
+      try {
+        const track = await getTrack(video.spotify_track_id);
+
+        if (!track) {
+          failCount++;
+          sqlStatements.push(
+            logProcessingSQL(
+              video.spotify_track_id,
+              'spotify_resolve',
+              'failed',
+              'api',
+              'Track not found on Spotify'
+            )
+          );
+          continue;
+        }
+
+        sqlStatements.push(upsertSpotifyTrackSQL(track));
+
+        for (const artistRef of track.artists) {
+          try {
+            const artist = await getArtist(artistRef.id);
+            if (artist) {
+              sqlStatements.push(upsertSpotifyArtistSQL(artist));
+            }
+          } catch (error) {
+            // Continue on artist error
+          }
+        }
+
+        sqlStatements.push(
+          logProcessingSQL(
+            track.spotify_track_id,
+            'spotify_resolve',
+            'success',
+            'api',
+            `Fetched track and ${track.artists.length} artists`
+          )
+        );
+
+        successCount++;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error: any) {
+        failCount++;
+        sqlStatements.push(
+          logProcessingSQL(
+            video.spotify_track_id,
+            'spotify_resolve',
+            'failed',
+            'api',
+            error.message
+          )
+        );
+      }
+    }
+  }
+
+  // Create pipeline entries
+  for (const video of unprocessedVideos.filter(v => cachedTrackIds.has(v.spotify_track_id))) {
+    const cached = cachedTracks.find(t => t.spotify_track_id === video.spotify_track_id);
+    if (cached) {
+      const artistResult = await query<{ spotify_artist_id: string }>(`
+        SELECT (artists->0->>'id')::text as spotify_artist_id
+        FROM spotify_tracks
+        WHERE spotify_track_id = '${video.spotify_track_id}'
+      `);
+
+      const primaryArtistId = artistResult[0]?.spotify_artist_id || null;
+
+      sqlStatements.push(
+        createPipelineEntrySQL(
+          video.video_id,
+          video.spotify_track_id,
+          cached.isrc,
+          primaryArtistId
+        )
+      );
+    }
+  }
+
+  for (const video of uncachedVideos) {
+    const trackResult = await query<{ isrc: string | null }>(`
+      SELECT isrc FROM spotify_tracks WHERE spotify_track_id = '${video.spotify_track_id}'
+    `);
+
+    if (trackResult.length > 0) {
+      const artistResult = await query<{ spotify_artist_id: string }>(`
+        SELECT (artists->0->>'id')::text as spotify_artist_id
+        FROM spotify_tracks
+        WHERE spotify_track_id = '${video.spotify_track_id}'
+      `);
+
+      const primaryArtistId = artistResult[0]?.spotify_artist_id || null;
+
+      sqlStatements.push(
+        createPipelineEntrySQL(
+          video.video_id,
+          video.spotify_track_id,
+          trackResult[0].isrc,
+          primaryArtistId
+        )
+      );
+    }
+  }
+
+  if (sqlStatements.length > 0) {
+    await transaction(sqlStatements);
+  }
+
+  console.log(
+    `✅ Step 2 Complete: ${successCount} fetched, ${failCount} failed`
+  );
+}
+
+// Only run main() if this file is executed directly, not when imported
+if (import.meta.main) {
+  main()
+    .catch((error) => {
+      console.error('❌ Fatal error:', error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await close();
+    });
+}

@@ -247,11 +247,162 @@ async function main() {
   console.log('✅ Done! Tracks moved to: metadata_enriched');
 }
 
-main()
-  .catch((error) => {
-    console.error('❌ Fatal error:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await close();
-  });
+/**
+ * Export function for orchestrator
+ */
+export async function processMusicBrainzEnrichment(_env: any, limit: number = 50): Promise<void> {
+  console.log(`[Step 4] MusicBrainz Enrichment (limit: ${limit})`);
+
+  const tracksToProcess = await query<{
+    id: number;
+    tiktok_video_id: string;
+    spotify_track_id: string;
+    spotify_artist_id: string;
+    isrc: string;
+    iswc: string | null;
+    title: string;
+  }>(`
+    SELECT
+      tp.id,
+      tp.tiktok_video_id,
+      tp.spotify_track_id,
+      tp.spotify_artist_id,
+      st.isrc,
+      tp.iswc,
+      st.title
+    FROM song_pipeline tp
+    JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    WHERE tp.status = 'iswc_found'
+      AND st.isrc IS NOT NULL
+    ORDER BY tp.id
+    LIMIT ${limit}
+  `);
+
+  if (tracksToProcess.length === 0) {
+    console.log('✓ No tracks need MusicBrainz enrichment');
+    return;
+  }
+
+  console.log(`Found ${tracksToProcess.length} tracks`);
+
+  const isrcs = tracksToProcess.map(t => t.isrc);
+  const cachedRecordings = await query<{
+    isrc: string;
+    recording_mbid: string;
+    work_mbid: string | null;
+  }>(`
+    SELECT isrc, recording_mbid, work_mbid
+    FROM musicbrainz_recordings
+    WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
+  `);
+
+  const cachedISRCs = new Set(cachedRecordings.map(r => r.isrc));
+  const uncachedTracks = tracksToProcess.filter(t => !cachedISRCs.has(t.isrc));
+
+  console.log(`   Cache hits: ${cachedRecordings.length}, API requests: ${uncachedTracks.length}`);
+
+  const sqlStatements: string[] = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const track of uncachedTracks) {
+    try {
+      const recording = await lookupRecordingByISRC(track.isrc);
+
+      if (!recording) {
+        failCount++;
+        sqlStatements.push(
+          logMBProcessingSQL(
+            track.spotify_track_id,
+            'failed',
+            'Recording not found in MusicBrainz',
+            { isrc: track.isrc }
+          )
+        );
+        continue;
+      }
+
+      sqlStatements.push(upsertMBRecordingSQL(recording));
+
+      if (recording.work_mbid) {
+        const work = await lookupWork(recording.work_mbid);
+        if (work) {
+          sqlStatements.push(upsertMBWorkSQL(work));
+        }
+      }
+
+      for (const artistCredit of recording.artist_credits || []) {
+        try {
+          const artist = await lookupArtist(artistCredit.artist.id);
+          if (artist) {
+            sqlStatements.push(upsertMBArtistSQL(artist));
+          }
+        } catch (error) {
+          // Continue on artist error
+        }
+      }
+
+      sqlStatements.push(
+        updatePipelineMBSQL(
+          track.spotify_track_id,
+          recording.id,
+          recording.work_mbid
+        )
+      );
+
+      sqlStatements.push(
+        logMBProcessingSQL(
+          track.spotify_track_id,
+          'success',
+          'Enriched with MusicBrainz data',
+          { recording_mbid: recording.id }
+        )
+      );
+
+      successCount++;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error: any) {
+      failCount++;
+      sqlStatements.push(
+        logMBProcessingSQL(
+          track.spotify_track_id,
+          'failed',
+          error.message,
+          { isrc: track.isrc }
+        )
+      );
+    }
+  }
+
+  // Add cached tracks
+  for (const cached of cachedRecordings) {
+    const track = tracksToProcess.find(t => t.isrc === cached.isrc);
+    if (track) {
+      sqlStatements.push(
+        updatePipelineMBSQL(
+          track.spotify_track_id,
+          cached.recording_mbid,
+          cached.work_mbid
+        )
+      );
+    }
+  }
+
+  if (sqlStatements.length > 0) {
+    await transaction(sqlStatements);
+  }
+
+  console.log(`✅ Step 4 Complete: ${successCount} fetched, ${failCount} failed`);
+}
+
+// Only run main() if this file is executed directly, not when imported
+if (import.meta.main) {
+  main()
+    .catch((error) => {
+      console.error('❌ Fatal error:', error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await close();
+    });
+}

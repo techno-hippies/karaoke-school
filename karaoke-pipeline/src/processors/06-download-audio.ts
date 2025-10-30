@@ -1,18 +1,18 @@
 #!/usr/bin/env bun
 /**
  * Processor: Submit Audio Downloads (Fire-and-Forget)
- * Submits tracks to slsk-service for async processing
+ * Submits tracks to audio-download-service for async processing
  *
  * Architecture:
  * - This processor finds tracks ready for download and submits them
- * - slsk-service handles: download → verify → Grove upload → DB updates
- * - No waiting or polling - slsk-service updates song_pipeline when done
+ * - audio-download-service handles: download → verify → Grove upload → DB updates
+ * - No waiting or polling - audio-download-service updates song_pipeline when done
  *
  * Flow:
  * 1. Find tracks with status='lyrics_ready' and has_audio=FALSE
  * 2. Check if already submitted (exists in song_audio with NULL grove_cid)
- * 3. Submit uncached tracks to slsk-service (fire-and-forget)
- * 4. slsk-service completes workflow and updates both tables
+ * 3. Submit uncached tracks to audio-download-service (fire-and-forget)
+ * 4. audio-download-service completes workflow and updates both tables
  *
  * Usage:
  *   bun src/processors/06-download-audio.ts [batchSize]
@@ -20,7 +20,7 @@
 
 import { query, close } from '../db/neon';
 
-const SLSK_SERVICE_URL = process.env.SLSK_SERVICE_URL || process.env.FREYR_SERVICE_URL || 'http://localhost:3001';
+const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || process.env.SLSK_SERVICE_URL || process.env.FREYR_SERVICE_URL || 'http://localhost:3001';
 const ACOUSTID_API_KEY = process.env.ACOUSTID_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 const CHAIN_ID = 37111; // Lens Network
@@ -43,9 +43,9 @@ async function submitToSlsk(track: Track): Promise<void> {
 
   console.log(`  🚀 Submitting: ${track.title} - ${artistName}`);
 
-  // Submit to slsk-service (wait for request to be sent, but don't wait for processing)
+  // Submit to audio-download-service (wait for request to be sent, but don't wait for processing)
   try {
-    const response = await fetch(`${SLSK_SERVICE_URL}/download-and-store`, {
+    const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -63,7 +63,7 @@ async function submitToSlsk(track: Track): Promise<void> {
       console.error(`     ⚠️  Submission rejected: ${error}`);
     } else {
       console.log(`     ✓ Submitted (processing asynchronously)`);
-      // Don't wait for the JSON response - slsk-service will process in background
+      // Don't wait for the JSON response - audio-download-service will process in background
       response.body?.cancel(); // Cancel reading the body since we don't need it
     }
   } catch (error: any) {
@@ -77,7 +77,7 @@ async function main() {
 
   console.log('🎵 Audio Download Submitter (Fire-and-Forget)');
   console.log(`📊 Batch size: ${batchSize}`);
-  console.log(`🔗 slsk-service: ${SLSK_SERVICE_URL}`);
+  console.log(`🔗 audio-download-service: ${AUDIO_DOWNLOAD_SERVICE_URL}`);
   console.log('');
 
   // Validate env vars
@@ -128,7 +128,7 @@ async function main() {
   console.log('');
 
   // Submit all tracks (fire-and-forget)
-  console.log('🚀 Submitting to slsk-service...');
+  console.log('🚀 Submitting to audio-download-service...');
 
   for (const track of tracksToProcess) {
     await submitToSlsk(track);
@@ -141,16 +141,89 @@ async function main() {
   console.log('📊 Summary:');
   console.log(`   - Tracks submitted: ${tracksToProcess.length}`);
   console.log('');
-  console.log('✅ Done! slsk-service will process asynchronously.');
+  console.log('✅ Done! audio-download-service will process asynchronously.');
   console.log('   Audio files will appear in song_audio table when complete.');
   console.log('   Pipeline status will update to "audio_downloaded" automatically.');
 }
 
-main()
-  .catch((error) => {
-    console.error('❌ Fatal error:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await close();
-  });
+/**
+ * Export function for orchestrator
+ */
+export async function processDownloadAudio(_env: any, limit: number = 50): Promise<void> {
+  console.log(`[Step 6] Download Audio (limit: ${limit})`);
+
+  const tracksToProcess = await query<Track>(`
+    SELECT
+      tp.id,
+      tp.spotify_track_id,
+      st.title,
+      st.artists,
+      st.duration_ms
+    FROM song_pipeline tp
+    JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    WHERE tp.status = 'lyrics_ready'
+      AND tp.has_audio = FALSE
+      AND NOT EXISTS (
+        SELECT 1 FROM song_audio sa
+        WHERE sa.spotify_track_id = tp.spotify_track_id
+      )
+    ORDER BY tp.id
+    LIMIT ${limit}
+  `);
+
+  if (tracksToProcess.length === 0) {
+    console.log('✓ No tracks need audio download');
+    return;
+  }
+
+  console.log(`Found ${tracksToProcess.length} tracks`);
+
+  // Submit all tracks to slsk-service (fire-and-forget)
+  let submittedCount = 0;
+
+  for (const track of tracksToProcess) {
+    try {
+      const artistName = Array.isArray(track.artists)
+        ? (typeof track.artists[0] === 'object'
+            ? (track.artists[0] as { name: string }).name
+            : track.artists[0])
+        : track.artists;
+
+      const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          spotify_track_id: track.spotify_track_id,
+          expected_title: track.title,
+          expected_artist: artistName,
+          acoustid_api_key: ACOUSTID_API_KEY,
+          neon_database_url: DATABASE_URL,
+          chain_id: CHAIN_ID,
+        }),
+      });
+
+      if (response.ok) {
+        submittedCount++;
+        response.body?.cancel();
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } catch (error) {
+      // Continue on error
+    }
+  }
+
+  console.log(`✅ Step 6 Complete: ${submittedCount} submitted to audio-download-service`);
+}
+
+// Only run main() if this file is executed directly, not when imported
+if (import.meta.main) {
+  main()
+    .catch((error) => {
+      console.error('❌ Fatal error:', error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await close();
+    });
+}

@@ -36,11 +36,11 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
     // Find tracks needing alignment: audio_downloaded status + no alignment yet
     const tracksQuery = `
       SELECT
-        sp.spotify_track_id,
+        sp.spotify_track_id as "spotifyTrackId",
         st.title,
         st.artists,
-        sa.grove_url,
-        sl.normalized_lyrics as plain_lyrics
+        sa.grove_url as "groveUrl",
+        sl.normalized_lyrics as "plainLyrics"
       FROM song_pipeline sp
       JOIN spotify_tracks st ON sp.spotify_track_id = st.spotify_track_id
       JOIN song_audio sa ON sp.spotify_track_id = sa.spotify_track_id
@@ -51,10 +51,10 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         AND sp.has_lyrics = TRUE
         AND ewa.spotify_track_id IS NULL  -- No alignment yet
       ORDER BY sp.updated_at ASC
-      LIMIT $1
+      LIMIT ${limit}
     `;
 
-    const tracks = await query<TrackForAlignment>(tracksQuery.replace('$1', limit.toString()));
+    const tracks = await query<TrackForAlignment>(tracksQuery);
 
     if (tracks.length === 0) {
       console.log('✓ No tracks need alignment (all caught up!)');
@@ -68,9 +68,12 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
 
     for (const track of tracks) {
       try {
-        const artistsStr = Array.isArray(track.artists)
-          ? track.artists.join(', ')
-          : track.artists;
+        let artistsStr = track.artists;
+        if (Array.isArray(track.artists)) {
+          artistsStr = track.artists
+            .map(a => typeof a === 'object' && a !== null ? a.name || String(a) : String(a))
+            .join(', ');
+        }
 
         console.log(`\n📍 Aligning: ${track.title} - ${artistsStr}`);
         console.log(`   Audio: ${track.groveUrl}`);
@@ -93,6 +96,10 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         );
 
         // Store alignment in database
+        const wordsJson = JSON.stringify(alignment.words).replace(/'/g, "''");
+        const charactersJson = JSON.stringify(alignment.characters).replace(/'/g, "''");
+        const rawDataJson = JSON.stringify(alignment.rawResponse).replace(/'/g, "''");
+
         await query(
           `INSERT INTO elevenlabs_word_alignments (
              spotify_track_id,
@@ -103,7 +110,16 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
              alignment_duration_ms,
              overall_loss,
              raw_alignment_data
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ) VALUES (
+             '${track.spotifyTrackId}',
+             '${wordsJson}'::jsonb,
+             ${alignment.totalWords},
+             '${charactersJson}'::jsonb,
+             ${alignment.totalCharacters},
+             ${alignment.alignmentDurationMs},
+             ${alignment.overallLoss},
+             '${rawDataJson}'::jsonb
+           )
            ON CONFLICT (spotify_track_id)
            DO UPDATE SET
              words = EXCLUDED.words,
@@ -113,17 +129,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
              alignment_duration_ms = EXCLUDED.alignment_duration_ms,
              overall_loss = EXCLUDED.overall_loss,
              raw_alignment_data = EXCLUDED.raw_alignment_data,
-             updated_at = NOW()`,
-          [
-            track.spotifyTrackId,
-            JSON.stringify(alignment.words),
-            alignment.totalWords,
-            JSON.stringify(alignment.characters),
-            alignment.totalCharacters,
-            alignment.alignmentDurationMs,
-            alignment.overallLoss,
-            JSON.stringify(alignment.rawResponse),
-          ]
+             updated_at = NOW()`
         );
 
         // Update pipeline status: audio_downloaded → alignment_complete
@@ -131,8 +137,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
           `UPDATE song_pipeline
            SET status = 'alignment_complete',
                updated_at = NOW()
-           WHERE spotify_track_id = $1`,
-          [track.spotifyTrackId]
+           WHERE spotify_track_id = '${track.spotifyTrackId}'`
         );
 
         alignedCount++;
@@ -153,28 +158,26 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         console.error(`   ✗ Failed to align ${track.spotifyTrackId}:`, error.message);
 
         // Update pipeline with error
+        const errorMsg = (error.message || '').replace(/'/g, "''");
         await query(
           `UPDATE song_pipeline
-           SET error_message = $1,
+           SET error_message = '${errorMsg}',
                error_stage = 'forced_alignment',
                updated_at = NOW()
-           WHERE spotify_track_id = $2`,
-          [error.message, track.spotifyTrackId]
+           WHERE spotify_track_id = '${track.spotifyTrackId}'`
         );
 
         // If retry count >= 3, mark as failed
-        const retryResult = await db.query(
-          `SELECT retry_count FROM song_pipeline WHERE spotify_track_id = $1`,
-          [track.spotifyTrackId]
+        const retryResult = await query(
+          `SELECT retry_count FROM song_pipeline WHERE spotify_track_id = '${track.spotifyTrackId}'`
         );
 
-        if (retryResult.rows[0]?.retry_count >= 3) {
+        if (retryResult[0]?.retry_count >= 3) {
           console.log(`   ⚠️ Max retries reached, marking as failed`);
           await query(
             `UPDATE song_pipeline
              SET status = 'failed'
-             WHERE spotify_track_id = $1`,
-            [track.spotifyTrackId]
+             WHERE spotify_track_id = '${track.spotifyTrackId}'`
           );
         }
       }

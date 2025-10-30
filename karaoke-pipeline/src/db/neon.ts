@@ -18,7 +18,12 @@ function getClient() {
     if (!databaseUrl) {
       throw new Error('DATABASE_URL not found in environment');
     }
-    sqlClient = postgres(databaseUrl);
+    sqlClient = postgres(databaseUrl, {
+      connect_timeout: 10,        // 10 seconds connect timeout
+      idle_timeout: 20,            // 20 seconds idle timeout
+      max_lifetime: 60 * 30,       // 30 minutes max connection lifetime
+      max: 10,                     // Max 10 connections in pool
+    });
   }
   return sqlClient;
 }
@@ -29,12 +34,41 @@ export interface QueryResult<T = any> {
 }
 
 /**
- * Execute a single SQL query (raw SQL string)
+ * Execute a single SQL query (raw SQL string only)
+ * Note: This uses unsafe() which is fine for our internal pipeline code
+ * Includes automatic retry logic for transient connection errors
  */
-export async function query<T = any>(sql: string): Promise<T[]> {
+export async function query<T = any>(sql: string, retries = 3): Promise<T[]> {
   const client = getClient();
-  const result = await client.unsafe(sql);
-  return result as T[];
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = await client.unsafe(sql);
+      return result as T[];
+    } catch (error: any) {
+      // Check if this is a transient connection error
+      const isTransient =
+        error?.message?.includes('CONNECTION_ENDED') ||
+        error?.message?.includes('terminated') ||
+        error?.message?.includes('ECONNRESET') ||
+        error?.message?.includes('Connection terminated') ||
+        error?.code === 'ECONNRESET' ||
+        error?.code === '57P01';  // Postgres admin shutdown code
+
+      // If not transient or last attempt, throw immediately
+      if (!isTransient || attempt === retries) {
+        throw error;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s (capped at 10s)
+      const backoff = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.warn(`[DB Retry] Attempt ${attempt}/${retries} failed: ${error.message}`);
+      console.warn(`[DB Retry] Retrying after ${backoff}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoff));
+    }
+  }
+
+  throw new Error('Unreachable: max retries exhausted');
 }
 
 /**

@@ -148,10 +148,9 @@ const metadata = {
     instrumental: "grove://5d85ca354afb...",
     alignment: "grove://abc123...",
     translations: {
-      es: "grove://def456...",
-      zh: "grove://ghi789...",
-      ja: "grove://jkl012...",
-      ko: "grove://mno345..."
+      zh: "grove://def456...",
+      vi: "grove://ghi789...",
+      id: "grove://jkl012..."
     }
   }
 };
@@ -180,10 +179,9 @@ emitSegmentProcessed(
 );
 
 // 3. Add translations (one event per language)
-emitTranslationAdded(segmentHash, "es", translationUri);
 emitTranslationAdded(segmentHash, "zh", translationUri);
-emitTranslationAdded(segmentHash, "ja", translationUri);
-emitTranslationAdded(segmentHash, "ko", translationUri);
+emitTranslationAdded(segmentHash, "vi", translationUri);
+emitTranslationAdded(segmentHash, "id", translationUri);
 ```
 
 ### Phase 4: Subgraph Indexes Events
@@ -416,7 +414,6 @@ CREATE TABLE lyrics_translations (
   translation_source TEXT DEFAULT 'gemini-flash-2.5',
   confidence_score NUMERIC,
   translated_at TIMESTAMPTZ DEFAULT NOW(),
-  validated BOOLEAN DEFAULT FALSE,
 
   UNIQUE(spotify_track_id, language_code)
 );
@@ -528,19 +525,11 @@ pragma solidity ^0.8.19;
 contract TranslationEvents {
     event TranslationAdded(
         bytes32 indexed segmentHash,
-        string languageCode,              // ISO 639-1: "es", "zh", "ja", "ko"
+        string languageCode,              // ISO 639-1: "zh", "vi", "id"
         string translationUri,            // Grove URI
         string translationSource,         // "gemini-flash-2.5"
         uint16 confidenceScore,           // 0-10000
-        bool validated,
         address indexed addedBy,
-        uint64 timestamp
-    );
-
-    event TranslationValidated(
-        bytes32 indexed segmentHash,
-        string languageCode,
-        address indexed validatedBy,
         uint64 timestamp
     );
 }
@@ -605,11 +594,10 @@ type Segment @entity(immutable: false) {
 type Translation @entity(immutable: false) {
   id: ID! # segmentHash-languageCode
   segment: Segment!
-  languageCode: String!                 # "es", "zh", "ja", "ko"
+  languageCode: String!                 # "zh", "vi", "id"
   translationUri: String!               # Grove URI
   translationSource: String!
   confidenceScore: BigDecimal
-  validated: Boolean!
   addedAt: BigInt!
 }
 
@@ -667,12 +655,11 @@ type Performance @entity(immutable: true) {
     "tiktokClip": "grove://...",
     "alignment": "grove://..."
   },
-  "languages": ["en", "es", "zh", "ja", "ko"],
+  "languages": ["en", "zh", "vi", "id"],
   "translationUris": {
-    "es": "grove://...",
     "zh": "grove://...",
-    "ja": "grove://...",
-    "ko": "grove://..."
+    "vi": "grove://...",
+    "id": "grove://..."
   }
 }
 ```
@@ -710,7 +697,6 @@ type Performance @entity(immutable: true) {
   "translationSource": "gemini-flash-2.5",
   "confidenceScore": 0.92,
   "translatedAt": "2025-10-28T19:30:00Z",
-  "validated": false,
   "lines": [
     {
       "lineIndex": 0,

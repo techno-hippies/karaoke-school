@@ -38,15 +38,20 @@ This downloads the MDX Extra model (best quality) to `~/.cache/torch/hub/checkpo
 ### Start the local server
 
 ```bash
-uvicorn demucs_local:app --host 0.0.0.0 --port 8001
+uv run uvicorn demucs_local:app --host 0.0.0.0 --port 8000
 ```
 
-Server will be available at `http://localhost:8001`
+Or use the convenience script:
+```bash
+./start.sh
+```
+
+Server will be available at `http://localhost:8000`
 
 ### Run in background (daemon mode)
 
 ```bash
-nohup uvicorn demucs_local:app --host 0.0.0.0 --port 8001 > demucs.log 2>&1 &
+nohup uv run uvicorn demucs_local:app --host 0.0.0.0 --port 8000 > demucs.log 2>&1 &
 ```
 
 ### Check logs
@@ -59,19 +64,19 @@ tail -f demucs.log
 
 ### Health Check
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 ```
 
 ### Synchronous Separation (base64 input)
 ```bash
-curl -X POST http://localhost:8001/separate-sync \
+curl -X POST http://localhost:8000/separate-sync \
   -H "Content-Type: application/json" \
   -d '{"audio_base64": "data:audio/mpeg;base64,...", "model": "mdx_extra"}'
 ```
 
 ### Asynchronous Separation (URL input with webhook)
 ```bash
-curl -X POST http://localhost:8001/separate-async \
+curl -X POST http://localhost:8000/separate-async \
   -F "job_id=test-123" \
   -F "audio_url=https://grove.url/audio.mp3" \
   -F "webhook_url=https://yourworker.dev/webhooks/demucs-complete"

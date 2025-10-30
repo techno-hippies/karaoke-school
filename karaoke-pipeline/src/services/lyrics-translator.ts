@@ -28,14 +28,9 @@ export interface TranslatedLine {
   translatedText: string;
   start: number;
   end: number;
-  words: Array<{
+  words: Array<{        // English word-level timing (for highlighting)
     text: string;
     start: number;
-    end: number;
-  }>;
-  translatedWords: Array<{
-    text: string;
-    start: number;  // Approximated from original timing
     end: number;
   }>;
 }
@@ -168,22 +163,13 @@ export class LyricsTranslator {
       const translation = translations.find((t: any) => t.lineIndex === index);
       const translatedText = translation?.translatedText || '[Translation missing]';
 
-      // Approximate word timing for translated words
-      // Simple approach: distribute translated words evenly across the line duration
-      const translatedWords = this.approximateTranslatedWordTiming(
-        translatedText,
-        line.start,
-        line.end
-      );
-
       return {
         lineIndex: line.lineIndex,
         originalText: line.originalText,
-        translatedText,
-        start: line.start,
+        translatedText,     // Translated text (line level)
+        start: line.start,  // Timing already at line level
         end: line.end,
-        words: line.words,
-        translatedWords,
+        words: line.words,  // English word-level timing for highlighting
       };
     });
 
@@ -241,33 +227,18 @@ Important:
   }
 
   /**
-   * Approximate word timing for translated text
-   * Simple approach: distribute words evenly across line duration
+   * DEPRECATED: No longer used - translations are stored as single line elements
    *
-   * TODO: Improve with word-level alignment for target language
+   * Previously attempted to approximate word timing for translated text.
+   * This is unnecessary complexity - the app displays translations at line level only.
    */
-  private approximateTranslatedWordTiming(
-    translatedText: string,
-    lineStart: number,
-    lineEnd: number
-  ): Array<{ text: string; start: number; end: number }> {
-    // Split translated text into words
-    const words = translatedText.split(/\s+/).filter(w => w.length > 0);
-
-    if (words.length === 0) {
-      return [];
-    }
-
-    // Calculate duration per word (evenly distributed)
-    const lineDuration = lineEnd - lineStart;
-    const wordDuration = lineDuration / words.length;
-
-    return words.map((word, index) => ({
-      text: word,
-      start: lineStart + index * wordDuration,
-      end: lineStart + (index + 1) * wordDuration,
-    }));
-  }
+  // private approximateTranslatedWordTiming(
+  //   translatedText: string,
+  //   lineStart: number,
+  //   lineEnd: number
+  // ): Array<{ text: string; start: number; end: number }> {
+  //   // Not used anymore - see translateLines() for simplified approach
+  // }
 
   /**
    * Batch translate to multiple languages
@@ -299,45 +270,81 @@ Important:
 
   /**
    * Parse ElevenLabs word alignment into lyric lines
-   * Groups words into lines based on sentence boundaries
+   * Groups words by newline characters (\n) in the ElevenLabs word array
    *
-   * @param words ElevenLabs word alignment
-   * @param lyricsText Original lyrics text (for line splitting)
+   * IMPORTANT: ElevenLabs returns words with spaces and newlines as separate elements.
+   * We group words by finding '\n' markers in the word array itself.
+   *
+   * @param words ElevenLabs word alignment (includes spaces and newlines)
+   * @param lyricsText Original lyrics text (unused, kept for compatibility)
    * @returns Lyric lines with word timing
    */
   static parseLinesFromAlignment(
     words: ElevenLabsWord[],
     lyricsText: string
   ): LyricLine[] {
-    // Split lyrics into lines
-    const textLines = lyricsText.split('\n').filter(line => line.trim().length > 0);
-
     const lines: LyricLine[] = [];
-    let wordIndex = 0;
+    let currentLineWords: Array<{ text: string; start: number; end: number }> = [];
+    let lineIndex = 0;
 
-    for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
-      const lineText = textLines[lineIndex].trim();
-      const lineWords: typeof words = [];
+    for (const word of words) {
+      // Newline marks end of line
+      if (word.text === '\n') {
+        if (currentLineWords.length > 0) {
+          // Build line from accumulated words
+          const lineText = currentLineWords.map(w => w.text).join('').trim();
 
-      // Extract words for this line
-      const lineWordTexts = lineText.split(/\s+/).filter(w => w.length > 0);
+          // Filter out space-only words for clean display
+          const cleanWords = currentLineWords
+            .filter(w => w.text.trim().length > 0)
+            .map(w => ({
+              text: w.text.trim(),
+              start: Math.round(w.start * 100) / 100,
+              end: Math.round(w.end * 100) / 100,
+            }));
 
-      for (let i = 0; i < lineWordTexts.length && wordIndex < words.length; i++) {
-        lineWords.push(words[wordIndex]);
-        wordIndex++;
+          if (cleanWords.length > 0) {
+            lines.push({
+              lineIndex,
+              originalText: lineText,
+              start: Math.round(currentLineWords[0].start * 100) / 100,
+              end: Math.round(currentLineWords[currentLineWords.length - 1].end * 100) / 100,
+              words: cleanWords,
+            });
+            lineIndex++;
+          }
+
+          currentLineWords = [];
+        }
+        continue;
       }
 
-      if (lineWords.length > 0) {
+      // Add word to current line (includes spaces)
+      currentLineWords.push({
+        text: word.text,
+        start: word.start,
+        end: word.end,
+      });
+    }
+
+    // Flush final line if exists
+    if (currentLineWords.length > 0) {
+      const lineText = currentLineWords.map(w => w.text).join('').trim();
+      const cleanWords = currentLineWords
+        .filter(w => w.text.trim().length > 0)
+        .map(w => ({
+          text: w.text.trim(),
+          start: Math.round(w.start * 100) / 100,
+          end: Math.round(w.end * 100) / 100,
+        }));
+
+      if (cleanWords.length > 0) {
         lines.push({
           lineIndex,
           originalText: lineText,
-          start: lineWords[0].start,
-          end: lineWords[lineWords.length - 1].end,
-          words: lineWords.map(w => ({
-            text: w.text,
-            start: w.start,
-            end: w.end,
-          })),
+          start: Math.round(currentLineWords[0].start * 100) / 100,
+          end: Math.round(currentLineWords[currentLineWords.length - 1].end * 100) / 100,
+          words: cleanWords,
         });
       }
     }

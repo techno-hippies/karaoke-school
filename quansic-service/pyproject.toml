@@ -1,6 +1,6 @@
 [project]
 name = "quansic-service"
-version = "2.0.0"
+version = "2.0.1"
 description = "Anti-detection Quansic enrichment service using hrequests"
 authors = [
     {name = "Factory", email = "agent@factory.ai"}
