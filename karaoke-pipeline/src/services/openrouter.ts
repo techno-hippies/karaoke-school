@@ -205,8 +205,30 @@ Clean these lyrics following the rules. Return only the lyrics, nothing else.`;
 }
 
 /**
+ * Language name mapping for ISO 639-1 codes
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  es: 'Spanish',
+  zh: 'Mandarin',
+  ja: 'Japanese',
+  ko: 'Korean',
+  de: 'German',
+  fr: 'French',
+  it: 'Italian',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  ar: 'Arabic',
+  hi: 'Hindi',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian',
+};
+
+/**
  * Detect language composition of lyrics
  * Critical for K-pop mixed-language handling
+ * Uses simplified approach: Gemini identifies WHICH languages, we calculate percentages
  */
 export async function detectLanguages(
   lyrics: string,
@@ -217,21 +239,32 @@ export async function detectLanguages(
   breakdown: Array<{ code: string; language: string; percentage: number }>;
   confidence: number;
 }> {
-  const systemPrompt = `You are a language detection specialist. Your task is to analyze song lyrics and identify the languages used, including mixed-language songs (like K-pop which often mixes Korean and English).
+  const systemPrompt = `You are a language detection specialist. Identify all languages present in these song lyrics.
 
-IMPORTANT RULES:
-1. Use ISO 639-1 two-letter language codes (en, ko, ja, es, etc.)
-2. Estimate percentage for each language based on word/line count
-3. The "primary" language is the one with highest percentage
-4. Be accurate - K-pop songs often have 60-80% Korean, 20-40% English
-5. Return ONLY valid JSON in this exact format:
+IMPORTANT:
+1. Use ONLY ISO 639-1 two-letter language codes (en, ko, ja, es, zh, etc.)
+2. NEVER return "und", "mul", or any 3-letter codes
+3. Onomatopoeia and vocal ad-libs (da-da-da, mmm, uh-uh, sha-la-la, boom-boom, etc.) are sung sounds, NOT separate languages
+4. Vocalizations should be classified as part of the primary language
+5. Identify the PRIMARY language (the one used most)
+6. List any SECONDARY languages present (if the song mixes languages like K-pop)
+7. Return ONLY valid JSON in this exact format:
+
+{
+  "primary": "en",
+  "detectedLanguages": ["en"],
+  "hasSecondaryLanguages": false,
+  "notes": "English song with vocal ad-libs",
+  "confidence": 0.95
+}
+
+For a mixed-language song:
 {
   "primary": "ko",
-  "breakdown": [
-    {"code": "ko", "language": "Korean", "percentage": 70},
-    {"code": "en", "language": "English", "percentage": 30}
-  ],
-  "confidence": 0.95
+  "detectedLanguages": ["ko", "en"],
+  "hasSecondaryLanguages": true,
+  "notes": "K-pop with Korean verses and English chorus",
+  "confidence": 0.92
 }`;
 
   const userPrompt = `Song: "${trackTitle}" by ${artistName}
@@ -239,7 +272,7 @@ IMPORTANT RULES:
 Lyrics:
 ${lyrics}
 
-Analyze the language composition. Return ONLY JSON, no explanations.`;
+Identify all languages. Return ONLY JSON, no explanations.`;
 
   const messages: OpenRouterMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -258,19 +291,49 @@ Analyze the language composition. Return ONLY JSON, no explanations.`;
     const parsed = JSON.parse(jsonMatch[0]);
 
     // Validate structure
-    if (!parsed.primary || !parsed.breakdown || !Array.isArray(parsed.breakdown)) {
-      throw new Error('Invalid response structure');
+    if (!parsed.primary || !Array.isArray(parsed.detectedLanguages)) {
+      throw new Error('Invalid response structure - missing primary or detectedLanguages');
     }
 
-    // Ensure percentages add up to 100
-    const total = parsed.breakdown.reduce((sum: number, lang: any) => sum + (lang.percentage || 0), 0);
-    if (Math.abs(total - 100) > 5) {
-      console.warn(`Language percentages don't sum to 100: ${total}`);
+    // Build breakdown: if single language, 100%; if multiple, split evenly
+    let breakdown: Array<{ code: string; language: string; percentage: number }>;
+
+    if (parsed.detectedLanguages.length === 1) {
+      // Single language: 100%
+      const code = parsed.detectedLanguages[0];
+      breakdown = [
+        {
+          code,
+          language: LANGUAGE_NAMES[code] || code.toUpperCase(),
+          percentage: 100,
+        },
+      ];
+    } else {
+      // Multiple languages: split by language count
+      // Primary gets 70%, others split remaining 30%
+      const secondaryLangs = parsed.detectedLanguages.filter(
+        (code: string) => code !== parsed.primary
+      );
+      const secondaryPercentage = secondaryLangs.length > 0 ? 30 : 0;
+      const perSecondary = secondaryLangs.length > 0 ? Math.floor(secondaryPercentage / secondaryLangs.length) : 0;
+
+      breakdown = [
+        {
+          code: parsed.primary,
+          language: LANGUAGE_NAMES[parsed.primary] || parsed.primary.toUpperCase(),
+          percentage: 70,
+        },
+        ...secondaryLangs.map((code: string) => ({
+          code,
+          language: LANGUAGE_NAMES[code] || code.toUpperCase(),
+          percentage: perSecondary,
+        })),
+      ];
     }
 
     return {
       primary: parsed.primary,
-      breakdown: parsed.breakdown,
+      breakdown,
       confidence: parsed.confidence || 0.9,
     };
   } catch (error: any) {
