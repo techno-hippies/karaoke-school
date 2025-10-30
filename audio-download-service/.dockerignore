@@ -1,0 +1,15 @@
+node_modules
+*.log
+.env
+.env.*
+!.env.example
+test-*.ts
+test-*.sh
+*.mp3
+bun.lockb
+README.md
+AGENTS.md
+.git*
+*.md
+Dockerfile*
+.dockerignore

@@ -1,19 +1,19 @@
 #!/bin/bash
-# Build and push Quansic service to Docker Hub
-
 set -e
 
-VERSION=${1:-v1.0}
-IMAGE_NAME="t3333chn0000/quansic-service:$VERSION"
+echo "🐳 Building Quansic Service v2.0.0 with hrequests..."
 
-echo "🔨 Building Docker image: $IMAGE_NAME"
-docker build -t "$IMAGE_NAME" .
+# Build Docker image
+docker build -t quansic-service:v2.0.0 .
 
-echo "🚀 Pushing to Docker Hub..."
-docker push "$IMAGE_NAME"
+echo "✅ Docker image built: quansic-service:v2.0.0"
 
-echo "✅ Done! Image pushed: $IMAGE_NAME"
-echo ""
+# Tag for push (update with your registry)
+echo "📦 Tagging for registry..."
+docker tag quansic-service:v2.0.0 your-dockerhub-username/quansic-service:v2.0.0
+
+echo "🏗️ Build completed!"
 echo "Next steps:"
-echo "1. Update deploy-akash.yaml with image: $IMAGE_NAME"
-echo "2. Deploy to Akash with: akash tx deployment create deploy-akash.yaml --from YOUR_WALLET"
+echo "1. Push to registry: docker push your-dockerhub-username/quansic-service:v2.0.0"
+echo "2. Update deploy-akash.yaml with your registry"
+echo "3. Deploy: akash provider send-manifest deploy-akash.yaml --dseq YOUR_DEPLOYMENT --provider YOUR_PROVIDER"

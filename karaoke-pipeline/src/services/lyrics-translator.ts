@@ -205,7 +205,7 @@ export class LyricsTranslator {
       lines: translatedLines,
       sourceLanguage: detectedSourceLang,
       targetLanguage,
-      translationSource: 'gemini-flash-2.5',
+      translationSource: 'gemini-flash-2.5-lite',
       confidenceScore,
     };
   }

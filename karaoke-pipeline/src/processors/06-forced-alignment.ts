@@ -4,13 +4,13 @@
  *
  * Processes tracks that have:
  * - Audio file on Grove (song_audio.grove_url)
- * - Normalized lyrics (song_lyrics.plain_text)
+ * - Lyrics (song_lyrics.selected_plain_text)
  *
  * Calls ElevenLabs forced alignment API to get word-level + character-level timing.
  * Stores results in elevenlabs_word_alignments table.
  */
 
-import { getNeonClient } from '../db/neon';
+import { query } from '../db/neon';
 import { ElevenLabsService } from '../services/elevenlabs';
 import type { Env } from '../types';
 
@@ -30,7 +30,6 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
     return;
   }
 
-  const db = getNeonClient(env.NEON_DATABASE_URL);
   const elevenlabs = new ElevenLabsService(env.ELEVENLABS_API_KEY);
 
   try {
@@ -41,7 +40,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         st.title,
         st.artists,
         sa.grove_url,
-        sl.plain_text as plain_lyrics
+        sl.normalized_lyrics as plain_lyrics
       FROM song_pipeline sp
       JOIN spotify_tracks st ON sp.spotify_track_id = st.spotify_track_id
       JOIN song_audio sa ON sp.spotify_track_id = sa.spotify_track_id
@@ -55,8 +54,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
       LIMIT $1
     `;
 
-    const result = await db.query(tracksQuery, [limit]);
-    const tracks = result.rows as TrackForAlignment[];
+    const tracks = await query<TrackForAlignment>(tracksQuery.replace('$1', limit.toString()));
 
     if (tracks.length === 0) {
       console.log('✓ No tracks need alignment (all caught up!)');
@@ -79,14 +77,13 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         console.log(`   Lyrics: ${track.plainLyrics.length} chars`);
 
         // Update pipeline: mark as attempting
-        await db.query(
+        await query(
           `UPDATE song_pipeline
            SET last_attempted_at = NOW(),
                retry_count = retry_count + 1,
                error_message = NULL,
                error_stage = NULL
-           WHERE spotify_track_id = $1`,
-          [track.spotifyTrackId]
+           WHERE spotify_track_id = '${track.spotifyTrackId}'`
         );
 
         // Call ElevenLabs forced alignment API
@@ -96,7 +93,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         );
 
         // Store alignment in database
-        await db.query(
+        await query(
           `INSERT INTO elevenlabs_word_alignments (
              spotify_track_id,
              words,
@@ -130,7 +127,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         );
 
         // Update pipeline status: audio_downloaded → alignment_complete
-        await db.query(
+        await query(
           `UPDATE song_pipeline
            SET status = 'alignment_complete',
                updated_at = NOW()
@@ -156,7 +153,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
         console.error(`   ✗ Failed to align ${track.spotifyTrackId}:`, error.message);
 
         // Update pipeline with error
-        await db.query(
+        await query(
           `UPDATE song_pipeline
            SET error_message = $1,
                error_stage = 'forced_alignment',
@@ -173,7 +170,7 @@ export async function processForcedAlignment(env: Env, limit: number = 50): Prom
 
         if (retryResult.rows[0]?.retry_count >= 3) {
           console.log(`   ⚠️ Max retries reached, marking as failed`);
-          await db.query(
+          await query(
             `UPDATE song_pipeline
              SET status = 'failed'
              WHERE spotify_track_id = $1`,

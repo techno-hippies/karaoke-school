@@ -19,7 +19,7 @@ import { query, transaction, close } from '../db/neon';
 import * as lrclib from '../services/lrclib';
 import * as lyricsOvh from '../services/lyrics-ovh';
 import { calculateSimilarity } from '../services/lyrics-similarity';
-import { normalizeLyrics, detectLanguages } from '../services/openrouter';
+import { normalizeLyrics, cleanLyrics, detectLanguages } from '../services/openrouter';
 import {
   upsertLyricsSQL,
   updatePipelineLyricsSQL,
@@ -132,21 +132,22 @@ async function main() {
           continue;
         }
 
-        let finalLyrics = '';
-        let syncedLrc: string | null = null;
-        let source: 'lrclib' | 'lyrics_ovh' | 'lrclib+lyrics_ovh' = 'lrclib';
+        // Store original sources (extract strings from API responses)
+        let lrclibText: string | null = lrclibLyrics ? (lrclibLyrics.plainLyrics || '') : null;
+        let ovhText: string | null = ovhLyrics || null;
+        let normalizedLyrics: string | null = null;
+        let source: 'lrclib' | 'ovh' | 'lrclib+ovh' | 'normalized' | 'needs_review' = 'lrclib';
         let normalizedBy: string | null = null;
         let confidenceScore: number | null = null;
-        let rawSources: any | null = null;
 
         // Step 3: Determine if we need to normalize
-        if (lrclibLyrics && ovhLyrics) {
+        if (lrclibText && ovhText) {
           console.log(`     ✅ Found lyrics from both sources`);
 
           // Calculate similarity
           const similarity = calculateSimilarity(
-            lrclibLyrics.plainLyrics || '',
-            ovhLyrics
+            lrclibText,
+            ovhText
           );
 
           console.log(`        Jaccard: ${similarity.jaccardScore}`);
@@ -154,132 +155,154 @@ async function main() {
           console.log(`        Combined: ${similarity.combinedScore}`);
           console.log(`        Corroborated: ${similarity.corroborated ? 'Yes' : 'No'}`);
 
-          source = 'lrclib+lyrics_ovh';
           confidenceScore = similarity.combinedScore;
 
           // Step 4: Normalize if similarity >= 80%
           if (similarity.corroborated) {
             console.log(`     🤖 Normalizing with AI (similarity >= 80%)...`);
             try {
-              finalLyrics = await normalizeLyrics(
-                lrclibLyrics.plainLyrics || '',
-                ovhLyrics,
+              normalizedLyrics = await normalizeLyrics(
+                lrclibText,
+                ovhText,
                 track.title,
                 artistName
               );
               normalizedBy = 'gemini_flash_2_5';
+              source = 'normalized';
               normalizedCount++;
-
-              // Store raw sources for debugging (only when normalized)
-              rawSources = {
-                lrclib: lrclibLyrics.plainLyrics,
-                lyrics_ovh: ovhLyrics,
-              };
             } catch (error: any) {
               console.log(`     ⚠️  Normalization failed: ${error.message}`);
-              // Fallback to LRCLIB
-              finalLyrics = lrclibLyrics.plainLyrics || '';
+              // Fallback to LRCLIB, but flag for review
+              source = 'needs_review';
+              normalizedLyrics = null;
             }
           } else {
-            // Use LRCLIB (typically more accurate)
-            console.log(`     📝 Using LRCLIB (similarity < 80%)`);
-            finalLyrics = lrclibLyrics.plainLyrics || '';
+            // Low similarity: flag for manual review (don't normalize)
+            console.log(`     ⚠️  Low similarity (< 80%) - flagging for review`);
+            source = 'needs_review';
+            normalizedLyrics = null;  // Needs manual review
           }
 
-          // Keep synced lyrics from LRCLIB if available
-          syncedLrc = lrclibLyrics.syncedLyrics || null;
-
-        } else if (lrclibLyrics) {
+        } else if (lrclibText) {
           console.log(`     ✅ Found lyrics from LRCLIB only`);
-          finalLyrics = lrclibLyrics.plainLyrics || '';
-          syncedLrc = lrclibLyrics.syncedLyrics || null;
-          source = 'lrclib';
 
-        } else if (ovhLyrics) {
-          console.log(`     ✅ Found lyrics from Lyrics.ovh only`);
-          finalLyrics = ovhLyrics;
-          source = 'lyrics_ovh';
-        }
-
-        if (!finalLyrics) {
-          console.log(`     ❌ No usable lyrics after processing`);
-          failCount++;
-          continue;
-        }
-
-        // Step 5: Detect languages
-        console.log(`     🌐 Detecting languages...`);
-        let languageData: any | null = null;
-        try {
-          const languages = await detectLanguages(
-            finalLyrics,
-            track.title,
-            artistName
-          );
-
-          languageData = {
-            primary: languages.primary,
-            breakdown: languages.breakdown,
-            confidence: languages.confidence,
-          };
-
-          console.log(`        Primary: ${languages.primary}`);
-          if (languages.breakdown.length > 1) {
-            console.log(`        Mixed: ${languages.breakdown.map(l => `${l.code} (${l.percentage}%)`).join(', ')}`);
+          // Always clean single-source lyrics
+          console.log(`     🧹 Cleaning lyrics (removing [Chorus], (ooh), etc.)...`);
+          try {
+            normalizedLyrics = await cleanLyrics(
+              lrclibText,
+              track.title,
+              artistName
+            );
+            normalizedBy = 'gemini_flash_2_5';
+            source = 'normalized';
+            normalizedCount++;
+          } catch (error: any) {
+            console.log(`     ⚠️  Cleaning failed: ${error.message}`);
+            // Fallback: flag for review
+            source = 'needs_review';
+            normalizedLyrics = null;
           }
-        } catch (error: any) {
-          console.log(`     ⚠️  Language detection failed: ${error.message}`);
-          // Continue without language data
+
+        } else if (ovhText) {
+          console.log(`     ✅ Found lyrics from Lyrics.ovh only`);
+
+          // Clean single-source lyrics
+          console.log(`     🧹 Cleaning lyrics...`);
+          try {
+            normalizedLyrics = await cleanLyrics(
+              ovhText,
+              track.title,
+              artistName
+            );
+            normalizedBy = 'gemini_flash_2_5';
+            source = 'normalized';
+            normalizedCount++;
+          } catch (error: any) {
+            console.log(`     ⚠️  Cleaning failed: ${error.message}`);
+            source = 'needs_review';
+            normalizedLyrics = null;
+          }
         }
 
-        // Step 6: Get LRCLIB duration for validation (if available)
-        let lrcDurationMs: number | null = null;
-        if (lrclibLyrics?.duration) {
-          lrcDurationMs = lrclibLyrics.duration * 1000; // Convert seconds to milliseconds
-          const spotifySeconds = Math.round(track.duration_ms / 1000);
-          const lrclibSeconds = lrclibLyrics.duration;
-          const diffSeconds = Math.abs(spotifySeconds - lrclibSeconds);
-          console.log(`        LRCLIB duration: ${lrclibSeconds}s (Spotify: ${spotifySeconds}s, diff: ${diffSeconds}s)`);
+        // If normalized_lyrics is NULL and source is 'needs_review', skip language detection
+        if (source === 'needs_review' && !normalizedLyrics) {
+          console.log(`     ⚠️  Track flagged for manual review - skipping language detection`);
         }
 
-        // Step 7: Store lyrics
+        // Step 5: Detect languages (only if we have normalized lyrics)
+        let languageData: any | null = null;
+        if (normalizedLyrics) {
+          console.log(`     🌐 Detecting languages...`);
+          try {
+            const languages = await detectLanguages(
+              normalizedLyrics,
+              track.title,
+              artistName
+            );
+
+            languageData = {
+              primary: languages.primary,
+              breakdown: languages.breakdown,
+              confidence: languages.confidence,
+            };
+
+            console.log(`        Primary: ${languages.primary}`);
+            if (languages.breakdown.length > 1) {
+              console.log(`        Mixed: ${languages.breakdown.map(l => `${l.code} (${l.percentage}%)`).join(', ')}`);
+            }
+          } catch (error: any) {
+            console.log(`     ⚠️  Language detection failed: ${error.message}`);
+            // Continue without language data
+          }
+        }
+
+        // Step 6: Store lyrics with separate columns for each source
         const lyricsRecord: LyricsRecord = {
           spotify_track_id: track.spotify_track_id,
-          plain_text: finalLyrics,
-          synced_lrc: syncedLrc,
-          lrc_duration_ms: lrcDurationMs,
+          lrclib_lyrics: lrclibText,
+          ovh_lyrics: ovhText,
+          normalized_lyrics: normalizedLyrics,
           source,
           normalized_by: normalizedBy,
           confidence_score: confidenceScore,
           language_data: languageData,
-          raw_sources: rawSources,
-          grove_cid: null, // Will be set later during Grove upload
         };
 
         sqlStatements.push(upsertLyricsSQL(lyricsRecord));
 
-        // Update pipeline
+        // Update pipeline (only set has_lyrics=true if normalized_lyrics exists)
+        const hasUsableLyrics = !!normalizedLyrics;
         sqlStatements.push(
-          updatePipelineLyricsSQL(track.spotify_track_id, true)
+          updatePipelineLyricsSQL(track.spotify_track_id, hasUsableLyrics)
         );
 
-        // Log success
+        // Log success or needs_review
+        const logAction = hasUsableLyrics ? 'success' : 'skipped';
+        const logMessage = hasUsableLyrics
+          ? 'Lyrics discovered successfully'
+          : 'Low similarity - needs manual review';
+
         sqlStatements.push(
           logLyricsProcessingSQL(
             track.spotify_track_id,
-            'success',
-            'Lyrics discovered successfully',
+            logAction,
+            logMessage,
             {
               source,
               normalized: !!normalizedBy,
               confidence_score: confidenceScore,
-              has_synced_lrc: !!syncedLrc,
+              needs_review: !hasUsableLyrics,
               primary_language: languageData?.primary,
             }
           )
         );
 
-        successCount++;
+        if (hasUsableLyrics) {
+          successCount++;
+        } else {
+          failCount++;  // Count flagged tracks as failed (needs review)
+        }
 
         // Rate limiting (be nice to APIs)
         await new Promise(resolve => setTimeout(resolve, 500));

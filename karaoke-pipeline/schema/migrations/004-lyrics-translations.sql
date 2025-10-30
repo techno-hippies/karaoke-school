@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS lyrics_translations (
   grove_url TEXT,
 
   -- Translation metadata
-  translation_source TEXT NOT NULL DEFAULT 'gemini-flash-2.5',  -- AI model used
+  translation_source TEXT NOT NULL DEFAULT 'gemini-flash-2.5-lite',  -- AI model used
   confidence_score NUMERIC(3,2),                                 -- 0.00 to 1.00
   validated BOOLEAN DEFAULT FALSE,                               -- Human verified
 

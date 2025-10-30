@@ -4,7 +4,7 @@
  *
  * Processes tracks that have:
  * - ElevenLabs word alignment (elevenlabs_word_alignments)
- * - Normalized lyrics (song_lyrics.plain_text)
+ * - Lyrics (song_lyrics.selected_plain_text)
  *
  * Translates lyrics to multiple target languages:
  * - Spanish (es)
@@ -59,7 +59,7 @@ export async function processLyricsTranslation(
         sp.spotify_track_id,
         st.title,
         st.artists,
-        sl.plain_text as plain_lyrics,
+        sl.normalized_lyrics as plain_lyrics,
         sl.language_data,
         ewa.words
       FROM song_pipeline sp

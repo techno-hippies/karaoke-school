@@ -22,7 +22,7 @@
     "@lit-protocol/lit-node-client": "^7.3.1",
     "@lit-protocol/networks": "^8.0.0",
     "dotenv": "^16.4.7",
-    "ethers": "^6.15.0",
+    "ethers": "6.15.0",
     "viem": "^2.21.54"
   },
   "devDependencies": {
@@ -31,5 +31,12 @@
   },
   "overrides": {
     "@noble/hashes": "1.8.0"
-  }
+  },
+  "main": "test_lit_action.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

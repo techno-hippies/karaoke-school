@@ -1,26 +1,45 @@
 /**
  * Deployed Contract Addresses
  *
- * Base Sepolia (Chain ID: 84532)
+ * LENS TESTNET (Chain ID: 37111) - PRIMARY
+ * RPC: https://rpc.testnet.lens.xyz
+ * Explorer: https://block-explorer.testnet.lens.xyz
+ *
+ * BASE SEPOLIA (Chain ID: 84532) - LEGACY
  * RPC: https://sepolia.base.org
  * Explorer: https://sepolia.basescan.org
  */
 
-// Active contracts on Base Sepolia
-export const KARAOKE_CATALOG_ADDRESS = '0xe43A62838f70384Ed7a4C205E70d20f56d1Da711'; // V2: getRecentSongs(), deleteSong(), enhanced events
+// ============================================================
+// LENS TESTNET CONTRACTS (PRIMARY)
+// ============================================================
+
+// Performance Grading
+export const PERFORMANCE_GRADER_ADDRESS = '0x788A245B9AAB4E29D0152424b72bcB8Ac7c1E260'; // Deployed ✅
+export const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
+export const SCOREBOARD_CONTRACT_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36';
+
+// Events
+export const SEGMENT_EVENTS_ADDRESS = '0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8'; // Deployed ✅
+export const SONG_EVENTS_ADDRESS = '0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6'; // Deployed ✅
+export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E8'; // Deployed ✅
+
+// Network Config
+export const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';
+export const LENS_TESTNET_CHAIN_ID = 37111;
+
+// ============================================================
+// BASE SEPOLIA CONTRACTS (LEGACY - NO LONGER USED)
+// ============================================================
+
+// Deprecated - old contracts (left for reference only)
+export const KARAOKE_CATALOG_ADDRESS = '0xe43A62838f70384Ed7a4C205E70d20f56d1Da711';
 export const KARAOKE_CREDITS_ADDRESS = '0x6de183934E68051c407266F877fafE5C20F74653';
-export const FSRS_TRACKER_ADDRESS = '0xcB208EFA5B615472ee9b8Dea913624caefB6C1F3'; // V1: FSRS spaced repetition tracker
+export const FSRS_TRACKER_ADDRESS = '0xcB208EFA5B615472ee9b8Dea913624caefB6C1F3';
 export const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
-// Deprecated - old deployments (V2.1)
-export const OLD_KARAOKE_CATALOG_ADDRESS = '0x40A2a5bbD54ebB5DB84252c542b4e1BebFf37454';
-export const KARAOKE_SEGMENT_REGISTRY_ADDRESS = '0xd74F1874B1346Ce1a4958FA5304c376bE0209Fa8';
-
-// Deprecated - Lens Testnet (no longer used, migrated to Base Sepolia)
-export const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
-
-// PKP Wallet Address (not a contract) - The actual PKP used by Lit Actions (Relayer)
-export const PKP_ADDRESS = '0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30';
+// PKP Wallet Address (not a contract) - The actual PKP used by Lit Actions (Relayer)  
+export const PKP_ADDRESS = '0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23'; // Updated PKP from contracts/.env
 export const PKP_PUBLIC_KEY = '0x043a5f87717daafe9972ee37154786845a74368d269645685ef51d7ac32c59a20df5340b8adb154b1ac137a8f2c0a6aedbcdbc46448cc545ea7f5233918d324939';
 
 // Treasury

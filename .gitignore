@@ -83,3 +83,4 @@ lit-actions/src/stt/keys/
 .claude/
 .~lock.*
 tiktoks_to_scrape.csv
+quansic-service/bin/

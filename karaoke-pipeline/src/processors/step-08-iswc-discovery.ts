@@ -79,9 +79,8 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
         continue;
       }
 
-      // Step 2: Call Quansic API (DISABLED - Akash maintenance)
-      // TODO: Re-enable when Akash is back online
-      if (false && env.QUANSIC_SERVICE_URL) {
+      // Step 2: Call Quansic API
+      if (env.QUANSIC_SERVICE_URL) {
         apiCalls++;
         console.log(`   🔍 ${track.title} - calling Quansic API...`);
 

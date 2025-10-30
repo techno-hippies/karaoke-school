@@ -7,15 +7,19 @@ import { buildUpsert } from './neon';
 
 export interface LyricsRecord {
   spotify_track_id: string;
-  plain_text: string;
-  synced_lrc?: string | null;
-  lrc_duration_ms?: number | null;
-  source: 'lrclib' | 'lyrics_ovh' | 'lrclib+lyrics_ovh';
+
+  // Original sources (immutable audit trail)
+  lrclib_lyrics?: string | null;
+  ovh_lyrics?: string | null;
+
+  // Processed output (NULL if needs manual review)
+  normalized_lyrics?: string | null;
+
+  // Metadata
+  source: 'lrclib' | 'ovh' | 'lrclib+ovh' | 'normalized' | 'needs_review';
   normalized_by?: string | null;
-  confidence_score?: number | null;
+  confidence_score?: number | null;  // <0.80 = flagged for review
   language_data?: any | null;
-  raw_sources?: any | null;
-  grove_cid?: string | null;
 }
 
 /**
@@ -24,28 +28,24 @@ export interface LyricsRecord {
 export function upsertLyricsSQL(record: LyricsRecord): string {
   const data: any = {
     spotify_track_id: record.spotify_track_id,
-    plain_text: record.plain_text,
-    synced_lrc: record.synced_lrc || null,
-    lrc_duration_ms: record.lrc_duration_ms || null,
+    lrclib_lyrics: record.lrclib_lyrics || null,
+    ovh_lyrics: record.ovh_lyrics || null,
+    normalized_lyrics: record.normalized_lyrics || null,
     source: record.source,
     normalized_by: record.normalized_by || null,
     confidence_score: record.confidence_score || null,
     language_data: record.language_data || null,
-    raw_sources: record.raw_sources || null,
-    grove_cid: record.grove_cid || null,
   };
 
   return buildUpsert('song_lyrics', data, 'spotify_track_id', [
-    'plain_text',
-    'synced_lrc',
-    'lrc_duration_ms',
+    'lrclib_lyrics',
+    'ovh_lyrics',
+    'normalized_lyrics',
     'source',
     'normalized_by',
     'confidence_score',
     'language_data',
-    'raw_sources',
-    'grove_cid',
-  ]) + ' RETURNING spotify_track_id, source, confidence_score, lrc_duration_ms';
+  ]) + ' RETURNING spotify_track_id, source, confidence_score';
 }
 
 /**

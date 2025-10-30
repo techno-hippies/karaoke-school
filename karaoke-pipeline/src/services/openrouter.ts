@@ -6,12 +6,12 @@
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'google/gemini-2.5-flash-lite-preview-09-2025';
 
-interface OpenRouterMessage {
+export interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-interface OpenRouterResponse {
+export interface OpenRouterResponse {
   id: string;
   choices: Array<{
     message: {
@@ -28,7 +28,76 @@ interface OpenRouterResponse {
 }
 
 /**
- * Make OpenRouter API call
+ * OpenRouter Service Class
+ * Provides chat completions via Gemini Flash 2.5
+ */
+export class OpenRouterService {
+  private apiKey: string;
+
+  constructor(apiKey: string) {
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY required');
+    }
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * Make OpenRouter chat completion with optional response format
+   */
+  async chat(
+    messages: OpenRouterMessage[],
+    responseFormat?: any
+  ): Promise<OpenRouterResponse> {
+    const body: any = {
+      model: MODEL,
+      messages,
+      temperature: 0.1,
+    };
+
+    if (responseFormat) {
+      body.response_format = responseFormat;
+    }
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://github.com/karaoke-school',
+        'X-Title': 'Karaoke Pipeline v2',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    }
+
+    const data: OpenRouterResponse = await response.json();
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('OpenRouter returned no choices');
+    }
+
+    return data;
+  }
+
+  /**
+   * Simple text completion (legacy method for backward compatibility)
+   */
+  async complete(messages: OpenRouterMessage[]): Promise<string> {
+    const response = await this.chat(messages);
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error('OpenRouter returned empty content');
+    }
+    return content.trim();
+  }
+}
+
+/**
+ * Legacy helper function for direct calls
  */
 async function callOpenRouter(
   messages: OpenRouterMessage[]
@@ -38,38 +107,8 @@ async function callOpenRouter(
     throw new Error('OPENROUTER_API_KEY not set in environment');
   }
 
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/karaoke-school',
-      'X-Title': 'Karaoke Pipeline v2',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      temperature: 0.1, // Low temperature for consistency
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
-  }
-
-  const data: OpenRouterResponse = await response.json();
-
-  if (!data.choices || data.choices.length === 0) {
-    throw new Error('OpenRouter returned no choices');
-  }
-
-  const content = data.choices[0].message.content;
-  if (!content) {
-    throw new Error('OpenRouter returned empty content');
-  }
-
-  return content.trim();
+  const service = new OpenRouterService(apiKey);
+  return service.complete(messages);
 }
 
 /**
@@ -117,6 +156,51 @@ Merge these into a single normalized version. Return only the lyrics, nothing el
     console.error(`Failed to normalize lyrics: ${error.message}`);
     // Fallback to LRCLIB (typically more accurate with timing info)
     return lrclibLyrics;
+  }
+}
+
+/**
+ * Clean and normalize lyrics from a single source
+ * Removes metadata, timestamps, and formatting artifacts
+ */
+export async function cleanLyrics(
+  lyrics: string,
+  trackTitle: string,
+  artistName: string
+): Promise<string> {
+  const systemPrompt = `You are a lyrics cleaning specialist. Your task is to clean and normalize lyrics by removing formatting artifacts while preserving the original text.
+
+IMPORTANT RULES:
+1. Remove timestamp markers like [00:12.34] or (0:12)
+2. Remove metadata like [Chorus], [Verse], [Bridge], [Intro], [Outro], etc.
+3. Remove parenthetical sounds like (ooh), (ahh), (yeah), etc. UNLESS they appear in the main lyrics
+4. Use proper capitalization for names and song-specific terms
+5. Keep the original language and spelling (don't translate)
+6. Preserve line breaks that indicate song structure
+7. Remove duplicate lines UNLESS they're intentional repetition in the song
+8. Fix obvious typos, but DON'T change stylistic choices
+9. Keep all words exactly as sung (no censoring, no substitutions)
+10. Return ONLY the cleaned lyrics - no explanations, no metadata`;
+
+  const userPrompt = `Song: "${trackTitle}" by ${artistName}
+
+Lyrics to clean:
+${lyrics}
+
+Clean these lyrics following the rules. Return only the lyrics, nothing else.`;
+
+  const messages: OpenRouterMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ];
+
+  try {
+    const cleaned = await callOpenRouter(messages);
+    return cleaned;
+  } catch (error: any) {
+    console.error(`Failed to clean lyrics: ${error.message}`);
+    // Fallback to original
+    return lyrics;
   }
 }
 

@@ -1,53 +1,60 @@
----
 version: "2.2"
 
 services:
-  quansic:
-    image: t3333chn0000/quansic-service:v1.3  # Fixed auth + account pool with working credentials
+  quansic-service:
+    image: quansic-service:v2.0.0  # Update with your Docker Hub username
     expose:
       - port: 3000
         as: 80
         to:
           - global: true
-        accept:
-          - webdisplay
     env:
+      # Service configuration
       - PORT=3000
-      - NODE_ENV=production
-
-      # Account pool (add 3-5 accounts for rotation)
-      - QUANSIC_EMAIL=colorfulbritte@tiffincrane.com
-      - QUANSIC_PASSWORD=Junkyjunky710!
-      - QUANSIC_EMAIL_2=magentaaarika@tiffincrane.com
-      - QUANSIC_PASSWORD_2=Junkyjunky710!
-      - QUANSIC_EMAIL_3=rioeqtbrvdfqi@questtechsystems.com
-      - QUANSIC_PASSWORD_3=Junkyjunky710!
-
-      # Rotation settings (optional - defaults shown)
-      - REQUESTS_PER_ACCOUNT=50                     # Rotate after N requests
-      - ROTATION_INTERVAL_MS=1800000                # Or after 30 minutes (in ms)
+      - HOST=0.0.0.0
+      - SESSION_DURATION_MS=3600000
+      - REQUESTS_PER_ACCOUNT=30
+      - ROTATION_INTERVAL_MS=1800000
+      
+      # hrequests anti-detection configuration
+      - HREQUESTS_BROWSER=firefox
+      - HREQUESTS_HEADLESS=true
+      - HREQUESTS_TIMEOUT=30000
+      
+      # CORS
+      - ALLOWED_ORIGINS=*
+      
+      # Quansic accounts (update with your credentials)
+      - QUANSIC_EMAIL=official863@tiffincrane.com
+      - QUANSIC_PASSWORD=Temporarypw710!
+      - QUANSIC_EMAIL_2=backup@example.com
+      - QUANSIC_PASSWORD_2=BackupPassword123!
+      - QUANSIC_EMAIL_3=third@example.com
+      - QUANSIC_PASSWORD_3=ThirdPassword123!
+      
+      # Optional: Add proxy for additional stealth
+      # - PROXY_URL=...
 
 profiles:
   compute:
-    quansic:
+    quansic-service:
       resources:
         cpu:
-          units: 2
+          units: 2  # Increased for browser automation
         memory:
-          size: 4Gi
+          size: 6Gi  # Increased for browser memory
         storage:
-          - size: 20Gi
-            # Ephemeral storage for browser cache
+          - size: 20Gi  # Browser cache and temporary files
 
   placement:
     akash:
       pricing:
-        quansic:
+        quansic-service:
           denom: uakt
-          amount: 10000  # Max bid per block (~$0.01-0.03/hour)
+          amount: 20000  # ~$0.02-0.05/hour for enhanced service
 
 deployment:
-  quansic:
+  quansic-service:
     akash:
-      profile: quansic
+      profile: quansic-service
       count: 1

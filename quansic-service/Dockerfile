@@ -1,47 +1,58 @@
-FROM oven/bun:1-debian
+# Quansic Service Dockerfile - Python + hrequests anti-detection version
+FROM python:3.11-slim
 
-# Install system dependencies for Playwright (Chromium)
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    ca-certificates \
-    # Playwright/Chromium dependencies
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libdbus-1-3 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libasound2 \
-    libatspi2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
+# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Install system dependencies for Playwright and browser automation
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN bun install
+# Copy uv configuration files
+COPY pyproject.toml ./
+COPY uv.lock* ./
 
-# Install Playwright browsers (Chromium only)
-RUN bunx playwright install chromium --with-deps
+# Install uv package manager
+RUN pip install uv
+
+# Install dependencies using uv
+RUN uv pip install --system -e . 
 
 # Copy application code
 COPY . .
 
+# Create non-root user
+RUN useradd -m -u 1000 quansic && \
+    chown -R quansic:quansic /app
+USER quansic
+
+# Expose port
 EXPOSE 3000
 
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:3000/health', timeout=5)" || exit 1
 
-CMD ["bun", "run", "index.ts"]
+# Run the application
+CMD ["python", "main.py"]
