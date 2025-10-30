@@ -4,6 +4,24 @@
  */
 
 /**
+ * Remove ad-libs from lyrics
+ * Ad-libs are marked with parentheses or brackets: (ooh), [yeah], etc.
+ * These vary between sources and are not useful for karaoke
+ */
+function removeAdlibs(text: string): string {
+  // Remove content in parentheses: (word), (word word), etc.
+  let result = text.replace(/\([^)]*\)/g, ' ');
+
+  // Remove content in brackets: [word], [word word], etc.
+  result = result.replace(/\[[^\]]*\]/g, ' ');
+
+  // Clean up multiple spaces created by removal
+  result = result.replace(/\s+/g, ' ').trim();
+
+  return result;
+}
+
+/**
  * Normalize lyrics formatting for comparison
  * Removes formatting differences (line breaks, extra whitespace)
  * while preserving content for meaningful similarity comparison
@@ -93,10 +111,11 @@ export function calculateSimilarity(lyrics1: string, lyrics2: string): {
   combinedScore: number;
   corroborated: boolean;
 } {
-  // Normalize formatting (line breaks, whitespace, punctuation)
-  // then lowercase and trim for comparison
-  const norm1 = normalizeFormatting(lyrics1);
-  const norm2 = normalizeFormatting(lyrics2);
+  // Preprocessing steps (in order):
+  // 1. Remove ad-libs (parentheses/brackets - vary between sources)
+  // 2. Normalize formatting (line breaks, whitespace, punctuation)
+  const norm1 = normalizeFormatting(removeAdlibs(lyrics1));
+  const norm2 = normalizeFormatting(removeAdlibs(lyrics2));
 
   const jaccardScore = jaccardSimilarity(norm1, norm2);
   const levenshteinScore = levenshteinSimilarity(norm1, norm2);
