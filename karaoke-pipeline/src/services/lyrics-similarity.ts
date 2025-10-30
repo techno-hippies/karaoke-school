@@ -4,6 +4,26 @@
  */
 
 /**
+ * Normalize lyrics formatting for comparison
+ * Removes formatting differences (line breaks, extra whitespace)
+ * while preserving content for meaningful similarity comparison
+ */
+function normalizeFormatting(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    // Replace various line break types with spaces
+    .replace(/[\r\n]+/g, ' ')
+    // Normalize multiple spaces to single space
+    .replace(/\s+/g, ' ')
+    // Remove extra punctuation that doesn't affect meaning
+    .replace(/[,;:]/g, ' ')
+    // Clean up any remaining multiple spaces
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Calculate Jaccard similarity between two sets of words
  * Returns 0.0 to 1.0 (1.0 = identical)
  */
@@ -73,9 +93,10 @@ export function calculateSimilarity(lyrics1: string, lyrics2: string): {
   combinedScore: number;
   corroborated: boolean;
 } {
-  // Normalize for comparison (lowercase, trim)
-  const norm1 = lyrics1.toLowerCase().trim();
-  const norm2 = lyrics2.toLowerCase().trim();
+  // Normalize formatting (line breaks, whitespace, punctuation)
+  // then lowercase and trim for comparison
+  const norm1 = normalizeFormatting(lyrics1);
+  const norm2 = normalizeFormatting(lyrics2);
 
   const jaccardScore = jaccardSimilarity(norm1, norm2);
   const levenshteinScore = levenshteinSimilarity(norm1, norm2);
