@@ -1,4 +1,4 @@
-# Quansic Enrichment Service v2.0.0
+# Quansic Enrichment Service v2.0.1
 
 ## 🛡️ Anti-Detection Music Metadata Service
 
@@ -174,12 +174,12 @@ ROTATION_INTERVAL_MS=1800000  # 30 minutes max per account
 
 ### Build
 ```bash
-docker build -t quansic-service:v2.0.0 .
+docker build -t quansic-service:v2.0.1 .
 ```
 
 ### Run
 ```bash
-docker run -p 3000:3000 --env-file .env quansic-service:v2.0.0
+docker run -p 3000:3000 --env-file .env quansic-service:v2.0.1
 ```
 
 ### Akash Deployment

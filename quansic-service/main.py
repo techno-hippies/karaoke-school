@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Quansic Enrichment Service",
     description="Anti-detection music metadata enrichment using hrequests",
-    version="2.0.0",
+    version="2.0.1",
     lifespan=lifespan
 )
 
@@ -95,7 +95,7 @@ async def health_check(service: QuansicService = Depends(get_quansic_service)):
             "status": "healthy",
             "uptime": "running",
             "session_valid": session_valid,
-            "service_version": "2.0.0",
+            "service_version": "2.0.1",
             "hrequests_enabled": True,
             "anti_detection": True,
             "account_pool": {
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "3000"))
     host = os.getenv("HOST", "0.0.0.0")
     
-    logger.info(f"🚀 Starting Quansic Enrichment Service v2.0.0 with hrequests")
+    logger.info(f"🚀 Starting Quansic Enrichment Service v2.0.1 with hrequests")
     logger.info(f"🌐 Server: http://{host}:{port}")
     logger.info(f"🛡️ Anti-detection: Enabled (Camoufox + Patchright)")
     logger.info(f"📊 Browser: {os.getenv('HREQUESTS_BROWSER', 'firefox')}")
