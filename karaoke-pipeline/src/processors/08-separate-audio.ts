@@ -11,7 +11,7 @@
  *
  * Flow:
  * 1. Find tracks with status='audio_downloaded' and no separation job
- * 2. Get song_audio.grove_url (full-length audio uploaded by slsk-service)
+ * 2. Get song_audio.grove_url (full-length audio uploaded by audio-download-service)
  * 3. Submit separation job to DemucsService.separateAsync()
  * 4. Create karaoke_segments record with status='processing'
  * 5. Processor returns immediately (webhook updates DB when done)

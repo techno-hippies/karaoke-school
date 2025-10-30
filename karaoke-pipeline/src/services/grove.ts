@@ -199,3 +199,50 @@ export class GroveService {
 export function createGroveService(): GroveService {
   return new GroveService(); // Uses 37111 (Lens Testnet) by default
 }
+
+/**
+ * Upload file to Grove via Irys (simplified helper for processors)
+ *
+ * @param irysPrivateKey Private key for Irys signing
+ * @param buffer File data as Buffer
+ * @param contentType MIME type (e.g., 'audio/mpeg')
+ * @param tags Optional metadata tags
+ * @returns Upload result with CID and URL
+ */
+export async function uploadToGrove(
+  irysPrivateKey: string,
+  buffer: Buffer,
+  contentType: string,
+  tags?: Record<string, string>
+): Promise<GroveUploadResult> {
+  // Import Irys dynamically (for Node.js compatibility)
+  const { default: Irys } = await import('@irys/sdk');
+
+  // Initialize Irys client (Arweave testnet for now)
+  const irys = new Irys({
+    network: 'devnet', // Use 'mainnet' for production
+    token: 'arweave',
+    key: irysPrivateKey,
+  });
+
+  // Convert tags to Irys format
+  const irysTags = tags
+    ? Object.entries(tags).map(([name, value]) => ({ name, value }))
+    : [];
+
+  // Add content type tag
+  irysTags.push({ name: 'Content-Type', value: contentType });
+
+  // Upload to Irys
+  const receipt = await irys.upload(buffer, { tags: irysTags });
+
+  const cid = receipt.id;
+  const url = `https://gateway.irys.xyz/${cid}`;
+
+  return {
+    cid,
+    url,
+    size: buffer.length,
+    timestamp: new Date(),
+  };
+}
