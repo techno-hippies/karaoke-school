@@ -113,27 +113,28 @@ class QuansicService:
 
             try:
                 logger.info(f"Navigating to login page...")
-                # Navigate directly - try different waitUntil options
-                try:
-                    # Try Playwright's waitUntil parameter (camelCase)
-                    page.goto('https://explorer.quansic.com/app-login', waitUntil='domcontentloaded')
-                except TypeError:
-                    try:
-                        # Try snake_case
-                        page.goto('https://explorer.quansic.com/app-login', wait_until='domcontentloaded')
-                    except:
-                        # Fallback: just navigate and don't wait for full load
-                        logger.debug("waitUntil not supported, using basic navigation...")
-                        page.goto('https://explorer.quansic.com/app-login')
+                # Use underlying Playwright page with wait_until='domcontentloaded'
+                page.page.goto('https://explorer.quansic.com/app-login', wait_until='domcontentloaded', timeout=60000)
+                logger.info(f"Page loaded, current URL: {page.url}")
 
                 # Wait for page to stabilize
-                time.sleep(random.uniform(2, 5))
+                sleep_time = random.uniform(2, 5)
+                logger.info(f"Sleeping for {sleep_time:.2f}s...")
+                time.sleep(sleep_time)
+                logger.info(f"Sleep complete, proceeding to form fill...")
 
                 # Find and fill login form
                 logger.debug(f"Waiting for email input...")
                 page.awaitSelector('input[name="email"]', timeout=30000)
 
-                logger.debug(f"Typing email...")
+                # Take screenshot before filling
+                try:
+                    page.screenshot(path='/tmp/quansic-before-fill.png')
+                    logger.debug("Screenshot saved: /tmp/quansic-before-fill.png")
+                except:
+                    pass
+
+                logger.debug(f"Typing email: {account.email}")
                 page.type('input[name="email"]', account.email)
                 time.sleep(random.uniform(0.5, 1.5))
 
@@ -141,9 +142,33 @@ class QuansicService:
                 page.type('input[name="password"]', account.password)
                 time.sleep(random.uniform(1, 3))
 
+                # Take screenshot after filling
+                try:
+                    page.screenshot(path='/tmp/quansic-after-fill.png')
+                    logger.debug("Screenshot saved: /tmp/quansic-after-fill.png")
+                except:
+                    pass
+
                 # Click login button
+                logger.debug(f"Looking for login button...")
+                # Check if button exists
+                try:
+                    button_exists = page.isVisible('button:has-text("Login")')
+                    logger.debug(f"Login button visible: {button_exists}")
+                except:
+                    logger.debug("Could not check button visibility")
+
                 logger.debug(f"Clicking login button...")
                 page.click('button:has-text("Login")')
+                logger.debug("Login button clicked")
+
+                # Take screenshot after click
+                try:
+                    time.sleep(2)
+                    page.screenshot(path='/tmp/quansic-after-click.png')
+                    logger.debug("Screenshot saved: /tmp/quansic-after-click.png")
+                except:
+                    pass
 
                 # Wait for navigation by checking URL change
                 logger.debug(f"Waiting for navigation away from login page...")

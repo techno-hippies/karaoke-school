@@ -228,7 +228,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 /**
  * Detect language composition of lyrics
  * Critical for K-pop mixed-language handling
- * Uses simplified approach: Gemini identifies WHICH languages, we calculate percentages
+ * Simple approach: Gemini identifies WHICH languages are present
  */
 export async function detectLanguages(
   lyrics: string,
@@ -236,7 +236,7 @@ export async function detectLanguages(
   artistName: string
 ): Promise<{
   primary: string;
-  breakdown: Array<{ code: string; language: string; percentage: number }>;
+  detectedLanguages: string[];
   confidence: number;
 }> {
   const systemPrompt = `You are a language detection specialist. Identify all languages present in these song lyrics.
@@ -295,45 +295,9 @@ Identify all languages. Return ONLY JSON, no explanations.`;
       throw new Error('Invalid response structure - missing primary or detectedLanguages');
     }
 
-    // Build breakdown: if single language, 100%; if multiple, split evenly
-    let breakdown: Array<{ code: string; language: string; percentage: number }>;
-
-    if (parsed.detectedLanguages.length === 1) {
-      // Single language: 100%
-      const code = parsed.detectedLanguages[0];
-      breakdown = [
-        {
-          code,
-          language: LANGUAGE_NAMES[code] || code.toUpperCase(),
-          percentage: 100,
-        },
-      ];
-    } else {
-      // Multiple languages: split by language count
-      // Primary gets 70%, others split remaining 30%
-      const secondaryLangs = parsed.detectedLanguages.filter(
-        (code: string) => code !== parsed.primary
-      );
-      const secondaryPercentage = secondaryLangs.length > 0 ? 30 : 0;
-      const perSecondary = secondaryLangs.length > 0 ? Math.floor(secondaryPercentage / secondaryLangs.length) : 0;
-
-      breakdown = [
-        {
-          code: parsed.primary,
-          language: LANGUAGE_NAMES[parsed.primary] || parsed.primary.toUpperCase(),
-          percentage: 70,
-        },
-        ...secondaryLangs.map((code: string) => ({
-          code,
-          language: LANGUAGE_NAMES[code] || code.toUpperCase(),
-          percentage: perSecondary,
-        })),
-      ];
-    }
-
     return {
       primary: parsed.primary,
-      breakdown,
+      detectedLanguages: parsed.detectedLanguages,
       confidence: parsed.confidence || 0.9,
     };
   } catch (error: any) {
@@ -342,9 +306,7 @@ Identify all languages. Return ONLY JSON, no explanations.`;
     // Fallback: assume English (most common default)
     return {
       primary: 'en',
-      breakdown: [
-        { code: 'en', language: 'English', percentage: 100 }
-      ],
+      detectedLanguages: ['en'],
       confidence: 0.5, // Low confidence for fallback
     };
   }
