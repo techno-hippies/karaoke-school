@@ -422,24 +422,30 @@ export async function processDiscoverLyrics(_env: any, limit: number = 50): Prom
 
   for (const track of uncachedTracks) {
     try {
-      const lyricsA = await lrclib.searchLyrics(track.title, track.artist);
-      const lyricsB = await lyricsOvh.getLyrics(track.artist, track.title);
+      const lyricsA = await lrclib.searchLyrics({
+        trackName: track.title,
+        artistName: track.artist
+      });
+      const lyricsB = await lyricsOvh.searchLyrics(track.artist, track.title);
 
-      let selectedLyrics = lyricsA || lyricsB;
+      // Extract plain text from LRCLIB result (it returns an object)
+      const lyricsAText = lyricsA?.plainLyrics || null;
+      const selectedLyrics = lyricsAText || lyricsB;
+
       if (!selectedLyrics) {
         failCount++;
         continue;
       }
 
-      let source = lyricsA ? 'lrclib' : 'lyrics.ovh';
+      let source = lyricsAText ? 'lrclib' : 'lyrics.ovh';
       let normalized = selectedLyrics;
       let languages = { primary: 'en', breakdown: [{ code: 'en', percentage: 100 }], confidence: 0.5 };
 
       if (selectedLyrics) {
         try {
-          const langResult = await detectLanguages(selectedLyrics);
+          const langResult = await detectLanguages(selectedLyrics, track.title, track.artist);
           languages = langResult;
-          normalized = await normalizeLyrics(selectedLyrics);
+          normalized = await cleanLyrics(selectedLyrics, track.title, track.artist);
           normalizedCount++;
           source = 'normalized';
         } catch (error) {
