@@ -40,6 +40,7 @@ interface ArtistAggregation {
   youtubeChannel?: string;
   soundcloudHandle?: string;
   handleConflicts: Array<{ platform: string; genius: string; musicbrainz: string }>;
+  handleOverrides?: Record<string, string>;
   urls: Record<string, string>;
   imageUrl?: string;
   headerImageUrl?: string;
@@ -79,14 +80,19 @@ function extractHandleFromUrl(url: string | undefined, platform: string): string
 }
 
 /**
- * Merge handles from Genius and MusicBrainz, detect conflicts
+ * Merge handles from manual override, Genius, and MusicBrainz
+ * Priority: override > Genius > MusicBrainz
  */
 function mergeHandle(
+  override: string | undefined,
   geniusHandle: string | undefined,
   mbHandle: string | undefined,
   platform: string,
   conflicts: Array<{ platform: string; genius: string; musicbrainz: string }>
 ): string | undefined {
+  // Highest priority: manual override
+  if (override) return override;
+
   if (!geniusHandle && !mbHandle) return undefined;
   if (!geniusHandle) return mbHandle;
   if (!mbHandle) return geniusHandle;
@@ -136,6 +142,14 @@ async function main() {
       handleConflicts: [],
       urls: {}
     };
+
+    // Check if artist already exists (to preserve manual overrides)
+    const existing = await query(`
+      SELECT handle_overrides FROM grc20_artists WHERE spotify_artist_id = $1
+    `, [spotify_artist_id]);
+    if (existing[0]?.handle_overrides) {
+      agg.handleOverrides = existing[0].handle_overrides;
+    }
 
     // 1. SPOTIFY - Get basic data ONLY (genres), NO images
     const spotify = await query(`SELECT name, genres FROM spotify_artists WHERE spotify_artist_id = $1`, [spotify_artist_id]);
@@ -241,12 +255,12 @@ async function main() {
         const youtubeUrl = extractUrl(m.all_urls, 'youtube.youtube.com');
         const soundcloudUrl = extractUrl(m.all_urls, 'soundcloud.com');
 
-        agg.instagramHandle = mergeHandle(agg.instagramHandle, extractHandleFromUrl(instagramUrl, 'instagram'), 'instagram', agg.handleConflicts);
-        agg.twitterHandle = mergeHandle(agg.twitterHandle, extractHandleFromUrl(twitterUrl, 'twitter'), 'twitter', agg.handleConflicts);
-        agg.facebookHandle = mergeHandle(agg.facebookHandle, extractHandleFromUrl(facebookUrl, 'facebook'), 'facebook', agg.handleConflicts);
-        agg.tiktokHandle = mergeHandle(agg.tiktokHandle, extractHandleFromUrl(tiktokUrl, 'tiktok'), 'tiktok', agg.handleConflicts);
-        agg.youtubeChannel = mergeHandle(agg.youtubeChannel, extractHandleFromUrl(youtubeUrl, 'youtube'), 'youtube', agg.handleConflicts);
-        agg.soundcloudHandle = mergeHandle(agg.soundcloudHandle, extractHandleFromUrl(soundcloudUrl, 'soundcloud'), 'soundcloud', agg.handleConflicts);
+        agg.instagramHandle = mergeHandle(agg.handleOverrides?.instagram, agg.instagramHandle, extractHandleFromUrl(instagramUrl, 'instagram'), 'instagram', agg.handleConflicts);
+        agg.twitterHandle = mergeHandle(agg.handleOverrides?.twitter, agg.twitterHandle, extractHandleFromUrl(twitterUrl, 'twitter'), 'twitter', agg.handleConflicts);
+        agg.facebookHandle = mergeHandle(agg.handleOverrides?.facebook, agg.facebookHandle, extractHandleFromUrl(facebookUrl, 'facebook'), 'facebook', agg.handleConflicts);
+        agg.tiktokHandle = mergeHandle(agg.handleOverrides?.tiktok, agg.tiktokHandle, extractHandleFromUrl(tiktokUrl, 'tiktok'), 'tiktok', agg.handleConflicts);
+        agg.youtubeChannel = mergeHandle(agg.handleOverrides?.youtube, agg.youtubeChannel, extractHandleFromUrl(youtubeUrl, 'youtube'), 'youtube', agg.handleConflicts);
+        agg.soundcloudHandle = mergeHandle(agg.handleOverrides?.soundcloud, agg.soundcloudHandle, extractHandleFromUrl(soundcloudUrl, 'soundcloud'), 'soundcloud', agg.handleConflicts);
 
         // Other URLs (keep these - not social media handles)
         agg.urls.myspace_url = extractUrl(m.all_urls, 'myspace.com');
@@ -342,7 +356,7 @@ async function main() {
         genres, is_verified,
         instagram_handle, twitter_handle, facebook_handle, tiktok_handle,
         youtube_channel, soundcloud_handle,
-        handle_conflicts,
+        handle_conflicts, handle_overrides,
         myspace_url, spotify_url, deezer_url, tidal_url, apple_music_url, amazon_music_url,
         youtube_music_url, napster_url, yandex_music_url, boomplay_url,
         vimeo_url, imvdb_url, wikidata_url, viaf_url, imdb_url, allmusic_url, discogs_url,
@@ -356,7 +370,7 @@ async function main() {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -379,6 +393,7 @@ async function main() {
       agg.instagramHandle, agg.twitterHandle, agg.facebookHandle, agg.tiktokHandle,
       agg.youtubeChannel, agg.soundcloudHandle,
       JSON.stringify(agg.handleConflicts),
+      JSON.stringify(agg.handleOverrides || {}),
       agg.urls.myspace_url, agg.urls.spotify_url, agg.urls.deezer_url, agg.urls.tidal_url, agg.urls.apple_music_url, agg.urls.amazon_music_url,
       agg.urls.youtube_music_url, agg.urls.napster_url, agg.urls.yandex_music_url, agg.urls.boomplay_url,
       agg.urls.vimeo_url, agg.urls.imvdb_url, agg.urls.wikidata_url, agg.urls.viaf_url, agg.urls.imdb_url, agg.urls.allmusic_url, agg.urls.discogs_url,

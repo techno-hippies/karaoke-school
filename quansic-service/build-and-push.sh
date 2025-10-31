@@ -1,23 +1,21 @@
 #!/bin/bash
 set -e
 
-echo "🐳 Building Quansic Service v2.0.1 with hrequests..."
+echo "🐳 Building Quansic Service v2.0.2 with hrequests..."
 
 # Build Docker image
-docker build -t quansic-service:v2.0.1 .
+docker build -t quansic-service:v2.0.2 .
 
-echo "✅ Docker image built: quansic-service:v2.0.1"
+echo "✅ Docker image built: quansic-service:v2.0.2"
 
 # Tag for push
-docker tag quansic-service:v2.0.1 t3333chn0000/quansic-service:v2.0.1
-docker tag quansic-service:v2.0.1 t3333chn0000/quansic-service:latest
+docker tag quansic-service:v2.0.2 t3333chn0000/quansic-service:v2.0.2
 
 echo "🏷️ Tagged for Docker Hub"
 
-# Push to Docker Hub
-docker push t3333chn0000/quansic-service:v2.0.1
-docker push t3333chn0000/quansic-service:latest
+# Push to Docker Hub (versioned tag only, avoid cache issues with "latest")
+docker push t3333chn0000/quansic-service:v2.0.2
 
 echo "🎉 Successfully pushed to Docker Hub!"
-echo "📦 Pushed both v2.0.1 and latest tags"
-echo "🚀 For Akash GUI: Just redeploy with the same deploy-akash.yaml (uses latest tag)"
+echo "📦 Pushed v2.0.2 tag"
+echo "⚠️  Update deploy-akash.yaml with image: t3333chn0000/quansic-service:v2.0.2"
