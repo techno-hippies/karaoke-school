@@ -12,10 +12,16 @@ services:
       # Service configuration
       - PORT=8002
       - HOST=0.0.0.0
-      
+
       # Demucs CPU-specific configuration
       - DEMUCS_MODEL=mdx_q  # CPU-optimized quantized model
       - SEPARATION_TIMEOUT=600  # 10 minutes max for CPU processing
+
+      # Grove IPFS configuration
+      - GROVE_CHAIN_ID=37111  # Base Sepolia testnet
+
+      # Neon Database configuration (set via environment secrets in Akash)
+      # - NEON_DATABASE_URL=postgresql://... (provided via Akash secrets)
 
 profiles:
   compute:
