@@ -39,6 +39,8 @@ interface ArtistAggregation {
   tiktokHandle?: string;
   youtubeChannel?: string;
   soundcloudHandle?: string;
+  weiboHandle?: string;
+  vkHandle?: string;
   handleConflicts: Array<{ platform: string; genius: string; musicbrainz: string }>;
   handleOverrides?: Record<string, string>;
   urls: Record<string, string>;
@@ -69,8 +71,10 @@ function extractHandleFromUrl(url: string | undefined, platform: string): string
         const handle = parts[1] || parts[0].replace('@', '');
         return handle.toLowerCase();  // Normalize to lowercase
       }
-    } else if (platform === 'soundcloud' || platform === 'instagram' || platform === 'tiktok' || platform === 'twitter' || platform === 'facebook') {
+    } else if (platform === 'soundcloud' || platform === 'instagram' || platform === 'tiktok' || platform === 'twitter' || platform === 'facebook' || platform === 'weibo' || platform === 'vk') {
       // Just the username (first path part), strip @ if present, normalize to lowercase
+      // Weibo: weibo.com/6861477307 -> 6861477307
+      // VK: vk.com/billieeilish -> billieeilish
       const handle = parts[0]?.replace('@', '');
       return handle?.toLowerCase();
     }
@@ -254,6 +258,8 @@ async function main() {
         const tiktokUrl = extractUrl(m.all_urls, 'tiktok.com');
         const youtubeUrl = extractUrl(m.all_urls, 'youtube.youtube.com');
         const soundcloudUrl = extractUrl(m.all_urls, 'soundcloud.com');
+        const weiboUrl = extractUrl(m.all_urls, 'weibo.com');
+        const vkUrl = extractUrl(m.all_urls, 'vk.com');
 
         agg.instagramHandle = mergeHandle(agg.handleOverrides?.instagram, agg.instagramHandle, extractHandleFromUrl(instagramUrl, 'instagram'), 'instagram', agg.handleConflicts);
         agg.twitterHandle = mergeHandle(agg.handleOverrides?.twitter, agg.twitterHandle, extractHandleFromUrl(twitterUrl, 'twitter'), 'twitter', agg.handleConflicts);
@@ -261,6 +267,8 @@ async function main() {
         agg.tiktokHandle = mergeHandle(agg.handleOverrides?.tiktok, agg.tiktokHandle, extractHandleFromUrl(tiktokUrl, 'tiktok'), 'tiktok', agg.handleConflicts);
         agg.youtubeChannel = mergeHandle(agg.handleOverrides?.youtube, agg.youtubeChannel, extractHandleFromUrl(youtubeUrl, 'youtube'), 'youtube', agg.handleConflicts);
         agg.soundcloudHandle = mergeHandle(agg.handleOverrides?.soundcloud, agg.soundcloudHandle, extractHandleFromUrl(soundcloudUrl, 'soundcloud'), 'soundcloud', agg.handleConflicts);
+        agg.weiboHandle = mergeHandle(agg.handleOverrides?.weibo, agg.weiboHandle, extractHandleFromUrl(weiboUrl, 'weibo'), 'weibo', agg.handleConflicts);
+        agg.vkHandle = mergeHandle(agg.handleOverrides?.vk, agg.vkHandle, extractHandleFromUrl(vkUrl, 'vk'), 'vk', agg.handleConflicts);
 
         // Other URLs (keep these - not social media handles)
         agg.urls.myspace_url = extractUrl(m.all_urls, 'myspace.com');
@@ -355,7 +363,7 @@ async function main() {
         artist_type, gender, birth_date, death_date, country,
         genres, is_verified,
         instagram_handle, twitter_handle, facebook_handle, tiktok_handle,
-        youtube_channel, soundcloud_handle,
+        youtube_channel, soundcloud_handle, weibo_handle, vk_handle,
         handle_conflicts, handle_overrides,
         myspace_url, spotify_url, deezer_url, tidal_url, apple_music_url, amazon_music_url,
         youtube_music_url, napster_url, yandex_music_url, boomplay_url,
@@ -370,7 +378,7 @@ async function main() {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -378,6 +386,7 @@ async function main() {
         instagram_handle = EXCLUDED.instagram_handle, twitter_handle = EXCLUDED.twitter_handle,
         facebook_handle = EXCLUDED.facebook_handle, tiktok_handle = EXCLUDED.tiktok_handle,
         youtube_channel = EXCLUDED.youtube_channel, soundcloud_handle = EXCLUDED.soundcloud_handle,
+        weibo_handle = EXCLUDED.weibo_handle, vk_handle = EXCLUDED.vk_handle,
         handle_conflicts = EXCLUDED.handle_conflicts,
         wikidata_url = EXCLUDED.wikidata_url, allmusic_url = EXCLUDED.allmusic_url,
         spotify_url = EXCLUDED.spotify_url,
@@ -391,7 +400,7 @@ async function main() {
       agg.artistType, agg.gender, agg.birthDate, agg.deathDate, agg.country, agg.genres,
       agg.isVerified,
       agg.instagramHandle, agg.twitterHandle, agg.facebookHandle, agg.tiktokHandle,
-      agg.youtubeChannel, agg.soundcloudHandle,
+      agg.youtubeChannel, agg.soundcloudHandle, agg.weiboHandle, agg.vkHandle,
       JSON.stringify(agg.handleConflicts),
       JSON.stringify(agg.handleOverrides || {}),
       agg.urls.myspace_url, agg.urls.spotify_url, agg.urls.deezer_url, agg.urls.tidal_url, agg.urls.apple_music_url, agg.urls.amazon_music_url,
@@ -419,6 +428,8 @@ async function main() {
       COUNT(youtube_channel) as with_yt_channel,
       COUNT(soundcloud_handle) as with_sc_handle,
       COUNT(tiktok_handle) as with_tt_handle,
+      COUNT(weibo_handle) as with_weibo_handle,
+      COUNT(vk_handle) as with_vk_handle,
       COUNT(handle_conflicts) FILTER (WHERE jsonb_array_length(handle_conflicts) > 0) as with_conflicts,
       COUNT(spotify_url) as with_spotify_url,
       COUNT(amazon_music_url) as with_amazon,
@@ -441,6 +452,8 @@ async function main() {
   console.log(`   YouTube: ${summary[0].with_yt_channel}`);
   console.log(`   SoundCloud: ${summary[0].with_sc_handle}`);
   console.log(`   TikTok: ${summary[0].with_tt_handle}`);
+  console.log(`   Weibo: ${summary[0].with_weibo_handle}`);
+  console.log(`   VK: ${summary[0].with_vk_handle}`);
   console.log(`   ⚠️  Handle conflicts: ${summary[0].with_conflicts}`);
   console.log(`\n   Reference URLs:`);
   console.log(`   Spotify: ${summary[0].with_spotify_url} (${Math.round(summary[0].with_spotify_url/summary[0].total*100)}%)`);
