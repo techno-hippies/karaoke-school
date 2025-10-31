@@ -2,27 +2,9 @@ version: '3.8'
 
 services:
   # Quansic ISWC Discovery Service
-  quansic:
-    build:
-      context: ../quansic-service
-      dockerfile: Dockerfile
-    container_name: karaoke-quansic
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - DOTENV_PRIVATE_KEY=${DOTENV_PRIVATE_KEY}
-    volumes:
-      - ../quansic-service:/app
-      - quansic-logs:/app/logs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - karaoke-network
+  # ⚠️  Now using Akash-hosted remote endpoint (v2.0.2)
+  # Endpoint: http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer
+  # Set QUANSIC_SERVICE_URL env var to use a different endpoint
 
   # BMI Service for ISWC lookup
   bmi:
@@ -133,8 +115,6 @@ services:
       - .:/app
       - ./logs:/app/logs
     depends_on:
-      quansic:
-        condition: service_healthy
       bmi:
         condition: service_healthy
       audio-download:
@@ -149,7 +129,6 @@ services:
     command: ["bun", "run", "standalone-server"]
 
 volumes:
-  quansic-logs:
   bmi-logs:
   audio-logs:
   ffmpeg-logs:

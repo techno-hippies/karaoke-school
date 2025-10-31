@@ -1,9 +1,9 @@
 /**
  * Quansic API Service
- * Enriches recordings with ISWC via local Quansic service
+ * Enriches recordings with ISWC via Akash-hosted Quansic service
  */
 
-const QUANSIC_URL = process.env.QUANSIC_URL || process.env.QUANSIC_SERVICE_URL || 'https://12of59qslt8kp9t92b0op2sn00.ingress.akash.tagus.host';
+const QUANSIC_URL = process.env.QUANSIC_URL || process.env.QUANSIC_SERVICE_URL || 'http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer';
 
 export interface QuansicRecordingResult {
   success: boolean;

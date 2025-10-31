@@ -76,7 +76,7 @@ wait_for_services() {
     log_info "Waiting for services to be healthy..."
     
     local max_wait=60
-    local services=("quansic:3000" "bmi:3002" "audio-download:3001" "ffmpeg:3003" "demucs:8001" "pipeline:8787")
+    local services=("bmi:3002" "audio-download:3001" "ffmpeg:3003" "demucs:8001" "pipeline:8787")
     
     for service_port in "${services[@]}"; do
         local service="${service_port%:*}"
@@ -123,7 +123,7 @@ show_status() {
     echo ""
     echo "Service URLs:"
     echo "  Pipeline Server:  http://localhost:8787"
-    echo "  Quansic Service:  http://localhost:3000"
+    echo "  Quansic Service:  http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer (Akash hosted, v2.0.2)"
     echo "  BMI Service:      http://localhost:3002 (maps to :3000)"
     echo "  Audio Service:    http://localhost:3001"
     echo "  FFmpeg Service:   http://localhost:3003"

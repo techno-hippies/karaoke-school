@@ -352,7 +352,8 @@ NEON_DATABASE_URL=postgresql://...
 # APIs
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
-QUANSIC_SERVICE_URL=http://localhost:3001
+# Quansic is now Akash-hosted (v2.0.2) - optional override:
+# QUANSIC_SERVICE_URL=http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer
 SLSK_SERVICE_URL=http://localhost:3002
 GENIUS_API_KEY=...  # Optional: for lyrics metadata enrichment
 
