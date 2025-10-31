@@ -95,6 +95,7 @@ interface WorkAggregation {
   geniusLyricsState?: string;
 
   // Recording data (to be stored in grc20_work_recordings)
+  // Spotify
   spotifyUrl?: string;
   spotifyPopularity?: number;
   releaseDate?: string;
@@ -102,6 +103,25 @@ interface WorkAggregation {
   explicitContent?: boolean;
   imageUrl?: string;
   imageSource?: string;
+
+  // Streaming platforms
+  appleMusicUrl?: string;
+  deezerUrl?: string;
+  tidalUrl?: string;
+  amazonMusicUrl?: string;
+  youtubeMusicUrl?: string;
+  beatportUrl?: string;
+  itunesUrl?: string;
+  qobuzUrl?: string;
+
+  // Catalog platforms
+  discogsUrl?: string;
+  discogsReleaseId?: string;
+  melonUrl?: string;
+  moraUrl?: string;
+  maniadbUrl?: string;
+  youtubeUrl?: string;
+  imvdbUrl?: string;
 }
 
 async function main() {
@@ -481,11 +501,21 @@ async function main() {
       Object.keys(referenceUrls).length > 0 ? JSON.stringify(referenceUrls) : '{}'
     ]);
 
-    // Step 4: Insert recording data into grc20_work_recordings
+    // Step 4: Insert ALL streaming platform recordings into grc20_work_recordings
     if (workId.length > 0) {
       const work_id = workId[0].id;
 
-      // Spotify recording
+      // Helper to insert recording for any platform (using URL as source_id when we don't have platform-specific ID)
+      const insertRecording = async (source: string, sourceUrl: string | undefined) => {
+        if (!sourceUrl) return;
+        await query(`
+          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (work_id, source, source_id) DO NOTHING
+        `, [work_id, source, sourceUrl, sourceUrl]);
+      };
+
+      // Spotify (with full metadata)
       if (agg.spotifyTrackId) {
         await query(`
           INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url, release_date, duration_ms, explicit_content, image_url, image_source)
@@ -498,16 +528,21 @@ async function main() {
         ]);
       }
 
-      // Genius recording
-      if (agg.geniusSongId) {
-        await query(`
-          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (work_id, source, source_id) DO NOTHING
-        `, [
-          work_id, 'genius', String(agg.geniusSongId), agg.geniusSongUrl
-        ]);
-      }
+      // All other streaming platforms
+      await insertRecording('apple_music', agg.appleMusicUrl);
+      await insertRecording('deezer', agg.deezerUrl);
+      await insertRecording('tidal', agg.tidalUrl);
+      await insertRecording('amazon_music', agg.amazonMusicUrl);
+      await insertRecording('youtube_music', agg.youtubeMusicUrl);
+      await insertRecording('beatport', agg.beatportUrl);
+      await insertRecording('itunes', agg.itunesUrl);
+      await insertRecording('qobuz', agg.qobuzUrl);
+      await insertRecording('discogs', agg.discogsUrl);
+      await insertRecording('melon', agg.melonUrl);
+      await insertRecording('mora', agg.moraUrl);
+      await insertRecording('maniadb', agg.maniadbUrl);
+      await insertRecording('youtube', agg.youtubeUrl);
+      await insertRecording('imvdb', agg.imvdbUrl);
     }
 
     console.log(`   ✅ Inserted: ${agg.title}`);

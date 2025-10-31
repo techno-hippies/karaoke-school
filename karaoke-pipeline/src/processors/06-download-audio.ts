@@ -133,8 +133,8 @@ async function main() {
   for (const track of tracksToProcess) {
     await submitToSlsk(track);
 
-    // Small delay to avoid overwhelming the service
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Delay to avoid overwhelming the service (downloads take 60-180s each)
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
 
   console.log('');
