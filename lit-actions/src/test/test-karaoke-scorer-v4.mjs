@@ -41,9 +41,8 @@ const PKP_CREDS_PATH = '/media/t42/th42/Code/site/root/lit-actions/output/pkp-cr
 // Test audio file
 const TEST_AUDIO_PATH = '/media/t42/th42/Code/site/root/lit-actions/text-fixtures/audio/verse-1.mp3';
 
-// Contract addresses
-const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
-const SCOREBOARD_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36';
+// Contract addresses - UPDATED FOR PERFORMANCEGRADER
+const PERFORMANCE_GRADER_ADDRESS = '0xaB92C2708D44fab58C3c12aAA574700E80033B7D';
 
 // Test parameters
 const TEST_USER_ADDRESS = `0x${Date.now().toString(16).padStart(40, '0')}`; // Random address for each test

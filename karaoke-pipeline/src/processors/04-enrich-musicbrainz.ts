@@ -125,7 +125,26 @@ async function main() {
         // Store recording
         sqlStatements.push(upsertMBRecordingSQL(recording, track.isrc));
 
-        // Step 2: Lookup work if linked
+        // Step 2: Fetch PERFORMER artists from recording credits
+        const artistCredit = recording['artist-credit'];
+        const performerCount = artistCredit?.length || 0;
+        console.log(`     🎤 Performers: ${performerCount}`);
+
+        if (artistCredit && Array.isArray(artistCredit)) {
+          for (const credit of artistCredit.slice(0, 3)) {
+            try {
+              const artist = await lookupArtist(credit.artist.id);
+              if (artist) {
+                console.log(`        ✅ ${artist.name}`);
+                sqlStatements.push(upsertMBArtistSQL(artist));
+              }
+            } catch (error: any) {
+              console.warn(`        ⚠️  Failed to fetch performer ${credit.artist.name}`);
+            }
+          }
+        }
+
+        // Step 3: Lookup work if linked
         const workRel = recording.relations?.find(
           rel => rel.type === 'performance' && rel.work
         );
@@ -144,7 +163,7 @@ async function main() {
             console.log(`        Contributors: ${work.relations?.filter(r => r.artist).length || 0}`);
             sqlStatements.push(upsertMBWorkSQL(work));
 
-            // Step 3: Fetch artist details for contributors
+            // Step 4: Fetch artist details for contributors (composers/lyricists)
             const artistMbids = work.relations
               ?.filter(rel => rel.artist)
               .map(rel => rel.artist!.id) || [];
@@ -331,9 +350,9 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
         }
       }
 
-      for (const artistCredit of recording.artist_credits || []) {
+      for (const credit of recording['artist-credit'] || []) {
         try {
-          const artist = await lookupArtist(artistCredit.artist.id);
+          const artist = await lookupArtist(credit.artist.id);
           if (artist) {
             sqlStatements.push(upsertMBArtistSQL(artist));
           }

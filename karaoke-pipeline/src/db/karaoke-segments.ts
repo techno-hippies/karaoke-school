@@ -11,14 +11,17 @@ export interface KaraokeSegment {
   spotify_track_id: string;
   optimal_segment_start_ms: number | null;
   optimal_segment_end_ms: number | null;
-  optimal_segment_selected_at: string | null;
   clip_start_ms: number | null;
   clip_end_ms: number | null;
-  clip_selected_at: string | null;
+  clip_relative_start_ms: number | null;
+  clip_relative_end_ms: number | null;
+  cropped_instrumental_grove_cid: string | null;
+  cropped_instrumental_grove_url: string | null;
   fal_enhanced_grove_cid: string | null;
   fal_enhanced_grove_url: string | null;
   fal_processing_duration_seconds: number | null;
-  fal_enhanced_at: string | null;
+  clip_cropped_grove_cid: string | null;
+  clip_cropped_grove_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,10 +66,58 @@ export async function updateSelectedSegments(
     SET
       optimal_segment_start_ms = ${segments.optimalSegmentStartMs || null},
       optimal_segment_end_ms = ${segments.optimalSegmentEndMs || null},
-      optimal_segment_selected_at = ${segments.optimalSegmentStartMs ? new Date().toISOString() : null},
       clip_start_ms = ${segments.clipStartMs},
       clip_end_ms = ${segments.clipEndMs},
-      clip_selected_at = NOW(),
+      updated_at = NOW()
+    WHERE spotify_track_id = ${spotifyTrackId}
+  `;
+}
+
+/**
+ * Update cropped instrumental (from FFmpeg cropping)
+ */
+export async function updateCroppedInstrumental(
+  databaseUrl: string,
+  spotifyTrackId: string,
+  cropped: {
+    groveCid: string;
+    groveUrl: string;
+  }
+): Promise<void> {
+  const sql = neon(databaseUrl);
+
+  await sql`
+    UPDATE karaoke_segments
+    SET
+      cropped_instrumental_grove_cid = ${cropped.groveCid},
+      cropped_instrumental_grove_url = ${cropped.groveUrl},
+      updated_at = NOW()
+    WHERE spotify_track_id = ${spotifyTrackId}
+  `;
+}
+
+/**
+ * Update cropped viral clip (from Step 11)
+ */
+export async function updateClipCropped(
+  databaseUrl: string,
+  spotifyTrackId: string,
+  clip: {
+    relativeStartMs: number;
+    relativeEndMs: number;
+    groveCid: string;
+    groveUrl: string;
+  }
+): Promise<void> {
+  const sql = neon(databaseUrl);
+
+  await sql`
+    UPDATE karaoke_segments
+    SET
+      clip_relative_start_ms = ${clip.relativeStartMs},
+      clip_relative_end_ms = ${clip.relativeEndMs},
+      clip_cropped_grove_cid = ${clip.groveCid},
+      clip_cropped_grove_url = ${clip.groveUrl},
       updated_at = NOW()
     WHERE spotify_track_id = ${spotifyTrackId}
   `;
@@ -92,7 +143,6 @@ export async function updateFalEnhancement(
       fal_enhanced_grove_cid = ${enhancement.groveCid},
       fal_enhanced_grove_url = ${enhancement.groveUrl},
       fal_processing_duration_seconds = ${enhancement.processingDurationSeconds},
-      fal_enhanced_at = NOW(),
       updated_at = NOW()
     WHERE spotify_track_id = ${spotifyTrackId}
   `;
@@ -165,6 +215,45 @@ export async function getTracksNeedingFalEnhancement(
     WHERE ks.clip_start_ms IS NOT NULL
       AND ks.fal_enhanced_grove_cid IS NULL
       AND sa.instrumental_grove_url IS NOT NULL
+    ORDER BY ks.updated_at DESC
+    LIMIT ${limit}
+  `;
+
+  return result as any[];
+}
+
+/**
+ * Get tracks needing clip cropping (Step 11)
+ */
+export async function getTracksNeedingClipCropping(
+  databaseUrl: string,
+  limit: number = 50
+): Promise<Array<{
+  spotify_track_id: string;
+  optimal_segment_start_ms: number;
+  optimal_segment_end_ms: number;
+  clip_start_ms: number;
+  clip_end_ms: number;
+  fal_enhanced_grove_url: string;
+}>> {
+  const sql = neon(databaseUrl);
+
+  // Tracks that have:
+  // - Segment selection complete
+  // - fal.ai enhancement complete
+  // - NO clip cropping yet
+  const result = await sql`
+    SELECT
+      ks.spotify_track_id,
+      ks.optimal_segment_start_ms,
+      ks.optimal_segment_end_ms,
+      ks.clip_start_ms,
+      ks.clip_end_ms,
+      ks.fal_enhanced_grove_url
+    FROM karaoke_segments ks
+    WHERE ks.clip_start_ms IS NOT NULL
+      AND ks.fal_enhanced_grove_cid IS NOT NULL
+      AND ks.clip_cropped_grove_cid IS NULL
     ORDER BY ks.updated_at DESC
     LIMIT ${limit}
   `;

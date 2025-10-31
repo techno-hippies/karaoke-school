@@ -201,48 +201,31 @@ export function createGroveService(): GroveService {
 }
 
 /**
- * Upload file to Grove via Irys (simplified helper for processors)
+ * Upload file to Grove (simplified helper for processors)
+ * Uses the existing Grove API
  *
- * @param irysPrivateKey Private key for Irys signing
  * @param buffer File data as Buffer
  * @param contentType MIME type (e.g., 'audio/mpeg')
- * @param tags Optional metadata tags
+ * @param fileName Descriptive filename for logging
  * @returns Upload result with CID and URL
  */
 export async function uploadToGrove(
-  irysPrivateKey: string,
   buffer: Buffer,
   contentType: string,
-  tags?: Record<string, string>
+  fileName: string
 ): Promise<GroveUploadResult> {
-  // Import Irys dynamically (for Node.js compatibility)
-  const { default: Irys } = await import('@irys/sdk');
+  // Convert buffer to base64 (Grove API expects base64)
+  const base64Audio = buffer.toString('base64');
 
-  // Initialize Irys client (Arweave testnet for now)
-  const irys = new Irys({
-    network: 'devnet', // Use 'mainnet' for production
-    token: 'arweave',
-    key: irysPrivateKey,
-  });
+  // Use the existing Grove service
+  const groveService = createGroveService();
 
-  // Convert tags to Irys format
-  const irysTags = tags
-    ? Object.entries(tags).map(([name, value]) => ({ name, value }))
-    : [];
+  // Upload to Grove
+  const result = await groveService.uploadAudio(
+    base64Audio,
+    fileName,
+    'instrumental'
+  );
 
-  // Add content type tag
-  irysTags.push({ name: 'Content-Type', value: contentType });
-
-  // Upload to Irys
-  const receipt = await irys.upload(buffer, { tags: irysTags });
-
-  const cid = receipt.id;
-  const url = `https://gateway.irys.xyz/${cid}`;
-
-  return {
-    cid,
-    url,
-    size: buffer.length,
-    timestamp: new Date(),
-  };
+  return result;
 }

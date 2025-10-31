@@ -31,11 +31,10 @@
 // ============================================================
 // CONFIGURATION - Public contract addresses (hardcoded)
 // ============================================================
-const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
-const SCOREBOARD_CONTRACT_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36'; // V4 with multi-source
+const PERFORMANCE_GRADER_ADDRESS = '0xaB92C2708D44fab58C3c12aAA574700E80033B7D';
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC_URL = 'https://rpc.testnet.lens.xyz';
-const CONTENT_SOURCE_NATIVE = 0; // ContentSource.Native
+const PKP_PUBLIC_KEY = '0x043a5f87717daafe9972ee37154786845a74368d269645685ef51d7ac32c59a20df5340b8adb154b1ac137a8f2c0a6aedbcdbc46448cc545ea7f5233918d324939';
 
 // ============================================================
 // MAIN EXECUTION
@@ -136,39 +135,8 @@ const go = async () => {
       chain: 'ethereum'
     });
 
-    // Query SongCatalogV1 for song metadata
+    // Create provider for contract interactions
     const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC_URL);
-
-    const songCatalogABI = [
-      'function getSong(string calldata id) external view returns (tuple(string id, uint32 geniusId, uint32 geniusArtistId, string title, string artist, uint32 duration, string audioUri, string metadataUri, string coverUri, string thumbnailUri, string musicVideoUri, string segmentIds, string languages, bool enabled, uint64 addedAt))'
-    ];
-
-    const songCatalogContract = new ethers.Contract(
-      SONG_CATALOG_ADDRESS,
-      songCatalogABI,
-      provider
-    );
-
-    const songData = await songCatalogContract.getSong(songId);
-
-    if (!songData || !songData.enabled) {
-      throw new Error(`Song ${songId} not found or disabled`);
-    }
-
-    const metadataUri = songData.metadataUri;
-    if (!metadataUri) {
-      throw new Error(`No metadataUri for song ${songId}`);
-    }
-
-    // Verify segment exists in song's segment list
-    const songSegments = songData.segmentIds.split(',').map(s => s.trim());
-    if (!songSegments.includes(segmentId)) {
-      throw new Error(`Segment ${segmentId} not found in song ${songId}. Available: ${songSegments.join(', ')}`);
-    }
-
-    // Fetch full song metadata from Grove
-    const gatewayUrl = metadataUri.replace('lens://', 'https://api.grove.storage/');
-    const metadataResponse = await fetch(gatewayUrl);
 
     if (!metadataResponse.ok) {
       throw new Error(`Failed to fetch song metadata: ${metadataResponse.status}`);
@@ -265,27 +233,35 @@ const go = async () => {
     // Calculate score
     calculatedScore = calculateScore(transcript, expectedLyrics);
 
-    // Submit score to KaraokeScoreboardV4 using PKP signing
-    const scoreboardABI = [
-      'function updateScore(uint8 source, string calldata trackId, string calldata segmentId, address user, uint96 newScore) external'
+    // Submit score to PerformanceGrader using PKP signing
+    const performanceGraderABI = [
+      'function gradePerformance(uint256 performanceId, bytes32 segmentHash, address performer, uint16 score, string metadataUri) external',
+      'event PerformanceGraded(uint256 indexed performanceId, bytes32 indexed segmentHash, address indexed performer, uint16 score, string metadataUri, uint64 timestamp)'
     ];
 
-    const scoreboardContract = new ethers.Contract(
-      SCOREBOARD_CONTRACT_ADDRESS,
-      scoreboardABI,
+    const performanceGraderContract = new ethers.Contract(
+      PERFORMANCE_GRADER_ADDRESS,
+      performanceGraderABI,
       provider
     );
 
     // Normalize user address (checksum and validate)
     const normalizedUserAddress = ethers.utils.getAddress(userAddress.toLowerCase());
 
+    // Generate performance ID and segment hash
+    const performanceId = Date.now(); // Simple timestamp-based ID
+    const segmentHashBytes = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(`${songId}-${segmentId}`));
+
+    // Create metadata URI (placeholder - replace with actual Grove URI)
+    const metadataUri = `grove://${generateCID()}`;
+
     // Encode the transaction data
-    const updateScoreTxData = scoreboardContract.interface.encodeFunctionData('updateScore', [
-      CONTENT_SOURCE_NATIVE,  // source = 0 (Native)
-      songId,                 // trackId
-      segmentId,              // segmentId
-      normalizedUserAddress,  // user address (checksummed)
-      calculatedScore         // score (0-100)
+    const gradePerformanceTxData = performanceGraderContract.interface.encodeFunctionData('gradePerformance', [
+      performanceId,              // performanceId (uint256)
+      segmentHashBytes,           // segmentHash (bytes32)
+      normalizedUserAddress,      // performer (address)
+      calculatedScore * 100,      // score in basis points (uint16) - multiply by 100
+      metadataUri                 // metadataUri (string)
     ]);
 
     // Get PKP ETH address from public key
@@ -308,7 +284,7 @@ const go = async () => {
 
     // Normalize addresses (checksummed format for RLP encoding)
     const from = ethers.utils.getAddress(pkpEthAddress);
-    const to = ethers.utils.getAddress(SCOREBOARD_CONTRACT_ADDRESS);
+    const to = ethers.utils.getAddress(PERFORMANCE_GRADER_ADDRESS);
 
     // zkSync uses EIP-712 typed data hashing, not simple keccak256(RLP)
     // Domain: { name: "zkSync", version: "2", chainId: 37111 }
@@ -350,7 +326,7 @@ const go = async () => {
         ethers.utils.zeroPad('0x00', 32),                              // paymaster: 0
         ethers.utils.zeroPad(ethers.utils.hexlify(nonce), 32),         // nonce
         ethers.utils.zeroPad('0x00', 32),                              // value: 0
-        ethers.utils.keccak256(updateScoreTxData || '0x'),             // data: keccak256(data)
+        ethers.utils.keccak256(gradePerformanceTxData || '0x'),             // data: keccak256(data)
         ethers.utils.keccak256('0x'),                                  // factoryDeps: keccak256([]) = keccak256(0xc0)
         ethers.utils.keccak256('0x')                                   // paymasterInput: keccak256(0x)
       ])
@@ -371,8 +347,8 @@ const go = async () => {
     // Sign with PKP
     const signature = await Lit.Actions.signAndCombineEcdsa({
       toSign: toSign,
-      publicKey: pkpPublicKey,
-      sigName: 'scoreboardTx'
+      publicKey: PKP_PUBLIC_KEY,  // Updated from pkpPublicKey
+      sigName: 'performanceGraderTx'
     });
 
     // Parse signature (Lit returns v as 0/1 or 27/28 depending on implementation)
@@ -463,6 +439,19 @@ const go = async () => {
 
     success = true;
 
+    // ============================================================
+    // UTILITY FUNCTIONS
+    // ============================================================
+    
+    /**
+     * Generate a random CID-like string for metadata URI
+     * In production, this should be replaced with actual Grove upload
+     */
+    function generateCID() {
+      return Math.random().toString(36).substring(2, 15) + 
+             Math.random().toString(36).substring(2, 15);
+    }
+
   } catch (error) {
     success = false;
     errorType = error.message || 'Unknown error';
@@ -483,7 +472,7 @@ const go = async () => {
       txHash,
       errorType,
       executionTime,
-      version: 'v4',
+      version: 'v4-performance-grader',
       timestamp: new Date().toISOString()
     })
   });

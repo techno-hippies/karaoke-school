@@ -66,13 +66,12 @@
 ### 1. Installation
 
 ```bash
-# Using uv (recommended)
+# Using uv (required)
 cd quansic-service
 uv pip install --system -e .
-
-# Or using pip
-pip install -r requirements.txt
 ```
+
+> **Important:** Use `uv pip` for all package management. It provides better dependency resolution and performance.
 
 ### 2. Environment Setup
 
@@ -311,8 +310,8 @@ PROXY_URL=http://proxy-provider:port
 
 ### Development Setup
 ```bash
-# Install development dependencies
-uv pip install -e ".[dev]"
+# Install development dependencies with uv pip
+uv pip install --system -e ".[dev]"
 
 # Run type checking
 mypy quansic_service.py

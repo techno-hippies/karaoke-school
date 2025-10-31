@@ -50,6 +50,7 @@ class QuansicService:
         # hrequests configuration - simplified to match actual API
         self.browser_config = {
             'browser': os.getenv('HREQUESTS_BROWSER', 'firefox'),  # Firefox recommended for anti-detection
+            'headless': os.getenv('HREQUESTS_HEADLESS', 'true').lower() == 'true',
             'timeout': int(os.getenv('HREQUESTS_TIMEOUT', '30000')),
         }
         
@@ -74,7 +75,7 @@ class QuansicService:
                     logger.info("✅ Browser session created and cached")
         return self._browser_session, self._browser_context
     
-    def authenticate(self, account: AccountCredentials, force_reauth: bool = False) -> str:
+    async def authenticate(self, account: AccountCredentials, force_reauth: bool = False) -> str:
         """Authenticate with Quansic using hrequests browser automation and return cookie string"""
         logger.info(f"Authenticating with Quansic using account: {account.email}")
 
@@ -91,7 +92,12 @@ class QuansicService:
 
         try:
             # Run hrequests authentication in separate thread to avoid event loop conflict
-            cookie_str = self.thread_pool.submit(self._perform_hrequests_login_sync, account).result()
+            loop = asyncio.get_event_loop()
+            cookie_str = await loop.run_in_executor(
+                self.thread_pool, 
+                self._perform_hrequests_login_sync, 
+                account
+            )
 
             # Cache cookie string
             self.session_cache[cache_key] = cookie_str
@@ -114,7 +120,11 @@ class QuansicService:
 
         try:
             # Use BrowserSession directly for more control
-            page = hrequests.BrowserSession(browser='firefox', headless=True, mock_human=True)
+            page = hrequests.BrowserSession(
+                browser=self.browser_config['browser'],
+                headless=self.browser_config['headless'],
+                mock_human=True
+            )
 
             try:
                 logger.info(f"Navigating to login page...")
@@ -161,16 +171,16 @@ class QuansicService:
                     logger.error(f"Error checking page: {e}")
                     raise
 
-                # Use underlying Playwright page for direct control
-                logger.info(f"Typing email into {email_selector}...")
-                page.page.fill(email_selector, account.email)
-                logger.info(f"Email filled successfully")
+                # Use human-like typing for anti-detection
+                logger.info(f"Human-like typing email into {email_selector}...")
+                self._human_type(page, email_selector, account.email)
+                logger.info(f"Email typed successfully")
                 time.sleep(random.uniform(0.5, 1.5))
 
-                logger.info(f"Typing password...")
-                page.page.fill('input[name="password"]', account.password)
-                logger.info(f"Password filled successfully")
-                time.sleep(random.uniform(1, 3))
+                logger.info(f"Human-like typing password...")
+                self._human_type(page, 'input[name="password"]', account.password)
+                logger.info(f"Password typed successfully")
+                time.sleep(random.uniform(0.5, 1.5))
 
                 # Take screenshot after filling
                 try:
@@ -179,18 +189,31 @@ class QuansicService:
                 except:
                     pass
 
-                # Click login button
-                logger.debug(f"Looking for login button...")
-                # Check if button exists
-                try:
-                    button_exists = page.isVisible('button:has-text("Login")')
-                    logger.debug(f"Login button visible: {button_exists}")
-                except:
-                    logger.debug("Could not check button visibility")
+                # Click login button (must actually click, not press Enter)
+                logger.info(f"Looking for and clicking login button...")
+                button_selectors = [
+                    'button[loc="login.button.label"]',
+                    'button[color="accent"]',
+                    'button:has-text("Login")',
+                    'button[mat-raised-button]'
+                ]
 
-                logger.debug(f"Clicking login button...")
-                page.click('button:has-text("Login")')
-                logger.debug("Login button clicked")
+                button_clicked = False
+                for button_selector in button_selectors:
+                    try:
+                        if page.isVisible(button_selector):
+                            logger.info(f"✅ Found login button with selector: {button_selector}")
+                            page.page.click(button_selector)
+                            logger.info(f"✅ Clicked login button")
+                            button_clicked = True
+                            break
+                    except Exception as e:
+                        logger.debug(f"Button selector {button_selector} failed: {e}")
+                        continue
+
+                if not button_clicked:
+                    logger.error("❌ Could not find or click login button!")
+                    raise Exception("Login button not found - check page selectors")
 
                 # Take screenshot after click
                 try:
@@ -209,6 +232,23 @@ class QuansicService:
                 while time.time() - start_time < max_wait:
                     time.sleep(1)
                     current_url = page.url
+
+                    # Check for "Authentication Failed" error on the page
+                    try:
+                        page_html = page.html.text.lower()
+                        if 'authentication failed' in page_html:
+                            logger.error("=" * 80)
+                            logger.error("🚨 CRITICAL ERROR: QUANSIC ACCOUNT CREDENTIALS REJECTED!")
+                            logger.error("=" * 80)
+                            logger.error(f"Account: {account.email}")
+                            logger.error("The Quansic account has been shut down or credentials are invalid.")
+                            logger.error("Login page shows: 'Authentication Failed'")
+                            logger.error("=" * 80)
+                            raise Exception(f"QUANSIC ACCOUNT INVALID - Authentication Failed for {account.email}")
+                    except Exception as e:
+                        if "QUANSIC ACCOUNT INVALID" in str(e):
+                            raise
+
                     if current_url != login_url and 'app-login' not in current_url:
                         logger.info(f"Successfully navigated to: {current_url}")
                         break
@@ -216,10 +256,20 @@ class QuansicService:
                     logger.warning(f"Still on login page after {max_wait}s: {page.url}")
                     # Check for error messages
                     try:
-                        error_text = page.html.text
-                        if 'invalid' in error_text.lower() or 'incorrect' in error_text.lower():
+                        error_text = page.html.text.lower()
+                        if 'authentication failed' in error_text:
+                            logger.error("=" * 80)
+                            logger.error("🚨 CRITICAL ERROR: QUANSIC ACCOUNT CREDENTIALS REJECTED!")
+                            logger.error("=" * 80)
+                            logger.error(f"Account: {account.email}")
+                            logger.error("The Quansic account has been shut down or credentials are invalid.")
+                            logger.error("=" * 80)
+                            raise Exception(f"QUANSIC ACCOUNT INVALID - Authentication Failed for {account.email}")
+                        if 'invalid' in error_text or 'incorrect' in error_text:
                             raise Exception(f"Login failed - invalid credentials")
-                    except:
+                    except Exception as e:
+                        if "QUANSIC ACCOUNT INVALID" in str(e) or "Authentication Failed" in str(e):
+                            raise
                         pass
 
                 # Extract cookies as string (like TypeScript implementation)
@@ -275,15 +325,26 @@ class QuansicService:
             logger.error(f"Login failed for {account.email}: {e}")
             raise Exception(f"Login failed: {e}")
     
+    def _human_type(self, page, selector: str, text: str, min_delay: float = 0.05, max_delay: float = 0.2):
+        """Type text character by character with human-like delays"""
+        logger.debug(f"Starting human-like typing into {selector}")
+        for i, char in enumerate(text):
+            page.page.type(selector, char)
+            delay = random.uniform(min_delay, max_delay)
+            time.sleep(delay)
+            if (i + 1) % 5 == 0:
+                logger.debug(f"  Typed {i + 1}/{len(text)} characters...")
+        logger.debug(f"Finished typing {len(text)} characters")
+
     def _is_session_valid(self, cache_key: str) -> bool:
         """Check if cached session is still valid"""
         if cache_key not in self.session_cache:
             return False
-        
+
         expiry = self.session_expiry.get(cache_key, 0)
         return time.time() * 1000 < expiry
     
-    def get_artist_data(self, isni: str, musicbrainz_mbid: Optional[str] = None, 
+    async def get_artist_data(self, isni: str, musicbrainz_mbid: Optional[str] = None, 
                             spotify_artist_id: Optional[str] = None, 
                             force_reauth: bool = False) -> Dict[str, Any]:
         """Get artist data from Quansic with anti-detection"""
@@ -291,27 +352,46 @@ class QuansicService:
         
         # Get account and authenticate
         account = self.account_pool.get_next_account()
-        session_cookie = self.authenticate(account, force_reauth)
+        session_cookie = await self.authenticate(account, force_reauth)
         
         try:
+            # Get event loop for async operations
+            loop = asyncio.get_event_loop()
+            
             # Try direct ISNI lookup first
-            artist_data = self._lookup_artist_by_isni(isni, session_cookie)
+            artist_data = await loop.run_in_executor(
+                self.thread_pool,
+                self._lookup_artist_by_isni_sync,
+                isni, session_cookie
+            )
             
             # If direct lookup fails, try entity search
             if not artist_data:
                 logger.debug(f"Direct ISNI lookup failed, trying entity search for {isni}")
-                artist_data = self._search_artist_by_isni(isni, session_cookie)
+                artist_data = await loop.run_in_executor(
+                    self.thread_pool,
+                    self._search_artist_by_isni_sync,
+                    isni, session_cookie
+                )
             
             # If still no data and we have Spotify ID, try Spotify search
             if not artist_data and spotify_artist_id:
                 logger.debug(f"ISNI search failed, trying Spotify ID: {spotify_artist_id}")
-                artist_data = self._search_artist_by_spotify(spotify_artist_id, session_cookie)
+                artist_data = await loop.run_in_executor(
+                    self.thread_pool,
+                    self._search_artist_by_spotify_sync,
+                    spotify_artist_id, session_cookie
+                )
             
             if not artist_data:
                 raise Exception(f"No artist data found for ISNI: {isni}")
             
             # Get name variants
-            name_variants = self._get_artist_name_variants(isni, session_cookie)
+            name_variants = await loop.run_in_executor(
+                self.thread_pool,
+                self._get_artist_name_variants_sync,
+                isni, session_cookie
+            )
             
             return {
                 'isni': isni.replace(' ', '').replace('\t', '').replace('\n', ''),
@@ -457,25 +537,35 @@ class QuansicService:
             logger.debug(f"Name variants lookup failed: {e}")
             return []
     
-    def get_recording_data(self, isrc: str, spotify_track_id: Optional[str] = None,
+    async def get_recording_data(self, isrc: str, spotify_track_id: Optional[str] = None,
                                recording_mbid: Optional[str] = None,
                                force_reauth: bool = False) -> Dict[str, Any]:
         """Get recording data from Quansic with anti-detection"""
         logger.info(f"Enriching recording ISRC: {isrc}")
-        
+
         # Get account and authenticate
         account = self.account_pool.get_next_account()
-        session_cookie = self.authenticate(account, force_reauth)
-        
+        session_cookie = await self.authenticate(account, force_reauth)
+
         try:
             # Get recording data
-            recording_data = self._lookup_recording_by_isrc(isrc, session_cookie)
-            
+            loop = asyncio.get_event_loop()
+            recording_data = await loop.run_in_executor(
+                self.thread_pool,
+                self._lookup_recording_by_isrc_sync,
+                isrc, session_cookie
+            )
+
             if not recording_data:
+                logger.warning(f"No recording found in Quansic database for ISRC: {isrc}")
                 raise Exception(f"No recording found for ISRC: {isrc}")
             
             # Get work data separately
-            work_data = self._lookup_work_by_isrc(isrc, session_cookie)
+            work_data = await loop.run_in_executor(
+                self.thread_pool,
+                self._lookup_work_by_isrc_sync,
+                isrc, session_cookie
+            )
             
             # Extract recording metadata
             recording = recording_data.get('recording', {})
@@ -527,22 +617,32 @@ class QuansicService:
             }
             
         except Exception as e:
-            logger.error(f"Recording enrichment failed: {e}")
+            error_msg = str(e)
+            if "AUTHENTICATION_FAILED" in error_msg or "401" in error_msg:
+                logger.error(f"❌ RECORDING ENRICHMENT FAILED - AUTHENTICATION ERROR: {error_msg}")
+                logger.error("The session cookie from login is not working. Check if Quansic has blocked the session.")
+            else:
+                logger.error(f"❌ RECORDING ENRICHMENT FAILED: {error_msg}")
             self.account_pool.mark_current_failed()
             raise
     
-    def get_work_data(self, iswc: str, work_mbid: Optional[str] = None,
+    async def get_work_data(self, iswc: str, work_mbid: Optional[str] = None,
                           force_reauth: bool = False) -> Dict[str, Any]:
         """Get work data from Quansic with anti-detection"""
         logger.info(f"Enriching work ISWC: {iswc}")
         
         # Get account and authenticate
         account = self.account_pool.get_next_account()
-        session_cookie = self.authenticate(account, force_reauth)
+        session_cookie = await self.authenticate(account, force_reauth)
         
         try:
             # Get work data
-            work_data = self._lookup_work_by_iswc(iswc, session_cookie)
+            loop = asyncio.get_event_loop()
+            work_data = await loop.run_in_executor(
+                self.thread_pool,
+                self._lookup_work_by_iswc_sync,
+                iswc, session_cookie
+            )
             
             if not work_data:
                 raise Exception(f"No work found for ISWC: {iswc}")
@@ -616,8 +716,9 @@ class QuansicService:
                 pass
 
             if response.status_code == 401:
-                logger.error("Session expired (401)")
-                raise Exception("SESSION_EXPIRED")
+                logger.error("❌ AUTHENTICATION FAILED (401) - Session cookie is invalid or expired")
+                logger.error("This means login succeeded but the session cookie doesn't work for API requests")
+                raise Exception("AUTHENTICATION_FAILED: Session cookie invalid (401)")
             elif response.status_code == 404:
                 logger.warning(f"ISRC not found in Quansic (404): {clean_isrc}")
                 return None
@@ -669,6 +770,237 @@ class QuansicService:
         url = f'https://explorer.quansic.com/api/q/lookup/work/iswc/{clean_iswc}'
         
         # ✅ Use requests library with extracted cookie string (like TypeScript)
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif response.status_code == 404:
+                return None
+            elif not response.ok:
+                raise Exception(f"API error: {response.status_code}")
+            
+            data = response.json()
+            return data.get('results')
+            
+        except Exception as e:
+            logger.debug(f"Work ISWC lookup failed: {e}")
+            return None
+    
+    # Sync versions for thread pool execution
+    def _lookup_artist_by_isni_sync(self, isni: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Direct ISNI lookup using Quansic API - Sync version for thread pool"""
+        clean_isni = isni.replace(' ', '').replace('\t', '').replace('\n', '')
+        url = f'https://explorer.quansic.com/api/q/lookup/party/Quansic::isni::{clean_isni}'
+        
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        
+        try:
+            response = hrequests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif response.status_code == 404:
+                return None
+            elif not response.ok:
+                raise Exception(f"API error: {response.status_code}")
+            
+            data = response.json()
+            return data.get('results')
+            
+        except Exception as e:
+            logger.debug(f"Direct ISNI lookup failed: {e}")
+            return None
+    
+    def _search_artist_by_isni_sync(self, isni: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Search for artist using entity search endpoint - Sync version"""
+        clean_isni = isni.replace(' ', '').replace('\t', '').replace('\n', '')
+        url = 'https://explorer.quansic.com/api/log/entitySearch'
+        
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'content-type': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        
+        try:
+            response = hrequests.post(url, headers=headers, json={
+                'entityType': 'isni',
+                'searchTerm': clean_isni,
+            }, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif not response.ok:
+                return None
+            
+            data = response.json()
+            parties = data.get('results', {}).get('parties', [])
+            
+            if parties:
+                return {'party': parties[0]}
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Entity search failed: {e}")
+            return None
+    
+    def _search_artist_by_spotify_sync(self, spotify_id: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Search for artist using Spotify ID - Sync version"""
+        url = f'https://explorer.quansic.com/api/q/search/party/spotifyId/{spotify_id}'
+        
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        
+        try:
+            response = hrequests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif not response.ok:
+                return None
+            
+            data = response.json()
+            parties = data.get('results', {}).get('parties', [])
+            
+            if parties:
+                # Prefer party with most complete data
+                best_party = max(parties, key=lambda p: len(p.get('ids', {}).get('isnis', [])))
+                return {'party': best_party}
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Spotify search failed: {e}")
+            return None
+    
+    def _get_artist_name_variants_sync(self, isni: str, session_cookie: str) -> List[Dict[str, Any]]:
+        """Get artist name variants - Sync version"""
+        clean_isni = isni.replace(' ', '').replace('\t', '').replace('\n', '')
+        url = f'https://explorer.quansic.com/api/q/lookup/party/Quansic::isni::{clean_isni}/nameVariants'
+        
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif not response.ok:
+                return []
+            
+            data = response.json()
+            variants = data.get('results', {}).get('nameVariants', [])
+            
+            return [
+                {'name': v.get('fullname') or v.get('name', ''), 'language': v.get('language')}
+                for v in variants
+            ]
+            
+        except Exception as e:
+            logger.debug(f"Name variants lookup failed: {e}")
+            return []
+    
+    def _lookup_recording_by_isrc_sync(self, isrc: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Lookup recording by ISRC using Quansic API - Sync version"""
+        clean_isrc = isrc.replace(' ', '').replace('\t', '').replace('\n', '')
+        url = f'https://explorer.quansic.com/api/q/lookup/recording/isrc/{clean_isrc}'
+
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+
+        try:
+            logger.info(f"🔍 Looking up recording: {clean_isrc}")
+            logger.debug(f"URL: {url}")
+            logger.debug(f"Cookie length: {len(session_cookie)} chars")
+
+            response = hrequests.get(url, headers=headers, timeout=30)
+
+            logger.info(f"Response status: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+
+            # Log response body for debugging
+            try:
+                response_text = response.text[:500]
+                logger.debug(f"Response body (first 500 chars): {response_text}")
+            except:
+                pass
+
+            if response.status_code == 401:
+                logger.error("❌ AUTHENTICATION FAILED (401) - Session cookie is invalid or expired")
+                logger.error("This means login succeeded but the session cookie doesn't work for API requests")
+                raise Exception("AUTHENTICATION_FAILED: Session cookie invalid (401)")
+            elif response.status_code == 404:
+                logger.warning(f"ISRC not found in Quansic (404): {clean_isrc}")
+                return None
+            elif not response.ok:
+                logger.warning(f"API error {response.status_code} for ISRC {clean_isrc}")
+                return None
+
+            data = response.json()
+            logger.info(f"✅ Successfully fetched recording data for {clean_isrc}")
+            return data.get('results')
+
+        except Exception as e:
+            logger.error(f"Recording ISRC lookup exception: {e}")
+            return None
+    
+    def _lookup_work_by_isrc_sync(self, isrc: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Lookup work by ISRC using Quansic API - Sync version"""
+        clean_isrc = isrc.replace(' ', '').replace('\t', '').replace('\n', '')
+        url = f'https://explorer.quansic.com/api/q/lookup/recording/isrc/{clean_isrc}/works/0'
+        
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'x-instance': 'default',
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code == 401:
+                raise Exception("SESSION_EXPIRED")
+            elif not response.ok:
+                return None
+            
+            data = response.json()
+            works = data.get('results', {}).get('data', [])
+            
+            return works[0] if works else None
+            
+        except Exception as e:
+            logger.debug(f"Work ISRC lookup failed: {e}")
+            return None
+    
+    def _lookup_work_by_iswc_sync(self, iswc: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Lookup work by ISWC using Quansic API - Sync version"""
+        clean_iswc = iswc.replace(' ', '').replace('\t', '').replace('\n', '').replace('-', '').replace('.', '')
+        url = f'https://explorer.quansic.com/api/q/lookup/work/iswc/{clean_iswc}'
+        
         headers = {
             'cookie': session_cookie,
             'accept': 'application/json',

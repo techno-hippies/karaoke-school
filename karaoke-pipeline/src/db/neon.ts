@@ -34,16 +34,57 @@ export interface QueryResult<T = any> {
 }
 
 /**
- * Execute a single SQL query (raw SQL string only)
- * Note: This uses unsafe() which is fine for our internal pipeline code
+ * Execute a single SQL query
+ * Supports both raw SQL strings and parameterized queries
  * Includes automatic retry logic for transient connection errors
+ *
+ * @param sql - SQL query string (can contain $1, $2 placeholders)
+ * @param paramsOrRetries - Either parameter array or retry count (for backwards compatibility)
+ * @param retries - Retry count when params are provided
  */
-export async function query<T = any>(sql: string, retries = 3): Promise<T[]> {
+export async function query<T = any>(
+  sql: string,
+  paramsOrRetries?: any[] | number,
+  retries?: number
+): Promise<T[]> {
   const client = getClient();
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  // Handle overloaded parameters
+  let params: any[] | undefined;
+  let maxRetries: number;
+
+  if (Array.isArray(paramsOrRetries)) {
+    params = paramsOrRetries;
+    maxRetries = retries ?? 3;
+  } else {
+    params = undefined;
+    maxRetries = paramsOrRetries ?? 3;
+  }
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const result = await client.unsafe(sql);
+      let result;
+      if (params) {
+        // For parameterized queries, manually substitute parameters
+        // This is safe because postgres package escapes values
+        let processedSql = sql;
+        params.forEach((param, index) => {
+          const placeholder = `$${index + 1}`;
+          const escapedValue = param === null || param === undefined
+            ? 'NULL'
+            : typeof param === 'string'
+            ? `'${param.replace(/'/g, "''")}'`
+            : typeof param === 'number'
+            ? String(param)
+            : typeof param === 'boolean'
+            ? (param ? 'TRUE' : 'FALSE')
+            : `'${JSON.stringify(param).replace(/'/g, "''")}'`;
+          processedSql = processedSql.replace(placeholder, escapedValue);
+        });
+        result = await client.unsafe(processedSql);
+      } else {
+        result = await client.unsafe(sql);
+      }
       return result as T[];
     } catch (error: any) {
       // Check if this is a transient connection error
@@ -56,13 +97,13 @@ export async function query<T = any>(sql: string, retries = 3): Promise<T[]> {
         error?.code === '57P01';  // Postgres admin shutdown code
 
       // If not transient or last attempt, throw immediately
-      if (!isTransient || attempt === retries) {
+      if (!isTransient || attempt === maxRetries) {
         throw error;
       }
 
       // Exponential backoff: 1s, 2s, 4s (capped at 10s)
       const backoff = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-      console.warn(`[DB Retry] Attempt ${attempt}/${retries} failed: ${error.message}`);
+      console.warn(`[DB Retry] Attempt ${attempt}/${maxRetries} failed: ${error.message}`);
       console.warn(`[DB Retry] Retrying after ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
     }

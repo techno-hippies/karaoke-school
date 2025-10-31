@@ -1,13 +1,13 @@
 /**
- * Step 10: fal.ai Audio Enhancement
+ * Step 10: fal.ai Audio Enhancement with FFmpeg Cropping
  *
  * Enhances instrumental tracks using Stable Audio 2.5.
  *
- * NOTE: Currently enhances the FULL instrumental for all songs.
- * The segment selection (optimal_segment_start_ms, clip_start_ms) is metadata
- * that tells the app which part to play, but the entire instrumental is enhanced.
- *
- * TODO: Add cropping step for songs ≥190s (requires external service with FFmpeg)
+ * FLOW:
+ * 1. For songs ≥190s: Crop to optimal segment FIRST using local FFmpeg
+ * 2. Upload cropped version to Grove
+ * 3. Send (cropped or full) audio to fal.ai for enhancement
+ * 4. Upload enhanced audio to Grove
  *
  * Processes tracks that have:
  * - Segment selection complete (karaoke_segments.clip_start_ms)
@@ -16,9 +16,11 @@
 
 import {
   updateFalEnhancement,
+  updateCroppedInstrumental,
   getTracksNeedingFalEnhancement
 } from '../db/karaoke-segments';
 import { FalAudioService } from '../services/fal-audio';
+import { FFmpegService } from '../services/ffmpeg';
 import { uploadToGrove } from '../services/grove';
 import type { Env } from '../types';
 
@@ -30,15 +32,16 @@ export async function processFalEnhancement(env: Env, limit: number = 10): Promi
     return;
   }
 
-  if (!env.IRYS_PRIVATE_KEY) {
-    console.log('⚠️ IRYS_PRIVATE_KEY not configured (needed for Grove upload), skipping');
-    return;
-  }
+  // Check if FFmpeg is available for cropping
+  const hasFFmpeg = FFmpegService.isAvailable();
+  console.log(`   FFmpeg: ${hasFFmpeg ? '✓ Available' : '✗ Not available'}`);
 
   const falService = new FalAudioService(env.FAL_API_KEY, {
     maxPollAttempts: 180, // 6 minutes
     pollInterval: 2000     // 2 seconds
   });
+
+  const ffmpegService = hasFFmpeg ? new FFmpegService() : null;
 
   try {
     // Find tracks needing enhancement
@@ -58,47 +61,81 @@ export async function processFalEnhancement(env: Env, limit: number = 10): Promi
       try {
         console.log(`\n📍 Enhancing: ${track.spotify_track_id}`);
         console.log(`   Duration: ${(track.duration_ms / 1000).toFixed(1)}s`);
-        console.log(`   Instrumental: ${track.instrumental_grove_url.slice(0, 50)}...`);
 
-        // For now: Enhance full instrumental
-        // TODO: If optimal_segment_* exists, crop to 190s first (requires external service)
-        if (track.optimal_segment_start_ms && track.optimal_segment_end_ms) {
-          console.log(`   Note: Song has optimal segment selected (${track.optimal_segment_start_ms}-${track.optimal_segment_end_ms}ms)`);
-          console.log(`   But will enhance FULL track (cropping requires FFmpeg)`);
+        let audioUrlForFal = track.instrumental_grove_url;
+        let croppedGroveUrl: string | null = null;
+
+        // STEP 1: Crop if needed (songs ≥190s with optimal segment)
+        if (
+          hasFFmpeg &&
+          ffmpegService &&
+          track.optimal_segment_start_ms !== null &&
+          track.optimal_segment_end_ms !== null &&
+          track.duration_ms >= 190000
+        ) {
+          try {
+            const segmentDuration = track.optimal_segment_end_ms - track.optimal_segment_start_ms;
+            console.log(`   ✂️  Cropping: ${track.optimal_segment_start_ms}ms-${track.optimal_segment_end_ms}ms (${(segmentDuration / 1000).toFixed(1)}s)`);
+
+            const cropResult = await ffmpegService.cropFromUrl(track.instrumental_grove_url, {
+              startMs: track.optimal_segment_start_ms,
+              endMs: track.optimal_segment_end_ms,
+              bitrate: 192
+            });
+
+            // Upload cropped audio
+            console.log(`   Uploading cropped audio to Grove...`);
+            const croppedGroveResult = await uploadToGrove(
+              cropResult.buffer,
+              'audio/mpeg',
+              `cropped-${track.spotify_track_id}.mp3`
+            );
+
+            croppedGroveUrl = croppedGroveResult.url;
+            audioUrlForFal = croppedGroveUrl;
+
+            // Update database with cropped audio
+            await updateCroppedInstrumental(env.DATABASE_URL, track.spotify_track_id, {
+              groveCid: croppedGroveResult.cid,
+              groveUrl: croppedGroveResult.url
+            });
+
+            console.log(`   ✓ Cropped & uploaded: ${croppedGroveResult.cid}`);
+          } catch (cropError: any) {
+            console.warn(`   ⚠️  Cropping failed, will enhance FULL track: ${cropError.message}`);
+            // Continue with full track if cropping fails
+          }
+        } else if (track.optimal_segment_start_ms && track.optimal_segment_end_ms) {
+          const segmentDuration = track.optimal_segment_end_ms - track.optimal_segment_start_ms;
+          console.log(`   Note: Has segment (${(segmentDuration / 1000).toFixed(1)}s) but FFmpeg unavailable`);
+          console.log(`   Will enhance FULL track (${(track.duration_ms / 1000).toFixed(1)}s)`);
         }
 
-        // Step 1: Send to fal.ai for enhancement
+        // STEP 2: Send to fal.ai for enhancement
         console.log(`   Sending to fal.ai...`);
         const result = await falService.enhanceInstrumental({
-          audioUrl: track.instrumental_grove_url,
+          audioUrl: audioUrlForFal,
           prompt: 'instrumental',
           strength: 0.3
         });
 
         console.log(`   ✓ Enhancement complete in ${result.duration.toFixed(1)}s`);
 
-        // Step 2: Download enhanced audio
+        // STEP 3: Download enhanced audio
         console.log(`   Downloading enhanced audio...`);
         const audioBuffer = await falService.downloadAudio(result.audioUrl);
 
-        // Step 3: Upload to Grove
-        console.log(`   Uploading to Grove...`);
+        // STEP 4: Upload enhanced audio to Grove
+        console.log(`   Uploading enhanced audio to Grove...`);
         const groveResult = await uploadToGrove(
-          env.IRYS_PRIVATE_KEY,
           Buffer.from(audioBuffer),
           'audio/mpeg',
-          {
-            'Content-Type': 'audio/mpeg',
-            'Application': 'Karaoke-Pipeline',
-            'File-Type': 'fal-enhanced-instrumental',
-            'Spotify-Track-ID': track.spotify_track_id,
-            'Processing-Duration': result.duration.toString()
-          }
+          `fal-enhanced-${track.spotify_track_id}.mp3`
         );
 
         console.log(`   ✓ Uploaded to Grove: ${groveResult.cid}`);
 
-        // Step 4: Update database
+        // STEP 5: Update database
         await updateFalEnhancement(env.DATABASE_URL, track.spotify_track_id, {
           groveCid: groveResult.cid,
           groveUrl: groveResult.url,

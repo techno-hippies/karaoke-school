@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   quansic-service:
-    image: quansic-service:v2.0.0  # Update with your Docker Hub username
+    image: t3333chn0000/quansic-service:v2.0.1
     expose:
       - port: 3000
         as: 80
@@ -25,15 +25,9 @@ services:
       - ALLOWED_ORIGINS=*
       
       # Quansic accounts (update with your credentials)
-      - QUANSIC_EMAIL=official863@tiffincrane.com
+      - QUANSIC_EMAIL=4fredra@2200freefonts.com
       - QUANSIC_PASSWORD=Temporarypw710!
-      - QUANSIC_EMAIL_2=backup@example.com
-      - QUANSIC_PASSWORD_2=BackupPassword123!
-      - QUANSIC_EMAIL_3=third@example.com
-      - QUANSIC_PASSWORD_3=ThirdPassword123!
       
-      # Optional: Add proxy for additional stealth
-      # - PROXY_URL=...
 
 profiles:
   compute:
@@ -42,9 +36,9 @@ profiles:
         cpu:
           units: 2  # Increased for browser automation
         memory:
-          size: 6Gi  # Increased for browser memory
+          size: 2Gi  # Increased for browser memory
         storage:
-          - size: 20Gi  # Browser cache and temporary files
+          - size: 5Gi  # Browser cache and temporary files
 
   placement:
     akash:

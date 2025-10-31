@@ -1,4 +1,4 @@
--- Karaoke Segments Table (CLEAN VERSION)
+-- Karaoke Segments Table (CLEAN VERSION - 10 columns)
 -- Tracks AI segment selection + fal.ai enhancement ONLY
 -- References song_audio for instrumentals (already separated by Demucs)
 
@@ -11,18 +11,15 @@ CREATE TABLE karaoke_segments (
   -- AI-selected optimal 190s karaoke segment (for songs ≥190s only)
   optimal_segment_start_ms INTEGER,
   optimal_segment_end_ms INTEGER,
-  optimal_segment_selected_at TIMESTAMPTZ,
 
   -- AI-selected best clip (20-50s) for ALL songs
   clip_start_ms INTEGER,
   clip_end_ms INTEGER,
-  clip_selected_at TIMESTAMPTZ,
 
   -- fal.ai enhanced instrumental (from song_audio.instrumental_grove_url)
   fal_enhanced_grove_cid TEXT,
   fal_enhanced_grove_url TEXT,
   fal_processing_duration_seconds NUMERIC(5,2),
-  fal_enhanced_at TIMESTAMPTZ,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

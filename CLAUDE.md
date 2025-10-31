@@ -4,6 +4,10 @@
 
 ---
 
+@AGENTS.md
+
+---
+
 ## 🔧 Database Configuration
 
 **IMPORTANT: Always use the correct Neon project when querying via MCP!**

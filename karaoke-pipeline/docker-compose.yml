@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # Quansic ISWC Discovery Service
+  quansic:
+    build:
+      context: ../quansic-service
+      dockerfile: Dockerfile
+    container_name: karaoke-quansic
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DOTENV_PRIVATE_KEY=${DOTENV_PRIVATE_KEY}
+    volumes:
+      - ../quansic-service:/app
+      - quansic-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - karaoke-network
+
+  # BMI Service for ISWC lookup
+  bmi:
+    build:
+      context: ../bmi-service
+      dockerfile: Dockerfile
+    container_name: karaoke-bmi
+    ports:
+      - "3002:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ../bmi-service:/app
+      - bmi-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - karaoke-network
+
+  # Audio Download Service
+  audio-download:
+    build:
+      context: ../audio-download-service
+      dockerfile: Dockerfile
+    container_name: karaoke-audio-download
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+    volumes:
+      - ../audio-download-service:/app
+      - audio-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - karaoke-network
+
+  # FFmpeg Service
+  ffmpeg:
+    build:
+      context: ../ffmpeg-service
+      dockerfile: Dockerfile
+    container_name: karaoke-ffmpeg
+    ports:
+      - "3003:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ../ffmpeg-service:/app
+      - ffmpeg-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - karaoke-network
+
+  # Demucs GPU Service (requires Docker GPU support)
+  demucs:
+    build:
+      context: ../demucs-local
+      dockerfile: Dockerfile
+    container_name: karaoke-demucs
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+    volumes:
+      - ../demucs-local:/app
+      - demucs-logs:/app/logs
+      - ./logs:/app/user_logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - karaoke-network
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+
+  # Main Pipeline Runner
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karaoke-pipeline
+    ports:
+      - "8787:8787"
+    environment:
+      - NODE_ENV=development
+      - PORT=8787
+      - DOTENV_PRIVATE_KEY=${DOTENV_PRIVATE_KEY}
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    depends_on:
+      quansic:
+        condition: service_healthy
+      bmi:
+        condition: service_healthy
+      audio-download:
+        condition: service_healthy
+      ffmpeg:
+        condition: service_healthy
+      demucs:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - karaoke-network
+    command: ["bun", "run", "standalone-server"]
+
+volumes:
+  quansic-logs:
+  bmi-logs:
+  audio-logs:
+  ffmpeg-logs:
+  demucs-logs:
+
+networks:
+  karaoke-network:
+    driver: bridge

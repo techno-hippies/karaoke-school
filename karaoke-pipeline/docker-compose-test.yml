@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Quansic ISWC Discovery Service
+  quansic:
+    build:
+      context: ../quansic-service
+      dockerfile: Dockerfile
+    container_name: karaoke-quansic-test
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ../quansic-service:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # BMI Service for ISWC lookup
+  bmi:
+    build:
+      context: ../bmi-service
+      dockerfile: Dockerfile
+    container_name: karaoke-bmi-test
+    ports:
+      - "3002:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ../bmi-service:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Main Pipeline Runner
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karaoke-pipeline-test
+    ports:
+      - "8787:8787"
+    environment:
+      - NODE_ENV=development
+      - PORT=8787
+    volumes:
+      - .:/app
+    depends_on:
+      quansic:
+        condition: service_healthy
+      bmi:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["bun", "run", "standalone-server"]

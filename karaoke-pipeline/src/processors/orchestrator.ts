@@ -1,11 +1,14 @@
 /**
  * Unified Pipeline Processor
  *
- * Orchestrates the complete karaoke processing pipeline (steps 2-7.5):
+ * Orchestrates the complete karaoke processing pipeline (steps 2-12):
  *
- * Status flow:
+ * Main karaoke pipeline status flow:
  * tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
- * lyrics_ready → audio_downloaded → alignment_complete → translations_ready
+ * lyrics_ready → audio_downloaded → alignment_complete → translations_ready → stems_separated
+ *
+ * GRC-20 asset preparation (independent):
+ * - Step 12: Generate derivative images for artists/works ready for minting
  *
  * Can be triggered manually or via cron. Steps run sequentially based on status dependencies.
  * Each step processes tracks and advances them to the next status.
@@ -19,8 +22,8 @@
  * - Step 6.5: ElevenLabs Forced Alignment (enabled - word timing)
  * - Step 7: Genius Enrichment (enabled optional - metadata)
  * - Step 7.5: Multi-language Translation (enabled - zh, vi, id)
- *
- * NOTE: Step 8 (Audio Separation) is handled separately - not part of this orchestrator
+ * - Step 8: Audio Separation (enabled - Demucs vocal/instrumental separation)
+ * - Step 12: Generate Derivative Images (optional - watercolor-style images for GRC-20)
  */
 
 import type { Env } from '../types';
@@ -32,6 +35,8 @@ import { processDownloadAudio } from './06-download-audio';
 import { processGeniusEnrichment } from './07-genius-enrichment';
 import { processForcedAlignment } from './06-forced-alignment';
 import { processLyricsTranslation } from './07-translate-lyrics';
+import { processSeparateAudio } from './08-separate-audio';
+import { processGenerateImages } from './12-generate-images';
 
 interface PipelineStep {
   number: number;
@@ -55,7 +60,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
   console.log(`📊 Complete status flow:`);
   console.log(`   tiktok_scraped → spotify_resolved → iswc_found`);
   console.log(`   → metadata_enriched → lyrics_ready → audio_downloaded`);
-  console.log(`   → alignment_complete → translations_ready\n`);
+  console.log(`   → alignment_complete → translations_ready → stems_separated\n`);
 
   if (targetStep) {
     console.log(`🎯 Running step ${targetStep} only (limit: ${limit})\n`);
@@ -160,6 +165,33 @@ export async function runUnifiedPipeline(env: Env, options?: {
       nextStatus: 'translations_ready',
       processor: processLyricsTranslation,
       enabled: true
+    },
+
+    // ==================== AUDIO SEPARATION STEP ====================
+
+    // Step 8: Audio Separation (Demucs)
+    {
+      number: 8,
+      name: 'Audio Separation',
+      description: 'Submit audio to Demucs for vocal/instrumental separation',
+      status: 'audio_downloaded',
+      nextStatus: 'stems_separated',
+      processor: processSeparateAudio,
+      enabled: true
+    },
+
+    // ==================== GRC-20 ASSET PREPARATION ====================
+
+    // Step 12: Generate Derivative Images (Independent - no status dependency)
+    {
+      number: 12,
+      name: 'Generate Derivative Images',
+      description: 'Generate watercolor-style derivative images for GRC-20 artists/works (Seedream)',
+      status: 'grc20_ready',  // Dummy status - not used for filtering
+      nextStatus: 'grc20_ready',  // Doesn't change status
+      processor: processGenerateImages,
+      enabled: false,  // Optional - run manually with --step=12
+      optional: true  // Won't block pipeline if disabled/fails
     },
   ];
 

@@ -33,7 +33,6 @@
 
 import type { Env } from '../types';
 import { query, close } from '../db/neon';
-import { upsertSegmentSQL } from '../db/karaoke-segments';
 import { DemucsService, createDemucsService } from '../services/demucs';
 
 interface Track {
@@ -79,15 +78,7 @@ async function submitDemucsJob(
       `     ✓ Submitted (job: ${result.jobId}, mode: ${result.mode})`
     );
 
-    // Create karaoke_segments record with status='processing'
-    const sql = upsertSegmentSQL({
-      spotify_track_id: track.spotify_track_id,
-      separation_status: 'processing',
-      separation_job_id: result.jobId,
-      separation_mode: result.mode,
-    });
-
-    await query(sql);
+    // Note: Webhook will update song_audio and song_pipeline when Demucs completes
   } catch (error: any) {
     console.error(`     ❌ Submission failed: ${error.message}`);
   }
@@ -109,6 +100,7 @@ export async function processSeparateAudio(env: Env, limit: number = 50): Promis
 
   try {
     // Find tracks ready for separation
+    // Check: has audio downloaded but no instrumental separated yet
     const tracksToProcess = await query<Track>(`
       SELECT
         sp.id,
@@ -120,12 +112,9 @@ export async function processSeparateAudio(env: Env, limit: number = 50): Promis
       FROM song_pipeline sp
       JOIN spotify_tracks st ON sp.spotify_track_id = st.spotify_track_id
       LEFT JOIN song_audio sa ON sp.spotify_track_id = sa.spotify_track_id
-      WHERE sp.status = 'audio_downloaded'
-        AND NOT EXISTS (
-          SELECT 1 FROM karaoke_segments ks
-          WHERE ks.spotify_track_id = sp.spotify_track_id
-            AND ks.separation_status IN ('processing', 'completed')
-        )
+      WHERE sp.status = 'translations_ready'
+        AND sa.grove_url IS NOT NULL
+        AND sa.instrumental_grove_url IS NULL
       ORDER BY sp.created_at ASC
       LIMIT ${limit}
     `);
@@ -154,15 +143,8 @@ export async function processSeparateAudio(env: Env, limit: number = 50): Promis
           webhookUrl
         );
 
-        // Create karaoke_segments record
-        const sql = upsertSegmentSQL({
-          spotify_track_id: track.spotify_track_id,
-          separation_status: 'processing',
-          separation_job_id: result.jobId,
-          separation_mode: result.mode,
-        });
-
-        await query(sql);
+        console.log(`  ✅ ${track.spotify_track_id}: Submitted (job: ${result.jobId})`);
+        // Note: Webhook will update song_audio and song_pipeline when Demucs completes
         submittedCount++;
 
         // Small delay

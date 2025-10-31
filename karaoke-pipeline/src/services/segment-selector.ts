@@ -55,15 +55,49 @@ export class SegmentSelectorService {
     const lyricsWithTiming = this.formatLyricsWithTiming(words);
 
     if (needsOptimalSegment) {
-      // Songs ≥190s: Make 2 separate calls
-      const [optimalSegment, clip] = await Promise.all([
-        this.selectOptimal190sSegment(lyricsWithTiming, trackDurationSeconds),
-        this.selectBestClip(lyricsWithTiming, trackDurationSeconds)
-      ]);
+      // Songs ≥190s: Sequential calls (clip WITHIN optimal segment)
+      // Step 1: Select optimal 190s segment
+      const optimalSegment = await this.selectOptimal190sSegment(
+        lyricsWithTiming,
+        trackDurationSeconds
+      );
+
+      // Step 2: Filter words to only those within optimal segment
+      const optimalSegmentStartSec = optimalSegment.startMs / 1000;
+      const optimalSegmentEndSec = optimalSegment.endMs / 1000;
+
+      const wordsInSegment = words.filter(
+        w => w.start >= optimalSegmentStartSec && w.start <= optimalSegmentEndSec
+      );
+
+      // Step 3: Adjust word times to be relative to segment start (0-190s)
+      const relativeWords: WordTiming[] = wordsInSegment.map(w => ({
+        text: w.text,
+        start: w.start - optimalSegmentStartSec,
+        end: w.end - optimalSegmentStartSec
+      }));
+
+      // Step 4: Select clip from FILTERED words (constrained to 0-190s)
+      const lyricsInSegment = this.formatLyricsWithTiming(relativeWords);
+      const clipRelative = await this.selectBestClip(
+        lyricsInSegment,
+        190 // Clip selected within 190s segment window
+      );
+
+      // Step 5: Convert clip back to absolute times
+      const clip: OptimalSegmentResult = {
+        startMs: clipRelative.startMs + optimalSegment.startMs,
+        endMs: clipRelative.endMs + optimalSegment.startMs,
+        durationMs: clipRelative.durationMs
+      };
+
+      console.log(
+        `[SegmentSelector] Clip converted from relative [${clipRelative.startMs}-${clipRelative.endMs}] to absolute [${clip.startMs}-${clip.endMs}]`
+      );
 
       return { optimalSegment, clip };
     } else {
-      // Songs <190s: Only select best clip
+      // Songs <190s: Only select best clip from full track
       const clip = await this.selectBestClip(lyricsWithTiming, trackDurationSeconds);
       return { clip };
     }

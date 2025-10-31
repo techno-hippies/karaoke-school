@@ -101,10 +101,14 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
           });
 
           if (quansicResponse.ok) {
-            const { data } = await quansicResponse.json();
+            const result = await quansicResponse.json();
 
-            // Extract ISWC
-            iswc = data.iswc || data.raw_data?.recording?.works?.[0]?.iswc;
+            // Check if Quansic found data
+            if (result.success && result.data) {
+              const { data } = result;
+
+              // Extract ISWC
+              iswc = data.iswc || data.raw_data?.recording?.works?.[0]?.iswc;
 
             if (iswc) {
               console.log(`   ✅ ${track.title} - API found ISWC: ${iswc}`);
@@ -142,6 +146,9 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
               continue;
             } else {
               console.log(`   ⚠️ ${track.title} - Quansic returned no ISWC`);
+            }
+            } else {
+              console.log(`   ⚠️ ${track.title} - Quansic found no data (success: ${result.success})`);
             }
           } else {
             console.log(`   ⚠️ ${track.title} - Quansic API error: ${quansicResponse.status}`);

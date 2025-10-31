@@ -30,6 +30,7 @@ export interface SpotifyTrackInfo {
   title: string;
   artists: Array<{ name: string; id: string }>;
   album: string;
+  image_url: string | null;
   isrc: string | null;
   duration_ms: number;
   release_date: string | null;
@@ -60,6 +61,7 @@ export async function getTrack(trackId: string): Promise<SpotifyTrackInfo | null
       title: track.name,
       artists: track.artists.map(a => ({ name: a.name, id: a.id })),
       album: track.album.name,
+      image_url: track.album.images[0]?.url || null,
       isrc: track.external_ids?.isrc || null,
       duration_ms: track.duration_ms,
       release_date: track.album.release_date || null,
@@ -124,6 +126,7 @@ export async function getTracks(trackIds: string[]): Promise<(SpotifyTrackInfo |
         title: track.name,
         artists: track.artists.map(a => ({ name: a.name, id: a.id })),
         album: track.album.name,
+        image_url: track.album.images[0]?.url || null,
         isrc: track.external_ids?.isrc || null,
         duration_ms: track.duration_ms,
         release_date: track.album.release_date || null,

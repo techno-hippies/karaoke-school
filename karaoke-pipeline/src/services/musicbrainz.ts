@@ -36,7 +36,7 @@ export interface MBRecording {
   video?: boolean;
   'first-release-date'?: string;
   tags?: Array<{ name: string; count: number }>;
-  artist_credit?: Array<{
+  'artist-credit'?: Array<{
     name: string;
     artist: {
       id: string;
@@ -87,6 +87,13 @@ export interface MBArtist {
   begin_area?: { name: string };
   isnis?: string[];
   ipis?: string[];
+  aliases?: Array<{
+    name: string;
+    locale?: string;  // Language code (e.g., 'lt', 'az', 'el', 'bg')
+    type?: string;    // 'Artist name', 'Legal name', etc.
+    'sort-name'?: string;
+    primary?: boolean;
+  }>;
   genres?: Array<{ id: string; name: string; count: number }>;
   tags?: Array<{ name: string; count: number }>;
   relations?: Array<{
@@ -174,7 +181,7 @@ export async function lookupWorkByISWC(iswc: string): Promise<MBWork | null> {
  */
 export async function lookupArtist(mbid: string): Promise<MBArtist | null> {
   try {
-    const url = `${MB_API_URL}/artist/${mbid}?inc=url-rels+genres+tags&fmt=json`;
+    const url = `${MB_API_URL}/artist/${mbid}?inc=url-rels+genres+tags+aliases&fmt=json`;
     const response = await rateLimitedFetch(url);
 
     if (!response.ok) {

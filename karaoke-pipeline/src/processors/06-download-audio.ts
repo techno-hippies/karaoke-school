@@ -163,9 +163,16 @@ export async function processDownloadAudio(_env: any, limit: number = 50): Promi
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
     WHERE tp.status = 'lyrics_ready'
       AND tp.has_audio = FALSE
-      AND NOT EXISTS (
-        SELECT 1 FROM song_audio sa
-        WHERE sa.spotify_track_id = tp.spotify_track_id
+      AND (
+        NOT EXISTS (
+          SELECT 1 FROM song_audio sa
+          WHERE sa.spotify_track_id = tp.spotify_track_id
+        )
+        OR EXISTS (
+          SELECT 1 FROM song_audio sa
+          WHERE sa.spotify_track_id = tp.spotify_track_id
+            AND sa.grove_cid IS NULL
+        )
       )
     ORDER BY tp.id
     LIMIT ${limit}
@@ -189,27 +196,39 @@ export async function processDownloadAudio(_env: any, limit: number = 50): Promi
             : track.artists[0])
         : track.artists;
 
-      const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spotify_track_id: track.spotify_track_id,
-          expected_title: track.title,
-          expected_artist: artistName,
-          acoustid_api_key: ACOUSTID_API_KEY,
-          neon_database_url: DATABASE_URL,
-          chain_id: CHAIN_ID,
-        }),
-      });
+      // Create abort controller with 5 second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      if (response.ok) {
-        submittedCount++;
-        response.body?.cancel();
+      try {
+        const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            spotify_track_id: track.spotify_track_id,
+            expected_title: track.title,
+            expected_artist: artistName,
+            acoustid_api_key: ACOUSTID_API_KEY,
+            neon_database_url: DATABASE_URL,
+            chain_id: CHAIN_ID,
+          }),
+          signal: controller.signal,
+        });
+
+        if (response.ok) {
+          submittedCount++;
+          response.body?.cancel();
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      await new Promise(resolve => setTimeout(resolve, 50));
-    } catch (error) {
-      // Continue on error
+    } catch (error: any) {
+      // Continue on error (service not available, timeout, etc)
+      if (error.name !== 'AbortError') {
+        console.log(`     ⚠️  ${error.message}`);
+      }
     }
   }
 

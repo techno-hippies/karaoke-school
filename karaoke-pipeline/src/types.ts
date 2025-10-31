@@ -3,8 +3,10 @@
  */
 
 export interface Env {
-  NEON_DATABASE_URL: string;
+  DATABASE_URL?: string;
+  NEON_DATABASE_URL?: string;
   QUANSIC_SERVICE_URL?: string;
+  FAL_API_KEY?: string;
 }
 
 export interface TrackToProcess {

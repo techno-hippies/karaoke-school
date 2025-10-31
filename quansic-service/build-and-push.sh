@@ -8,12 +8,16 @@ docker build -t quansic-service:v2.0.1 .
 
 echo "✅ Docker image built: quansic-service:v2.0.1"
 
-# Tag for push (update with your registry)
-echo "📦 Tagging for registry..."
-docker tag quansic-service:v2.0.1 your-dockerhub-username/quansic-service:v2.0.1
+# Tag for push
+docker tag quansic-service:v2.0.1 t3333chn0000/quansic-service:v2.0.1
+docker tag quansic-service:v2.0.1 t3333chn0000/quansic-service:latest
 
-echo "🏗️ Build completed!"
-echo "Next steps:"
-echo "1. Push to registry: docker push your-dockerhub-username/quansic-service:v2.0.1"
-echo "2. Update deploy-akash.yaml with your registry"
-echo "3. Deploy: akash provider send-manifest deploy-akash.yaml --dseq YOUR_DEPLOYMENT --provider YOUR_PROVIDER"
+echo "🏷️ Tagged for Docker Hub"
+
+# Push to Docker Hub
+docker push t3333chn0000/quansic-service:v2.0.1
+docker push t3333chn0000/quansic-service:latest
+
+echo "🎉 Successfully pushed to Docker Hub!"
+echo "📦 Pushed both v2.0.1 and latest tags"
+echo "🚀 For Akash GUI: Just redeploy with the same deploy-akash.yaml (uses latest tag)"

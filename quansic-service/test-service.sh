@@ -14,7 +14,7 @@ fi
 # Set Python path and run tests
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 
-echo "🔧 Installing dependencies..."
+echo "🔧 Installing dependencies with uv pip..."
 uv pip install --system -e .
 
 echo "🚀 Starting server for testing..."
