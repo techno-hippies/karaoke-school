@@ -15,6 +15,31 @@
 
 import { query } from '../../src/db/neon';
 
+/**
+ * Normalize ISWC to unformatted: T + 10 digits
+ * Input: T0719621610 or T-071.962.161-0
+ * Output: T0719621610
+ */
+function normalizeISWC(iswc: string): string {
+  // Extract just T and digits, remove all punctuation
+  const match = iswc.match(/^T(\d+)$/);
+  if (match) {
+    const digits = match[1];
+    if (digits.length === 10) {
+      return `T${digits}`;
+    }
+  }
+
+  // If it has punctuation, strip it
+  const digits = iswc.replace(/[^0-9]/g, '');
+  if (digits.length === 10) {
+    return `T${digits}`;
+  }
+
+  console.warn(`⚠️ Invalid ISWC: ${iswc} (expected T + 10 digits, got ${iswc})`);
+  return iswc; // Return as-is if invalid
+}
+
 interface WorkAggregation {
   // Identity
   title: string;
@@ -24,8 +49,7 @@ interface WorkAggregation {
   // Industry IDs
   iswc?: string;
   iswcSource?: string;
-  isrc?: string;
-  mbid?: string;
+  mbid?: string;  // MusicBrainz WORK ID (not recording ID)
   bmiWorkId?: string;
   ascapWorkId?: string;
 
@@ -103,18 +127,33 @@ async function main() {
 
     const agg: WorkAggregation = {
       spotifyTrackId: spotify_track_id,
-      title,
+      title, // Will be overridden with work title (priority: Quansic > BMI > Genius > cleaned Spotify)
       primaryArtistName: artist_name
     };
 
-    // Get Spotify data
+    // Store work title candidates (declared early for scope)
+    let quansicWorkTitle: string | undefined;
+    let musicbrainzWorkTitle: string | undefined;
+    let spotifyCleanedTitle: string | undefined;
+    let geniusWorkTitle: string | undefined;
+
+    // For alternate_titles tracking
+    const titleVariants: string[] = [];
+
+    // Get Spotify data with artist ID extracted in SQL
     const spotifyData = await query(`
-      SELECT * FROM spotify_tracks WHERE spotify_track_id = $1
+      SELECT
+        st.*,
+        st.artists->0->>'id' as primary_artist_spotify_id,
+        ga.id as primary_artist_grc20_id
+      FROM spotify_tracks st
+      LEFT JOIN grc20_artists ga ON ga.spotify_artist_id = st.artists->0->>'id'
+      WHERE st.spotify_track_id = $1
     `, [spotify_track_id]);
 
     if (spotifyData.length > 0) {
       const spotify = spotifyData[0];
-      agg.isrc = spotify.isrc;
+      // NOTE: We do NOT store ISRC (recording code) - this table is for WORKS which use ISWC
       agg.durationMs = spotify.duration_ms;
       agg.releaseDate = spotify.release_date;
       agg.spotifyPopularity = spotify.popularity;
@@ -122,14 +161,21 @@ async function main() {
       agg.imageUrl = spotify.image_url;
       agg.imageSource = 'spotify';
 
-      // Get artist ID from grc20_artists
-      const artistData = await query(`
-        SELECT id FROM grc20_artists WHERE spotify_artist_id = $1
-      `, [spotify.spotify_artist_id]);
-
-      if (artistData.length > 0) {
-        agg.primaryArtistId = artistData[0].id;
+      // Artist ID already joined in SQL
+      if (spotify.primary_artist_grc20_id) {
+        agg.primaryArtistId = spotify.primary_artist_grc20_id;
       }
+
+      // Clean Spotify title (remove recording artifacts)
+      spotifyCleanedTitle = spotify.title
+        .replace(/ - \d{4} Remaster(ed)?$/i, '')
+        .replace(/ - Remaster(ed)?( \d{4})?$/i, '')
+        .replace(/ \(feat\. [^)]+\)$/i, '')
+        .replace(/ \(with [^)]+\)$/i, '')
+        .trim();
+
+      // NOTE: We do NOT store raw Spotify recording title as variant
+      // Recording artifacts ("- Remaster", features) are NOT alternate titles
 
       // Build Spotify URL
       agg.spotifyUrl = `https://open.spotify.com/track/${spotify_track_id}`;
@@ -151,18 +197,23 @@ async function main() {
       agg.geniusLyricsState = genius.lyrics_state;
       agg.geniusFeaturedVideo = genius.featured_video;
       agg.geniusUrl = `https://genius.com/songs/${genius.genius_song_id}`;
+
+      // Genius title (usually canonical, strips features/remasters)
+      if (genius.title) {
+        geniusWorkTitle = genius.title;
+      }
     }
 
-    // Get MusicBrainz data
+    // Get MusicBrainz data (recording level, for disambiguation/relations only)
+    // NOTE: We do NOT store recording MBIDs - we'll get work MBIDs from musicbrainz_works
     const mbData = await query(`
       SELECT * FROM musicbrainz_recordings WHERE spotify_track_id = $1
     `, [spotify_track_id]);
 
     if (mbData.length > 0) {
       const mb = mbData[0];
-      agg.mbid = mb.mbid;
       agg.disambiguation = mb.disambiguation;
-      agg.musicbrainzUrl = `https://musicbrainz.org/recording/${mb.mbid}`;
+      // Don't set musicbrainzUrl yet - will be set to work URL if we find the work
 
       // Extract wikidata from relations
       if (mb.relations && typeof mb.relations === 'object') {
@@ -179,9 +230,14 @@ async function main() {
     if (quansicData.length > 0) {
       const recording = quansicData[0];
 
+      // Work title (GOLD STANDARD - highest priority)
+      if (recording.work_title) {
+        quansicWorkTitle = recording.work_title;
+      }
+
       // ISWC (gold standard)
       if (recording.iswc) {
-        agg.iswc = recording.iswc;
+        agg.iswc = normalizeISWC(recording.iswc);
         agg.iswcSource = 'quansic';
       }
 
@@ -197,46 +253,163 @@ async function main() {
       }
     }
 
-    // Get BMI fallback data from processing_log
-    const bmiLogData = await query(`
-      SELECT metadata
-      FROM processing_log
-      WHERE spotify_track_id = $1
-        AND stage = 'iswc_resolution'
-        AND (metadata->>'source' = 'bmi' OR metadata->'bmi_work_id' IS NOT NULL)
-      ORDER BY created_at DESC
-      LIMIT 1
+    // Get MusicBrainz Works data (NEW!) - JOIN via ISRC since spotify_track_id may be NULL
+    const mbWorksData = await query(`
+      SELECT mbw.*
+      FROM spotify_tracks st
+      JOIN musicbrainz_recordings mr ON mr.isrc = st.isrc
+      JOIN musicbrainz_works mbw ON mbw.work_mbid = mr.work_mbid
+      WHERE st.spotify_track_id = $1
+        AND st.isrc IS NOT NULL
+        AND mr.work_mbid IS NOT NULL
     `, [spotify_track_id]);
 
-    if (bmiLogData.length > 0 && bmiLogData[0].metadata) {
-      const bmiData = bmiLogData[0].metadata;
+    if (mbWorksData.length > 0) {
+      const mbWork = mbWorksData[0];
 
-      // BMI ISWC (if Quansic didn't have it)
-      if (bmiData.iswc && !agg.iswc) {
-        agg.iswc = bmiData.iswc;
-        agg.iswcSource = 'bmi';
+      // Store WORK MBID (not recording MBID)
+      if (mbWork.work_mbid) {
+        agg.mbid = mbWork.work_mbid;
+        agg.musicbrainzUrl = `https://musicbrainz.org/work/${mbWork.work_mbid}`;
       }
 
-      // BMI work IDs
-      if (bmiData.bmi_work_id) {
-        agg.bmiWorkId = bmiData.bmi_work_id;
-      }
-      if (bmiData.ascap_work_id) {
-        agg.ascapWorkId = bmiData.ascap_work_id;
+      // MusicBrainz work title (ISWC-registered canonical title)
+      if (mbWork.title) {
+        musicbrainzWorkTitle = mbWork.title;
       }
 
-      // BMI writers (with IPIs)
-      if (bmiData.writers && Array.isArray(bmiData.writers)) {
-        agg.bmiWriters = bmiData.writers
-          .map((w: any) => `${w.name}${w.ipi ? ` (IPI: ${w.ipi})` : ''}`)
-          .join(', ');
+      // ISWC (only if not already found from Quansic)
+      if (mbWork.iswc && !agg.iswc) {
+        agg.iswc = normalizeISWC(mbWork.iswc);
+        agg.iswcSource = 'musicbrainz';
       }
+    }
 
-      // BMI publishers (with IPIs)
-      if (bmiData.publishers && Array.isArray(bmiData.publishers)) {
-        agg.bmiPublishers = bmiData.publishers
-          .map((p: any) => `${p.name}${p.ipi ? ` (IPI: ${p.ipi})` : ''}`)
-          .join(', ');
+    // Get BMI Works data (NEW! Join via ISWC)
+    if (agg.iswc) {
+      const bmiData = await query(`
+        SELECT * FROM bmi_works WHERE iswc = $1
+      `, [agg.iswc]);
+
+      if (bmiData.length > 0) {
+        const bmi = bmiData[0];
+
+        // NOTE: BMI titles are too unreliable (ALL CAPS, missing apostrophes)
+        // We use BMI ONLY for writer/publisher metadata, NOT for titles
+
+        // BMI work IDs
+        if (bmi.bmi_work_id) agg.bmiWorkId = bmi.bmi_work_id;
+        if (bmi.ascap_work_id) agg.ascapWorkId = bmi.ascap_work_id;
+
+        // BMI writers (with IPIs) - structured data!
+        if (bmi.writers && Array.isArray(bmi.writers)) {
+          agg.bmiWriters = bmi.writers
+            .map((w: any) => `${w.name}${w.ipi ? ` (IPI: ${w.ipi})` : ''}`)
+            .join(', ');
+        }
+
+        // BMI publishers (with IPIs)
+        if (bmi.publishers && Array.isArray(bmi.publishers)) {
+          agg.bmiPublishers = bmi.publishers
+            .map((p: any) => `${p.name}${p.ipi ? ` (IPI: ${p.ipi})` : ''}`)
+            .join(', ');
+        }
+      }
+    }
+
+    // Fallback: Get BMI data from processing_log (legacy)
+    if (!agg.iswc || !agg.bmiWorkId) {
+      const bmiLogData = await query(`
+        SELECT metadata
+        FROM processing_log
+        WHERE spotify_track_id = $1
+          AND stage = 'iswc_resolution'
+          AND (metadata->>'source' = 'bmi' OR metadata->'bmi_work_id' IS NOT NULL)
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [spotify_track_id]);
+
+      if (bmiLogData.length > 0 && bmiLogData[0].metadata) {
+        const legacyBmi = bmiLogData[0].metadata;
+
+        // BMI ISWC (if nothing else found it)
+        if (legacyBmi.iswc && !agg.iswc) {
+          agg.iswc = legacyBmi.iswc;
+          agg.iswcSource = 'bmi';
+        }
+
+        // BMI work IDs (if not from bmi_works table)
+        if (legacyBmi.bmi_work_id && !agg.bmiWorkId) {
+          agg.bmiWorkId = legacyBmi.bmi_work_id;
+        }
+        if (legacyBmi.ascap_work_id && !agg.ascapWorkId) {
+          agg.ascapWorkId = legacyBmi.ascap_work_id;
+        }
+      }
+    }
+
+    // CRITICAL: Determine proper WORK title (not recording title)
+    // Priority: Quansic > MusicBrainz > Spotify cleaned > Genius
+    // BMI excluded: too unreliable (ALL CAPS, missing apostrophes, includes features)
+
+    let finalTitle: string;
+
+    if (quansicWorkTitle) {
+      finalTitle = quansicWorkTitle;
+      // Store other sources as variants if different
+      if (musicbrainzWorkTitle && musicbrainzWorkTitle !== finalTitle) {
+        titleVariants.push(musicbrainzWorkTitle);
+      }
+      if (spotifyCleanedTitle && spotifyCleanedTitle !== finalTitle) {
+        titleVariants.push(spotifyCleanedTitle);
+      }
+      if (geniusWorkTitle && geniusWorkTitle !== finalTitle) {
+        titleVariants.push(geniusWorkTitle);
+      }
+    } else if (musicbrainzWorkTitle) {
+      finalTitle = musicbrainzWorkTitle;
+      // Store other sources as variants if different
+      if (spotifyCleanedTitle && spotifyCleanedTitle !== finalTitle) {
+        titleVariants.push(spotifyCleanedTitle);
+      }
+      if (geniusWorkTitle && geniusWorkTitle !== finalTitle) {
+        titleVariants.push(geniusWorkTitle);
+      }
+    } else if (spotifyCleanedTitle) {
+      // Corroboration check: Do Spotify and Genius agree?
+      if (geniusWorkTitle && spotifyCleanedTitle === geniusWorkTitle) {
+        // ✅ Both sources agree - high confidence
+        finalTitle = spotifyCleanedTitle;
+      } else {
+        // Use Spotify (recording authority), store Genius as variant
+        finalTitle = spotifyCleanedTitle;
+        if (geniusWorkTitle && geniusWorkTitle !== finalTitle) {
+          titleVariants.push(geniusWorkTitle);
+        }
+      }
+    } else if (geniusWorkTitle) {
+      finalTitle = geniusWorkTitle;
+    } else {
+      // Fallback: use initial Spotify title (shouldn't happen)
+      finalTitle = agg.title;
+    }
+
+    agg.title = finalTitle;
+
+    // Build alternate_titles from all collected variants
+    // Only store MEANINGFUL differences (not capitalization)
+    if (titleVariants.length > 0) {
+      const uniqueVariants = [...new Set(titleVariants)]
+        .filter(v => {
+          // Remove if same as primary (case-insensitive)
+          if (v.toLowerCase() === finalTitle.toLowerCase()) return false;
+
+          // Keep only if meaningfully different (not just capitalization)
+          return v !== finalTitle;
+        });
+
+      if (uniqueVariants.length > 0) {
+        agg.alternateTitles = uniqueVariants.join(' | ');
       }
     }
 
@@ -251,7 +424,7 @@ async function main() {
     await query(`
       INSERT INTO grc20_works (
         title, alternate_titles, disambiguation,
-        iswc, iswc_source, isrc, mbid, bmi_work_id, ascap_work_id,
+        iswc, iswc_source, mbid, bmi_work_id, ascap_work_id,
         spotify_track_id, genius_song_id, discogs_release_id,
         primary_artist_id, primary_artist_name,
         featured_artists, composers, producers, lyricists,
@@ -265,24 +438,50 @@ async function main() {
         image_url, image_source
       ) VALUES (
         $1, $2, $3,
-        $4, $5, $6, $7, $8, $9,
-        $10, $11, $12,
-        $13, $14,
-        $15, $16, $17, $18,
-        $19, $20,
-        $21, $22, $23, $24,
-        $25, $26,
-        $27, $28,
-        $29, $30, $31,
-        $32, $33,
-        $34, $35, $36, $37,
-        $38, $39
+        $4, $5, $6, $7, $8,
+        $9, $10, $11,
+        $12, $13,
+        $14, $15, $16, $17,
+        $18, $19,
+        $20, $21, $22, $23,
+        $24, $25,
+        $26, $27,
+        $28, $29, $30,
+        $31, $32,
+        $33, $34, $35, $36,
+        $37, $38
       )
       ON CONFLICT (spotify_track_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        alternate_titles = EXCLUDED.alternate_titles,
+        iswc = EXCLUDED.iswc,
+        iswc_source = EXCLUDED.iswc_source,
+        mbid = EXCLUDED.mbid,
+        bmi_work_id = EXCLUDED.bmi_work_id,
+        ascap_work_id = EXCLUDED.ascap_work_id,
+        primary_artist_id = EXCLUDED.primary_artist_id,
+        primary_artist_name = EXCLUDED.primary_artist_name,
+        composers = EXCLUDED.composers,
+        producers = EXCLUDED.producers,
+        bmi_writers = EXCLUDED.bmi_writers,
+        bmi_publishers = EXCLUDED.bmi_publishers,
+        language = EXCLUDED.language,
+        release_date = EXCLUDED.release_date,
+        duration_ms = EXCLUDED.duration_ms,
+        spotify_popularity = EXCLUDED.spotify_popularity,
+        genius_pageviews = EXCLUDED.genius_pageviews,
+        genius_annotation_count = EXCLUDED.genius_annotation_count,
+        genius_lyrics_state = EXCLUDED.genius_lyrics_state,
+        spotify_url = EXCLUDED.spotify_url,
+        genius_url = EXCLUDED.genius_url,
+        musicbrainz_url = EXCLUDED.musicbrainz_url,
+        wikidata_url = EXCLUDED.wikidata_url,
+        image_url = EXCLUDED.image_url,
+        image_source = EXCLUDED.image_source,
         updated_at = NOW()
     `, [
       agg.title, agg.alternateTitles, agg.disambiguation,
-      agg.iswc, agg.iswcSource, agg.isrc, agg.mbid, agg.bmiWorkId, agg.ascapWorkId,
+      agg.iswc, agg.iswcSource, agg.mbid, agg.bmiWorkId, agg.ascapWorkId,
       agg.spotifyTrackId, agg.geniusSongId, agg.discogsReleaseId,
       agg.primaryArtistId, agg.primaryArtistName,
       agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
@@ -305,9 +504,11 @@ async function main() {
       COUNT(*) as total,
       COUNT(iswc) as with_iswc,
       COUNT(iswc) FILTER (WHERE iswc_source = 'quansic') as iswc_from_quansic,
+      COUNT(iswc) FILTER (WHERE iswc_source = 'musicbrainz') as iswc_from_musicbrainz,
       COUNT(iswc) FILTER (WHERE iswc_source = 'bmi') as iswc_from_bmi,
       COUNT(bmi_work_id) as with_bmi_work_id,
       COUNT(bmi_writers) as with_bmi_writers,
+      COUNT(composers) as with_composers,
       COUNT(primary_artist_id) as with_artist_link,
       COUNT(grc20_entity_id) as minted,
       COUNT(*) - COUNT(grc20_entity_id) as ready_to_mint
@@ -318,9 +519,11 @@ async function main() {
   console.log(`   Total works: ${summary[0].total}`);
   console.log(`   With ISWC: ${summary[0].with_iswc} (${Math.round(summary[0].with_iswc / summary[0].total * 100)}%)`);
   console.log(`     - From Quansic: ${summary[0].iswc_from_quansic}`);
+  console.log(`     - From MusicBrainz: ${summary[0].iswc_from_musicbrainz}`);
   console.log(`     - From BMI: ${summary[0].iswc_from_bmi}`);
   console.log(`   With BMI work ID: ${summary[0].with_bmi_work_id}`);
   console.log(`   With BMI writers (IPIs): ${summary[0].with_bmi_writers}`);
+  console.log(`   With composers: ${summary[0].with_composers}`);
   console.log(`   With artist link: ${summary[0].with_artist_link} (${Math.round(summary[0].with_artist_link / summary[0].total * 100)}%)`);
   console.log(`   Already minted: ${summary[0].minted}`);
   console.log(`   Ready to mint: ${summary[0].ready_to_mint}`);

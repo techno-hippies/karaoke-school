@@ -1,0 +1,47 @@
+---
+version: "2.2"
+
+services:
+  slsk:
+    image: t3333chn0000/audio-download-service:v1.0.2  # ✅ Fixed verification logic (requires title AND artist match)
+    expose:
+      - port: 3001
+        as: 80
+        to:
+          - global: true
+        accept:
+          - webdisplay
+    env:
+      - PORT=3001
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://neondb_owner:npg_OPrn6hIpM2dN@ep-snowy-sound-ag41lh1b-pooler.c-2.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
+      - NEON_PROJECT_ID=frosty-smoke-70266868
+      - ACOUSTID_API_KEY=I9UjOdbcJK
+      - SOULSEEK_ACCOUNT=bl4ckqat
+      - SOULSEEK_PASSWORD=C3T$6z88@Fk4wN
+      - CHAIN_ID=37111
+
+profiles:
+  compute:
+    slsk:
+      resources:
+        cpu:
+          units: 2
+        memory:
+          size: 4Gi
+        storage:
+          - size: 30Gi
+            # Storage for P2P downloads and temporary audio files
+
+  placement:
+    akash:
+      pricing:
+        slsk:
+          denom: uakt
+          amount: 10000  # Max bid per block (~$0.01-0.03/hour)
+
+deployment:
+  slsk:
+    akash:
+      profile: slsk
+      count: 1

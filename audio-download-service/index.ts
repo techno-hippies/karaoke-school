@@ -389,8 +389,8 @@ async function verifyDownload(
           expected_artist.toLowerCase().includes(mb_artist.toLowerCase())
         : false;
 
-      const verified = confidence >= 0.90 && (title_match || artist_match || confidence >= 0.95);
-      console.log(`    [verify] ${verified ? '✅ VERIFIED' : '❌ REJECTED'}`);
+      const verified = confidence >= 0.90 && title_match && artist_match;
+      console.log(`    [verify] ${verified ? '✅ VERIFIED' : '❌ REJECTED'} (title: ${title_match}, artist: ${artist_match})`);
 
       return {
         verified,
@@ -399,9 +399,9 @@ async function verifyDownload(
       };
     }
 
-    // High confidence without metadata
-    const verified = confidence >= 0.90;
-    console.log(`    [verify] ${verified ? '✅ VERIFIED' : '❌ REJECTED'} (no metadata)`);
+    // No metadata - reject (can't verify title/artist match)
+    const verified = false;
+    console.log(`    [verify] ❌ REJECTED (no metadata - cannot verify title/artist)`);
     return { verified, confidence, details: { high_confidence_only: true } };
   } catch (error: any) {
     console.error(`    [verify] ❌ Error: ${error.message}`);

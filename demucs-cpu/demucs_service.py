@@ -32,6 +32,7 @@ from fastapi import FastAPI, HTTPException, Form, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 import shutil
 import json
+import psycopg
 
 app = FastAPI(title="Demucs CPU Audio Separation Service")
 
@@ -254,69 +255,58 @@ def update_neon_db(
             print("[Neon] NEON_DATABASE_URL not set, skipping DB update")
             return False
 
-        # Build SQL for upsert
-        sql = f"""
-        INSERT INTO song_audio (
-            spotify_track_id,
-            grove_cid,
-            grove_url,
-            download_method,
-            instrumental_grove_cid,
-            instrumental_grove_url,
-            vocals_grove_cid,
-            vocals_grove_url,
-            separation_duration_seconds,
-            separation_mode,
-            separated_at,
-            file_size_bytes,
-            verified,
-            created_at,
-            updated_at
-        ) VALUES (
-            '{spotify_track_id}',
-            '{vocals_upload['cid']}',
-            '{vocals_upload['url']}',
-            'demucs-separation',
-            '{instrumental_upload['cid']}',
-            '{instrumental_upload['url']}',
-            '{vocals_upload['cid']}',
-            '{vocals_upload['url']}',
-            {duration_seconds},
-            'demucs-mdx_q',
-            NOW(),
-            0,
-            true,
-            NOW(),
-            NOW()
-        )
-        ON CONFLICT (spotify_track_id) DO UPDATE SET
-            instrumental_grove_cid = EXCLUDED.instrumental_grove_cid,
-            instrumental_grove_url = EXCLUDED.instrumental_grove_url,
-            vocals_grove_cid = EXCLUDED.vocals_grove_cid,
-            vocals_grove_url = EXCLUDED.vocals_grove_url,
-            separation_duration_seconds = EXCLUDED.separation_duration_seconds,
-            separation_mode = EXCLUDED.separation_mode,
-            separated_at = NOW(),
-            verified = true,
-            updated_at = NOW()
-        """
-
-        # Use Neon HTTP API
-        response = requests.post(
-            neon_db_url,
-            json={"query": sql},
-            timeout=30
-        )
-
-        if response.ok:
+        # Connect to Neon PostgreSQL
+        with psycopg.connect(neon_db_url) as conn:
+            with conn.cursor() as cur:
+                # Use parameterized query to prevent SQL injection
+                cur.execute("""
+                    INSERT INTO song_audio (
+                        spotify_track_id,
+                        grove_cid,
+                        grove_url,
+                        download_method,
+                        instrumental_grove_cid,
+                        instrumental_grove_url,
+                        vocals_grove_cid,
+                        vocals_grove_url,
+                        separation_duration_seconds,
+                        separation_mode,
+                        separated_at,
+                        file_size_bytes,
+                        verified,
+                        created_at,
+                        updated_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), 0, true, NOW(), NOW()
+                    )
+                    ON CONFLICT (spotify_track_id) DO UPDATE SET
+                        instrumental_grove_cid = EXCLUDED.instrumental_grove_cid,
+                        instrumental_grove_url = EXCLUDED.instrumental_grove_url,
+                        vocals_grove_cid = EXCLUDED.vocals_grove_cid,
+                        vocals_grove_url = EXCLUDED.vocals_grove_url,
+                        separation_duration_seconds = EXCLUDED.separation_duration_seconds,
+                        separation_mode = EXCLUDED.separation_mode,
+                        separated_at = NOW(),
+                        verified = true,
+                        updated_at = NOW()
+                """, (
+                    spotify_track_id,
+                    vocals_upload['cid'],
+                    vocals_upload['url'],
+                    'demucs-separation',
+                    instrumental_upload['cid'],
+                    instrumental_upload['url'],
+                    vocals_upload['cid'],
+                    vocals_upload['url'],
+                    duration_seconds
+                ))
+            conn.commit()
             print(f"[Neon] ✅ Updated song_audio for {spotify_track_id}")
             return True
-        else:
-            print(f"[Neon] Update failed: {response.status_code} {response.text[:200]}")
-            return False
 
     except Exception as e:
         print(f"[Neon] ❌ Error: {e}")
+        traceback.print_exc()
         return False
 
 

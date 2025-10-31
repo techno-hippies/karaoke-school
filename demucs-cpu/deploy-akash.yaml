@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   demucs-cpu:
-    image: t3333chn0000/demucs-cpu@sha256:414db1161424570743193712d0d0fe84d22eb7e781df225f93004155d1508b1c
+    image: t3333chn0000/demucs-cpu:v1.3-grove
     expose:
       - port: 8002
         as: 80
@@ -20,8 +20,8 @@ services:
       # Grove IPFS configuration
       - GROVE_CHAIN_ID=37111  # Base Sepolia testnet
 
-      # Neon Database configuration (set via environment secrets in Akash)
-      # - NEON_DATABASE_URL=postgresql://... (provided via Akash secrets)
+      # Neon Database configuration
+      - NEON_DATABASE_URL=postgresql://neondb_owner:npg_OPrn6hIpM2dN@ep-snowy-sound-ag41lh1b-pooler.c-2.eu-central-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require
 
 profiles:
   compute:
