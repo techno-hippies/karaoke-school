@@ -31,6 +31,7 @@ from asyncio import Queue
 from fastapi import FastAPI, HTTPException, Form, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 import shutil
+import json
 
 app = FastAPI(title="Demucs CPU Audio Separation Service")
 
@@ -181,6 +182,144 @@ def separate_audio(
         }
 
 
+def upload_to_grove(base64_data: str, content_type: str = "audio/wav") -> Optional[dict]:
+    """
+    Upload audio file to Grove IPFS via HTTP POST.
+
+    Args:
+        base64_data: Base64-encoded audio data (with or without data: prefix)
+        content_type: MIME type (default: audio/wav)
+
+    Returns:
+        {"cid": "...", "url": "..."} on success, None on failure
+    """
+    try:
+        # Remove data: prefix if present
+        if base64_data.startswith("data:"):
+            base64_data = base64_data.split(",")[1]
+
+        # Decode base64 to binary
+        audio_bytes = base64.b64decode(base64_data)
+
+        # Upload to Grove
+        chain_id = os.getenv("GROVE_CHAIN_ID", "37111")
+        grove_url = f"https://api.grove.storage/?chain_id={chain_id}"
+
+        print(f"[Grove] Uploading {len(audio_bytes)/(1024*1024):.1f}MB to Grove...")
+        response = requests.post(
+            grove_url,
+            data=audio_bytes,
+            headers={"Content-Type": content_type},
+            timeout=300
+        )
+
+        if not response.ok:
+            print(f"[Grove] Upload failed: {response.status_code} {response.text[:200]}")
+            return None
+
+        result = response.json()
+        # Grove returns storage_key field
+        cid = result[0]["storage_key"] if isinstance(result, list) else result.get("storage_key")
+        url = f"https://api.grove.storage/{cid}"
+
+        print(f"[Grove] ✅ Uploaded: {cid}")
+        return {"cid": cid, "url": url}
+
+    except Exception as e:
+        print(f"[Grove] ❌ Error: {e}")
+        return None
+
+
+def update_neon_db(
+    spotify_track_id: str,
+    vocals_upload: dict,
+    instrumental_upload: dict,
+    duration_seconds: float
+) -> bool:
+    """
+    Update Neon DB song_audio table with separated audio URLs.
+
+    Args:
+        spotify_track_id: Spotify track ID
+        vocals_upload: {"cid": "...", "url": "..."}
+        instrumental_upload: {"cid": "...", "url": "..."}
+        duration_seconds: Processing duration
+
+    Returns:
+        True on success, False on failure
+    """
+    try:
+        neon_db_url = os.getenv("NEON_DATABASE_URL")
+        if not neon_db_url:
+            print("[Neon] NEON_DATABASE_URL not set, skipping DB update")
+            return False
+
+        # Build SQL for upsert
+        sql = f"""
+        INSERT INTO song_audio (
+            spotify_track_id,
+            grove_cid,
+            grove_url,
+            download_method,
+            instrumental_grove_cid,
+            instrumental_grove_url,
+            vocals_grove_cid,
+            vocals_grove_url,
+            separation_duration_seconds,
+            separation_mode,
+            separated_at,
+            file_size_bytes,
+            verified,
+            created_at,
+            updated_at
+        ) VALUES (
+            '{spotify_track_id}',
+            '{vocals_upload['cid']}',
+            '{vocals_upload['url']}',
+            'demucs-separation',
+            '{instrumental_upload['cid']}',
+            '{instrumental_upload['url']}',
+            '{vocals_upload['cid']}',
+            '{vocals_upload['url']}',
+            {duration_seconds},
+            'demucs-mdx_q',
+            NOW(),
+            0,
+            true,
+            NOW(),
+            NOW()
+        )
+        ON CONFLICT (spotify_track_id) DO UPDATE SET
+            instrumental_grove_cid = EXCLUDED.instrumental_grove_cid,
+            instrumental_grove_url = EXCLUDED.instrumental_grove_url,
+            vocals_grove_cid = EXCLUDED.vocals_grove_cid,
+            vocals_grove_url = EXCLUDED.vocals_grove_url,
+            separation_duration_seconds = EXCLUDED.separation_duration_seconds,
+            separation_mode = EXCLUDED.separation_mode,
+            separated_at = NOW(),
+            verified = true,
+            updated_at = NOW()
+        """
+
+        # Use Neon HTTP API
+        response = requests.post(
+            neon_db_url,
+            json={"query": sql},
+            timeout=30
+        )
+
+        if response.ok:
+            print(f"[Neon] ✅ Updated song_audio for {spotify_track_id}")
+            return True
+        else:
+            print(f"[Neon] Update failed: {response.status_code} {response.text[:200]}")
+            return False
+
+    except Exception as e:
+        print(f"[Neon] ❌ Error: {e}")
+        return False
+
+
 async def process_job_worker():
     """
     Sequential worker that processes jobs from the queue one at a time.
@@ -203,6 +342,7 @@ async def process_job_worker():
             model = job["model"]
             output_format = job["output_format"]
             mp3_bitrate = job["mp3_bitrate"]
+            spotify_track_id = job.get("spotify_track_id")
 
             processing_active = True
             print(f"[Worker] Processing job {job_id} (queue size: {job_queue.qsize()})")
@@ -219,20 +359,40 @@ async def process_job_worker():
 
                 print(f"[Job {job_id}] ✅ Separation complete!")
 
-                # POST to webhook
+                # Upload to Grove and update Neon DB
+                vocals_upload = None
+                instrumental_upload = None
+
+                if spotify_track_id:
+                    print(f"[Job {job_id}] 📤 Uploading to Grove...")
+                    vocals_upload = upload_to_grove(result["vocals_base64"])
+                    instrumental_upload = upload_to_grove(result["instrumental_base64"])
+
+                    if vocals_upload and instrumental_upload:
+                        print(f"[Job {job_id}] 💾 Updating Neon DB...")
+                        update_neon_db(spotify_track_id, vocals_upload, instrumental_upload, result["duration"])
+
+                # POST to webhook (minimal payload - no base64)
                 print(f"[Job {job_id}] 📞 Calling webhook: {webhook_url}")
 
                 webhook_payload = {
                     "job_id": job_id,
                     "status": "completed",
-                    "vocals_base64": result["vocals_base64"],
-                    "instrumental_base64": result["instrumental_base64"],
-                    "vocals_size": result["vocals_size"],
-                    "instrumental_size": result["instrumental_size"],
+                    "spotify_track_id": spotify_track_id,
                     "model": result["model"],
                     "format": result["format"],
-                    "duration": result["duration"]
+                    "duration": result["duration"],
+                    "vocals_size": result["vocals_size"],
+                    "instrumental_size": result["instrumental_size"]
                 }
+
+                # Add Grove URLs if available
+                if vocals_upload:
+                    webhook_payload["vocals_grove_cid"] = vocals_upload["cid"]
+                    webhook_payload["vocals_grove_url"] = vocals_upload["url"]
+                if instrumental_upload:
+                    webhook_payload["instrumental_grove_cid"] = instrumental_upload["cid"]
+                    webhook_payload["instrumental_grove_url"] = instrumental_upload["url"]
 
                 webhook_resp = requests.post(webhook_url, json=webhook_payload, timeout=120)
                 webhook_resp.raise_for_status()
@@ -373,7 +533,8 @@ async def separate_async_endpoint(
     webhook_url: str = Form(...),
     model: str = Form("mdx_q"),
     output_format: str = Form("mp3"),
-    mp3_bitrate: int = Form(192)
+    mp3_bitrate: int = Form(192),
+    spotify_track_id: str = Form(None)
 ):
     """
     Asynchronous Demucs separation with webhook notification.
@@ -387,6 +548,7 @@ async def separate_async_endpoint(
     - model: Demucs model (default: mdx_q for CPU efficiency)
     - output_format: mp3, wav, or flac (default: mp3)
     - mp3_bitrate: MP3 bitrate in kbps (default: 192)
+    - spotify_track_id: (optional) Spotify track ID for Grove upload & Neon DB update
 
     Returns immediately:
     {
@@ -400,8 +562,16 @@ async def separate_async_endpoint(
     {
         "job_id": "...",
         "status": "completed" | "failed",
-        "vocals_base64": "...",  (if completed)
-        "instrumental_base64": "...",  (if completed)
+        "spotify_track_id": "...",
+        "vocals_grove_cid": "...",  (if spotify_track_id provided)
+        "vocals_grove_url": "...",  (if spotify_track_id provided)
+        "instrumental_grove_cid": "...",  (if spotify_track_id provided)
+        "instrumental_grove_url": "...",  (if spotify_track_id provided)
+        "model": "mdx_q",
+        "format": "mp3",
+        "duration": 120.5,
+        "vocals_size": 123456,
+        "instrumental_size": 123456,
         "error": "..."  (if failed)
     }
     """
@@ -413,7 +583,8 @@ async def separate_async_endpoint(
             "webhook_url": webhook_url,
             "model": model,
             "output_format": output_format,
-            "mp3_bitrate": mp3_bitrate
+            "mp3_bitrate": mp3_bitrate,
+            "spotify_track_id": spotify_track_id
         }
 
         await job_queue.put(job)
