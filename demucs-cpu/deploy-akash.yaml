@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   demucs-cpu:
-    image: t3333chn0000/demucs-cpu:v1.0.2
+    image: t3333chn0000/demucs-cpu:v1.0.3
     expose:
       - port: 8002
         as: 80

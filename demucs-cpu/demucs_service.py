@@ -72,13 +72,12 @@ def separate_audio(
         stems_dir = os.path.join(tmp_dir, "stems")
         os.makedirs(stems_dir, exist_ok=True)
 
-        # Use --wav for demucs output (most reliable)
+        # Run demucs with default WAV output (--wav flag doesn't exist, WAV is default)
         cmd = [
             'python', '-m', 'demucs',
             '--two-stems=vocals',  # Karaoke mode
             '-n', model,
-            '--wav',  # Always output as WAV (most compatible)
-            # No --device flag = uses CPU by default
+            # No format flag = outputs WAV by default (most compatible)
             '-o', stems_dir,
             input_path
         ]
