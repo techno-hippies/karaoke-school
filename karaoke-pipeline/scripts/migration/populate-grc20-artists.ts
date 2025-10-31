@@ -69,8 +69,9 @@ function extractHandleFromUrl(url: string | undefined, platform: string): string
         return handle.toLowerCase();  // Normalize to lowercase
       }
     } else if (platform === 'soundcloud' || platform === 'instagram' || platform === 'tiktok' || platform === 'twitter' || platform === 'facebook') {
-      // Just the username (first path part), normalized to lowercase
-      return parts[0]?.toLowerCase();
+      // Just the username (first path part), strip @ if present, normalize to lowercase
+      const handle = parts[0]?.replace('@', '');
+      return handle?.toLowerCase();
     }
   } catch {}
 
