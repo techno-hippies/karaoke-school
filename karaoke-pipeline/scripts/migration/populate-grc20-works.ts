@@ -176,8 +176,8 @@ async function main() {
       SELECT * FROM quansic_recordings WHERE spotify_track_id = $1
     `, [spotify_track_id]);
 
-    if (quansicData.length > 0 && quansicData[0].recording_data) {
-      const recording = quansicData[0].recording_data;
+    if (quansicData.length > 0) {
+      const recording = quansicData[0];
 
       // ISWC (gold standard)
       if (recording.iswc) {
@@ -190,9 +190,10 @@ async function main() {
         agg.composers = recording.composers.map((c: any) => c.name).join(', ');
       }
 
-      // Producers
-      if (recording.producers && Array.isArray(recording.producers)) {
-        agg.producers = recording.producers.map((p: any) => p.name).join(', ');
+      // Producers (note: quansic_recordings doesn't have producers field)
+      // This would need to come from raw_data if available
+      if (recording.raw_data?.producers && Array.isArray(recording.raw_data.producers)) {
+        agg.producers = recording.raw_data.producers.map((p: any) => p.name).join(', ');
       }
     }
 
