@@ -9,12 +9,15 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
 
 const app = new Hono();
 
 // Global state
 let browser: Browser | null = null;
+let browserContext: BrowserContext | null = null;
+let contextExpiryTime: number = 0;  // Timestamp when context needs refresh
+const CONTEXT_TTL_MS = 10 * 60 * 1000;  // 10 minutes - refresh before cookies expire
 
 interface BMIWriter {
   name: string;
@@ -56,9 +59,19 @@ interface SearchByISWCRequest {
 }
 
 /**
- * Initialize Playwright browser (headless Chrome)
+ * Initialize Playwright browser and persistent context
+ * Context is reused across requests so cookies/session persist
+ * Only creates new context if previous one expired
  */
-async function getBrowser(): Promise<Browser> {
+async function getContext(): Promise<BrowserContext> {
+  // Check if we need to refresh the context
+  const now = Date.now();
+  if (browserContext && now < contextExpiryTime) {
+    console.log('♻️ Reusing existing browser context (cookies persist)');
+    return browserContext;
+  }
+
+  // Context expired or doesn't exist - create new one
   if (!browser) {
     console.log('🌐 Launching Playwright browser...');
     browser = await chromium.launch({
@@ -66,7 +79,19 @@ async function getBrowser(): Promise<Browser> {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
   }
-  return browser;
+
+  // Close old context if it exists
+  if (browserContext) {
+    console.log('🔄 Refreshing browser context (cookies expired)');
+    await browserContext.close();
+  }
+
+  // Create fresh context with 10 minute TTL
+  browserContext = await browser.newContext();
+  contextExpiryTime = Date.now() + CONTEXT_TTL_MS;
+  console.log('✅ Created new persistent browser context');
+
+  return browserContext;
 }
 
 /**
@@ -146,11 +171,11 @@ function artistsMatch(searchArtist: string, performers: string[]): boolean {
 
 /**
  * Search BMI Songview by title and optional performer
+ * Uses persistent browser context so cookies/session are remembered
  */
 async function searchByTitle(title: string, performer?: string): Promise<BMIWorkData | null> {
-  const browser = await getBrowser();
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const context = await getContext();  // Reuses context, not creating new one
+  const page = await context.newPage();  // New page within persistent context
 
   try {
     console.log(`🔍 Searching BMI for: "${title}"${performer ? ` by ${performer}` : ''}`);
@@ -169,9 +194,9 @@ async function searchByTitle(title: string, performer?: string): Promise<BMIWork
     // Navigate
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // Handle disclaimer if redirected
+    // Handle disclaimer if redirected - cookies remember this, so only needed first time
     if (page.url().includes('Disclaimer')) {
-      console.log('📝 Accepting disclaimer...');
+      console.log('📝 Accepting disclaimer (first time in context)...');
       const acceptBtn = await page.waitForSelector('#btnAccept', { timeout: 10000 });
       if (acceptBtn) {
         await acceptBtn.click();
@@ -282,17 +307,17 @@ async function searchByTitle(title: string, performer?: string): Promise<BMIWork
     console.error('❌ Search error:', error.message);
     return null;
   } finally {
-    await context.close();
+    await page.close();  // Close page only, context stays open (cookies persist)
   }
 }
 
 /**
  * Search BMI Songview by ISWC
+ * Uses persistent browser context so cookies/session are remembered
  */
 async function searchByISWC(iswc: string): Promise<BMIWorkData | null> {
-  const browser = await getBrowser();
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  const context = await getContext();  // Reuses context, not creating new one
+  const page = await context.newPage();  // New page within persistent context
 
   try {
     console.log(`🔍 Searching BMI by ISWC: ${iswc}`);
@@ -306,8 +331,9 @@ async function searchByISWC(iswc: string): Promise<BMIWorkData | null> {
     // Navigate
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // Handle disclaimer
+    // Handle disclaimer if redirected - cookies remember this, so only needed first time
     if (page.url().includes('Disclaimer')) {
+      console.log('📝 Accepting disclaimer (first time in context)...');
       const acceptBtn = await page.waitForSelector('#btnAccept', { timeout: 10000 });
       if (acceptBtn) {
         await acceptBtn.click();
@@ -358,7 +384,7 @@ async function searchByISWC(iswc: string): Promise<BMIWorkData | null> {
     console.error('❌ ISWC search error:', error.message);
     return null;
   } finally {
-    await context.close();
+    await page.close();  // Close page only, context stays open (cookies persist)
   }
 }
 

@@ -18,7 +18,7 @@ if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1 ; then
 fi
 
 # Start server
-echo "🚀 Starting Demucs CPU local service on port $PORT..."
+echo "🚀 Starting Demucs CPU Audio Separation Service on port $PORT..."
 echo "   Model: mdx_q (MDX Quantized - CPU Optimized)"
 echo "   Hardware: CPU-only (no GPU required)"
 echo ""
@@ -30,4 +30,4 @@ echo "   Note: CPU processing is slower than GPU (2-5 minutes per track)"
 echo "   Press Ctrl+C to stop"
 echo ""
 
-uv run uvicorn demucs_local:app --host 0.0.0.0 --port $PORT
+uv run uvicorn demucs_service:app --host 0.0.0.0 --port $PORT

@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Quansic Enrichment Service",
     description="Anti-detection music metadata enrichment using hrequests",
-    version="2.0.2",
+    version="2.0.4",
     lifespan=lifespan
 )
 
@@ -95,7 +95,7 @@ async def health_check(service: QuansicService = Depends(get_quansic_service)):
             "status": "healthy",
             "uptime": "running",
             "session_valid": session_valid,
-            "service_version": "2.0.2",
+            "service_version": "2.0.4",
             "hrequests_enabled": True,
             "anti_detection": True,
             "account_pool": {
@@ -227,16 +227,21 @@ async def enrich_recording(
     """Enrich recording data by ISRC using anti-detection browsing"""
     try:
         logger.info(f"🎵 Recording enrichment request: ISRC {request.isrc}")
-        
+
         recording_data = await service.get_recording_data(
             isrc=request.isrc,
             spotify_track_id=request.spotify_track_id,
             recording_mbid=request.recording_mbid,
             force_reauth=request.force_reauth
         )
-        
+
+        # Check if this is a "not found" result (legitimate data lookup failure, not service error)
+        if recording_data.get('error') == 'ISRC_NOT_FOUND':
+            # Return with success=False for clarity, but include the data
+            return ApiResponse(success=False, error=recording_data.get('message', 'ISRC not found'), data=recording_data)
+
         return ApiResponse(success=True, data=recording_data)
-        
+
     except Exception as e:
         logger.error(f"Recording enrichment failed: {e}")
         return ApiResponse(success=False, error=str(e))
@@ -250,15 +255,20 @@ async def enrich_work(
     """Enrich work data by ISWC using anti-detection browsing"""
     try:
         logger.info(f"📝 Work enrichment request: ISWC {request.iswc}")
-        
+
         work_data = await service.get_work_data(
             iswc=request.iswc,
             work_mbid=request.work_mbid,
             force_reauth=request.force_reauth
         )
-        
+
+        # Check if this is a "not found" result (legitimate data lookup failure, not service error)
+        if work_data.get('error') == 'ISWC_NOT_FOUND':
+            # Return with success=False for clarity, but include the data
+            return ApiResponse(success=False, error=work_data.get('message', 'ISWC not found'), data=work_data)
+
         return ApiResponse(success=True, data=work_data)
-        
+
     except Exception as e:
         logger.error(f"Work enrichment failed: {e}")
         return ApiResponse(success=False, error=str(e))

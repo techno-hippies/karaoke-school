@@ -47,6 +47,15 @@ interface ArtistAggregation {
   imageUrl?: string;
   headerImageUrl?: string;
   imageSource?: string;
+
+  // International Library IDs (from Wikidata)
+  viafId?: string;
+  gndId?: string;
+  bnfId?: string;
+  locId?: string;
+  sbnId?: string;
+  bnmmId?: string;
+  selibrId?: string;
 }
 
 function extractUrl(allUrls: any, pattern: string): string | undefined {
@@ -284,6 +293,8 @@ async function main() {
         agg.urls.napster_url = extractUrl(m.all_urls, 'napster.com');
         agg.urls.yandex_music_url = extractUrl(m.all_urls, 'music.yandex.com');
         agg.urls.boomplay_url = extractUrl(m.all_urls, 'boomplay.com');
+        agg.urls.melon_url = extractUrl(m.all_urls, 'melon.com');
+        agg.urls.qobuz_url = extractUrl(m.all_urls, 'qobuz.com');
 
         // Database & Reference
         agg.urls.wikidata_url = extractUrl(m.all_urls, 'wikidata.org');
@@ -337,7 +348,55 @@ async function main() {
       console.log(`   ⚠️  MusicBrainz: not found for "${artist_name.trim()}"`);
     }
 
-    // 4. QUANSIC - ISNI override
+    // 4. WIKIDATA - International library IDs and additional identifiers
+    const wikidata = await query(`
+      SELECT * FROM wikidata_artists
+      WHERE spotify_artist_id = $1
+      LIMIT 1
+    `, [spotify_artist_id]);
+
+    if (wikidata[0]) {
+      const wd = wikidata[0];
+
+      // International Library IDs (PRIMARY)
+      agg.viafId = wd.viaf_id || agg.viafId;
+      agg.gndId = wd.gnd_id || agg.gndId;
+      agg.bnfId = wd.bnf_id || agg.bnfId;
+      agg.locId = wd.loc_id || agg.locId;
+      agg.sbnId = wd.sbn_id || agg.sbnId;
+      agg.bnmmId = wd.bnmm_id || agg.bnmmId;
+      agg.selibrId = wd.selibr_id || agg.selibrId;
+
+      const libraryIds = [
+        agg.viafId && `VIAF:${agg.viafId}`,
+        agg.gndId && `GND:${agg.gndId}`,
+        agg.bnfId && `BNF:${agg.bnfId}`,
+        agg.locId && `LOC:${agg.locId}`,
+        agg.sbnId && `SBN:${agg.sbnId}`,
+        agg.bnmmId && `BNMM:${agg.bnmmId}`,
+        agg.selibrId && `SELIBR:${agg.selibrId}`
+      ].filter(Boolean);
+
+      // Merge social media handles from Wikidata identifiers (priority: override > Genius > MusicBrainz > Wikidata)
+      if (wd.identifiers) {
+        const ids = wd.identifiers;
+        const getHandle = (val: any) => typeof val === 'string' ? val.toLowerCase() : undefined;
+        agg.instagramHandle = mergeHandle(agg.handleOverrides?.instagram, agg.instagramHandle, getHandle(ids.instagram), 'instagram', agg.handleConflicts);
+        agg.twitterHandle = mergeHandle(agg.handleOverrides?.twitter, agg.twitterHandle, getHandle(ids.twitter), 'twitter', agg.handleConflicts);
+        agg.facebookHandle = mergeHandle(agg.handleOverrides?.facebook, agg.facebookHandle, getHandle(ids.facebook), 'facebook', agg.handleConflicts);
+        agg.tiktokHandle = mergeHandle(agg.handleOverrides?.tiktok, agg.tiktokHandle, getHandle(ids.tiktok), 'tiktok', agg.handleConflicts);
+        agg.youtubeChannel = mergeHandle(agg.handleOverrides?.youtube, agg.youtubeChannel, getHandle(ids.youtube), 'youtube', agg.handleConflicts);
+        agg.soundcloudHandle = mergeHandle(agg.handleOverrides?.soundcloud, agg.soundcloudHandle, getHandle(ids.soundcloud), 'soundcloud', agg.handleConflicts);
+        agg.weiboHandle = mergeHandle(agg.handleOverrides?.weibo, agg.weiboHandle, getHandle(ids.weibo), 'weibo', agg.handleConflicts);
+        agg.vkHandle = mergeHandle(agg.handleOverrides?.vk, agg.vkHandle, getHandle(ids.vk), 'vk', agg.handleConflicts);
+      }
+
+      console.log(`   ✅ Wikidata: ${libraryIds.length} library IDs${libraryIds.length ? ` (${libraryIds.join(', ')})` : ''}`);
+    } else {
+      console.log(`   ⚠️  Wikidata: not found (run processor 05-enrich-wikidata)`);
+    }
+
+    // 5. QUANSIC - ISNI override
     const quansic = await query(`
       SELECT artists FROM quansic_recordings
       WHERE spotify_track_id IN (
@@ -366,7 +425,7 @@ async function main() {
         youtube_channel, soundcloud_handle, weibo_handle, vk_handle,
         handle_conflicts, handle_overrides,
         myspace_url, spotify_url, deezer_url, tidal_url, apple_music_url, amazon_music_url,
-        youtube_music_url, napster_url, yandex_music_url, boomplay_url,
+        youtube_music_url, napster_url, yandex_music_url, boomplay_url, melon_url, qobuz_url,
         vimeo_url, imvdb_url, wikidata_url, viaf_url, imdb_url, allmusic_url, discogs_url,
         songkick_url, bandsintown_url, setlistfm_url, secondhandsongs_url,
         genius_url, lastfm_url, musixmatch_url,
@@ -378,7 +437,7 @@ async function main() {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -391,6 +450,7 @@ async function main() {
         wikidata_url = EXCLUDED.wikidata_url, allmusic_url = EXCLUDED.allmusic_url,
         spotify_url = EXCLUDED.spotify_url,
         amazon_music_url = EXCLUDED.amazon_music_url, bandsintown_url = EXCLUDED.bandsintown_url,
+        melon_url = EXCLUDED.melon_url, qobuz_url = EXCLUDED.qobuz_url,
         loc_url = EXCLUDED.loc_url,
         updated_at = NOW()
     `, [
@@ -404,7 +464,7 @@ async function main() {
       JSON.stringify(agg.handleConflicts),
       JSON.stringify(agg.handleOverrides || {}),
       agg.urls.myspace_url, agg.urls.spotify_url, agg.urls.deezer_url, agg.urls.tidal_url, agg.urls.apple_music_url, agg.urls.amazon_music_url,
-      agg.urls.youtube_music_url, agg.urls.napster_url, agg.urls.yandex_music_url, agg.urls.boomplay_url,
+      agg.urls.youtube_music_url, agg.urls.napster_url, agg.urls.yandex_music_url, agg.urls.boomplay_url, agg.urls.melon_url, agg.urls.qobuz_url,
       agg.urls.vimeo_url, agg.urls.imvdb_url, agg.urls.wikidata_url, agg.urls.viaf_url, agg.urls.imdb_url, agg.urls.allmusic_url, agg.urls.discogs_url,
       agg.urls.songkick_url, agg.urls.bandsintown_url, agg.urls.setlistfm_url, agg.urls.secondhandsongs_url,
       agg.urls.genius_url, agg.urls.lastfm_url, agg.urls.musixmatch_url,
@@ -434,7 +494,7 @@ async function main() {
       COUNT(spotify_url) as with_spotify_url,
       COUNT(amazon_music_url) as with_amazon,
       COUNT(bandsintown_url) as with_bandsintown,
-      COUNT(loc_url) as with_loc,
+      COUNT(loc_url) as with_loc_url,
       COUNT(wikidata_url) as with_wikidata,
       COUNT(allmusic_url) as with_allmusic,
       COUNT(imdb_url) as with_imdb

@@ -14,6 +14,8 @@ import {
   upsertQuansicRecordingSQL,
   updatePipelineISWCSQL,
   logQuansicProcessingSQL,
+  insertBMIWorkSQL,
+  insertEnrichmentCacheFailureSQL,
 } from '../db/quansic';
 
 async function main() {
@@ -29,8 +31,9 @@ async function main() {
   const isHealthy = await checkHealth();
 
   if (!isHealthy) {
-    console.error('❌ Quansic service is not healthy! Make sure it\'s running on http://localhost:3000');
-    console.error('   Run: cd ../quansic-service && bun run dev');
+    console.error('❌ Quansic service is not healthy!');
+    console.error('   Service URL: http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer (Akash-hosted)');
+    console.error('   Or override with QUANSIC_URL environment variable');
     process.exit(1);
   }
 
@@ -52,14 +55,15 @@ async function main() {
       tp.id,
       tp.tiktok_video_id,
       tp.spotify_track_id,
-      st.isrc,
+      COALESCE(st.isrc, tp.isrc) as isrc,
       st.title,
       st.artists->0->>'name' as artist
     FROM song_pipeline tp
-    JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-    WHERE tp.status = 'spotify_resolved'
-      AND st.isrc IS NOT NULL
-      AND tp.has_iswc = FALSE
+    LEFT JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    WHERE (st.isrc IS NOT NULL OR tp.isrc IS NOT NULL)
+      AND tp.iswc IS NULL
+      AND tp.status != 'failed'
+      AND (tp.last_attempted_at IS NULL OR tp.last_attempted_at < NOW() - INTERVAL '24 hours')
     ORDER BY tp.id
     LIMIT ${batchSize}
   `);
@@ -72,21 +76,43 @@ async function main() {
   console.log(`✅ Found ${tracksToProcess.length} tracks to process`);
   console.log('');
 
-  // Check cache for existing Quansic data
+  // Check three-layer cache: Quansic successes, BMI successes, known failures
   const isrcs = tracksToProcess.map(t => t.isrc);
-  const cachedRecordings = await query<{
-    isrc: string;
-    iswc: string | null;
-  }>(`
-    SELECT isrc, iswc
-    FROM quansic_recordings
+
+  const quansicCache = await query<{ isrc: string; iswc: string | null }>(`
+    SELECT isrc, iswc FROM quansic_recordings
     WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
   `);
 
-  const cachedISRCs = new Set(cachedRecordings.map(r => r.isrc));
-  const uncachedTracks = tracksToProcess.filter(t => !cachedISRCs.has(t.isrc));
+  const bmiCache = await query<{ iswc: string }>(`
+    SELECT DISTINCT bw.iswc
+    FROM bmi_works bw
+    WHERE bw.iswc IN (
+      SELECT qr.iswc
+      FROM quansic_recordings qr
+      WHERE qr.isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
+        AND qr.iswc IS NOT NULL
+    )
+  `);
 
-  console.log(`💾 Cache hits: ${cachedRecordings.length}`);
+  const failureCache = await query<{ isrc: string }>(`
+    SELECT isrc FROM recording_enrichment_cache
+    WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
+      AND lookup_status = 'not_found'
+  `);
+
+  const quansicCachedISRCs = new Set(quansicCache.map(r => r.isrc));
+  const bmicachedISRCs = new Set(bmiCache.map(r => r.iswc));
+  const failureCachedISRCs = new Set(failureCache.map(r => r.isrc));
+
+  // Tracks we need to query: not in any cache
+  const uncachedTracks = tracksToProcess.filter(
+    t => !quansicCachedISRCs.has(t.isrc) && !failureCachedISRCs.has(t.isrc)
+  );
+
+  console.log(`💾 Quansic cache hits: ${quansicCache.length}`);
+  console.log(`📖 BMI cache hits: ${bmiCache.length}`);
+  console.log(`⛔ Known failures: ${failureCache.length}`);
   console.log(`🌐 API requests needed: ${uncachedTracks.length}`);
   console.log('');
 
@@ -121,6 +147,9 @@ async function main() {
               finalISWC = bmiResult.iswc;
               console.log(`     📖 BMI found ISWC: ${finalISWC}`);
 
+              // Cache BMI result
+              sqlStatements.push(insertBMIWorkSQL(bmiResult));
+
               // Log BMI source
               sqlStatements.push(
                 logQuansicProcessingSQL(
@@ -140,6 +169,9 @@ async function main() {
           );
 
           if (!finalISWC) {
+            // Mark as "not found in both Quansic and BMI"
+            sqlStatements.push(insertEnrichmentCacheFailureSQL(track.isrc));
+
             sqlStatements.push(
               logQuansicProcessingSQL(
                 track.spotify_track_id,
@@ -169,6 +201,9 @@ async function main() {
           if (bmiResult?.iswc) {
             finalISWC = bmiResult.iswc;
             console.log(`     📖 BMI found ISWC: ${finalISWC}`);
+
+            // Cache BMI result
+            sqlStatements.push(insertBMIWorkSQL(bmiResult));
 
             // Log BMI source
             sqlStatements.push(
@@ -231,8 +266,8 @@ async function main() {
   // Update pipeline status for cached tracks
   console.log('⏳ Updating pipeline entries...');
 
-  for (const track of tracksToProcess.filter(t => cachedISRCs.has(t.isrc))) {
-    const cached = cachedRecordings.find(r => r.isrc === track.isrc);
+  for (const track of tracksToProcess.filter(t => quansicCachedISRCs.has(t.isrc))) {
+    const cached = quansicCache.find(r => r.isrc === track.isrc);
     if (cached) {
       let finalISWC = cached.iswc;
 
@@ -242,6 +277,9 @@ async function main() {
         if (bmiResult?.iswc) {
           finalISWC = bmiResult.iswc;
           console.log(`     📖 BMI found ISWC for cached track: ${finalISWC}`);
+
+          // Cache BMI result
+          sqlStatements.push(insertBMIWorkSQL(bmiResult));
 
           // Log BMI source
           sqlStatements.push(
@@ -302,8 +340,10 @@ async function main() {
   console.log('');
   console.log('📊 Summary:');
   console.log(`   - Total tracks: ${tracksToProcess.length}`);
-  console.log(`   - Cache hits: ${cachedRecordings.length}`);
-  console.log(`   - API fetches: ${successCount}`);
+  console.log(`   - Quansic cache hits: ${quansicCache.length}`);
+  console.log(`   - BMI cache hits: ${bmiCache.length}`);
+  console.log(`   - Known failures (enrichment cache): ${failureCache.length}`);
+  console.log(`   - New API fetches: ${uncachedTracks.length}`);
   console.log(`   - Failed: ${failCount}`);
   console.log(`   - ISWCs found: ${iswcFoundCount}/${tracksToProcess.length}`);
   console.log('');

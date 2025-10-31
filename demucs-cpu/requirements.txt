@@ -7,3 +7,5 @@ numpy<2
 soundfile
 torch
 torchaudio
+diffq
+torchcodec

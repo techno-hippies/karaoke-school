@@ -67,6 +67,62 @@ export function updatePipelineISWCSQL(
 }
 
 /**
+ * Generate SQL to insert BMI work data into cache
+ */
+export function insertBMIWorkSQL(bmiData: {
+  iswc: string;
+  title: string;
+  bmi_work_id?: string;
+  ascap_work_id?: string;
+  writers?: any;
+  publishers?: any;
+  performers?: string[];
+  shares?: Record<string, string>;
+  status?: 'RECONCILED' | 'UNDER_REVIEW';
+  raw_data?: any;
+}): string {
+  return `
+    INSERT INTO bmi_works (iswc, title, bmi_work_id, ascap_work_id, writers, publishers, performers, shares, status, raw_data, cached_at)
+    VALUES (
+      '${bmiData.iswc}',
+      '${bmiData.title.replace(/'/g, "''")}',
+      ${bmiData.bmi_work_id ? `'${bmiData.bmi_work_id}'` : 'NULL'},
+      ${bmiData.ascap_work_id ? `'${bmiData.ascap_work_id}'` : 'NULL'},
+      ${bmiData.writers ? `'${JSON.stringify(bmiData.writers).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${bmiData.publishers ? `'${JSON.stringify(bmiData.publishers).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${bmiData.performers ? `'${JSON.stringify(bmiData.performers).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${bmiData.shares ? `'${JSON.stringify(bmiData.shares).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${bmiData.status ? `'${bmiData.status}'` : 'NULL'},
+      ${bmiData.raw_data ? `'${JSON.stringify(bmiData.raw_data).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      NOW()
+    )
+    ON CONFLICT (iswc) DO NOTHING
+  `.trim();
+}
+
+/**
+ * Generate SQL to mark an ISRC as not found in both Quansic and BMI
+ */
+export function insertEnrichmentCacheFailureSQL(
+  isrc: string,
+  attemptedSources: string[] = ['quansic', 'bmi']
+): string {
+  return `
+    INSERT INTO recording_enrichment_cache (isrc, lookup_status, attempted_sources, cached_at)
+    VALUES (
+      '${isrc}',
+      'not_found',
+      ARRAY[${attemptedSources.map(s => `'${s}'`).join(',')}]::TEXT[],
+      NOW()
+    )
+    ON CONFLICT (isrc) DO UPDATE SET
+      lookup_status = 'not_found',
+      attempted_sources = ARRAY[${attemptedSources.map(s => `'${s}'`).join(',')}]::TEXT[],
+      cached_at = NOW()
+  `.trim();
+}
+
+/**
  * Generate SQL to log processing event
  */
 export function logQuansicProcessingSQL(

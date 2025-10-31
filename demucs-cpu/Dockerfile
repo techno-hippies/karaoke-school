@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     libasound2-dev \
     portaudio19-dev \
     python3-pyaudio \
-    libsndfile1-dev \
+    ffmpeg \
+    libmp3lame0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv (faster pip alternative)
@@ -38,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8002/ || exit 1
 
 # Run uvicorn on port 8002
-CMD ["uvicorn", "demucs_local:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "demucs_service:app", "--host", "0.0.0.0", "--port", "8002"]

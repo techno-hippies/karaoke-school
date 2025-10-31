@@ -199,21 +199,28 @@ class QuansicService:
                 ]
 
                 button_clicked = False
+                click_error = None
                 for button_selector in button_selectors:
                     try:
                         if page.isVisible(button_selector):
                             logger.info(f"✅ Found login button with selector: {button_selector}")
-                            page.page.click(button_selector)
-                            logger.info(f"✅ Clicked login button")
-                            button_clicked = True
-                            break
+                            try:
+                                page.page.click(button_selector)
+                                logger.info(f"✅ Clicked login button with selector: {button_selector}")
+                                button_clicked = True
+                                break
+                            except Exception as click_error:
+                                logger.debug(f"Click failed for {button_selector}: {click_error}")
+                                continue
                     except Exception as e:
-                        logger.debug(f"Button selector {button_selector} failed: {e}")
+                        logger.debug(f"isVisible check failed for {button_selector}: {e}")
                         continue
 
                 if not button_clicked:
-                    logger.error("❌ Could not find or click login button!")
-                    raise Exception("Login button not found - check page selectors")
+                    error_detail = f" ({click_error})" if click_error else ""
+                    logger.error(f"❌ Could not click any login button{error_detail}")
+                    logger.error(f"Tried selectors: {button_selectors}")
+                    raise Exception(f"Login button click failed - no selector worked{error_detail}")
 
                 # Take screenshot after click
                 try:
@@ -558,7 +565,12 @@ class QuansicService:
 
             if not recording_data:
                 logger.warning(f"No recording found in Quansic database for ISRC: {isrc}")
-                raise Exception(f"No recording found for ISRC: {isrc}")
+                # Return "not found" result - this is NOT an account failure
+                return {
+                    'isrc': isrc.replace(' ', '').replace('\t', '').replace('\n', ''),
+                    'error': f'ISRC_NOT_FOUND',
+                    'message': f'Recording not found in Quansic for ISRC: {isrc}'
+                }
             
             # Get work data separately
             work_data = await loop.run_in_executor(
@@ -643,9 +655,15 @@ class QuansicService:
                 self._lookup_work_by_iswc_sync,
                 iswc, session_cookie
             )
-            
+
             if not work_data:
-                raise Exception(f"No work found for ISWC: {iswc}")
+                logger.warning(f"No work found in Quansic database for ISWC: {iswc}")
+                # Return "not found" result - this is NOT an account failure
+                return {
+                    'iswc': iswc.replace(' ', '').replace('\t', '').replace('\n', '').replace('-', '').replace('.', ''),
+                    'error': 'ISWC_NOT_FOUND',
+                    'message': f'Work not found in Quansic for ISWC: {iswc}'
+                }
             
             work = work_data.get('work', {})
             

@@ -1,0 +1,33 @@
+-- Migration 018: Expand wikidata_artists.identifiers documentation
+-- Documents all high-value identifiers we capture from Wikidata API
+
+-- IDENTIFIERS CAPTURED (stored in JSONB):
+--
+-- Music Industry:
+--   musicbrainz, discogs, allmusic, whosampled, rateyourmusic
+--
+-- Social Media:
+--   twitter, instagram, facebook, youtube, tiktok, soundcloud, weibo, vk, subreddit
+--
+-- Concert/Ticketing (for AI ticket buying):
+--   songkick, setlistfm, bandsintown
+--
+-- Lyrics/Translation (VERY HIGH VALUE for karaoke):
+--   musixmatch, lyricstranslate, songmeanings
+--
+-- Music Journalism/Context:
+--   pitchfork, nme, songfacts
+--
+-- Asian Market:
+--   naver_vibe, line_music, namuwiki, douban_musician, douban_personage
+--
+-- Copyright/Rights:
+--   ipi (can have multiple values as array)
+--
+-- Universal Identifiers:
+--   google_kg, britannica, billboard
+--
+-- Other:
+--   imdb, wikitree, carnegie_hall, lastfm
+
+COMMENT ON COLUMN wikidata_artists.identifiers IS 'High-value identifiers from Wikidata: music DBs (musicbrainz, discogs, allmusic), social media (twitter, instagram, youtube, tiktok, etc), concert/ticketing (songkick, setlistfm, bandsintown), lyrics/translation (musixmatch, lyricstranslate, songmeanings), music journalism (pitchfork, nme, songfacts), Asian platforms (naver_vibe, line_music, namuwiki, douban), copyright (ipi), and universal IDs (google_kg, billboard, britannica). Stored as JSONB for flexibility.';

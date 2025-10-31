@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   quansic-service:
-    image: t3333chn0000/quansic-service:v2.0.2
+    image: t3333chn0000/quansic-service:v2.0.4
     expose:
       - port: 3000
         as: 80
