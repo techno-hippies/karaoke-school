@@ -53,10 +53,9 @@ interface WorkAggregation {
   bmiWorkId?: string;
   ascapWorkId?: string;
 
-  // Platform IDs
+  // Platform IDs (work reference - for tracking known recordings)
   spotifyTrackId: string;
   geniusSongId?: number;
-  discogsReleaseId?: string;
 
   // Artist relationships
   primaryArtistId?: number;
@@ -68,34 +67,39 @@ interface WorkAggregation {
   bmiWriters?: string;
   bmiPublishers?: string;
 
-  // Metadata
+  // Work Metadata
   language?: string;
-  releaseDate?: string;
-  durationMs?: number;
   workType?: string;
-
-  // Musical
   genres?: string;
-  explicitContent?: boolean;
 
-  // Popularity
-  spotifyPopularity?: number;
-  spotifyPlayCount?: bigint;
-  geniusPageviews?: number;
-  geniusAnnotationCount?: number;
-  geniusPyongsCount?: number;
+  // Musical Properties
+  keySignature?: string;
+  tempoBpm?: number;
 
-  // Genius-specific
-  geniusLyricsState?: string;
-  geniusFeaturedVideo?: boolean;
-
-  // URLs
-  spotifyUrl?: string;
-  geniusUrl?: string;
+  // Work Reference URLs (bibliographic)
   musicbrainzUrl?: string;
   wikidataUrl?: string;
+  allmusicUrl?: string;
+  secondhandsongs_url?: string;
+  whosampledUrl?: string;
+  locUrl?: string;
+  bnfUrl?: string;
+  worldcatUrl?: string;
+  jaxstaUrl?: string;
+  setlistfmUrl?: string;
+  officialUrl?: string;
+  lastfmUrl?: string;
 
-  // Images
+  // Genius (work/lyrics level)
+  geniusSongUrl?: string;
+  geniusLyricsState?: string;
+
+  // Recording data (to be stored in grc20_work_recordings)
+  spotifyUrl?: string;
+  spotifyPopularity?: number;
+  releaseDate?: string;
+  durationMs?: number;
+  explicitContent?: boolean;
   imageUrl?: string;
   imageSource?: string;
 }
@@ -419,81 +423,92 @@ async function main() {
 
   console.log(`\n📝 Inserting ${aggregations.length} works into grc20_works...\n`);
 
-  // Step 3: Insert into grc20_works
+  // Step 3: Insert into grc20_works (WORK-LEVEL DATA ONLY)
   for (const agg of aggregations) {
-    await query(`
+    // Build reference_urls JSONB
+    const referenceUrls: Record<string, string> = {};
+    if (agg.musicbrainzUrl) referenceUrls.musicbrainz_url = agg.musicbrainzUrl;
+    if (agg.wikidataUrl) referenceUrls.wikidata_url = agg.wikidataUrl;
+    if (agg.allmusicUrl) referenceUrls.allmusic_url = agg.allmusicUrl;
+    if (agg.secondhandsongs_url) referenceUrls.secondhandsongs_url = agg.secondhandsongs_url;
+    if (agg.whosampledUrl) referenceUrls.whosampled_url = agg.whosampledUrl;
+    if (agg.locUrl) referenceUrls.loc_url = agg.locUrl;
+    if (agg.bnfUrl) referenceUrls.bnf_url = agg.bnfUrl;
+    if (agg.worldcatUrl) referenceUrls.worldcat_url = agg.worldcatUrl;
+    if (agg.jaxstaUrl) referenceUrls.jaxsta_url = agg.jaxstaUrl;
+    if (agg.setlistfmUrl) referenceUrls.setlistfm_url = agg.setlistfmUrl;
+    if (agg.officialUrl) referenceUrls.official_url = agg.officialUrl;
+    if (agg.lastfmUrl) referenceUrls.lastfm_url = agg.lastfmUrl;
+
+    const workId = await query(`
       INSERT INTO grc20_works (
         title, alternate_titles, disambiguation,
         iswc, iswc_source, mbid, bmi_work_id, ascap_work_id,
-        spotify_track_id, genius_song_id, discogs_release_id,
+        genius_song_id,
         primary_artist_id, primary_artist_name,
         featured_artists, composers, producers, lyricists,
         bmi_writers, bmi_publishers,
-        language, release_date, duration_ms, work_type,
-        genres, explicit_content,
-        spotify_popularity, spotify_play_count,
-        genius_pageviews, genius_annotation_count, genius_pyongs_count,
-        genius_lyrics_state, genius_featured_video,
-        spotify_url, genius_url, musicbrainz_url, wikidata_url,
-        image_url, image_source
+        language, work_type, genres, key_signature, tempo_bpm,
+        genius_lyrics_state, genius_url,
+        reference_urls
       ) VALUES (
         $1, $2, $3,
         $4, $5, $6, $7, $8,
-        $9, $10, $11,
-        $12, $13,
-        $14, $15, $16, $17,
-        $18, $19,
-        $20, $21, $22, $23,
-        $24, $25,
-        $26, $27,
-        $28, $29, $30,
-        $31, $32,
-        $33, $34, $35, $36,
-        $37, $38
+        $9,
+        $10, $11,
+        $12, $13, $14, $15,
+        $16, $17,
+        $18, $19, $20, $21, $22,
+        $23, $24,
+        $25
       )
-      ON CONFLICT (spotify_track_id) DO UPDATE SET
+      ON CONFLICT (genius_song_id) DO UPDATE SET
         title = EXCLUDED.title,
-        alternate_titles = EXCLUDED.alternate_titles,
         iswc = EXCLUDED.iswc,
-        iswc_source = EXCLUDED.iswc_source,
         mbid = EXCLUDED.mbid,
-        bmi_work_id = EXCLUDED.bmi_work_id,
-        ascap_work_id = EXCLUDED.ascap_work_id,
-        primary_artist_id = EXCLUDED.primary_artist_id,
-        primary_artist_name = EXCLUDED.primary_artist_name,
-        composers = EXCLUDED.composers,
-        producers = EXCLUDED.producers,
-        bmi_writers = EXCLUDED.bmi_writers,
-        bmi_publishers = EXCLUDED.bmi_publishers,
-        language = EXCLUDED.language,
-        release_date = EXCLUDED.release_date,
-        duration_ms = EXCLUDED.duration_ms,
-        spotify_popularity = EXCLUDED.spotify_popularity,
-        genius_pageviews = EXCLUDED.genius_pageviews,
-        genius_annotation_count = EXCLUDED.genius_annotation_count,
-        genius_lyrics_state = EXCLUDED.genius_lyrics_state,
-        spotify_url = EXCLUDED.spotify_url,
-        genius_url = EXCLUDED.genius_url,
-        musicbrainz_url = EXCLUDED.musicbrainz_url,
-        wikidata_url = EXCLUDED.wikidata_url,
-        image_url = EXCLUDED.image_url,
-        image_source = EXCLUDED.image_source,
+        reference_urls = EXCLUDED.reference_urls,
         updated_at = NOW()
+      RETURNING id
     `, [
       agg.title, agg.alternateTitles, agg.disambiguation,
       agg.iswc, agg.iswcSource, agg.mbid, agg.bmiWorkId, agg.ascapWorkId,
-      agg.spotifyTrackId, agg.geniusSongId, agg.discogsReleaseId,
+      agg.geniusSongId,
       agg.primaryArtistId, agg.primaryArtistName,
       agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
       agg.bmiWriters, agg.bmiPublishers,
-      agg.language, agg.releaseDate, agg.durationMs, agg.workType,
-      agg.genres, agg.explicitContent,
-      agg.spotifyPopularity, agg.spotifyPlayCount,
-      agg.geniusPageviews, agg.geniusAnnotationCount, agg.geniusPyongsCount,
-      agg.geniusLyricsState, agg.geniusFeaturedVideo,
-      agg.spotifyUrl, agg.geniusUrl, agg.musicbrainzUrl, agg.wikidataUrl,
-      agg.imageUrl, agg.imageSource
+      agg.language, agg.workType, agg.genres, agg.keySignature, agg.tempoBpm,
+      agg.geniusLyricsState, agg.geniusSongUrl,
+      Object.keys(referenceUrls).length > 0 ? JSON.stringify(referenceUrls) : '{}'
     ]);
+
+    // Step 4: Insert recording data into grc20_work_recordings
+    if (workId.length > 0) {
+      const work_id = workId[0].id;
+
+      // Spotify recording
+      if (agg.spotifyTrackId) {
+        await query(`
+          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url, release_date, duration_ms, explicit_content, image_url, image_source)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (work_id, source, source_id) DO NOTHING
+        `, [
+          work_id, 'spotify', agg.spotifyTrackId, agg.spotifyUrl,
+          agg.releaseDate, agg.durationMs, agg.explicitContent,
+          agg.imageUrl, agg.imageSource
+        ]);
+      }
+
+      // Genius recording
+      if (agg.geniusSongId) {
+        await query(`
+          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (work_id, source, source_id) DO NOTHING
+        `, [
+          work_id, 'genius', String(agg.geniusSongId), agg.geniusSongUrl
+        ]);
+      }
+    }
 
     console.log(`   ✅ Inserted: ${agg.title}`);
   }

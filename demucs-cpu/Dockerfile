@@ -38,5 +38,5 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8002/ || exit 1
 
-# Run uvicorn on port 8002
-CMD ["uvicorn", "demucs_service:app", "--host", "0.0.0.0", "--port", "8002"]
+# Run uvicorn on port 8002 with unbuffered output
+CMD ["python", "-u", "-m", "uvicorn", "demucs_service:app", "--host", "0.0.0.0", "--port", "8002"]

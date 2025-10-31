@@ -68,7 +68,7 @@ def separate_audio(
             f.write(audio_data)
 
         file_size_mb = len(audio_data) / (1024 * 1024)
-        print(f"[Demucs] Processing {file_size_mb:.2f}MB audio file")
+        print(f"[Demucs] Processing {file_size_mb:.2f}MB audio file", flush=True)
 
         # 2. Run Demucs (CPU-only, always output as WAV first)
         stems_dir = os.path.join(tmp_dir, "stems")
@@ -84,19 +84,19 @@ def separate_audio(
             input_path
         ]
 
-        print(f"[Demucs] Running separation (model: {model}, CPU-only)...")
-        print(f"[Demucs] Command: {' '.join(cmd)}")
+        print(f"[Demucs] Running separation (model: {model}, CPU-only)...", flush=True)
+        print(f"[Demucs] Command: {' '.join(cmd)}", flush=True)
         demucs_start = time_module.time()
 
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         if result.returncode != 0:
             error_msg = f"Demucs process failed with return code {result.returncode}\nStdout:\n{result.stdout}\nStderr:\n{result.stderr}"
-            print(f"[Demucs] Error: {error_msg}")
+            print(f"[Demucs] Error: {error_msg}", flush=True)
             raise Exception(error_msg)
 
         demucs_time = time_module.time() - demucs_start
-        print(f"[Demucs] Separation complete in {demucs_time:.1f}s")
+        print(f"[Demucs] Separation complete in {demucs_time:.1f}s", flush=True)
 
         # 3. Read outputs - demucs creates: stems_dir/model/input/
         output_dir = os.path.join(stems_dir, model, "input")
@@ -335,19 +335,21 @@ async def process_job_worker():
             spotify_track_id = job.get("spotify_track_id")
 
             processing_active = True
-            print(f"[Worker] Processing job {job_id} (queue size: {job_queue.qsize()})")
+            print(f"[Worker] Processing job {job_id} (queue size: {job_queue.qsize()})", flush=True)
 
             try:
                 # Download audio
-                print(f"[Job {job_id}] Downloading from {audio_url}")
+                print(f"[Job {job_id}] Downloading from {audio_url}", flush=True)
                 audio_resp = requests.get(audio_url, timeout=120)
                 audio_resp.raise_for_status()
                 audio_data = audio_resp.content
+                print(f"[Job {job_id}] Downloaded {len(audio_data)} bytes", flush=True)
 
                 # Separate (BLOCKING - only one at a time)
+                print(f"[Job {job_id}] Starting audio separation...", flush=True)
                 result = separate_audio(audio_data, model, output_format, mp3_bitrate)
 
-                print(f"[Job {job_id}] ✅ Separation complete!")
+                print(f"[Job {job_id}] ✅ Separation complete!", flush=True)
 
                 # Upload to Grove and update Neon DB
                 vocals_upload = None

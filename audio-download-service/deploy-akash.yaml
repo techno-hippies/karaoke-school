@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   slsk:
-    image: t3333chn0000/audio-download-service:v1.0.2  # ✅ Fixed verification logic (requires title AND artist match)
+    image: t3333chn0000/audio-download-service:v1.0.3  # ✅ Trust AcoustID confidence >95% even with wrong metadata (v1.0.2 was broken)
     expose:
       - port: 3001
         as: 80
