@@ -1,24 +1,30 @@
 /**
- * Step 3: ISWC Discovery Processor (THE GATE!)
+ * Step 3: ISWC Discovery Processor (Fault-Tolerant)
  *
  * Tries to find ISWC for tracks via:
- * 1. Cache lookup (quansic_cache, quansic_recordings, musicbrainz)
+ * 1. Cache lookup (quansic_cache, quansic_recordings, musicbrainz, bmi_works, failure cache)
  * 2. Quansic API call (if not cached)
  * 3. MusicBrainz fallback (if Quansic fails)
+ * 4. BMI fallback (if still no ISWC)
  *
- * Gate logic:
- * - ISWC found → status = 'iswc_found' (can continue)
- * - ISWC not found → status = 'failed' (dead end, can't mint without ISWC)
+ * Fault-tolerant logic:
+ * - ISWC found → status = 'iswc_found', has_iswc = TRUE
+ * - ISWC not found → status = 'iswc_found', has_iswc = FALSE (continues pipeline)
+ *
+ * ISWC is optional metadata for GRC-20 minting (Spotify ID used as fallback).
  */
 
 import { query, transaction, close, sqlValue } from '../db/neon';
 import type { Env } from '../types';
+import { searchBMI } from '../services/bmi';
+import { insertBMIWorkSQL, insertEnrichmentCacheFailureSQL } from '../db/quansic';
 
 interface Track {
   id: number;
   spotify_track_id: string;
   isrc: string;
   title: string;
+  artist_name: string;
 }
 
 export async function processISWCDiscovery(env: Env, limit: number = 50): Promise<void> {
@@ -30,7 +36,8 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
       tp.id,
       tp.spotify_track_id,
       tp.isrc,
-      st.title
+      st.title,
+      st.artists->0->>'name' as artist_name
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
     WHERE tp.status = 'spotify_resolved'
@@ -158,28 +165,70 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
         }
       }
 
-      // Step 3: No ISWC found - GATE FAILED
-      console.log(`   ❌ ${track.title} - NO ISWC FOUND (gate failed)`);
+      // Step 3: Try BMI fallback if Quansic had no ISWC
+      if (!iswc && track.artist_name) {
+        console.log(`   🔍 ${track.title} - trying BMI fallback...`);
 
+        const bmiResult = await searchBMI(track.title, track.artist_name);
+
+        if (bmiResult?.iswc) {
+          iswc = bmiResult.iswc;
+          console.log(`   ✅ ${track.title} - BMI found ISWC: ${iswc}`);
+
+          // Cache BMI result
+          sqlStatements.push(insertBMIWorkSQL(bmiResult));
+
+          // Update pipeline with ISWC from BMI
+          sqlStatements.push(`
+            UPDATE song_pipeline
+            SET
+              status = 'iswc_found',
+              has_iswc = TRUE,
+              iswc = ${sqlValue(iswc)},
+              last_attempted_at = NOW(),
+              updated_at = NOW()
+            WHERE id = ${track.id}
+          `);
+
+          // Log BMI success
+          sqlStatements.push(`
+            INSERT INTO processing_log (spotify_track_id, stage, action, source, message)
+            VALUES (${sqlValue(track.spotify_track_id)}, 'iswc_lookup', 'success', 'bmi_fallback', ${sqlValue(`Found ISWC via BMI: ${iswc}`)})
+          `);
+
+          passed++;
+          await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit
+          continue;
+        } else {
+          console.log(`   ⚠️ ${track.title} - BMI also had no ISWC`);
+        }
+      }
+
+      // Step 4: No ISWC found - Continue pipeline anyway (fault-tolerant)
+      console.log(`   ⚠️ ${track.title} - NO ISWC found (continuing without)`);
+
+      // Cache the "not found" result to avoid re-querying
+      sqlStatements.push(insertEnrichmentCacheFailureSQL(track.isrc));
+
+      // Update pipeline status WITHOUT ISWC (fault-tolerant)
       sqlStatements.push(`
         UPDATE song_pipeline
         SET
-          status = 'failed',
-          error_message = 'No ISWC found in Quansic or MusicBrainz',
-          error_stage = 'iswc_lookup',
+          status = 'iswc_found',
+          has_iswc = FALSE,
+          iswc = NULL,
           last_attempted_at = NOW(),
-          retry_count = retry_count + 1,
           updated_at = NOW()
         WHERE id = ${track.id}
       `);
 
-      // Log failure
+      // Log continuation without ISWC
       sqlStatements.push(`
-        INSERT INTO processing_log (spotify_track_id, stage, action, message)
-        VALUES (${sqlValue(track.spotify_track_id)}, 'iswc_lookup', 'failed', 'No ISWC found - cannot proceed to mint')
+        INSERT INTO processing_log (spotify_track_id, stage, action, source, message)
+        VALUES (${sqlValue(track.spotify_track_id)}, 'iswc_lookup', 'skipped', 'none', 'No ISWC found in Quansic/MusicBrainz/BMI - continuing pipeline (Spotify ID fallback)')
       `);
 
-      failed++;
+      passed++; // Track passed the step (didn't fail)
 
     } catch (error: any) {
       console.error(`   ❌ ${track.title} - Processing error:`, error.message);
@@ -209,7 +258,7 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
 }
 
 /**
- * Check all caches for ISWC
+ * Check all caches for ISWC (5 layers)
  */
 async function checkCacheForISWC(isrc: string): Promise<string | null> {
   // Priority 1: quansic_cache
@@ -241,5 +290,29 @@ async function checkCacheForISWC(isrc: string): Promise<string | null> {
   `);
   if (mbResult[0]?.iswc) return mbResult[0].iswc;
 
+  // Priority 5: bmi_works (via quansic_recordings join)
+  const bmiResult = await query<{ iswc: string }>(`
+    SELECT bw.iswc
+    FROM bmi_works bw
+    WHERE bw.iswc IN (
+      SELECT qr.iswc
+      FROM quansic_recordings qr
+      WHERE qr.isrc = ${sqlValue(isrc)} AND qr.iswc IS NOT NULL
+    )
+    LIMIT 1
+  `);
+  if (bmiResult[0]?.iswc) return bmiResult[0].iswc;
+
   return null;
+}
+
+/**
+ * Check if ISRC is in failure cache (known to have no ISWC)
+ */
+async function isKnownFailure(isrc: string): Promise<boolean> {
+  const result = await query<{ isrc: string }>(`
+    SELECT isrc FROM recording_enrichment_cache
+    WHERE isrc = ${sqlValue(isrc)} AND lookup_status = 'not_found'
+  `);
+  return result.length > 0;
 }
