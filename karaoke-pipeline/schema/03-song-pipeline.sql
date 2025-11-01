@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS song_pipeline (
   spotify_track_id TEXT UNIQUE NOT NULL,
 
   -- Pipeline State
-  status TEXT NOT NULL DEFAULT 'scraped' CHECK (status IN (
-    'scraped',            -- From TikTok, has spotify_track_id
+  status TEXT NOT NULL DEFAULT 'tiktok_scraped' CHECK (status IN (
+    'tiktok_scraped',     -- From TikTok, has spotify_track_id
     'spotify_resolved',   -- Spotify track + artist in cache
     'iswc_found',         -- Quansic ISWC lookup SUCCESS ⚠️ GATE
     'metadata_enriched',  -- MusicBrainz data added
@@ -71,7 +71,7 @@ FROM song_pipeline
 GROUP BY status
 ORDER BY
   CASE status
-    WHEN 'scraped' THEN 1
+    WHEN 'tiktok_scraped' THEN 1
     WHEN 'spotify_resolved' THEN 2
     WHEN 'iswc_found' THEN 3
     WHEN 'metadata_enriched' THEN 4
