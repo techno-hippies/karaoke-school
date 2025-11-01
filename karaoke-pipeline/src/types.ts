@@ -17,7 +17,7 @@ export interface TrackToProcess {
 }
 
 export type PipelineStatus =
-  | 'scraped'
+  | 'tiktok_scraped'
   | 'spotify_resolved'
   | 'iswc_found'
   | 'metadata_enriched'
