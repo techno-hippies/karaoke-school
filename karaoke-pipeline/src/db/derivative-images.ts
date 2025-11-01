@@ -13,6 +13,7 @@ export interface TrackWithImage {
   artist_name: string;
   image_url: string | null;
   image_source: string | null;
+  genius_image_url: string | null;
 }
 
 export interface ArtistWithImage {
@@ -37,10 +38,12 @@ export async function getTracksNeedingDerivativeImages(
       st.title,
       sa.name as artist_name,
       st.image_url,
-      'spotify' as image_source
+      'spotify' as image_source,
+      gs.raw_data->>'song_art_image_url' as genius_image_url
     FROM karaoke_segments ks
     JOIN spotify_tracks st ON ks.spotify_track_id = st.spotify_track_id
     JOIN spotify_artists sa ON sa.spotify_artist_id = (st.artists->0->>'id')
+    LEFT JOIN genius_songs gs ON gs.spotify_track_id = ks.spotify_track_id
     WHERE st.image_url IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM derivative_images di

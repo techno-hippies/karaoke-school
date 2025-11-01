@@ -441,9 +441,31 @@ async function main() {
       }
     }
 
+    // Get BMI Works data - JOIN via Spotify title match
+    // Note: bmi_works.title is stored as proper Spotify title (not ALL CAPS) by backfill script
+    const bmiWorksData = await query(`
+      SELECT bw.*
+      FROM spotify_tracks st
+      JOIN bmi_works bw ON LOWER(TRIM(bw.title)) = LOWER(TRIM(st.title))
+      WHERE st.spotify_track_id = $1
+    `, [spotify_track_id]);
+
+    if (bmiWorksData.length > 0) {
+      const bmiWork = bmiWorksData[0];
+
+      // ISWC (only if not already found from Quansic, MusicBrainz, or MLC)
+      if (bmiWork.iswc && !agg.iswc) {
+        agg.iswc = normalizeISWC(bmiWork.iswc);
+        agg.iswcSource = 'bmi';
+      }
+
+      // NOTE: We don't use BMI title (stored as Spotify title in our backfill)
+      // NOTE: We don't use BMI writers/publishers (proprietary, not blockchain-ready)
+    }
+
     // CRITICAL: Determine proper WORK title (not recording title)
     // Priority: Quansic > MusicBrainz > Spotify cleaned > Genius
-    // BMI excluded: too unreliable (ALL CAPS, missing apostrophes, includes features)
+    // BMI title not used (we store Spotify title in bmi_works now)
 
     let finalTitle: string;
 

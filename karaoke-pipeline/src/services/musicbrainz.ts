@@ -196,3 +196,23 @@ export async function lookupArtist(mbid: string): Promise<MBArtist | null> {
   }
 }
 
+/**
+ * Look up artist with artist relationships (for group members)
+ */
+export async function lookupArtistWithRelations(mbid: string): Promise<MBArtist | null> {
+  try {
+    const url = `${MB_API_URL}/artist/${mbid}?inc=url-rels+genres+tags+aliases+artist-rels&fmt=json`;
+    const response = await rateLimitedFetch(url);
+
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`MusicBrainz API error: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    console.error(`MusicBrainz artist lookup with relations failed for ${mbid}:`, error.message);
+    throw error;
+  }
+}
+

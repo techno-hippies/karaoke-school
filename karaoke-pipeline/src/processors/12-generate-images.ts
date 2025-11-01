@@ -244,7 +244,11 @@ export async function processGenerateImages(env: Env, limit: number = 10): Promi
               continue;
             }
 
-            console.log(`   Image source: ${track.image_source} (Spotify)`);
+            const availableSources = [
+              track.image_url ? 'Spotify' : null,
+              track.genius_image_url ? 'Genius' : null
+            ].filter(Boolean).join(', ');
+            console.log(`   Available sources: ${availableSources}`);
 
             // Check if we already have a derivative for this image URL
             const existing = await getExistingDerivativeForImageUrl(env.DATABASE_URL, track.image_url);
@@ -272,13 +276,42 @@ export async function processGenerateImages(env: Env, limit: number = 10): Promi
               continue;
             }
 
-            // Generate both full-size and thumbnail versions
-            const imageData = await falService.generateAlbumDerivativeImage(
-              track.title,
-              track.artist_name,
-              track.image_url,
-              stringToSeed(track.spotify_track_id) // Use track ID as seed for deterministic generation
-            );
+            // Try to generate derivative image with Seedream
+            let imageData;
+            let sourceUsed = track.image_url;
+            let sourceType = 'spotify';
+
+            try {
+              imageData = await falService.generateAlbumDerivativeImage(
+                track.title,
+                track.artist_name,
+                track.image_url,
+                stringToSeed(track.spotify_track_id) // Use track ID as seed for deterministic generation
+              );
+            } catch (seedreamError: any) {
+              console.warn(`   Seedream failed: ${seedreamError.message}`);
+
+              // Try Genius image as fallback
+              if (track.genius_image_url) {
+                console.log(`   Trying Genius image fallback...`);
+                try {
+                  imageData = await falService.generateAlbumDerivativeImage(
+                    track.title,
+                    track.artist_name,
+                    track.genius_image_url,
+                    stringToSeed(track.spotify_track_id)
+                  );
+                  sourceUsed = track.genius_image_url;
+                  sourceType = 'genius';
+                  console.log(`   ✓ Generated using Genius image`);
+                } catch (geniusError: any) {
+                  console.error(`   Genius fallback also failed: ${geniusError.message}`);
+                  throw new Error(`Both Spotify and Genius image generation failed`);
+                }
+              } else {
+                throw seedreamError; // No Genius fallback available
+              }
+            }
 
             // Upload full-size image to Grove
             const fullGroveResult = await uploadImageToGrove(
@@ -302,15 +335,15 @@ export async function processGenerateImages(env: Env, limit: number = 10): Promi
                 cid: fullGroveResult.cid,
                 url: fullGroveResult.url,
               },
-              'spotify',
+              sourceType,  // 'spotify' or 'genius'
               {
                 cid: thumbnailGroveResult.cid,
                 url: thumbnailGroveResult.url,
               },
-              track.image_url  // Track source image URL for deduplication
+              sourceUsed  // Track which source image URL was actually used
             );
 
-            console.log(`   ✓ Database updated (full + thumbnail)`);
+            console.log(`   ✓ Database updated (full + thumbnail, source: ${sourceType})`);
             worksProcessed++;
           } catch (error: any) {
             console.error(`   ✗ Failed: ${error.message}`);

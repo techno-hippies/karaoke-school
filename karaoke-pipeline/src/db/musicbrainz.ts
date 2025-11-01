@@ -45,7 +45,7 @@ export function upsertMBRecordingSQL(
     title: recording.title,
     length_ms: recording.length || null,
     isrc: isrc || recording.isrcs?.[0] || null,
-    artist_credits: recording.artist_credit?.map(ac => ({
+    artist_credits: recording['artist-credit']?.map(ac => ({
       name: ac.name,
       mbid: ac.artist.id,
       type: ac.artist.type,

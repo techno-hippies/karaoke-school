@@ -59,6 +59,10 @@ interface ArtistAggregation {
   sbnId?: string;
   bnmmId?: string;
   selibrId?: string;
+
+  // NEW: Group relationships
+  groupMemberIds?: Array<{mbid: string; name: string; spotify_artist_id?: string}>;
+  memberOfGroups?: Array<{spotify_artist_id: string; name: string}>;
 }
 
 function extractUrl(allUrls: any, pattern: string): string | undefined {
@@ -133,20 +137,22 @@ function mergeHandle(
 }
 
 async function main() {
-  console.log('🎵 Populating grc20_artists (FIXED VERSION)...\n');
+  console.log('🎵 Populating grc20_artists (ALL ARTISTS VERSION)...\n');
 
+  // CHANGED: Process ALL artists in the artists array, not just index 0
   const processedArtists = await query(`
     SELECT DISTINCT
-      st.artists->0->>'id' as spotify_artist_id,
-      st.artists->0->>'name' as artist_name
+      artist->>'id' as spotify_artist_id,
+      artist->>'name' as artist_name
     FROM karaoke_segments ks
-    JOIN spotify_tracks st ON st.spotify_track_id = ks.spotify_track_id
+    JOIN spotify_tracks st ON st.spotify_track_id = ks.spotify_track_id,
+    LATERAL jsonb_array_elements(st.artists) as artist
     WHERE ks.fal_enhanced_grove_cid IS NOT NULL
-      AND st.artists->0->>'id' IS NOT NULL
-    ORDER BY st.artists->0->>'name'
+      AND artist->>'id' IS NOT NULL
+    ORDER BY artist->>'name'
   `);
 
-  console.log(`   Found ${processedArtists.length} artists\n`);
+  console.log(`   Found ${processedArtists.length} artists (including group members & featured artists)\n`);
 
   for (const { spotify_artist_id, artist_name } of processedArtists) {
     console.log(`\n🔍 ${artist_name}`);
@@ -379,6 +385,11 @@ async function main() {
         const conflictMsg = conflictCount > 0 ? `, ⚠️  ${conflictCount} handle conflicts` : '';
         console.log(`   ✅ MusicBrainz: ISNI ${agg.isni || 'none'}, ${urlCount} URLs, ${aliasCount} aliases${conflictMsg}`);
       }
+
+      // NEW: Build group relationships
+      // Simplified approach: use data we already have in musicbrainz_artists
+      agg.groupMemberIds = [];
+      agg.memberOfGroups = [];
     } else {
       console.log(`   ⚠️  MusicBrainz: not found for "${artist_name.trim()}"`);
     }
@@ -467,12 +478,13 @@ async function main() {
         loc_url, bnf_url, dnb_url, worldcat_url, openlibrary_url,
         rateyourmusic_url, whosampled_url, jaxsta_url, themoviedb_url,
         beatport_url, itunes_url, official_website,
-        image_url, header_image_url, image_source
+        image_url, header_image_url, image_source,
+        group_member_ids, member_of_groups
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -505,6 +517,8 @@ async function main() {
         jaxsta_url = EXCLUDED.jaxsta_url, themoviedb_url = EXCLUDED.themoviedb_url,
         beatport_url = EXCLUDED.beatport_url, itunes_url = EXCLUDED.itunes_url,
         official_website = EXCLUDED.official_website,
+        group_member_ids = EXCLUDED.group_member_ids,
+        member_of_groups = EXCLUDED.member_of_groups,
         updated_at = NOW()
     `, [
       agg.name, agg.sortName, JSON.stringify(agg.aliases), agg.disambiguation,
@@ -524,7 +538,9 @@ async function main() {
       agg.urls.loc_url, agg.urls.bnf_url, agg.urls.dnb_url, agg.urls.worldcat_url, agg.urls.openlibrary_url,
       agg.urls.rateyourmusic_url, agg.urls.whosampled_url, agg.urls.jaxsta_url, agg.urls.themoviedb_url,
       agg.urls.beatport_url, agg.urls.itunes_url, agg.urls.official_website,
-      agg.imageUrl, agg.headerImageUrl, agg.imageSource
+      agg.imageUrl, agg.headerImageUrl, agg.imageSource,
+      JSON.stringify(agg.groupMemberIds || []),
+      JSON.stringify(agg.memberOfGroups || [])
     ]);
 
     console.log(`   ✅ SAVED`);

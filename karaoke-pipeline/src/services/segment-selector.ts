@@ -130,10 +130,11 @@ SELECTION CRITERIA (in order of importance):
 6. **Structure** - Prefer verse→chorus→verse patterns over repetitive sections
 
 CONSTRAINTS:
-- MUST be exactly 190 seconds (±2s tolerance)
+- MUST be MAXIMUM 190 seconds (can be slightly shorter, NEVER longer)
 - MUST be continuous (no gaps)
 - Start/end times MUST align to word boundaries from the timing data
 - MUST NOT exceed track duration
+- fal.ai has a HARD LIMIT of 190.00s - segments over this will be rejected
 
 Return ONLY valid JSON in this exact format:
 {
@@ -161,8 +162,17 @@ Select the optimal 190-second segment. Return JSON only.`;
       }
 
       const result = JSON.parse(jsonMatch[0]);
-      const startMs = Math.round(result.startSeconds * 1000);
-      const endMs = Math.round(result.endSeconds * 1000);
+      let startMs = Math.round(result.startSeconds * 1000);
+      let endMs = Math.round(result.endSeconds * 1000);
+      let durationMs = endMs - startMs;
+
+      // SAFETY CHECK: Enforce fal.ai's hard 190s limit (no tolerance)
+      if (durationMs > 190000) {
+        const originalDuration = durationMs;
+        endMs = startMs + 190000;
+        durationMs = 190000;
+        console.warn(`[SegmentSelector] ⚠️ AI selected ${(originalDuration / 1000).toFixed(2)}s, trimmed to exactly 190.00s for fal.ai compatibility`);
+      }
 
       console.log(`[SegmentSelector] Selected 190s segment: ${startMs}ms - ${endMs}ms`);
       console.log(`[SegmentSelector] Reasoning: ${result.reasoning}`);
@@ -170,7 +180,7 @@ Select the optimal 190-second segment. Return JSON only.`;
       return {
         startMs,
         endMs,
-        durationMs: endMs - startMs
+        durationMs
       };
     } catch (error: any) {
       console.error(`[SegmentSelector] Failed to select optimal segment: ${error.message}`);

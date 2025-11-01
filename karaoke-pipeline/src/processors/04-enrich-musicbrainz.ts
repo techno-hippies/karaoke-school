@@ -13,6 +13,7 @@ import {
   lookupWork,
   lookupWorkByISWC,
   lookupArtist,
+  lookupArtistWithRelations,
 } from '../services/musicbrainz';
 import {
   upsertMBRecordingSQL,
@@ -41,6 +42,7 @@ async function main() {
     isrc: string;
     iswc: string | null;
     title: string;
+    artist_name: string;
   }>(`
     SELECT
       tp.id,
@@ -49,11 +51,13 @@ async function main() {
       tp.spotify_artist_id,
       st.isrc,
       tp.iswc,
-      st.title
+      st.title,
+      st.artists->0->>'name' as artist_name
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-    WHERE tp.status = 'iswc_found'
-      AND st.isrc IS NOT NULL
+    WHERE st.isrc IS NOT NULL
+      AND tp.recording_mbid IS NULL
+      AND tp.status != 'failed'
     ORDER BY tp.id
     LIMIT ${batchSize}
   `);
@@ -95,7 +99,7 @@ async function main() {
 
     for (const track of uncachedTracks) {
       try {
-        console.log(`  🔍 ${track.title} (${track.isrc})`);
+        console.log(`  🔍 ${track.artist_name} - ${track.title} (${track.isrc})`);
 
         // Step 1: Lookup recording by ISRC
         const recording = await lookupRecordingByISRC(track.isrc);
@@ -135,8 +139,39 @@ async function main() {
             try {
               const artist = await lookupArtist(credit.artist.id);
               if (artist) {
-                console.log(`        ✅ ${artist.name}`);
+                console.log(`        ✅ ${artist.name}${artist.type ? ` (${artist.type})` : ''}`);
                 sqlStatements.push(upsertMBArtistSQL(artist));
+
+                // NEW: If this is a group, fetch its members
+                if (artist.type === 'Group') {
+                  console.log(`           🎭 Group detected - fetching members...`);
+                  try {
+                    const groupWithRels = await lookupArtistWithRelations(artist.id);
+                    if (groupWithRels?.relations) {
+                      const members = groupWithRels.relations
+                        .filter(rel => rel.type === 'member of band' && rel.artist)
+                        .map(rel => rel.artist!);
+
+                      console.log(`           Found ${members.length} members`);
+
+                      // Fetch each member (limit to 5 to avoid rate limits)
+                      for (const member of members.slice(0, 5)) {
+                        try {
+                          const memberArtist = await lookupArtist(member.id);
+                          if (memberArtist) {
+                            const isniInfo = memberArtist.isnis?.[0] ? ` ISNI: ${memberArtist.isnis[0]}` : '';
+                            console.log(`              ✅ ${memberArtist.name}${isniInfo}`);
+                            sqlStatements.push(upsertMBArtistSQL(memberArtist));
+                          }
+                        } catch (memberError: any) {
+                          console.warn(`              ⚠️  Failed to fetch ${member.name}`);
+                        }
+                      }
+                    }
+                  } catch (relError: any) {
+                    console.warn(`           ⚠️  Failed to fetch group members`);
+                  }
+                }
               }
             } catch (error: any) {
               console.warn(`        ⚠️  Failed to fetch performer ${credit.artist.name}`);
@@ -263,7 +298,18 @@ async function main() {
   console.log(`   - API fetches: ${successCount}`);
   console.log(`   - Failed: ${failCount}`);
   console.log('');
-  console.log('✅ Done! Tracks moved to: metadata_enriched');
+
+  // Update status to metadata_enriched only for tracks that got MB data
+  if (successCount > 0 || cachedRecordings.length > 0) {
+    await query(`
+      UPDATE song_pipeline
+      SET status = 'metadata_enriched'
+      WHERE status = 'iswc_found'
+        AND recording_mbid IS NOT NULL
+    `);
+  }
+
+  console.log('✅ Done!');
 }
 
 /**
@@ -280,6 +326,7 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
     isrc: string;
     iswc: string | null;
     title: string;
+    artist_name: string;
   }>(`
     SELECT
       tp.id,
@@ -288,11 +335,13 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
       tp.spotify_artist_id,
       st.isrc,
       tp.iswc,
-      st.title
+      st.title,
+      st.artists->0->>'name' as artist_name
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-    WHERE tp.status = 'iswc_found'
-      AND st.isrc IS NOT NULL
+    WHERE st.isrc IS NOT NULL
+      AND tp.recording_mbid IS NULL
+      AND tp.status != 'failed'
     ORDER BY tp.id
     LIMIT ${limit}
   `);
@@ -409,6 +458,16 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
 
   if (sqlStatements.length > 0) {
     await transaction(sqlStatements);
+  }
+
+  // Update status to metadata_enriched only for tracks that got MB data
+  if (successCount > 0 || cachedRecordings.length > 0) {
+    await query(`
+      UPDATE song_pipeline
+      SET status = 'metadata_enriched'
+      WHERE status = 'iswc_found'
+        AND recording_mbid IS NOT NULL
+    `);
   }
 
   console.log(`✅ Step 4 Complete: ${successCount} fetched, ${failCount} failed`);
