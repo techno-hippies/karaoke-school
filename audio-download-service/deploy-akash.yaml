@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   slsk:
-    image: t3333chn0000/audio-download-service:v1.0.4  # ✅ Fire-and-forget: returns immediately, processes async
+    image: t3333chn0000/audio-download-service:v1.1.0  # ✅ Clean architecture: service manages own DB config
     expose:
       - port: 3001
         as: 80
