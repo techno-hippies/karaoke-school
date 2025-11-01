@@ -35,15 +35,23 @@
     "scripts:processing": "echo 'Use scripts:processing:* scripts'",
     "scripts:processing:separations": "bun scripts/processing/process-all-separations.ts",
     "scripts:processing:orchestrator": "bun scripts/processing/run-orchestrator.ts",
-    "scripts:backfill": "bun scripts/backfill/backfill-genius-data.ts"
+    "scripts:backfill": "bun scripts/backfill/backfill-genius-data.ts",
+    "scripts:backfill:genius-artists": "dotenvx run -f .env -- bun scripts/backfill/backfill-genius-artist-ids.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.7.0",
+    "@lens-chain/sdk": "^1.0.3",
+    "@lens-chain/storage-client": "^1.0.6",
+    "@lens-protocol/client": "^0.0.0-canary-20250430134539",
+    "@lens-protocol/metadata": "^2.1.0",
+    "@lit-protocol/lit-client": "8.0.2",
+    "@lit-protocol/networks": "8.0.2",
     "@neondatabase/serverless": "^1.0.2",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "hono": "^4.7.11",
     "postgres": "^3.4.7",
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "viem": "^2.21.54"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
