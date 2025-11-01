@@ -63,6 +63,17 @@ interface ArtistAggregation {
   // NEW: Group relationships
   groupMemberIds?: Array<{mbid: string; name: string; spotify_artist_id?: string}>;
   memberOfGroups?: Array<{spotify_artist_id: string; name: string}>;
+
+  // PKP & Lens data
+  pkpAddress?: string;
+  pkpTokenId?: string;
+  pkpPublicKey?: string;
+  pkpMintedAt?: string;
+  lensHandle?: string;
+  lensAccountAddress?: string;
+  lensAccountId?: string;
+  lensMetadataUri?: string;
+  lensCreatedAt?: string;
 }
 
 function extractUrl(allUrls: any, pattern: string): string | undefined {
@@ -459,6 +470,44 @@ async function main() {
       console.log(`   ✅ Quansic: ISNI override ${agg.isni}`);
     }
 
+    // 6. PKP - Lit Protocol PKP data
+    const pkp = await query(`
+      SELECT pkp_address, pkp_token_id, pkp_public_key, minted_at
+      FROM pkp_accounts
+      WHERE spotify_artist_id = $1 AND account_type = 'artist'
+      LIMIT 1
+    `, [spotify_artist_id]);
+
+    if (pkp[0]) {
+      agg.pkpAddress = pkp[0].pkp_address;
+      agg.pkpTokenId = pkp[0].pkp_token_id;
+      agg.pkpPublicKey = pkp[0].pkp_public_key;
+      agg.pkpMintedAt = pkp[0].minted_at;
+      console.log(`   ✅ PKP: ${agg.pkpAddress}`);
+    } else {
+      console.log(`   ⚠️  PKP: not minted (run: bun src/processors/mint-artist-pkps.ts)`);
+    }
+
+    // 7. LENS - Lens Protocol account data
+    const lens = await query(`
+      SELECT lens_handle, lens_account_address, lens_account_id,
+             lens_metadata_uri, created_at_chain
+      FROM lens_accounts
+      WHERE spotify_artist_id = $1 AND account_type = 'artist'
+      LIMIT 1
+    `, [spotify_artist_id]);
+
+    if (lens[0]) {
+      agg.lensHandle = lens[0].lens_handle;
+      agg.lensAccountAddress = lens[0].lens_account_address;
+      agg.lensAccountId = lens[0].lens_account_id;
+      agg.lensMetadataUri = lens[0].lens_metadata_uri;
+      agg.lensCreatedAt = lens[0].created_at_chain;
+      console.log(`   ✅ Lens: @${agg.lensHandle} (${agg.lensAccountAddress})`);
+    } else {
+      console.log(`   ⚠️  Lens: not created (run: bun src/processors/create-artist-lens.ts)`);
+    }
+
     // INSERT
     await query(`
       INSERT INTO grc20_artists (
@@ -479,12 +528,15 @@ async function main() {
         rateyourmusic_url, whosampled_url, jaxsta_url, themoviedb_url,
         beatport_url, itunes_url, official_website,
         image_url, header_image_url, image_source,
-        group_member_ids, member_of_groups
+        group_member_ids, member_of_groups,
+        pkp_address, pkp_token_id, pkp_public_key, pkp_minted_at,
+        lens_handle, lens_account_address, lens_account_id, lens_metadata_uri, lens_created_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71,
+        $72, $73, $74, $75, $76, $77, $78, $79, $80
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -519,6 +571,11 @@ async function main() {
         official_website = EXCLUDED.official_website,
         group_member_ids = EXCLUDED.group_member_ids,
         member_of_groups = EXCLUDED.member_of_groups,
+        pkp_address = EXCLUDED.pkp_address, pkp_token_id = EXCLUDED.pkp_token_id,
+        pkp_public_key = EXCLUDED.pkp_public_key, pkp_minted_at = EXCLUDED.pkp_minted_at,
+        lens_handle = EXCLUDED.lens_handle, lens_account_address = EXCLUDED.lens_account_address,
+        lens_account_id = EXCLUDED.lens_account_id, lens_metadata_uri = EXCLUDED.lens_metadata_uri,
+        lens_created_at = EXCLUDED.lens_created_at,
         updated_at = NOW()
     `, [
       agg.name, agg.sortName, JSON.stringify(agg.aliases), agg.disambiguation,
@@ -540,7 +597,9 @@ async function main() {
       agg.urls.beatport_url, agg.urls.itunes_url, agg.urls.official_website,
       agg.imageUrl, agg.headerImageUrl, agg.imageSource,
       JSON.stringify(agg.groupMemberIds || []),
-      JSON.stringify(agg.memberOfGroups || [])
+      JSON.stringify(agg.memberOfGroups || []),
+      agg.pkpAddress, agg.pkpTokenId, agg.pkpPublicKey, agg.pkpMintedAt,
+      agg.lensHandle, agg.lensAccountAddress, agg.lensAccountId, agg.lensMetadataUri, agg.lensCreatedAt
     ]);
 
     console.log(`   ✅ SAVED`);
@@ -566,7 +625,9 @@ async function main() {
       COUNT(loc_url) as with_loc_url,
       COUNT(wikidata_url) as with_wikidata,
       COUNT(allmusic_url) as with_allmusic,
-      COUNT(imdb_url) as with_imdb
+      COUNT(imdb_url) as with_imdb,
+      COUNT(pkp_address) as with_pkp,
+      COUNT(lens_handle) as with_lens
     FROM grc20_artists
   `);
 
@@ -592,6 +653,9 @@ async function main() {
   console.log(`   Wikidata: ${summary[0].with_wikidata}`);
   console.log(`   AllMusic: ${summary[0].with_allmusic}`);
   console.log(`   IMDB: ${summary[0].with_imdb}`);
+  console.log(`\n   Web3 Accounts:`);
+  console.log(`   PKP: ${summary[0].with_pkp} (${Math.round(summary[0].with_pkp/summary[0].total*100)}%)`);
+  console.log(`   Lens: ${summary[0].with_lens} (${Math.round(summary[0].with_lens/summary[0].total*100)}%)`);
   console.log('\n✅ Done!\n');
 }
 

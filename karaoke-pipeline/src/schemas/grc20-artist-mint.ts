@@ -16,6 +16,11 @@ export const GRC20ArtistMintSchema = z.object({
   name: z.string().min(1).max(500),
   spotify_artist_id: z.string().min(1),
 
+  // PKP & Lens (REQUIRED for Web3 integration)
+  pkp_address: z.string().min(1, 'PKP address required'),
+  lens_handle: z.string().min(1, 'Lens handle required'),
+  lens_account_address: z.string().min(1, 'Lens account address required'),
+
   // Industry Identifiers (ISNI optional per docs: "only 49.8% have this")
   isni: z.string().nullable().optional(),
   isni_all: z.string().nullable().optional(),
@@ -48,6 +53,8 @@ export const GRC20ArtistReadinessSchema = z.object({
   id: z.number(),
   name: z.string().min(1),
   spotify_artist_id: z.string().min(1),
+  pkp_address: z.string().min(1),
+  lens_handle: z.string().min(1),
   image_url: z.string().url().startsWith('https://api.grove.storage/'),
   grc20_entity_id: z.null(),
 });
@@ -120,6 +127,11 @@ export const GET_ARTISTS_READY_TO_MINT_QUERY = `
     ga.viaf_url,
     ga.allmusic_url,
     ga.genius_url,
+    ga.pkp_address,
+    ga.pkp_token_id,
+    ga.lens_handle,
+    ga.lens_account_address,
+    ga.lens_metadata_uri,
     ga.grc20_entity_id,
     ga.minted_at,
     ga.needs_update,
@@ -128,6 +140,8 @@ export const GET_ARTISTS_READY_TO_MINT_QUERY = `
   FROM grc20_artists ga
   WHERE ga.grc20_entity_id IS NULL  -- Not yet minted
     AND ga.image_url IS NOT NULL     -- Has Grove image (REQUIRED)
+    AND ga.pkp_address IS NOT NULL   -- Has PKP (REQUIRED)
+    AND ga.lens_handle IS NOT NULL   -- Has Lens account (REQUIRED)
     AND ga.spotify_artist_id IS NOT NULL
   ORDER BY ga.name ASC
 `;
@@ -139,8 +153,15 @@ export const GET_ARTIST_MINT_STATS_QUERY = `
   SELECT
     COUNT(*) as total,
     COUNT(grc20_entity_id) as minted,
-    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND image_url IS NOT NULL) as ready_to_mint,
+    COUNT(*) FILTER (
+      WHERE grc20_entity_id IS NULL
+        AND image_url IS NOT NULL
+        AND pkp_address IS NOT NULL
+        AND lens_handle IS NOT NULL
+    ) as ready_to_mint,
     COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND image_url IS NULL) as blocked_missing_image,
+    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND pkp_address IS NULL) as blocked_missing_pkp,
+    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND lens_handle IS NULL) as blocked_missing_lens,
     COUNT(*) FILTER (WHERE needs_update = TRUE) as needs_remint
   FROM grc20_artists
 `;
