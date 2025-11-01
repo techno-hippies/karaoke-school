@@ -156,8 +156,11 @@ async function main() {
               finalISWC = bmiResult.iswc;
               console.log(`     📖 BMI found ISWC: ${finalISWC}`);
 
-              // Cache BMI result
-              sqlStatements.push(insertBMIWorkSQL(bmiResult));
+              // Cache BMI result (with Spotify title for reproducibility)
+              sqlStatements.push(insertBMIWorkSQL({
+                ...bmiResult,
+                title: track.title  // Use Spotify title, not BMI's ALL CAPS
+              }));
 
               // Log BMI source
               sqlStatements.push(
@@ -176,8 +179,11 @@ async function main() {
                 finalISWC = mlcResult.iswc;
                 console.log(`     📜 MLC found ISWC: ${finalISWC}`);
 
-                // Cache MLC result
-                sqlStatements.push(insertMLCWorkSQL(mlcResult));
+                // Cache MLC result (with Spotify title for reproducibility)
+                sqlStatements.push(insertMLCWorkSQL({
+                  ...mlcResult,
+                  title: track.title  // Use Spotify title, not MLC's ALL CAPS
+                }));
 
                 // Log MLC source
                 sqlStatements.push(
@@ -232,8 +238,11 @@ async function main() {
             finalISWC = bmiResult.iswc;
             console.log(`     📖 BMI found ISWC: ${finalISWC}`);
 
-            // Cache BMI result
-            sqlStatements.push(insertBMIWorkSQL(bmiResult));
+            // Cache BMI result (with Spotify title for reproducibility)
+            sqlStatements.push(insertBMIWorkSQL({
+              ...bmiResult,
+              title: track.title  // Use Spotify title, not BMI's ALL CAPS
+            }));
 
             // Log BMI source
             sqlStatements.push(
@@ -252,8 +261,11 @@ async function main() {
               finalISWC = mlcResult.iswc;
               console.log(`     📜 MLC found ISWC: ${finalISWC}`);
 
-              // Cache MLC result
-              sqlStatements.push(insertMLCWorkSQL(mlcResult));
+              // Cache MLC result (with Spotify title for reproducibility)
+              sqlStatements.push(insertMLCWorkSQL({
+                ...mlcResult,
+                title: track.title  // Use Spotify title, not MLC's ALL CAPS
+              }));
 
               // Log MLC source
               sqlStatements.push(
@@ -329,8 +341,11 @@ async function main() {
           finalISWC = bmiResult.iswc;
           console.log(`     📖 BMI found ISWC for cached track: ${finalISWC}`);
 
-          // Cache BMI result
-          sqlStatements.push(insertBMIWorkSQL(bmiResult));
+          // Cache BMI result (with Spotify title for reproducibility)
+          sqlStatements.push(insertBMIWorkSQL({
+            ...bmiResult,
+            title: track.title  // Use Spotify title, not BMI's ALL CAPS
+          }));
 
           // Log BMI source
           sqlStatements.push(
@@ -349,8 +364,11 @@ async function main() {
             finalISWC = mlcResult.iswc;
             console.log(`     📜 MLC found ISWC for cached track: ${finalISWC}`);
 
-            // Cache MLC result
-            sqlStatements.push(insertMLCWorkSQL(mlcResult));
+            // Cache MLC result (with Spotify title for reproducibility)
+            sqlStatements.push(insertMLCWorkSQL({
+              ...mlcResult,
+              title: track.title  // Use Spotify title, not MLC's ALL CAPS
+            }));
 
             // Log MLC source
             sqlStatements.push(
