@@ -495,8 +495,11 @@ serve({
           }, { status: 400, headers });
         }
 
-        if (!neon_database_url) {
-          return Response.json({ error: "neon_database_url required" }, { status: 400, headers });
+        // Use env var as fallback for Akash deployments
+        const dbUrl = neon_database_url || process.env.DATABASE_URL;
+
+        if (!dbUrl) {
+          return Response.json({ error: "neon_database_url or DATABASE_URL env var required" }, { status: 400, headers });
         }
 
         // Prevent duplicate concurrent downloads
@@ -622,7 +625,7 @@ serve({
 
             // Step 5: Update database atomically
             console.log(`[5/5] Updating database...`);
-            const sql = neon(neon_database_url);
+            const sql = neon(dbUrl);
 
             await sql`BEGIN`;
 
@@ -711,7 +714,7 @@ serve({
 
             // Track failure in pipeline for retry logic
             try {
-              const sql = neon(neon_database_url);
+              const sql = neon(dbUrl);
 
               // Get current retry count
               const result = await sql`
