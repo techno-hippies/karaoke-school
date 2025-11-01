@@ -1,21 +1,14 @@
 /**
  * Demucs Service
- * GPU-accelerated vocal/instrumental separation with local/remote switching
+ * GPU-accelerated vocal/instrumental separation via RunPod serverless
  *
- * Supports three modes:
- * - 'local': Local GPU (RTX 3080) via http://localhost:8000
- * - 'remote': Remote API endpoint (Modal, etc.)
- * - 'runpod': RunPod serverless GPU (polls for completion, no webhook)
- *
- * Automatically falls back to remote if local is unavailable.
+ * Uses RunPod polling-based API for synchronous separation.
+ * Submits job and polls until completion (no webhook needed).
  */
-
-export type DemucsMode = 'local' | 'remote' | 'runpod';
 
 export interface DemucsResult {
   jobId: string;
   status: 'processing';
-  mode: DemucsMode; // Track which backend was used
   message: string;
 }
 
@@ -33,154 +26,73 @@ export interface DemucsWebhookPayload {
 }
 
 export class DemucsService {
-  private mode: DemucsMode;
-  private localEndpoint: string;
-  private remoteEndpoint: string;
   private runpodEndpointId: string;
   private runpodApiKey: string;
-  private healthCache: Map<string, {timestamp: number, healthy: boolean}>;
-  private cacheMaxAge = 30000; // 30 seconds
 
   constructor(
-    mode: DemucsMode = 'local',
-    localEndpoint?: string,
-    remoteEndpoint?: string,
     runpodEndpointId?: string,
     runpodApiKey?: string
   ) {
-    this.mode = mode;
-    this.localEndpoint = localEndpoint || 'http://localhost:8000';
-    this.remoteEndpoint = remoteEndpoint || '';
     this.runpodEndpointId = runpodEndpointId || '';
     this.runpodApiKey = runpodApiKey || '';
-    this.healthCache = new Map();
   }
 
   /**
-   * Check if local endpoint is available
-   * Cached for 30 seconds to avoid hammering the service
-   */
-  private async isLocalHealthy(): Promise<boolean> {
-    const cacheKey = `local-health`;
-    const cached = this.healthCache.get(cacheKey);
-
-    // Return cached result if fresh
-    if (cached && Date.now() - cached.timestamp < this.cacheMaxAge) {
-      return cached.healthy;
-    }
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout (model loading can take 15s)
-
-      const response = await fetch(`${this.localEndpoint}/health`, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      const isHealthy = response.ok;
-      this.healthCache.set(cacheKey, {
-        timestamp: Date.now(),
-        healthy: isHealthy,
-      });
-
-      return isHealthy;
-    } catch (error) {
-      this.healthCache.set(cacheKey, {
-        timestamp: Date.now(),
-        healthy: false,
-      });
-      return false;
-    }
-  }
-
-  /**
-   * Submit async Demucs separation job
+   * Submit Demucs separation job via RunPod
    *
-   * Tries local GPU first (if mode=local), falls back to remote if unavailable.
+   * RunPod-only implementation. Submits job and polls for completion.
    *
    * @param spotifyTrackId Spotify track ID (used as job ID)
    * @param audioUrl Public URL to audio file (Grove, S3, etc.)
-   * @param webhookUrl URL to POST results when complete
-   * @returns Job ID, status, and mode used
-   * @throws Error if no backend available
+   * @returns Job ID and status
+   * @throws Error if submission fails or credentials missing
    */
   async separateAsync(
     spotifyTrackId: string,
-    audioUrl: string,
-    webhookUrl: string
+    audioUrl: string
   ): Promise<DemucsResult> {
-    // Determine which backend to use
-    let useMode: DemucsMode = 'local';
-    let endpoint = '';
-
-    if (this.mode === 'local') {
-      const localAvailable = await this.isLocalHealthy();
-      if (localAvailable) {
-        useMode = 'local';
-        endpoint = this.localEndpoint;
-        console.log(
-          `[Demucs] Using local GPU at ${endpoint} for ${spotifyTrackId}`
-        );
-      } else if (this.remoteEndpoint) {
-        // Fallback to remote
-        useMode = 'remote';
-        endpoint = this.remoteEndpoint;
-        console.log(
-          `[Demucs] Local GPU unavailable, falling back to remote for ${spotifyTrackId}`
-        );
-      } else {
-        throw new Error(
-          'Demucs local GPU unavailable and DEMUCS_REMOTE_ENDPOINT not configured'
-        );
-      }
-    } else {
-      // Mode is 'remote'
-      if (!this.remoteEndpoint) {
-        throw new Error('DEMUCS_MODE=remote but DEMUCS_REMOTE_ENDPOINT not configured');
-      }
-      useMode = 'remote';
-      endpoint = this.remoteEndpoint;
-      console.log(`[Demucs] Using remote endpoint at ${endpoint} for ${spotifyTrackId}`);
+    if (!this.runpodEndpointId || !this.runpodApiKey) {
+      throw new Error('RunPod endpoint ID and API key required. Set RUNPOD_DEMUCS_ENDPOINT_ID and RUNPOD_API_KEY');
     }
 
-    // Submit to selected endpoint
-    const formData = new FormData();
-    formData.append('job_id', spotifyTrackId);
-    formData.append('audio_url', audioUrl);
-    formData.append('webhook_url', webhookUrl);
-    formData.append('model', 'mdx_extra');
-    formData.append('output_format', 'mp3');
-    formData.append('mp3_bitrate', '192');
+    const runpodUrl = `https://api.runpod.ai/v2/${this.runpodEndpointId}`;
 
-    try {
-      const response = await fetch(`${endpoint}/separate-async`, {
-        method: 'POST',
-        body: formData,
-      });
+    console.log(`[Demucs/RunPod] Submitting ${spotifyTrackId} to RunPod...`);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Demucs ${useMode} submission failed (${response.status}): ${errorText}`
-        );
-      }
+    const submitResponse = await fetch(`${runpodUrl}/run`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.runpodApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        input: {
+          job_id: spotifyTrackId,
+          audio_url: audioUrl,
+          webhook_url: 'https://placeholder.invalid',  // Not used but required
+          model: 'htdemucs',
+          output_format: 'mp3',
+          mp3_bitrate: 192,
+          spotify_track_id: spotifyTrackId
+        }
+      })
+    });
 
-      const result = await response.json() as any;
-
-      return {
-        jobId: result.job_id || spotifyTrackId,
-        status: 'processing',
-        mode: useMode,
-        message: `Demucs separation started on ${useMode} backend`,
-      };
-    } catch (error: any) {
-      throw new Error(
-        `Demucs ${useMode} request failed: ${error.message}`
-      );
+    if (!submitResponse.ok) {
+      const errorText = await submitResponse.text();
+      throw new Error(`RunPod submission failed (${submitResponse.status}): ${errorText}`);
     }
+
+    const submitResult = await submitResponse.json() as {id: string, status: string};
+    const jobId = submitResult.id;
+
+    console.log(`[Demucs/RunPod] Job submitted: ${jobId}`);
+
+    return {
+      jobId,
+      status: 'processing',
+      message: `Demucs separation submitted to RunPod with job ID ${jobId}`,
+    };
   }
 
   /**
@@ -291,37 +203,18 @@ export class DemucsService {
     throw new Error(`RunPod job timed out after ${maxAttempts * pollInterval / 1000}s`);
   }
 
-  /**
-   * Get the current mode configuration
-   */
-  getMode(): DemucsMode {
-    return this.mode;
-  }
-
-  /**
-   * Clear health cache (useful for testing)
-   */
-  clearHealthCache(): void {
-    this.healthCache.clear();
-  }
 }
 
 /**
  * Create a singleton instance from environment variables
  *
- * Environment variables:
- * - DEMUCS_MODE: 'local' | 'remote' | 'runpod' (default: 'local')
- * - DEMUCS_LOCAL_ENDPOINT: http://localhost:8000 (default)
- * - DEMUCS_REMOTE_ENDPOINT: Custom remote endpoint
- * - RUNPOD_DEMUCS_ENDPOINT_ID: RunPod endpoint ID (required for runpod mode)
- * - RUNPOD_API_KEY: RunPod API key (required for runpod mode)
+ * Environment variables (RunPod-only):
+ * - RUNPOD_DEMUCS_ENDPOINT_ID: RunPod endpoint ID (required)
+ * - RUNPOD_API_KEY: RunPod API key (required)
  */
 export function createDemucsService(): DemucsService {
-  const mode = (process.env.DEMUCS_MODE || 'local') as DemucsMode;
-  const localEndpoint = process.env.DEMUCS_LOCAL_ENDPOINT || 'http://localhost:8000';
-  const remoteEndpoint = process.env.DEMUCS_REMOTE_ENDPOINT || '';
   const runpodEndpointId = process.env.RUNPOD_DEMUCS_ENDPOINT_ID || '';
   const runpodApiKey = process.env.RUNPOD_API_KEY || '';
 
-  return new DemucsService(mode, localEndpoint, remoteEndpoint, runpodEndpointId, runpodApiKey);
+  return new DemucsService(runpodEndpointId, runpodApiKey);
 }

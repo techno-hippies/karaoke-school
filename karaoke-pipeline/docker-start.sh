@@ -123,7 +123,7 @@ show_status() {
     echo ""
     echo "Service URLs:"
     echo "  Pipeline Server:  http://localhost:8787"
-    echo "  Quansic Service:  http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer (Akash hosted, v2.0.2)"
+    echo "  Quansic Service:  http://d1crjmbvpla6lc3afdemo0mhgo.ingress.dhcloud.xyz (Akash hosted, v2.0.2)"
     echo "  BMI Service:      http://localhost:3002 (maps to :3000)"
     echo "  Audio Service:    http://localhost:3001"
     echo "  FFmpeg Service:   http://localhost:3003"

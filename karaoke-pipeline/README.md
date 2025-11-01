@@ -5,8 +5,8 @@
 **🆕 ROBUST LOCAL ARCHITECTURE**: The pipeline now uses a reliable local-first architecture with process supervision, health monitoring, and auto-restart capabilities. No more "service isn't up!" issues.
 
 **Current Status**: 
-- ✅ 65% completion rate (26/40 tracks successfully processed)
-- ✅ <2 second webhook response times
+- ✅ Complete 12-step orchestrator implemented
+- ✅ MLC service integrated as ISWC discovery fallback
 - ✅ Services stay running with supervision
 - ✅ Easy migration path to Cloudflare Workers when ready
 
@@ -14,7 +14,7 @@
 ```
 tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
 lyrics_ready → audio_downloaded → alignment_complete → translations_ready → 
-stems_separated → segments_selected → enhanced
+stems_separated → segments_selected → enhanced → clips_cropped → images_generated
 ```
 
 ---
@@ -100,7 +100,7 @@ bun test:genius       # Genius API connectivity
 |------|------|-------------------|--------------|----------|
 | 1 | Scrape TikTok | `n/a → tiktok_scraped` | Downloads TikTok videos from creator | Manual |
 | 2 | Resolve Spotify | `tiktok_scraped → spotify_resolved` | Gets Spotify metadata (track + artist) | ✅ |
-| 3 | ISWC Discovery | `spotify_resolved → iswc_found` | Finds ISWC codes (gate for GRC-20) | ✅ Optional |
+| 3 | ISWC Discovery | `spotify_resolved → iswc_found` | Finds ISWC codes (gate for GRC-20, includes MLC fallback) | ✅ Optional |
 | 4 | Enrich MusicBrainz | `iswc_found → metadata_enriched` | Adds MusicBrainz metadata | ✅ Optional |
 | 5 | Discover Lyrics | `metadata_enriched → lyrics_ready` | Fetches synced lyrics from LRCLIB | ✅ Optional |
 | 6 | Download Audio | `lyrics_ready → audio_downloaded` | Downloads audio via audio-download-service | ✅ |
@@ -110,7 +110,7 @@ bun test:genius       # Genius API connectivity
 | 8 | Audio Separation | `translations_ready → stems_separated` | Extract instrumental via Demucs | ✅ |
 | 9 | AI Segment Selection | `stems_separated → segments_selected` | Selects best 190s segments via Gemini | ✅ |
 | 10 | Audio Enhancement | `segments_selected → enhanced` | FAL.ai enhancement for karaoke audio | ✅ |
-| 11 | Crop TikTok Clips | `enhanced → clips_cropped` | Crop 50s segments from TikTok videos | ✅ |
+| 11 | Crop TikTok Clips | `enhanced → clips_cropped` | Crop enhanced audio to extract viral clips | ✅ |
 | 12 | Generate Images | `clips_cropped → images_generated` | Create derivative images for GRC-20 | ✅ Optional |
 
 ---
@@ -353,7 +353,7 @@ NEON_DATABASE_URL=postgresql://...
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
 # Quansic is now Akash-hosted (v2.0.2) - optional override:
-# QUANSIC_SERVICE_URL=http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer
+# QUANSIC_SERVICE_URL=http://d1crjmbvpla6lc3afdemo0mhgo.ingress.dhcloud.xyz
 SLSK_SERVICE_URL=http://localhost:3002
 GENIUS_API_KEY=...  # Optional: for lyrics metadata enrichment
 

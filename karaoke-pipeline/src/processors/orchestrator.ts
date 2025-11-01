@@ -5,17 +5,15 @@
  *
  * Main karaoke pipeline status flow:
  * tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
- * lyrics_ready → audio_downloaded → alignment_complete → translations_ready → stems_separated
- *
- * GRC-20 asset preparation (independent):
- * - Step 12: Generate derivative images for artists/works ready for minting
+ * lyrics_ready → audio_downloaded → alignment_complete → translations_ready → stems_separated →
+ * segments_selected → enhanced → clips_cropped → images_generated
  *
  * Can be triggered manually or via cron. Steps run sequentially based on status dependencies.
  * Each step processes tracks and advances them to the next status.
  *
  * STEPS:
  * - Step 2: Resolve Spotify Metadata (enabled)
- * - Step 3: ISWC Discovery (enabled optional - gate for GRC-20)
+ * - Step 3: ISWC Discovery (enabled optional - gate for GRC-20, includes MLC fallback)
  * - Step 4: MusicBrainz Enrichment (enabled optional - metadata)
  * - Step 5: Discover Lyrics (enabled optional - synced lyrics)
  * - Step 6: Download Audio (enabled - fire-and-forget via audio-download-service)
@@ -23,7 +21,10 @@
  * - Step 7: Genius Enrichment (enabled optional - metadata)
  * - Step 7.5: Multi-language Translation (enabled - zh, vi, id)
  * - Step 8: Audio Separation (enabled - Demucs vocal/instrumental separation)
- * - Step 12: Generate Derivative Images (optional - watercolor-style images for GRC-20)
+ * - Step 9: AI Segment Selection (enabled - optimal segment selection)
+ * - Step 10: fal.ai Audio Enhancement (enabled - audio enhancement)
+ * - Step 11: Viral Clip Cropping (enabled - clip extraction)
+ * - Step 12: Generate Derivative Images (enabled - watercolor-style images for GRC-20)
  */
 
 import type { Env } from '../types';
@@ -35,7 +36,10 @@ import { processDownloadAudio } from './06-download-audio';
 import { processGeniusEnrichment } from './07-genius-enrichment';
 import { processForcedAlignment } from './06-forced-alignment';
 import { processLyricsTranslation } from './07-translate-lyrics';
-import { processSeparateAudioRunPod } from './08-separate-audio-runpod';
+import { processSeparateAudio } from './08-separate-audio';
+import { processSegmentSelection } from './09-select-segments';
+import { processFalEnhancement } from './10-enhance-audio';
+import { processClipCropping } from './11-crop-clips';
 import { processGenerateImages } from './12-generate-images';
 
 interface PipelineStep {
@@ -149,7 +153,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
       number: 7,
       name: 'Genius Enrichment',
       description: 'Enrich with Genius metadata & annotations (for future trivia/images)',
-      status: 'lyrics_ready',  // Also processes: audio_downloaded, alignment_complete
+      status: 'lyrics_ready',  // Also processes: audio_downloaded, alignment_complete, translations_ready, stems_separated
       nextStatus: 'lyrics_ready',  // Doesn't change status
       processor: processGeniusEnrichment,
       enabled: true,
@@ -176,7 +180,42 @@ export async function runUnifiedPipeline(env: Env, options?: {
       description: 'Submit audio to Demucs for vocal/instrumental separation',
       status: 'translations_ready',
       nextStatus: 'stems_separated',
-      processor: processSeparateAudioRunPod,
+      processor: processSeparateAudio,
+      enabled: true
+    },
+
+    // ==================== SEGMENT PROCESSING STEPS ====================
+
+    // Step 9: AI Segment Selection
+    {
+      number: 9,
+      name: 'AI Segment Selection',
+      description: 'Select optimal 190s karaoke segment and best 20-50s clip using AI',
+      status: 'stems_separated',
+      nextStatus: 'segments_selected',
+      processor: processSegmentSelection,
+      enabled: true
+    },
+
+    // Step 10: fal.ai Audio Enhancement
+    {
+      number: 10,
+      name: 'fal.ai Audio Enhancement',
+      description: 'Enhance instrumental tracks using Stable Audio 2.5 with FFmpeg cropping',
+      status: 'segments_selected',
+      nextStatus: 'enhanced',
+      processor: processFalEnhancement,
+      enabled: true
+    },
+
+    // Step 11: Viral Clip Cropping
+    {
+      number: 11,
+      name: 'Viral Clip Cropping',
+      description: 'Crop enhanced 190s instrumental to extract best 20-50s viral clip',
+      status: 'enhanced',
+      nextStatus: 'clips_cropped',
+      processor: processClipCropping,
       enabled: true
     },
 
@@ -187,11 +226,10 @@ export async function runUnifiedPipeline(env: Env, options?: {
       number: 12,
       name: 'Generate Derivative Images',
       description: 'Generate watercolor-style derivative images for GRC-20 artists/works (Seedream)',
-      status: 'grc20_ready',  // Dummy status - not used for filtering
-      nextStatus: 'grc20_ready',  // Doesn't change status
+      status: 'clips_cropped',
+      nextStatus: 'images_generated',
       processor: processGenerateImages,
-      enabled: false,  // Optional - run manually with --step=12
-      optional: true  // Won't block pipeline if disabled/fails
+      enabled: true
     },
   ];
 

@@ -87,7 +87,7 @@ bun run test:pipeline                  # Run step 2 with 1 track
 
 ## Pipeline Architecture
 
-**10 Steps** (unified orchestrator):
+**13 Steps** (unified orchestrator):
 1. **TikTok Scraping** (`01-scrape-tiktok.ts`) → `tiktok_scraped`
 2. **Spotify Resolution** (`02-resolve-spotify.ts`) → `spotify_resolved`  
 3. **ISWC Discovery** (`03-resolve-iswc.ts`) → `iswc_found` (gate for GRC-20)
@@ -99,7 +99,9 @@ bun run test:pipeline                  # Run step 2 with 1 track
 9. **Lyrics Translation** (`07-translate-lyrics.ts`) → `translations_ready` (zh, vi, id)
 10. **Audio Separation** (`08-separate-audio.ts`) → `stems_separated` (Demucs)
 11. **AI Segment Selection** (`09-select-segments.ts`) → `segments_selected` (Gemini)
-12. **Audio Enhancement** (`10-enhance-audio.ts`) → `enhanced` (FAL.ai)
+12. **fal.ai Audio Enhancement** (`10-enhance-audio.ts`) → `enhanced` (FAL.ai)
+13. **Viral Clip Cropping** (`11-crop-clips.ts`) → `clips_cropped` (FFmpeg)
+14. **Generate Derivative Images** (`12-generate-images.ts`) → `images_generated` (Seedream)
 
 **Entry Points**:
 - `run-pipeline.ts`: CLI orchestrator (main runner)

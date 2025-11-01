@@ -10,11 +10,13 @@
 import { query, transaction, close } from '../db/neon';
 import { enrichRecording, checkHealth } from '../services/quansic';
 import { searchBMI } from '../services/bmi';
+import { searchMLC } from '../services/mlc';
 import {
   upsertQuansicRecordingSQL,
   updatePipelineISWCSQL,
   logQuansicProcessingSQL,
   insertBMIWorkSQL,
+  insertMLCWorkSQL,
   insertEnrichmentCacheFailureSQL,
 } from '../db/quansic';
 
@@ -32,7 +34,7 @@ async function main() {
 
   if (!isHealthy) {
     console.error('❌ Quansic service is not healthy!');
-    console.error('   Service URL: http://q5vj89ngf9cvj9ce86is4cdhjs.ingress.bdl.computer (Akash-hosted)');
+    console.error('   Service URL: http://d1crjmbvpla6lc3afdemo0mhgo.ingress.dhcloud.xyz (Akash-hosted)');
     console.error('   Or override with QUANSIC_URL environment variable');
     process.exit(1);
   }
@@ -76,7 +78,7 @@ async function main() {
   console.log(`✅ Found ${tracksToProcess.length} tracks to process`);
   console.log('');
 
-  // Check three-layer cache: Quansic successes, BMI successes, known failures
+  // Check four-layer cache: Quansic successes, BMI successes, MLC successes, known failures
   const isrcs = tracksToProcess.map(t => t.isrc);
 
   const quansicCache = await query<{ isrc: string; iswc: string | null }>(`
@@ -95,6 +97,11 @@ async function main() {
     )
   `);
 
+  const mlcCache = await query<{ isrc: string; iswc: string | null }>(`
+    SELECT isrc, iswc FROM mlc_works
+    WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
+  `);
+
   const failureCache = await query<{ isrc: string }>(`
     SELECT isrc FROM recording_enrichment_cache
     WHERE isrc = ANY(ARRAY[${isrcs.map(isrc => `'${isrc}'`).join(',')}])
@@ -103,6 +110,7 @@ async function main() {
 
   const quansicCachedISRCs = new Set(quansicCache.map(r => r.isrc));
   const bmicachedISRCs = new Set(bmiCache.map(r => r.iswc));
+  const mlcCachedISRCs = new Set(mlcCache.map(r => r.isrc));
   const failureCachedISRCs = new Set(failureCache.map(r => r.isrc));
 
   // Tracks we need to query: not in any cache
@@ -112,6 +120,7 @@ async function main() {
 
   console.log(`💾 Quansic cache hits: ${quansicCache.length}`);
   console.log(`📖 BMI cache hits: ${bmiCache.length}`);
+  console.log(`📜 MLC cache hits: ${mlcCache.length}`);
   console.log(`⛔ Known failures: ${failureCache.length}`);
   console.log(`🌐 API requests needed: ${uncachedTracks.length}`);
   console.log('');
@@ -160,6 +169,27 @@ async function main() {
                   { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
                 )
               );
+            } else {
+              // Try MLC fallback when BMI also fails
+              const mlcResult = await searchMLC(track.isrc, track.title, track.artist);
+              if (mlcResult?.iswc) {
+                finalISWC = mlcResult.iswc;
+                console.log(`     📜 MLC found ISWC: ${finalISWC}`);
+
+                // Cache MLC result
+                sqlStatements.push(insertMLCWorkSQL(mlcResult));
+
+                // Log MLC source
+                sqlStatements.push(
+                  logQuansicProcessingSQL(
+                    track.spotify_track_id,
+                    track.isrc,
+                    'success',
+                    `Quansic and BMI failed, ISWC found via MLC fallback`,
+                    { iswc: finalISWC, source: 'mlc', mlc_song_code: mlcResult.mlc_song_code }
+                  )
+                );
+              }
             }
           }
 
@@ -169,15 +199,15 @@ async function main() {
           );
 
           if (!finalISWC) {
-            // Mark as "not found in both Quansic and BMI"
-            sqlStatements.push(insertEnrichmentCacheFailureSQL(track.isrc));
+            // Mark as "not found in Quansic, BMI, and MLC"
+            sqlStatements.push(insertEnrichmentCacheFailureSQL(track.isrc, ['quansic', 'bmi', 'mlc']));
 
             sqlStatements.push(
               logQuansicProcessingSQL(
                 track.spotify_track_id,
                 track.isrc,
                 'success',
-                `Quansic API failed: ${result.error || 'No data returned'}. BMI also had no results. Continuing without ISWC.`
+                `Quansic API failed: ${result.error || 'No data returned'}. BMI and MLC also had no results. Continuing without ISWC.`
               )
             );
           }
@@ -215,6 +245,27 @@ async function main() {
                 { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
               )
             );
+          } else {
+            // Try MLC fallback when BMI also doesn't have ISWC
+            const mlcResult = await searchMLC(track.isrc, track.title, track.artist);
+            if (mlcResult?.iswc) {
+              finalISWC = mlcResult.iswc;
+              console.log(`     📜 MLC found ISWC: ${finalISWC}`);
+
+              // Cache MLC result
+              sqlStatements.push(insertMLCWorkSQL(mlcResult));
+
+              // Log MLC source
+              sqlStatements.push(
+                logQuansicProcessingSQL(
+                  track.spotify_track_id,
+                  track.isrc,
+                  'success',
+                  `BMI had no ISWC, found via MLC fallback`,
+                  { iswc: finalISWC, source: 'mlc', mlc_song_code: mlcResult.mlc_song_code }
+                )
+              );
+            }
           }
         }
 
@@ -291,6 +342,27 @@ async function main() {
               { iswc: finalISWC, source: 'bmi', bmi_work_id: bmiResult.bmi_work_id }
             )
           );
+        } else {
+          // Try MLC fallback when BMI also doesn't have ISWC
+          const mlcResult = await searchMLC(track.isrc, track.title, track.artist);
+          if (mlcResult?.iswc) {
+            finalISWC = mlcResult.iswc;
+            console.log(`     📜 MLC found ISWC for cached track: ${finalISWC}`);
+
+            // Cache MLC result
+            sqlStatements.push(insertMLCWorkSQL(mlcResult));
+
+            // Log MLC source
+            sqlStatements.push(
+              logQuansicProcessingSQL(
+                track.spotify_track_id,
+                track.isrc,
+                'success',
+                `Cached Quansic and BMI had no ISWC, found via MLC fallback`,
+                { iswc: finalISWC, source: 'mlc', mlc_song_code: mlcResult.mlc_song_code }
+              )
+            );
+          }
         }
       }
 
@@ -298,7 +370,7 @@ async function main() {
         updatePipelineISWCSQL(track.spotify_track_id, finalISWC)
       );
 
-      // Log cache usage if no BMI was needed
+      // Log cache usage if no BMI/MLC was needed
       if (cached.iswc) {
         sqlStatements.push(
           logQuansicProcessingSQL(
@@ -310,13 +382,13 @@ async function main() {
           )
         );
       } else if (!finalISWC) {
-        // Neither cache nor BMI had ISWC
+        // Neither cache nor BMI/MLC had ISWC
         sqlStatements.push(
           logQuansicProcessingSQL(
             track.spotify_track_id,
             track.isrc,
             'success',
-            'Cached Quansic had no ISWC, BMI also had no results',
+            'Cached Quansic had no ISWC, BMI and MLC also had no results',
             { source: 'cache' }
           )
         );
@@ -342,6 +414,7 @@ async function main() {
   console.log(`   - Total tracks: ${tracksToProcess.length}`);
   console.log(`   - Quansic cache hits: ${quansicCache.length}`);
   console.log(`   - BMI cache hits: ${bmiCache.length}`);
+  console.log(`   - MLC cache hits: ${mlcCache.length}`);
   console.log(`   - Known failures (enrichment cache): ${failureCache.length}`);
   console.log(`   - New API fetches: ${uncachedTracks.length}`);
   console.log(`   - Failed: ${failCount}`);

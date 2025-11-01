@@ -6,10 +6,13 @@
  * - Build Spotify URL from spotify_artist_id
  * - Extract handles FROM URLs when missing
  * - Better Genius matching
+ * - ROBUST MusicBrainz matching: checks primary name, aliases, AND Spotify ID
+ *   (handles edge cases like "Ye" vs "Kanye West")
  * - Handle vs URL distinction:
  *   - handles: from Genius (just username)
  *   - urls: from MusicBrainz (full URL)
  *   - Extract/build one from the other when needed
+ * - ISNI Priority: Quansic > MusicBrainz > Genius
  */
 
 import { query } from '../../src/db/neon';
@@ -224,11 +227,41 @@ async function main() {
     }
 
     // 3. MUSICBRAINZ - URLs and aliases
-    const mb = await query(`
+    // ROBUST: Check both primary name AND aliases (handles cases like "Ye" vs "Kanye West")
+    let mb = await query(`
       SELECT * FROM musicbrainz_artists
       WHERE TRIM(LOWER(name)) = TRIM(LOWER($1))
       LIMIT 1
     `, [artist_name]);
+
+    // If not found by primary name, check aliases
+    if (mb.length === 0) {
+      mb = await query(`
+        SELECT * FROM musicbrainz_artists
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_array_elements(aliases) AS alias
+          WHERE TRIM(LOWER(alias->>'name')) = TRIM(LOWER($1))
+        )
+        LIMIT 1
+      `, [artist_name]);
+
+      if (mb.length > 0) {
+        console.log(`   🔍 MusicBrainz: Found by alias match (primary name: "${mb[0].name}")`);
+      }
+    }
+
+    // Final fallback: Try Spotify ID from MusicBrainz URLs (extract from spotify URLs in all_urls)
+    if (mb.length === 0) {
+      mb = await query(`
+        SELECT * FROM musicbrainz_artists
+        WHERE all_urls::text ILIKE $1
+        LIMIT 1
+      `, [`%${spotify_artist_id}%`]);
+
+      if (mb.length > 0) {
+        console.log(`   🔍 MusicBrainz: Found by Spotify ID in URLs (name: "${mb[0].name}")`);
+      }
+    }
 
     if (mb[0]) {
       const m = mb[0];
@@ -238,6 +271,8 @@ async function main() {
       agg.birthDate = m.birth_date;
       agg.country = m.country;
 
+      // ISNI Priority: MusicBrainz > Genius (Genius doesn't have ISNI)
+      // Note: Quansic will override this later if it has ISNI (most authoritative)
       if (m.isnis?.length) {
         agg.isni = m.isnis[0];
         agg.isniAll = m.isnis.join(', ');
@@ -441,6 +476,9 @@ async function main() {
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
+        mbid = EXCLUDED.mbid, artist_type = EXCLUDED.artist_type,
+        gender = EXCLUDED.gender, birth_date = EXCLUDED.birth_date, country = EXCLUDED.country,
+        aliases = EXCLUDED.aliases, genres = EXCLUDED.genres,
         genius_artist_id = EXCLUDED.genius_artist_id,
         instagram_handle = EXCLUDED.instagram_handle, twitter_handle = EXCLUDED.twitter_handle,
         facebook_handle = EXCLUDED.facebook_handle, tiktok_handle = EXCLUDED.tiktok_handle,

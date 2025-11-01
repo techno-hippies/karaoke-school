@@ -1,8 +1,6 @@
 /**
  * Populate grc20_works table from multiple sources
  *
- * **WORK-LEVEL DATA ONLY** - Does NOT create recordings
- *
  * Data sources (in priority order):
  * 1. Quansic: ISWC codes, comprehensive metadata
  * 2. MusicBrainz: Authoritative recordings, ISRCs, work relationships
@@ -15,11 +13,9 @@
  * - Use ISWC when available (industry standard)
  * - ISWC priority: Quansic > MusicBrainz > MLC
  * - Flatten JSONB arrays to comma-separated TEXT
- * - Recordings are created separately by populate-grc20-recordings.ts
  */
 
 import { query } from '../../src/db/neon';
-import { withTransaction, validateDependencies } from '../../src/db/transaction';
 
 /**
  * Normalize ISWC to unformatted: T + 10 digits
@@ -117,9 +113,6 @@ interface WorkAggregation {
 
 async function main() {
   console.log('🎵 Populating grc20_works table...\n');
-
-  // Validate dependencies
-  await validateDependencies({ artists: true });
 
   // Step 1: Get all ACTUALLY processed tracks (ignore buggy song_pipeline.status)
   console.log('📊 Finding processed tracks...');
@@ -513,93 +506,85 @@ async function main() {
   console.log(`\n📝 Inserting ${aggregations.length} works into grc20_works...\n`);
 
   // Step 3: Insert into grc20_works (WORK-LEVEL DATA ONLY)
-  // Recordings will be created by populate-grc20-recordings.ts
-  // Use ISWC-based deduplication (preferred) or genius_song_id fallback
   for (const agg of aggregations) {
-    // Check if work already exists (by ISWC or genius_song_id)
-    let existingWork = null;
+    const workId = await query(`
+      INSERT INTO grc20_works (
+        title, alternate_titles,
+        iswc, iswc_source, mbid,
+        genius_song_id,
+        primary_artist_id, primary_artist_name,
+        featured_artists, composers, producers, lyricists,
+        language, work_type, genres,
+        musicbrainz_url
+      ) VALUES (
+        $1, $2,
+        $3, $4, $5,
+        $6,
+        $7, $8,
+        $9, $10, $11, $12,
+        $13, $14, $15,
+        $16
+      )
+      ON CONFLICT (genius_song_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        iswc = EXCLUDED.iswc,
+        iswc_source = EXCLUDED.iswc_source,
+        mbid = EXCLUDED.mbid,
+        musicbrainz_url = EXCLUDED.musicbrainz_url,
+        work_type = EXCLUDED.work_type,
+        genres = EXCLUDED.genres,
+        updated_at = NOW()
+      RETURNING id
+    `, [
+      agg.title, agg.alternateTitles,
+      agg.iswc, agg.iswcSource, agg.mbid,
+      agg.geniusSongId,
+      agg.primaryArtistId, agg.primaryArtistName,
+      agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
+      agg.language, agg.workType, agg.genres,
+      agg.musicbrainzUrl
+    ]);
 
-    if (agg.iswc) {
-      const iswcCheck = await query(`
-        SELECT id FROM grc20_works WHERE iswc = $1
-      `, [agg.iswc]);
-      existingWork = iswcCheck.length > 0 ? iswcCheck[0] : null;
-    }
+    // Step 4: Insert recording data into grc20_work_recordings (one row per work with all platforms)
+    if (workId.length > 0) {
+      const work_id = workId[0].id;
 
-    if (!existingWork && agg.geniusSongId) {
-      const geniusCheck = await query(`
-        SELECT id FROM grc20_works WHERE genius_song_id = $1
-      `, [agg.geniusSongId]);
-      existingWork = geniusCheck.length > 0 ? geniusCheck[0] : null;
-    }
-
-    if (existingWork) {
-      // Update existing work
       await query(`
-        UPDATE grc20_works SET
-          title = $1,
-          alternate_titles = $2,
-          iswc = $3,
-          iswc_source = $4,
-          mbid = $5,
-          genius_song_id = $6,
-          primary_artist_id = $7,
-          primary_artist_name = $8,
-          featured_artists = $9,
-          composers = $10,
-          producers = $11,
-          lyricists = $12,
-          language = $13,
-          work_type = $14,
-          genres = $15,
-          musicbrainz_url = $16,
-          updated_at = NOW()
-        WHERE id = $17
-      `, [
-        agg.title, agg.alternateTitles,
-        agg.iswc, agg.iswcSource, agg.mbid,
-        agg.geniusSongId,
-        agg.primaryArtistId, agg.primaryArtistName,
-        agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
-        agg.language, agg.workType, agg.genres,
-        agg.musicbrainzUrl,
-        existingWork.id
-      ]);
-      console.log(`   ✅ Work updated: ${agg.title} (ID: ${existingWork.id})`);
-    } else {
-      // Insert new work
-      await query(`
-        INSERT INTO grc20_works (
-          title, alternate_titles,
-          iswc, iswc_source, mbid,
-          genius_song_id,
-          primary_artist_id, primary_artist_name,
-          featured_artists, composers, producers, lyricists,
-          language, work_type, genres,
-          musicbrainz_url
+        INSERT INTO grc20_work_recordings (
+          work_id,
+          spotify_track_id, spotify_url, spotify_release_date, spotify_duration_ms,
+          apple_music_url,
+          musicbrainz_first_release_date, musicbrainz_is_video,
+          grove_image_url, grove_thumbnail_url
         ) VALUES (
-          $1, $2,
-          $3, $4, $5,
+          $1,
+          $2, $3, $4, $5,
           $6,
           $7, $8,
-          $9, $10, $11, $12,
-          $13, $14, $15,
-          $16
+          $9, $10
         )
+        ON CONFLICT (work_id) DO UPDATE SET
+          spotify_track_id = EXCLUDED.spotify_track_id,
+          spotify_url = EXCLUDED.spotify_url,
+          spotify_release_date = EXCLUDED.spotify_release_date,
+          spotify_duration_ms = EXCLUDED.spotify_duration_ms,
+          apple_music_url = EXCLUDED.apple_music_url,
+          musicbrainz_first_release_date = EXCLUDED.musicbrainz_first_release_date,
+          musicbrainz_is_video = EXCLUDED.musicbrainz_is_video,
+          grove_image_url = EXCLUDED.grove_image_url,
+          grove_thumbnail_url = EXCLUDED.grove_thumbnail_url,
+          updated_at = NOW()
       `, [
-        agg.title, agg.alternateTitles,
-        agg.iswc, agg.iswcSource, agg.mbid,
-        agg.geniusSongId,
-        agg.primaryArtistId, agg.primaryArtistName,
-        agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
-        agg.language, agg.workType, agg.genres,
-        agg.musicbrainzUrl
+        work_id,
+        agg.spotifyTrackId, agg.spotifyUrl, agg.releaseDate, agg.durationMs,
+        agg.appleMusicUrl,
+        agg.musicbrainzFirstReleaseDate, agg.musicbrainzIsVideo,
+        agg.groveImageUrl, agg.groveThumbnailUrl
       ]);
-      console.log(`   ✅ Work inserted: ${agg.title}`);
     }
-  }
 
-  console.log('\n📝 Next step: Run populate-grc20-recordings.ts to create recordings\n');
+    console.log(`   ✅ Inserted: ${agg.title}`);
+  }
 
   // Step 4: Summary
   const summary = await query(`

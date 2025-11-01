@@ -101,6 +101,36 @@ export function insertBMIWorkSQL(bmiData: {
 }
 
 /**
+ * Generate SQL to insert MLC work data into cache
+ */
+export function insertMLCWorkSQL(mlcData: {
+  isrc: string;
+  mlc_song_code: string;
+  iswc: string | null;
+  title: string;
+  writers?: any;
+  publishers?: any;
+  total_publisher_share?: number;
+  raw_data?: any;
+}): string {
+  return `
+    INSERT INTO mlc_works (isrc, mlc_song_code, iswc, title, writers, publishers, total_publisher_share, raw_data, cached_at)
+    VALUES (
+      '${mlcData.isrc}',
+      '${mlcData.mlc_song_code}',
+      ${mlcData.iswc ? `'${mlcData.iswc}'` : 'NULL'},
+      '${mlcData.title.replace(/'/g, "''")}',
+      ${mlcData.writers ? `'${JSON.stringify(mlcData.writers).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${mlcData.publishers ? `'${JSON.stringify(mlcData.publishers).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      ${mlcData.total_publisher_share ? mlcData.total_publisher_share : 'NULL'},
+      ${mlcData.raw_data ? `'${JSON.stringify(mlcData.raw_data).replace(/'/g, "''")}'::jsonb` : 'NULL'},
+      NOW()
+    )
+    ON CONFLICT (isrc, mlc_song_code) DO NOTHING
+  `.trim();
+}
+
+/**
  * Generate SQL to mark an ISRC as not found in both Quansic and BMI
  */
 export function insertEnrichmentCacheFailureSQL(

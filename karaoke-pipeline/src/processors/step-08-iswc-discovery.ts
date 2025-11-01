@@ -5,7 +5,8 @@
  * 1. Cache lookup (quansic_cache, quansic_recordings, musicbrainz, bmi_works, failure cache)
  * 2. Quansic API call (if not cached)
  * 3. MusicBrainz fallback (if Quansic fails)
- * 4. BMI fallback (if still no ISWC)
+ * 4. BMI fallback (if MusicBrainz fails)
+ * 5. MLC fallback (if BMI fails)
  *
  * Fault-tolerant logic:
  * - ISWC found → status = 'iswc_found', has_iswc = TRUE
@@ -17,6 +18,7 @@
 import { query, transaction, close, sqlValue } from '../db/neon';
 import type { Env } from '../types';
 import { searchBMI } from '../services/bmi';
+import { searchMLC } from '../services/mlc';
 import { insertBMIWorkSQL, insertEnrichmentCacheFailureSQL } from '../db/quansic';
 
 interface Track {
@@ -201,6 +203,52 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
           continue;
         } else {
           console.log(`   ⚠️ ${track.title} - BMI also had no ISWC`);
+        }
+      }
+
+      // Step 3.5: Try MLC fallback if BMI had no ISWC
+      if (!iswc && track.isrc && track.artist_name) {
+        console.log(`   🔍 ${track.title} - trying MLC fallback...`);
+
+        const mlcResult = await searchMLC(track.isrc, track.title, track.artist_name);
+
+        if (mlcResult?.iswc) {
+          iswc = mlcResult.iswc;
+          console.log(`   ✅ ${track.title} - MLC found ISWC: ${iswc}`);
+
+          // Cache MLC result in quansic_cache for consistency
+          sqlStatements.push(`
+            INSERT INTO quansic_cache (isrc, iswc, raw_data, fetched_at)
+            VALUES (${sqlValue(track.isrc)}, ${sqlValue(iswc)}, ${sqlValue(JSON.stringify(mlcResult))}, NOW())
+            ON CONFLICT (isrc) DO UPDATE SET
+              iswc = EXCLUDED.iswc,
+              raw_data = EXCLUDED.raw_data,
+              fetched_at = NOW()
+          `);
+
+          // Update pipeline with ISWC from MLC
+          sqlStatements.push(`
+            UPDATE song_pipeline
+            SET
+              status = 'iswc_found',
+              has_iswc = TRUE,
+              iswc = ${sqlValue(iswc)},
+              last_attempted_at = NOW(),
+              updated_at = NOW()
+            WHERE id = ${track.id}
+          `);
+
+          // Log MLC success
+          sqlStatements.push(`
+            INSERT INTO processing_log (spotify_track_id, stage, action, source, message)
+            VALUES (${sqlValue(track.spotify_track_id)}, 'iswc_lookup', 'success', 'mlc_fallback', ${sqlValue(`Found ISWC via MLC: ${iswc}`)})
+          `);
+
+          passed++;
+          await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit
+          continue;
+        } else {
+          console.log(`   ⚠️ ${track.title} - MLC also had no ISWC`);
         }
       }
 
