@@ -74,18 +74,23 @@ export async function processFalEnhancement(env: Env, limit: number = 10): Promi
           track.duration_ms >= 190000
         ) {
           try {
-            const segmentDuration = track.optimal_segment_end_ms - track.optimal_segment_start_ms;
-            console.log(`   ✂️  Cropping: ${track.optimal_segment_start_ms}ms-${track.optimal_segment_end_ms}ms (${(segmentDuration / 1000).toFixed(1)}s)`);
+            let segmentStart = track.optimal_segment_start_ms;
+            let segmentEnd = track.optimal_segment_end_ms;
+            let segmentDuration = segmentEnd - segmentStart;
 
-            // Skip if segment is >190s - fal.ai can't handle it
+            console.log(`   ✂️  Cropping: ${segmentStart}ms-${segmentEnd}ms (${(segmentDuration / 1000).toFixed(1)}s)`);
+
+            // If segment exceeds 190s, trim it down to 190s max (fal.ai limit)
             if (segmentDuration > 190000) {
-              console.warn(`   ⚠️  Segment is ${(segmentDuration / 1000).toFixed(1)}s (>190s), skipping fal.ai enhancement`);
-              continue;
+              const originalDuration = segmentDuration;
+              segmentEnd = segmentStart + 190000;
+              segmentDuration = 190000;
+              console.log(`   ⚠️  Segment was ${(originalDuration / 1000).toFixed(1)}s, trimming to exactly 190s for fal.ai`);
             }
 
             const cropResult = await ffmpegService.cropFromUrl(track.instrumental_grove_url, {
-              startMs: track.optimal_segment_start_ms,
-              endMs: track.optimal_segment_end_ms,
+              startMs: segmentStart,
+              endMs: segmentEnd,
               bitrate: 192
             });
 
