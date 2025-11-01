@@ -22,7 +22,6 @@ import { query, close } from '../db/neon';
 
 const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || process.env.SLSK_SERVICE_URL || process.env.FREYR_SERVICE_URL || 'http://localhost:3001';
 const ACOUSTID_API_KEY = process.env.ACOUSTID_API_KEY;
-const DATABASE_URL = process.env.DATABASE_URL;
 const CHAIN_ID = 37111; // Lens Network
 
 interface Track {
@@ -53,7 +52,6 @@ async function submitToSlsk(track: Track): Promise<void> {
         expected_title: track.title,
         expected_artist: artistName,
         acoustid_api_key: ACOUSTID_API_KEY,
-        neon_database_url: DATABASE_URL,
         chain_id: CHAIN_ID,
       }),
     });
@@ -79,12 +77,6 @@ async function main() {
   console.log(`📊 Batch size: ${batchSize}`);
   console.log(`🔗 audio-download-service: ${AUDIO_DOWNLOAD_SERVICE_URL}`);
   console.log('');
-
-  // Validate env vars
-  if (!DATABASE_URL) {
-    console.error('❌ DATABASE_URL environment variable required');
-    process.exit(1);
-  }
 
   // Find tracks that need audio download
   console.log('⏳ Finding tracks ready for audio download...');

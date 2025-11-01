@@ -19,12 +19,18 @@ const execAsync = promisify(exec);
 const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR || "/tmp/slsk-downloads";
 const CHAIN_ID = 37111; // Lens Network
 
-// Soulseek credentials (required)
+// Required environment variables
 const SOULSEEK_ACCOUNT = process.env.SOULSEEK_ACCOUNT;
 const SOULSEEK_PASSWORD = process.env.SOULSEEK_PASSWORD;
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!SOULSEEK_ACCOUNT || !SOULSEEK_PASSWORD) {
   console.error("❌ SOULSEEK_ACCOUNT and SOULSEEK_PASSWORD environment variables required");
+  process.exit(1);
+}
+
+if (!DATABASE_URL) {
+  console.error("❌ DATABASE_URL environment variable required");
   process.exit(1);
 }
 
@@ -47,7 +53,6 @@ interface DownloadRequest {
   expected_title: string;
   expected_artist: string;
   acoustid_api_key?: string;
-  neon_database_url: string;
   chain_id?: number;
 }
 
@@ -485,7 +490,6 @@ serve({
           expected_title,
           expected_artist,
           acoustid_api_key,
-          neon_database_url,
           chain_id = CHAIN_ID
         } = body;
 
@@ -493,13 +497,6 @@ serve({
           return Response.json({
             error: "Missing required fields: spotify_track_id, expected_title, expected_artist"
           }, { status: 400, headers });
-        }
-
-        // Use env var as fallback for Akash deployments
-        const dbUrl = neon_database_url || process.env.DATABASE_URL;
-
-        if (!dbUrl) {
-          return Response.json({ error: "neon_database_url or DATABASE_URL env var required" }, { status: 400, headers });
         }
 
         // Prevent duplicate concurrent downloads
@@ -625,7 +622,7 @@ serve({
 
             // Step 5: Update database atomically
             console.log(`[5/5] Updating database...`);
-            const sql = neon(dbUrl);
+            const sql = neon(DATABASE_URL);
 
             await sql`BEGIN`;
 
@@ -714,7 +711,7 @@ serve({
 
             // Track failure in pipeline for retry logic
             try {
-              const sql = neon(dbUrl);
+              const sql = neon(DATABASE_URL);
 
               // Get current retry count
               const result = await sql`
