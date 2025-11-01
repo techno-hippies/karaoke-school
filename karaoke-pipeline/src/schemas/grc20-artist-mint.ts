@@ -40,10 +40,8 @@ export const GRC20ArtistMintSchema = z.object({
   spotify_url: z.string().url().nullable().optional(),
   wikidata_url: z.string().url().nullable().optional(),
 
-  // Minting State (must be unminted)
-  grc20_entity_id: z.null(), // Must be null (not yet minted)
-  minted_at: z.null(), // Must be null
-  needs_update: z.boolean().default(false),
+  // NOTE: Minting state is tracked in grc20_artist_mints table (separate source table)
+  // No minting state columns in grc20_artists (aggregation table)
 });
 
 /**
@@ -56,7 +54,7 @@ export const GRC20ArtistReadinessSchema = z.object({
   pkp_address: z.string().min(1),
   lens_handle: z.string().min(1),
   image_url: z.string().url().startsWith('https://api.grove.storage/'),
-  grc20_entity_id: z.null(),
+  // grc20_entity_id checked via grc20_artist_mints table (not in grc20_artists)
 });
 
 export type GRC20ArtistMint = z.infer<typeof GRC20ArtistMintSchema>;
@@ -132,13 +130,11 @@ export const GET_ARTISTS_READY_TO_MINT_QUERY = `
     ga.lens_handle,
     ga.lens_account_address,
     ga.lens_metadata_uri,
-    ga.grc20_entity_id,
-    ga.minted_at,
-    ga.needs_update,
     ga.created_at,
     ga.updated_at
   FROM grc20_artists ga
-  WHERE ga.grc20_entity_id IS NULL  -- Not yet minted
+  LEFT JOIN grc20_artist_mints gam ON ga.spotify_artist_id = gam.spotify_artist_id
+  WHERE gam.grc20_entity_id IS NULL  -- Not yet minted
     AND ga.image_url IS NOT NULL     -- Has Grove image (REQUIRED)
     AND ga.pkp_address IS NOT NULL   -- Has PKP (REQUIRED)
     AND ga.lens_handle IS NOT NULL   -- Has Lens account (REQUIRED)
@@ -152,16 +148,17 @@ export const GET_ARTISTS_READY_TO_MINT_QUERY = `
 export const GET_ARTIST_MINT_STATS_QUERY = `
   SELECT
     COUNT(*) as total,
-    COUNT(grc20_entity_id) as minted,
+    COUNT(gam.grc20_entity_id) as minted,
     COUNT(*) FILTER (
-      WHERE grc20_entity_id IS NULL
-        AND image_url IS NOT NULL
-        AND pkp_address IS NOT NULL
-        AND lens_handle IS NOT NULL
+      WHERE gam.grc20_entity_id IS NULL
+        AND ga.image_url IS NOT NULL
+        AND ga.pkp_address IS NOT NULL
+        AND ga.lens_handle IS NOT NULL
     ) as ready_to_mint,
-    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND image_url IS NULL) as blocked_missing_image,
-    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND pkp_address IS NULL) as blocked_missing_pkp,
-    COUNT(*) FILTER (WHERE grc20_entity_id IS NULL AND lens_handle IS NULL) as blocked_missing_lens,
-    COUNT(*) FILTER (WHERE needs_update = TRUE) as needs_remint
-  FROM grc20_artists
+    COUNT(*) FILTER (WHERE gam.grc20_entity_id IS NULL AND ga.image_url IS NULL) as blocked_missing_image,
+    COUNT(*) FILTER (WHERE gam.grc20_entity_id IS NULL AND ga.pkp_address IS NULL) as blocked_missing_pkp,
+    COUNT(*) FILTER (WHERE gam.grc20_entity_id IS NULL AND ga.lens_handle IS NULL) as blocked_missing_lens,
+    COUNT(*) FILTER (WHERE gam.needs_update = TRUE) as needs_remint
+  FROM grc20_artists ga
+  LEFT JOIN grc20_artist_mints gam ON ga.spotify_artist_id = gam.spotify_artist_id
 `;
