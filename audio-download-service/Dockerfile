@@ -20,8 +20,11 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY scripts/ ./scripts/
 
-# Install dependencies (postinstall patch applied automatically)
+# Install dependencies
 RUN bun install
+
+# Explicitly apply Soulseek patch for Bun compatibility
+RUN node scripts/postinstall.cjs
 
 # Copy application code
 COPY . .
