@@ -91,12 +91,8 @@ async function submitDemucsJob(
 export async function processSeparateAudio(env: Env, limit: number = 50): Promise<void> {
   console.log(`\n[Step 8] Audio Separation via Demucs (limit: ${limit})`);
 
-  // Get webhook domain from env or fallback to hardcoded default
-  const PIPELINE_WEBHOOK_DOMAIN = process.env.PIPELINE_WEBHOOK_DOMAIN || 'https://api.workers.dev';
-
   // Initialize Demucs service
   const demucsService = createDemucsService();
-  const webhookUrl = `${PIPELINE_WEBHOOK_DOMAIN}/webhooks/demucs-complete`;
 
   try {
     // Find tracks ready for separation
@@ -126,36 +122,67 @@ export async function processSeparateAudio(env: Env, limit: number = 50): Promis
 
     console.log(`Found ${tracksToProcess.length} tracks needing separation`);
 
-    let submittedCount = 0;
-    let skippedCount = 0;
+    let successCount = 0;
+    let failedCount = 0;
 
     for (const track of tracksToProcess) {
+      const trackTitle = Array.isArray(track.artists)
+        ? `${track.title} - ${
+            typeof track.artists[0] === 'object'
+              ? (track.artists[0] as { name: string }).name
+              : track.artists[0]
+          }`
+        : track.title;
+
       try {
         if (!track.grove_url) {
-          console.log(`  ⚠️  ${track.spotify_track_id}: No audio URL - skipping`);
-          skippedCount++;
+          console.log(`  ⚠️  ${trackTitle}: No audio URL - skipping`);
+          failedCount++;
           continue;
         }
 
-        const result = await demucsService.separateAsync(
+        console.log(`  🎵 ${trackTitle}`);
+
+        // Use polling method instead of async webhook
+        const result = await demucsService.separateWithRunPod(
           track.spotify_track_id,
-          track.grove_url,
-          webhookUrl
+          track.grove_url
         );
 
-        console.log(`  ✅ ${track.spotify_track_id}: Submitted (job: ${result.jobId})`);
-        // Note: Webhook will update song_audio and song_pipeline when Demucs completes
-        submittedCount++;
+        // Update song_audio with the instrumental stems immediately
+        await query(`
+          UPDATE song_audio
+          SET
+            instrumental_grove_url = $1,
+            instrumental_grove_cid = $2,
+            vocals_grove_url = $3,
+            vocals_grove_cid = $4,
+            updated_at = NOW()
+          WHERE spotify_track_id = $5
+        `, [
+          result.instrumental_grove_url,
+          result.instrumental_grove_cid,
+          result.vocals_grove_url,
+          result.vocals_grove_cid,
+          track.spotify_track_id
+        ]);
 
-        // Small delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Update song_pipeline status to stems_separated
+        await query(`
+          UPDATE song_pipeline
+          SET status = 'stems_separated', updated_at = NOW()
+          WHERE spotify_track_id = $1
+        `, [track.spotify_track_id]);
+
+        console.log(`     ✓ Separated and updated (instrumental: ${result.instrumental_grove_cid.substring(0, 8)}...)`);
+        successCount++;
       } catch (error: any) {
-        console.log(`  ❌ ${track.spotify_track_id}: ${error.message}`);
-        skippedCount++;
+        console.log(`     ❌ Separation failed: ${error.message}`);
+        failedCount++;
       }
     }
 
-    console.log(`\n✅ Separation jobs submitted: ${submittedCount} (skipped: ${skippedCount})`);
+    console.log(`\n✅ Step 8 Complete: ${successCount} separated, ${failedCount} failed`);
   } catch (error: any) {
     throw new Error(`Step 8 failed: ${error.message}`);
   }
