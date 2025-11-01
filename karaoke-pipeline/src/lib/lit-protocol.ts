@@ -4,11 +4,11 @@
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
-import { nagaDev } from '@lit-protocol/networks';
+import { nagaTest } from '@lit-protocol/networks';
 import { createWalletClient, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-// Chronicle Yellowstone chain config
+// Chronicle Yellowstone chain config (Naga-test network)
 const chronicleChain = {
   id: 175188,
   name: 'Chronicle Yellowstone',
@@ -30,7 +30,7 @@ const chronicleChain = {
  */
 export async function initLitClient() {
   const litClient = await createLitClient({
-    network: nagaDev,
+    network: nagaTest,
   });
   return litClient;
 }

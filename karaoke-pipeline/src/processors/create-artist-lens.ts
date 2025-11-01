@@ -51,29 +51,25 @@ async function main() {
     mbid: string | null;
   }>(`
     SELECT
-      sa.spotify_artist_id,
-      sa.name,
+      ga.spotify_artist_id,
+      ga.name,
       ga.genius_artist_id,
       pkp.pkp_address,
       pkp.pkp_token_id,
-      COALESCE(mb.instagram_handle, ga.instagram_handle) as instagram_handle,
-      COALESCE(mb.twitter_handle, ga.twitter_handle) as twitter_handle,
+      ga.instagram_handle,
+      ga.twitter_handle,
       ga.tiktok_handle,
-      COALESCE(di.grove_url, sa.image_url, ga.image_url) as image_url,
-      mb.isni_list[1] as isni,
-      mb.mbid
-    FROM spotify_artists sa
-    INNER JOIN pkp_accounts pkp ON sa.spotify_artist_id = pkp.spotify_artist_id
+      COALESCE(ga.image_url) as image_url,
+      ga.isni,
+      ga.mbid
+    FROM grc20_artists ga
+    INNER JOIN pkp_accounts pkp ON ga.spotify_artist_id = pkp.spotify_artist_id
       AND pkp.account_type = 'artist'
-    LEFT JOIN lens_accounts lens ON sa.spotify_artist_id = lens.spotify_artist_id
+    LEFT JOIN lens_accounts lens ON ga.spotify_artist_id = lens.spotify_artist_id
       AND lens.account_type = 'artist'
-    LEFT JOIN genius_artists ga ON sa.spotify_artist_id = ga.spotify_artist_id
-    LEFT JOIN musicbrainz_artists mb ON sa.spotify_artist_id = mb.spotify_artist_id
-    LEFT JOIN derivative_images di ON sa.spotify_artist_id = di.spotify_artist_id
-      AND di.derivative_type = 'artist_profile'
     WHERE lens.lens_handle IS NULL  -- No Lens account yet
       AND pkp.pkp_address IS NOT NULL  -- Has PKP
-    ORDER BY sa.name ASC
+    ORDER BY ga.name ASC
     LIMIT $1
   `, [limit]);
 

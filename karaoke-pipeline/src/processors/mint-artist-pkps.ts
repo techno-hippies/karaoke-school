@@ -41,16 +41,15 @@ async function main() {
     genius_artist_id: number | null;
   }>(`
     SELECT
-      sa.spotify_artist_id,
-      sa.name,
+      ga.spotify_artist_id,
+      ga.name,
       ga.genius_artist_id
-    FROM spotify_artists sa
-    LEFT JOIN genius_artists ga ON sa.spotify_artist_id = ga.spotify_artist_id
-    LEFT JOIN pkp_accounts pkp ON sa.spotify_artist_id = pkp.spotify_artist_id
+    FROM grc20_artists ga
+    LEFT JOIN pkp_accounts pkp ON ga.spotify_artist_id = pkp.spotify_artist_id
       AND pkp.account_type = 'artist'
-    WHERE sa.spotify_artist_id IS NOT NULL
+    WHERE ga.spotify_artist_id IS NOT NULL
       AND pkp.pkp_address IS NULL  -- No PKP yet
-    ORDER BY sa.name ASC
+    ORDER BY ga.name ASC
     LIMIT $1
   `, [limit]);
 
