@@ -756,7 +756,16 @@ serve({
         })();
 
         inflightDownloads.set(spotify_track_id, workflowPromise);
-        return await workflowPromise;
+
+        // Fire-and-forget: Start workflow but return immediately
+        workflowPromise.catch(err => {
+          console.error(`❌ Background workflow error for ${spotify_track_id}:`, err.message);
+        });
+
+        return Response.json({
+          status: "processing",
+          workflow_id: spotify_track_id
+        }, { headers });
       }
 
       return Response.json({ error: "Not found" }, { status: 404, headers });
