@@ -81,21 +81,14 @@ async function main() {
       const handle = creator.tiktok_handle;
       console.log(`   🏷️  Handle: @${handle}`);
 
-      // 3. Build metadata attributes
+      // 3. Build minimal metadata attributes
+      // Strategy: Lens metadata just references basic creator info
+      // TikTok creators don't have GRC-20 entities (only artists do)
       const attributes = [
         { type: 'String', key: 'pkpAddress', value: creator.pkp_address },
+        { type: 'String', key: 'accountType', value: 'tiktok-creator' },
         { type: 'String', key: 'tiktokHandle', value: creator.tiktok_handle },
-        { type: 'String', key: 'tiktokSecUid', value: creator.sec_uid },
-        { type: 'String', key: 'creatorType', value: 'tiktok-creator' },
       ];
-
-      if (creator.follower_count) {
-        attributes.push({
-          type: 'Number',
-          key: 'followerCount',
-          value: creator.follower_count.toString()
-        });
-      }
 
       // 4. Create Lens account
       console.log('   ⏳ Creating Lens account...');

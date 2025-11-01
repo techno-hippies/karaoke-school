@@ -304,7 +304,9 @@ COUNT(*) FILTER (WHERE lens_handle IS NULL) as blocked_missing_lens
 
 ## Grove Metadata Structure
 
-### Artist Lens Metadata (`lens://...`)
+### Artist Lens Metadata (`lens://...`) - MINIMAL APPROACH
+
+**Philosophy**: Lens metadata only stores the **reference to GRC-20**, not the identifiers themselves. This maintains a single source of truth and avoids data duplication.
 
 ```json
 {
@@ -313,18 +315,25 @@ COUNT(*) FILTER (WHERE lens_handle IS NULL) as blocked_missing_lens
   "picture": "https://api.grove.storage/QmXYZ...",
   "attributes": [
     { "type": "String", "key": "pkpAddress", "value": "0x1234..." },
-    { "type": "String", "key": "spotifyArtistId", "value": "66CXWjxzNUsdJxJ2JdwvnR" },
-    { "type": "String", "key": "artistType", "value": "music-artist" },
-    { "type": "Number", "key": "geniusArtistId", "value": "1234" },
-    { "type": "String", "key": "isni", "value": "0000000372879707" },
-    { "type": "String", "key": "musicbrainzId", "value": "..." },
-    { "type": "String", "key": "instagramHandle", "value": "arianagrande" },
-    { "type": "String", "key": "twitterHandle", "value": "ArianaGrande" }
+    { "type": "String", "key": "accountType", "value": "music-artist" },
+    { "type": "String", "key": "grc20EntityId", "value": "f1d7f4c7-ca47-4ba3-9875-a91720459ab4" }
   ]
 }
 ```
 
-### TikTok Creator Lens Metadata
+**How to get full artist data:**
+1. Query Lens account → get `grc20EntityId` from attributes
+2. Query GRC-20 Graph → get ALL identifiers (ISNI, ISRC, ISWC, Spotify, MusicBrainz, social handles, etc.)
+
+**Benefits:**
+- **~85% smaller metadata files** (3 attributes vs 8+)
+- **Single source of truth** (GRC-20 has all identifiers)
+- **No sync issues** (ISNI changes? Update GRC-20 only)
+- **Standards-based** (GRC-20 is the industry metadata layer)
+
+### TikTok Creator Lens Metadata - MINIMAL APPROACH
+
+**Note**: TikTok creators don't have GRC-20 entities (only artists do), so metadata is even simpler.
 
 ```json
 {
@@ -332,13 +341,16 @@ COUNT(*) FILTER (WHERE lens_handle IS NULL) as blocked_missing_lens
   "bio": "TikTok creator @gioscottii on Karaoke School",
   "attributes": [
     { "type": "String", "key": "pkpAddress", "value": "0x5678..." },
-    { "type": "String", "key": "tiktokHandle", "value": "gioscottii" },
-    { "type": "String", "key": "tiktokSecUid", "value": "MS4wLjABAAAA..." },
-    { "type": "String", "key": "creatorType", "value": "tiktok-creator" },
-    { "type": "Number", "key": "followerCount", "value": "123456" }
+    { "type": "String", "key": "accountType", "value": "tiktok-creator" },
+    { "type": "String", "key": "tiktokHandle", "value": "gioscottii" }
   ]
 }
 ```
+
+**Benefits:**
+- **Only 3 attributes** (vs 5+ before)
+- **No redundant data** (follower count, sec_uid stored in Neon DB only)
+- **Clean creator identity** for Story Protocol revenue splits
 
 ## Benefits
 

@@ -40,28 +40,18 @@ async function main() {
   const artists = await query<{
     spotify_artist_id: string;
     name: string;
-    genius_artist_id: number | null;
+    grc20_entity_id: string | null;
     pkp_address: string;
     pkp_token_id: string;
-    instagram_handle: string | null;
-    twitter_handle: string | null;
-    tiktok_handle: string | null;
     image_url: string | null;
-    isni: string | null;
-    mbid: string | null;
   }>(`
     SELECT
       ga.spotify_artist_id,
       ga.name,
-      ga.genius_artist_id,
+      ga.grc20_entity_id,
       pkp.pkp_address,
       pkp.pkp_token_id,
-      ga.instagram_handle,
-      ga.twitter_handle,
-      ga.tiktok_handle,
-      COALESCE(ga.image_url) as image_url,
-      ga.isni,
-      ga.mbid
+      ga.image_url
     FROM grc20_artists ga
     INNER JOIN pkp_accounts pkp ON ga.spotify_artist_id = pkp.spotify_artist_id
       AND pkp.account_type = 'artist'
@@ -91,30 +81,24 @@ async function main() {
       const handle = sanitizeHandle(artist.name);
       console.log(`   🏷️  Handle: @${handle}`);
 
-      // 3. Build metadata attributes
+      // 3. Build minimal metadata attributes
+      // Strategy: Lens metadata just references GRC-20 for all identifiers
+      // This maintains single source of truth and avoids data duplication
       const attributes = [
         { type: 'String', key: 'pkpAddress', value: artist.pkp_address },
-        { type: 'String', key: 'spotifyArtistId', value: artist.spotify_artist_id },
-        { type: 'String', key: 'artistType', value: 'music-artist' },
+        { type: 'String', key: 'accountType', value: 'music-artist' },
       ];
 
-      if (artist.genius_artist_id) {
-        attributes.push({ type: 'Number', key: 'geniusArtistId', value: artist.genius_artist_id.toString() });
-      }
-      if (artist.isni) {
-        attributes.push({ type: 'String', key: 'isni', value: artist.isni });
-      }
-      if (artist.mbid) {
-        attributes.push({ type: 'String', key: 'musicbrainzId', value: artist.mbid });
-      }
-      if (artist.instagram_handle) {
-        attributes.push({ type: 'String', key: 'instagramHandle', value: artist.instagram_handle });
-      }
-      if (artist.twitter_handle) {
-        attributes.push({ type: 'String', key: 'twitterHandle', value: artist.twitter_handle });
-      }
-      if (artist.tiktok_handle) {
-        attributes.push({ type: 'String', key: 'tiktokHandle', value: artist.tiktok_handle });
+      // Add GRC-20 entity ID if artist is minted to GRC-20
+      if (artist.grc20_entity_id) {
+        attributes.push({
+          type: 'String',
+          key: 'grc20EntityId',
+          value: artist.grc20_entity_id,
+        });
+        console.log(`   🔗 GRC-20 Entity: ${artist.grc20_entity_id}`);
+      } else {
+        console.log(`   ⚠️  Not yet minted to GRC-20 - will add entity ID after minting`);
       }
 
       // 4. Create Lens account
