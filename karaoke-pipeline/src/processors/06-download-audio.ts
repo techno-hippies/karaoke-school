@@ -20,6 +20,7 @@
 
 import { query, close } from '../db/neon';
 
+const DATABASE_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || process.env.SLSK_SERVICE_URL || process.env.FREYR_SERVICE_URL || 'http://localhost:3001';
 const ACOUSTID_API_KEY = process.env.ACOUSTID_API_KEY;
 const CHAIN_ID = 37111; // Lens Network

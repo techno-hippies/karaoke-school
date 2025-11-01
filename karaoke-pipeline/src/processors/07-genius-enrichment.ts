@@ -66,7 +66,7 @@ async function main() {
       tp.status
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-    WHERE tp.status IN ('lyrics_ready', 'audio_downloaded', 'alignment_complete')
+    WHERE tp.status IN ('lyrics_ready', 'audio_downloaded', 'alignment_complete', 'translations_ready', 'stems_separated')
       AND tp.genius_song_id IS NULL
       AND tp.has_lyrics = TRUE
     ORDER BY tp.id
@@ -248,7 +248,7 @@ export async function processGeniusEnrichment(_env: any, limit: number = 20): Pr
       tp.status
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
-    WHERE tp.status IN ('lyrics_ready', 'audio_downloaded', 'alignment_complete')
+    WHERE tp.status IN ('lyrics_ready', 'audio_downloaded', 'alignment_complete', 'translations_ready', 'stems_separated')
       AND tp.genius_song_id IS NULL
       AND tp.has_lyrics = TRUE
     ORDER BY tp.id

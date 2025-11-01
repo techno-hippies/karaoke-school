@@ -35,7 +35,7 @@ import { processDownloadAudio } from './06-download-audio';
 import { processGeniusEnrichment } from './07-genius-enrichment';
 import { processForcedAlignment } from './06-forced-alignment';
 import { processLyricsTranslation } from './07-translate-lyrics';
-import { processSeparateAudio } from './08-separate-audio';
+import { processSeparateAudioRunPod } from './08-separate-audio-runpod';
 import { processGenerateImages } from './12-generate-images';
 
 interface PipelineStep {
@@ -176,7 +176,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
       description: 'Submit audio to Demucs for vocal/instrumental separation',
       status: 'translations_ready',
       nextStatus: 'stems_separated',
-      processor: processSeparateAudio,
+      processor: processSeparateAudioRunPod,
       enabled: true
     },
 
