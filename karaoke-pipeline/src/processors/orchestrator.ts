@@ -174,7 +174,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
       number: 8,
       name: 'Audio Separation',
       description: 'Submit audio to Demucs for vocal/instrumental separation',
-      status: 'audio_downloaded',
+      status: 'translations_ready',
       nextStatus: 'stems_separated',
       processor: processSeparateAudio,
       enabled: true

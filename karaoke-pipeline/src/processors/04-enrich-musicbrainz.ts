@@ -122,8 +122,8 @@ async function main() {
         console.log(`     ✅ Recording: ${recording.title}`);
         console.log(`        MBID: ${recording.id}`);
 
-        // Store recording
-        sqlStatements.push(upsertMBRecordingSQL(recording, track.isrc));
+        // Store recording with full API response for debugging
+        sqlStatements.push(upsertMBRecordingSQL(recording, track.isrc, track.spotify_track_id, recording));
 
         // Step 2: Fetch PERFORMER artists from recording credits
         const artistCredit = recording['artist-credit'];

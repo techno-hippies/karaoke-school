@@ -31,7 +31,9 @@ function normalizeDate(date: string | null): string | null {
  */
 export function upsertMBRecordingSQL(
   recording: MBRecording,
-  isrc?: string
+  isrc?: string,
+  spotifyTrackId?: string,
+  rawData?: any
 ): string {
   const workMbid = recording.relations?.find(
     rel => rel.type === 'performance' && rel.work
@@ -39,6 +41,7 @@ export function upsertMBRecordingSQL(
 
   const data = {
     recording_mbid: recording.id,
+    spotify_track_id: spotifyTrackId || null,
     title: recording.title,
     length_ms: recording.length || null,
     isrc: isrc || recording.isrcs?.[0] || null,
@@ -51,9 +54,11 @@ export function upsertMBRecordingSQL(
     tags: recording.tags || [],
     first_release_date: normalizeDate(recording['first-release-date'] || null),
     video: recording.video || false,
+    raw_data: rawData || null,
   };
 
   return buildUpsert('musicbrainz_recordings', data, 'recording_mbid', [
+    'spotify_track_id',
     'title',
     'length_ms',
     'isrc',
@@ -62,6 +67,7 @@ export function upsertMBRecordingSQL(
     'tags',
     'first_release_date',
     'video',
+    'raw_data',
   ]) + ' RETURNING recording_mbid, work_mbid';
 }
 

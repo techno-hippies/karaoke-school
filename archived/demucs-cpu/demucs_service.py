@@ -88,10 +88,21 @@ def separate_audio(
         print(f"[Demucs] Command: {' '.join(cmd)}", flush=True)
         demucs_start = time_module.time()
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Stream subprocess output in real-time
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
-        if result.returncode != 0:
-            error_msg = f"Demucs process failed with return code {result.returncode}\nStdout:\n{result.stdout}\nStderr:\n{result.stderr}"
+        stdout_lines = []
+        try:
+            for line in process.stdout:
+                line = line.rstrip('\n')
+                if line.strip():
+                    print(f"[Demucs] {line}", flush=True)
+                stdout_lines.append(line)
+        finally:
+            process.wait()
+
+        if process.returncode != 0:
+            error_msg = f"Demucs process failed with return code {process.returncode}"
             print(f"[Demucs] Error: {error_msg}", flush=True)
             raise Exception(error_msg)
 

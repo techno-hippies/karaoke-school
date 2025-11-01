@@ -90,38 +90,25 @@ interface WorkAggregation {
   officialUrl?: string;
   lastfmUrl?: string;
 
-  // Genius (work/lyrics level)
-  geniusSongUrl?: string;
-  geniusLyricsState?: string;
+  // Genius is work/lyrics level but genius_song_id is sufficient
+  // (can construct URL as needed: https://genius.com/songs/{id})
 
   // Recording data (to be stored in grc20_work_recordings)
   // Spotify
   spotifyUrl?: string;
-  spotifyPopularity?: number;
   releaseDate?: string;
   durationMs?: number;
-  explicitContent?: boolean;
-  imageUrl?: string;
-  imageSource?: string;
 
-  // Streaming platforms
+  // Apple Music (only platform besides Spotify in quansic_recordings)
   appleMusicUrl?: string;
-  deezerUrl?: string;
-  tidalUrl?: string;
-  amazonMusicUrl?: string;
-  youtubeMusicUrl?: string;
-  beatportUrl?: string;
-  itunesUrl?: string;
-  qobuzUrl?: string;
 
-  // Catalog platforms
-  discogsUrl?: string;
-  discogsReleaseId?: string;
-  melonUrl?: string;
-  moraUrl?: string;
-  maniadbUrl?: string;
-  youtubeUrl?: string;
-  imvdbUrl?: string;
+  // MusicBrainz recording metadata
+  musicbrainzFirstReleaseDate?: string;
+  musicbrainzIsVideo?: boolean;
+
+  // Derivative images (Grove storage)
+  groveImageUrl?: string;
+  groveThumbnailUrl?: string;
 }
 
 async function main() {
@@ -178,12 +165,10 @@ async function main() {
     if (spotifyData.length > 0) {
       const spotify = spotifyData[0];
       // NOTE: We do NOT store ISRC (recording code) - this table is for WORKS which use ISWC
+      // NOTE: We do NOT store popularity (mutable, changes over time)
+      // NOTE: We do NOT store image URLs from Spotify - we use derivative_images (Grove storage)
       agg.durationMs = spotify.duration_ms;
       agg.releaseDate = spotify.release_date;
-      agg.spotifyPopularity = spotify.popularity;
-      agg.explicitContent = spotify.explicit;
-      agg.imageUrl = spotify.image_url;
-      agg.imageSource = 'spotify';
 
       // Artist ID already joined in SQL
       if (spotify.primary_artist_grc20_id) {
@@ -203,6 +188,18 @@ async function main() {
 
       // Build Spotify URL
       agg.spotifyUrl = `https://open.spotify.com/track/${spotify_track_id}`;
+
+      // Extract featured artists (all artists beyond the first one)
+      const artists = typeof spotify.artists === 'string' ? JSON.parse(spotify.artists) : spotify.artists;
+      if (artists && Array.isArray(artists) && artists.length > 1) {
+        const featuredArtistNames = artists
+          .slice(1)  // Skip first artist (primary)
+          .map((a: any) => a.name)
+          .join(', ');
+        if (featuredArtistNames) {
+          agg.featuredArtists = featuredArtistNames;
+        }
+      }
     }
 
     // Get Genius data
@@ -215,12 +212,8 @@ async function main() {
       agg.geniusSongId = genius.genius_song_id;
       agg.language = genius.language;
       agg.releaseDate = genius.release_date || agg.releaseDate;
-      agg.geniusPageviews = genius.pageviews;
-      agg.geniusAnnotationCount = genius.annotation_count;
-      agg.geniusPyongsCount = genius.pyongs_count;
-      agg.geniusLyricsState = genius.lyrics_state;
-      agg.geniusFeaturedVideo = genius.featured_video;
-      agg.geniusUrl = `https://genius.com/songs/${genius.genius_song_id}`;
+      // NOTE: We don't store Genius engagement metrics (pageviews, annotations, pyongs, featured_video, lyrics_state)
+      // These are recording-level and change over time - not immutable work metadata
 
       // Genius title (usually canonical, strips features/remasters)
       if (genius.title) {
@@ -230,8 +223,12 @@ async function main() {
 
     // Get MusicBrainz data (recording level, for disambiguation/relations only)
     // NOTE: We do NOT store recording MBIDs - we'll get work MBIDs from musicbrainz_works
+    // Join via ISRC since spotify_track_id may not be populated in musicbrainz_recordings
     const mbData = await query(`
-      SELECT * FROM musicbrainz_recordings WHERE spotify_track_id = $1
+      SELECT mbr.*
+      FROM spotify_tracks st
+      JOIN musicbrainz_recordings mbr ON mbr.isrc = st.isrc
+      WHERE st.spotify_track_id = $1 AND st.isrc IS NOT NULL
     `, [spotify_track_id]);
 
     if (mbData.length > 0) {
@@ -239,10 +236,39 @@ async function main() {
       agg.disambiguation = mb.disambiguation;
       // Don't set musicbrainzUrl yet - will be set to work URL if we find the work
 
-      // Extract wikidata from relations
-      if (mb.relations && typeof mb.relations === 'object') {
-        const wikidata = mb.relations['wikidata'];
-        if (wikidata) agg.wikidataUrl = wikidata;
+      // Extract recording metadata
+      if (mb.first_release_date) {
+        agg.musicbrainzFirstReleaseDate = mb.first_release_date;
+      }
+      if (mb.video !== null && mb.video !== undefined) {
+        agg.musicbrainzIsVideo = mb.video;
+      }
+
+      // Extract genres from MusicBrainz tags (filter out chart data and non-genre tags)
+      if (mb.tags && Array.isArray(mb.tags) && mb.tags.length > 0) {
+        const invalidTagPatterns = [
+          /wochen/i,              // Chart weeks
+          /offizielle charts/i,   // Official charts
+          /^\d+[\+\-]?\s*wochen/i, // "5+ wochen", "1-4 wochen"
+          /chart/i,               // Generic chart references
+          /^top\s*\d+/i,          // "top 10", "top 100"
+          /billboard/i,           // Billboard charts
+          /position/i             // Chart positions
+        ];
+
+        const validTags = mb.tags
+          .filter((t: any) => {
+            const tagName = t.name?.toLowerCase() || '';
+            // Filter out invalid tags
+            return !invalidTagPatterns.some(pattern => pattern.test(tagName));
+          })
+          .sort((a: any, b: any) => (b.count || 0) - (a.count || 0))
+          .slice(0, 5)  // Top 5 valid tags
+          .map((t: any) => t.name);
+
+        if (validTags.length > 0) {
+          agg.genres = validTags.join(', ');
+        }
       }
     }
 
@@ -265,9 +291,23 @@ async function main() {
         agg.iswcSource = 'quansic';
       }
 
-      // Composers
+      // Composers and Lyricists
       if (recording.composers && Array.isArray(recording.composers)) {
-        agg.composers = recording.composers.map((c: any) => c.name).join(', ');
+        // Separate by role
+        const composersOnly = recording.composers.filter((c: any) => c.role === 'Composer');
+        const composerLyricists = recording.composers.filter((c: any) => c.role === 'ComposerLyricist');
+
+        // If we have ComposerLyricists, they go in both fields
+        if (composerLyricists.length > 0) {
+          const names = composerLyricists.map((c: any) => c.name);
+          agg.composers = [...names, ...composersOnly.map((c: any) => c.name)].join(', ');
+          agg.lyricists = names.join(', ');
+        } else if (composersOnly.length > 0) {
+          agg.composers = composersOnly.map((c: any) => c.name).join(', ');
+        } else {
+          // Fallback: all composers regardless of role
+          agg.composers = recording.composers.map((c: any) => c.name).join(', ');
+        }
       }
 
       // Producers (note: quansic_recordings doesn't have producers field)
@@ -275,6 +315,30 @@ async function main() {
       if (recording.raw_data?.producers && Array.isArray(recording.raw_data.producers)) {
         agg.producers = recording.raw_data.producers.map((p: any) => p.name).join(', ');
       }
+
+      // Extract platform IDs/URLs from platform_ids JSONB
+      if (recording.platform_ids && typeof recording.platform_ids === 'object') {
+        const platformIds = recording.platform_ids;
+
+        // Apple Music (only platform besides Spotify with data in quansic_recordings)
+        if (platformIds.apple) {
+          agg.appleMusicUrl = `https://music.apple.com/us/album/${platformIds.apple}`;
+        }
+        // Note: deezer, tidal, amazon, youtube, discogs NOT in quansic source data
+      }
+    }
+
+    // Get derivative images (Grove storage)
+    const derivativeImageData = await query(`
+      SELECT grove_url, thumbnail_grove_url
+      FROM derivative_images
+      WHERE spotify_track_id = $1 AND asset_type = 'track'
+    `, [spotify_track_id]);
+
+    if (derivativeImageData.length > 0) {
+      const derivative = derivativeImageData[0];
+      agg.groveImageUrl = derivative.grove_url;
+      agg.groveThumbnailUrl = derivative.thumbnail_grove_url;
     }
 
     // Get MusicBrainz Works data (NEW!) - JOIN via ISRC since spotify_track_id may be NULL
@@ -306,6 +370,16 @@ async function main() {
       if (mbWork.iswc && !agg.iswc) {
         agg.iswc = normalizeISWC(mbWork.iswc);
         agg.iswcSource = 'musicbrainz';
+      }
+
+      // Work type (e.g., "Song", "Instrumental")
+      if (mbWork.work_type) {
+        agg.workType = mbWork.work_type;
+      }
+
+      // Language (MusicBrainz is more reliable than Genius for this)
+      if (mbWork.language && !agg.language) {
+        agg.language = mbWork.language;
       }
     }
 
@@ -445,104 +519,82 @@ async function main() {
 
   // Step 3: Insert into grc20_works (WORK-LEVEL DATA ONLY)
   for (const agg of aggregations) {
-    // Build reference_urls JSONB
-    const referenceUrls: Record<string, string> = {};
-    if (agg.musicbrainzUrl) referenceUrls.musicbrainz_url = agg.musicbrainzUrl;
-    if (agg.wikidataUrl) referenceUrls.wikidata_url = agg.wikidataUrl;
-    if (agg.allmusicUrl) referenceUrls.allmusic_url = agg.allmusicUrl;
-    if (agg.secondhandsongs_url) referenceUrls.secondhandsongs_url = agg.secondhandsongs_url;
-    if (agg.whosampledUrl) referenceUrls.whosampled_url = agg.whosampledUrl;
-    if (agg.locUrl) referenceUrls.loc_url = agg.locUrl;
-    if (agg.bnfUrl) referenceUrls.bnf_url = agg.bnfUrl;
-    if (agg.worldcatUrl) referenceUrls.worldcat_url = agg.worldcatUrl;
-    if (agg.jaxstaUrl) referenceUrls.jaxsta_url = agg.jaxstaUrl;
-    if (agg.setlistfmUrl) referenceUrls.setlistfm_url = agg.setlistfmUrl;
-    if (agg.officialUrl) referenceUrls.official_url = agg.officialUrl;
-    if (agg.lastfmUrl) referenceUrls.lastfm_url = agg.lastfmUrl;
-
     const workId = await query(`
       INSERT INTO grc20_works (
-        title, alternate_titles, disambiguation,
+        title, alternate_titles,
         iswc, iswc_source, mbid, bmi_work_id, ascap_work_id,
         genius_song_id,
         primary_artist_id, primary_artist_name,
         featured_artists, composers, producers, lyricists,
         bmi_writers, bmi_publishers,
-        language, work_type, genres, key_signature, tempo_bpm,
-        genius_lyrics_state, genius_url,
-        reference_urls
+        language, work_type, genres,
+        musicbrainz_url
       ) VALUES (
-        $1, $2, $3,
-        $4, $5, $6, $7, $8,
-        $9,
-        $10, $11,
-        $12, $13, $14, $15,
-        $16, $17,
-        $18, $19, $20, $21, $22,
-        $23, $24,
-        $25
+        $1, $2,
+        $3, $4, $5, $6, $7,
+        $8,
+        $9, $10,
+        $11, $12, $13, $14,
+        $15, $16,
+        $17, $18, $19,
+        $20
       )
       ON CONFLICT (genius_song_id) DO UPDATE SET
         title = EXCLUDED.title,
         iswc = EXCLUDED.iswc,
         mbid = EXCLUDED.mbid,
-        reference_urls = EXCLUDED.reference_urls,
+        musicbrainz_url = EXCLUDED.musicbrainz_url,
+        work_type = EXCLUDED.work_type,
+        genres = EXCLUDED.genres,
         updated_at = NOW()
       RETURNING id
     `, [
-      agg.title, agg.alternateTitles, agg.disambiguation,
+      agg.title, agg.alternateTitles,
       agg.iswc, agg.iswcSource, agg.mbid, agg.bmiWorkId, agg.ascapWorkId,
       agg.geniusSongId,
       agg.primaryArtistId, agg.primaryArtistName,
       agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
       agg.bmiWriters, agg.bmiPublishers,
-      agg.language, agg.workType, agg.genres, agg.keySignature, agg.tempoBpm,
-      agg.geniusLyricsState, agg.geniusSongUrl,
-      Object.keys(referenceUrls).length > 0 ? JSON.stringify(referenceUrls) : '{}'
+      agg.language, agg.workType, agg.genres,
+      agg.musicbrainzUrl
     ]);
 
-    // Step 4: Insert ALL streaming platform recordings into grc20_work_recordings
+    // Step 4: Insert recording data into grc20_work_recordings (one row per work with all platforms)
     if (workId.length > 0) {
       const work_id = workId[0].id;
 
-      // Helper to insert recording for any platform (using URL as source_id when we don't have platform-specific ID)
-      const insertRecording = async (source: string, sourceUrl: string | undefined) => {
-        if (!sourceUrl) return;
-        await query(`
-          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (work_id, source, source_id) DO NOTHING
-        `, [work_id, source, sourceUrl, sourceUrl]);
-      };
-
-      // Spotify (with full metadata)
-      if (agg.spotifyTrackId) {
-        await query(`
-          INSERT INTO grc20_work_recordings (work_id, source, source_id, source_url, release_date, duration_ms, explicit_content, image_url, image_source)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          ON CONFLICT (work_id, source, source_id) DO NOTHING
-        `, [
-          work_id, 'spotify', agg.spotifyTrackId, agg.spotifyUrl,
-          agg.releaseDate, agg.durationMs, agg.explicitContent,
-          agg.imageUrl, agg.imageSource
-        ]);
-      }
-
-      // All other streaming platforms
-      await insertRecording('apple_music', agg.appleMusicUrl);
-      await insertRecording('deezer', agg.deezerUrl);
-      await insertRecording('tidal', agg.tidalUrl);
-      await insertRecording('amazon_music', agg.amazonMusicUrl);
-      await insertRecording('youtube_music', agg.youtubeMusicUrl);
-      await insertRecording('beatport', agg.beatportUrl);
-      await insertRecording('itunes', agg.itunesUrl);
-      await insertRecording('qobuz', agg.qobuzUrl);
-      await insertRecording('discogs', agg.discogsUrl);
-      await insertRecording('melon', agg.melonUrl);
-      await insertRecording('mora', agg.moraUrl);
-      await insertRecording('maniadb', agg.maniadbUrl);
-      await insertRecording('youtube', agg.youtubeUrl);
-      await insertRecording('imvdb', agg.imvdbUrl);
+      await query(`
+        INSERT INTO grc20_work_recordings (
+          work_id,
+          spotify_track_id, spotify_url, spotify_release_date, spotify_duration_ms,
+          apple_music_url,
+          musicbrainz_first_release_date, musicbrainz_is_video,
+          grove_image_url, grove_thumbnail_url
+        ) VALUES (
+          $1,
+          $2, $3, $4, $5,
+          $6,
+          $7, $8,
+          $9, $10
+        )
+        ON CONFLICT (work_id) DO UPDATE SET
+          spotify_track_id = EXCLUDED.spotify_track_id,
+          spotify_url = EXCLUDED.spotify_url,
+          spotify_release_date = EXCLUDED.spotify_release_date,
+          spotify_duration_ms = EXCLUDED.spotify_duration_ms,
+          apple_music_url = EXCLUDED.apple_music_url,
+          musicbrainz_first_release_date = EXCLUDED.musicbrainz_first_release_date,
+          musicbrainz_is_video = EXCLUDED.musicbrainz_is_video,
+          grove_image_url = EXCLUDED.grove_image_url,
+          grove_thumbnail_url = EXCLUDED.grove_thumbnail_url,
+          updated_at = NOW()
+      `, [
+        work_id,
+        agg.spotifyTrackId, agg.spotifyUrl, agg.releaseDate, agg.durationMs,
+        agg.appleMusicUrl,
+        agg.musicbrainzFirstReleaseDate, agg.musicbrainzIsVideo,
+        agg.groveImageUrl, agg.groveThumbnailUrl
+      ]);
     }
 
     console.log(`   ✅ Inserted: ${agg.title}`);
