@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   slsk:
-    image: t3333chn0000/audio-download-service:v1.1.0  # ✅ Clean architecture: service manages own DB config
+    image: t3333chn0000/audio-download-service:v1.1.1  # ✅ Fixed: Soulseek patch explicitly applied (Bun compat)
     expose:
       - port: 3001
         as: 80
