@@ -69,6 +69,7 @@ export const SegmentEmissionDataSchema = z.object({
   // From grc20_works (song metadata - required for display)
   title: z.string().min(1, 'Song title required'),
   artist_name: z.string().min(1, 'Artist name required'),
+  artist_image_url: z.string().url().nullable().optional(), // Grove URL for artist image
 
   // From elevenlabs_word_alignments
   alignment_words: z
@@ -129,6 +130,7 @@ export const SegmentMetadataSchema = z.object({
   // Song metadata from GRC-20 work (required)
   title: z.string(),
   artist: z.string(),
+  coverUri: z.string().url().nullable().optional(), // Grove URL for artist image
 
   timing: z.object({
     // Reference: Full karaoke segment timing
@@ -312,6 +314,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     -- Song metadata for UI display
     gw.title,
     ga.name as artist_name,
+    ga.grove_image_url as artist_image_url,
 
     -- ElevenLabs alignment (word-level timing, filtered & offset to clip window)
     (
@@ -399,6 +402,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     gwm.grc20_entity_id,
     gw.title,
     ga.name,
+    ga.grove_image_url,
     ewa.words
 
   ORDER BY ks.spotify_track_id

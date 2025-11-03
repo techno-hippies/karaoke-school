@@ -10,6 +10,8 @@ import { VideoDetailPage } from '@/pages/VideoDetailPage'
 import { SongPageContainer } from '@/pages/SongPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
 import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
+import { ClassPage } from '@/pages/ClassPage'
+import { StudySessionPage } from '@/pages/StudySessionPage'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { Toaster } from '@/components/ui/sonner'
@@ -78,7 +80,7 @@ function AppRouter() {
   const handleTabChange = (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => {
     const routes = {
       home: '/',
-      study: '/class',
+      study: '/study',
       search: '/search',
       wallet: '/wallet',
       profile: '/profile'
@@ -140,9 +142,9 @@ function AppRouter() {
     setUsernameAvailability('available')
   }, [])
 
-  // Hide mobile footer on full-screen pages (song detail, media player, video detail)
+  // Hide mobile footer on full-screen pages (song detail, media player, study, video detail)
   const hideMobileFooter =
-    location.pathname.match(/^\/karaoke\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+    location.pathname.match(/^\/song\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
     <>
@@ -160,15 +162,20 @@ function AppRouter() {
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
 
-          {/* Karaoke routes - GRC-20 work ID based */}
-          <Route path="/karaoke/:workId" element={<SongPageContainer />} />
-          <Route path="/karaoke/:workId/play" element={<MediaPageContainer />} />
-          <Route path="/karaoke/:workId/segment/:segmentId" element={<div>Study Segment (TODO)</div>} />
+          {/* Song routes - GRC-20 work ID based */}
+          <Route path="/song/:workId" element={<SongPageContainer />} />
+          <Route path="/song/:workId/play" element={<MediaPageContainer />} />
+          <Route path="/song/:workId/study" element={<StudySessionPage />} />
+
+          {/* Study routes - Global study dashboard */}
+          <Route path="/study" element={<ClassPage />} />
 
           {/* Legacy routes (redirect for backwards compatibility) */}
-          <Route path="/song/grc20/:workId" element={<Navigate to={`/karaoke/:workId`} replace />} />
-          <Route path="/song/grc20/:workId/play" element={<Navigate to={`/karaoke/:workId/play`} replace />} />
-          
+          <Route path="/karaoke/:workId" element={<Navigate to={`/song/:workId`} replace />} />
+          <Route path="/karaoke/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
+          <Route path="/song/grc20/:workId" element={<Navigate to={`/song/:workId`} replace />} />
+          <Route path="/song/grc20/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
+
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePageContainer />} />
           <Route path="*" element={<Navigate to="/" replace />} />

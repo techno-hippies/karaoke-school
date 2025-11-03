@@ -14,6 +14,7 @@ export interface MediaPageProps {
   artist: string
   audioUrl: string
   lyrics: LyricLine[]
+  artworkUrl?: string
   selectedLanguage?: string
   showTranslations?: boolean
   onBack?: () => void
@@ -37,6 +38,7 @@ export function MediaPage({
   artist,
   audioUrl,
   lyrics,
+  artworkUrl,
   selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
   showTranslations = true,
   onBack,
@@ -87,13 +89,46 @@ export function MediaPage({
       <div className="relative w-full h-full md:max-w-2xl flex flex-col">
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
-      {/* Header */}
-      <div className="flex-none h-16 border-b border-neutral-800 flex items-center px-4 gap-2">
-        <BackButton onClick={onBack} />
-        <h1 className="text-foreground text-sm sm:text-base font-semibold flex-1 text-center truncate min-w-0">
-          {title} - {artist}
-        </h1>
-        <div className="w-8" />
+      {/* Header with optional artwork */}
+      <div className="flex-none relative">
+        {/* Artwork Hero Section - only show if artworkUrl is provided */}
+        {artworkUrl && (
+          <div className="relative w-full bg-neutral-900" style={{ height: 'min(200px, 30vh)' }}>
+            <img
+              src={artworkUrl}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+            {/* Gradient overlay to ensure text is readable */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)'
+              }}
+            />
+            {/* Back button on top of artwork */}
+            <div className="absolute top-4 left-4 z-10">
+              <BackButton onClick={onBack} />
+            </div>
+          </div>
+        )}
+
+        {/* Title and Artist Bar */}
+        <div className={cn(
+          'flex items-center justify-between px-4 gap-2 border-b border-neutral-800',
+          artworkUrl ? 'h-14 bg-background/95 backdrop-blur' : 'h-16'
+        )}>
+          {!artworkUrl && <BackButton onClick={onBack} />}
+          <div className="flex-1 min-w-0">
+            <h1 className={cn(
+              'text-foreground font-semibold flex-1 text-center truncate min-w-0',
+              artworkUrl ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+            )}>
+              {title} - {artist}
+            </h1>
+          </div>
+          <div className="w-8" />
+        </div>
       </div>
 
       {/* Lyrics Display - flex-1 makes it fill available space */}

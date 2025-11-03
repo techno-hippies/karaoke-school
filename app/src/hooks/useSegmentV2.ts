@@ -51,6 +51,7 @@ export interface SegmentMetadata {
   spotify_track_id?: string
   title?: string
   artist?: string
+  coverUri?: string // Album artwork/cover image (Grove URI)
   timing?: {
     full_segment_start_ms?: number
     full_segment_end_ms?: number
@@ -107,10 +108,13 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
     console.log('[transformSegmentMetadata] Clip timing:', groveData.timing.tiktok_clip_start_ms, '-', groveData.timing.tiktok_clip_end_ms)
     console.log('[transformSegmentMetadata] Instrumental URL:', groveData.assets.instrumental)
     console.log('[transformSegmentMetadata] Translations:', groveData.translations)
+    console.log('[transformSegmentMetadata] Full groveData keys:', Object.keys(groveData))
+    console.log('[transformSegmentMetadata] ⚠️  coverUri in data?', groveData.coverUri ? 'YES' : 'NO')
+    console.log('[transformSegmentMetadata] ⚠️  coverUri value:', groveData.coverUri)
 
     // For NEW format, return as-is (app will fetch translations separately)
     // Map clip timing to expected format
-    return {
+    const transformed = {
       version: 'v2',
       type: 'karaoke-segment',
       geniusId: 0,
@@ -128,6 +132,10 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
       // Store original data for access
       ...groveData,
     }
+
+    console.log('[transformSegmentMetadata] ⚠️  Final coverUri:', transformed.coverUri)
+    console.log('[transformSegmentMetadata] ⚠️  Final transformed keys:', Object.keys(transformed))
+    return transformed
   }
 
   console.warn('[transformSegmentMetadata] Unknown metadata format, returning as-is:', groveData)
@@ -156,7 +164,9 @@ export function useSegmentMetadata(metadataUri?: string) {
         throw new Error('Metadata URI is required')
       }
 
+      console.log('[useSegmentMetadata] Fetching metadata from:', metadataUri)
       const httpUrl = convertGroveUri(metadataUri)
+      console.log('[useSegmentMetadata] Converted to HTTP URL:', httpUrl)
       const response = await fetch(httpUrl)
 
       if (!response.ok) {
@@ -164,11 +174,58 @@ export function useSegmentMetadata(metadataUri?: string) {
       }
 
       const groveData = await response.json()
+      console.log('[useSegmentMetadata] ⚠️  Raw Grove data:', groveData)
+      console.log('[useSegmentMetadata] ⚠️  Keys in Grove data:', Object.keys(groveData))
       const transformed = transformSegmentMetadata(groveData)
+      console.log('[useSegmentMetadata] ⚠️  Transformed data:', transformed)
       return transformed
     },
     enabled: !!metadataUri,
     staleTime: 300000, // 5 minutes (segment metadata is immutable)
+    refetchOnWindowFocus: false,
+  })
+}
+
+/**
+ * Fetch English translation text from Grove
+ * Used when segment metadata has separate translation files (new format)
+ */
+export function useEnglishTranslation(translationUri?: string) {
+  return useQuery({
+    queryKey: ['english-translation', translationUri],
+    queryFn: async () => {
+      if (!translationUri) {
+        throw new Error('Translation URI is required')
+      }
+
+      const httpUrl = convertGroveUri(translationUri)
+      const response = await fetch(httpUrl)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch translation: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Extract text from lines: join all words from all lines
+      if (data.lines && Array.isArray(data.lines)) {
+        const text = data.lines
+          .map((line: any) => {
+            if (line.words && Array.isArray(line.words)) {
+              return line.words.map((w: any) => w.word || w.text).join(' ')
+            }
+            return line.translatedText || line.originalText || ''
+          })
+          .join(' ')
+          .substring(0, 100)
+
+        return text
+      }
+
+      return ''
+    },
+    enabled: !!translationUri,
+    staleTime: 300000, // 5 minutes (immutable)
     refetchOnWindowFocus: false,
   })
 }

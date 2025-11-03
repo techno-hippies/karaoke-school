@@ -2,9 +2,10 @@
  * Karaoke Grader v6 - PerformanceGrader Integration
  *
  * Deployed PerformanceGrader on Lens Testnet:
- * - Contract: 0xbc831cfc35C543892B14cDe6E40ED9026eF32678
+ * - Contract: 0xab92c2708d44fab58c3c12aaa574700e80033b7d
  * - Trusted PKP: 0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30
  * - Network: Lens Testnet (Chain ID: 37111)
+ * - Deployment: 2025-11-03
  *
  * Flow:
  * 1. Transcribe user audio via Voxstral STT
@@ -16,7 +17,7 @@
 // ============================================================
 // CONTRACT CONFIGURATION
 // ============================================================
-const PERFORMANCE_GRADER_ADDRESS = '0xbc831cfc35C543892B14cDe6E40ED9026eF32678';
+const PERFORMANCE_GRADER_ADDRESS = '0xab92c2708d44fab58c3c12aaa574700e80033b7d';
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';
 
@@ -133,6 +134,7 @@ const go = async () => {
       success,
       score: calculatedScore,
       transcript,
+      performanceId: performanceId || Date.now(),
       txHash,
       errorType,
       executionTime: endTime - startTime,

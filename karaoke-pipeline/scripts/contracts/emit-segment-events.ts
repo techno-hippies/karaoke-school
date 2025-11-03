@@ -294,6 +294,8 @@ async function processSegment(
       // Song metadata (from GRC-20 work - required)
       title: segment.title,
       artist: segment.artist_name,
+      // Cover image for karaoke player (Grove URI from grc20_artists)
+      coverUri: segment.artist_image_url,
 
       // Timing information
       timing: {

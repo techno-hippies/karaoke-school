@@ -21,7 +21,9 @@ const DEBUG_RERENDERS = true
  * Handles both OLD format (inline lyrics) and NEW format (separate translation files)
  */
 export function MediaPageContainer() {
+  console.log('🎭 [MediaPageContainer] COMPONENT RENDERING - Check this first!')
   const { workId } = useParams<{ workId: string }>()
+  console.log('🎭 [MediaPageContainer] workId from params:', workId)
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
@@ -64,6 +66,17 @@ export function MediaPageContainer() {
   )
 
   console.log('[MediaPageContainer] Segment metadata:', segmentMetadata)
+  console.log('[MediaPageContainer] Segment metadata keys:', segmentMetadata ? Object.keys(segmentMetadata) : 'N/A')
+  console.log('[MediaPageContainer] Has coverUri?', segmentMetadata?.coverUri ? 'YES' : 'NO')
+  console.log('[MediaPageContainer] Full coverUri value:', segmentMetadata?.coverUri)
+  console.log('[MediaPageContainer] Segment metadata type:', typeof segmentMetadata)
+  if (segmentMetadata) {
+    console.log('[MediaPageContainer] Checking nested structure:')
+    console.log('  - coverUri:', segmentMetadata.coverUri)
+    console.log('  - title:', segmentMetadata.title)
+    console.log('  - artist:', segmentMetadata.artist)
+    console.log('  - assets:', segmentMetadata.assets)
+  }
 
   // Timing synchronization function - calculates which line/word should be active
   const calculateActiveLineAndWord = useCallback((currentTime: number, lyrics: any[]) => {
@@ -256,16 +269,33 @@ export function MediaPageContainer() {
   // Extract metadata from Grove
   const title = segmentMetadata?.title || 'Untitled'
   const artist = segmentMetadata?.artist || 'Unknown Artist'
+
   // NEW FORMAT: Use tiktok_clip_duration_ms
   // OLD FORMAT: Use cropped_duration_ms
   const croppedDurationMs = segmentMetadata?.timing?.tiktok_clip_duration_ms ||
     segmentMetadata?.timing?.cropped_duration_ms ||
     50000
 
+  // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
+  // coverUri is set during pipeline emission in emit-segment-events.ts
+  console.log('[MediaPageContainer] Processing artwork:')
+  console.log('  - coverUri exists?:', !!segmentMetadata?.coverUri)
+  console.log('  - coverUri value:', segmentMetadata?.coverUri)
+  const artworkUrl = segmentMetadata?.coverUri
+    ? convertGroveUri(segmentMetadata.coverUri)
+    : undefined
+  console.log('  - after convertGroveUri:', artworkUrl)
+
   console.log('[MediaPageContainer] Clip duration:', {
     tiktokClipMs: segmentMetadata?.timing?.tiktok_clip_duration_ms,
     croppedDurationMs: segmentMetadata?.timing?.cropped_duration_ms,
     final: croppedDurationMs,
+  })
+
+  console.log('[MediaPageContainer] Artwork:', {
+    hasCoverUri: !!segmentMetadata?.coverUri,
+    artworkUrlExists: !!artworkUrl,
+    artworkUrl: artworkUrl?.substring(0, 50) + '...',
   })
 
   // Transform V2 lyrics format to LyricLine[] format
@@ -347,6 +377,7 @@ export function MediaPageContainer() {
       artist={artist}
       audioUrl={audioUrl}
       lyrics={lyrics}
+      artworkUrl={artworkUrl}
       selectedLanguage={preferredLanguage}
       showTranslations={availableLanguages.length > 0}
       onBack={() => navigate(-1)}

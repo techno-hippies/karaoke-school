@@ -170,11 +170,17 @@ export function useGRC20WorkSegmentsWithMetadata(grc20WorkId?: string) {
       }
 
       const httpUrl = convertGroveUri(firstSegment.metadataUri)
+      console.log('[useSongV2] Fetching Grove metadata from:', httpUrl)
       const response = await fetch(httpUrl)
       if (!response.ok) {
         throw new Error(`Failed to fetch metadata: ${response.status}`)
       }
-      return response.json() as Promise<SongMetadata>
+      const rawData = await response.json()
+      console.log('[useSongV2] 🚨 Raw Grove data:', rawData)
+      console.log('[useSongV2] 🚨 Keys in Grove data:', Object.keys(rawData))
+      console.log('[useSongV2] 🚨 Has coverUri?', rawData.coverUri ? 'YES' : 'NO')
+      console.log('[useSongV2] 🚨 coverUri value:', rawData.coverUri)
+      return rawData as Promise<SongMetadata>
     },
     enabled: !!firstSegment?.metadataUri,
     staleTime: 300000, // 5 minutes (immutable)

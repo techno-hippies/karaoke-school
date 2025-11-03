@@ -132,9 +132,21 @@ async function connectLensSession(
         )
         console.log('[Auth Flow] ✓ Account created with username:', account.username?.localName)
       } else {
-        // For now, require username during registration
-        // Future: Support creating account without username
-        throw new Error('Username is required for registration')
+        // Create account without username - use a generated handle
+        // This allows sign-in flow to work without requiring username input
+        console.log('[Auth Flow] Creating account without username (anonymous)')
+
+        // Generate a unique handle for the anonymous account
+        const timestamp = Date.now().toString().slice(-8)
+        const anonymousHandle = `user${timestamp}`
+
+        account = await createAccountInCustomNamespace(
+          session,
+          walletClient,
+          anonymousHandle,
+          uploadResult.uri
+        )
+        console.log('[Auth Flow] ✓ Account created with anonymous handle:', account.username?.localName)
       }
 
       console.log('[Auth Flow] ✓ Account created:', account.address)

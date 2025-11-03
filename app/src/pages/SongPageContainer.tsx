@@ -68,6 +68,13 @@ export function SongPageContainer() {
   const firstSegment = workData.segments[0]
   const metadata = firstSegment?.metadata
 
+  console.log('[SongPageContainer] workData.segments:', workData.segments?.length || 0)
+  console.log('[SongPageContainer] firstSegment:', firstSegment)
+  console.log('[SongPageContainer] metadata:', metadata)
+  console.log('[SongPageContainer] metadata keys:', metadata ? Object.keys(metadata) : 'N/A')
+  console.log('[SongPageContainer] coverUri in metadata?', metadata?.coverUri ? 'YES' : 'NO')
+  console.log('[SongPageContainer] coverUri value:', metadata?.coverUri)
+
   // Transform videos to VideoGrid format
   const videos: VideoPost[] = videosData || []
 
@@ -76,8 +83,10 @@ export function SongPageContainer() {
   const songTitle = metadata?.title || `Work ${workId}`
   const artist = metadata?.artist || 'Unknown Artist'
   const artworkUrl = metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined
+  console.log('[SongPageContainer] Final artworkUrl:', artworkUrl)
   const songIdentifier = `grc20/${workId}`
-  const playRoute = `/song/grc20/${workId}/play`
+  const playRoute = `/song/${workId}/play`
+  const studyRoute = `/song/${workId}/study`
 
   // Build external links
   const songLinks: Array<{ label: string; url: string }> = []
@@ -115,12 +124,7 @@ export function SongPageContainer() {
       leaderboardEntries={leaderboard}
       currentUser={undefined}
       onStudy={() => {
-        // TODO: Implement segment-specific pages
-        const firstSegmentId = workData.segments[0]?.id
-        if (firstSegmentId) {
-          console.log('Study clicked - segment:', firstSegmentId)
-          // navigate(`/song/grc20/${workId}/segment/${firstSegmentId}`)
-        }
+        navigate(studyRoute)
       }}
       onKaraoke={() => {
         navigate(playRoute)
