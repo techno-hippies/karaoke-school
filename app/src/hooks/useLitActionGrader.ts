@@ -60,26 +60,25 @@ export function useLitActionGrader() {
           throw new Error('Voxstral API key not configured in environment (VITE_VOXSTRAL_API_KEY)')
         }
 
-        // Encrypt the API key with access control: only decrypt when running THIS Lit Action
-        const encryptedParams = await litClient.encryptString(
-          {
-            accessControlConditions: [
-              {
-                conditionType: 'evmBasic',
-                contractAddress: '',
-                standardContractType: '',
-                chain: 'ethereum',
-                method: '',
-                parameters: [':currentActionIpfsId'],
-                returnValueTest: {
-                  comparator: '=',
-                  value: LIT_ACTION_IPFS_CID,
-                },
+        // Encrypt the API key with Lit encryption
+        // Access control: only decrypt when THIS specific Lit Action is executing
+        const encryptionResponse = await litClient.encrypt({
+          accessControlConditions: [
+            {
+              conditionType: 'evmBasic',
+              contractAddress: '',
+              standardContractType: '',
+              chain: 'ethereum',
+              method: '',
+              parameters: [':currentActionIpfsId'],
+              returnValueTest: {
+                comparator: '=',
+                value: LIT_ACTION_IPFS_CID,
               },
-            ],
-            toEncrypt: voxstralApiKey,
-          }
-        )
+            },
+          ],
+          dataToEncrypt: voxstralApiKey,
+        })
 
         const result = await litClient.executeJs({
           ipfsId: LIT_ACTION_IPFS_CID,
@@ -93,9 +92,9 @@ export function useLitActionGrader() {
             metadataUri: userAudioUri,
             language: 'en',
             // Encrypted API key (decrypted securely within Lit Action's TEE)
-            accessControlConditions: encryptedParams.accessControlConditions,
-            ciphertext: encryptedParams.ciphertext,
-            dataToEncryptHash: encryptedParams.dataToEncryptHash,
+            accessControlConditions: encryptionResponse.accessControlConditions,
+            ciphertext: encryptionResponse.ciphertext,
+            dataToEncryptHash: encryptionResponse.dataToEncryptHash,
           },
         })
 
