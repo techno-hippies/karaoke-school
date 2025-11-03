@@ -49,14 +49,40 @@ export function useLitActionGrader() {
         }
 
         // Execute deployed Lit Action via IPFS CID
-        // The Lit Action is already deployed and has PKP permissions
         const { getLitClient } = await import('@/lib/lit')
         const litClient = await getLitClient()
 
         console.log('[useLitActionGrader] Executing Lit Action:', LIT_ACTION_IPFS_CID)
 
+        // Get and validate Voxstral API key
+        const voxstralApiKey = import.meta.env.VITE_VOXSTRAL_API_KEY
+        if (!voxstralApiKey) {
+          throw new Error('Voxstral API key not configured in environment (VITE_VOXSTRAL_API_KEY)')
+        }
+
+        // Encrypt the API key with access control: only decrypt when running THIS Lit Action
+        const encryptedParams = await litClient.encryptString(
+          {
+            accessControlConditions: [
+              {
+                conditionType: 'evmBasic',
+                contractAddress: '',
+                standardContractType: '',
+                chain: 'ethereum',
+                method: '',
+                parameters: [':currentActionIpfsId'],
+                returnValueTest: {
+                  comparator: '=',
+                  value: LIT_ACTION_IPFS_CID,
+                },
+              },
+            ],
+            toEncrypt: voxstralApiKey,
+          }
+        )
+
         const result = await litClient.executeJs({
-          ipfsId: LIT_ACTION_IPFS_CID,  // Use deployed Lit Action
+          ipfsId: LIT_ACTION_IPFS_CID,
           authContext: pkpAuthContext,
           jsParams: {
             userAddress: pkpInfo.ethAddress,
@@ -66,7 +92,10 @@ export function useLitActionGrader() {
             expectedText: expectedText,
             metadataUri: userAudioUri,
             language: 'en',
-            testMode: true,  // Enable test mode while we complete encryption setup
+            // Encrypted API key (decrypted securely within Lit Action's TEE)
+            accessControlConditions: encryptedParams.accessControlConditions,
+            ciphertext: encryptedParams.ciphertext,
+            dataToEncryptHash: encryptedParams.dataToEncryptHash,
           },
         })
 

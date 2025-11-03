@@ -41,11 +41,11 @@ const go = async () => {
     segmentHash,
     performanceId,
     metadataUri,
+    expectedText,
     language,
     accessControlConditions,
     ciphertext,
-    dataToEncryptHash,
-    testMode
+    dataToEncryptHash
   } = jsParams || {};
 
   try {
@@ -54,72 +54,55 @@ const go = async () => {
       throw new Error('Missing required parameters');
     }
 
-    // TEST MODE: Skip audio processing and submit test score
-    if (testMode) {
-      transcript = 'TEST_MODE_TRANSCRIPT';
-      calculatedScore = 85; // 85% test score
+    if (!audioDataBase64) {
+      throw new Error('Missing audioDataBase64');
+    }
 
-      txHash = await submitToPerformanceGrader({
-        performanceId: performanceId || Date.now(),
-        segmentHash,
-        performer: userAddress,
-        score: 8500, // 85.00% in basis points
-        metadataUri: metadataUri || `grove://test-${Date.now()}`
-      });
+    // Decrypt Voxstral API key from Lit encryption
+    const voxstralApiKey = await Lit.Actions.decryptAndCombine({
+      accessControlConditions,
+      ciphertext,
+      dataToEncryptHash,
+      authSig: null,
+      chain: 'ethereum'
+    });
 
-      success = true;
-    } else {
-      // NORMAL MODE: Process audio
-      if (!audioDataBase64) {
-        throw new Error('Missing audioDataBase64');
-      }
+    // Transcribe audio via Voxstral
+    const audioData = Uint8Array.from(atob(audioDataBase64), c => c.charCodeAt(0));
 
-      // Decrypt Voxstral API key
-      const voxstralApiKey = await Lit.Actions.decryptAndCombine({
-        accessControlConditions,
-        ciphertext,
-        dataToEncryptHash,
-        authSig: null,
-        chain: 'ethereum'
-      });
+    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2, 15);
+    const body = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.webm"\r\nContent-Type: audio/webm\r\n\r\n`;
+    const bodyBytes = new Uint8Array(body.length + audioData.length + 2);
+    bodyBytes.set(new TextEncoder().encode(body), 0);
+    bodyBytes.set(audioData, body.length);
+    bodyBytes.set(new TextEncoder().encode(`\r\n--${boundary}--\r\n`), body.length + audioData.length);
 
-      // Transcribe audio via Voxstral
-      const audioData = Uint8Array.from(atob(audioDataBase64), c => c.charCodeAt(0));
+    const transcriptionResponse = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${voxstralApiKey}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`
+      },
+      body: bodyBytes
+    });
 
-      const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2, 15);
-      const body = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.webm"\r\nContent-Type: audio/webm\r\n\r\n`;
-      const bodyBytes = new Uint8Array(body.length + audioData.length + 2);
-      bodyBytes.set(new TextEncoder().encode(body), 0);
-      bodyBytes.set(audioData, body.length);
-      bodyBytes.set(new TextEncoder().encode(`\r\n--${boundary}--\r\n`), body.length + audioData.length);
+    const transcriptionData = await transcriptionResponse.json();
+    transcript = transcriptionData.text || '';
 
-      const transcriptionResponse = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${voxstralApiKey}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`
-        },
-        body: bodyBytes
-      });
+    // Calculate score
+    const expectedLyrics = expectedText || "sample lyrics here";
+    calculatedScore = calculatePronunciationScore(transcript, expectedLyrics);
 
-      const transcriptionData = await transcriptionResponse.json();
-      transcript = transcriptionData.text || '';
+    // Submit to PerformanceGrader contract
+    txHash = await submitToPerformanceGrader({
+      performanceId: performanceId || Date.now(),
+      segmentHash,
+      performer: userAddress,
+      score: calculatedScore * 100, // Convert to basis points
+      metadataUri: metadataUri || `grove://${generateRandomCID()}`
+    });
 
-      // Calculate score (simplified version - you can enhance with FSRS)
-      const expectedLyrics = "sample lyrics here"; // Get from metadataUri
-      calculatedScore = calculatePronunciationScore(transcript, expectedLyrics);
-
-      // Submit to PerformanceGrader contract
-      txHash = await submitToPerformanceGrader({
-        performanceId: performanceId || Date.now(),
-        segmentHash,
-        performer: userAddress,
-        score: calculatedScore * 100, // Convert to basis points
-        metadataUri: metadataUri || `grove://${generateRandomCID()}`
-      });
-
-      success = true;
-    } // end else
+    success = true;
 
   } catch (error) {
     success = false;
