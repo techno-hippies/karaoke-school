@@ -431,14 +431,19 @@ async function processSegment(
         if (dryRun) {
           console.log(`    [DRY RUN] Would emit TranslationAdded (${translation.language_code})`);
         } else {
-          const tx3 = await translationEvents.emitTranslationAdded(
-            segmentHash,
-            translation.language_code,
-            translation.grove_url
-          );
-          console.log(`    ⏳ ${translation.language_code}: ${tx3.hash}`);
-          const receipt3 = await tx3.wait();
-          console.log(`    ✅ ${translation.language_code}: Block ${receipt3.blockNumber} (gas: ${receipt3.gasUsed.toString()})`);
+          try {
+            const tx3 = await translationEvents.emitTranslationAdded(
+              segmentHash,
+              translation.language_code,
+              translation.grove_url
+            );
+            console.log(`    ⏳ ${translation.language_code}: ${tx3.hash}`);
+            const receipt3 = await tx3.wait();
+            console.log(`    ✅ ${translation.language_code}: Block ${receipt3.blockNumber} (gas: ${receipt3.gasUsed.toString()})`);
+          } catch (txError: any) {
+            console.warn(`    ⚠️  ${translation.language_code}: Skipped (contract error)`);
+            console.warn(`       ${txError.message.split('\n')[0]}`);
+          }
         }
       }
     }
