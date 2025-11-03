@@ -8,8 +8,8 @@ import { GraphQLClient } from 'graphql-request'
 
 // Subgraph endpoint configuration
 const SUBGRAPH_ENDPOINTS = {
-  // Local Graph Node (for development)
-  local: 'http://localhost:8000/subgraphs/name/subgraph-0/',
+  // Local Graph Node Dev Mode (for development) - use 127.0.0.1 for IPv4
+  local: 'http://127.0.0.1:8000/subgraphs/name/subgraph-0/',
   // The Graph Studio endpoint (for production)
   studio: 'https://api.studio.thegraph.com/query/120915/ksc-1/v0.0.1',
 }
