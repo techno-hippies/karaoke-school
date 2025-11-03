@@ -59,9 +59,15 @@ export const SegmentEmissionDataSchema = z.object({
   optimal_segment_start_ms: z.number().int().nonnegative('Start time must be >= 0'),
   optimal_segment_end_ms: z.number().int().positive('End time must be > 0'),
   cropped_instrumental_grove_url: GroveUrlSchema,
+  clip_start_ms: z.number().int().nonnegative().optional(),
+  clip_end_ms: z.number().int().positive().optional(),
 
   // From grc20_work_mints (via join)
   grc20_work_id: GRC20UuidSchema,
+
+  // From grc20_works (song metadata - required for display)
+  title: z.string().min(1, 'Song title required'),
+  artist_name: z.string().min(1, 'Artist name required'),
 
   // From elevenlabs_word_alignments
   alignment_words: z
