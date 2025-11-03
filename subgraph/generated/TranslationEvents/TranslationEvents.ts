@@ -27,8 +27,8 @@ export class TranslationAdded__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get languageCode(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+  get languageCode(): string {
+    return this._event.parameters[1].value.toString();
   }
 
   get translationUri(): string {
@@ -73,8 +73,8 @@ export class TranslationToggled__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get languageCode(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+  get languageCode(): string {
+    return this._event.parameters[1].value.toString();
   }
 
   get enabled(): boolean {
@@ -103,8 +103,8 @@ export class TranslationUpdated__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get languageCode(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+  get languageCode(): string {
+    return this._event.parameters[1].value.toString();
   }
 
   get translationUri(): string {

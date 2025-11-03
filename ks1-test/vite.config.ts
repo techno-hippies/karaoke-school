@@ -1,6 +1,7 @@
 import type { UserConfig } from 'vite'
 import { one } from 'one/vite'
 import { tamaguiPlugin } from '@tamagui/vite-plugin'
+import { fileURLToPath } from 'url'
 
 export default {
   plugins: [
@@ -10,7 +11,7 @@ export default {
       },
 
       web: {
-        defaultRenderMode: 'ssg',
+        defaultRenderMode: 'spa',  // Changed from 'ssg' to 'spa' to avoid SSR issues with Lit Protocol
       },
 
       native: {
@@ -40,4 +41,22 @@ export default {
       outputCSS: './src/tamagui/tamagui.css',
     }),
   ],
+
+  // Copy main app's simple config (works with Lit Protocol)
+  define: {
+    'global': 'globalThis',
+  },
+
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+      // Stub for SDK 53 compatibility
+      'expo-modules-core/src/web/index.web.ts': fileURLToPath(new URL('./src/stubs/expo-modules-core/src/web/index.web.ts', import.meta.url)),
+    },
+    conditions: ['import', 'module', 'browser', 'default'],
+  },
+
+  optimizeDeps: {
+    include: ['buffer'],
+  },
 } satisfies UserConfig

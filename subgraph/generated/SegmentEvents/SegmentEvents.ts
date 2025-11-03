@@ -65,8 +65,8 @@ export class SegmentRegistered__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get grc20WorkId(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+  get grc20WorkId(): string {
+    return this._event.parameters[1].value.toString();
   }
 
   get spotifyTrackId(): string {

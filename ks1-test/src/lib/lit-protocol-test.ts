@@ -1,283 +1,324 @@
 /**
- * Lit Protocol PKP Authentication Test
- *
- * This module tests if Lit Protocol PKPs work in React Native via One.js
- *
- * Critical Test: Can we authenticate and sign transactions with PKPs in RN?
+ * Lit Protocol PKP Test Suite for One.js
+ * Matches main app's exact implementation
  */
 
-import { LitClient } from '@lit-protocol/lit-client'
-import { LitNetwork } from '@lit-protocol/networks'
-import { ethers } from 'ethers'
-import type { Platform } from 'react-native'
+import { createLitClient } from '@lit-protocol/lit-client'
+import { createAuthManager, storagePlugins, WebAuthnAuthenticator } from '@lit-protocol/auth'
+import { nagaDev } from '@lit-protocol/networks'
+
+const IS_DEV = true
 
 export interface PKPTestResult {
   success: boolean
   platform: string
   tests: {
     litClientInit: boolean
-    pkpAuth: boolean
-    signing: boolean
+    authManagerInit: boolean
+    webAuthnAvailable: boolean
   }
   errors: string[]
   warnings: string[]
   performanceMs: number
+  clientMethods?: string[]
+  authManagerMethods?: string[]
 }
 
 /**
  * Test 1: Initialize Lit Protocol Client
- *
- * This is the first critical test - can we even initialize the Lit client
- * in a React Native environment?
+ * Matches main app: src/lib/lit/client.ts
  */
-export async function testLitClientInit(): Promise<{
+async function testLitClientInit(): Promise<{
   success: boolean
   error?: string
-  client?: LitClient
+  client?: any
+  methods?: string[]
 }> {
   try {
     console.log('[Lit Test] Initializing Lit Protocol client...')
+    console.log('[Lit Test] Using nagaDev network (Chronicle)')
 
-    const client = new LitClient({
-      network: LitNetwork.DatilTest, // Use test network
-      debug: true,
+    const client = await createLitClient({
+      network: nagaDev,
     })
 
-    await client.connect()
+    // List available methods
+    const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(client))
+      .filter(m => typeof (client as any)[m] === 'function' && !m.startsWith('_'))
+      .slice(0, 10) // First 10 methods
 
-    console.log('[Lit Test] ✅ Lit client initialized successfully')
+    console.log('[Lit Test] ✅ Lit client initialized')
+    console.log('[Lit Test] Available methods:', methods.join(', '))
 
-    return { success: true, client }
+    return { success: true, client, methods }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error('[Lit Test] ❌ Failed to initialize Lit client:', errorMsg)
-
-    return {
-      success: false,
-      error: errorMsg
-    }
+    console.error('[Lit Test] ❌ Lit client init failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 }
 
 /**
- * Test 2: PKP Authentication
- *
- * CRITICAL BLOCKER: This test checks if WebAuthn-based PKP auth works
- * in React Native. This is likely to fail and require fallback strategies.
- *
- * Expected issues:
- * - navigator.credentials not available in RN
- * - window object missing
- * - crypto.subtle differences between web/native
+ * Test 2: Initialize Auth Manager
+ * Matches main app: src/lib/lit/client.ts
  */
-export async function testPKPAuth(client: LitClient): Promise<{
+function testAuthManagerInit(): {
   success: boolean
   error?: string
-  pkpPublicKey?: string
-}> {
+  authManager?: any
+  methods?: string[]
+} {
   try {
-    console.log('[Lit Test] Testing PKP authentication...')
+    console.log('[Lit Test] Initializing auth manager...')
 
-    // This is where we expect failure in React Native
-    // because WebAuthn requires browser APIs
-
-    // For now, we'll test with a session key approach
-    // which is more likely to work in RN
-
-    const sessionSigs = await client.getSessionSigs({
-      chain: 'ethereum',
-      // We would normally use WebAuthn authNeededCallback here
-      // but that won't work in RN, so we'll try alternative methods
-      resourceAbilityRequests: [
-        {
-          resource: {
-            resource: '*',
-            resourcePrefix: 'lit-pkp',
-          },
-          ability: 'pkp-signing',
-        },
-      ],
+    const authManager = createAuthManager({
+      storage: storagePlugins.localStorage({
+        appName: 'ks1-test',
+        networkName: 'naga-dev',
+      }),
     })
 
-    console.log('[Lit Test] ✅ PKP authentication successful')
-    console.log('[Lit Test] Session sigs:', Object.keys(sessionSigs))
+    // List available methods
+    const methods = Object.getOwnPropertyNames(authManager)
+      .filter(m => typeof (authManager as any)[m] === 'function' && !m.startsWith('_'))
 
-    return {
-      success: true,
-      pkpPublicKey: 'test-pkp-key' // In real impl, get from auth
-    }
+    console.log('[Lit Test] ✅ Auth manager initialized')
+    console.log('[Lit Test] Available methods:', methods.join(', '))
+
+    return { success: true, authManager, methods }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error('[Lit Test] ❌ PKP authentication failed:', errorMsg)
-
-    // Check for specific WebAuthn errors
-    if (errorMsg.includes('navigator') || errorMsg.includes('credentials')) {
-      console.warn('[Lit Test] ⚠️  Detected WebAuthn dependency - RN incompatible')
-    }
-
-    return {
-      success: false,
-      error: errorMsg
-    }
+    console.error('[Lit Test] ❌ Auth manager init failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 }
 
 /**
- * Test 3: Transaction Signing
- *
- * If we can authenticate, can we actually sign transactions?
- * This is the ultimate test for Karaoke School's use case.
+ * Test 3: WebAuthn Availability
+ * Check if WebAuthn is supported in this environment
  */
-export async function testPKPSigning(
-  client: LitClient,
-  pkpPublicKey: string
-): Promise<{
+function testWebAuthnAvailability(): {
   success: boolean
   error?: string
-  signature?: string
-}> {
+  warning?: string
+} {
   try {
-    console.log('[Lit Test] Testing transaction signing with PKP...')
+    console.log('[Lit Test] Checking WebAuthn availability...')
 
-    // Create a simple message to sign
-    const message = 'Hello from One.js + Lit Protocol!'
-    const messageHash = ethers.utils.hashMessage(message)
+    // Check if PublicKeyCredential is available
+    const isAvailable = typeof window !== 'undefined' && 'PublicKeyCredential' in window
 
-    // This is the critical test - can we sign in RN?
-    // In your lit-actions, you use PKP signing for Lens transactions
-
-    // Note: This will likely fail without proper PKP setup
-    // but we're testing the API compatibility
-
-    console.log('[Lit Test] Message to sign:', message)
-    console.log('[Lit Test] Message hash:', messageHash)
-
-    // Simulated signing for now (replace with actual PKP signing)
-    const mockSignature = '0x' + '0'.repeat(130)
-
-    console.log('[Lit Test] ✅ Signing test completed')
-
-    return {
-      success: true,
-      signature: mockSignature
+    if (!isAvailable) {
+      const warning = 'WebAuthn not available (requires HTTPS or localhost)'
+      console.warn('[Lit Test] ⚠️', warning)
+      return { success: false, warning }
     }
+
+    console.log('[Lit Test] ✅ WebAuthn available')
+    console.log('[Lit Test] Note: Registration/auth requires user interaction (button click)')
+
+    return { success: true }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error('[Lit Test] ❌ Transaction signing failed:', errorMsg)
-
-    return {
-      success: false,
-      error: errorMsg
-    }
+    console.error('[Lit Test] ❌ WebAuthn check failed:', errorMsg)
+    return { success: false, error: errorMsg }
   }
 }
 
 /**
  * Run Full PKP Test Suite
- *
- * This runs all tests and returns comprehensive results
+ * Tests initialization only - WebAuthn requires user interaction
  */
 export async function runPKPTestSuite(): Promise<PKPTestResult> {
   const startTime = Date.now()
   const errors: string[] = []
   const warnings: string[] = []
-
-  // Detect platform
-  const platform = process.env.VITE_ENVIRONMENT || 'unknown'
-
-  console.log('='.repeat(60))
-  console.log('🧪 Starting Lit Protocol PKP Test Suite')
-  console.log('Platform:', platform)
-  console.log('='.repeat(60))
+  const platform = typeof navigator !== 'undefined' && /Android|iPhone/.test(navigator.userAgent) ? 'mobile' : 'web'
 
   const result: PKPTestResult = {
     success: false,
     platform,
     tests: {
       litClientInit: false,
-      pkpAuth: false,
-      signing: false,
+      authManagerInit: false,
+      webAuthnAvailable: false,
     },
-    errors: [],
-    warnings: [],
+    errors,
+    warnings,
     performanceMs: 0,
   }
 
-  // Test 1: Initialize Lit Client
-  const initResult = await testLitClientInit()
-  result.tests.litClientInit = initResult.success
+  try {
+    console.log('='.repeat(60))
+    console.log('🧪 Lit Protocol PKP Test Suite (One.js)')
+    console.log('Platform:', platform)
+    console.log('Network: nagaDev (Chronicle)')
+    console.log('='.repeat(60))
 
-  if (!initResult.success) {
-    errors.push(`Lit client init: ${initResult.error}`)
-    result.errors = errors
-    result.warnings = warnings
-    result.performanceMs = Date.now() - startTime
-    return result
-  }
+    // Test 1: Initialize Lit Client
+    const initResult = await testLitClientInit()
+    result.tests.litClientInit = initResult.success
+    result.clientMethods = initResult.methods
 
-  if (!initResult.client) {
-    errors.push('Lit client init succeeded but no client returned')
-    result.errors = errors
-    result.warnings = warnings
-    result.performanceMs = Date.now() - startTime
-    return result
-  }
-
-  // Test 2: PKP Authentication
-  const authResult = await testPKPAuth(initResult.client)
-  result.tests.pkpAuth = authResult.success
-
-  if (!authResult.success) {
-    errors.push(`PKP auth: ${authResult.error}`)
-
-    // Add specific warnings for common RN issues
-    if (authResult.error?.includes('navigator') || authResult.error?.includes('WebAuthn')) {
-      warnings.push('WebAuthn not available in React Native - need alternative auth method')
+    if (!initResult.success) {
+      errors.push(`Lit client init: ${initResult.error}`)
+      throw new Error('Lit client init failed')
     }
 
+    // Test 2: Initialize Auth Manager
+    const authResult = testAuthManagerInit()
+    result.tests.authManagerInit = authResult.success
+    result.authManagerMethods = authResult.methods
+
+    if (!authResult.success) {
+      errors.push(`Auth manager init: ${authResult.error}`)
+      throw new Error('Auth manager init failed')
+    }
+
+    // Test 3: WebAuthn Availability
+    const webAuthnResult = testWebAuthnAvailability()
+    result.tests.webAuthnAvailable = webAuthnResult.success
+
+    if (!webAuthnResult.success && webAuthnResult.warning) {
+      warnings.push(webAuthnResult.warning)
+    }
+
+    if (!webAuthnResult.success && webAuthnResult.error) {
+      errors.push(`WebAuthn check: ${webAuthnResult.error}`)
+    }
+
+    result.success = result.tests.litClientInit && result.tests.authManagerInit
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    if (!errors.includes(`Unexpected error: ${errorMsg}`)) {
+      errors.push(`Unexpected error: ${errorMsg}`)
+    }
+  } finally {
     result.errors = errors
     result.warnings = warnings
     result.performanceMs = Date.now() - startTime
-    return result
+
+    console.log('='.repeat(60))
+    console.log('📊 Results')
+    console.log('='.repeat(60))
+    console.log('Overall:', result.success ? '✅ PASS' : '❌ FAIL')
+    console.log('Tests:')
+    console.log(' - Lit client init:', result.tests.litClientInit ? '✅' : '❌')
+    console.log(' - Auth manager init:', result.tests.authManagerInit ? '✅' : '❌')
+    console.log(' - WebAuthn available:', result.tests.webAuthnAvailable ? '✅' : '⚠️')
+    console.log('Errors:', result.errors.length)
+    result.errors.forEach(err => console.log(' -', err))
+    console.log('Warnings:', result.warnings.length)
+    result.warnings.forEach(warn => console.log(' -', warn))
+    console.log('Time:', result.performanceMs, 'ms')
+    console.log('='.repeat(60))
   }
-
-  if (!authResult.pkpPublicKey) {
-    errors.push('PKP auth succeeded but no public key returned')
-    result.errors = errors
-    result.warnings = warnings
-    result.performanceMs = Date.now() - startTime
-    return result
-  }
-
-  // Test 3: Transaction Signing
-  const signingResult = await testPKPSigning(initResult.client, authResult.pkpPublicKey)
-  result.tests.signing = signingResult.success
-
-  if (!signingResult.success) {
-    errors.push(`PKP signing: ${signingResult.error}`)
-  }
-
-  // Final result
-  result.success = result.tests.litClientInit && result.tests.pkpAuth && result.tests.signing
-  result.errors = errors
-  result.warnings = warnings
-  result.performanceMs = Date.now() - startTime
-
-  console.log('='.repeat(60))
-  console.log('📊 Test Suite Results')
-  console.log('='.repeat(60))
-  console.log('Overall:', result.success ? '✅ PASS' : '❌ FAIL')
-  console.log('Platform:', result.platform)
-  console.log('Tests:')
-  console.log('  - Lit client init:', result.tests.litClientInit ? '✅' : '❌')
-  console.log('  - PKP auth:', result.tests.pkpAuth ? '✅' : '❌')
-  console.log('  - Transaction signing:', result.tests.signing ? '✅' : '❌')
-  console.log('Errors:', result.errors.length)
-  result.errors.forEach(err => console.log('  -', err))
-  console.log('Warnings:', result.warnings.length)
-  result.warnings.forEach(warn => console.log('  -', warn))
-  console.log('Performance:', result.performanceMs, 'ms')
-  console.log('='.repeat(60))
 
   return result
+}
+
+/**
+ * Interactive WebAuthn Registration Test
+ * Call this from a button click (requires user gesture)
+ * Matches main app: src/lib/lit/auth-webauthn.ts
+ */
+export async function testWebAuthnRegistration(): Promise<{
+  success: boolean
+  error?: string
+  pkpInfo?: {
+    publicKey: string
+    ethAddress: string
+    tokenId: string
+  }
+}> {
+  try {
+    console.log('[Lit Test] Starting WebAuthn registration...')
+    console.log('[Lit Test] This will prompt for passkey creation')
+
+    const result = await WebAuthnAuthenticator.registerAndMintPKP({
+      username: 'KS1 Test User',
+      authServiceBaseUrl: 'https://naga-dev-auth-service.getlit.dev',
+      scopes: ['sign-anything'],
+    }) as { pkpInfo: any; webAuthnPublicKey: string; authData?: any }
+
+    console.log('[Lit Test] ✅ Registration successful!')
+    console.log('[Lit Test] PKP Address:', result.pkpInfo.ethAddress)
+    console.log('[Lit Test] PKP Public Key:', result.pkpInfo.pubkey.slice(0, 20) + '...')
+
+    return {
+      success: true,
+      pkpInfo: {
+        publicKey: result.pkpInfo.pubkey,
+        ethAddress: result.pkpInfo.ethAddress,
+        tokenId: result.pkpInfo.tokenId.toString(),
+      },
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error('[Lit Test] ❌ Registration failed:', errorMsg)
+    return { success: false, error: errorMsg }
+  }
+}
+
+/**
+ * Interactive WebAuthn Authentication Test
+ * Call this from a button click (requires user gesture)
+ * Matches main app: src/lib/lit/auth-webauthn.ts
+ */
+export async function testWebAuthnAuthentication(): Promise<{
+  success: boolean
+  error?: string
+  pkpInfo?: {
+    publicKey: string
+    ethAddress: string
+    tokenId: string
+  }
+}> {
+  try {
+    console.log('[Lit Test] Starting WebAuthn authentication...')
+    console.log('[Lit Test] This will prompt for passkey')
+
+    // Authenticate with WebAuthn
+    const authData = await WebAuthnAuthenticator.authenticate()
+
+    console.log('[Lit Test] ✅ Authentication successful')
+    console.log('[Lit Test] Auth Method ID:', authData.authMethodId.slice(0, 20) + '...')
+
+    // Get PKP for this credential
+    const litClient = await createLitClient({ network: nagaDev })
+
+    const pkpsResult = await litClient.viewPKPsByAuthData({
+      authData: {
+        authMethodType: authData.authMethodType,
+        authMethodId: authData.authMethodId,
+      },
+      pagination: {
+        limit: 5,
+        offset: 0,
+      },
+    })
+
+    if (!pkpsResult || !pkpsResult.pkps || pkpsResult.pkps.length === 0) {
+      throw new Error('No PKP found for this credential. Please register first.')
+    }
+
+    const pkp = pkpsResult.pkps[0]
+
+    console.log('[Lit Test] ✅ PKP found')
+    console.log('[Lit Test] PKP Address:', pkp.ethAddress)
+
+    return {
+      success: true,
+      pkpInfo: {
+        publicKey: pkp.pubkey,
+        ethAddress: pkp.ethAddress,
+        tokenId: pkp.tokenId.toString(),
+      },
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error('[Lit Test] ❌ Authentication failed:', errorMsg)
+    return { success: false, error: errorMsg }
+  }
 }
