@@ -56,8 +56,8 @@ const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';
 const LENS_TESTNET_CHAIN_ID = 37111;
 
 // Deployed contract addresses (from contracts/README.md)
-const SEGMENT_EVENTS_ADDRESS = '0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8';
-const TRANSLATION_EVENTS_ADDRESS = '0x5A49E23A5C3a034906eE0274c266A08805770C70'; // Deployed 2025-11-03
+const SEGMENT_EVENTS_ADDRESS = '0x9Dd47ca83d43cFcec36EFf439A2161498A1ED670';
+const TRANSLATION_EVENTS_ADDRESS = '0x4aE979A4f115d734670403e644d83d4C695f9c58'; // Deployed 2025-11-03 (fixed indexed strings)
 
 // Parse command line args
 const args = process.argv.slice(2);

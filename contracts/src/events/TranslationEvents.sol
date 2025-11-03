@@ -44,7 +44,7 @@ contract TranslationEvents {
      */
     event TranslationAdded(
         bytes32 indexed segmentHash,
-        string indexed languageCode,
+        string languageCode,
         string translationUri,
         string translationSource,
         uint16 confidenceScore,
@@ -64,7 +64,7 @@ contract TranslationEvents {
      */
     event TranslationUpdated(
         bytes32 indexed segmentHash,
-        string indexed languageCode,
+        string languageCode,
         string translationUri,
         bool validated,
         address indexed updatedBy,
@@ -80,7 +80,7 @@ contract TranslationEvents {
      */
     event TranslationToggled(
         bytes32 indexed segmentHash,
-        string indexed languageCode,
+        string languageCode,
         bool enabled,
         uint64 timestamp
     );

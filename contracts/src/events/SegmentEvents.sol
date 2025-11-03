@@ -39,7 +39,7 @@ contract SegmentEvents {
      */
     event SegmentRegistered(
         bytes32 indexed segmentHash,
-        string indexed grc20WorkId,
+        string grc20WorkId,
         string spotifyTrackId,
         uint32 segmentStartMs,
         uint32 segmentEndMs,
