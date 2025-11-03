@@ -313,15 +313,53 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     gw.title,
     ga.name as artist_name,
 
-    -- ElevenLabs alignment (word-level timing)
-    ewa.words as alignment_words,
+    -- ElevenLabs alignment (word-level timing, filtered & offset to clip window)
+    (
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'text', word->>'text',
+          'start', (CAST(word->>'start' AS NUMERIC) - ks.clip_start_ms::numeric / 1000),
+          'end', (CAST(word->>'end' AS NUMERIC) - ks.clip_start_ms::numeric / 1000),
+          'loss', word->'loss',
+          'confidence', word->'confidence'
+        ) ORDER BY CAST(word->>'start' AS NUMERIC)
+      )
+      FROM jsonb_array_elements(ewa.words) as word
+      WHERE CAST(word->>'end' AS NUMERIC) >= ks.clip_start_ms::numeric / 1000
+        AND CAST(word->>'start' AS NUMERIC) <= ks.clip_end_ms::numeric / 1000
+    ) as alignment_words,
 
-    -- Translations (aggregated as JSONB array)
+    -- Translations (aggregated as JSONB array, filtered & offset to clip window)
     COALESCE(
       jsonb_agg(
         jsonb_build_object(
           'language_code', lt.language_code,
-          'lines', lt.lines,
+          'lines', (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'lineIndex', line->>'lineIndex',
+                'originalText', line->>'originalText',
+                'translatedText', line->>'translatedText',
+                'start', (CAST(line->>'start' AS NUMERIC) - ks.clip_start_ms::numeric / 1000),
+                'end', (CAST(line->>'end' AS NUMERIC) - ks.clip_start_ms::numeric / 1000),
+                'words', (
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'text', word->>'text',
+                      'start', (CAST(word->>'start' AS NUMERIC) - ks.clip_start_ms::numeric / 1000),
+                      'end', (CAST(word->>'end' AS NUMERIC) - ks.clip_start_ms::numeric / 1000)
+                    ) ORDER BY CAST(word->>'start' AS NUMERIC)
+                  )
+                  FROM jsonb_array_elements(line->'words') as word
+                  WHERE CAST(word->>'end' AS NUMERIC) >= ks.clip_start_ms::numeric / 1000
+                    AND CAST(word->>'start' AS NUMERIC) <= ks.clip_end_ms::numeric / 1000
+                )
+              ) ORDER BY CAST(line->>'start' AS NUMERIC)
+            )
+            FROM jsonb_array_elements(lt.lines) as line
+            WHERE CAST(line->>'end' AS NUMERIC) >= ks.clip_start_ms::numeric / 1000
+              AND CAST(line->>'start' AS NUMERIC) <= ks.clip_end_ms::numeric / 1000
+          ),
           'confidence_score', lt.confidence_score,
           'translation_source', lt.translation_source,
           'grove_url', lt.grove_url
