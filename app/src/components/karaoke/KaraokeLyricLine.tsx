@@ -3,6 +3,8 @@ import { TikTokKaraokeRenderer } from './KaraokeWordsRenderer'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
+const DEBUG = true
+
 export interface KaraokeLyricLineProps {
   line: LyricLine
   currentTime: number
@@ -27,6 +29,18 @@ export function KaraokeLyricLine({
 }: KaraokeLyricLineProps) {
   // Only filter out truly empty words - keep all words with actual content
   const allWords = (line.words || []).filter((word) => word.text.trim() !== '')
+
+  // Debug logging for line timing
+  if (DEBUG && currentTime > 0 && isActive && Math.round(currentTime * 100) % 10 === 0) {
+    console.log(`📝 [KaraokeLyricLine] Line is ACTIVE`, {
+      lineText: line.originalText.substring(0, 50),
+      lineStart: line.start.toFixed(3),
+      lineEnd: line.end.toFixed(3),
+      currentTime: currentTime.toFixed(3),
+      wordCount: allWords.length,
+      firstWord: allWords[0] ? { text: allWords[0].text, start: allWords[0].start?.toFixed(3), end: allWords[0].end?.toFixed(3) } : 'none',
+    })
+  }
 
   // Check if word-level data is complete by verifying first word matches line text
   const hasCompleteWordData = allWords.length > 0 && (() => {
