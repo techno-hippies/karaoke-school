@@ -1,23 +1,4 @@
 """
-A registered song on the platform
-Note: GRC-20 handles public music metadata, this is for app-specific song data
-"""
-type Song @entity(immutable: false) {
-  id: ID! # geniusId
-  geniusId: BigInt!
-  metadataUri: String!
-  registeredBy: Bytes!
-  geniusArtistId: BigInt!
-  registeredAt: BigInt!
-
-  # Legacy relation - used for existing data
-  # New segments reference GRC-20 work IDs directly
-  segmentCount: Int!
-  performanceCount: Int!
-  translationCount: Int! # Total translations across all segments
-}
-
-"""
 A processed segment of a song (karaoke audio with translations)
 References GRC-20 work entity for music metadata (decoupled design)
 """
@@ -88,7 +69,6 @@ type Performance @entity(immutable: true) {
   gradedAt: BigInt!
 
   # Denormalized for queries
-  songId: BigInt!
   segmentHash: Bytes!
 }
 
@@ -101,7 +81,6 @@ type Account @entity(immutable: false) {
   pkpAddress: Bytes!
   username: String!
   metadataUri: String!
-  geniusArtistId: Int # 0 if not an artist
   createdAt: BigInt!
   updatedAt: BigInt!
   verified: Boolean! # Account verification status
@@ -121,7 +100,6 @@ Global statistics
 """
 type GlobalStats @entity(immutable: false) {
   id: ID! # "global"
-  totalSongs: Int!
   totalSegments: Int!
   totalPerformances: Int!
   totalAccounts: Int!

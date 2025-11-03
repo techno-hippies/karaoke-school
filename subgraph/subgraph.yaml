@@ -5,32 +5,6 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
-    name: SongEvents
-    network: local
-    source:
-      address: "0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d"
-      abi: SongEvents
-      startBlock: 0
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Song
-        - GlobalStats
-      abis:
-        - name: SongEvents
-          file: ./abis/SongEvents.json
-      eventHandlers:
-        - event: SongRegistered(indexed uint32,string,indexed address,uint32,uint64)
-          handler: handleSongRegistered
-        - event: SongMetadataUpdated(indexed uint32,string,indexed address,uint64)
-          handler: handleSongMetadataUpdated
-        - event: SongToggled(indexed uint32,bool,uint64)
-          handler: handleSongToggled
-      file: ./src/mappings.ts
-
-  - kind: ethereum
     name: SegmentEvents
     network: local
     source:
@@ -43,7 +17,6 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Segment
-        - Song
         - GlobalStats
       abis:
         - name: SegmentEvents

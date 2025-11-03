@@ -1,10 +1,5 @@
 import { BigInt, BigDecimal } from "@graphprotocol/graph-ts";
 import {
-  SongRegistered,
-  SongMetadataUpdated,
-  SongToggled,
-} from "../generated/SongEvents/SongEvents";
-import {
   SegmentRegistered,
   SegmentProcessed,
   SegmentToggled,
@@ -24,7 +19,6 @@ import {
   AccountVerified,
 } from "../generated/AccountEvents/AccountEvents";
 import {
-  Song,
   Segment,
   Performance,
   Account,
@@ -37,7 +31,6 @@ function loadOrCreateGlobalStats(): GlobalStats {
   let stats = GlobalStats.load("global");
   if (stats == null) {
     stats = new GlobalStats("global");
-    stats.totalSongs = 0;
     stats.totalSegments = 0;
     stats.totalPerformances = 0;
     stats.totalAccounts = 0;
@@ -58,41 +51,6 @@ function getConfidenceLevel(score: i32): string {
 function updateSegmentProcessingStatus(segment: Segment): void {
   segment.hasInstrumental = segment.instrumentalUri != null && segment.instrumentalUri != "";
   segment.hasAlignments = segment.alignmentUri != null && segment.alignmentUri != "";
-}
-
-// ============ Song Event Handlers ============
-
-export function handleSongRegistered(event: SongRegistered): void {
-  let song = new Song(event.params.geniusId.toString());
-  song.geniusId = event.params.geniusId;
-  song.metadataUri = event.params.metadataUri;
-  song.registeredBy = event.params.registeredBy;
-  song.geniusArtistId = event.params.geniusArtistId;
-  song.registeredAt = event.params.timestamp;
-  song.segmentCount = 0;
-  song.performanceCount = 0;
-  song.translationCount = 0;
-  song.save();
-
-  let stats = loadOrCreateGlobalStats();
-  stats.totalSongs = stats.totalSongs + 1;
-  stats.save();
-}
-
-export function handleSongMetadataUpdated(event: SongMetadataUpdated): void {
-  // Legacy handler - kept for compatibility
-  // New segments reference GRC-20 work IDs directly
-  let song = Song.load(event.params.geniusId.toString());
-  if (song != null) {
-    song.metadataUri = event.params.metadataUri;
-    song.save();
-  }
-}
-
-export function handleSongToggled(event: SongToggled): void {
-  // Legacy handler - kept for compatibility  
-  // Song toggle functionality could be used for enabling/disabling songs
-  // For now, we just log it - could extend to add enabled field to Song entity
 }
 
 // ============ Segment Event Handlers ============
@@ -120,9 +78,6 @@ export function handleSegmentRegistered(event: SegmentRegistered): void {
   segment.hasAlignments = false;
   segment.save();
 
-  // No song segment count updates needed since segments reference GRC-20 (not genius IDs)
-  // Song counts would be managed at the GRC-20 layer if needed
-
   let stats = loadOrCreateGlobalStats();
   stats.totalSegments = stats.totalSegments + 1;
   stats.save();
@@ -141,8 +96,6 @@ export function handleSegmentProcessed(event: SegmentProcessed): void {
     
     updateSegmentProcessingStatus(segment);
     segment.save();
-
-    // No song translation count updates needed - GRC-20 is the public layer
   }
 }
 
@@ -182,8 +135,6 @@ export function handleTranslationAdded(event: TranslationAdded): void {
   if (segment != null) {
     segment.translationCount = segment.translationCount + 1;
     segment.save();
-
-    // No song updates needed - GRC-20 is the public layer
   }
 
   let stats = loadOrCreateGlobalStats();
@@ -237,10 +188,9 @@ export function handlePerformanceGraded(event: PerformanceGraded): void {
   performance.metadataUri = event.params.metadataUri;
   performance.gradedAt = event.params.timestamp;
 
-  // Load segment to update stats (grc20WorkId already stored)
+  // Load segment to update stats
   let segment = Segment.load(event.params.segmentHash.toHexString());
   if (segment != null) {
-    performance.songId = BigInt.zero(); // GRC-20 work ID, not genius ID
     performance.segmentHash = segment.segmentHash;
 
     // Update segment stats
@@ -257,11 +207,8 @@ export function handlePerformanceGraded(event: PerformanceGraded): void {
     segment.performanceCount = newCount;
     segment.averageScore = newAvg;
     segment.save();
-
-    // No song performance count updates needed - GRC-20 is the public layer
   } else {
     // Fallback if segment not found
-    performance.songId = BigInt.zero();
     performance.segmentHash = event.params.segmentHash;
   }
 
@@ -306,7 +253,6 @@ export function handleAccountCreated(event: AccountCreated): void {
   account.pkpAddress = event.params.pkpAddress;
   account.username = event.params.username;
   account.metadataUri = event.params.metadataUri;
-  account.geniusArtistId = event.params.geniusArtistId.toI32();
   account.createdAt = event.params.timestamp;
   account.updatedAt = event.params.timestamp;
   account.verified = false; // Default to unverified

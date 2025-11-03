@@ -141,7 +141,8 @@ function AppRouter() {
   }, [])
 
   // Hide mobile footer on full-screen pages (song detail, media player, video detail)
-  const hideMobileFooter = location.pathname.match(/^\/song\/\d+/) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+  const hideMobileFooter =
+    location.pathname.match(/^\/song\/grc20\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
     <>
@@ -158,9 +159,12 @@ function AppRouter() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
-          <Route path="/song/:geniusId" element={<SongPageContainer />} />
-          <Route path="/song/:geniusId/play" element={<MediaPageContainer />} />
-          <Route path="/song/:geniusId/segment/:segmentId" element={<div>Study Segment</div>} />
+
+          {/* GRC-20 based song routes (primary) */}
+          <Route path="/song/grc20/:workId" element={<SongPageContainer />} />
+          <Route path="/song/grc20/:workId/play" element={<MediaPageContainer />} />
+          <Route path="/song/grc20/:workId/segment/:segmentId" element={<div>Study Segment (TODO)</div>} />
+          
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePageContainer />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,25 +1,40 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
-import { useSongWithMetadata } from '@/hooks/useSongV2'
+import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
+/**
+ * Song Page Container - GRC-20 based
+ *
+ * Routes:
+ * - /song/grc20/:workId (GRC-20 work UUID)
+ *
+ * All queries are segment-based, grouped by grc20WorkId
+ */
 export function SongPageContainer() {
-  const { geniusId } = useParams<{ geniusId: string }>()
+  const { workId } = useParams<{ workId?: string }>()
   const navigate = useNavigate()
 
-  const songId = geniusId ? parseInt(geniusId) : undefined
+  // Fetch segments for this GRC-20 work
+  const {
+    data: workData,
+    isLoading: isLoadingSegments,
+    error: segmentsError,
+  } = useGRC20WorkSegmentsWithMetadata(workId)
 
-  // Fetch song data from The Graph with Grove metadata
-  const { data: songData, isLoading: isLoadingSong, error: songError } = useSongWithMetadata(songId)
-
-  // Fetch creator videos from Lens (by genius_id attribute)
-  const { data: videosData, isLoading: isLoadingVideos } = useSongVideos(songId)
+  // Fetch creator videos (by Spotify track ID if available)
+  const spotifyTrackId = workData?.spotifyTrackId
+  // TODO: Update useSongVideos to accept spotifyTrackId instead of geniusId
+  const { data: videosData, isLoading: isLoadingVideos } = {
+    data: [] as VideoPost[],
+    isLoading: false,
+  }
 
   // Loading state
-  if (isLoadingSong) {
+  if (isLoadingSegments) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -28,12 +43,16 @@ export function SongPageContainer() {
   }
 
   // Error states
-  if (songError || !songData) {
+  if (segmentsError || !workData) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Song not found</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">
+          Work not found
+        </h1>
         <p className="text-muted-foreground text-center">
-          No song found with ID {geniusId}
+          {workId
+            ? `No work found with GRC-20 ID ${workId}`
+            : 'No work identifier provided'}
         </p>
         <button
           onClick={() => navigate('/')}
@@ -45,61 +64,66 @@ export function SongPageContainer() {
     )
   }
 
-  // Extract metadata from enriched song
-  const metadata = songData.metadata
+  // Extract metadata from first segment
+  const firstSegment = workData.segments[0]
+  const metadata = firstSegment?.metadata
 
-  // Transform Lens videos to VideoGrid format (already transformed in hook)
+  // Transform videos to VideoGrid format
   const videos: VideoPost[] = videosData || []
 
-  // Mock leaderboard (TODO: fetch from LeaderboardV1 when deployed)
-  const leaderboard: LeaderboardEntry[] = []
+  // Extract song information
+  // TODO: Fetch full work info from GRC-20 graph for title, artist, etc.
+  const songTitle = metadata?.title || `Work ${workId}`
+  const artist = metadata?.artist || 'Unknown Artist'
+  const artworkUrl = metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined
+  const songIdentifier = `grc20/${workId}`
+  const playRoute = `/song/grc20/${workId}/play`
 
-  // External links
-  const songLinks = [
-    metadata?.spotifyId && {
+  // Build external links
+  const songLinks: Array<{ label: string; url: string }> = []
+  if (firstSegment?.spotifyTrackId) {
+    songLinks.push({
       label: 'Spotify',
-      url: `https://open.spotify.com/track/${metadata.spotifyId}`,
-    },
-  ].filter(Boolean) as Array<{ label: string; url: string }>
+      url: `https://open.spotify.com/track/${firstSegment.spotifyTrackId}`,
+    })
+  }
 
-  const lyricsLinks = songData.geniusId
-    ? [
-        {
-          label: 'Genius',
-          url: `https://genius.com/songs/${songData.geniusId}`,
-        },
-      ]
-    : []
+  // Mock leaderboard (TODO: fetch from contract/subgraph when ready)
+  const leaderboard: LeaderboardEntry[] = []
 
   return (
     <SongPage
-      songTitle={metadata?.title || `Song ${songData.geniusId}`}
-      artist={metadata?.artist || 'Unknown Artist'}
-      artworkUrl={metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined}
+      songTitle={songTitle}
+      artist={artist}
+      artworkUrl={artworkUrl}
       songLinks={songLinks}
-      lyricsLinks={lyricsLinks}
+      lyricsLinks={[]}
       onBack={() => navigate(-1)}
-      onPlay={() => navigate(`/song/${geniusId}/play`)}
+      onPlay={() => navigate(playRoute)}
       onArtistClick={() => {
-        // TODO: Navigate to artist page using geniusArtistId
-        console.log('Navigate to artist:', songData.geniusArtistId)
+        // TODO: Navigate to artist GRC-20 page if available
+        console.log('Navigate to artist: (GRC-20 implementation pending)')
       }}
       videos={videos}
       isLoadingVideos={isLoadingVideos}
       onVideoClick={(video) => {
         console.log('[SongPage] Video clicked:', video)
-        console.log('[SongPage] Navigating to:', `/u/${video.username}/video/${video.id}?from=song&songId=${geniusId}`)
-        navigate(`/u/${video.username}/video/${video.id}?from=song&songId=${geniusId}`)
+        navigate(
+          `/u/${video.username}/video/${video.id}?from=song&songId=${songIdentifier}`
+        )
       }}
       leaderboardEntries={leaderboard}
-      currentUser={undefined} // TODO: Fetch current user rank
+      currentUser={undefined}
       onStudy={() => {
-        // TODO: Navigate to first segment for this song
-        console.log('Study clicked')
+        // TODO: Implement segment-specific pages
+        const firstSegmentId = workData.segments[0]?.id
+        if (firstSegmentId) {
+          console.log('Study clicked - segment:', firstSegmentId)
+          // navigate(`/song/grc20/${workId}/segment/${firstSegmentId}`)
+        }
       }}
       onKaraoke={() => {
-        // TODO: Navigate to karaoke mode
-        console.log('Karaoke clicked')
+        navigate(playRoute)
       }}
     />
   )

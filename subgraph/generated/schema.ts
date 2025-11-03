@@ -12,150 +12,6 @@ import {
   Int8,
 } from "@graphprotocol/graph-ts";
 
-export class Song extends Entity {
-  constructor(id: string) {
-    super();
-    this.set("id", Value.fromString(id));
-  }
-
-  save(): void {
-    let id = this.get("id");
-    assert(id != null, "Cannot save Song entity without an ID");
-    if (id) {
-      assert(
-        id.kind == ValueKind.STRING,
-        `Entities of type Song must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
-      );
-      store.set("Song", id.toString(), this);
-    }
-  }
-
-  static loadInBlock(id: string): Song | null {
-    return changetype<Song | null>(store.get_in_block("Song", id));
-  }
-
-  static load(id: string): Song | null {
-    return changetype<Song | null>(store.get("Song", id));
-  }
-
-  get id(): string {
-    let value = this.get("id");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set id(value: string) {
-    this.set("id", Value.fromString(value));
-  }
-
-  get geniusId(): BigInt {
-    let value = this.get("geniusId");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set geniusId(value: BigInt) {
-    this.set("geniusId", Value.fromBigInt(value));
-  }
-
-  get metadataUri(): string {
-    let value = this.get("metadataUri");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set metadataUri(value: string) {
-    this.set("metadataUri", Value.fromString(value));
-  }
-
-  get registeredBy(): Bytes {
-    let value = this.get("registeredBy");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBytes();
-    }
-  }
-
-  set registeredBy(value: Bytes) {
-    this.set("registeredBy", Value.fromBytes(value));
-  }
-
-  get geniusArtistId(): BigInt {
-    let value = this.get("geniusArtistId");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set geniusArtistId(value: BigInt) {
-    this.set("geniusArtistId", Value.fromBigInt(value));
-  }
-
-  get registeredAt(): BigInt {
-    let value = this.get("registeredAt");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set registeredAt(value: BigInt) {
-    this.set("registeredAt", Value.fromBigInt(value));
-  }
-
-  get segmentCount(): i32 {
-    let value = this.get("segmentCount");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set segmentCount(value: i32) {
-    this.set("segmentCount", Value.fromI32(value));
-  }
-
-  get performanceCount(): i32 {
-    let value = this.get("performanceCount");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set performanceCount(value: i32) {
-    this.set("performanceCount", Value.fromI32(value));
-  }
-
-  get translationCount(): i32 {
-    let value = this.get("translationCount");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set translationCount(value: i32) {
-    this.set("translationCount", Value.fromI32(value));
-  }
-}
-
 export class Segment extends Entity {
   constructor(id: string) {
     super();
@@ -766,19 +622,6 @@ export class Performance extends Entity {
     this.set("gradedAt", Value.fromBigInt(value));
   }
 
-  get songId(): BigInt {
-    let value = this.get("songId");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set songId(value: BigInt) {
-    this.set("songId", Value.fromBigInt(value));
-  }
-
   get segmentHash(): Bytes {
     let value = this.get("segmentHash");
     if (!value || value.kind == ValueKind.NULL) {
@@ -882,19 +725,6 @@ export class Account extends Entity {
 
   set metadataUri(value: string) {
     this.set("metadataUri", Value.fromString(value));
-  }
-
-  get geniusArtistId(): i32 {
-    let value = this.get("geniusArtistId");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set geniusArtistId(value: i32) {
-    this.set("geniusArtistId", Value.fromI32(value));
   }
 
   get createdAt(): BigInt {
@@ -1036,19 +866,6 @@ export class GlobalStats extends Entity {
 
   set id(value: string) {
     this.set("id", Value.fromString(value));
-  }
-
-  get totalSongs(): i32 {
-    let value = this.get("totalSongs");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set totalSongs(value: i32) {
-    this.set("totalSongs", Value.fromI32(value));
   }
 
   get totalSegments(): i32 {
