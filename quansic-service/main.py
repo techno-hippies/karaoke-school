@@ -17,7 +17,7 @@ import asyncio
 
 from models import (
     EnrichRequest, EnrichRecordingRequest, EnrichWorkRequest, AuthRequest, SearchRequest,
-    ApiResponse, QuansicArtistData, QuansicRecordingData, QuansicWorkData
+    LookupArtistRequest, ApiResponse, QuansicArtistData, QuansicRecordingData, QuansicWorkData
 )
 from quansic_service import QuansicService
 
@@ -219,6 +219,35 @@ async def enrich_artist(
         return ApiResponse(success=False, error=str(e))
 
 
+@app.post("/lookup-artist", response_model=ApiResponse)
+async def lookup_artist_by_spotify(
+    request: LookupArtistRequest,
+    service: QuansicService = Depends(get_quansic_service)
+):
+    """Lookup artist by Spotify ID and return ISNI + full artist data"""
+    try:
+        logger.info(f"🎤 Artist lookup: Spotify ID {request.spotify_artist_id}")
+
+        artist_data = await service.lookup_artist_by_spotify(
+            spotify_artist_id=request.spotify_artist_id,
+            force_reauth=request.force_reauth
+        )
+
+        # Check if this is a "not found" result
+        if artist_data.get('error') == 'SPOTIFY_ID_NOT_FOUND':
+            return ApiResponse(
+                success=False,
+                error=artist_data.get('message', 'Spotify artist not found'),
+                data=artist_data
+            )
+
+        return ApiResponse(success=True, data=artist_data)
+
+    except Exception as e:
+        logger.error(f"Artist lookup failed: {e}")
+        return ApiResponse(success=False, error=str(e))
+
+
 @app.post("/enrich-recording", response_model=ApiResponse)
 async def enrich_recording(
     request: EnrichRecordingRequest,
@@ -309,7 +338,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "3000"))
     host = os.getenv("HOST", "0.0.0.0")
     
-    logger.info(f"🚀 Starting Quansic Enrichment Service v2.0.2 with hrequests")
+    logger.info(f"🚀 Starting Quansic Enrichment Service v2.0.5 with hrequests")
     logger.info(f"🌐 Server: http://{host}:{port}")
     logger.info(f"🛡️ Anti-detection: Enabled (Camoufox + Patchright)")
     logger.info(f"📊 Browser: {os.getenv('HREQUESTS_BROWSER', 'firefox')}")

@@ -51,6 +51,9 @@ interface ArtistAggregation {
   headerImageUrl?: string;
   imageSource?: string;
 
+  // Wikidata
+  wikidataId?: string;
+
   // International Library IDs (from Wikidata)
   viafId?: string;
   gndId?: string;
@@ -60,20 +63,18 @@ interface ArtistAggregation {
   bnmmId?: string;
   selibrId?: string;
 
-  // NEW: Group relationships
-  groupMemberIds?: Array<{mbid: string; name: string; spotify_artist_id?: string}>;
-  memberOfGroups?: Array<{spotify_artist_id: string; name: string}>;
+  // Group relationships (single direction: member → group)
+  // Groups have empty array, persons have their groups listed
+  memberOfGroups?: Array<{
+    grc20_entity_id?: string;      // PRIMARY: for on-chain relationships (populated after minting)
+    mbid: string;                  // For validation & sourcing
+    name: string;
+    spotify_artist_id?: string;    // Supplementary
+  }>;
 
-  // PKP & Lens data
-  pkpAddress?: string;
-  pkpTokenId?: string;
-  pkpPublicKey?: string;
-  pkpMintedAt?: string;
-  lensHandle?: string;
-  lensAccountAddress?: string;
-  lensAccountId?: string;
-  lensMetadataUri?: string;
-  lensCreatedAt?: string;
+  // PKP & Lens data (foreign keys only)
+  pkpAccountId?: number;
+  lensAccountId?: number;
 }
 
 function extractUrl(allUrls: any, pattern: string): string | undefined {
@@ -194,23 +195,10 @@ async function main() {
     // ALWAYS build Spotify URL
     agg.urls.spotify_url = `https://open.spotify.com/artist/${spotify_artist_id}`;
 
-    // 1b. DERIVATIVE IMAGES - Get fal-generated images from Grove
-    // Note: image_source indicates SOURCE image location (spotify/genius), but grove_url is ALWAYS fal derivative
-    const derivativeImage = await query(`
-      SELECT grove_url, image_source
-      FROM derivative_images
-      WHERE spotify_artist_id = $1
-        AND asset_type = 'artist'
-      LIMIT 1
-    `, [spotify_artist_id]);
-
-    if (derivativeImage[0]) {
-      agg.imageUrl = derivativeImage[0].grove_url;
-      agg.imageSource = 'fal';  // Grove images are always fal derivatives
-      console.log(`   ✅ Derivative image: fal (source: ${derivativeImage[0].image_source})`);
-    } else {
-      console.log(`   ⚠️  No derivative image (run step 12)`);
-    }
+    // 1b. GROVE IMAGES - Get images from Grove (if uploaded)
+    // Note: Migration 034 removed derivative_images table - images now stored directly in grc20_artists
+    // Images are uploaded separately via Grove upload script
+    // For now, skip image fetching - images will be NULL until Grove upload is completed
 
     // 2. GENIUS - Better matching with trim
     const genius = await query(`
@@ -397,12 +385,36 @@ async function main() {
         console.log(`   ✅ MusicBrainz: ISNI ${agg.isni || 'none'}, ${urlCount} URLs, ${aliasCount} aliases${conflictMsg}`);
       }
 
-      // NEW: Build group relationships
-      // Simplified approach: use data we already have in musicbrainz_artists
-      agg.groupMemberIds = [];
-      agg.memberOfGroups = [];
+      // Build group relationships from MusicBrainz member_relations
+      // Single direction: member → group (Groups will have empty array)
+      const memberRelations = m.member_relations || [];
+
+      // Members have direction="forward" (member → group)
+      const memberOfGroups = memberRelations.filter(rel => rel.direction === 'forward');
+      if (memberOfGroups.length > 0) {
+        agg.memberOfGroups = [];
+        for (const rel of memberOfGroups) {
+          // Try to find Spotify ID for this group
+          const groupData = await query(`
+            SELECT spotify_artist_id, name
+            FROM grc20_artists
+            WHERE mbid = $1
+          `, [rel.artist_mbid]);
+
+          agg.memberOfGroups.push({
+            grc20_entity_id: null,                         // Will be populated after group is minted
+            mbid: rel.artist_mbid,                         // For validation & sourcing
+            name: rel.artist_name,
+            spotify_artist_id: groupData[0]?.spotify_artist_id
+          });
+        }
+      } else {
+        agg.memberOfGroups = [];
+      }
     } else {
       console.log(`   ⚠️  MusicBrainz: not found for "${artist_name.trim()}"`);
+      // No MusicBrainz data = no relationships
+      agg.memberOfGroups = [];
     }
 
     // 4. WIKIDATA - International library IDs and additional identifiers
@@ -414,6 +426,9 @@ async function main() {
 
     if (wikidata[0]) {
       const wd = wikidata[0];
+
+      // Wikidata QID (universal entity identifier)
+      agg.wikidataId = wd.wikidata_id;
 
       // International Library IDs (PRIMARY)
       agg.viafId = wd.viaf_id || agg.viafId;
@@ -434,6 +449,15 @@ async function main() {
         agg.selibrId && `SELIBR:${agg.selibrId}`
       ].filter(Boolean);
 
+      // Store full Wikidata identifiers (musicbrainz, discogs, allmusic, imdb, etc.)
+      agg.wikidataIdentifiers = wd.identifiers || {};
+
+      // Store Wikidata labels (artist names in different languages)
+      agg.labels = wd.labels || [];
+
+      // NEW: Store library IDs separately for GRC-20 columns
+      // These are cleaner than URLs and enable cross-reference validation
+
       // Merge social media handles from Wikidata identifiers (priority: override > Genius > MusicBrainz > Wikidata)
       if (wd.identifiers) {
         const ids = wd.identifiers;
@@ -448,62 +472,59 @@ async function main() {
         agg.vkHandle = mergeHandle(agg.handleOverrides?.vk, agg.vkHandle, getHandle(ids.vk), 'vk', agg.handleConflicts);
       }
 
-      console.log(`   ✅ Wikidata: ${libraryIds.length} library IDs${libraryIds.length ? ` (${libraryIds.join(', ')})` : ''}`);
+      console.log(`   ✅ Wikidata: ${agg.wikidataId || 'no QID'}, ${libraryIds.length} library IDs${libraryIds.length ? ` (${libraryIds.join(', ')})` : ''}`);
     } else {
       console.log(`   ⚠️  Wikidata: not found (run processor 05-enrich-wikidata)`);
     }
 
-    // 5. QUANSIC - ISNI override
+    // 5. QUANSIC - ISNI override (direct artist lookup from quansic_artists table)
     const quansic = await query(`
-      SELECT artists FROM quansic_recordings
-      WHERE spotify_track_id IN (
-        SELECT spotify_track_id FROM spotify_tracks
-        WHERE artists->0->>'id' = $1
-      )
+      SELECT name, isni, isni_all, ipi_all
+      FROM quansic_artists
+      WHERE spotify_artist_id = $1
       LIMIT 1
     `, [spotify_artist_id]);
 
-    if (quansic[0]?.artists?.[0]?.ids?.isnis?.length) {
-      const isnis = quansic[0].artists[0].ids.isnis;
-      agg.isni = isnis[0];
-      agg.isniAll = isnis.join(', ');
-      console.log(`   ✅ Quansic: ISNI override ${agg.isni}`);
+    if (quansic[0]?.isni) {
+      agg.isni = quansic[0].isni;
+      // isni_all and ipi_all are JSONB arrays, convert to comma-separated strings
+      if (quansic[0].isni_all) {
+        const isniArray = Array.isArray(quansic[0].isni_all) ? quansic[0].isni_all : quansic[0].isni_all;
+        agg.isniAll = isniArray.join(', ');
+      }
+      if (quansic[0].ipi_all) {
+        const ipiArray = Array.isArray(quansic[0].ipi_all) ? quansic[0].ipi_all : quansic[0].ipi_all;
+        agg.ipiAll = ipiArray.join(', ');
+      }
+      console.log(`   ✅ Quansic: ISNI override ${agg.isni} (from quansic_artists)`);
     }
 
-    // 6. PKP - Lit Protocol PKP data
-    const pkp = await query(`
-      SELECT pkp_address, pkp_token_id, pkp_public_key, minted_at
+    // 6. PKP - Lit Protocol PKP data (store foreign key only)
+    const pkp = await query<{ id: number; pkp_address: string }>(`
+      SELECT id, pkp_address
       FROM pkp_accounts
       WHERE spotify_artist_id = $1 AND account_type = 'artist'
       LIMIT 1
     `, [spotify_artist_id]);
 
     if (pkp[0]) {
-      agg.pkpAddress = pkp[0].pkp_address;
-      agg.pkpTokenId = pkp[0].pkp_token_id;
-      agg.pkpPublicKey = pkp[0].pkp_public_key;
-      agg.pkpMintedAt = pkp[0].minted_at;
-      console.log(`   ✅ PKP: ${agg.pkpAddress}`);
+      agg.pkpAccountId = pkp[0].id;
+      console.log(`   ✅ PKP: ${pkp[0].pkp_address} (FK: ${agg.pkpAccountId})`);
     } else {
       console.log(`   ⚠️  PKP: not minted (run: bun src/processors/mint-artist-pkps.ts)`);
     }
 
-    // 7. LENS - Lens Protocol account data
-    const lens = await query(`
-      SELECT lens_handle, lens_account_address, lens_account_id,
-             lens_metadata_uri, created_at_chain
+    // 7. LENS - Lens Protocol account data (store foreign key only)
+    const lens = await query<{ id: number; lens_handle: string; lens_account_address: string }>(`
+      SELECT id, lens_handle, lens_account_address
       FROM lens_accounts
       WHERE spotify_artist_id = $1 AND account_type = 'artist'
       LIMIT 1
     `, [spotify_artist_id]);
 
     if (lens[0]) {
-      agg.lensHandle = lens[0].lens_handle;
-      agg.lensAccountAddress = lens[0].lens_account_address;
-      agg.lensAccountId = lens[0].lens_account_id;
-      agg.lensMetadataUri = lens[0].lens_metadata_uri;
-      agg.lensCreatedAt = lens[0].created_at_chain;
-      console.log(`   ✅ Lens: @${agg.lensHandle} (${agg.lensAccountAddress})`);
+      agg.lensAccountId = lens[0].id;
+      console.log(`   ✅ Lens: @${lens[0].lens_handle} (${lens[0].lens_account_address}, FK: ${agg.lensAccountId})`);
     } else {
       console.log(`   ⚠️  Lens: not created (run: bun src/processors/create-artist-lens.ts)`);
     }
@@ -519,24 +540,30 @@ async function main() {
         instagram_handle, twitter_handle, facebook_handle, tiktok_handle,
         youtube_channel, soundcloud_handle, weibo_handle, vk_handle,
         handle_conflicts, handle_overrides,
+        labels, wikidata_identifiers,
+        wikidata_id, viaf_id, gnd_id, bnf_id, loc_id,
         myspace_url, spotify_url, deezer_url, tidal_url, apple_music_url, amazon_music_url,
         youtube_music_url, napster_url, yandex_music_url, boomplay_url, melon_url, qobuz_url,
+        bandsintown_url_alt, maniadb_url, mora_url, cdjapan_url, livefans_url, vgmdb_url, junodownload_url,
         vimeo_url, imvdb_url, wikidata_url, viaf_url, imdb_url, allmusic_url, discogs_url,
         songkick_url, bandsintown_url, setlistfm_url, secondhandsongs_url,
         genius_url, lastfm_url, musixmatch_url,
         loc_url, bnf_url, dnb_url, worldcat_url, openlibrary_url,
+        snac_url, ibdb_url, goodreads_url, librarything_url,
         rateyourmusic_url, whosampled_url, jaxsta_url, themoviedb_url,
         beatport_url, itunes_url, official_website,
+        blog_url, bbc_music_url, musicmoz_url, musik_sammler_url, muziekweb_url, spirit_of_rock_url,
         image_url, header_image_url, image_source,
-        group_member_ids, member_of_groups,
-        pkp_address, pkp_token_id, pkp_public_key, pkp_minted_at,
-        lens_handle, lens_account_address, lens_account_id, lens_metadata_uri, lens_created_at
+        member_of_groups,
+        pkp_account_id, lens_account_id
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
         $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47,
-        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66, $67, $68, $69, $70, $71,
-        $72, $73, $74, $75, $76, $77, $78, $79, $80
+        $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62,
+        $63, $64, $65, $66, $67, $68, $69, $70, $71, $72, $73, $74, $75, $76, $77,
+        $78, $79, $80, $81, $82, $83, $84, $85, $86, $87, $88, $89, $90, $91, $92,
+        $93, $94, $95, $96
       )
       ON CONFLICT (spotify_artist_id) DO UPDATE SET
         isni = EXCLUDED.isni, isni_all = EXCLUDED.isni_all, ipi_all = EXCLUDED.ipi_all,
@@ -549,12 +576,19 @@ async function main() {
         youtube_channel = EXCLUDED.youtube_channel, soundcloud_handle = EXCLUDED.soundcloud_handle,
         weibo_handle = EXCLUDED.weibo_handle, vk_handle = EXCLUDED.vk_handle,
         handle_conflicts = EXCLUDED.handle_conflicts,
+        labels = EXCLUDED.labels, wikidata_identifiers = EXCLUDED.wikidata_identifiers,
+        wikidata_id = EXCLUDED.wikidata_id, viaf_id = EXCLUDED.viaf_id,
+        gnd_id = EXCLUDED.gnd_id, bnf_id = EXCLUDED.bnf_id, loc_id = EXCLUDED.loc_id,
         myspace_url = EXCLUDED.myspace_url, spotify_url = EXCLUDED.spotify_url,
         deezer_url = EXCLUDED.deezer_url, tidal_url = EXCLUDED.tidal_url,
         apple_music_url = EXCLUDED.apple_music_url, amazon_music_url = EXCLUDED.amazon_music_url,
         youtube_music_url = EXCLUDED.youtube_music_url, napster_url = EXCLUDED.napster_url,
         yandex_music_url = EXCLUDED.yandex_music_url, boomplay_url = EXCLUDED.boomplay_url,
         melon_url = EXCLUDED.melon_url, qobuz_url = EXCLUDED.qobuz_url,
+        bandsintown_url_alt = EXCLUDED.bandsintown_url_alt, maniadb_url = EXCLUDED.maniadb_url,
+        mora_url = EXCLUDED.mora_url, cdjapan_url = EXCLUDED.cdjapan_url,
+        livefans_url = EXCLUDED.livefans_url, vgmdb_url = EXCLUDED.vgmdb_url,
+        junodownload_url = EXCLUDED.junodownload_url,
         vimeo_url = EXCLUDED.vimeo_url, imvdb_url = EXCLUDED.imvdb_url,
         wikidata_url = EXCLUDED.wikidata_url, viaf_url = EXCLUDED.viaf_url,
         imdb_url = EXCLUDED.imdb_url, allmusic_url = EXCLUDED.allmusic_url,
@@ -565,17 +599,20 @@ async function main() {
         musixmatch_url = EXCLUDED.musixmatch_url,
         loc_url = EXCLUDED.loc_url, bnf_url = EXCLUDED.bnf_url, dnb_url = EXCLUDED.dnb_url,
         worldcat_url = EXCLUDED.worldcat_url, openlibrary_url = EXCLUDED.openlibrary_url,
+        snac_url = EXCLUDED.snac_url, ibdb_url = EXCLUDED.ibdb_url,
+        goodreads_url = EXCLUDED.goodreads_url, librarything_url = EXCLUDED.librarything_url,
         rateyourmusic_url = EXCLUDED.rateyourmusic_url, whosampled_url = EXCLUDED.whosampled_url,
         jaxsta_url = EXCLUDED.jaxsta_url, themoviedb_url = EXCLUDED.themoviedb_url,
         beatport_url = EXCLUDED.beatport_url, itunes_url = EXCLUDED.itunes_url,
         official_website = EXCLUDED.official_website,
-        group_member_ids = EXCLUDED.group_member_ids,
+        blog_url = EXCLUDED.blog_url, bbc_music_url = EXCLUDED.bbc_music_url,
+        musicmoz_url = EXCLUDED.musicmoz_url, musik_sammler_url = EXCLUDED.musik_sammler_url,
+        muziekweb_url = EXCLUDED.muziekweb_url, spirit_of_rock_url = EXCLUDED.spirit_of_rock_url,
+        image_url = EXCLUDED.image_url, header_image_url = EXCLUDED.header_image_url,
+        image_source = EXCLUDED.image_source,
         member_of_groups = EXCLUDED.member_of_groups,
-        pkp_address = EXCLUDED.pkp_address, pkp_token_id = EXCLUDED.pkp_token_id,
-        pkp_public_key = EXCLUDED.pkp_public_key, pkp_minted_at = EXCLUDED.pkp_minted_at,
-        lens_handle = EXCLUDED.lens_handle, lens_account_address = EXCLUDED.lens_account_address,
-        lens_account_id = EXCLUDED.lens_account_id, lens_metadata_uri = EXCLUDED.lens_metadata_uri,
-        lens_created_at = EXCLUDED.lens_created_at,
+        pkp_account_id = EXCLUDED.pkp_account_id,
+        lens_account_id = EXCLUDED.lens_account_id,
         updated_at = NOW()
     `, [
       agg.name, agg.sortName, JSON.stringify(agg.aliases), agg.disambiguation,
@@ -587,23 +624,89 @@ async function main() {
       agg.youtubeChannel, agg.soundcloudHandle, agg.weiboHandle, agg.vkHandle,
       JSON.stringify(agg.handleConflicts),
       JSON.stringify(agg.handleOverrides || {}),
+      JSON.stringify(agg.labels || []),
+      JSON.stringify(agg.wikidataIdentifiers || {}),
+      agg.wikidataId, agg.viafId, agg.gndId, agg.bnfId, agg.locId,
       agg.urls.myspace_url, agg.urls.spotify_url, agg.urls.deezer_url, agg.urls.tidal_url, agg.urls.apple_music_url, agg.urls.amazon_music_url,
       agg.urls.youtube_music_url, agg.urls.napster_url, agg.urls.yandex_music_url, agg.urls.boomplay_url, agg.urls.melon_url, agg.urls.qobuz_url,
+      agg.urls.bandsintown_url_alt, agg.urls.maniadb_url, agg.urls.mora_url, agg.urls.cdjapan_url, agg.urls.livefans_url, agg.urls.vgmdb_url, agg.urls.junodownload_url,
       agg.urls.vimeo_url, agg.urls.imvdb_url, agg.urls.wikidata_url, agg.urls.viaf_url, agg.urls.imdb_url, agg.urls.allmusic_url, agg.urls.discogs_url,
       agg.urls.songkick_url, agg.urls.bandsintown_url, agg.urls.setlistfm_url, agg.urls.secondhandsongs_url,
       agg.urls.genius_url, agg.urls.lastfm_url, agg.urls.musixmatch_url,
       agg.urls.loc_url, agg.urls.bnf_url, agg.urls.dnb_url, agg.urls.worldcat_url, agg.urls.openlibrary_url,
+      agg.urls.snac_url, agg.urls.ibdb_url, agg.urls.goodreads_url, agg.urls.librarything_url,
       agg.urls.rateyourmusic_url, agg.urls.whosampled_url, agg.urls.jaxsta_url, agg.urls.themoviedb_url,
       agg.urls.beatport_url, agg.urls.itunes_url, agg.urls.official_website,
+      agg.urls.blog_url, agg.urls.bbc_music_url, agg.urls.musicmoz_url, agg.urls.musik_sammler_url, agg.urls.muziekweb_url, agg.urls.spirit_of_rock_url,
       agg.imageUrl, agg.headerImageUrl, agg.imageSource,
-      JSON.stringify(agg.groupMemberIds || []),
       JSON.stringify(agg.memberOfGroups || []),
-      agg.pkpAddress, agg.pkpTokenId, agg.pkpPublicKey, agg.pkpMintedAt,
-      agg.lensHandle, agg.lensAccountAddress, agg.lensAccountId, agg.lensMetadataUri, agg.lensCreatedAt
+      agg.pkpAccountId, agg.lensAccountId
     ]);
 
     console.log(`   ✅ SAVED`);
   }
+
+  // SECOND PASS: Update relationships for artists that were missing Spotify IDs
+  // (happens when related artists weren't processed yet in first pass)
+  console.log('\n🔄 Second pass: Updating incomplete relationships...\n');
+
+  const artistsWithRelations = await query<{
+    id: number;
+    name: string;
+    spotify_artist_id: string;
+    mbid: string;
+    member_of_groups: any[];
+  }>(`
+    SELECT id, name, spotify_artist_id, mbid, member_of_groups
+    FROM grc20_artists
+    WHERE mbid IS NOT NULL
+      AND jsonb_array_length(member_of_groups) > 0
+  `);
+
+  let updatedCount = 0;
+
+  for (const artist of artistsWithRelations) {
+    // Check member_of_groups for missing Spotify IDs
+    if (artist.member_of_groups && artist.member_of_groups.length > 0) {
+      const updatedGroups = [];
+      let groupNeedsUpdate = false;
+
+      for (const group of artist.member_of_groups) {
+        if (!group.spotify_artist_id && group.mbid) {
+          // Try to find Spotify ID by MBID
+          const groupData = await query(`
+            SELECT spotify_artist_id
+            FROM grc20_artists
+            WHERE mbid = $1
+          `, [group.mbid]);
+
+          if (groupData[0]?.spotify_artist_id) {
+            updatedGroups.push({
+              ...group,
+              spotify_artist_id: groupData[0].spotify_artist_id
+            });
+            groupNeedsUpdate = true;
+          } else {
+            updatedGroups.push(group);
+          }
+        } else {
+          updatedGroups.push(group);
+        }
+      }
+
+      if (groupNeedsUpdate) {
+        await query(`
+          UPDATE grc20_artists
+          SET member_of_groups = $1,
+              updated_at = NOW()
+          WHERE id = $2
+        `, [JSON.stringify(updatedGroups), artist.id]);
+        updatedCount++;
+      }
+    }
+  }
+
+  console.log(`✅ Updated ${updatedCount} artists with complete relationship data\n`);
 
   const summary = await query(`
     SELECT
@@ -626,8 +729,8 @@ async function main() {
       COUNT(wikidata_url) as with_wikidata,
       COUNT(allmusic_url) as with_allmusic,
       COUNT(imdb_url) as with_imdb,
-      COUNT(pkp_address) as with_pkp,
-      COUNT(lens_handle) as with_lens
+      COUNT(pkp_account_id) as with_pkp,
+      COUNT(lens_account_id) as with_lens
     FROM grc20_artists
   `);
 

@@ -134,7 +134,8 @@ export async function lookupRecordingByISRC(isrc: string): Promise<MBRecording |
  */
 export async function lookupWork(mbid: string): Promise<MBWork | null> {
   try {
-    const url = `${MB_API_URL}/work/${mbid}?inc=artist-rels&fmt=json`;
+    // Include url-rels to get Wikidata URLs
+    const url = `${MB_API_URL}/work/${mbid}?inc=artist-rels+url-rels&fmt=json`;
     const response = await rateLimitedFetch(url);
 
     if (!response.ok) {
@@ -154,7 +155,8 @@ export async function lookupWork(mbid: string): Promise<MBWork | null> {
  */
 export async function lookupWorkByISWC(iswc: string): Promise<MBWork | null> {
   try {
-    const url = `${MB_API_URL}/iswc/${iswc}?inc=artist-rels&fmt=json`;
+    // Include url-rels to get Wikidata URLs
+    const url = `${MB_API_URL}/iswc/${iswc}?inc=artist-rels+url-rels&fmt=json`;
     const response = await rateLimitedFetch(url);
 
     if (!response.ok) {

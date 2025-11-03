@@ -6,7 +6,7 @@
  * Main karaoke pipeline status flow:
  * tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
  * lyrics_ready → audio_downloaded → alignment_complete → translations_ready → stems_separated →
- * segments_selected → enhanced → clips_cropped → images_generated
+ * segments_selected → enhanced → clips_cropped
  *
  * Can be triggered manually or via cron. Steps run sequentially based on status dependencies.
  * Each step processes tracks and advances them to the next status.
@@ -24,12 +24,12 @@
  * - Step 9: AI Segment Selection (enabled - optimal segment selection)
  * - Step 10: fal.ai Audio Enhancement (enabled - audio enhancement)
  * - Step 11: Viral Clip Cropping (enabled - clip extraction)
- * - Step 12: Generate Derivative Images (enabled - watercolor-style images for GRC-20)
  */
 
 import type { Env } from '../types';
+import { reconcileAllStatuses } from '../utils/reconcile-status';
 import { resolveSpotifyMetadata } from './02-resolve-spotify';
-import { processISWCDiscovery } from './step-08-iswc-discovery';
+import { processISWCDiscovery } from './03-iswc-discovery';
 import { processMusicBrainzEnrichment } from './04-enrich-musicbrainz';
 import { processDiscoverLyrics } from './05-discover-lyrics';
 import { processDownloadAudio } from './06-download-audio';
@@ -40,6 +40,7 @@ import { processSeparateAudio } from './08-separate-audio';
 import { processSegmentSelection } from './09-select-segments';
 import { processFalEnhancement } from './10-enhance-audio';
 import { processClipCropping } from './11-crop-clips';
+import { processUploadGroveVideos } from './11-upload-grove-videos';
 import { processGenerateImages } from './12-generate-images';
 
 interface PipelineStep {
@@ -65,6 +66,14 @@ export async function runUnifiedPipeline(env: Env, options?: {
   console.log(`   tiktok_scraped → spotify_resolved → iswc_found`);
   console.log(`   → metadata_enriched → lyrics_ready → audio_downloaded`);
   console.log(`   → alignment_complete → translations_ready → stems_separated\n`);
+
+  // SELF-HEALING: Reconcile statuses before running pipeline
+  console.log('');
+  const reconcileResult = await reconcileAllStatuses(env.DATABASE_URL);
+  if (reconcileResult.tracksFixed > 0) {
+    console.log(`   ✅ Fixed ${reconcileResult.tracksFixed} status inconsistencies`);
+  }
+  console.log('');
 
   if (targetStep) {
     console.log(`🎯 Running step ${targetStep} only (limit: ${limit})\n`);
@@ -219,18 +228,29 @@ export async function runUnifiedPipeline(env: Env, options?: {
       enabled: true
     },
 
+    // ==================== VIDEO UPLOAD TO GROVE ====================
+
+    // Step 11.5: Upload TikTok Videos to Grove
+    {
+      number: 11.5,
+      name: 'Upload TikTok Videos to Grove',
+      description: 'Upload TikTok creator videos to Grove/IPFS (copyrighted after clips_cropped, uncopyrighted anytime)',
+      status: 'clips_cropped',
+      nextStatus: 'clips_cropped',  // Doesn't change pipeline status
+      processor: processUploadGroveVideos,
+      enabled: true,
+      optional: true  // Don't block pipeline if upload fails
+    },
+
     // ==================== GRC-20 ASSET PREPARATION ====================
 
-    // Step 12: Generate Derivative Images (Independent - no status dependency)
-    {
-      number: 12,
-      name: 'Generate Derivative Images',
-      description: 'Generate watercolor-style derivative images for GRC-20 artists/works (Seedream)',
-      status: 'clips_cropped',
-      nextStatus: 'images_generated',
-      processor: processGenerateImages,
-      enabled: true
-    },
+    // Step 12: REMOVED - Image generation via AI (Seedream) was replaced
+    // We now use original images from Spotify/Genius uploaded directly to Grove
+    // See: src/utils/upload-original-images-to-grove.ts (run manually as utility)
+    //
+    // Cost comparison:
+    //   AI generation: $0.03 per image
+    //   Direct upload: $0.005 per image (83% cheaper)
   ];
 
   // Filter to enabled steps (and specific step if requested)

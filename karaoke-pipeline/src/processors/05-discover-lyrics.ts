@@ -69,8 +69,107 @@ async function main() {
   console.log(`✅ Found ${tracksToProcess.length} tracks to process`);
   console.log('');
 
+  // Helper: Check if track is likely instrumental based on name patterns
+  const isLikelyInstrumental = (title: string, artistName: string): boolean => {
+    const titleLower = title.toLowerCase();
+    const artistLower = artistName.toLowerCase();
+
+    const instrumentalPatterns = [
+      'instrumental', 'karaoke', 'piano version', 'acoustic version',
+      'beats', 'lofi', 'lo-fi', 'study music', 'relaxing music',
+      'background music', 'ambient', 'soundscape'
+    ];
+
+    return instrumentalPatterns.some(pattern =>
+      titleLower.includes(pattern) || artistLower.includes(pattern)
+    );
+  };
+
+  // Helper: Normalize title for lyrics search
+  // Removes TikTok-style modifiers that don't change lyrics content
+  const normalizeTitleForLyricsSearch = (title: string): string => {
+    return title
+      // Remove "- Slowed Down", "- Slowed", "+ Reverb" variants
+      .replace(/\s*[-+]\s*(slowed?\s*(down)?(\s*\+?\s*reverb)?)/gi, '')
+      // Remove "- Sped Up", "- Speed Up", "- Nightcore"
+      .replace(/\s*-\s*(sped\s*up|speed\s*up|nightcore)/gi, '')
+      // Remove standalone "+ Reverb" or "- Reverb"
+      .replace(/\s*[-+]\s*reverb/gi, '')
+      // Remove "- 8D Audio" or "- 8D"
+      .replace(/\s*-\s*8d(\s*audio)?/gi, '')
+      // Remove parenthetical variations: "(Slowed)", "(Sped Up)", etc.
+      .replace(/\s*\(.*?(slowed|sped|reverb|8d|nightcore).*?\)/gi, '')
+      .trim();
+  };
+
+  // Filter out instrumental tracks (fail them early) using name pattern detection
+  const instrumentalTracks = tracksToProcess.filter(t => {
+    const artistName = Array.isArray(t.artists)
+      ? (typeof t.artists[0] === 'object' ? t.artists[0].name : t.artists[0])
+      : t.artists;
+
+    return isLikelyInstrumental(t.title, artistName);
+  });
+
+  const nonInstrumentalTracks = tracksToProcess.filter(t => {
+    const artistName = Array.isArray(t.artists)
+      ? (typeof t.artists[0] === 'object' ? t.artists[0].name : t.artists[0])
+      : t.artists;
+
+    return !isLikelyInstrumental(t.title, artistName);
+  });
+
+  if (instrumentalTracks.length > 0) {
+    console.log(`🎻 Detected ${instrumentalTracks.length} instrumental tracks (will fail):`);
+    const instrumentalStatements: string[] = [];
+
+    for (const track of instrumentalTracks) {
+      const artistName = Array.isArray(track.artists)
+        ? (typeof track.artists[0] === 'object' ? track.artists[0].name : track.artists[0])
+        : track.artists;
+
+      console.log(`   ❌ ${track.title} - ${artistName} (Pattern match)`);
+
+      // Mark as failed with clear error message
+      instrumentalStatements.push(`
+        UPDATE song_pipeline
+        SET status = 'failed',
+            has_lyrics = FALSE,
+            error_message = 'Likely instrumental track based on name patterns - no lyrics for karaoke',
+            updated_at = NOW()
+        WHERE spotify_track_id = '${track.spotify_track_id}'
+      `);
+
+      instrumentalStatements.push(
+        logLyricsProcessingSQL(
+          track.spotify_track_id,
+          'failed',
+          'Likely instrumental track detected via name pattern matching',
+          { detection: 'pattern' }
+        )
+      );
+    }
+
+    if (instrumentalStatements.length > 0) {
+      await transaction(instrumentalStatements);
+      console.log(`   ✅ Marked ${instrumentalTracks.length} instrumental tracks as failed`);
+    }
+    console.log('');
+  }
+
+  // Continue with non-instrumental tracks
+  const tracksForLyrics = nonInstrumentalTracks;
+
+  if (tracksForLyrics.length === 0) {
+    console.log('✅ All remaining tracks are instrumental. Nothing to process.');
+    return;
+  }
+
+  console.log(`📝 Processing ${tracksForLyrics.length} non-instrumental tracks`);
+  console.log('');
+
   // Check cache for existing lyrics
-  const spotifyIds = tracksToProcess.map(t => t.spotify_track_id);
+  const spotifyIds = tracksForLyrics.map(t => t.spotify_track_id);
   const cachedLyrics = await query<{
     spotify_track_id: string;
     source: string;
@@ -82,7 +181,7 @@ async function main() {
   `);
 
   const cachedIds = new Set(cachedLyrics.map(l => l.spotify_track_id));
-  const uncachedTracks = tracksToProcess.filter(t => !cachedIds.has(t.spotify_track_id));
+  const uncachedTracks = tracksForLyrics.filter(t => !cachedIds.has(t.spotify_track_id));
 
   console.log(`💾 Cache hits: ${cachedLyrics.length}`);
   console.log(`🌐 API requests needed: ${uncachedTracks.length}`);
@@ -103,18 +202,29 @@ async function main() {
         const artistName = Array.isArray(track.artists)
           ? (typeof track.artists[0] === 'object' ? track.artists[0].name : track.artists[0])
           : track.artists;
-        console.log(`  🔍 ${track.title} - ${artistName}`);
 
-        // Step 1: Try LRCLIB first
+        // Normalize title for lyrics search (removes "Slowed Down", "Sped Up", etc.)
+        const normalizedTitle = normalizeTitleForLyricsSearch(track.title);
+        const isModifiedVersion = normalizedTitle !== track.title;
+
+        if (isModifiedVersion) {
+          console.log(`  🔍 ${track.title} - ${artistName}`);
+          console.log(`     ↳ Searching with normalized title: "${normalizedTitle}"`);
+        } else {
+          console.log(`  🔍 ${track.title} - ${artistName}`);
+        }
+
+        // Step 1: Try LRCLIB first (with normalized title)
         const lrclibLyrics = await lrclib.searchLyrics({
-          trackName: track.title,
+          trackName: normalizedTitle,
           artistName: artistName,
           albumName: track.album,
-          duration: track.duration_ms / 1000,
+          // Don't use duration for modified versions - they have different timing
+          duration: isModifiedVersion ? undefined : track.duration_ms / 1000,
         });
 
-        // Step 2: Try Lyrics.ovh as fallback
-        const ovhLyrics = await lyricsOvh.searchLyrics(artistName, track.title);
+        // Step 2: Try Lyrics.ovh as fallback (with normalized title)
+        const ovhLyrics = await lyricsOvh.searchLyrics(artistName, normalizedTitle);
 
         if (!lrclibLyrics && !ovhLyrics) {
           console.log(`     ❌ No lyrics found from any source`);
@@ -328,7 +438,7 @@ async function main() {
   // Update pipeline status for cached tracks
   console.log('⏳ Updating pipeline entries for cached tracks...');
 
-  for (const track of tracksToProcess.filter(t => cachedIds.has(t.spotify_track_id))) {
+  for (const track of tracksForLyrics.filter(t => cachedIds.has(t.spotify_track_id))) {
     const cached = cachedLyrics.find(l => l.spotify_track_id === track.spotify_track_id);
     if (cached) {
       sqlStatements.push(
@@ -363,6 +473,7 @@ async function main() {
   console.log('');
   console.log('📊 Summary:');
   console.log(`   - Total tracks: ${tracksToProcess.length}`);
+  console.log(`   - Instrumental (failed): ${instrumentalTracks.length}`);
   console.log(`   - Cache hits: ${cachedLyrics.length}`);
   console.log(`   - API fetches: ${successCount}`);
   console.log(`   - AI normalized: ${normalizedCount}`);
@@ -401,17 +512,80 @@ export async function processDiscoverLyrics(_env: any, limit: number = 50): Prom
 
   console.log(`Found ${tracksToProcess.length} tracks`);
 
+  // Helper: Check if track is likely instrumental based on name patterns
+  const isLikelyInstrumentalByName = (title: string, artistName: string): boolean => {
+    const titleLower = title.toLowerCase();
+    const artistLower = artistName.toLowerCase();
+
+    const instrumentalPatterns = [
+      'instrumental', 'karaoke', 'piano version', 'acoustic version',
+      'beats', 'lofi', 'lo-fi', 'study music', 'relaxing music',
+      'background music', 'ambient', 'soundscape'
+    ];
+
+    return instrumentalPatterns.some(pattern =>
+      titleLower.includes(pattern) || artistLower.includes(pattern)
+    );
+  };
+
+  // Filter out instrumental tracks (fail them early) using name pattern detection
+  const instrumentalTracks = tracksToProcess.filter(t =>
+    isLikelyInstrumentalByName(t.title, t.artist)
+  );
+
+  const nonInstrumentalTracks = tracksToProcess.filter(t =>
+    !isLikelyInstrumentalByName(t.title, t.artist)
+  );
+
+  if (instrumentalTracks.length > 0) {
+    console.log(`   Instrumental tracks (failing): ${instrumentalTracks.length}`);
+    const instrumentalStatements: string[] = [];
+
+    for (const track of instrumentalTracks) {
+      instrumentalStatements.push(`
+        UPDATE song_pipeline
+        SET status = 'failed',
+            has_lyrics = FALSE,
+            error_message = 'Likely instrumental track based on name patterns - no lyrics for karaoke',
+            updated_at = NOW()
+        WHERE spotify_track_id = '${track.spotify_track_id}'
+      `);
+
+      instrumentalStatements.push(
+        logLyricsProcessingSQL(
+          track.spotify_track_id,
+          'failed',
+          'Likely instrumental track detected via name pattern matching',
+          { detection: 'pattern' }
+        )
+      );
+    }
+
+    if (instrumentalStatements.length > 0) {
+      await transaction(instrumentalStatements);
+    }
+  }
+
+  const tracksForLyrics = nonInstrumentalTracks;
+
+  if (tracksForLyrics.length === 0) {
+    console.log('✓ All remaining tracks are instrumental');
+    return;
+  }
+
+  console.log(`   Processing ${tracksForLyrics.length} non-instrumental tracks`);
+
   const cachedLyrics = await query<{
     spotify_track_id: string;
     source: string;
   }>(`
     SELECT DISTINCT spotify_track_id, source
     FROM song_lyrics
-    WHERE spotify_track_id = ANY(ARRAY[${tracksToProcess.map(t => `'${t.spotify_track_id}'`).join(',')}])
+    WHERE spotify_track_id = ANY(ARRAY[${tracksForLyrics.map(t => `'${t.spotify_track_id}'`).join(',')}])
   `);
 
   const cachedIds = new Set(cachedLyrics.map(l => l.spotify_track_id));
-  const uncachedTracks = tracksToProcess.filter(t => !cachedIds.has(t.spotify_track_id));
+  const uncachedTracks = tracksForLyrics.filter(t => !cachedIds.has(t.spotify_track_id));
 
   console.log(`   Cache hits: ${cachedLyrics.length}, API requests: ${uncachedTracks.length}`);
 
@@ -475,7 +649,7 @@ export async function processDiscoverLyrics(_env: any, limit: number = 50): Prom
   }
 
   // Update cached tracks
-  for (const track of tracksToProcess.filter(t => cachedIds.has(t.spotify_track_id))) {
+  for (const track of tracksForLyrics.filter(t => cachedIds.has(t.spotify_track_id))) {
     sqlStatements.push(
       updatePipelineLyricsSQL(track.spotify_track_id, true)
     );

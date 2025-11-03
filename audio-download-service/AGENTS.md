@@ -232,8 +232,24 @@ SOULSEEK_ACCOUNT=user SOULSEEK_PASSWORD=pass bun run index.ts
 ```
 
 ### Test Search
+
+**Local Development:**
 ```bash
 curl -X POST http://localhost:3001/download-and-store \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spotify_track_id": "test-track-id",
+    "expected_title": "Song Title",
+    "expected_artist": "Artist Name",
+    "acoustid_api_key": "I9UjOdbcJK",
+    "neon_database_url": "postgresql://...",
+    "chain_id": 37111
+  }'
+```
+
+**Production (Akash):**
+```bash
+curl -X POST https://ks0q2dcfot8rd3vje7s8nds5ok.ingress.europlots.com/download-and-store \
   -H "Content-Type: application/json" \
   -d '{
     "spotify_track_id": "test-track-id",
@@ -273,8 +289,12 @@ docker run -d \
 The karaoke pipeline's `06-download-audio.ts` processor calls this service:
 
 ```typescript
-// Fire request to slsk-service
-const response = await fetch('http://localhost:3001/download-and-store', {
+// Configure endpoint (from environment variable)
+const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || 'http://localhost:3001';
+// Production: https://ks0q2dcfot8rd3vje7s8nds5ok.ingress.europlots.com
+
+// Fire request to audio-download-service
+const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
   method: 'POST',
   body: JSON.stringify({
     spotify_track_id: track.spotify_track_id,

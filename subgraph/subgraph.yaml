@@ -36,7 +36,7 @@ dataSources:
     source:
       address: "0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8"
       abi: SegmentEvents
-      startBlock: 0
+      startBlock: 4187060
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -61,9 +61,9 @@ dataSources:
     name: TranslationEvents
     network: local
     source:
-      address: "0x0000000000000000000000000000000000000000"
+      address: "0x5A49E23A5C3a034906eE0274c266A08805770C70"
       abi: TranslationEvents
-      startBlock: 0
+      startBlock: 4187060
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7

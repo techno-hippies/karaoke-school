@@ -194,6 +194,11 @@ class SearchRequest(BaseModel):
     isni: str
 
 
+class LookupArtistRequest(BaseModel):
+    spotify_artist_id: str = Field(..., description="Spotify Artist ID")
+    force_reauth: Optional[bool] = Field(False, description="Force re-authentication")
+
+
 class QuansicArtistData(BaseModel):
     isni: str
     musicbrainz_mbid: Optional[str] = None

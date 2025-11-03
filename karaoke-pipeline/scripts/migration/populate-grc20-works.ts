@@ -56,6 +56,7 @@ interface WorkAggregation {
   iswc?: string;
   iswcSource?: string;
   mbid?: string;  // MusicBrainz WORK ID (not recording ID)
+  wikidataId?: string;  // Wikidata QID (universal entity identifier)
   // NOTE: BMI/ASCAP work IDs removed - internal only, not for blockchain minting
 
   // Platform IDs (work reference - for tracking known recordings)
@@ -335,18 +336,9 @@ async function main() {
       }
     }
 
-    // Get derivative images (Grove storage)
-    const derivativeImageData = await query(`
-      SELECT grove_url, thumbnail_grove_url
-      FROM derivative_images
-      WHERE spotify_track_id = $1 AND asset_type = 'track'
-    `, [spotify_track_id]);
-
-    if (derivativeImageData.length > 0) {
-      const derivative = derivativeImageData[0];
-      agg.groveImageUrl = derivative.grove_url;
-      agg.groveThumbnailUrl = derivative.thumbnail_grove_url;
-    }
+    // Note: Migration 034 removed derivative_images table
+    // Images are now stored directly in grc20_work_recordings
+    // Skip derivative image fetching for now
 
     // Get MusicBrainz Works data (NEW!) - JOIN via ISRC since spotify_track_id may be NULL
     const mbWorksData = await query(`
@@ -388,6 +380,26 @@ async function main() {
       if (mbWork.language && !agg.language) {
         agg.language = mbWork.language;
       }
+    }
+
+    // Get Wikidata Works data (NEW!) - JOIN via spotify_track_id
+    const wikidataWorksData = await query(`
+      SELECT wdw.*
+      FROM wikidata_works wdw
+      WHERE wdw.spotify_track_id = $1
+    `, [spotify_track_id]);
+
+    if (wikidataWorksData.length > 0) {
+      const wdWork = wikidataWorksData[0];
+
+      // Store Wikidata QID (universal entity identifier)
+      if (wdWork.wikidata_id) {
+        agg.wikidataId = wdWork.wikidata_id;
+      }
+
+      console.log(`   ✅ Wikidata: ${agg.wikidataId || 'no QID'}`);
+    } else {
+      console.log(`   ⚠️  Wikidata work: not found (run processor 05b-enrich-wikidata-works)`);
     }
 
     // NOTE: BMI Works integration removed - used only for internal ISWC hunting
@@ -564,22 +576,24 @@ async function main() {
           iswc = $3,
           iswc_source = $4,
           mbid = $5,
-          genius_song_id = $6,
-          primary_artist_id = $7,
-          primary_artist_name = $8,
-          featured_artists = $9,
-          composers = $10,
-          producers = $11,
-          lyricists = $12,
-          language = $13,
-          work_type = $14,
-          genres = $15,
-          musicbrainz_url = $16,
+          wikidata_id = $6,
+          genius_song_id = $7,
+          primary_artist_id = $8,
+          primary_artist_name = $9,
+          featured_artists = $10,
+          composers = $11,
+          producers = $12,
+          lyricists = $13,
+          language = $14,
+          work_type = $15,
+          genres = $16,
+          musicbrainz_url = $17,
           updated_at = NOW()
-        WHERE id = $17
+        WHERE id = $18
       `, [
         agg.title, agg.alternateTitles,
         agg.iswc, agg.iswcSource, agg.mbid,
+        agg.wikidataId,
         agg.geniusSongId,
         agg.primaryArtistId, agg.primaryArtistName,
         agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
@@ -594,6 +608,7 @@ async function main() {
         INSERT INTO grc20_works (
           title, alternate_titles,
           iswc, iswc_source, mbid,
+          wikidata_id,
           genius_song_id,
           primary_artist_id, primary_artist_name,
           featured_artists, composers, producers, lyricists,
@@ -603,14 +618,16 @@ async function main() {
           $1, $2,
           $3, $4, $5,
           $6,
-          $7, $8,
-          $9, $10, $11, $12,
-          $13, $14, $15,
-          $16
+          $7,
+          $8, $9,
+          $10, $11, $12, $13,
+          $14, $15, $16,
+          $17
         )
       `, [
         agg.title, agg.alternateTitles,
         agg.iswc, agg.iswcSource, agg.mbid,
+        agg.wikidataId,
         agg.geniusSongId,
         agg.primaryArtistId, agg.primaryArtistName,
         agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,

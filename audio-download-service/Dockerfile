@@ -1,16 +1,20 @@
 FROM oven/bun:1-debian
 
 # Install system dependencies for audio processing
+# Fix SSL/TLS issues by updating ca-certificates first
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && update-ca-certificates \
+    && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
     libchromaprint-tools \
     curl \
-    ca-certificates \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp
+# Install yt-dlp (latest version with SSL fix)
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
 

@@ -5,6 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {SongEvents} from "../src/events/SongEvents.sol";
 import {SegmentEvents} from "../src/events/SegmentEvents.sol";
+import {TranslationEvents} from "../src/events/TranslationEvents.sol";
 import {PerformanceGrader} from "../src/events/PerformanceGrader.sol";
 import {AccountEvents} from "../src/events/AccountEvents.sol";
 
@@ -57,6 +58,12 @@ contract DeployEvents is Script {
         console.log("  SegmentEvents deployed at:", address(segmentEvents));
         console.log("");
 
+        // Deploy TranslationEvents (no constructor params)
+        console.log("Deploying TranslationEvents...");
+        TranslationEvents translationEvents = new TranslationEvents();
+        console.log("  TranslationEvents deployed at:", address(translationEvents));
+        console.log("");
+
         // Deploy PerformanceGrader (requires PKP address)
         console.log("Deploying PerformanceGrader...");
         console.log("  Trusted PKP:", trustedPKP);
@@ -78,13 +85,14 @@ contract DeployEvents is Script {
         console.log("=================================");
         console.log("SongEvents:          ", address(songEvents));
         console.log("SegmentEvents:       ", address(segmentEvents));
+        console.log("TranslationEvents:   ", address(translationEvents));
         console.log("PerformanceGrader:   ", address(performanceGrader));
         console.log("AccountEvents:       ", address(accountEvents));
         console.log("");
         console.log("Next steps:");
-        console.log("1. Update master-pipeline/.env with contract addresses");
-        console.log("2. Update song/segment creation scripts to emit events");
-        console.log("3. Set up The Graph subgraph with these addresses");
+        console.log("1. Update karaoke-pipeline/scripts/contracts/emit-segment-events.ts");
+        console.log("2. Update subgraph/subgraph.yaml with contract addresses");
+        console.log("3. Deploy subgraph to The Graph");
         console.log("4. Update frontend to query subgraph");
     }
 }

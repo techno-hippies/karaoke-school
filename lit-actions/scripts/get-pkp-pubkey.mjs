@@ -39,7 +39,7 @@ async function main() {
   console.log('   Network:', pkpCreds.network);
 
   // Try yellowstone first (Chronicle testnet for nagaDev)
-  const provider = new ethers.providers.JsonRpcProvider('https://yellowstone-rpc.litprotocol.com');
+  const provider = new ethers.JsonRpcProvider('https://yellowstone-rpc.litprotocol.com');
   const contractAddress = PKP_NFT_ADDRESSES.yellowstone;
 
   console.log('\n🔌 Connecting to Chronicle Yellowstone...');
@@ -50,20 +50,23 @@ async function main() {
   try {
     console.log('\n📞 Calling getPubkey...');
     const publicKeyBytes = await pkpNftContract.getPubkey(pkpCreds.tokenId);
-    const publicKey = ethers.utils.hexlify(publicKeyBytes);
-    
+    const publicKey = ethers.hexlify(publicKeyBytes);
+
     console.log('\n✅ Public Key Retrieved:');
     console.log('   ', publicKey);
-    
-    // Remove 0x prefix for Lit Actions
+
+    // Also keep full 0x-prefixed version
+    const publicKeyWithPrefix = publicKey;
     const publicKeyNoPrefix = publicKey.startsWith('0x') ? publicKey.substring(2) : publicKey;
     
-    // Update credentials file
-    pkpCreds.publicKey = publicKeyNoPrefix;
+    // Update credentials file with both versions
+    pkpCreds.publicKey = publicKeyWithPrefix;
+    pkpCreds.publicKeyNoPrefix = publicKeyNoPrefix;
     await writeFile(pkpCredsPath, JSON.stringify(pkpCreds, null, 2));
-    
-    console.log('\n💾 Updated pkp-credentials.json with public key (no 0x prefix)');
-    console.log('   ', publicKeyNoPrefix);
+
+    console.log('\n💾 Updated pkp-credentials.json with public key');
+    console.log('   With prefix (for Lit Action):   ', publicKeyWithPrefix);
+    console.log('   Without prefix (legacy):        ', publicKeyNoPrefix);
     
   } catch (error) {
     console.error('\n❌ Failed to get public key:', error.message);

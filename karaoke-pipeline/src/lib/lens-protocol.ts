@@ -65,7 +65,80 @@ export function sanitizeHandle(name: string): string {
 }
 
 /**
- * Create Lens account
+ * Check if a Lens handle is available
+ */
+export async function isHandleAvailable(handle: string): Promise<boolean> {
+  const lensClient = initLensClient();
+  const walletClient = createLensWalletClient();
+
+  // Login to Lens
+  const authenticated = await lensClient.login({
+    onboardingUser: {
+      app: evmAddress(LENS_APP_ADDRESS),
+      wallet: evmAddress(walletClient.account.address),
+    },
+    signMessage: signMessageWith(walletClient),
+  });
+
+  if (authenticated.isErr()) {
+    throw new Error(`Lens login failed: ${authenticated.error.message}`);
+  }
+
+  const sessionClient = authenticated.value;
+
+  // Try to fetch account - if it exists, handle is taken
+  const accountResult = await fetchAccount(sessionClient, {
+    username: { localName: handle },
+  });
+
+  // If account exists, handle is NOT available
+  // If account doesn't exist (error or null), handle IS available
+  return accountResult.isErr() || !accountResult.value;
+}
+
+/**
+ * Find an available Lens handle with collision handling
+ * Tries base handle, then "-ks" (Karaoke School), then "-ks-2", "-ks-3", etc.
+ */
+export async function findAvailableHandle(baseHandle: string, maxAttempts = 10): Promise<string> {
+  let handle = baseHandle;
+  let attempt = 0;
+
+  while (attempt <= maxAttempts) {
+    console.log(`   🔍 Checking handle availability: ${handle}`);
+
+    const available = await isHandleAvailable(handle);
+
+    if (available) {
+      console.log(`   ✅ Handle available: ${handle}`);
+      return handle;
+    }
+
+    console.log(`   ⚠️  Handle taken: ${handle}`);
+
+    attempt++;
+
+    // Build next variation
+    let suffix: string;
+    if (attempt === 1) {
+      // First fallback: add "-ks" for Karaoke School branding
+      suffix = '-ks';
+    } else {
+      // Subsequent fallbacks: "-ks-2", "-ks-3", etc.
+      suffix = `-ks-${attempt}`;
+    }
+
+    // Ensure total length doesn't exceed 30 chars
+    const maxBaseLength = 30 - suffix.length;
+    const truncatedBase = baseHandle.substring(0, maxBaseLength);
+    handle = `${truncatedBase}${suffix}`;
+  }
+
+  throw new Error(`Could not find available handle after ${maxAttempts} attempts (base: ${baseHandle})`);
+}
+
+/**
+ * Create Lens account with automatic collision handling
  */
 export async function createLensAccount(params: {
   handle: string;
@@ -80,7 +153,14 @@ export async function createLensAccount(params: {
   metadataUri: string;
   transactionHash: Hex;
 }> {
-  const { handle, name, bio, pictureUri, attributes = [] } = params;
+  const { handle: requestedHandle, name, bio, pictureUri, attributes = [] } = params;
+
+  // Find available handle (handles collisions automatically)
+  const handle = await findAvailableHandle(requestedHandle);
+
+  if (handle !== requestedHandle) {
+    console.log(`   ⚠️  Using alternate handle: ${handle} (requested: ${requestedHandle})`);
+  }
 
   // Initialize clients
   const lensClient = initLensClient();

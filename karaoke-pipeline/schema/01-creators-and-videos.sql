@@ -79,7 +79,7 @@ CREATE TRIGGER tiktok_videos_update
   BEFORE UPDATE ON tiktok_videos
   FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
--- View for copyrighted videos ready to process
+-- View for videos ready to process (any video with Spotify ID is considered copyrighted)
 CREATE OR REPLACE VIEW videos_ready_to_process AS
 SELECT
   v.*,
@@ -87,10 +87,9 @@ SELECT
   c.follower_count as creator_followers
 FROM tiktok_videos v
 JOIN tiktok_creators c ON v.creator_username = c.username
-WHERE v.is_copyrighted = TRUE
-  AND v.spotify_track_id IS NOT NULL
+WHERE v.spotify_track_id IS NOT NULL
   AND NOT EXISTS (
-    SELECT 1 FROM track_pipeline tp
+    SELECT 1 FROM song_pipeline tp
     WHERE tp.tiktok_video_id = v.video_id
   )
 ORDER BY v.play_count DESC;

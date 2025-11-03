@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.7.0",
+    "@graphprotocol/grc-20": "^0.25.5",
     "@lens-chain/sdk": "^1.0.3",
     "@lens-chain/storage-client": "^1.0.6",
     "@lens-protocol/client": "^0.0.0-canary-20250430134539",
@@ -48,10 +49,13 @@
     "@lit-protocol/networks": "8.0.2",
     "@neondatabase/serverless": "^1.0.2",
     "@spotify/web-api-ts-sdk": "^1.2.0",
+    "better-sqlite3": "^12.4.1",
+    "form-data": "^4.0.4",
     "hono": "^4.7.11",
     "postgres": "^3.4.7",
     "sharp": "^0.34.4",
-    "viem": "^2.21.54"
+    "viem": "^2.21.54",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",

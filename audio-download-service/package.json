@@ -1,8 +1,8 @@
 {
-  "name": "slsk-service",
-  "version": "1.0.0",
+  "name": "audio-download-service",
+  "version": "2.2.0",
   "type": "module",
-  "description": "Soulseek download service for karaoke pipeline",
+  "description": "Multi-strategy audio/video download service (yt-dlp + Soulseek P2P) for karaoke pipeline",
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun run --watch index.ts",

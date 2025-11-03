@@ -260,3 +260,63 @@ export async function getTracksNeedingClipCropping(
 
   return result as any[];
 }
+
+/**
+ * Find clips that are too short (<35s) and need reprocessing
+ * (Karaoke needs verse+chorus, 35-60s is optimal)
+ */
+export async function getShortClipsNeedingReprocessing(
+  databaseUrl: string
+): Promise<Array<{
+  spotify_track_id: string;
+  title: string;
+  clip_duration_ms: number;
+  clip_start_ms: number;
+  clip_end_ms: number;
+}>> {
+  const sql = neon(databaseUrl);
+
+  const result = await sql`
+    SELECT
+      ks.spotify_track_id,
+      st.title,
+      (ks.clip_end_ms - ks.clip_start_ms) as clip_duration_ms,
+      ks.clip_start_ms,
+      ks.clip_end_ms
+    FROM karaoke_segments ks
+    JOIN spotify_tracks st ON ks.spotify_track_id = st.spotify_track_id
+    WHERE ks.clip_start_ms IS NOT NULL
+      AND ks.clip_end_ms IS NOT NULL
+      AND (ks.clip_end_ms - ks.clip_start_ms) < 35000
+    ORDER BY (ks.clip_end_ms - ks.clip_start_ms) ASC
+  `;
+
+  return result as any[];
+}
+
+/**
+ * Reset clip selection for tracks (sets clip times to NULL for reprocessing)
+ * Also resets cropped clip since it will be invalid
+ */
+export async function resetClipSelection(
+  databaseUrl: string,
+  spotifyTrackIds: string[]
+): Promise<number> {
+  const sql = neon(databaseUrl);
+
+  const result = await sql`
+    UPDATE karaoke_segments
+    SET
+      clip_start_ms = NULL,
+      clip_end_ms = NULL,
+      clip_relative_start_ms = NULL,
+      clip_relative_end_ms = NULL,
+      clip_cropped_grove_cid = NULL,
+      clip_cropped_grove_url = NULL,
+      updated_at = NOW()
+    WHERE spotify_track_id = ANY(${spotifyTrackIds})
+    RETURNING spotify_track_id
+  `;
+
+  return result.length;
+}

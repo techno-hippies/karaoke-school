@@ -1,10 +1,11 @@
 /**
  * Wikidata Database Operations
- * Handles wikidata_artists table and pipeline updates
+ * Handles wikidata_artists and wikidata_works tables
  */
 
 import { buildUpsert } from './neon';
 import type { WikidataArtist } from '../services/wikidata';
+import type { WikidataWork } from '../services/wikidata-works';
 
 /**
  * Generate SQL to upsert Wikidata artist
@@ -69,6 +70,84 @@ export function logWikidataProcessingSQL(
   const data = {
     spotify_track_id: spotifyArtistId,  // Use artist ID (track_id is required)
     stage: 'wikidata',
+    action,
+    source: 'api' as const,
+    message: message || null,
+    metadata: enrichedMetadata,
+  };
+
+  return `INSERT INTO processing_log (${Object.keys(data).join(', ')}) VALUES (${Object.values(data).map(v => {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+    if (typeof v === 'object') return `'${JSON.stringify(v).replace(/'/g, "''")}'::jsonb`;
+    return String(v);
+  }).join(', ')})`;
+}
+
+/**
+ * Generate SQL to upsert Wikidata work
+ */
+export function upsertWikidataWorkSQL(
+  work: WikidataWork,
+  musicbrainzWorkId?: string,
+  spotifyTrackId?: string
+): string {
+  const data = {
+    wikidata_id: work.wikidataId,
+    musicbrainz_work_id: musicbrainzWorkId || null,
+    spotify_track_id: spotifyTrackId || null,
+
+    // Core metadata
+    title: work.title || null,
+    iswc: work.iswc || null,
+    language: work.language || null,
+
+    // Labels and aliases as JSONB
+    labels: work.labels || null,
+    aliases: work.aliases || null,
+
+    // Relations as JSONB
+    composers: work.composers || null,
+    lyricists: work.lyricists || null,
+    performers: work.performers || null,
+
+    // Other identifiers as JSONB
+    identifiers: work.identifiers || null,
+  };
+
+  return buildUpsert('wikidata_works', data, 'wikidata_id', [
+    'musicbrainz_work_id',
+    'spotify_track_id',
+    'title',
+    'iswc',
+    'language',
+    'labels',
+    'aliases',
+    'composers',
+    'lyricists',
+    'performers',
+    'identifiers',
+  ]) + ' RETURNING wikidata_id, title, iswc';
+}
+
+/**
+ * Generate SQL to log work processing event
+ */
+export function logWikidataWorkProcessingSQL(
+  spotifyTrackId: string,
+  action: 'success' | 'failed' | 'skipped',
+  message?: string,
+  metadata?: Record<string, any>
+): string {
+  const enrichedMetadata = {
+    ...metadata,
+    spotify_track_id: spotifyTrackId,
+    entity_type: 'work',
+  };
+
+  const data = {
+    spotify_track_id: spotifyTrackId,
+    stage: 'wikidata_work',
     action,
     source: 'api' as const,
     message: message || null,

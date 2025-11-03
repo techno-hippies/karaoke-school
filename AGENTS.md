@@ -95,14 +95,14 @@ cd app && bun run dev
 
 ## Quick Reference
 
-| Service | Port | Command | Status |
-|---------|------|---------|--------|
-| karaoke-pipeline | - | `bun run pipeline:all` | ✅ Active |
-| contracts | - | `forge build` | ✅ Active |
-| app | 5173 | `bun run dev` | ✅ Active |
-| subgraph | 8000 | `npm run build` | ⚠️ Setup |
-| audio-download | 3002 | `bun start` | ✅ Active |
-| quansic-service | 3001 | `node server.js` | ✅ Active |
+| Service | Local | Production | Command | Status |
+|---------|-------|------------|---------|--------|
+| karaoke-pipeline | - | - | `bun run pipeline:all` | ✅ Active |
+| contracts | - | - | `forge build` | ✅ Active |
+| app | :5173 | - | `bun run dev` | ✅ Active |
+| subgraph | :8000 | - | `npm run build` | ⚠️ Setup |
+| audio-download | :3001 | [Akash](https://ks0q2dcfot8rd3vje7s8nds5ok.ingress.europlots.com) | `bun start` | ✅ Active |
+| quansic-service | :3001 | - | `node server.js` | ✅ Active |
 
 ## Documentation
 

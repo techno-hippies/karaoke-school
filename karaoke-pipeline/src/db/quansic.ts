@@ -27,6 +27,7 @@ export function upsertQuansicRecordingSQL(
     duration_ms: data.duration_ms || null,
     q2_score: data.q2_score || null,
     spotify_track_id: data.platform_ids?.spotify || null,
+    raw_data: data.raw_data || null,
   };
 
   return buildUpsert('quansic_recordings', record, 'isrc', [
@@ -39,6 +40,7 @@ export function upsertQuansicRecordingSQL(
     'duration_ms',
     'q2_score',
     'spotify_track_id',
+    'raw_data',
   ]) + ' RETURNING isrc, iswc';
 }
 

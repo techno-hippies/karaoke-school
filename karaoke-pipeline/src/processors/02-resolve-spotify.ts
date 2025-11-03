@@ -34,8 +34,7 @@ async function main() {
   }>(`
     SELECT v.video_id, v.spotify_track_id, v.creator_username
     FROM tiktok_videos v
-    WHERE v.is_copyrighted = TRUE
-      AND v.spotify_track_id IS NOT NULL
+    WHERE v.spotify_track_id IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM song_pipeline tp
         WHERE tp.tiktok_video_id = v.video_id
@@ -148,7 +147,18 @@ async function main() {
     console.log('');
   }
 
-  // Step 4: Create song_pipeline entries for all videos
+  // Step 4: Update is_copyrighted flag for videos with Spotify IDs
+  console.log('⏳ Updating copyright flags...');
+  const videoIds = unprocessedVideos.map(v => `'${v.video_id}'`).join(',');
+  sqlStatements.push(`
+    UPDATE tiktok_videos
+    SET is_copyrighted = TRUE, updated_at = NOW()
+    WHERE video_id IN (${videoIds})
+      AND spotify_track_id IS NOT NULL
+      AND (is_copyrighted IS NULL OR is_copyrighted = FALSE)
+  `);
+
+  // Step 5: Create song_pipeline entries for all videos
   console.log('⏳ Creating pipeline entries...');
 
   // For cached tracks, create pipeline entries immediately
@@ -211,7 +221,7 @@ async function main() {
     }
   }
 
-  // Step 5: Execute all SQL statements
+  // Step 6: Execute all SQL statements
   if (sqlStatements.length > 0) {
     try {
       await transaction(sqlStatements);
@@ -248,8 +258,7 @@ export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Pro
   }>(`
     SELECT v.video_id, v.spotify_track_id, v.creator_username
     FROM tiktok_videos v
-    WHERE v.is_copyrighted = TRUE
-      AND v.spotify_track_id IS NOT NULL
+    WHERE v.spotify_track_id IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM song_pipeline tp
         WHERE tp.tiktok_video_id = v.video_id
@@ -341,6 +350,18 @@ export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Pro
         );
       }
     }
+  }
+
+  // Update is_copyrighted flag for videos with Spotify IDs
+  const videoIds = unprocessedVideos.map(v => `'${v.video_id}'`).join(',');
+  if (videoIds) {
+    sqlStatements.push(`
+      UPDATE tiktok_videos
+      SET is_copyrighted = TRUE, updated_at = NOW()
+      WHERE video_id IN (${videoIds})
+        AND spotify_track_id IS NOT NULL
+        AND (is_copyrighted IS NULL OR is_copyrighted = FALSE)
+    `);
   }
 
   // Create pipeline entries

@@ -137,39 +137,36 @@ async function main() {
         if (artistCredit && Array.isArray(artistCredit)) {
           for (const credit of artistCredit.slice(0, 3)) {
             try {
-              const artist = await lookupArtist(credit.artist.id);
+              // CHANGED: Use lookupArtistWithRelations() to get member_relations for ALL artists
+              const artist = await lookupArtistWithRelations(credit.artist.id);
               if (artist) {
-                console.log(`        ✅ ${artist.name}${artist.type ? ` (${artist.type})` : ''}`);
+                const relCount = artist.relations?.filter(r => r.type === 'member of band').length || 0;
+                const relInfo = relCount > 0 ? ` [${relCount} member relations]` : '';
+                console.log(`        ✅ ${artist.name}${artist.type ? ` (${artist.type})` : ''}${relInfo}`);
                 sqlStatements.push(upsertMBArtistSQL(artist));
 
-                // NEW: If this is a group, fetch its members
+                // If this is a group, fetch its members too
                 if (artist.type === 'Group') {
                   console.log(`           🎭 Group detected - fetching members...`);
-                  try {
-                    const groupWithRels = await lookupArtistWithRelations(artist.id);
-                    if (groupWithRels?.relations) {
-                      const members = groupWithRels.relations
-                        .filter(rel => rel.type === 'member of band' && rel.artist)
-                        .map(rel => rel.artist!);
+                  // NOTE: Groups have direction="backward" for their members (group ← member)
+                  const members = artist.relations
+                    ?.filter(rel => rel.type === 'member of band' && rel.direction === 'backward' && rel.artist)
+                    .map(rel => rel.artist!) || [];
 
-                      console.log(`           Found ${members.length} members`);
+                  console.log(`           Found ${members.length} members`);
 
-                      // Fetch each member (limit to 5 to avoid rate limits)
-                      for (const member of members.slice(0, 5)) {
-                        try {
-                          const memberArtist = await lookupArtist(member.id);
-                          if (memberArtist) {
-                            const isniInfo = memberArtist.isnis?.[0] ? ` ISNI: ${memberArtist.isnis[0]}` : '';
-                            console.log(`              ✅ ${memberArtist.name}${isniInfo}`);
-                            sqlStatements.push(upsertMBArtistSQL(memberArtist));
-                          }
-                        } catch (memberError: any) {
-                          console.warn(`              ⚠️  Failed to fetch ${member.name}`);
-                        }
+                  // Fetch each member (limit to 5 to avoid rate limits)
+                  for (const member of members.slice(0, 5)) {
+                    try {
+                      const memberArtist = await lookupArtistWithRelations(member.id);
+                      if (memberArtist) {
+                        const isniInfo = memberArtist.isnis?.[0] ? ` ISNI: ${memberArtist.isnis[0]}` : '';
+                        console.log(`              ✅ ${memberArtist.name}${isniInfo}`);
+                        sqlStatements.push(upsertMBArtistSQL(memberArtist));
                       }
+                    } catch (memberError: any) {
+                      console.warn(`              ⚠️  Failed to fetch ${member.name}`);
                     }
-                  } catch (relError: any) {
-                    console.warn(`           ⚠️  Failed to fetch group members`);
                   }
                 }
               }
@@ -205,7 +202,8 @@ async function main() {
 
             for (const artistMbid of artistMbids.slice(0, 3)) { // Limit to 3 to avoid rate limits
               try {
-                const artist = await lookupArtist(artistMbid);
+                // CHANGED: Use lookupArtistWithRelations() to get member_relations for ALL artists
+                const artist = await lookupArtistWithRelations(artistMbid);
                 if (artist) {
                   sqlStatements.push(
                     upsertMBArtistSQL(artist)

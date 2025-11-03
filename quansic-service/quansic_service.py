@@ -543,7 +543,66 @@ class QuansicService:
         except Exception as e:
             logger.debug(f"Name variants lookup failed: {e}")
             return []
-    
+
+    async def lookup_artist_by_spotify(self, spotify_artist_id: str, force_reauth: bool = False) -> Dict[str, Any]:
+        """Lookup artist by Spotify ID using search endpoint and return full Quansic data including ISNI"""
+        logger.info(f"Looking up artist by Spotify ID: {spotify_artist_id}")
+
+        # Get account and authenticate
+        account = self.account_pool.get_next_account()
+        session_cookie = await self.authenticate(account, force_reauth)
+
+        try:
+            # Get event loop for async operations
+            loop = asyncio.get_event_loop()
+
+            # Use search endpoint (no direct Spotify ID lookup available)
+            artist_data = await loop.run_in_executor(
+                self.thread_pool,
+                self._search_artist_by_spotify_sync,
+                spotify_artist_id, session_cookie
+            )
+
+            if not artist_data:
+                return {
+                    'error': 'SPOTIFY_ID_NOT_FOUND',
+                    'message': f'Artist with Spotify ID {spotify_artist_id} not found in Quansic',
+                    'spotify_artist_id': spotify_artist_id
+                }
+
+            # Extract party data from search result
+            party = artist_data.get('party', {})
+
+            # Extract data from party object
+            ids = party.get('ids', {})
+            isnis = ids.get('isnis', [])
+            ipis = ids.get('ipis', [])
+
+            # Mark account as successful
+            account.mark_success()
+
+            return {
+                'spotify_artist_id': spotify_artist_id,
+                'name': party.get('name'),
+                'ids': {
+                    'isnis': isnis,
+                    'ipis': ipis,
+                    'quansic_id': party.get('quansicId'),
+                    'ipns': ids.get('ipns', []),
+                    'musicbrainz_mbid': ids.get('musicbrainzIds', [None])[0],
+                    'luminateIds': ids.get('luminateIds', []),
+                    'gracenoteIds': ids.get('gracenoteIds', []),
+                    'amazonIds': ids.get('amazonIds', []),
+                    'appleIds': ids.get('appleIds', []),
+                },
+                'raw_data': party,
+            }
+
+        except Exception as e:
+            logger.error(f"Spotify artist lookup failed: {e}")
+            self.account_pool.mark_current_failed()
+            raise
+
     async def get_recording_data(self, isrc: str, spotify_track_id: Optional[str] = None,
                                recording_mbid: Optional[str] = None,
                                force_reauth: bool = False) -> Dict[str, Any]:
@@ -839,7 +898,57 @@ class QuansicService:
         except Exception as e:
             logger.debug(f"Direct ISNI lookup failed: {e}")
             return None
-    
+
+    def _lookup_artist_by_spotify_sync(self, spotify_artist_id: str, session_cookie: str) -> Optional[Dict[str, Any]]:
+        """Direct Spotify ID lookup using Quansic API - Sync version for thread pool"""
+        url = f'https://explorer.quansic.com/api/q/lookup/party/Quansic::spotify::{spotify_artist_id}'
+
+        headers = {
+            'cookie': session_cookie,
+            'accept': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'x-instance': 'default',
+        }
+
+        try:
+            logger.info(f"🔍 Looking up Spotify artist: {spotify_artist_id}")
+            logger.debug(f"URL: {url}")
+
+            response = hrequests.get(url, headers=headers, timeout=30)
+
+            logger.info(f"Response status: {response.status_code}")
+
+            if response.status_code == 401:
+                logger.error("❌ AUTHENTICATION FAILED (401)")
+                raise Exception("SESSION_EXPIRED")
+            elif response.status_code == 404:
+                logger.warning(f"Spotify artist not found in Quansic (404): {spotify_artist_id}")
+                return None
+            elif not response.ok:
+                logger.warning(f"API error {response.status_code} for Spotify ID {spotify_artist_id}")
+                raise Exception(f"API error: {response.status_code}")
+
+            data = response.json()
+            logger.debug(f"Response data: {data}")
+
+            # Check response status
+            if data.get('status') != 'OK':
+                logger.warning(f"API returned non-OK status: {data.get('status')}")
+                return None
+
+            party_data = data.get('results', {}).get('party')
+
+            if not party_data:
+                logger.warning(f"No party data in response for {spotify_artist_id}")
+                return None
+
+            logger.info(f"✅ Successfully fetched artist data for {spotify_artist_id}: {party_data.get('name')}")
+            return party_data
+
+        except Exception as e:
+            logger.error(f"Direct Spotify lookup exception: {e}")
+            return None
+
     def _search_artist_by_isni_sync(self, isni: str, session_cookie: str) -> Optional[Dict[str, Any]]:
         """Search for artist using entity search endpoint - Sync version"""
         clean_isni = isni.replace(' ', '').replace('\t', '').replace('\n', '')

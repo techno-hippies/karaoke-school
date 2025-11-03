@@ -83,8 +83,24 @@ SOULSEEK_ACCOUNT=username SOULSEEK_PASSWORD=pass bun run index.ts
 ```
 
 ### Fire-and-forget download request
+
+**Local Development:**
 ```bash
 curl -X POST http://localhost:3001/download-and-store \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spotify_track_id": "0vGsFFCP4Z1GNXpZmSMfhf",
+    "expected_title": "All Falls Down",
+    "expected_artist": "Kanye West",
+    "acoustid_api_key": "I9UjOdbcJK",
+    "neon_database_url": "postgresql://...",
+    "chain_id": 37111
+  }'
+```
+
+**Production (Akash):**
+```bash
+curl -X POST https://ks0q2dcfot8rd3vje7s8nds5ok.ingress.europlots.com/download-and-store \
   -H "Content-Type: application/json" \
   -d '{
     "spotify_track_id": "0vGsFFCP4Z1GNXpZmSMfhf",

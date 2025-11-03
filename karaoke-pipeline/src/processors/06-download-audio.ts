@@ -20,6 +20,9 @@
 
 import { query, close } from '../db/neon';
 
+// Bypass SSL verification for self-signed certs on audio-download-service
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const DATABASE_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || process.env.SLSK_SERVICE_URL || process.env.FREYR_SERVICE_URL || 'http://localhost:3001';
 const ACOUSTID_API_KEY = process.env.ACOUSTID_API_KEY;
@@ -92,11 +95,13 @@ async function main() {
       COALESCE(tp.retry_count, 0) as retry_count
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    LEFT JOIN song_audio sa ON tp.spotify_track_id = sa.spotify_track_id
     WHERE tp.status = 'lyrics_ready'
       AND tp.has_audio = FALSE
-      AND NOT EXISTS (
-        SELECT 1 FROM song_audio sa
-        WHERE sa.spotify_track_id = tp.spotify_track_id
+      AND (
+        -- Either no song_audio entry exists OR it exists but failed (grove_cid IS NULL)
+        sa.spotify_track_id IS NULL
+        OR sa.grove_cid IS NULL
       )
       -- Retry logic: skip if 3+ failures, respect 5min cooldown
       AND COALESCE(tp.retry_count, 0) < 3
@@ -189,9 +194,9 @@ export async function processDownloadAudio(_env: any, limit: number = 50): Promi
             : track.artists[0])
         : track.artists;
 
-      // Create abort controller with 5 second timeout
+      // Create abort controller with 30 second timeout (Akash can be slow to respond)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
         const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-and-store`, {
@@ -206,11 +211,32 @@ export async function processDownloadAudio(_env: any, limit: number = 50): Promi
             chain_id: CHAIN_ID,
           }),
           signal: controller.signal,
+          // @ts-ignore - Bun-specific option to skip SSL verification for Akash self-signed certs
+          tls: { rejectUnauthorized: false },
         });
 
         if (response.ok) {
           submittedCount++;
           response.body?.cancel();
+
+          // Track successful submission
+          await query(`
+            UPDATE song_pipeline
+            SET last_attempted_at = NOW()
+            WHERE id = $1
+          `, [track.id]);
+        } else {
+          // Track failed submission
+          const errorText = await response.text();
+          await query(`
+            UPDATE song_pipeline
+            SET
+              retry_count = COALESCE(retry_count, 0) + 1,
+              last_attempted_at = NOW(),
+              error_message = $1,
+              error_stage = 'step_6_download_submission'
+            WHERE id = $2
+          `, [errorText.substring(0, 500), track.id]);
         }
 
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -218,9 +244,23 @@ export async function processDownloadAudio(_env: any, limit: number = 50): Promi
         clearTimeout(timeoutId);
       }
     } catch (error: any) {
-      // Continue on error (service not available, timeout, etc)
+      // Track timeout/network errors
       if (error.name !== 'AbortError') {
         console.log(`     ⚠️  ${error.message}`);
+
+        try {
+          await query(`
+            UPDATE song_pipeline
+            SET
+              retry_count = COALESCE(retry_count, 0) + 1,
+              last_attempted_at = NOW(),
+              error_message = $1,
+              error_stage = 'step_6_download_network'
+            WHERE id = $2
+          `, [error.message.substring(0, 500), track.id]);
+        } catch (updateError) {
+          // Ignore update errors (don't want to fail the loop)
+        }
       }
     }
   }

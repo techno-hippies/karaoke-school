@@ -10,17 +10,19 @@
     "test:auto-purchase": "dotenvx run -- node src/test/test-auto-purchase-credits.mjs",
     "test:trivia-gen": "node src/test/test-trivia-generator-v1.mjs",
     "test:scorer-v4": "node src/test/test-karaoke-scorer-v4.mjs",
+    "test:grader-v6": "node src/test/test-karaoke-grader-v6.mjs",
+    "test:direct": "dotenvx run -- node src/test/test-direct-grading.mjs",
     "mint-pkp": "bun run scripts/mint-pkp.ts",
     "update-pkp-permissions": "bun run scripts/update-pkp-permissions.ts",
     "upload-action": "node scripts/upload-lit-action.mjs",
     "encrypt-keys": "node scripts/encrypt-keys-v8.mjs"
   },
   "dependencies": {
-    "@lit-protocol/auth": "^8.0.0",
-    "@lit-protocol/auth-helpers": "^8.0.0",
-    "@lit-protocol/lit-client": "^8.0.0",
+    "@lit-protocol/auth": "8.1.2",
+    "@lit-protocol/auth-helpers": "8.1.1",
+    "@lit-protocol/lit-client": "8.2.3",
     "@lit-protocol/lit-node-client": "^7.3.1",
-    "@lit-protocol/networks": "^8.0.0",
+    "@lit-protocol/networks": "8.3.2",
     "dotenv": "^16.4.7",
     "ethers": "6.15.0",
     "viem": "^2.21.54"

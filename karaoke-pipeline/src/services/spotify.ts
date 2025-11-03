@@ -48,6 +48,23 @@ export interface SpotifyArtistInfo {
   followers: number;
 }
 
+export interface SpotifyAudioFeatures {
+  spotify_track_id: string;
+  acousticness: number;
+  danceability: number;
+  energy: number;
+  instrumentalness: number;
+  liveness: number;
+  loudness: number;
+  speechiness: number;
+  tempo: number;
+  valence: number;
+  time_signature: number;
+  key: number;
+  mode: number;
+  duration_ms: number;
+}
+
 /**
  * Fetch track metadata from Spotify
  */
@@ -101,6 +118,46 @@ export async function getArtist(artistId: string): Promise<SpotifyArtistInfo | n
       return null;
     }
     console.error(`Error fetching artist ${artistId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch audio features for a track
+ * Used for instrumental detection (instrumentalness > 0.5)
+ */
+export async function getAudioFeatures(trackId: string): Promise<SpotifyAudioFeatures | null> {
+  try {
+    const client = getClient();
+    const features = await client.tracks.audioFeatures(trackId);
+
+    if (!features) {
+      console.warn(`No audio features available for track ${trackId}`);
+      return null;
+    }
+
+    return {
+      spotify_track_id: features.id,
+      acousticness: features.acousticness,
+      danceability: features.danceability,
+      energy: features.energy,
+      instrumentalness: features.instrumentalness,
+      liveness: features.liveness,
+      loudness: features.loudness,
+      speechiness: features.speechiness,
+      tempo: features.tempo,
+      valence: features.valence,
+      time_signature: features.time_signature,
+      key: features.key,
+      mode: features.mode,
+      duration_ms: features.duration_ms,
+    };
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.warn(`Audio features not found for track ${trackId}`);
+      return null;
+    }
+    console.error(`Error fetching audio features for ${trackId}:`, error);
     throw error;
   }
 }

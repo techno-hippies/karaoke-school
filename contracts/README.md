@@ -48,6 +48,10 @@ forge script script/DeployEvents.s.sol:DeployEvents \
 - **SegmentEvents**: `0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8` ✅
   - Segment processing events (~30k gas)
 
+- **TranslationEvents**: `0x5A49E23A5C3a034906eE0274c266A08805770C70` ✅
+  - Translation tracking events (~25k gas)
+  - Deployed 2025-11-03 via ethers.js
+
 - **AccountEvents**: `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` ✅
   - Account tracking (optional, ~25k gas)
 

@@ -86,6 +86,7 @@ export function upsertMBWorkSQL(work: MBWork): string {
       name: rel.artist!.name,
       attributes: rel.attributes || [],
     })) || [],
+    raw_data: work || null,  // Store full work data including URL relations
   };
 
   return buildUpsert('musicbrainz_works', data, 'work_mbid', [
@@ -93,6 +94,7 @@ export function upsertMBWorkSQL(work: MBWork): string {
     'work_type',
     'iswc',
     'contributors',
+    'raw_data',
   ]) + ' RETURNING work_mbid, iswc';
 }
 
@@ -154,6 +156,18 @@ export function upsertMBArtistSQL(
     }
   });
 
+  // Extract member relationships (authoritative data for group membership)
+  // Example: aespa has members 지젤, 카리나, 닝닝, 윈터 via "member of band" relations
+  const memberRelations = artist.relations
+    ?.filter(rel => rel.type === 'member of band' && rel.artist)
+    .map(rel => ({
+      type: rel.type,              // "member of band"
+      direction: rel.direction,    // "backward" = this artist is member OF linked group
+                                   // "forward" = this group HAS linked artist as member
+      artist_mbid: rel.artist!.id,
+      artist_name: rel.artist!.name
+    })) || [];
+
   const data = {
     artist_mbid: artist.id,
     name: artist.name,
@@ -178,6 +192,7 @@ export function upsertMBArtistSQL(
     all_urls: Object.keys(allUrls).length > 0 ? allUrls : null,
     genres: artist.genres?.map(g => ({ name: g.name, count: g.count })) || [],
     tags: artist.tags || [],
+    member_relations: memberRelations,
   };
 
   return buildUpsert('musicbrainz_artists', data, 'artist_mbid', [
@@ -197,6 +212,7 @@ export function upsertMBArtistSQL(
     'all_urls',
     'genres',
     'tags',
+    'member_relations',
   ]) + ' RETURNING artist_mbid, isnis';
 }
 

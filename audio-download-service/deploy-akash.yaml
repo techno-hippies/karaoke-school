@@ -2,8 +2,8 @@
 version: "2.2"
 
 services:
-  slsk:
-    image: t3333chn0000/audio-download-service:v1.1.2  # ✅ Fixed: Complete Soulseek patch (server.js + slsk-client.js null callback handling)
+  audio-download:
+    image: t3333chn0000/audio-download-service:v2.2.0  # ✅ Fixed: SSL/TLS ca-certificates, renamed from slsk-service
     expose:
       - port: 3001
         as: 80
@@ -23,7 +23,7 @@ services:
 
 profiles:
   compute:
-    slsk:
+    audio-download:
       resources:
         cpu:
           units: 2
@@ -36,12 +36,12 @@ profiles:
   placement:
     akash:
       pricing:
-        slsk:
+        audio-download:
           denom: uakt
           amount: 10000  # Max bid per block (~$0.01-0.03/hour)
 
 deployment:
-  slsk:
+  audio-download:
     akash:
-      profile: slsk
+      profile: audio-download
       count: 1

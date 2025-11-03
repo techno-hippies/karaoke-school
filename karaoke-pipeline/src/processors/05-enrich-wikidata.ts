@@ -19,44 +19,64 @@ async function main() {
   console.log(`📊 Batch size: ${batchSize}`);
   console.log('');
 
-  // Find artists from karaoke_segments → spotify_tracks → match to musicbrainz for Wikidata URL
+  // Find artists from grc20_artists with dual-source Wikidata ID discovery:
+  // PRIMARY: Quansic (quansic_artists.raw_data.ids.wikidataIds)
+  // FALLBACK: MusicBrainz (musicbrainz_artists.all_urls)
+  // ARCHITECTURAL FIX: Query from grc20_artists instead of song_pipeline
+  // This ensures ALL artists (including featured artists and group members) get enriched
   console.log('⏳ Finding artists ready for Wikidata enrichment...');
 
   const artistsToProcess = await query<{
     spotify_artist_id: string;
     artist_name: string;
-    wikidata_url: string;
     wikidata_id: string | null;
+    source: string;
   }>(`
-    WITH processed_artists AS (
+    WITH quansic_wikidata AS (
+      -- PRIMARY SOURCE: Quansic
       SELECT DISTINCT
-        st.artists->0->>'id' as spotify_artist_id,
-        st.artists->0->>'name' as artist_name
-      FROM karaoke_segments ks
-      JOIN spotify_tracks st ON st.spotify_track_id = ks.spotify_track_id
-      WHERE ks.fal_enhanced_grove_cid IS NOT NULL
-        AND st.artists->0->>'id' IS NOT NULL
+        ga.spotify_artist_id,
+        ga.name as artist_name,
+        qa.raw_data->'ids'->'wikidataIds'->>0 as wikidata_id,
+        'quansic' as source
+      FROM grc20_artists ga
+      JOIN quansic_artists qa ON ga.spotify_artist_id = qa.spotify_artist_id
+      WHERE qa.raw_data->'ids'->'wikidataIds' IS NOT NULL
+        AND jsonb_array_length(qa.raw_data->'ids'->'wikidataIds') > 0
     ),
-    artist_wikidata AS (
+    mb_wikidata AS (
+      -- FALLBACK SOURCE: MusicBrainz
+      SELECT DISTINCT
+        ga.spotify_artist_id,
+        ga.name as artist_name,
+        SUBSTRING((SELECT value FROM jsonb_each_text(ma.all_urls)
+                   WHERE key LIKE '%wikidata%' LIMIT 1) FROM 'Q[0-9]+') as wikidata_id,
+        'musicbrainz' as source
+      FROM grc20_artists ga
+      JOIN musicbrainz_artists ma ON ga.mbid = ma.artist_mbid
+      WHERE ma.all_urls IS NOT NULL
+        AND (SELECT value FROM jsonb_each_text(ma.all_urls) WHERE key LIKE '%wikidata%' LIMIT 1) IS NOT NULL
+    ),
+    combined_sources AS (
+      -- Prioritize Quansic, use MusicBrainz as fallback
       SELECT
-        pa.spotify_artist_id,
-        pa.artist_name,
-        (SELECT value FROM jsonb_each_text(mb.all_urls) WHERE key LIKE '%wikidata%' LIMIT 1) as wikidata_url,
-        SUBSTRING((SELECT value FROM jsonb_each_text(mb.all_urls) WHERE key LIKE '%wikidata%' LIMIT 1) FROM 'Q[0-9]+') as wikidata_id
-      FROM processed_artists pa
-      JOIN musicbrainz_artists mb ON LOWER(TRIM(pa.artist_name)) = LOWER(TRIM(mb.name))
-      WHERE mb.all_urls IS NOT NULL
-        AND (SELECT value FROM jsonb_each_text(mb.all_urls) WHERE key LIKE '%wikidata%' LIMIT 1) IS NOT NULL
+        COALESCE(qw.spotify_artist_id, mw.spotify_artist_id) as spotify_artist_id,
+        COALESCE(qw.artist_name, mw.artist_name) as artist_name,
+        COALESCE(qw.wikidata_id, mw.wikidata_id) as wikidata_id,
+        COALESCE(qw.source, mw.source) as source
+      FROM quansic_wikidata qw
+      FULL OUTER JOIN mb_wikidata mw ON qw.spotify_artist_id = mw.spotify_artist_id
+      WHERE COALESCE(qw.wikidata_id, mw.wikidata_id) IS NOT NULL
     )
     SELECT
-      aw.spotify_artist_id,
-      aw.artist_name,
-      aw.wikidata_url,
-      aw.wikidata_id
-    FROM artist_wikidata aw
-    LEFT JOIN wikidata_artists wd ON aw.wikidata_id = wd.wikidata_id
+      cs.spotify_artist_id,
+      cs.artist_name,
+      cs.wikidata_id,
+      cs.source
+    FROM combined_sources cs
+    LEFT JOIN wikidata_artists wd ON cs.wikidata_id = wd.wikidata_id
     WHERE wd.wikidata_id IS NULL
-    ORDER BY aw.spotify_artist_id
+    ORDER BY cs.source DESC, cs.spotify_artist_id
     LIMIT ${batchSize}
   `);
 
@@ -74,7 +94,7 @@ async function main() {
   let skippedCount = 0;
 
   for (const artist of artistsToProcess) {
-    const { spotify_artist_id, artist_name, wikidata_id } = artist;
+    const { spotify_artist_id, artist_name, wikidata_id, source } = artist;
 
     if (!wikidata_id) {
       console.log(`⏭️  ${artist_name}: No valid Wikidata ID found`);
@@ -82,7 +102,8 @@ async function main() {
       continue;
     }
 
-    console.log(`\n🔍 ${artist_name} (${wikidata_id})`);
+    const sourceLabel = source === 'quansic' ? '🎯 Quansic' : '📚 MusicBrainz';
+    console.log(`\n🔍 ${artist_name} (${wikidata_id}) [${sourceLabel}]`);
 
     try {
       // Fetch from Wikidata API

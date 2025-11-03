@@ -84,6 +84,11 @@ export function upsertSpotifyArtistSQL(artist: SpotifyArtistInfo): string {
 
 /**
  * Generate SQL to create song_pipeline entry
+ * UPSERT on spotify_track_id to prevent duplicates when multiple TikTok videos use the same song
+ * The pipeline processes songs, not videos - each song should only be processed once
+ *
+ * On conflict: Only updates tiktok_video_id (most recent video reference)
+ *              Preserves all pipeline progress (status, metadata, etc.)
  */
 export function createPipelineEntrySQL(
   videoId: string,
@@ -91,21 +96,32 @@ export function createPipelineEntrySQL(
   isrc: string | null,
   primaryArtistId: string | null
 ): string {
-  const data = {
-    tiktok_video_id: videoId,
-    spotify_track_id: spotifyTrackId,
-    status: 'spotify_resolved',
-    isrc: isrc,
-    spotify_artist_id: primaryArtistId,
-  };
-
-  return buildUpsert('song_pipeline', data, 'tiktok_video_id', [
-    'spotify_track_id',
-    'status',
-    'isrc',
-    'spotify_artist_id',
-    'updated_at'
-  ]) + ' RETURNING id, status';
+  // Custom SQL to handle conflict intelligently
+  // If song already exists in pipeline, just update the TikTok video reference
+  // This prevents resetting pipeline progress when the same song appears in multiple videos
+  return `
+    INSERT INTO song_pipeline (
+      tiktok_video_id,
+      spotify_track_id,
+      status,
+      isrc,
+      spotify_artist_id,
+      created_at,
+      updated_at
+    ) VALUES (
+      '${videoId}',
+      '${spotifyTrackId}',
+      'spotify_resolved',
+      ${isrc ? `'${isrc}'` : 'NULL'},
+      ${primaryArtistId ? `'${primaryArtistId}'` : 'NULL'},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (spotify_track_id) DO UPDATE SET
+      tiktok_video_id = EXCLUDED.tiktok_video_id,
+      updated_at = NOW()
+    RETURNING id, status
+  `.trim();
 }
 
 /**

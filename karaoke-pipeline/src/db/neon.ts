@@ -114,6 +114,8 @@ export async function query<T = any>(
 
 /**
  * Execute a transaction (multiple SQL statements)
+ * LEGACY: Sequential execution without proper transaction semantics
+ * Use transactionBlock() for atomicity guarantees
  */
 export async function transaction(sqlStatements: string[]): Promise<any[]> {
   const client = getClient();
@@ -125,6 +127,68 @@ export async function transaction(sqlStatements: string[]): Promise<any[]> {
   }
 
   return results;
+}
+
+/**
+ * Execute a function within a transaction with proper BEGIN/COMMIT/ROLLBACK
+ * Uses postgres library's built-in transaction support for guaranteed atomicity
+ *
+ * Example:
+ *   await transactionBlock(async (tx) => {
+ *     await tx(`INSERT INTO song_lyrics ...`);
+ *     await tx(`UPDATE song_pipeline SET status = 'lyrics_ready' WHERE id = $1`, [trackId]);
+ *   });
+ *
+ * @param callback - Function that receives a query executor and performs transactional work
+ * @returns Result of the callback function
+ */
+export async function transactionBlock<T>(
+  callback: (tx: typeof query) => Promise<T>
+): Promise<T> {
+  const client = getClient();
+
+  // Use postgres library's built-in transaction support
+  // This ensures all operations run on the same connection
+  return await client.begin(async (sql) => {
+    // Create a query function compatible with our existing API
+    const txQuery = async <R = any>(sqlStr: string, params?: any[]): Promise<R[]> => {
+      if (params) {
+        // Manually substitute parameters (same logic as query())
+        let processedSql = sqlStr;
+        params.forEach((param, index) => {
+          const placeholder = `$${index + 1}`;
+          const escapedValue = param === null || param === undefined
+            ? 'NULL'
+            : typeof param === 'string'
+            ? `'${param.replace(/'/g, "''")}'`
+            : typeof param === 'number'
+            ? String(param)
+            : typeof param === 'boolean'
+            ? (param ? 'TRUE' : 'FALSE')
+            : `'${JSON.stringify(param).replace(/'/g, "''")}'`;
+          processedSql = processedSql.replace(placeholder, escapedValue);
+        });
+        return await sql.unsafe(processedSql) as R[];
+      } else {
+        return await sql.unsafe(sqlStr) as R[];
+      }
+    };
+
+    // Execute callback with transaction query function
+    return await callback(txQuery);
+  });
+}
+
+/**
+ * Execute query and return single row
+ * Throws error if no rows found
+ */
+export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T> {
+  const results = await query<T>(sql, params);
+  if (results.length === 0) {
+    throw new Error('No rows returned from query');
+  }
+  return results[0];
 }
 
 /**

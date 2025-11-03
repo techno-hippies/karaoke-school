@@ -127,6 +127,46 @@ async function downloadWithYtDlp(
   }
 }
 
+// Helper: Download TikTok video with yt-dlp
+async function downloadTikTokVideo(
+  video_id: string,
+  tiktok_url: string
+): Promise<{ path: string; method: 'yt-dlp-tiktok' } | null> {
+  const outputPath = path.join(DOWNLOADS_DIR, `tiktok-${video_id}.mp4`);
+
+  try {
+    console.log(`  📥 Downloading TikTok video with yt-dlp...`);
+    console.log(`     URL: ${tiktok_url}`);
+
+    // Download TikTok video (yt-dlp supports TikTok!)
+    const cmd = `yt-dlp "${tiktok_url}" -f "best[ext=mp4]" -o "${outputPath}" --no-playlist --quiet --no-warnings`;
+
+    await execAsync(cmd, { timeout: 90000 }); // 90s timeout for video
+
+    if (existsSync(outputPath)) {
+      const stats = await Bun.file(outputPath).stat();
+      if (stats.size > 100000) { // At least 100KB
+        console.log(`  ✅ Downloaded TikTok video (${(stats.size / 1024 / 1024).toFixed(1)}MB)`);
+        return { path: outputPath, method: 'yt-dlp-tiktok' };
+      }
+    }
+
+    console.log(`  ⚠️  TikTok download failed or file too small`);
+    return null;
+  } catch (error: any) {
+    console.log(`  ⚠️  yt-dlp TikTok download failed: ${error.message}`);
+
+    // Cleanup partial download
+    if (existsSync(outputPath)) {
+      try {
+        await unlink(outputPath);
+      } catch {}
+    }
+
+    return null;
+  }
+}
+
 // Helper: Download with Soulseek (slower but more reliable fallback)
 async function downloadWithSoulseek(
   spotify_track_id: string,
@@ -475,11 +515,65 @@ serve({
         return Response.json({
           status: "healthy",
           service: "audio-download-service",
-          version: "2.0.0",
+          version: "2.2.0",
           downloads_dir: DOWNLOADS_DIR,
           soulseek_configured: !!(SOULSEEK_ACCOUNT && SOULSEEK_PASSWORD),
-          strategies: ["yt-dlp", "soulseek-p2p"]
+          strategies: ["yt-dlp", "soulseek-p2p", "yt-dlp-tiktok"]
         }, { headers });
+      }
+
+      // POST /download-tiktok-video
+      if (url.pathname === "/download-tiktok-video" && req.method === "POST") {
+        const body: { video_id: string; tiktok_url: string; chain_id?: number } = await req.json();
+        const { video_id, tiktok_url, chain_id = CHAIN_ID } = body;
+
+        if (!video_id || !tiktok_url) {
+          return Response.json({
+            error: "Missing required fields: video_id, tiktok_url"
+          }, { status: 400, headers });
+        }
+
+        console.log(`🔄 Downloading TikTok video: ${video_id}`);
+        console.log(`   URL: ${tiktok_url}`);
+
+        try {
+          // Step 1: Download TikTok video with yt-dlp
+          const downloadResult = await downloadTikTokVideo(video_id, tiktok_url);
+
+          if (!downloadResult) {
+            throw new Error("Failed to download TikTok video");
+          }
+
+          // Step 2: Upload to Grove
+          console.log(`  📦 Uploading to Grove...`);
+          const { cid: grove_cid, url: grove_url } = await uploadToGrove(
+            downloadResult.path,
+            video_id,
+            chain_id
+          );
+
+          // Step 3: Cleanup temp file
+          await unlink(downloadResult.path);
+          console.log(`  ✓ Cleaned up temp file`);
+
+          console.log(`✅ TikTok video uploaded: ${grove_cid}`);
+
+          return Response.json({
+            success: true,
+            video_id,
+            grove_cid,
+            grove_url,
+            download_method: downloadResult.method
+          }, { headers });
+
+        } catch (error: any) {
+          console.error(`❌ TikTok download failed: ${error.message}`);
+          return Response.json({
+            error: "Download failed",
+            message: error.message,
+            video_id
+          }, { status: 500, headers });
+        }
       }
 
       // POST /download-and-store
@@ -502,7 +596,10 @@ serve({
         // Prevent duplicate concurrent downloads
         if (inflightDownloads.has(spotify_track_id)) {
           console.log(`⏳ Download already in progress for ${spotify_track_id}`);
-          return await inflightDownloads.get(spotify_track_id);
+          return Response.json({
+            status: "already_processing",
+            workflow_id: spotify_track_id
+          }, { headers });
         }
 
         const workflowStart = Date.now();
@@ -668,14 +765,19 @@ serve({
               `;
 
               // Update song_pipeline
+              // Only advance status if track is BEFORE audio_downloaded in pipeline
+              // Don't regress tracks that are already at later stages
               await sql`
                 UPDATE song_pipeline
                 SET
-                  status = 'audio_downloaded',
+                  status = CASE
+                    WHEN status IN ('tiktok_scraped', 'spotify_resolved', 'iswc_found', 'metadata_enriched', 'lyrics_ready')
+                    THEN 'audio_downloaded'
+                    ELSE status
+                  END,
                   has_audio = TRUE,
                   updated_at = NOW()
                 WHERE spotify_track_id = ${spotify_track_id}
-                  AND status = 'lyrics_ready'
               `;
 
               await sql`COMMIT`;
@@ -760,6 +862,9 @@ serve({
         // Fire-and-forget: Start workflow but return immediately
         workflowPromise.catch(err => {
           console.error(`❌ Background workflow error for ${spotify_track_id}:`, err.message);
+          inflightDownloads.delete(spotify_track_id);  // FIX: Clean up on ANY error
+        }).finally(() => {
+          inflightDownloads.delete(spotify_track_id);  // FIX: Always clean up when done
         });
 
         return Response.json({

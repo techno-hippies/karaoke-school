@@ -32,7 +32,7 @@
  */
 
 import type { Env } from '../types';
-import { query, close } from '../db/neon';
+import { query, close, transactionBlock } from '../db/neon';
 import { DemucsService, createDemucsService } from '../services/demucs';
 
 interface Track {
@@ -149,35 +149,54 @@ export async function processSeparateAudio(env: Env, limit: number = 50): Promis
           track.grove_url
         );
 
-        // Update song_audio with the instrumental stems immediately
-        await query(`
-          UPDATE song_audio
-          SET
-            instrumental_grove_url = $1,
-            instrumental_grove_cid = $2,
-            vocals_grove_url = $3,
-            vocals_grove_cid = $4,
-            updated_at = NOW()
-          WHERE spotify_track_id = $5
-        `, [
-          result.instrumental_grove_url,
-          result.instrumental_grove_cid,
-          result.vocals_grove_url,
-          result.vocals_grove_cid,
-          track.spotify_track_id
-        ]);
+        // Atomically update both tables in a transaction
+        await transactionBlock(async (tx) => {
+          // Update song_audio with the instrumental stems
+          await tx(`
+            UPDATE song_audio
+            SET
+              instrumental_grove_url = $1,
+              instrumental_grove_cid = $2,
+              vocals_grove_url = $3,
+              vocals_grove_cid = $4,
+              updated_at = NOW()
+            WHERE spotify_track_id = $5
+          `, [
+            result.instrumental_grove_url,
+            result.instrumental_grove_cid,
+            result.vocals_grove_url,
+            result.vocals_grove_cid,
+            track.spotify_track_id
+          ]);
 
-        // Update song_pipeline status to stems_separated
-        await query(`
-          UPDATE song_pipeline
-          SET status = 'stems_separated', updated_at = NOW()
-          WHERE spotify_track_id = $1
-        `, [track.spotify_track_id]);
+          // Update song_pipeline status to stems_separated
+          await tx(`
+            UPDATE song_pipeline
+            SET status = 'stems_separated', updated_at = NOW()
+            WHERE spotify_track_id = $1
+          `, [track.spotify_track_id]);
+        });
 
         console.log(`     ✓ Separated and updated (instrumental: ${result.instrumental_grove_cid.substring(0, 8)}...)`);
         successCount++;
       } catch (error: any) {
         console.log(`     ❌ Separation failed: ${error.message}`);
+
+        // Update retry count and error tracking
+        try {
+          await query(`
+            UPDATE song_pipeline
+            SET
+              retry_count = COALESCE(retry_count, 0) + 1,
+              last_attempted_at = NOW(),
+              error_message = $1,
+              error_stage = 'step_8_separation'
+            WHERE id = $2
+          `, [error.message.substring(0, 500), track.id]);
+        } catch (updateError) {
+          console.error(`     ⚠️  Failed to update retry count: ${updateError}`);
+        }
+
         failedCount++;
       }
     }

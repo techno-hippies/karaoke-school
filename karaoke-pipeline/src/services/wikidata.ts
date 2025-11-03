@@ -70,7 +70,7 @@ const PROPERTY_MAP = {
   // International Libraries (PRIMARY)
   'P214': 'viaf',
   'P227': 'gnd',
-  'P5361': 'bnf',
+  'P268': 'bnf',  // FIX: Was P5361 (BNF thesaurus), should be P268 (BNF authority ID)
   'P244': 'loc',
   'P396': 'sbn',
   'P1015': 'bnmm',
@@ -103,7 +103,7 @@ const PROPERTY_MAP = {
   // Lyrics/Translation (VERY HIGH VALUE for karaoke)
   'P2033': 'musixmatch',
   'P7704': 'lyricstranslate',
-  'P6190': 'songmeanings',
+  'P7200': 'songmeanings',
 
   // Music Journalism/Context
   'P1989': 'pitchfork',
@@ -345,7 +345,7 @@ export async function parseWikidataArtist(entity: WikidataEntity): Promise<Wikid
   const gnd = extractClaimValues(claims, 'P227');
   if (gnd.length > 0) result.gndId = gnd[0];
 
-  const bnf = extractClaimValues(claims, 'P5361');
+  const bnf = extractClaimValues(claims, 'P268');  // FIX: Was P5361 (wrong!)
   if (bnf.length > 0) result.bnfId = bnf[0];
 
   const loc = extractClaimValues(claims, 'P244');

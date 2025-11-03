@@ -40,7 +40,6 @@ async function main() {
   const artists = await query<{
     spotify_artist_id: string;
     name: string;
-    grc20_entity_id: string | null;
     pkp_address: string;
     pkp_token_id: string;
     image_url: string | null;
@@ -48,7 +47,6 @@ async function main() {
     SELECT
       ga.spotify_artist_id,
       ga.name,
-      ga.grc20_entity_id,
       pkp.pkp_address,
       pkp.pkp_token_id,
       ga.image_url
@@ -82,24 +80,13 @@ async function main() {
       console.log(`   🏷️  Handle: @${handle}`);
 
       // 3. Build minimal metadata attributes
-      // Strategy: Lens metadata just references GRC-20 for all identifiers
-      // This maintains single source of truth and avoids data duplication
       const attributes = [
         { type: 'String', key: 'pkpAddress', value: artist.pkp_address },
         { type: 'String', key: 'accountType', value: 'music-artist' },
+        { type: 'String', key: 'spotifyArtistId', value: artist.spotify_artist_id },
       ];
 
-      // Add GRC-20 entity ID if artist is minted to GRC-20
-      if (artist.grc20_entity_id) {
-        attributes.push({
-          type: 'String',
-          key: 'grc20EntityId',
-          value: artist.grc20_entity_id,
-        });
-        console.log(`   🔗 GRC-20 Entity: ${artist.grc20_entity_id}`);
-      } else {
-        console.log(`   ⚠️  Not yet minted to GRC-20 - will add entity ID after minting`);
-      }
+      console.log(`   ℹ️  GRC-20 entity ID will be added to Lens metadata after GRC-20 minting`);
 
       // 4. Create Lens account
       console.log('   ⏳ Creating Lens account...');

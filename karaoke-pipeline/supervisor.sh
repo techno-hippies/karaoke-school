@@ -24,10 +24,10 @@ LOG_DIR="${PIPELINE_DIR}/logs"
 declare -A SERVICES
 SERVICES=(
     ["quansic"]="Quansic ISWC Service:3000:${QUANSIC_DIR}/main.py"
-    ["pipeline"]="Standalone Pipeline Server:8787:${PIPELINE_DIR}/standalone-server.js"
     ["audio"]="Audio Download Service:3001:${AUDIO_SERVICE_DIR}/index.ts"
     ["demucs"]="Demucs GPU Service:8001:${DEMUCS_DIR}/start.sh"
 )
+# Note: Pipeline is CLI-only (bun run-unified.ts), not a service
 
 # PID tracking
 declare -A PIDS
@@ -75,7 +75,7 @@ wait_for_service() {
     
     for i in $(seq 1 $max_wait); do
         case $service in
-            "quansic"|"bmi"|"pipeline"|"audio")
+            "quansic"|"bmi"|"audio")
                 if curl -sf http://localhost:$port/health >/dev/null 2>&1; then
                     log_success "$service is healthy on port $port"
                     return 0
@@ -127,11 +127,6 @@ start_service() {
             cd "$BMI_DIR"
             dotenvx run -f .env -- bun run server.js > "$LOG_DIR/bmi.log" 2>&1 &
             ;;
-        "pipeline")
-            cd "$PIPELINE_DIR"
-            # Use dotenvx and bun to run the standalone server
-            dotenvx run -f .env -- bun run standalone-server.js > "$LOG_DIR/pipeline.log" 2>&1 &
-            ;;
         "audio")
             cd "$AUDIO_SERVICE_DIR"
             dotenvx run -f .env -- bun run index.ts > "$LOG_DIR/audio.log" 2>&1 &
@@ -170,7 +165,7 @@ check_service_health() {
     
     # Check service responsiveness
     case $service in
-        "quansic"|"bmi"|"pipeline"|"audio")
+        "quansic"|"bmi"|"audio")
             if curl -sf http://localhost:$port/health >/dev/null 2>&1; then
                 STATUS[$service]="healthy"
                 return 0
@@ -228,11 +223,10 @@ show_status() {
     echo "============================"
     echo ""
     
-    for service in quansic pipeline audio demucs; do
+    for service in quansic audio demucs; do
         local port
         case $service in
             "quansic") port=3000 ;;
-            "pipeline") port=8787 ;;
             "audio") port=3001 ;;
             "demucs") port=8001 ;;
         esac
@@ -262,7 +256,7 @@ show_status() {
 cleanup() {
     log_info "Shutting down services..."
     
-    for service in pipeline audio demucs quansic; do
+    for service in audio demucs quansic; do
         local pid="${PIDS[$service]:-}"
 
         if [ ! -z "$pid" ]; then
@@ -313,17 +307,13 @@ main() {
     # Start all services
     log_info "Starting all services..."
 
-    for service in quansic pipeline audio demucs; do
+    for service in quansic audio demucs; do
         local port
         local script
 
         case $service in
             "quansic")
                 port=3000
-                script="${SERVICES[$service]#*:}"
-                ;;
-            "pipeline")
-                port=8787
                 script="${SERVICES[$service]#*:}"
                 ;;
             "audio")
@@ -345,11 +335,10 @@ main() {
     # Wait for services to be ready
     log_info "Waiting for services to be ready..."
 
-    for service in quansic pipeline audio demucs; do
+    for service in quansic audio demucs; do
         local port
         case $service in
             "quansic") port=3000 ;;
-            "pipeline") port=8787 ;;
             "audio") port=3001 ;;
             "demucs") port=8001 ;;
         esac
@@ -371,17 +360,13 @@ main() {
         
         local need_restart=false
         
-        for service in quansic pipeline audio demucs; do
+        for service in quansic audio demucs; do
             local port
             local script
 
             case $service in
                 "quansic")
                     port=3000
-                    script="${SERVICES[$service]#*:}"
-                    ;;
-                "pipeline")
-                    port=8787
                     script="${SERVICES[$service]#*:}"
                     ;;
                 "audio")
@@ -426,9 +411,11 @@ show_help() {
     echo "  -s, --status   Show service status only"
     echo ""
     echo "Services managed:"
-    echo "  - Pipeline Server (port 8787)"
+    echo "  - Quansic ISWC Service (port 3000)"
     echo "  - Audio Download Service (port 3001)"
     echo "  - Demucs GPU Service (port 8001)"
+    echo ""
+    echo "Note: Pipeline is CLI-only (use: bun run-unified.ts)"
     echo ""
     echo "Features:"
     echo "  - Automatic service startup"

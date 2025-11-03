@@ -132,14 +132,39 @@ async function main() {
         continue;
       }
 
-      // Fetch full artist details
-      console.log('   ⏳ Fetching full artist details...');
-      const fullArtist = await genius.getFullArtist(geniusData.genius_artist_id);
+      // Extract ALL artists from song (primary, featured, producer, writer)
+      console.log('   ⏳ Extracting all artists from song...');
+      const allArtistIds = new Set<number>();
+      const rawSong = fullSong.raw_data as any;
 
-      if (!fullArtist) {
-        console.log('   ⚠️ Could not fetch full artist details');
-        continue;
+      // Collect all unique artist IDs
+      [rawSong.primary_artist]
+        .concat(rawSong.featured_artists || [])
+        .concat(rawSong.producer_artists || [])
+        .concat(rawSong.writer_artists || [])
+        .filter(Boolean)
+        .forEach((artist: any) => {
+          if (artist?.id) allArtistIds.add(artist.id);
+        });
+
+      console.log(`   👥 Found ${allArtistIds.size} unique artists (primary + featured + producer + writer)`);
+
+      // Fetch full details for ALL artists
+      const allArtists = [];
+      for (const artistId of allArtistIds) {
+        try {
+          const fullArtist = await genius.getFullArtist(artistId);
+          if (fullArtist) {
+            allArtists.push(fullArtist);
+          }
+          // Rate limiting: 50ms between artist fetches
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          console.log(`   ⚠️ Could not fetch artist ${artistId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
+
+      console.log(`   ✅ Fetched ${allArtists.length}/${allArtistIds.size} artist details`);
 
       // Fetch referents (lyrics annotations)
       console.log('   ⏳ Fetching referents (annotations)...');
@@ -157,13 +182,10 @@ async function main() {
           geniusData.artist_name
         ),
 
-        // 2. Upsert artist
-        upsertGeniusArtistSQL(fullArtist),
-
-        // 3. Upsert song
+        // 2. Upsert song
         upsertGeniusSongSQL(fullSong),
 
-        // 4. Log success
+        // 3. Log success
         logGeniusProcessingSQL(
           track.spotify_track_id,
           'success',
@@ -174,10 +196,16 @@ async function main() {
             language: geniusData.language,
             lyrics_state: geniusData.lyrics_state,
             referent_count: referents.length,
-            annotation_count: fullSong.annotation_count
+            annotation_count: fullSong.annotation_count,
+            total_artists: allArtists.length
           }
         )
       ];
+
+      // 4. Upsert ALL artists (primary + featured + producer + writer)
+      for (const artist of allArtists) {
+        sqlStatements.push(upsertGeniusArtistSQL(artist));
+      }
 
       // 5. Add referents to transaction
       for (const referent of referents) {
@@ -300,10 +328,32 @@ export async function processGeniusEnrichment(_env: any, limit: number = 20): Pr
         continue;
       }
 
-      const fullArtist = await genius.getFullArtist(geniusData.genius_artist_id);
-      if (!fullArtist) {
-        console.log('   ⚠️ Could not fetch full artist');
-        continue;
+      // Extract ALL artists from song (primary, featured, producer, writer)
+      const allArtistIds = new Set<number>();
+      const rawSong = fullSong.raw_data as any;
+
+      // Collect all unique artist IDs
+      [rawSong.primary_artist]
+        .concat(rawSong.featured_artists || [])
+        .concat(rawSong.producer_artists || [])
+        .concat(rawSong.writer_artists || [])
+        .filter(Boolean)
+        .forEach((artist: any) => {
+          if (artist?.id) allArtistIds.add(artist.id);
+        });
+
+      console.log(`   👥 ${allArtistIds.size} artists`);
+
+      // Fetch full details for ALL artists
+      const allArtists = [];
+      for (const artistId of allArtistIds) {
+        try {
+          const fullArtist = await genius.getFullArtist(artistId);
+          if (fullArtist) allArtists.push(fullArtist);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (error) {
+          console.log(`   ⚠️ Could not fetch artist ${artistId}`);
+        }
       }
 
       const referents = await genius.getReferents(geniusData.genius_song_id);
@@ -318,7 +368,6 @@ export async function processGeniusEnrichment(_env: any, limit: number = 20): Pr
           geniusData.url,
           geniusData.artist_name
         ),
-        upsertGeniusArtistSQL(fullArtist),
         upsertGeniusSongSQL(fullSong),
         logGeniusProcessingSQL(
           track.spotify_track_id,
@@ -326,10 +375,16 @@ export async function processGeniusEnrichment(_env: any, limit: number = 20): Pr
           `Matched to Genius: ${geniusData.title} by ${geniusData.artist_name}`,
           {
             genius_song_id: geniusData.genius_song_id,
-            referent_count: referents.length
+            referent_count: referents.length,
+            total_artists: allArtists.length
           }
         )
       ];
+
+      // Upsert ALL artists
+      for (const artist of allArtists) {
+        sqlStatements.push(upsertGeniusArtistSQL(artist));
+      }
 
       for (const referent of referents) {
         sqlStatements.push(upsertGeniusReferentSQL(referent));
