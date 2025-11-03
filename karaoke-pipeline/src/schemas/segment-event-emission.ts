@@ -59,8 +59,9 @@ export const SegmentEmissionDataSchema = z.object({
   optimal_segment_start_ms: z.number().int().nonnegative('Start time must be >= 0'),
   optimal_segment_end_ms: z.number().int().positive('End time must be > 0'),
   cropped_instrumental_grove_url: GroveUrlSchema,
-  clip_start_ms: z.number().int().nonnegative().optional(),
-  clip_end_ms: z.number().int().positive().optional(),
+  clip_start_ms: z.number().int().nonnegative('Clip start must be >= 0'),
+  clip_end_ms: z.number().int().positive('Clip end must be > 0'),
+  clip_cropped_grove_url: GroveUrlSchema.describe('TikTok clip audio (50s)'),
 
   // From grc20_work_mints (via join)
   grc20_work_id: GRC20UuidSchema,
@@ -130,22 +131,24 @@ export const SegmentMetadataSchema = z.object({
   artist: z.string(),
 
   timing: z.object({
-    // Original segment timing (for reference)
-    original_segment_start_ms: z.number().int().nonnegative(),
-    original_segment_end_ms: z.number().int().positive(),
-    original_duration_ms: z.number().int().positive(),
+    // Reference: Full karaoke segment timing
+    full_segment_start_ms: z.number().int().nonnegative(),
+    full_segment_end_ms: z.number().int().positive(),
+    full_segment_duration_ms: z.number().int().positive(),
 
-    // TikTok clip timing (within original segment)
+    // Primary: TikTok clip timing (what users karaoke over)
     tiktok_clip_start_ms: z.number().int().nonnegative(),
     tiktok_clip_end_ms: z.number().int().positive(),
-
-    // Actual playback duration (for UI/player)
-    cropped_duration_ms: z.number().int().positive(),
+    tiktok_clip_duration_ms: z.number().int().positive(),
   }),
 
   assets: z.object({
-    instrumental: GroveUrlSchema, // Cropped instrumental
-    alignment: GroveUrlSchema, // ElevenLabs word timing
+    // Primary: TikTok clip audio (~50s) - users karaoke over this
+    instrumental: GroveUrlSchema,
+    // Reference: Full karaoke segment (~190s) - optional, for reference only
+    full_instrumental: GroveUrlSchema,
+    // Alignment: ElevenLabs word-level timing
+    alignment: GroveUrlSchema,
   }),
 
   translations: z.array(
@@ -301,6 +304,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     ks.clip_start_ms,
     ks.clip_end_ms,
     ks.cropped_instrumental_grove_url,
+    ks.clip_cropped_grove_url,
 
     -- GRC-20 work ID (via join through grc20_work_recordings)
     gwm.grc20_entity_id as grc20_work_id,
@@ -337,8 +341,11 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
   LEFT JOIN elevenlabs_word_alignments ewa ON ks.spotify_track_id = ewa.spotify_track_id
   LEFT JOIN lyrics_translations lt ON ks.spotify_track_id = lt.spotify_track_id
 
-  WHERE ks.cropped_instrumental_grove_url IS NOT NULL  -- Must have cropped audio
-    AND ks.optimal_segment_start_ms IS NOT NULL         -- Must have timing
+  WHERE ks.cropped_instrumental_grove_url IS NOT NULL  -- Must have full instrumental
+    AND ks.clip_cropped_grove_url IS NOT NULL          -- Must have TikTok clip
+    AND ks.clip_start_ms IS NOT NULL                   -- Must have clip timing
+    AND ks.clip_end_ms IS NOT NULL
+    AND ks.optimal_segment_start_ms IS NOT NULL         -- Must have segment timing
     AND ks.optimal_segment_end_ms IS NOT NULL
     AND gwm.grc20_entity_id IS NOT NULL                 -- Must have GRC-20 work
     AND ewa.words IS NOT NULL                           -- Must have alignment
@@ -350,6 +357,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     ks.clip_start_ms,
     ks.clip_end_ms,
     ks.cropped_instrumental_grove_url,
+    ks.clip_cropped_grove_url,
     gwm.grc20_entity_id,
     gw.title,
     ga.name,

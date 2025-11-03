@@ -295,24 +295,25 @@ async function processSegment(
       title: segment.title,
       artist: segment.artist_name,
 
-      // Timing information (robust with all references)
+      // Timing information
       timing: {
-        // Original segment timing (for reference)
-        original_segment_start_ms: segment.optimal_segment_start_ms,
-        original_segment_end_ms: segment.optimal_segment_end_ms,
-        original_duration_ms: segment.optimal_segment_end_ms - segment.optimal_segment_start_ms,
+        // Reference: Full karaoke segment timing
+        full_segment_start_ms: segment.optimal_segment_start_ms,
+        full_segment_end_ms: segment.optimal_segment_end_ms,
+        full_segment_duration_ms: segment.optimal_segment_end_ms - segment.optimal_segment_start_ms,
 
-        // TikTok clip timing (within original segment)
-        tiktok_clip_start_ms: segment.clip_start_ms || 0,
-        tiktok_clip_end_ms: segment.clip_end_ms || 50000,
-
-        // Actual playback duration (for UI/player) - 50s for TikTok clips
-        cropped_duration_ms: clipDurationMs,
+        // Primary: TikTok clip timing (what users karaoke over)
+        tiktok_clip_start_ms: segment.clip_start_ms,
+        tiktok_clip_end_ms: segment.clip_end_ms,
+        tiktok_clip_duration_ms: segment.clip_end_ms - segment.clip_start_ms,
       },
 
       // Assets (all point to Grove/IPFS)
       assets: {
-        instrumental: segment.cropped_instrumental_grove_url,
+        // Primary: TikTok clip audio (~50s)
+        instrumental: segment.clip_cropped_grove_url,
+        // Reference: Full karaoke segment (~190s) - for reference only
+        full_instrumental: segment.cropped_instrumental_grove_url,
         alignment: alignmentUri,
       },
 
