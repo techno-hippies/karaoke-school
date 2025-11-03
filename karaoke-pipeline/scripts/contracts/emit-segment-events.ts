@@ -223,8 +223,6 @@ async function processSegment(
     const uploadedTranslations: Array<{
       language_code: string;
       grove_url: string;
-      confidence_score: number;
-      translation_source: string;
     }> = [];
 
     for (const translation of segment.translations) {
@@ -234,8 +232,6 @@ async function processSegment(
         uploadedTranslations.push({
           language_code: translation.language_code,
           grove_url: translation.grove_url,
-          confidence_score: translation.confidence_score || 1.0,
-          translation_source: translation.translation_source,
         });
         continue;
       }
@@ -253,8 +249,6 @@ async function processSegment(
         uploadedTranslations.push({
           language_code: translation.language_code,
           grove_url: 'https://api.grove.storage/dry-run-translation',
-          confidence_score: translation.confidence_score || 1.0,
-          translation_source: translation.translation_source,
         });
       } else {
         const groveUrl = await uploadTranslation(
@@ -266,8 +260,6 @@ async function processSegment(
         uploadedTranslations.push({
           language_code: translation.language_code,
           grove_url: groveUrl,
-          confidence_score: translation.confidence_score || 1.0,
-          translation_source: translation.translation_source,
         });
       }
     }
@@ -291,7 +283,7 @@ async function processSegment(
     console.log(`  📦 Step 3: Upload Segment Metadata to Grove`);
 
     // Calculate cropped duration from clip boundaries
-    const clipDurationMs = segment.clip_end_ms - segment.clip_start_ms;
+    const clipDurationMs = segment.clip_end_ms ? (segment.clip_end_ms - segment.clip_start_ms) : 50000;
 
     const metadata = {
       // Segment identification
@@ -299,7 +291,7 @@ async function processSegment(
       grc20_work_id: segment.grc20_work_id,
       spotify_track_id: segment.spotify_track_id,
 
-      // Song metadata (from GRC-20 work)
+      // Song metadata (from GRC-20 work - required)
       title: segment.title,
       artist: segment.artist_name,
 
@@ -311,10 +303,10 @@ async function processSegment(
         original_duration_ms: segment.optimal_segment_end_ms - segment.optimal_segment_start_ms,
 
         // TikTok clip timing (within original segment)
-        tiktok_clip_start_ms: segment.clip_start_ms,
-        tiktok_clip_end_ms: segment.clip_end_ms,
+        tiktok_clip_start_ms: segment.clip_start_ms || 0,
+        tiktok_clip_end_ms: segment.clip_end_ms || 50000,
 
-        // Actual playback duration (for UI/player)
+        // Actual playback duration (for UI/player) - 50s for TikTok clips
         cropped_duration_ms: clipDurationMs,
       },
 
@@ -427,9 +419,6 @@ async function processSegment(
           segment_hash: segmentHash,
           language_code: translation.language_code,
           translation_uri: translation.grove_url,
-          translation_source: translation.translation_source,
-          confidence_score: Math.floor(translation.confidence_score * 10000), // Convert to basis points
-          validated: false,
         };
 
         const eventValidation3 = validateTranslationAddedEvent(translationEventData);
@@ -445,10 +434,7 @@ async function processSegment(
           const tx3 = await translationEvents.emitTranslationAdded(
             segmentHash,
             translation.language_code,
-            translation.grove_url,
-            translation.translation_source,
-            Math.floor(translation.confidence_score * 10000),
-            false // not validated
+            translation.grove_url
           );
           console.log(`    ⏳ ${translation.language_code}: ${tx3.hash}`);
           const receipt3 = await tx3.wait();

@@ -19,11 +19,8 @@ contract TranslationEventsTest is Test {
     
     event TranslationAdded(
         bytes32 indexed segmentHash,
-        string indexed languageCode,
+        string languageCode,
         string translationUri,
-        string translationSource,
-        uint16 confidenceScore,
-        bool validated,
         address indexed addedBy,
         uint64 timestamp
     );
@@ -52,29 +49,20 @@ contract TranslationEventsTest is Test {
     
     function testEmitTranslationAddedSuccess() public {
         string memory translationUri = "grove://translation-es-123";
-        string memory translationSource = "gemini-flash-2.5";
-        uint16 confidenceScore = 8500;
-        bool validated = false;
-        
+
         vm.prank(user1);
         vm.expectEmit();
         emit TranslationAdded(
             SEGMENT_HASH_1,
             LANGUAGE_ES,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated,
             user1,
             uint64(block.timestamp)
         );
         translationEvents.emitTranslationAdded(
             SEGMENT_HASH_1,
             LANGUAGE_ES,
-            translationUri,
-            translationSource,
-            confidenceScore,
-            validated
+            translationUri
         );
     }
     
@@ -89,9 +77,6 @@ contract TranslationEventsTest is Test {
             SEGMENT_HASH_1,
             LANGUAGE_ES,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated
         );
     }
     
@@ -106,9 +91,6 @@ contract TranslationEventsTest is Test {
             SEGMENT_HASH_1,
             LANGUAGE_ES,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated
         );
     }
     
@@ -134,9 +116,6 @@ contract TranslationEventsTest is Test {
             SEGMENT_HASH_1,
             LANGUAGE_ES,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated
         );
     }
     
@@ -152,9 +131,6 @@ contract TranslationEventsTest is Test {
             SEGMENT_HASH_1,
             LANGUAGE_ES,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated
         );
     }
     
@@ -338,9 +314,6 @@ contract TranslationEventsTest is Test {
             SEGMENT_HASH_1,
             LANGUAGE_ZH,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated
         );
     }
     
@@ -390,10 +363,7 @@ contract TranslationEventsTest is Test {
         translationEvents.emitTranslationAdded(
             SEGMENT_HASH_1,
             LANGUAGE_ES,
-            uri1,
-            source,
-            7000,
-            false
+            uri1
         );
         
         // Update translation (set validated)
@@ -584,10 +554,7 @@ contract TranslationEventsTest is Test {
         translationEvents.emitTranslationAdded(
             SEGMENT_HASH_1,
             LANGUAGE_ES,
-            uri1,
-            "gemini-flash-2.5",
-            7000,
-            false
+            uri1
         );
         translationEvents.emitTranslationUpdated(
             SEGMENT_HASH_1,
@@ -602,10 +569,7 @@ contract TranslationEventsTest is Test {
         translationEvents.emitTranslationAdded(
             SEGMENT_HASH_2,
             LANGUAGE_ZH,
-            uri3,
-            "gpt-4",
-            7500,
-            false
+            uri3
         );
         vm.stopPrank();
     }

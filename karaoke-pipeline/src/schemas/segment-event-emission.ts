@@ -119,7 +119,7 @@ export const SegmentMetadataSchema = z.object({
   grc20_work_id: GRC20UuidSchema,
   spotify_track_id: z.string(),
 
-  // Song metadata from GRC-20 work
+  // Song metadata from GRC-20 work (required)
   title: z.string(),
   artist: z.string(),
 
@@ -146,8 +146,6 @@ export const SegmentMetadataSchema = z.object({
     z.object({
       language_code: LanguageCodeSchema,
       grove_url: GroveUrlSchema,
-      confidence_score: z.number(),
-      translation_source: z.string(),
     })
   ),
 });
@@ -193,9 +191,6 @@ export const TranslationAddedEventSchema = z.object({
   segment_hash: SegmentHashSchema,
   language_code: LanguageCodeSchema,
   translation_uri: GroveUrlSchema,
-  translation_source: z.string().min(1),
-  confidence_score: ConfidenceScoreSchema,
-  validated: z.boolean(),
 });
 
 export type TranslationAddedEvent = z.infer<typeof TranslationAddedEventSchema>;

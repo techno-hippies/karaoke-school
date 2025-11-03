@@ -34,11 +34,8 @@ contract TranslationEvents {
     /**
      * @notice Emitted when a translation is added to a segment
      * @param segmentHash Unique segment identifier (references SegmentEvents)
-     * @param languageCode ISO 639-1 language code (e.g., "es", "zh", "ja", "ko")
+     * @param languageCode ISO 639-1 language code (e.g., "id", "vi", "zh")
      * @param translationUri Grove URI for translation JSON (line-level + word timing)
-     * @param translationSource AI model used for translation (e.g., "gemini-flash-2.5")
-     * @param confidenceScore Translation confidence (0-10000, from model)
-     * @param validated Human-verified translation (true if reviewed)
      * @param addedBy Address that added the translation
      * @param timestamp Block timestamp
      */
@@ -46,9 +43,6 @@ contract TranslationEvents {
         bytes32 indexed segmentHash,
         string languageCode,
         string translationUri,
-        string translationSource,
-        uint16 confidenceScore,
-        bool validated,
         address indexed addedBy,
         uint64 timestamp
     );
@@ -92,26 +86,17 @@ contract TranslationEvents {
      * @param segmentHash Unique segment identifier
      * @param languageCode ISO 639-1 language code (2 letters)
      * @param translationUri Grove URI for translation JSON
-     * @param translationSource AI model identifier
-     * @param confidenceScore Translation confidence (0-10000)
-     * @param validated Human-verified flag
      * @dev Anyone can call - no authorization needed
      */
     function emitTranslationAdded(
         bytes32 segmentHash,
         string calldata languageCode,
-        string calldata translationUri,
-        string calldata translationSource,
-        uint16 confidenceScore,
-        bool validated
+        string calldata translationUri
     ) external {
         emit TranslationAdded(
             segmentHash,
             languageCode,
             translationUri,
-            translationSource,
-            confidenceScore,
-            validated,
             msg.sender,
             uint64(block.timestamp)
         );
