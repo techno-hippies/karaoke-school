@@ -4,6 +4,7 @@ export interface UseAudioPlayerOptions {
   autoplay?: boolean
   startMuted?: boolean
   onEnded?: () => void
+  updateThrottleMs?: number // Throttle currentTime updates to reduce re-renders
 }
 
 export interface UseAudioPlayerReturn {
@@ -27,42 +28,93 @@ export function useAudioPlayer(
   _audioUrl?: string, // TODO: Use for setting audio source
   options: UseAudioPlayerOptions = {}
 ): UseAudioPlayerReturn {
-  const { autoplay = false, startMuted = false, onEnded } = options
+  const { 
+    autoplay = false, 
+    startMuted = false, 
+    onEnded,
+    updateThrottleMs = 50 // Update currentTime at most every 50ms to reduce re-renders
+  } = options
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(startMuted)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
+  
+  // Throttling refs to prevent excessive re-renders
+  const lastUpdateRef = useRef(0)
+  const requestAnimationFrameRef = useRef<number | null>(null)
+
+  // Optimized time update function with throttling
+  const updateCurrentTime = (timestamp: number) => {
+    const audio = audioRef.current
+    if (!audio || !isPlaying) return
+    
+    // Only update if enough time has passed since last update
+    if (timestamp - lastUpdateRef.current >= updateThrottleMs) {
+      setCurrentTime(audio.currentTime)
+      lastUpdateRef.current = timestamp
+    }
+    
+    // Continue the loop if still playing
+    if (isPlaying) {
+      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+    }
+  }
 
   // Setup audio event listeners
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime)
     const handleLoadedMetadata = () => setDuration(audio.duration)
     const handleEnded = () => {
       setIsPlaying(false)
+      // Clean up animation frame on end
+      if (requestAnimationFrameRef.current) {
+        cancelAnimationFrame(requestAnimationFrameRef.current)
+        requestAnimationFrameRef.current = null
+      }
       onEnded?.()
     }
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
+    const handlePlay = () => {
+      setIsPlaying(true)
+      // Start the throttled time update loop
+      lastUpdateRef.current = 0
+      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+    }
+    const handlePause = () => {
+      setIsPlaying(false)
+      // Stop the animation frame loop
+      if (requestAnimationFrameRef.current) {
+        cancelAnimationFrame(requestAnimationFrameRef.current)
+        requestAnimationFrameRef.current = null
+      }
+    }
 
-    audio.addEventListener('timeupdate', handleTimeUpdate)
+    // Clean up any existing animation frame on mount
+    if (requestAnimationFrameRef.current) {
+      cancelAnimationFrame(requestAnimationFrameRef.current)
+      requestAnimationFrameRef.current = null
+    }
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata)
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('play', handlePlay)
     audio.addEventListener('pause', handlePause)
 
     return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate)
+      // Clean up animation frame on unmount
+      if (requestAnimationFrameRef.current) {
+        cancelAnimationFrame(requestAnimationFrameRef.current)
+        requestAnimationFrameRef.current = null
+      }
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('play', handlePlay)
       audio.removeEventListener('pause', handlePause)
     }
-  }, [onEnded])
+  }, [onEnded, updateThrottleMs, isPlaying])
 
   // Handle autoplay
   useEffect(() => {

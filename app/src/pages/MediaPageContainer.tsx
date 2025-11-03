@@ -1,11 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
+
+// Debug logging configuration
+const DEBUG_TIMING = true
+const DEBUG_RERENDERS = true
 
 /**
  * Media Page Container - Karaoke player
@@ -21,6 +25,28 @@ export function MediaPageContainer() {
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
+  
+  // Performance tracking
+  const renderCountRef = useRef(0)
+  const lastRenderTimeRef = useRef(Date.now())
+  const componentStartTimeRef = useRef(Date.now())
+  
+  // Timing synchronization tracking
+  const lastActiveLineRef = useRef<number | null>(null)
+  const lastActiveWordRef = useRef<{ lineIndex: number; wordIndex: number } | null>(null)
+  const timingLogsRef = useRef<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>([])
+  
+  // Increment render counter and log performance
+  renderCountRef.current++
+  const currentRender = renderCountRef.current
+  
+  if (DEBUG_RERENDERS) {
+    const now = Date.now()
+    const timeSinceLastRender = now - lastRenderTimeRef.current
+    const timeSinceStart = now - componentStartTimeRef.current
+    console.log(`🎭 [MediaPageContainer] RENDER #${currentRender} - ${timeSinceStart}ms since start, ${timeSinceLastRender}ms since last render`)
+    lastRenderTimeRef.current = now
+  }
 
   // Fetch segments for this GRC-20 work with metadata
   const { data: workData, isLoading: isLoadingWork } = useGRC20WorkSegmentsWithMetadata(workId)
@@ -38,6 +64,56 @@ export function MediaPageContainer() {
   )
 
   console.log('[MediaPageContainer] Segment metadata:', segmentMetadata)
+
+  // Timing synchronization function - calculates which line/word should be active
+  const calculateActiveLineAndWord = useCallback((currentTime: number, lyrics: any[]) => {
+    if (!lyrics || lyrics.length === 0) return { lineIndex: -1, wordIndex: -1 }
+    
+    let activeLineIndex = -1
+    let activeWordIndex = -1
+    
+    // Find the current line
+    for (let i = 0; i < lyrics.length; i++) {
+      const line = lyrics[i]
+      if (currentTime >= line.start && currentTime <= line.end) {
+        activeLineIndex = i
+        break
+      }
+    }
+    
+    // If we found an active line, find the active word within that line
+    if (activeLineIndex >= 0) {
+      const activeLine = lyrics[activeLineIndex]
+      for (let j = 0; j < activeLine.words.length; j++) {
+        const word = activeLine.words[j]
+        if (currentTime >= word.start && currentTime <= word.end) {
+          activeWordIndex = j
+          break
+        }
+      }
+    }
+    
+    return { lineIndex: activeLineIndex, wordIndex: activeWordIndex }
+  }, [])
+
+  // Create debug info that will be passed to MediaPage for child component logging
+  const debugInfo = {
+    renderCount: currentRender,
+    startTime: componentStartTimeRef.current,
+    lastActiveLine: lastActiveLineRef.current,
+    lastActiveWord: lastActiveWordRef.current,
+    calculateActiveLineAndWord,
+    timingLogsRef,
+  }
+
+  if (DEBUG_TIMING && performance.now() % 100 < 16) { // Log roughly every ~6 seconds at 60fps
+    console.log('⏰ [MediaPageContainer] Current performance metrics:', {
+      renderCount: currentRender,
+      avgRenderInterval: componentStartTimeRef.current > 0 ? (Date.now() - componentStartTimeRef.current) / currentRender : 0,
+      activeLine: lastActiveLineRef.current,
+      activeWord: lastActiveWordRef.current,
+    })
+  }
 
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
@@ -93,28 +169,79 @@ export function MediaPageContainer() {
       // Build original lyrics from first available translation
       // All translations have the same original English text in 'lines'
       const firstTranslation = Object.values(translations)[0]
-      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines)) {
+      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines) && segmentMetadata?.timing) {
         console.log('[MediaPageContainer] Building original lyrics from translation')
-        const lyricsLines = firstTranslation.lines.map((line: any) => ({
-          start: line.start,
-          end: line.end,
-          startTime: line.start * 1000 || 0, // Convert to ms
-          endTime: line.end * 1000 || 0,
-          originalText: line.originalText || line.text || '',
-          words:
-            line.words?.map((w: any) => ({
-              text: w.text || w.word || '', // Component expects 'text'
-              start: w.start,
-              end: w.end,
-              startTime: (w.start || 0) * 1000, // Convert to ms
-              endTime: (w.end || 0) * 1000,
-            })) || [],
-        }))
+
+        // Get clip timing (in seconds)
+        const clipStartSec = (segmentMetadata.timing.tiktok_clip_start_ms || 0) / 1000
+        const clipEndSec = (segmentMetadata.timing.tiktok_clip_end_ms || 0) / 1000
+
+        console.log('[MediaPageContainer] Clip window:', { clipStartSec, clipEndSec, durationSec: clipEndSec - clipStartSec })
+
+        // Find which lines fall within the clip timing window
+        const keptLineIndices: number[] = []
+        const filteredTranslations: Record<string, any> = {}
+
+        // First pass: identify which lines to keep
+        firstTranslation.lines.forEach((line: any, idx: number) => {
+          if (line.end >= clipStartSec && line.start <= clipEndSec) {
+            keptLineIndices.push(idx)
+          }
+        })
+
+        // Second pass: filter all translations to only kept lines AND offset their timing
+        Object.entries(translations).forEach(([lang, lyricsData]: [string, any]) => {
+          filteredTranslations[lang] = {
+            ...lyricsData,
+            lines: keptLineIndices
+              .map((idx) => lyricsData.lines[idx])
+              .filter(Boolean)
+              .map((line: any) => ({
+                ...line,
+                start: line.start - clipStartSec,
+                end: line.end - clipStartSec,
+                words: line.words?.map((w: any) => ({
+                  ...w,
+                  start: (w.start || 0) - clipStartSec,
+                  end: (w.end || 0) - clipStartSec,
+                })) || [],
+              })),
+          }
+        })
+
+        console.log('[MediaPageContainer] Kept line indices:', keptLineIndices)
+
+        // Build offset lyrics from filtered translations
+        const lyricsLines = filteredTranslations[Object.keys(translations)[0]]?.lines.map((line: any) => {
+          // Offset timing so it aligns with audio playback (0 - clipDuration)
+          const offsetStart = line.start - clipStartSec
+          const offsetEnd = line.end - clipStartSec
+
+          return {
+            start: offsetStart,
+            end: offsetEnd,
+            startTime: offsetStart * 1000,
+            endTime: offsetEnd * 1000,
+            originalText: line.originalText || line.text || '',
+            words:
+              line.words?.map((w: any) => ({
+                text: w.text || w.word || '',
+                start: (w.start || 0) - clipStartSec,
+                end: (w.end || 0) - clipStartSec,
+                startTime: ((w.start || 0) - clipStartSec) * 1000,
+                endTime: ((w.end || 0) - clipStartSec) * 1000,
+              })) || [],
+          }
+        })
+
         setOriginalLyricsLines(lyricsLines)
-        console.log('[MediaPageContainer] Original lyrics built:', lyricsLines.length, 'lines')
+        // Update translations to only contain filtered lines
+        setLoadedTranslations(filteredTranslations)
+        console.log('[MediaPageContainer] Original lyrics built:', lyricsLines.length, 'lines (filtered from', firstTranslation.lines.length, ')')
+        console.log('[MediaPageContainer] First line timing:', lyricsLines[0])
       }
     })
-  }, [segmentMetadata?.translations, segmentMetadata?.assets?.alignment])
+  }, [segmentMetadata?.translations, segmentMetadata?.assets?.alignment, segmentMetadata?.timing])
 
   // Loading state
   if (isLoadingWork || isLoadingSegment) {
@@ -266,6 +393,7 @@ export function MediaPageContainer() {
       selectedLanguage={preferredLanguage}
       showTranslations={availableLanguages.length > 0}
       onBack={() => navigate(-1)}
+      debugInfo={debugInfo}
     />
   )
 }
