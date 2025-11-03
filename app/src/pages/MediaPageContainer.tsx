@@ -122,8 +122,8 @@ export function MediaPageContainer() {
 
   return (
     <MediaPage
-      title={firstSegment.metadata?.title || `Work ${workId}`}
-      artist={firstSegment.metadata?.artist || 'Unknown Artist'}
+      title={segmentMetadata?.title || firstSegment.metadata?.title || 'Untitled'}
+      artist={segmentMetadata?.artist || firstSegment.metadata?.artist || 'Unknown Artist'}
       audioUrl={audioUrl}
       lyrics={lyrics}
       selectedLanguage={preferredLanguage}

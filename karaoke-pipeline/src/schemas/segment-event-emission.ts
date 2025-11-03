@@ -290,6 +290,10 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     -- GRC-20 work ID (via join through grc20_work_recordings)
     gwm.grc20_entity_id as grc20_work_id,
 
+    -- Song metadata for UI display
+    gw.title,
+    ga.name as artist_name,
+
     -- ElevenLabs alignment (word-level timing)
     ewa.words as alignment_words,
 
@@ -314,6 +318,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     (gw.iswc IS NOT NULL AND gw.iswc = gwm.iswc) OR
     (gw.iswc IS NULL AND gw.genius_song_id = gwm.genius_song_id)
   )
+  LEFT JOIN grc20_artists ga ON gw.primary_artist_id = ga.id
   LEFT JOIN elevenlabs_word_alignments ewa ON ks.spotify_track_id = ewa.spotify_track_id
   LEFT JOIN lyrics_translations lt ON ks.spotify_track_id = lt.spotify_track_id
 
@@ -329,6 +334,8 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     ks.optimal_segment_end_ms,
     ks.cropped_instrumental_grove_url,
     gwm.grc20_entity_id,
+    gw.title,
+    ga.name,
     ewa.words
 
   ORDER BY ks.spotify_track_id

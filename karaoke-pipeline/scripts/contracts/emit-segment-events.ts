@@ -294,6 +294,8 @@ async function processSegment(
       segment_hash: segmentHash,
       grc20_work_id: segment.grc20_work_id,
       spotify_track_id: segment.spotify_track_id,
+      title: segment.title,
+      artist: segment.artist_name,
       timing: {
         optimal_segment_start_ms: segment.optimal_segment_start_ms,
         optimal_segment_end_ms: segment.optimal_segment_end_ms,

@@ -142,7 +142,7 @@ function AppRouter() {
 
   // Hide mobile footer on full-screen pages (song detail, media player, video detail)
   const hideMobileFooter =
-    location.pathname.match(/^\/song\/grc20\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+    location.pathname.match(/^\/karaoke\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
   return (
     <>
@@ -160,10 +160,14 @@ function AppRouter() {
           <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
 
-          {/* GRC-20 based song routes (primary) */}
-          <Route path="/song/grc20/:workId" element={<SongPageContainer />} />
-          <Route path="/song/grc20/:workId/play" element={<MediaPageContainer />} />
-          <Route path="/song/grc20/:workId/segment/:segmentId" element={<div>Study Segment (TODO)</div>} />
+          {/* Karaoke routes - GRC-20 work ID based */}
+          <Route path="/karaoke/:workId" element={<SongPageContainer />} />
+          <Route path="/karaoke/:workId/play" element={<MediaPageContainer />} />
+          <Route path="/karaoke/:workId/segment/:segmentId" element={<div>Study Segment (TODO)</div>} />
+
+          {/* Legacy routes (redirect for backwards compatibility) */}
+          <Route path="/song/grc20/:workId" element={<Navigate to={`/karaoke/:workId`} replace />} />
+          <Route path="/song/grc20/:workId/play" element={<Navigate to={`/karaoke/:workId/play`} replace />} />
           
           <Route path="/wallet" element={<WalletPage />} />
           <Route path="/profile" element={<ProfilePageContainer />} />
