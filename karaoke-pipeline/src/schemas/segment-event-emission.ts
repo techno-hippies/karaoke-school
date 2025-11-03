@@ -119,10 +119,22 @@ export const SegmentMetadataSchema = z.object({
   grc20_work_id: GRC20UuidSchema,
   spotify_track_id: z.string(),
 
+  // Song metadata from GRC-20 work
+  title: z.string(),
+  artist: z.string(),
+
   timing: z.object({
-    optimal_segment_start_ms: z.number().int().nonnegative(),
-    optimal_segment_end_ms: z.number().int().positive(),
-    duration_ms: z.number().int().positive(),
+    // Original segment timing (for reference)
+    original_segment_start_ms: z.number().int().nonnegative(),
+    original_segment_end_ms: z.number().int().positive(),
+    original_duration_ms: z.number().int().positive(),
+
+    // TikTok clip timing (within original segment)
+    tiktok_clip_start_ms: z.number().int().nonnegative(),
+    tiktok_clip_end_ms: z.number().int().positive(),
+
+    // Actual playback duration (for UI/player)
+    cropped_duration_ms: z.number().int().positive(),
   }),
 
   assets: z.object({
