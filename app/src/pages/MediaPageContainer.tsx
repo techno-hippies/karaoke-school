@@ -167,77 +167,34 @@ export function MediaPageContainer() {
       console.log('[MediaPageContainer] All translations loaded:', translations)
 
       // Build original lyrics from first available translation
-      // All translations have the same original English text in 'lines'
+      // NOTE: Data is already pre-filtered to clip window and offset by SQL query
+      // No filtering or offsetting needed here - just use the data directly
       const firstTranslation = Object.values(translations)[0]
-      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines) && segmentMetadata?.timing) {
-        console.log('[MediaPageContainer] Building original lyrics from translation')
+      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines)) {
+        console.log('[MediaPageContainer] Building original lyrics from pre-filtered translation')
 
-        // Get clip timing (in seconds)
-        const clipStartSec = (segmentMetadata.timing.tiktok_clip_start_ms || 0) / 1000
-        const clipEndSec = (segmentMetadata.timing.tiktok_clip_end_ms || 0) / 1000
-
-        console.log('[MediaPageContainer] Clip window:', { clipStartSec, clipEndSec, durationSec: clipEndSec - clipStartSec })
-
-        // Find which lines fall within the clip timing window
-        const keptLineIndices: number[] = []
-        const filteredTranslations: Record<string, any> = {}
-
-        // First pass: identify which lines to keep
-        firstTranslation.lines.forEach((line: any, idx: number) => {
-          if (line.end >= clipStartSec && line.start <= clipEndSec) {
-            keptLineIndices.push(idx)
-          }
-        })
-
-        // Second pass: filter all translations to only kept lines AND offset their timing
-        Object.entries(translations).forEach(([lang, lyricsData]: [string, any]) => {
-          filteredTranslations[lang] = {
-            ...lyricsData,
-            lines: keptLineIndices
-              .map((idx) => lyricsData.lines[idx])
-              .filter(Boolean)
-              .map((line: any) => ({
-                ...line,
-                start: line.start - clipStartSec,
-                end: line.end - clipStartSec,
-                words: line.words?.map((w: any) => ({
-                  ...w,
-                  start: (w.start || 0) - clipStartSec,
-                  end: (w.end || 0) - clipStartSec,
-                })) || [],
-              })),
-          }
-        })
-
-        console.log('[MediaPageContainer] Kept line indices:', keptLineIndices)
-
-        // Build offset lyrics from filtered translations
-        const lyricsLines = filteredTranslations[Object.keys(translations)[0]]?.lines.map((line: any) => {
-          // Offset timing so it aligns with audio playback (0 - clipDuration)
-          const offsetStart = line.start - clipStartSec
-          const offsetEnd = line.end - clipStartSec
-
+        // Transform lines to include calculated timing fields (start, end, startTime, endTime)
+        const lyricsLines = firstTranslation.lines.map((line: any) => {
           return {
-            start: offsetStart,
-            end: offsetEnd,
-            startTime: offsetStart * 1000,
-            endTime: offsetEnd * 1000,
+            start: line.start,
+            end: line.end,
+            startTime: line.start * 1000,
+            endTime: line.end * 1000,
             originalText: line.originalText || line.text || '',
             words:
               line.words?.map((w: any) => ({
                 text: w.text || w.word || '',
-                start: (w.start || 0) - clipStartSec,
-                end: (w.end || 0) - clipStartSec,
-                startTime: ((w.start || 0) - clipStartSec) * 1000,
-                endTime: ((w.end || 0) - clipStartSec) * 1000,
+                start: w.start || 0,
+                end: w.end || 0,
+                startTime: (w.start || 0) * 1000,
+                endTime: (w.end || 0) * 1000,
               })) || [],
           }
         })
 
         setOriginalLyricsLines(lyricsLines)
-        // Update translations to only contain filtered lines
-        setLoadedTranslations(filteredTranslations)
-        console.log('[MediaPageContainer] Original lyrics built:', lyricsLines.length, 'lines (filtered from', firstTranslation.lines.length, ')')
+        setLoadedTranslations(translations)
+        console.log('[MediaPageContainer] Original lyrics built:', lyricsLines.length, 'lines')
         console.log('[MediaPageContainer] First line timing:', lyricsLines[0])
       }
     })
