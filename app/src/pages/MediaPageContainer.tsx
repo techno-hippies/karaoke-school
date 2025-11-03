@@ -80,6 +80,11 @@ export function MediaPageContainer() {
     )
   }
 
+  // Extract metadata from Grove
+  const title = segmentMetadata?.title || 'Untitled'
+  const artist = segmentMetadata?.artist || 'Unknown Artist'
+  const croppedDurationMs = segmentMetadata?.timing?.cropped_duration_ms || 50000
+
   // Transform V2 lyrics format to LyricLine[] format
   const originalLyrics = segmentMetadata.lyrics.original
 
@@ -122,8 +127,8 @@ export function MediaPageContainer() {
 
   return (
     <MediaPage
-      title={segmentMetadata?.title || firstSegment.metadata?.title || 'Untitled'}
-      artist={segmentMetadata?.artist || firstSegment.metadata?.artist || 'Unknown Artist'}
+      title={title}
+      artist={artist}
       audioUrl={audioUrl}
       lyrics={lyrics}
       selectedLanguage={preferredLanguage}

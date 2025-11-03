@@ -285,6 +285,8 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     ks.spotify_track_id,
     ks.optimal_segment_start_ms,
     ks.optimal_segment_end_ms,
+    ks.clip_start_ms,
+    ks.clip_end_ms,
     ks.cropped_instrumental_grove_url,
 
     -- GRC-20 work ID (via join through grc20_work_recordings)
@@ -332,6 +334,8 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     ks.spotify_track_id,
     ks.optimal_segment_start_ms,
     ks.optimal_segment_end_ms,
+    ks.clip_start_ms,
+    ks.clip_end_ms,
     ks.cropped_instrumental_grove_url,
     gwm.grc20_entity_id,
     gw.title,

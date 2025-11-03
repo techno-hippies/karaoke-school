@@ -290,21 +290,41 @@ async function processSegment(
     console.log('');
     console.log(`  📦 Step 3: Upload Segment Metadata to Grove`);
 
+    // Calculate cropped duration from clip boundaries
+    const clipDurationMs = segment.clip_end_ms - segment.clip_start_ms;
+
     const metadata = {
+      // Segment identification
       segment_hash: segmentHash,
       grc20_work_id: segment.grc20_work_id,
       spotify_track_id: segment.spotify_track_id,
+
+      // Song metadata (from GRC-20 work)
       title: segment.title,
       artist: segment.artist_name,
+
+      // Timing information (robust with all references)
       timing: {
-        optimal_segment_start_ms: segment.optimal_segment_start_ms,
-        optimal_segment_end_ms: segment.optimal_segment_end_ms,
-        duration_ms: segment.optimal_segment_end_ms - segment.optimal_segment_start_ms,
+        // Original segment timing (for reference)
+        original_segment_start_ms: segment.optimal_segment_start_ms,
+        original_segment_end_ms: segment.optimal_segment_end_ms,
+        original_duration_ms: segment.optimal_segment_end_ms - segment.optimal_segment_start_ms,
+
+        // TikTok clip timing (within original segment)
+        tiktok_clip_start_ms: segment.clip_start_ms,
+        tiktok_clip_end_ms: segment.clip_end_ms,
+
+        // Actual playback duration (for UI/player)
+        cropped_duration_ms: clipDurationMs,
       },
+
+      // Assets (all point to Grove/IPFS)
       assets: {
         instrumental: segment.cropped_instrumental_grove_url,
         alignment: alignmentUri,
       },
+
+      // Translations (multi-language support)
       translations: uploadedTranslations,
     };
 
