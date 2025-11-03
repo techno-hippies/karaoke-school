@@ -24,6 +24,14 @@
  * - Step 9: AI Segment Selection (enabled - optimal segment selection)
  * - Step 10: fal.ai Audio Enhancement (enabled - audio enhancement)
  * - Step 11: Viral Clip Cropping (enabled - clip extraction)
+ * - Step 11.5: Upload TikTok Videos to Grove (enabled optional - IPFS upload)
+ * - Step 12: Emit Segment Events (enabled optional - blockchain indexing)
+ *
+ * KEY INSIGHT: Step 12 only uploads the 50s TikTok clip's lyrics/alignment
+ * to Grove, not the full 190s segment. The SQL query filters to only lines
+ * that fall within the clip window (clip_start_ms → clip_end_ms), and offsets
+ * all timings to 0-based (0 = clip start). This ensures users only see the
+ * relevant lyrics for the song they're singing.
  */
 
 import type { Env } from '../types';
@@ -41,7 +49,7 @@ import { processSegmentSelection } from './09-select-segments';
 import { processFalEnhancement } from './10-enhance-audio';
 import { processClipCropping } from './11-crop-clips';
 import { processUploadGroveVideos } from './11-upload-grove-videos';
-import { processGenerateImages } from './12-generate-images';
+import { processEmitSegmentEvents } from './12-emit-segment-events';
 
 interface PipelineStep {
   number: number;
@@ -242,15 +250,19 @@ export async function runUnifiedPipeline(env: Env, options?: {
       optional: true  // Don't block pipeline if upload fails
     },
 
-    // ==================== GRC-20 ASSET PREPARATION ====================
+    // ==================== BLOCKCHAIN EMISSION ====================
 
-    // Step 12: REMOVED - Image generation via AI (Seedream) was replaced
-    // We now use original images from Spotify/Genius uploaded directly to Grove
-    // See: src/utils/upload-original-images-to-grove.ts (run manually as utility)
-    //
-    // Cost comparison:
-    //   AI generation: $0.03 per image
-    //   Direct upload: $0.005 per image (83% cheaper)
+    // Step 12: Emit Segment Events to Blockchain
+    {
+      number: 12,
+      name: 'Emit Segment Events to Blockchain',
+      description: 'Upload pre-filtered translations/alignments to Grove, emit contract events for subgraph indexing',
+      status: 'clips_cropped',
+      nextStatus: 'clips_cropped',  // Doesn't change pipeline status
+      processor: processEmitSegmentEvents,
+      enabled: true,
+      optional: true  // Don't block pipeline if PRIVATE_KEY missing
+    }
   ];
 
   // Filter to enabled steps (and specific step if requested)
