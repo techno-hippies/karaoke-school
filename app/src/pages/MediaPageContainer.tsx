@@ -1,34 +1,42 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useSongWithMetadata } from '@/hooks/useSongV2'
+import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
 
+/**
+ * Media Page Container - Karaoke player
+ *
+ * Routes:
+ * - /song/grc20/:workId/play (primary)
+ *
+ * Loads first segment from a GRC-20 work and plays karaoke
+ */
 export function MediaPageContainer() {
-  const { geniusId } = useParams<{ geniusId: string }>()
+  const { workId } = useParams<{ workId: string }>()
   const navigate = useNavigate()
 
-  const songId = geniusId ? parseInt(geniusId) : undefined
+  // Fetch segments for this GRC-20 work with metadata
+  const { data: workData, isLoading: isLoadingWork } = useGRC20WorkSegmentsWithMetadata(workId)
 
-  // Fetch song data from The Graph with Grove metadata
-  const { data: songData, isLoading: isLoadingSong } = useSongWithMetadata(songId)
+  console.log('[MediaPageContainer] Work data:', workData)
 
-  console.log('[MediaPageContainer] Song data:', songData)
-
-  // Get first segment from song data
-  const firstSegment = songData?.segments?.[0]
+  // Get first segment from work
+  const firstSegment = workData?.segments?.[0]
 
   console.log('[MediaPageContainer] First segment:', firstSegment)
 
-  // Fetch segment metadata (includes lyrics)
-  const { data: segmentMetadata, isLoading: isLoadingSegment } = useSegmentMetadata(firstSegment?.metadataUri)
+  // Fetch segment metadata (includes lyrics and alignment)
+  const { data: segmentMetadata, isLoading: isLoadingSegment } = useSegmentMetadata(
+    firstSegment?.metadataUri
+  )
 
   console.log('[MediaPageContainer] Segment metadata:', segmentMetadata)
 
   // Loading state
-  if (isLoadingSong || isLoadingSegment) {
+  if (isLoadingWork || isLoadingSegment) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -37,35 +45,35 @@ export function MediaPageContainer() {
   }
 
   // Error states
-  if (!songData || !firstSegment || !segmentMetadata) {
+  if (!workData || !firstSegment || !segmentMetadata) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">
-          {!songData ? 'Song not found' : !firstSegment ? 'No segments available for this song' : 'Segment metadata not available'}
+          {!workData
+            ? 'Work not found'
+            : !firstSegment
+              ? 'No segments available for this work'
+              : 'Segment metadata not available'}
         </p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-primary hover:underline"
-        >
+        <button onClick={() => navigate(-1)} className="text-primary hover:underline">
           Go back
         </button>
       </div>
     )
   }
 
-  // Convert lens:// URIs to HTTP URLs
-  const audioUrl = firstSegment.instrumentalUri ? convertGroveUri(firstSegment.instrumentalUri) : undefined
+  // Convert grove:// URIs to HTTP URLs
+  const audioUrl = firstSegment.instrumentalUri
+    ? convertGroveUri(firstSegment.instrumentalUri)
+    : undefined
 
   if (!audioUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">Instrumental audio not available</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-primary hover:underline"
-        >
+        <button onClick={() => navigate(-1)} className="text-primary hover:underline">
           Go back
         </button>
       </div>
@@ -92,7 +100,7 @@ export function MediaPageContainer() {
       Object.entries(segmentMetadata.lyrics.translations).forEach(([lang, lyricsData]: [string, any]) => {
         const translatedLine = lyricsData.lines[index]
         if (translatedLine) {
-          // Combine words into text (Grove uses 'text' not 'word')
+          // Combine words into text
           translations[lang] = translatedLine.words.map((w: any) => w.text).join(' ')
         }
       })
@@ -114,8 +122,8 @@ export function MediaPageContainer() {
 
   return (
     <MediaPage
-      title={songData.metadata?.title || `Song ${songData.geniusId}`}
-      artist={songData.metadata?.artist || 'Unknown Artist'}
+      title={firstSegment.metadata?.title || `Work ${workId}`}
+      artist={firstSegment.metadata?.artist || 'Unknown Artist'}
       audioUrl={audioUrl}
       lyrics={lyrics}
       selectedLanguage={preferredLanguage}
