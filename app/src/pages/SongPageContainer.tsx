@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
 import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
-import { useSongVideos } from '@/hooks/useSongVideos'
+// import { useSongVideos } from '@/hooks/useSongVideos' // TODO: Update to work with spotifyTrackId
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
@@ -26,7 +26,7 @@ export function SongPageContainer() {
   } = useGRC20WorkSegmentsWithMetadata(workId)
 
   // Fetch creator videos (by Spotify track ID if available)
-  const spotifyTrackId = workData?.spotifyTrackId
+  // const _spotifyTrackId = workData?.spotifyTrackId
   // TODO: Update useSongVideos to accept spotifyTrackId instead of geniusId
   const { data: videosData, isLoading: isLoadingVideos } = {
     data: [] as VideoPost[],

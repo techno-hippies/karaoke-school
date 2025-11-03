@@ -19,7 +19,7 @@ export interface LyricsDisplayProps {
 export function LyricsDisplay({
   lyrics,
   currentTime,
-  selectedLanguage = 'cn',
+  selectedLanguage = 'zh', // ISO 639-1 code
   showTranslations = true,
   className,
 }: LyricsDisplayProps) {

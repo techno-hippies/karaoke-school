@@ -26,7 +26,7 @@ export function MediaPage({
   artist,
   audioUrl,
   lyrics,
-  selectedLanguage = 'cn',
+  selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
   showTranslations = true,
   onBack,
   className,
