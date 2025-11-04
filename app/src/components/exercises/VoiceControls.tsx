@@ -37,43 +37,39 @@ export function VoiceControls({
   // State: Processing (transcribing)
   if (isProcessing) {
     return (
-      <div className={cn('w-full', className)}>
-        <Button
-          disabled
-          size="lg"
-          className="w-full h-12"
-        >
-          <Spinner />
-          Processing...
-        </Button>
-      </div>
+      <Button
+        disabled
+        size="lg"
+        className="w-full h-12"
+      >
+        <Spinner />
+        Processing...
+      </Button>
     )
   }
 
   // State: Recording or Idle - Full-width button (matches NavigationControls)
   return (
-    <div className={cn('w-full', className)}>
-      <Button
-        onClick={handleRecordToggle}
-        variant={isRecording ? 'destructive' : 'default'}
-        size="lg"
-        className={cn(
-          'w-full h-12',
-          isRecording && 'animate-pulse'
-        )}
-      >
-        {isRecording ? (
-          <>
-            <StopCircle size={24} weight="fill" />
-            Stop
-          </>
-        ) : (
-          <>
-            <Microphone size={24} weight="fill" />
-            {label}
-          </>
-        )}
-      </Button>
-    </div>
+    <Button
+      onClick={handleRecordToggle}
+      variant={isRecording ? 'destructive' : 'default'}
+      size="lg"
+      className={cn(
+        'w-full h-12',
+        isRecording && 'animate-pulse'
+      )}
+    >
+      {isRecording ? (
+        <>
+          <StopCircle size={24} weight="fill" />
+          Stop
+        </>
+      ) : (
+        <>
+          <Microphone size={24} weight="fill" />
+          {label}
+        </>
+      )}
+    </Button>
   )
 }

@@ -46,7 +46,7 @@ export function VideoDetailPage() {
 
   // Fetch follow state
   const authorAddress = post?.author?.address || prevPostRef.current?.author?.address
-  const { isFollowing, canFollow, follow: handleFollowAction } = useFollow({
+  const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({
     targetAccountAddress: authorAddress || '',
   })
 
@@ -298,6 +298,7 @@ export function VideoDetailPage() {
         karaokeLines={karaokeLines}
         isLiked={isLiked}
         isFollowing={isFollowing}
+        isFollowLoading={isFollowLoading}
         canInteract={hasLensAccount}
         commentsData={[]} // TODO: Fetch comments from Lens
         // Navigation

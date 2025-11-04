@@ -38,11 +38,57 @@ export function VideoPlayer({
     onTogglePlay()
   }
 
-  // Load video when URL changes
+  // Load video when URL changes - with aggressive debouncing and error state tracking
+  const lastLoadRef = useRef<string>('')
+  const errorStateRef = useRef<boolean>(false)
+  const timeoutRef = useRef<NodeJS.Timeout>()
+
   useEffect(() => {
     if (!videoUrl) return
-    send({ type: 'LOAD', videoUrl, thumbnailUrl })
+
+    const loadVideo = () => {
+      // Don't load if we're in error state and the URL hasn't actually changed
+      if (errorStateRef.current && videoUrl === lastLoadRef.current) {
+        console.log('[VideoPlayer] Skipping load - in error state:', videoUrl)
+        return
+      }
+
+      // Only load if URL actually changed or we're not in error state
+      if (videoUrl !== lastLoadRef.current) {
+        console.log('[VideoPlayer] Loading video:', videoUrl)
+        lastLoadRef.current = videoUrl
+        errorStateRef.current = false // Reset error state
+        send({ type: 'LOAD', videoUrl, thumbnailUrl })
+      }
+    }
+
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    // Aggressive debounce - 1000ms to prevent rapid-fire attempts
+    timeoutRef.current = setTimeout(loadVideo, 1000)
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
   }, [videoUrl, thumbnailUrl, send])
+
+  // Track error state to prevent immediate retries
+  useEffect(() => {
+    if (state.matches('error')) {
+      console.log('[VideoPlayer] Entered error state, preventing retries for:', lastLoadRef.current)
+      errorStateRef.current = true
+      
+      // Clear error state after 5 seconds to allow retries
+      setTimeout(() => {
+        errorStateRef.current = false
+      }, 5000)
+    }
+  }, [state])
 
   // Setup video element and event listeners
   useEffect(() => {

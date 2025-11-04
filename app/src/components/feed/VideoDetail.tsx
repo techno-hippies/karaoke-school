@@ -18,6 +18,7 @@ export interface VideoDetailProps extends VideoPostData {
   onCommentClick?: () => void
   onShareClick?: () => void
   onFollowClick?: () => void
+  isFollowLoading?: boolean
   onProfileClick?: () => void
   onAudioClick?: () => void
   onClose?: () => void

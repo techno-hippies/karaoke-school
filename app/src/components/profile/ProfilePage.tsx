@@ -92,8 +92,8 @@ export function ProfilePage({
                 size="xl"
               />
 
-              {/* Info Section */}
-              <div className="flex-1 w-full">
+              {/* Info Section with Stats and Action Button */}
+              <div className="flex-1 w-full flex flex-col items-center md:items-start">
                 <ProfileInfo
                   username={username}
                   displayName={displayName}
@@ -104,13 +104,50 @@ export function ProfilePage({
                 <ProfileStats
                   following={following}
                   followers={followers}
-                  className="mt-2"
                 />
+
+                {/* Action Button - Follow/Message or Edit profile */}
+                {isOwnProfile ? (
+                  onEditProfile && (
+                    <Button
+                      size="lg"
+                      variant="default"
+                      onClick={onEditProfile}
+                      className="mt-4 min-w-[200px]"
+                    >
+                      Edit profile
+                    </Button>
+                  )
+                ) : (
+                  <div className="flex gap-3 mt-4">
+                    {onFollow && (
+                      <Button
+                        size="lg"
+                        variant={isFollowing ? 'outline' : 'default'}
+                        onClick={onFollow}
+                        disabled={isFollowLoading}
+                        className="flex-1 min-w-[120px]"
+                      >
+                        {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
+                      </Button>
+                    )}
+                    {onMessage && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={onMessage}
+                        className="flex-1 min-w-[120px]"
+                      >
+                        Message
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="px-4 md:px-6 mt-2 space-y-4 pb-8">
+          <div className="px-4 space-y-4 pb-8 pt-6">
             {/* Tabs: Dances | Achievements */}
             <Tabs defaultValue="dances" className="w-full">
               <TabsList className="w-full grid grid-cols-2 bg-muted/50">
@@ -168,48 +205,6 @@ export function ProfilePage({
             </Tabs>
           </div>
         </div>
-
-        {/* Sticky Footer with Follow/Message buttons OR Edit Profile button */}
-        {isOwnProfile ? (
-          onEditProfile && (
-            <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={onEditProfile}
-                className="w-full"
-              >
-                Edit Profile
-              </Button>
-            </div>
-          )
-        ) : (
-          <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
-            <div className="flex gap-3">
-              {onFollow && (
-                <Button
-                  size="lg"
-                  variant={isFollowing ? 'outline' : 'default'}
-                  onClick={onFollow}
-                  disabled={isFollowLoading}
-                  className="flex-1"
-                >
-                  {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
-                </Button>
-              )}
-              {onMessage && (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={onMessage}
-                  className="flex-1"
-                >
-                  Message
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

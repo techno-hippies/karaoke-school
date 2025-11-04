@@ -14,12 +14,12 @@ export function AnimatedFooter({ show, children, className }: AnimatedFooterProp
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-10 bg-card border-t border-border transition-transform duration-300 ease-out',
+        'bg-background transition-transform duration-300 ease-out',
         show ? 'translate-y-0' : 'translate-y-full',
         className
       )}
     >
-      <div className="max-w-3xl mx-auto px-6 py-4">
+      <div className="w-full">
         {children}
       </div>
     </div>

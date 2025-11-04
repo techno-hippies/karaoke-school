@@ -1,6 +1,7 @@
 import { BackButton } from '@/components/ui/back-button'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Spinner } from '@/components/ui/spinner'
 import { ProfileAvatar } from './ProfileAvatar'
 import { ProfileInfo } from './ProfileInfo'
 import { ProfileStats } from './ProfileStats'
@@ -130,7 +131,12 @@ export function ArtistPage({
                       disabled={isFollowLoading}
                       className="mt-4 min-w-[200px]"
                     >
-                      {isFollowLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow'}
+                      {isFollowLoading ? (
+                        <>
+                          <Spinner size="sm" />
+                          <span>{isFollowing ? 'Unfollowing...' : 'Following...'}</span>
+                        </>
+                      ) : isFollowing ? 'Following' : 'Follow'}
                     </Button>
                   )
                 )}

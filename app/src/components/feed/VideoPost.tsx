@@ -14,6 +14,7 @@ export interface VideoPostProps extends VideoPostData {
   onCommentClick?: () => void
   onShareClick?: () => void
   onFollowClick?: () => void
+  isFollowLoading?: boolean
   onProfileClick?: () => void
   onAudioClick?: () => void
   onSubscribe?: () => void | Promise<void>
@@ -30,6 +31,7 @@ export interface VideoPostProps extends VideoPostData {
  * Desktop: centered 9:16 video with actions to the right
  */
 export function VideoPost({
+  id,
   videoUrl,
   thumbnailUrl,
   username,
@@ -49,6 +51,7 @@ export function VideoPost({
   onCommentClick,
   onShareClick,
   onFollowClick,
+  isFollowLoading = false,
   onProfileClick,
   onAudioClick,
   autoplay = true,
@@ -56,6 +59,8 @@ export function VideoPost({
   karaokeClassName,
   hasMobileFooter = false
 }: VideoPostProps) {
+  // Debug: Log which post is rendering with how many lines
+  console.log(`[VideoPost] Rendering post ${id?.substring(0, 10)} with ${karaokeLines?.length || 0} karaoke lines, autoplay: ${autoplay}`)
   // Use shared video playback logic
   const {
     isPlaying,
@@ -149,6 +154,7 @@ export function VideoPost({
           username={username}
           isFollowing={isFollowing}
           canFollow={canInteract}
+          isFollowLoading={isFollowLoading}
           onFollowClick={onFollowClick || (() => {})}
           onProfileClick={onProfileClick || (() => {})}
           likes={likes}
@@ -175,6 +181,7 @@ export function VideoPost({
           username={username}
           isFollowing={isFollowing}
           canFollow={canInteract}
+          isFollowLoading={isFollowLoading}
           onFollowClick={onFollowClick || (() => {})}
           onProfileClick={onProfileClick || (() => {})}
           likes={likes}

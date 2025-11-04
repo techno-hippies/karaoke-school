@@ -1,5 +1,5 @@
 import { usePosts, evmAddress } from '@lens-protocol/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { LENS_APP_ADDRESS } from '@/lib/lens/config'
 import { transformLensPostsToVideoData } from '@/lib/lens/transformers'
 import { batchCheckLikedPosts } from '@/lib/lens/reactions'
@@ -39,9 +39,14 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     },
   })
 
+  // Memoize posts array to stabilize dependency
+  const posts = useMemo(() => {
+    return (postsData?.items ?? []).filter((post): post is Post => 'metadata' in post)
+  }, [postsData?.items])
+
   // Batch check liked status when authenticated and posts load
   useEffect(() => {
-    if (!isAuthenticated || !lensAccount?.address || !postsData?.items?.length) {
+    if (!isAuthenticated || !lensAccount?.address || !posts.length) {
       setLikedPostsMap(new Map())
       return
     }
@@ -49,10 +54,10 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     const checkLikedPosts = async () => {
       setIsCheckingLikes(true)
       try {
-        const posts = postsData.items.filter(
-          (post): post is Post => 'metadata' in post && post.metadata?.__typename === 'VideoMetadata'
+        const videoPosts = posts.filter(
+          (post): post is Post => post.metadata?.__typename === 'VideoMetadata'
         )
-        const likedMap = await batchCheckLikedPosts(lensSession, posts, lensAccount.address)
+        const likedMap = await batchCheckLikedPosts(lensSession, videoPosts, lensAccount.address)
         setLikedPostsMap(likedMap)
       } catch (error) {
         console.error('[ForYouFeed] Error checking liked posts:', error)
@@ -62,19 +67,12 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     }
 
     checkLikedPosts()
-  }, [lensSession, lensAccount?.address, postsData?.items, isAuthenticated])
+  }, [lensSession, lensAccount?.address, posts, isAuthenticated])
 
-  // Transform Lens posts to VideoPostData using shared utility
-  console.log('[ForYouFeed] Posts data:', postsData)
-  console.log('[ForYouFeed] Number of posts:', postsData?.items?.length)
-
-  const videoPosts = transformLensPostsToVideoData(
-    (postsData?.items ?? []).filter((post): post is Post => 'metadata' in post),
-    likedPostsMap,
-    isAuthenticated
-  )
-
-  console.log('[ForYouFeed] Transformed video posts:', videoPosts)
+  // Transform Lens posts to VideoPostData using shared utility (memoized)
+  const videoPosts = useMemo(() => {
+    return transformLensPostsToVideoData(posts, likedPostsMap, isAuthenticated)
+  }, [posts, likedPostsMap, isAuthenticated])
 
   return <>{children(videoPosts, loading || isCheckingLikes)}</>
 }

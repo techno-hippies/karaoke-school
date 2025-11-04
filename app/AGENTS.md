@@ -1,4 +1,4 @@
-# Karaoke School v1 - Agent Briefing
+# Karaoke School v1 - React Development Guide
 
 ## Core Commands
 
@@ -70,6 +70,264 @@ src/
 - **shadcn/ui**: Component library (Radix UI + Tailwind)
 - **CSS variables**: Theme consistency
 
+## ⚡ Performance Optimization Patterns
+
+### Critical Performance Issues & Solutions
+
+#### 1. VideoPlayer Media Loading Loop
+**Problem**: Continuous retry loop causing fan spinning  
+**Solution**: Add debouncing and error state persistence
+
+```tsx
+const lastLoadRef = useRef<string>('')
+const timeoutRef = useRef<NodeJS.Timeout>()
+
+useEffect(() => {
+  if (!videoUrl) return
+  
+  // Debounce video loading to prevent rapid-fire attempts
+  const loadVideo = () => {
+    if (videoUrl !== lastLoadRef.current) {
+      console.log('[VideoPlayer] Loading video:', videoUrl)
+      lastLoadRef.current = videoUrl
+      send({ type: 'LOAD', videoUrl, thumbnailUrl })
+    }
+  }
+  
+  // Clear existing timeout
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current)
+  }
+  
+  // Debounce by 500ms
+  timeoutRef.current = setTimeout(loadVideo, 500)
+  
+  return () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+  }
+}, [videoUrl, thumbnailUrl, send])
+
+// Add error state persistence to prevent immediate retries
+useEffect(() => {
+  if (state.matches('error') && state.context.error) {
+    // Don't retry immediately - wait for explicit user action
+    console.log('[VideoPlayer] Video error:', state.context.error)
+  }
+}, [state])
+```
+
+#### 2. Mass Re-rendering in News Feed
+**Problem**: All feed components re-render on every parent update  
+**Solution**: Add React.memo, useMemo, useCallback optimizations
+
+```tsx
+// Memoize the entire component
+export const VerticalVideoFeed = memo(function VerticalVideoFeed({
+  videos, isLoading = false, onLoadMore, hasMore = false, initialVideoId,
+  updateUrlOnScroll = false, baseUrl, hasMobileFooter = false,
+}: VerticalVideoFeedProps) {
+  
+  // Memoize event handlers
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && onLoadMore) {
+      onLoadMore()
+    }
+  }, [hasMore, onLoadMore])
+  
+  // Memoize navigation handlers
+  const handleNavigate = useCallback((direction: 'up' | 'down') => {
+    const container = containerRef.current
+    if (!container) return
+    
+    const newIndex = direction === 'down' ? activeIndex + 1 : activeIndex - 1
+    if (newIndex >= 0 && newIndex < videos.length) {
+      container.scrollTo({
+        top: newIndex * container.clientHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [activeIndex, videos.length])
+  
+  // Memoize scroll handler
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    
+    const scrollTop = container.scrollTop
+    const viewportHeight = container.clientHeight
+    const newIndex = Math.round(scrollTop / viewportHeight)
+    
+    if (newIndex !== activeIndex && newIndex >= 0 && newIndex < videos.length) {
+      setActiveIndex(newIndex)
+      
+      // Preload next videos
+      if (newIndex >= videos.length - 2 && hasMore) {
+        handleLoadMore()
+      }
+    }
+  }, [activeIndex, videos.length, hasMore, handleLoadMore])
+  
+  // Memoize video data to prevent recreation
+  const memoizedVideos = useMemo(() => {
+    return videos.map((video, index) => ({
+      ...video,
+      key: video.id, // Ensure stable keys
+      index
+    }))
+  }, [videos])
+  
+  // ... rest of component
+})
+
+// Wrap VideoPost with React.memo
+export const VideoPost = memo(function VideoPost({ /* props */ }) {
+  // ... component code
+})
+```
+
+#### 3. State Management Optimization
+```tsx
+// Use cache refs to prevent full re-renders
+const followStateCache = useRef<Record<string, boolean>>({})
+const likeStateCache = useRef<Record<string, { isLiked: boolean; count: number }>>({})
+
+// Update cache without triggering component re-renders
+```
+
+#### 4. Video Element Optimization
+```tsx
+// Prevent video element recreation
+const videoRef = useRef<HTMLVideoElement>(null)
+const lastVideoUrlRef = useRef<string>('')
+
+// Only update video src if it actually changed
+useEffect(() => {
+  const video = videoRef.current
+  if (!video || videoUrl === lastVideoUrlRef.current) return
+  
+  lastVideoUrlRef.current = videoUrl || ''
+  video.src = videoUrl || ''
+}, [videoUrl]) // Remove other dependencies
+```
+
+## 🔗 Lens Integration Details
+
+### Authentication Architecture
+
+**Global Namespace (Current Implementation)**:
+- **Testnet**: `0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7`
+- **Mainnet**: `0x8A5Cc31180c37078e1EbA2A23c861Acf351a97cE`
+- **Benefit**: Gasless operations via typedData relay
+- **Username**: Global namespace (not custom `kschool1/*`)
+
+### Account Creation Flow
+
+```typescript
+// 1. Login as onboarding user
+const session = await loginAsOnboardingUser(walletClient, walletAddress)
+
+// 2. Create account metadata (upload to Grove)
+const metadata = accountMetadata({ name, bio, picture })
+const uploadResult = await storageClient.uploadAsJson(metadata, { acl })
+
+// 3. Create account
+const account = await createAccount(session, walletClient, uploadResult.uri)
+
+// 4. Switch to account owner
+await session.switchAccount({ account: account.address })
+
+// 5. Create username (if using custom namespace)
+await createUsername(session, walletClient, username, uploadResult.uri)
+```
+
+### Critical Files
+
+**Authentication Context**: `src/contexts/AuthContext.tsx`
+- Manages both PKP + Lens state
+- Handles WebAuthn flows
+- Auto-initializes sessions
+
+**Lens Client**: `src/lib/lens/config.ts`
+- Public client setup
+- Environment configuration
+
+**Auth Flows**: `src/lib/auth/flows.ts`
+- PKP → Lens registration
+- PKP → Lens login
+- Username validation
+
+### Data Flow
+
+**New User Registration**:
+```
+WebAuthn Passkey → PKP Wallet → Lens Onboarding → Lens Account → Username Creation
+```
+
+**Existing User Login**:
+```
+WebAuthn Passkey → PKP Wallet → Lens Session Resume → Account Owner Role
+```
+
+### Common Integration Issues
+
+**WebAuthn Requirements**:
+- Must be triggered by user gesture
+- Only works over HTTPS (except localhost)
+- Requires compatible browser
+
+**Session Persistence**:
+- PKP sessions auto-restore
+- Lens sessions require explicit login
+- Check `useAuth()` context before assuming connection
+
+**Namespace Issues**:
+- Currently using global namespace (not custom `kschool2/*`)
+- Custom namespaces only return `raw` transactions, requiring PKP wallet gas funds
+- Global namespace supports typedData relay for gasless operations
+- Username validation format: lowercase, alphanumeric, underscores, 6+ chars
+
+### Technical Implementation Details
+
+**Transaction Flow Analysis**:
+
+1. **Create Account** (✅ Fully sponsored)
+   - User role: ONBOARDING_USER
+   - Returns `hash` (no signature needed)
+   - Works perfectly with sponsorship
+
+2. **Switch to Account Owner** (✅ Works after DB optimization)
+   - User role: Switch ONBOARDING_USER → ACCOUNT_OWNER
+   - Returns `hash` (fully sponsored)
+   - Previously failed due to 820ms DB queries exceeding 1000ms timeout
+
+3. **Create Username** (❌ Requires PKP funds in custom namespace)
+   - User role: ACCOUNT_OWNER
+   - Custom namespace: Returns `raw` only (needs PKP gas)
+   - Global namespace: Returns `typedData` + `id` (gasless relay)
+
+**Transaction Type Comparison**:
+
+| Type | Signature | PKP Funds | Use Case |
+|------|-----------|-----------|----------|
+| `hash` | ❌ No | ❌ No | Simple operations (account creation) |
+| `typedData` + `id` | ✅ Yes | ❌ No | Gasless relay (global namespace) |
+| `raw` | ✅ Yes | ✅ **YES** | Direct RPC submission (custom namespace) |
+
+### Testing Lens Integration
+
+**Test Credentials**:
+- Use Lens testnet (`37111` chain)
+- Global namespace usernames (free)
+- Test PKP wallets for authentication
+
+**Debug Steps**:
+1. Check browser WebAuthn support
+2. Verify environment variables (`bun run lint`)
+3. Test with 6+ character username
+4. Monitor Lens API responses
+
 ## Critical Conventions
 
 **Authentication**:
@@ -107,8 +365,13 @@ src/
 
 **Protocol Dependencies**:
 - Lens Protocol on testnet (environment variable configurable)
-- Grove/Irys for asset uploads (requires API keys)
+- Grove for asset uploads (requires API keys)
 - Lit Protocol for PKP operations (WebAuthn required)
+
+**Performance Issues**:
+- VideoPlayer media loading loops causing fan spinning
+- Mass re-rendering in news feed components
+- No React.memo, useMemo, or useCallback optimizations
 
 ## External Services & Environment
 
@@ -120,14 +383,15 @@ src/
 **External APIs**:
 - **Lens Protocol**: Social identity & profiles
 - **Lit Protocol**: PKP wallet authentication
-- **Grove/Irys**: Decentralized asset storage
+- **Grove**: Decentralized asset storage
 - **Spotify API**: Track metadata & audio
 - **TikTok API**: Video scraping & metadata
 
 ## Documentation Sources
 
 - **Comprehensive Architecture**: `/media/t42/th42/Code/karaoke-school-v1/CLAUDE.md` - Complete technical specification
-- **Lens Integration**: `src/lib/lens/README.md` - Detailed Lens Protocol guide
+- **Root README.md**: Project overview and current system state
+- **Root AGENTS.md**: Service integration guide
 - **Component Stories**: Storybook stories in component directories
 
 ## When Things Go Wrong
@@ -146,3 +410,9 @@ src/
 - Check network connectivity to Lens/Lit endpoints
 - Verify contract addresses match environment
 - Review browser console for protocol errors
+
+**Performance Issues**:
+- Enable React Scan: Add `REACT_SCAN_ENABLED=true` to `.env.local`
+- Implement memoization patterns (React.memo, useMemo, useCallback)
+- Optimize state management to prevent full re-renders
+- Debounce video loading to prevent rapid-fire attempts

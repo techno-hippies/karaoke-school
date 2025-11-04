@@ -1,87 +1,75 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchPageView, type Song } from '@/components/search/SearchPageView'
+import { useKaraokeSongsSearchWithMetadata } from '@/hooks/useKaraokeSongsSearch'
 
-// Mock trending songs
-const MOCK_TRENDING_SONGS: Song[] = [
-  {
-    id: '1',
-    geniusId: 378195,
-    title: 'Blinding Lights',
-    artist: 'The Weeknd',
-    artworkUrl: 'https://placehold.co/400x400/8b5cf6/ffffff?text=Blinding+Lights',
-    isProcessed: true,
-  },
-  {
-    id: '2',
-    geniusId: 5503092,
-    title: 'As It Was',
-    artist: 'Harry Styles',
-    artworkUrl: 'https://placehold.co/400x400/ec4899/ffffff?text=As+It+Was',
-    isProcessed: true,
-  },
-  {
-    id: '3',
-    geniusId: 6723822,
-    title: 'Anti-Hero',
-    artist: 'Taylor Swift',
-    artworkUrl: 'https://placehold.co/400x400/f59e0b/ffffff?text=Anti-Hero',
-    isProcessed: true,
-  },
-  {
-    id: '4',
-    geniusId: 2396871,
-    title: 'Levitating',
-    artist: 'Dua Lipa',
-    artworkUrl: 'https://placehold.co/400x400/3b82f6/ffffff?text=Levitating',
-    isProcessed: true,
-  },
-  {
-    id: '5',
-    geniusId: 7438658,
-    title: 'Flowers',
-    artist: 'Miley Cyrus',
-    artworkUrl: 'https://placehold.co/400x400/10b981/ffffff?text=Flowers',
-    isProcessed: true,
-  },
-]
+// Transform KaraokeSong to Song for SearchPageView compatibility
+function transformKaraokeSongToSong(karaokeSong: any): Song {
+  // Create a consistent numeric ID from the GRC-20 work ID
+  const workIdHash = Math.abs(karaokeSong.grc20WorkId.split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0)
+    return a & a
+  }, 0))
+
+  return {
+    id: karaokeSong.grc20WorkId,
+    geniusId: workIdHash, // Generate consistent numeric ID from string
+    title: karaokeSong.title,
+    artist: karaokeSong.artist,
+    artworkUrl: karaokeSong.artworkUrl,
+    isProcessed: karaokeSong.hasInstrumental,
+    // Additional data for enhanced display
+    spotifyTrackId: karaokeSong.spotifyTrackId,
+    totalSegments: karaokeSong.totalSegments,
+    hasInstrumental: karaokeSong.hasInstrumental,
+    hasAlignments: karaokeSong.hasAlignments,
+    translationCount: karaokeSong.translationCount,
+    performanceCount: karaokeSong.performanceCount,
+  }
+}
 
 export function SearchPage() {
   const navigate = useNavigate()
-  const [searchResults, setSearchResults] = useState<Song[]>([])
-  const [isSearching, setIsSearching] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Use the new hook to fetch real karaoke songs with segments
+  const { 
+    data: karaokeSongs, 
+    isLoading, 
+    error 
+  } = useKaraokeSongsSearchWithMetadata(searchTerm, {
+    hasInstrumental: true,  // Only show songs with instrumentals
+    first: 20,             // Limit to 20 results
+  })
+
+  // Transform to Song format for SearchPageView
+  const trendingSongs = !searchTerm.trim() && !isLoading
+    ? karaokeSongs?.map(transformKaraokeSongToSong) || []
+    : []
+
+  const searchResults = searchTerm.trim() && !isLoading
+    ? karaokeSongs?.map(transformKaraokeSongToSong) || []
+    : []
 
   const handleSearch = async (query: string) => {
-    setIsSearching(true)
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Mock search results - filter trending songs by query
-    const results = MOCK_TRENDING_SONGS.filter(song =>
-      song.title.toLowerCase().includes(query.toLowerCase()) ||
-      song.artist.toLowerCase().includes(query.toLowerCase())
-    )
-
-    setSearchResults(results)
-    setIsSearching(false)
+    setSearchTerm(query)
   }
 
   const handleClearSearch = () => {
-    setSearchResults([])
+    setSearchTerm('')
   }
 
   const handleSongClick = (song: Song) => {
     console.log('Song clicked:', song)
-    // Navigate to song detail page
-    navigate(`/song/${song.geniusId}`)
+    // Navigate directly to song page (matches /song/:workId route)
+    navigate(`/song/${song.id}`)
   }
 
   return (
     <SearchPageView
-      trendingSongs={MOCK_TRENDING_SONGS}
+      trendingSongs={trendingSongs}
       searchResults={searchResults}
-      isSearching={isSearching}
+      isSearching={isLoading}
       onSearch={handleSearch}
       onClearSearch={handleClearSearch}
       onSongClick={handleSongClick}

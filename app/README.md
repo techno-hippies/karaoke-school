@@ -100,6 +100,98 @@ bun run storybook
 # Open browser to http://localhost:6006
 ```
 
+## ⚡ Performance Optimizations
+
+### React Scan Setup
+The application includes React Scan for performance monitoring:
+
+1. **Environment file**: `.env.local` with `REACT_SCAN_ENABLED=true`
+2. **Setup file**: `src/utils/react-scan-setup.ts`
+
+**To enable React scan in your app**, add this to your main entry point:
+```tsx
+// Add to your main.tsx or App.tsx
+import './utils/react-scan-setup'
+```
+
+### Critical Performance Fixes
+
+#### 1. VideoPlayer Media Loading Loop (Primary Issue)
+**Problem**: Continuous retry loop causing fan spinning  
+**Cause**: XState machine goes to 'error' state, then any prop change triggers new LOAD event  
+**Solution**: Add debouncing and error state persistence
+
+#### 2. Mass Re-rendering in News Feed
+**Problem**: All feed components re-render on every parent update  
+**Cause**: No React.memo, useMemo, or useCallback optimizations  
+**Solution**: Add React optimization patterns
+
+### Component Optimization Patterns
+
+#### Memoization Examples
+```tsx
+// Memoize the entire component
+export const VerticalVideoFeed = memo(function VerticalVideoFeed({
+  videos, isLoading = false, onLoadMore, hasMore = false, initialVideoId,
+  updateUrlOnScroll = false, baseUrl, hasMobileFooter = false,
+}: VerticalVideoFeedProps) {
+  
+  // Memoize event handlers
+  const handleLoadMore = useCallback(() => {
+    if (hasMore && onLoadMore) onLoadMore()
+  }, [hasMore, onLoadMore])
+  
+  // Memoize video data to prevent recreation
+  const memoizedVideos = useMemo(() => {
+    return videos.map((video, index) => ({ ...video, key: video.id, index }))
+  }, [videos])
+  
+  // ... rest of component
+})
+
+// Wrap components with React.memo
+export const VideoPost = memo(function VideoPost({ /* props */ }) {
+  // ... component code
+})
+```
+
+#### State Management Optimization
+```tsx
+// Use cache refs to prevent full re-renders
+const followStateCache = useRef<Record<string, boolean>>({})
+const likeStateCache = useRef<Record<string, { isLiked: boolean; count: number }>>({})
+
+// Update cache without triggering component re-renders
+```
+
+#### Video Element Optimization
+```tsx
+// Prevent video element recreation
+const videoRef = useRef<HTMLVideoElement>(null)
+const lastVideoUrlRef = useRef<string>('')
+
+// Only update video src if it actually changed
+useEffect(() => {
+  const video = videoRef.current
+  if (!video || videoUrl === lastVideoUrlRef.current) return
+  
+  lastVideoUrlRef.current = videoUrl || ''
+  video.src = videoUrl || ''
+}, [videoUrl])
+```
+
+### Testing Performance
+1. **Enable React Scan**: Start dev server and check console
+2. **Monitor Performance**: Watch for reduced re-rendering warnings
+3. **Check Media Loading**: Verify no more repeated "Failed to open media" errors
+4. **Monitor CPU**: Check that fan stops spinning
+
+### Expected Results
+- **Immediate**: No more repeated media errors
+- **Short term**: Significant reduction in React re-renders
+- **Long term**: Better performance, no more fan spinning
+- **User experience**: Smoother video playback and scrolling
+
 ## 🔐 Authentication System
 
 Karaoke School uses a **dual-layer authentication system**:
@@ -113,6 +205,52 @@ Karaoke School uses a **dual-layer authentication system**:
 - **Purpose**: Social identity and profiles
 - **Features**: Username, profile picture, follower system
 - **Usage**: Social features, creator profiles, content discovery
+
+### Authentication Architecture
+
+**Global Namespace (Current Implementation)**:
+- **Testnet**: `0xC75A89145d765c396fd75CbD16380Eb184Bd2ca7`
+- **Mainnet**: `0x8A5Cc31180c37078e1EbA2A23c861Acf351a97cE`
+- **Benefit**: Gasless operations via typedData relay
+- **Username**: Global namespace (not custom `kschool1/*`)
+
+**Account Creation Flow**:
+1. **Create account metadata** (upload to Grove)
+2. **Create account** (fully sponsored)
+3. **Switch to account owner** (fully sponsored)
+4. **Create username** (gasless via typedData)
+
+### Critical Files
+- **Authentication Context**: `src/contexts/AuthContext.tsx`
+  - Manages both PKP + Lens state
+  - Handles WebAuthn flows
+  - Auto-initializes sessions
+
+- **Lens Client**: `src/lib/lens/config.ts`
+  - Public client setup
+  - Environment configuration
+
+- **Auth Flows**: `src/lib/auth/flows.ts`
+  - PKP → Lens registration
+  - PKP → Lens login
+  - Username validation
+
+### Common Issues & Solutions
+
+**WebAuthn Requirements**:
+- Must be triggered by user gesture
+- Only works over HTTPS (except localhost)
+- Requires compatible browser
+
+**Session Persistence**:
+- PKP sessions auto-restore
+- Lens sessions require explicit login
+- Check `useAuth()` context before assuming connection
+
+**Username Validation**:
+- Format: lowercase, alphanumeric, underscores
+- Length: 6+ characters
+- Currently using global namespace (not custom)
 
 ### Authentication Flow
 

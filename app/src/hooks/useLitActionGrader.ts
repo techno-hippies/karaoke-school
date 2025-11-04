@@ -6,7 +6,7 @@ import { LIT_ACTION_IPFS_CID } from '@/lib/contracts/addresses'
  * Call deployed Lit Action to grade a karaoke performance
  *
  * Flow:
- * 1. Lit Action receives user audio + reference audio
+ * 1. Lit Action receives base64-encoded user audio
  * 2. Transcribes user audio via Voxstral STT
  * 3. Calculates pronunciation score (Levenshtein distance)
  * 4. Converts score to FSRS rating
@@ -14,17 +14,20 @@ import { LIT_ACTION_IPFS_CID } from '@/lib/contracts/addresses'
  * 6. PKP signs PerformanceGrader transaction
  * 7. Emits PerformanceGraded event
  *
- * @param userAudioUri Grove URI of user's recording
- * @param referenceAudioUri Grove URI of instrumental/reference
+ * @param userAudioBase64 Base64-encoded user audio data (NOT a URI)
+ * @param referenceAudioUri Grove URI of instrumental/reference (for future use)
  * @param expectedText Expected lyrics for scoring context
- * @returns { score, transcript, rating, txHash, error, isGrading }
+ * @param segmentHash Bytes32 segment hash identifier
+ * @param metadataUri Optional Grove URI for performance metadata storage
+ * @returns { score, transcript, rating, performanceId, error, isGrading }
  */
 export interface GradingResult {
   score: number // 0-100 (percentage)
   transcript: string
   rating: 'Easy' | 'Good' | 'Hard' | 'Again' // FSRS rating
   performanceId: number // uint256 from Lit Action
-  txHash?: string // If event was emitted
+  txHash?: string // Transaction hash if submitted to contract via PKP
+  errorType?: string // Error message if submission failed
 }
 
 export function useLitActionGrader() {
@@ -35,10 +38,11 @@ export function useLitActionGrader() {
 
   const grade = useCallback(
     async (
-      userAudioUri: string,
+      userAudioBase64: string,
       _referenceAudioUri: string,  // Reference audio URI for future use
       expectedText: string,
-      segmentHash: string
+      segmentHash: string,
+      metadataUri?: string  // Optional Grove URI for storage
     ): Promise<GradingResult | null> => {
       try {
         setError(null)
@@ -62,22 +66,29 @@ export function useLitActionGrader() {
 
         // Encrypt the API key with Lit encryption
         // Access control: only decrypt when THIS specific Lit Action is executing
-        const encryptionResponse = await litClient.encrypt({
-          accessControlConditions: [
-            {
-              conditionType: 'evmBasic',
-              contractAddress: '',
-              standardContractType: '',
-              chain: 'ethereum',
-              method: '',
-              parameters: [':currentActionIpfsId'],
-              returnValueTest: {
-                comparator: '=',
-                value: LIT_ACTION_IPFS_CID,
-              },
+        const accessControlConditions = [
+          {
+            conditionType: 'evmBasic',
+            contractAddress: '',
+            standardContractType: '',
+            chain: 'ethereum',
+            method: '',
+            parameters: [':currentActionIpfsId'],
+            returnValueTest: {
+              comparator: '=',
+              value: LIT_ACTION_IPFS_CID,
             },
-          ],
+          },
+        ]
+
+        const encryptionResponse = await litClient.encrypt({
+          accessControlConditions,
           dataToEncrypt: voxstralApiKey,
+        })
+
+        console.log('[useLitActionGrader] Encrypted API key:', {
+          ciphertext: encryptionResponse.ciphertext ? 'present' : 'missing',
+          dataToEncryptHash: encryptionResponse.dataToEncryptHash ? 'present' : 'missing',
         })
 
         const result = await litClient.executeJs({
@@ -87,12 +98,12 @@ export function useLitActionGrader() {
             userAddress: pkpInfo.ethAddress,
             segmentHash,
             performanceId: Date.now(),
-            audioDataBase64: userAudioUri,
+            audioDataBase64: userAudioBase64,  // Actual base64 audio data
             expectedText: expectedText,
-            metadataUri: userAudioUri,
+            metadataUri: metadataUri || `grove://${Date.now()}`,  // Fallback if not provided
             language: 'en',
             // Encrypted API key (decrypted securely within Lit Action's TEE)
-            accessControlConditions: encryptionResponse.accessControlConditions,
+            accessControlConditions,
             ciphertext: encryptionResponse.ciphertext,
             dataToEncryptHash: encryptionResponse.dataToEncryptHash,
           },

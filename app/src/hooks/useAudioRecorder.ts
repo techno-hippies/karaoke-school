@@ -7,7 +7,7 @@ import { useState, useRef, useCallback } from 'react'
  * 1. Start recording via MediaRecorder API
  * 2. Stop recording and get audio blob
  * 3. Convert to base64
- * 4. Upload to Grove via Irys
+ * 4. Upload to Grove via IPFS
  * 5. Return grove:// URI
  *
  * @returns { isRecording, audioBlob, groveUri, startRecording, stopRecording, error }
@@ -63,7 +63,7 @@ export function useAudioRecorder() {
     }
   }, [])
 
-  const stopRecording = useCallback(async (): Promise<string | null> => {
+  const stopRecording = useCallback(async (): Promise<{ blob: Blob; base64: string; groveUri: string } | null> => {
     try {
       setError(null)
 
@@ -84,6 +84,9 @@ export function useAudioRecorder() {
 
             console.log('[useAudioRecorder] Recording stopped, blob size:', blob.size)
 
+            // Convert to base64
+            const base64 = await blobToBase64(blob)
+
             // Upload to Grove
             setIsUploading(true)
             const uri = await uploadToGrove(blob)
@@ -91,7 +94,7 @@ export function useAudioRecorder() {
             setIsUploading(false)
 
             console.log('[useAudioRecorder] Uploaded to Grove:', uri)
-            resolve(uri)
+            resolve({ blob, base64, groveUri: uri })
           } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to process recording')
             setError(error)
@@ -122,28 +125,52 @@ export function useAudioRecorder() {
 }
 
 /**
- * Upload audio blob to Grove via Irys
+ * Upload audio blob to Grove via IPFS
  *
- * TODO: Implement using Irys client (already used in pipeline)
+ * TODO: Implement using Grove client (already used in pipeline)
  */
 async function uploadToGrove(audioBlob: Blob): Promise<string> {
-  // TODO: Use existing Irys integration from karaoke-pipeline
+  // TODO: Use existing Grove integration from karaoke-pipeline
   // For now, return placeholder
   return `grove://${Date.now()}`
 }
 
 /**
  * Convert blob to base64 string
+ *
+ * Handles the data URL format returned by FileReader.readAsDataURL()
+ * Example: "data:audio/webm;base64,abc123..." → "abc123..."
  */
 export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onloadend = () => {
-      const result = reader.result as string
-      const base64 = result.split(',')[1] // Remove data:audio/webm;base64, prefix
-      resolve(base64)
+      try {
+        const result = reader.result as string
+        if (!result) {
+          throw new Error('FileReader returned empty result')
+        }
+
+        // Extract base64 portion after "data:...;base64,"
+        const parts = result.split(',')
+        if (parts.length < 2) {
+          throw new Error(`Invalid data URL format: expected comma separator, got "${result.substring(0, 50)}"`)
+        }
+
+        const base64 = parts[1]
+        if (!base64) {
+          throw new Error('No base64 data found after comma')
+        }
+
+        console.log('[blobToBase64] Converted blob to base64, length:', base64.length)
+        resolve(base64)
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
     }
-    reader.onerror = reject
+    reader.onerror = (error) => {
+      reject(new Error(`FileReader error: ${error}`))
+    }
     reader.readAsDataURL(blob)
   })
 }

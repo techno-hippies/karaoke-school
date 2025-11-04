@@ -278,13 +278,12 @@ export function MediaPageContainer() {
 
   // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
   // coverUri is set during pipeline emission in emit-segment-events.ts
-  console.log('[MediaPageContainer] Processing artwork:')
+  // NOTE: Don't pass artworkUrl to MediaPage to avoid background image on play page
+  console.log('[MediaPageContainer] Processing artwork (disabled for play page):')
   console.log('  - coverUri exists?:', !!segmentMetadata?.coverUri)
   console.log('  - coverUri value:', segmentMetadata?.coverUri)
-  const artworkUrl = segmentMetadata?.coverUri
-    ? convertGroveUri(segmentMetadata.coverUri)
-    : undefined
-  console.log('  - after convertGroveUri:', artworkUrl)
+  const artworkUrl = undefined // Don't show artwork background on play page
+  console.log('  - artworkUrl disabled for play page:', artworkUrl)
 
   console.log('[MediaPageContainer] Clip duration:', {
     tiktokClipMs: segmentMetadata?.timing?.tiktok_clip_duration_ms,
@@ -381,6 +380,11 @@ export function MediaPageContainer() {
       selectedLanguage={preferredLanguage}
       showTranslations={availableLanguages.length > 0}
       onBack={() => navigate(-1)}
+      onArtistClick={
+        segmentMetadata?.artistLensHandle
+          ? () => navigate(`/u/${segmentMetadata.artistLensHandle}`)
+          : undefined
+      }
       debugInfo={debugInfo}
     />
   )

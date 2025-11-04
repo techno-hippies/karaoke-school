@@ -29,6 +29,7 @@ export interface VideoPostData {
   musicAuthor?: string
   musicImageUrl?: string
   geniusId?: number // Genius song ID for linking to /song/{geniusId}
+  spotifyTrackId?: string // Spotify track ID for linking to /song/{spotifyTrackId}
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number
@@ -39,6 +40,7 @@ export interface VideoPostData {
   // User interaction state
   isLiked?: boolean
   isFollowing?: boolean
+  isFollowLoading?: boolean
   canInteract?: boolean // Can like/comment/follow
 }
 
@@ -85,6 +87,7 @@ export interface VideoActionsProps {
   username: string
   isFollowing: boolean
   canFollow: boolean
+  isFollowLoading?: boolean
   onFollowClick: () => void
   onProfileClick: () => void
   // Engagement actions

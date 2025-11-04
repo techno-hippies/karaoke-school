@@ -69,17 +69,21 @@ export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E
  * - Calculates pronunciation score
  * - Emits PerformanceGraded event via PKP
  *
- * Deployment: 2025-11-03
+ * Deployment: 2025-11-03 (v6-fixed)
  * - Uploaded to IPFS via Pinata
  * - PKP permissions added and verified
+ * - Fixed multipart buffer sizing for Voxstral API
  * - Ready for production use
  */
-export const LIT_ACTION_IPFS_CID = 'QmZg8Kc49FUKa2hf4EX6qifX4QqnUQiDQa5KatoTsaV4ED'  // Fixed: includes performanceId in response
+export const LIT_ACTION_IPFS_CID = 'QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn'  // v6: Graceful error handling
 
 /**
  * Encrypted Voxstral API Key Parameters
  * Access control restricted to the specific Lit Action CID above
  * Can only be decrypted when running that exact Lit Action
+ *
+ * NOTE: Encryption happens dynamically at runtime in useLitActionGrader.ts
+ * using the current LIT_ACTION_IPFS_CID value
  */
 export const LIT_ACTION_VOXSTRAL_KEY = {
   ciphertext: 'placeholder_encrypted_voxstral_key',
@@ -94,18 +98,18 @@ export const LIT_ACTION_VOXSTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmZg8Kc49FUKa2hf4EX6qifX4QqnUQiDQa5KatoTsaV4ED',
+        value: 'QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn',  // Updated to match LIT_ACTION_IPFS_CID
       },
     },
   ],
 }
 
 /**
- * Grove/Irys endpoints for file upload
+ * Grove IPFS endpoints for file upload
  */
 export const GROVE_UPLOAD_ENDPOINT = 'https://api.grove.storage'
 
 /**
  * Subgraph endpoint for querying indexed events
  */
-export const SUBGRAPH_ENDPOINT = 'http://localhost:8000/subgraphs/name/karaoke-school-v1'
+export const SUBGRAPH_ENDPOINT = 'http://localhost:8000/subgraphs/name/subgraph-0'

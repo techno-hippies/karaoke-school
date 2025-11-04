@@ -9,7 +9,7 @@ import type { VideoPost } from '@/components/video/VideoGrid'
 import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
 import { useGroveAccountMetadata } from '@/hooks/useGroveAccountMetadata'
-import { useArtistSongsWithMetadata } from '@/hooks/useArtistSongsV2'
+import { useArtistSongsByLensHandle } from '@/hooks/useArtistSongsByLensHandle'
 import { useFollow } from '@/hooks/useFollow'
 import { useFollowers } from '@/hooks/useFollowers'
 import { useFollowing } from '@/hooks/useFollowing'
@@ -45,12 +45,11 @@ export function CreatorPageContainer() {
     isLoading: isLoadingGroveMetadata,
   } = useGroveAccountMetadata(metadataUri)
 
-  // Fetch songs from The Graph subgraph by genius artist ID with enriched metadata
-  const geniusArtistId = groveMetadata?.geniusArtistId
+  // Fetch songs from subgraph by Lens handle
   const {
-    data: enrichedSongs,
+    data: artistSongs,
     isLoading: isLoadingSongs,
-  } = useArtistSongsWithMetadata(geniusArtistId)
+  } = useArtistSongsByLensHandle(lenshandle)
 
   // Fetch follow state and follower counts
   const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({
@@ -165,46 +164,16 @@ export function CreatorPageContainer() {
       }
     })
 
-  // Parse songs from The Graph subgraph and video metadata
-  const songsMap = new Map<string, ArtistSong>()
-
-  // Add songs from The Graph subgraph with enriched metadata (higher priority)
-  if (enrichedSongs) {
-    enrichedSongs.forEach((song) => {
-      songsMap.set(song.geniusId, {
-        id: song.geniusId,
-        title: song.metadata?.title || `Song ${song.geniusId}`,
-        artist: song.metadata?.artist || displayName,
-        artworkUrl: song.metadata?.coverUri ? convertGroveUri(song.metadata.coverUri) : undefined,
-        onSongClick: () => navigate(`/song/${song.geniusId}`),
-      })
-    })
-  }
-
-  // Add songs from video metadata (if not already added)
-  postItems
-    .filter((post): post is Post => post.__typename === 'Post' && isVideoPost(post))
-    .forEach((post) => {
-      const hasAttributes = post.metadata?.__typename === 'VideoMetadata'
-      const metadata = hasAttributes && 'attributes' in post.metadata ? parseVideoMetadata(post.metadata.attributes) : {}
-      const geniusId = metadata.geniusId
-
-      // Skip if no geniusId or already added
-      if (!geniusId || songsMap.has(geniusId)) return
-
-      const songTitle = metadata.songTitle || 'Untitled'
-      const songArtist = metadata.songArtist || 'Unknown Artist'
-
-      songsMap.set(geniusId, {
-        id: geniusId,
-        title: songTitle,
-        artist: songArtist,
-        artworkUrl: undefined,
-        onSongClick: () => navigate(`/song/${geniusId}`),
-      })
-    })
-
-  const songs = Array.from(songsMap.values())
+  // Parse songs from artistSongs
+  const songs: ArtistSong[] = artistSongs
+    ? artistSongs.map((song) => ({
+        id: song.grc20WorkId,
+        title: song.title,
+        artist: song.artist,
+        artworkUrl: song.coverUri,
+        onSongClick: () => navigate(`/song/${song.grc20WorkId}`),
+      }))
+    : []
 
   // Handle video click - navigate to video detail page
   const handleVideoClick = (video: VideoPost) => {

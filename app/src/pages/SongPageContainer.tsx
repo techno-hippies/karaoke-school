@@ -109,10 +109,11 @@ export function SongPageContainer() {
       lyricsLinks={[]}
       onBack={() => navigate(-1)}
       onPlay={() => navigate(playRoute)}
-      onArtistClick={() => {
-        // TODO: Navigate to artist GRC-20 page if available
-        console.log('Navigate to artist: (GRC-20 implementation pending)')
-      }}
+      onArtistClick={
+        metadata?.artistLensHandle
+          ? () => navigate(`/u/${metadata.artistLensHandle}`)
+          : undefined
+      }
       videos={videos}
       isLoadingVideos={isLoadingVideos}
       onVideoClick={(video) => {

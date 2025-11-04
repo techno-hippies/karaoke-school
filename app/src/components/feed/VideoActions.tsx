@@ -14,6 +14,7 @@ export function VideoActions({
   username,
   isFollowing,
   canFollow,
+  isFollowLoading = false,
   onFollowClick,
   onProfileClick,
   likes,
@@ -78,18 +79,20 @@ export function VideoActions({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            if (canFollow) onFollowClick()
+            if (canFollow && !isFollowLoading) onFollowClick()
           }}
-          disabled={!canFollow}
+          disabled={!canFollow || isFollowLoading}
           className={cn(
             'absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200',
-            isFollowing
+            isFollowing && !isFollowLoading
               ? 'bg-neutral-800 hover:bg-neutral-700'
               : 'bg-primary hover:bg-primary/90',
-            !canFollow && 'opacity-50 cursor-not-allowed'
+            (!canFollow || isFollowLoading) && 'opacity-50 cursor-not-allowed'
           )}
         >
-          {isFollowing ? (
+          {isFollowLoading ? (
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          ) : isFollowing ? (
             <Check className="w-4 h-4 text-primary" />
           ) : (
             <Plus className="w-4 h-4 text-foreground" />

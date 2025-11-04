@@ -5,17 +5,16 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useStudyCards } from '@/hooks/useStudyCards'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
-import { useLitActionGrader, emitPerformanceGraded } from '@/hooks/useLitActionGrader'
+import { useLitActionGrader } from '@/hooks/useLitActionGrader'
 import { SayItBackExercise } from '@/components/exercises/SayItBackExercise'
 import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
 import { ExerciseFooter } from '@/components/exercises/ExerciseFooter'
 import { Spinner } from '@/components/ui/spinner'
-import { PERFORMANCE_GRADER_ADDRESS } from '@/lib/contracts/addresses'
 
 export function StudySessionPage() {
   const navigate = useNavigate()
   const { workId } = useParams<{ workId: string }>()
-  const { isPKPReady, pkpWalletClient, pkpAddress } = useAuth()
+  const { isPKPReady } = useAuth()
 
   // Session state
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
@@ -72,15 +71,15 @@ export function StudySessionPage() {
   let exerciseText = 'Loading...'
   let isLoadingText = isLoadingAlignment || isLoadingTranslation
 
-  if (alignmentData?.words && translationData?.lines?.[0]?.words?.length) {
-    // Use translation line structure to determine word count for first line
-    const firstLineWordCount = translationData.lines[0].words.length
-    const firstLineWords = alignmentData.words.slice(0, firstLineWordCount)
-    exerciseText = firstLineWords
-      .map((w: any) => w.text || w.word)
-      .join(' ')
+  if (translationData?.lines?.[0]?.originalText) {
+    // Use the complete originalText from the translation (this is the full line)
+    exerciseText = translationData.lines[0].originalText
+    console.log('[StudySession] Using originalText from translation:', exerciseText)
+  } else if (translationData?.lines?.[0]?.text) {
+    // Fallback: some translations may have 'text' field instead
+    exerciseText = translationData.lines[0].text
   } else if (alignmentData?.words && Array.isArray(alignmentData.words)) {
-    // Fallback: first 6 words
+    // Fallback: reconstruct from alignment words (first 6 words as default)
     const firstLineWords = alignmentData.words.slice(0, 6)
     exerciseText = firstLineWords
       .map((w: any) => w.text || w.word)
@@ -134,27 +133,24 @@ export function StudySessionPage() {
         throw new Error('No exercise text available')
       }
 
-      if (!pkpWalletClient || !pkpAddress) {
-        throw new Error('PKP wallet not ready')
+      // Step 1: Record and convert to base64
+      console.log('[StudySession] Recording audio...')
+      const recordingData = await audioRecorder.stopRecording()
+
+      if (!recordingData) {
+        throw new Error('Failed to record audio')
       }
 
-      // Step 1: Upload user recording to Grove
-      console.log('[StudySession] Uploading recording to Grove...')
-      const userAudioUri = await audioRecorder.stopRecording()
+      console.log('[StudySession] Recording complete - size:', recordingData.blob.size, '- uploaded to:', recordingData.groveUri)
 
-      if (!userAudioUri) {
-        throw new Error('Failed to upload audio recording')
-      }
-
-      console.log('[StudySession] Recording uploaded:', userAudioUri)
-
-      // Step 2: Call Lit Action to grade performance
+      // Step 2: Call Lit Action to grade performance with base64 audio data
       console.log('[StudySession] Calling Lit Action grader...')
       const gradingResult = await grade(
-        userAudioUri,
+        recordingData.base64,  // Pass base64-encoded audio data
         segmentMetadata.assets.instrumental,
         exerciseText,
-        currentCard.segmentHash
+        currentCard.segmentHash,
+        recordingData.groveUri  // Optional: Grove URI for metadata storage
       )
 
       if (!gradingResult) {
@@ -163,19 +159,14 @@ export function StudySessionPage() {
 
       console.log('[StudySession] Grading complete:', gradingResult)
 
-      // Step 3: Emit performance to contract with master PKP
-      console.log('[StudySession] Emitting performance to contract...')
-      const txHash = await emitPerformanceGraded(
-        pkpWalletClient,
-        PERFORMANCE_GRADER_ADDRESS,
-        gradingResult.performanceId,
-        currentCard.segmentHash as any, // TODO: proper bytes32 conversion
-        pkpAddress,
-        gradingResult.score,
-        currentCard.metadataUri
-      )
-
-      console.log('[StudySession] Performance emitted, tx:', txHash)
+      // Note: The Lit Action has already submitted the performance to the contract
+      // using the master PKP signature. We don't need to call it again from the frontend.
+      // The txHash is already included in the gradingResult if the submission was successful.
+      if (gradingResult.txHash) {
+        console.log('[StudySession] Performance already submitted to contract via Lit Action, tx:', gradingResult.txHash)
+      } else {
+        console.log('[StudySession] Lit Action submitted performance without returning txHash')
+      }
 
       // Step 4: Update UI with results
       setTranscript(gradingResult.transcript)
@@ -200,15 +191,32 @@ export function StudySessionPage() {
     } finally {
       setIsProcessing(false)
     }
-  }, [audioRecorder, grade, currentCard, segmentMetadata, exerciseText, pkpWalletClient, pkpAddress])
+  }, [audioRecorder, grade, currentCard, segmentMetadata, exerciseText])
 
   const handleNext = useCallback(() => {
     console.log('[StudySession] Moving to next card...')
-    // TODO: Update FSRS, emit event, move to next
+    // Move to next card
+    setCurrentCardIndex(prev => {
+      const nextIndex = prev + 1
+      console.log(`[StudySession] Card index: ${prev} → ${nextIndex} (of ${dueCards.length})`)
+
+      // If we've reached the end, show completion message
+      if (nextIndex >= dueCards.length) {
+        console.log('[StudySession] ✓ Study session complete!')
+        setTimeout(() => {
+          if (confirm('Study session complete! Return to study page?')) {
+            navigate('/study')
+          }
+        }, 500)
+      }
+
+      return nextIndex
+    })
+    // Clear grading results
     setTranscript(undefined)
     setScore(undefined)
     setFeedback(undefined)
-  }, [])
+  }, [dueCards.length, navigate])
 
   const handleClose = useCallback(() => {
     if (confirm('Exit study session? Progress will be saved.')) {
@@ -244,17 +252,38 @@ export function StudySessionPage() {
     )
   }
 
+  if (currentCardIndex >= dueCards.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-2xl font-bold">✓ Study Session Complete!</h1>
+        <p className="text-lg text-muted-foreground">
+          You've completed {dueCards.length} cards
+        </p>
+        <button
+          onClick={() => navigate('/study')}
+          className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+        >
+          Return to Study
+        </button>
+      </div>
+    )
+  }
+
   // Progress: cards completed out of due cards
   const progress = dueCards.length > 0 ? Math.round((currentCardIndex / dueCards.length) * 100) : 0
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col">
+    <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <ExerciseHeader progress={progress} onClose={handleClose} />
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-3">
+          <ExerciseHeader progress={progress} onClose={handleClose} />
+        </div>
+      </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto p-4 pt-8">
-        <div className="max-w-3xl mx-auto">
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
           <SayItBackExercise
             expectedText={exerciseText}
             transcript={transcript}
@@ -264,26 +293,30 @@ export function StudySessionPage() {
       </div>
 
       {/* Footer with controls */}
-      <ExerciseFooter
-        feedback={feedback}
-        controls={
-          feedback
-            ? {
-                type: 'navigation',
-                onNext: handleNext,
-                label: 'Next',
-                exerciseKey: currentCard?.id,
-              }
-            : {
-                type: 'voice',
-                isRecording,
-                isProcessing,
-                onStartRecording: handleStartRecording,
-                onStopRecording: handleStopRecording,
-                label: 'Record',
-              }
-        }
-      />
+      <div className="border-t border-border bg-background">
+        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4">
+          <ExerciseFooter
+            feedback={feedback}
+            controls={
+              feedback
+                ? {
+                    type: 'navigation',
+                    onNext: handleNext,
+                    label: 'Next',
+                    exerciseKey: currentCard?.id,
+                  }
+                : {
+                    type: 'voice',
+                    isRecording,
+                    isProcessing,
+                    onStartRecording: handleStartRecording,
+                    onStopRecording: handleStopRecording,
+                    label: 'Record',
+                  }
+            }
+          />
+        </div>
+      </div>
     </div>
   )
 }

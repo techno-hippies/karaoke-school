@@ -18,6 +18,7 @@ export interface MediaPageProps {
   selectedLanguage?: string
   showTranslations?: boolean
   onBack?: () => void
+  onArtistClick?: () => void
   className?: string
   debugInfo?: {
     renderCount: number
@@ -42,6 +43,7 @@ export function MediaPage({
   selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
   showTranslations = true,
   onBack,
+  onArtistClick,
   className,
   debugInfo,
 }: MediaPageProps) {
@@ -124,7 +126,14 @@ export function MediaPage({
               'text-foreground font-semibold flex-1 text-center truncate min-w-0',
               artworkUrl ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
             )}>
-              {title} - {artist}
+              {title} - {onArtistClick ? (
+                <button
+                  onClick={onArtistClick}
+                  className="hover:text-primary transition-colors cursor-pointer"
+                >
+                  {artist}
+                </button>
+              ) : artist}
             </h1>
           </div>
           <div className="w-8" />

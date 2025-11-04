@@ -63,6 +63,7 @@ function AppRouter() {
     const pathToTab: Record<string, 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'> = {
       '/': 'home',
       '/search': 'search',
+      '/study': 'study',
       '/wallet': 'wallet',
       '/profile': 'profile',
     }

@@ -15,15 +15,54 @@ export function KaraokeOverlay({
 }: KaraokeOverlayProps) {
 
   // Find current line based on time
+  // Show line from its start time until the next line starts (not just until its end time)
   const currentLine = useMemo(() => {
     if (!lines || lines.length === 0) return null
 
-    const found = lines.find(line =>
-      currentTime >= line.start && currentTime <= line.end
-    )
+    // Debug: Log timing data for first 3 lines (only once when lines load)
+    if (lines.length > 0 && currentTime < 2) {
+      console.log('[KaraokeOverlay] Total lines:', lines.length)
+      console.log('[KaraokeOverlay] First 3 lines timing:', lines.slice(0, 3).map((l, i) => ({
+        index: i,
+        text: l.text.substring(0, 30) + '...',
+        start: l.start,
+        end: l.end
+      })))
+    }
 
-    return found || null
+    // Find the line that should be displayed
+    // A line is active from its start time until the next line starts
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const nextLine = lines[i + 1]
+
+      // If we're past this line's start time
+      if (currentTime >= line.start) {
+        // Show this line until the next line starts (or if it's the last line, until its end)
+        if (!nextLine || currentTime < nextLine.start) {
+          // Debug: Log which line is being selected at key timestamps
+          if (currentTime % 5 < 0.2) { // Log every 5 seconds
+            console.log(`[KaraokeOverlay] Time: ${currentTime.toFixed(1)}s → Line ${i}: "${line.text.substring(0, 30)}..." (start: ${line.start}, nextStart: ${nextLine?.start || 'none'})`)
+          }
+          return line
+        }
+      }
+    }
+
+    return null
   }, [lines, currentTime])
+
+  // Debug: Log only when line changes (not on every time update)
+  const currentLineText = currentLine?.text
+  const currentLineTranslation = currentLine?.translation
+  useMemo(() => {
+    if (currentLineText) {
+      console.log('[KaraokeOverlay] Line:', currentLineText.substring(0, 50))
+      if (currentLineTranslation) {
+        console.log('[KaraokeOverlay] Translation:', currentLineTranslation.substring(0, 50))
+      }
+    }
+  }, [currentLineText, currentLineTranslation])
 
   // Find next line (for karaoke recording mode)
   const nextLine = useMemo(() => {

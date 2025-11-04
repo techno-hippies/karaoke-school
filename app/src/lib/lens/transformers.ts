@@ -28,6 +28,8 @@ export function transformLensPostToVideoData(
     ? Number(getAttribute('genius_id'))
     : undefined
 
+  const spotifyTrackId = getAttribute('spotify_track_id')
+
   // Extract karaoke lines from transcriptions attribute (stored as JSON)
   let karaokeLines
   const transcriptionsJson = getAttribute('transcriptions')
@@ -36,6 +38,9 @@ export function transformLensPostToVideoData(
     try {
       const transcriptionsData = JSON.parse(transcriptionsJson)
       const englishData = transcriptionsData.languages?.en
+
+      // Debug: Log segment count during parsing
+      console.log(`[Transformer] Post ${post.id.substring(0, 10)}: Parsed ${englishData?.segments?.length || 0} segments`)
 
       if (englishData?.segments) {
         // Get browser language for translation
@@ -54,20 +59,31 @@ export function transformLensPostToVideoData(
           ? transcriptionsData.languages?.[translationLang]
           : null
 
-        karaokeLines = englishData.segments.map((segment: any, index: number) => ({
-          text: segment.text,
-          translation: translationData?.segments?.[index]?.text,
-          start: segment.start,
-          end: segment.end,
-          words: segment.words?.map((word: any) => ({
-            text: word.word || word.text,
-            start: word.start,
-            end: word.end,
-          })),
-        }))
+        karaokeLines = englishData.segments.map((segment: any, index: number) => {
+          // Remove audio event descriptions in parentheses (e.g., "(cheerful country music)")
+          const cleanText = segment.text.replace(/\([^)]*\)\s*/g, '').trim()
+          const cleanTranslation = translationData?.segments?.[index]?.text?.replace(/[（(][^)）]*[)）]\s*/g, '').trim()
+
+          return {
+            text: cleanText,
+            translation: cleanTranslation,
+            start: segment.start,
+            end: segment.end,
+            words: segment.words?.map((word: any) => ({
+              text: word.word || word.text,
+              start: word.start,
+              end: word.end,
+            })),
+          }
+        })
+
+        // Filter out empty lines (where parentheses removal left nothing)
+        karaokeLines = karaokeLines.filter(line => line.text.length > 0)
+
+        console.log(`[Transformer] Post ${post.id.substring(0, 10)}: Created ${karaokeLines.length} karaoke lines (after filtering)`)
       }
     } catch (err) {
-      console.warn('[Transformer] Failed to parse transcriptions:', err)
+      console.error('[Transformer] Failed to parse transcriptions:', err)
     }
   }
 
@@ -80,6 +96,9 @@ export function transformLensPostToVideoData(
   const thumbnailUrl = convertGroveUri(rawThumbnailUrl) ||
     `https://picsum.photos/400/711?random=${post.id}`
 
+  // Debug: Log video URL with post ID and karaoke line count
+  console.log(`[Transformer] Post ${post.id.substring(0, 10)}: videoUrl=${videoUrl?.substring(0, 60)}... karaokeLines=${karaokeLines?.length || 0}`)
+
   // Extract avatar - handle both object and string formats
   const rawAvatar = post.author.metadata?.picture
   const avatarUri = typeof rawAvatar === 'string'
@@ -91,7 +110,7 @@ export function transformLensPostToVideoData(
   const albumArt = getAttribute('album_art')
   const musicImageUrl = albumArt ? convertGroveUri(albumArt) : undefined
 
-  return {
+  const result = {
     id: post.id,
     videoUrl,
     thumbnailUrl,
@@ -104,6 +123,7 @@ export function transformLensPostToVideoData(
     musicAuthor: getAttribute('artist_name'),
     musicImageUrl,
     geniusId,
+    spotifyTrackId,
     createdAt: (post as any).createdAt,
     likes: post.stats?.upvotes ?? 0,
     comments: post.stats?.comments ?? 0,
@@ -113,6 +133,8 @@ export function transformLensPostToVideoData(
     isFollowing: post.author.operations?.isFollowedByMe ?? false,
     canInteract: isAuthenticated,
   }
+
+  return result
 }
 
 /**

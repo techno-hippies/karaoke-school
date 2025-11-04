@@ -23,30 +23,26 @@ export function ExerciseHeader({
   return (
     <div
       className={cn(
-        'fixed top-0 left-0 right-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border',
+        'flex items-center gap-4 w-full',
         className
       )}
     >
-      <div className="w-full max-w-3xl mx-auto px-6 py-4">
-        <div className="flex items-center gap-4">
-          {/* Close button */}
-          {showCloseButton && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground shrink-0"
-              aria-label="Close"
-            >
-              <X size={24} weight="bold" />
-            </Button>
-          )}
+      {/* Close button */}
+      {showCloseButton && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Close"
+        >
+          <X size={24} weight="bold" />
+        </Button>
+      )}
 
-          {/* Progress bar */}
-          <div className="flex-1">
-            <Progress value={progress} />
-          </div>
-        </div>
+      {/* Progress bar */}
+      <div className="flex-1">
+        <Progress value={progress} />
       </div>
     </div>
   )

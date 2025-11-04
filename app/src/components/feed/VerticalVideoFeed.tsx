@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, memo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { VideoPost } from './VideoPost'
 import { useAuth } from '@/contexts/AuthContext'
@@ -22,7 +22,7 @@ export interface VerticalVideoFeedProps {
  * VerticalVideoFeed - TikTok-style vertical scrolling video feed
  * Custom implementation with snap scrolling and keyboard navigation
  */
-export function VerticalVideoFeed({
+function VerticalVideoFeedComponent({
   videos,
   isLoading = false,
   onLoadMore,
@@ -90,29 +90,44 @@ export function VerticalVideoFeed({
     }
   }, [activeIndex, updateUrlOnScroll, baseUrl, videos])
 
-  // Handle scroll to detect active video
+  // Simple virtualization: only render visible + buffer videos
+  const [renderedVideoCount, setRenderedVideoCount] = useState(5) // Start with 5 videos
+  
+  // Virtualization: only render videos that should be visible
+  const shouldRenderVideo = (index: number) => {
+    // Render if it's in the currently rendered range
+    return index < renderedVideoCount
+  }
+  
+  // Load more videos when approaching the end (memoized to prevent recreation)
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const scrollTop = container.scrollTop
+    const viewportHeight = container.clientHeight
+    const newIndex = Math.round(scrollTop / viewportHeight)
+    const totalRendered = renderedVideoCount
+
+    // If we're within 2 videos of the end, load more
+    if (newIndex >= totalRendered - 2 && hasMore) {
+      setRenderedVideoCount(prev => Math.min(prev + 10, videos.length)) // Load 10 more
+      onLoadMore?.() // Call parent's load more if available
+    }
+
+    if (newIndex !== activeIndex && newIndex >= 0 && newIndex < videos.length) {
+      setActiveIndex(newIndex)
+    }
+  }, [renderedVideoCount, hasMore, activeIndex, videos.length, onLoadMore])
+
+  // Attach scroll listener for virtualization
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const handleScroll = () => {
-      const scrollTop = container.scrollTop
-      const viewportHeight = container.clientHeight
-      const newIndex = Math.round(scrollTop / viewportHeight)
-
-      if (newIndex !== activeIndex && newIndex >= 0 && newIndex < videos.length) {
-        setActiveIndex(newIndex)
-
-        // Load more when approaching end of feed
-        if (newIndex >= videos.length - 3 && hasMore && onLoadMore) {
-          onLoadMore()
-        }
-      }
-    }
-
     container.addEventListener('scroll', handleScroll)
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [activeIndex, videos.length, hasMore, onLoadMore])
+  }, [handleScroll])
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -156,6 +171,11 @@ export function VerticalVideoFeed({
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
       {videos.map((video, index) => {
+        // Virtualization: only render if this video should be visible
+        if (!shouldRenderVideo(index)) {
+          return null
+        }
+
         const finalFollowState = followStates[video.id] ?? video.isFollowing
         const finalLikeState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
 
@@ -311,9 +331,11 @@ export function VerticalVideoFeed({
                 navigate(`/u/${video.username}`)
               }}
               onAudioClick={() => {
-                console.log('[VerticalVideoFeed] Audio clicked:', video.geniusId)
-                if (video.geniusId) {
-                  navigate(`/song/${video.geniusId}`)
+                console.log('[VerticalVideoFeed] Audio clicked:', video.spotifyTrackId || video.geniusId)
+                // Prefer Spotify track ID, fallback to Genius ID
+                const songId = video.spotifyTrackId || video.geniusId
+                if (songId) {
+                  navigate(`/song/${songId}`)
                 }
               }}
             />
@@ -323,3 +345,6 @@ export function VerticalVideoFeed({
     </div>
   )
 }
+
+// Memoized export to prevent unnecessary re-renders
+export const VerticalVideoFeed = memo(VerticalVideoFeedComponent)
