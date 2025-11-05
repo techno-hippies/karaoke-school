@@ -88,10 +88,10 @@ export function SayItBackExercise({
       {/* User's transcript (shown after speaking) */}
       {showResults && (
         <div className="text-left space-y-3">
-          <div className="text-muted-foreground text-sm sm:text-base font-medium">
+          <div className="text-muted-foreground text-lg sm:text-xl font-medium">
             You said:
           </div>
-          <div className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground leading-relaxed break-words">
+          <div className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground leading-relaxed break-words">
             {transcript}
           </div>
         </div>

@@ -69,8 +69,8 @@ Zod schemas enforce data quality **before minting to GRC-20**, preventing:
 - Title
 - Link to Audio Recording entity (UUID)
 - Timing: startMs, endMs, durationMs
-- Instrumental audio URI (Grove/Irys)
-- Word alignment URI (Grove/Irys)
+- Instrumental audio URI (Grove)
+- Word alignment URI (Grove)
 
 **Business Rules:**
 - `endMs > startMs`

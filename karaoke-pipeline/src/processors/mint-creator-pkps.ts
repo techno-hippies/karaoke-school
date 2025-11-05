@@ -16,6 +16,7 @@
  *
  * Usage:
  *   bun src/processors/mint-creator-pkps.ts --limit=20
+ *   bun src/processors/mint-creator-pkps.ts --username=charleenweiss
  */
 
 import { parseArgs } from 'util';
@@ -27,31 +28,37 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       limit: { type: 'string', default: '20' },
+      username: { type: 'string' },
     },
   });
 
   const limit = parseInt(values.limit || '20');
+  const targetUsername = values.username;
 
-  console.log(`\n🎬 Minting PKPs for TikTok creators (limit: ${limit})\n`);
+  if (targetUsername) {
+    console.log(`\n🎬 Minting PKP for @${targetUsername}\n`);
+  } else {
+    console.log(`\n🎬 Minting PKPs for TikTok creators (limit: ${limit})\n`);
+  }
 
   // 1. Find creators without PKPs
   const creators = await query<{
-    tiktok_handle: string;
-    name: string | null;
+    username: string;
+    nickname: string | null;
     sec_uid: string;
   }>(`
     SELECT
-      tc.tiktok_handle,
-      tc.name,
+      tc.username,
+      tc.nickname,
       tc.sec_uid
     FROM tiktok_creators tc
-    LEFT JOIN pkp_accounts pkp ON tc.tiktok_handle = pkp.tiktok_handle
-      AND pkp.account_type = 'tiktok_creator'
-    WHERE tc.tiktok_handle IS NOT NULL
-      AND pkp.pkp_address IS NULL  -- No PKP yet
-    ORDER BY tc.name ASC
+    LEFT JOIN pkp_accounts pkp ON tc.pkp_account_id = pkp.id
+    WHERE tc.username IS NOT NULL
+      AND tc.pkp_account_id IS NULL  -- No PKP yet
+      ${targetUsername ? 'AND tc.username = $2' : ''}
+    ORDER BY tc.nickname ASC
     LIMIT $1
-  `, [limit]);
+  `, targetUsername ? [limit, targetUsername] : [limit]);
 
   if (creators.length === 0) {
     console.log('✅ No TikTok creators need PKP minting\n');
@@ -64,15 +71,15 @@ async function main() {
   let errorCount = 0;
 
   for (const creator of creators) {
-    console.log(`\n📍 @${creator.tiktok_handle} ${creator.name ? `(${creator.name})` : ''}`);
+    console.log(`\n📍 @${creator.username} ${creator.nickname ? `(${creator.nickname})` : ''}`);
 
     try {
       // 2. Mint PKP
       console.log('   ⏳ Minting PKP on Chronicle Yellowstone...');
       const pkpData = await mintPKP();
 
-      // 3. Insert into pkp_accounts
-      await query(`
+      // 3. Insert into pkp_accounts and get ID
+      const pkpAccountResult = await query<{ id: number }>(`
         INSERT INTO pkp_accounts (
           account_type,
           tiktok_handle,
@@ -82,9 +89,10 @@ async function main() {
           pkp_owner_eoa,
           transaction_hash
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
       `, [
         'tiktok_creator',
-        creator.tiktok_handle,
+        creator.username,
         pkpData.pkpAddress,
         pkpData.pkpTokenId,
         pkpData.pkpPublicKey,
@@ -92,16 +100,19 @@ async function main() {
         pkpData.transactionHash,
       ]);
 
-      // 4. Update tiktok_creators table
+      const pkpAccountId = pkpAccountResult[0].id;
+
+      // 4. Update tiktok_creators table with foreign key
       await query(`
         UPDATE tiktok_creators
-        SET pkp_address = $1
-        WHERE tiktok_handle = $2
-      `, [pkpData.pkpAddress, creator.tiktok_handle]);
+        SET pkp_account_id = $1
+        WHERE username = $2
+      `, [pkpAccountId, creator.username]);
 
       console.log(`   ✅ PKP minted: ${pkpData.pkpAddress}`);
       console.log(`   🔗 Token ID: ${pkpData.pkpTokenId}`);
       console.log(`   📜 Tx: ${pkpData.transactionHash}`);
+      console.log(`   💾 PKP Account ID: ${pkpAccountId}`);
 
       successCount++;
 

@@ -49,6 +49,7 @@
     "@lit-protocol/networks": "8.0.2",
     "@neondatabase/serverless": "^1.0.2",
     "@spotify/web-api-ts-sdk": "^1.2.0",
+    "@story-protocol/core-sdk": "^1.4.1",
     "better-sqlite3": "^12.4.1",
     "form-data": "^4.0.4",
     "hono": "^4.7.11",

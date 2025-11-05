@@ -6,7 +6,7 @@ set -e
 
 SERVICE_NAME="audio-download-service"
 DOCKER_USERNAME="t3333chn0000"
-VERSION="2.2.0"
+VERSION="2.5.0"
 
 echo "🏗️  Building ${SERVICE_NAME}:v${VERSION}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -155,6 +155,23 @@ export class Segment extends Entity {
     this.set("registeredAt", Value.fromBigInt(value));
   }
 
+  get artistLensHandle(): string | null {
+    let value = this.get("artistLensHandle");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artistLensHandle(value: string | null) {
+    if (!value) {
+      this.unset("artistLensHandle");
+    } else {
+      this.set("artistLensHandle", Value.fromString(<string>value));
+    }
+  }
+
   get instrumentalUri(): string | null {
     let value = this.get("instrumentalUri");
     if (!value || value.kind == ValueKind.NULL) {
@@ -636,6 +653,317 @@ export class Performance extends Entity {
   }
 }
 
+export class LineCard extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save LineCard entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type LineCard must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("LineCard", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): LineCard | null {
+    return changetype<LineCard | null>(store.get_in_block("LineCard", id));
+  }
+
+  static load(id: string): LineCard | null {
+    return changetype<LineCard | null>(store.get("LineCard", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get lineId(): Bytes {
+    let value = this.get("lineId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set lineId(value: Bytes) {
+    this.set("lineId", Value.fromBytes(value));
+  }
+
+  get segment(): string {
+    let value = this.get("segment");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set segment(value: string) {
+    this.set("segment", Value.fromString(value));
+  }
+
+  get segmentHash(): Bytes {
+    let value = this.get("segmentHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set segmentHash(value: Bytes) {
+    this.set("segmentHash", Value.fromBytes(value));
+  }
+
+  get lineIndex(): i32 {
+    let value = this.get("lineIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set lineIndex(value: i32) {
+    this.set("lineIndex", Value.fromI32(value));
+  }
+
+  get performances(): LinePerformanceLoader {
+    return new LinePerformanceLoader(
+      "LineCard",
+      this.get("id")!.toString(),
+      "performances",
+    );
+  }
+
+  get performanceCount(): i32 {
+    let value = this.get("performanceCount");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set performanceCount(value: i32) {
+    this.set("performanceCount", Value.fromI32(value));
+  }
+
+  get averageScore(): BigDecimal {
+    let value = this.get("averageScore");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigDecimal();
+    }
+  }
+
+  set averageScore(value: BigDecimal) {
+    this.set("averageScore", Value.fromBigDecimal(value));
+  }
+}
+
+export class LinePerformance extends Entity {
+  constructor(id: string) {
+    super();
+    this.set("id", Value.fromString(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save LinePerformance entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.STRING,
+        `Entities of type LinePerformance must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("LinePerformance", id.toString(), this);
+    }
+  }
+
+  static loadInBlock(id: string): LinePerformance | null {
+    return changetype<LinePerformance | null>(
+      store.get_in_block("LinePerformance", id),
+    );
+  }
+
+  static load(id: string): LinePerformance | null {
+    return changetype<LinePerformance | null>(store.get("LinePerformance", id));
+  }
+
+  get id(): string {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set id(value: string) {
+    this.set("id", Value.fromString(value));
+  }
+
+  get performanceId(): BigInt {
+    let value = this.get("performanceId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set performanceId(value: BigInt) {
+    this.set("performanceId", Value.fromBigInt(value));
+  }
+
+  get line(): string {
+    let value = this.get("line");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set line(value: string) {
+    this.set("line", Value.fromString(value));
+  }
+
+  get lineId(): Bytes {
+    let value = this.get("lineId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set lineId(value: Bytes) {
+    this.set("lineId", Value.fromBytes(value));
+  }
+
+  get segment(): string {
+    let value = this.get("segment");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set segment(value: string) {
+    this.set("segment", Value.fromString(value));
+  }
+
+  get segmentHash(): Bytes {
+    let value = this.get("segmentHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set segmentHash(value: Bytes) {
+    this.set("segmentHash", Value.fromBytes(value));
+  }
+
+  get lineIndex(): i32 {
+    let value = this.get("lineIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set lineIndex(value: i32) {
+    this.set("lineIndex", Value.fromI32(value));
+  }
+
+  get performer(): string {
+    let value = this.get("performer");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set performer(value: string) {
+    this.set("performer", Value.fromString(value));
+  }
+
+  get performerAddress(): Bytes {
+    let value = this.get("performerAddress");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set performerAddress(value: Bytes) {
+    this.set("performerAddress", Value.fromBytes(value));
+  }
+
+  get score(): i32 {
+    let value = this.get("score");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set score(value: i32) {
+    this.set("score", Value.fromI32(value));
+  }
+
+  get metadataUri(): string {
+    let value = this.get("metadataUri");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set metadataUri(value: string) {
+    this.set("metadataUri", Value.fromString(value));
+  }
+
+  get gradedAt(): BigInt {
+    let value = this.get("gradedAt");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set gradedAt(value: BigInt) {
+    this.set("gradedAt", Value.fromBigInt(value));
+  }
+}
+
 export class Account extends Entity {
   constructor(id: string) {
     super();
@@ -1102,5 +1430,23 @@ export class TranslationLoader extends Entity {
   load(): Translation[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<Translation[]>(value);
+  }
+}
+
+export class LinePerformanceLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): LinePerformance[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<LinePerformance[]>(value);
   }
 }

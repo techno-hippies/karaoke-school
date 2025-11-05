@@ -403,9 +403,9 @@ Check wallet has testnet ETH:
 
 ### "IPFS upload failed"
 
-Ensure Irys gateway is accessible. Check network:
+Ensure Grove gateway is accessible. Check network:
 ```bash
-curl -I https://gateway.irys.xyz
+curl -I https://api.grove.storage
 ```
 
 ---
@@ -566,7 +566,7 @@ CREATE TABLE musicbrainz_artists (
 4. Links via `spotify_artist_id` for later corroboration
 
 ##### `artist_images`
-Fal AI-generated artist images stored on Grove/Irys.
+Fal AI-generated artist images stored on Grove.
 
 ```sql
 CREATE TABLE artist_images (

@@ -389,7 +389,7 @@ WebAuthn Passkey → PKP Wallet → Lens Session Resume → Account Owner Role
 
 ## Documentation Sources
 
-- **Comprehensive Architecture**: `/media/t42/th42/Code/karaoke-school-v1/CLAUDE.md` - Complete technical specification
+- **Comprehensive Architecture**: `../../docs/technical-architecture.md` - Complete technical specification
 - **Root README.md**: Project overview and current system state
 - **Root AGENTS.md**: Service integration guide
 - **Component Stories**: Storybook stories in component directories

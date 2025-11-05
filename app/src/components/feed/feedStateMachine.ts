@@ -18,7 +18,7 @@ export type FeedEvent =
   | { type: 'LOAD_MORE_SUCCESS'; videos: VideoPostData[]; hasMore: boolean }
   | { type: 'LOAD_MORE_ERROR'; error: string }
   | { type: 'VIDEO_LOADED'; videoId: string }
-  | { type: 'VIDEO_ERROR'; videoId: string: error: string }
+  | { type: 'VIDEO_ERROR'; videoId: string; error: string }
   | { type: 'CLEAR_ERROR' };
 
 export const feedStateMachine = setup({

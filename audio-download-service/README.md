@@ -1,9 +1,11 @@
-# Soulseek Download Service
+# Audio Download Service
 
-Fire-and-forget Soulseek download service for the karaoke pipeline. Handles P2P downloads, AcoustID verification, and database integration.
+Multi-strategy audio/video download service for the karaoke pipeline. Handles P2P downloads, AcoustID verification, TikTok video downloads with thumbnails, and database integration.
 
 ## Features
 
+- **Multi-strategy downloads**: yt-dlp (fast) → Soulseek P2P (fallback)
+- **TikTok video downloads**: With automatic thumbnail extraction and H.264 conversion
 - P2P download via Soulseek network using `slsk-client`
 - Smart search with fallback queries
 - Peer quality scoring (speed, free slots, file size)
@@ -159,6 +161,31 @@ tail -f /tmp/slsk-service.log
 
 ### `POST /download-and-store`
 Fire-and-forget download request. Returns immediately while processing in background.
+
+### `POST /download-tiktok-video`
+Download TikTok videos with automatic thumbnail extraction and H.264 conversion.
+
+**Request:**
+```json
+{
+  "video_id": "unique-video-id",
+  "tiktok_url": "https://www.tiktok.com/@user/video/1234567890",
+  "chain_id": 37111
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "video_id": "unique-video-id",
+  "grove_video_cid": "Qm...",
+  "grove_video_url": "https://api.grove.storage/Qm...",
+  "grove_thumbnail_cid": "Qm...",
+  "grove_thumbnail_url": "https://api.grove.storage/Qm...",
+  "download_method": "yt-dlp-tiktok"
+}
+```
 
 ### `GET /health`
 Health check endpoint.

@@ -7,7 +7,7 @@
  *   node scripts/upload-lit-action.mjs <path-to-lit-action.js> <name>
  *
  * Example:
- *   node scripts/upload-lit-action.mjs src/test/simple-eoa-test.js "Simple EOA Test"
+ *   node scripts/upload-lit-action.mjs study/sat-it-back-v1.js "Sat It Back v1"
  */
 
 import { readFileSync } from 'fs';
@@ -21,7 +21,7 @@ async function uploadLitAction() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
     console.error('Usage: node scripts/upload-lit-action.mjs <path-to-lit-action.js> <name>');
-    console.error('Example: node scripts/upload-lit-action.mjs src/test/simple-eoa-test.js "Simple EOA Test"');
+    console.error('Example: node scripts/upload-lit-action.mjs study/sat-it-back-v1.js "Sat It Back v1"');
     process.exit(1);
   }
 

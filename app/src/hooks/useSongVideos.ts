@@ -19,29 +19,77 @@ export interface VideoPost {
 }
 
 /**
- * Fetch all creator videos for a given song (by genius_id)
+ * Fetch all creator videos for a given song (by grc20WorkId or genius_id)
  *
- * Uses Lens GraphQL to query posts filtered by the genius_id attribute.
+ * Uses Lens GraphQL to query posts filtered by tags or attributes.
  * This returns videos from ALL creators who performed this song.
  */
-export function useSongVideos(geniusId?: number) {
-  return useQuery({
-    queryKey: ['song-videos', geniusId],
-    queryFn: async () => {
-      if (!geniusId) return []
+export function useSongVideos(identifier?: number | string) {
+  // Determine if identifier is GRC-20 work ID (UUID string) or genius ID (number)
+  const isGrc20 = typeof identifier === 'string'
+  const grc20WorkId = isGrc20 ? identifier : undefined
+  const geniusId = typeof identifier === 'number' ? identifier : undefined
 
-      const result = await fetchPosts(lensClient, {
-        filter: {
-          metadata: {
-            tags: {
-              oneOf: [`genius-${geniusId}`],
+  return useQuery({
+    queryKey: ['song-videos', identifier],
+    queryFn: async () => {
+      if (!identifier) return []
+
+      // Try tag-based query first (fastest)
+      let result
+      if (grc20WorkId) {
+        // Query by GRC-20 work ID tag
+        result = await fetchPosts(lensClient, {
+          filter: {
+            metadata: {
+              tags: {
+                oneOf: [`grc20-${grc20WorkId}`],
+              },
             },
           },
-        },
-      })
+        })
+      } else if (geniusId) {
+        // Query by genius ID tag (legacy)
+        result = await fetchPosts(lensClient, {
+          filter: {
+            metadata: {
+              tags: {
+                oneOf: [`genius-${geniusId}`],
+              },
+            },
+          },
+        })
+      }
 
-      if (result.isErr()) {
-        throw result.error
+      if (!result || result.isErr() || result.value.items.length === 0) {
+        // Fallback: fetch all karaoke posts and filter client-side by attribute
+        console.log('[useSongVideos] Tag query failed, errored, or returned 0 results - falling back to client-side filter')
+        const allResult = await fetchPosts(lensClient, {
+          filter: {
+            metadata: {
+              tags: {
+                all: ['karaoke'],
+              },
+            },
+          },
+        })
+
+        if (allResult.isErr()) {
+          throw allResult.error
+        }
+
+        // Filter by grc20_work_id attribute
+        const filteredItems = allResult.value.items.filter((post: any) => {
+          const attrs = post.metadata?.attributes || []
+          if (grc20WorkId) {
+            return attrs.some((a: any) => a.key === 'grc20_work_id' && a.value === grc20WorkId)
+          } else if (geniusId) {
+            return attrs.some((a: any) => a.key === 'genius_id' && Number(a.value) === geniusId)
+          }
+          return false
+        })
+
+        result = { ...allResult, value: { ...allResult.value, items: filteredItems } }
       }
 
       // Transform to VideoPost format
@@ -80,9 +128,10 @@ export function useSongVideos(geniusId?: number) {
         }
       })
 
+      console.log(`[useSongVideos] Found ${videos.length} videos for ${isGrc20 ? 'GRC-20' : 'Genius'} ID: ${identifier}`)
       return videos
     },
-    enabled: !!geniusId && geniusId > 0,
+    enabled: !!identifier && (typeof identifier === 'string' || identifier > 0),
   })
 }
 

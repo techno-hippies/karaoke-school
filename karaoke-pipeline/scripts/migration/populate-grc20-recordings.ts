@@ -184,18 +184,9 @@ async function main() {
       recordingData.musicbrainzIsVideo = mb.video;
     }
 
-    // Get derivative images
-    const imageData = await query(`
-      SELECT grove_url, thumbnail_grove_url
-      FROM derivative_images
-      WHERE spotify_track_id = $1 AND asset_type = 'track'
-    `, [spotify_track_id]);
-
-    if (imageData.length > 0) {
-      const image = imageData[0];
-      recordingData.groveImageUrl = image.grove_url;
-      recordingData.groveThumbnailUrl = image.thumbnail_grove_url;
-    }
+    // Note: Migration 034 removed derivative_images table
+    // Images are now stored directly in grc20_work_recordings
+    // recordingData.groveImageUrl and groveThumbnailUrl are set to null by default
 
     // Step 3: Insert or update recording (idempotent)
     const result = await query(`

@@ -6,6 +6,7 @@ import {console} from "forge-std/console.sol";
 import {SongEvents} from "../src/events/SongEvents.sol";
 import {SegmentEvents} from "../src/events/SegmentEvents.sol";
 import {TranslationEvents} from "../src/events/TranslationEvents.sol";
+import {LineEvents} from "../src/events/LineEvents.sol";
 import {PerformanceGrader} from "../src/events/PerformanceGrader.sol";
 import {AccountEvents} from "../src/events/AccountEvents.sol";
 
@@ -64,6 +65,12 @@ contract DeployEvents is Script {
         console.log("  TranslationEvents deployed at:", address(translationEvents));
         console.log("");
 
+        // Deploy LineEvents (no constructor params)
+        console.log("Deploying LineEvents...");
+        LineEvents lineEvents = new LineEvents();
+        console.log("  LineEvents deployed at:", address(lineEvents));
+        console.log("");
+
         // Deploy PerformanceGrader (requires PKP address)
         console.log("Deploying PerformanceGrader...");
         console.log("  Trusted PKP:", trustedPKP);
@@ -86,6 +93,7 @@ contract DeployEvents is Script {
         console.log("SongEvents:          ", address(songEvents));
         console.log("SegmentEvents:       ", address(segmentEvents));
         console.log("TranslationEvents:   ", address(translationEvents));
+        console.log("LineEvents:          ", address(lineEvents));
         console.log("PerformanceGrader:   ", address(performanceGrader));
         console.log("AccountEvents:       ", address(accountEvents));
         console.log("");

@@ -90,13 +90,16 @@ function VerticalVideoFeedComponent({
     }
   }, [activeIndex, updateUrlOnScroll, baseUrl, videos])
 
-  // Simple virtualization: only render visible + buffer videos
-  const [renderedVideoCount, setRenderedVideoCount] = useState(5) // Start with 5 videos
+  // Simple virtualization: only render 1 visible video + 1 buffer video
+  const [renderedVideoCount, setRenderedVideoCount] = useState(2) // Start with 2 videos (more conservative)
   
   // Virtualization: only render videos that should be visible
   const shouldRenderVideo = (index: number) => {
-    // Render if it's in the currently rendered range
-    return index < renderedVideoCount
+    // Only render if the video is:
+    // 1. The active video (index === activeIndex)
+    // 2. Very close to the active video (±1)
+    // 3. Or within the renderedVideoCount range (for backwards compatibility)
+    return Math.abs(index - activeIndex) <= 1 || index < renderedVideoCount
   }
   
   // Load more videos when approaching the end (memoized to prevent recreation)
@@ -109,9 +112,9 @@ function VerticalVideoFeedComponent({
     const newIndex = Math.round(scrollTop / viewportHeight)
     const totalRendered = renderedVideoCount
 
-    // If we're within 2 videos of the end, load more
-    if (newIndex >= totalRendered - 2 && hasMore) {
-      setRenderedVideoCount(prev => Math.min(prev + 10, videos.length)) // Load 10 more
+    // If we're within 1 video of the end, load 3 more (more conservative)
+    if (newIndex >= totalRendered - 1 && hasMore) {
+      setRenderedVideoCount(prev => Math.min(prev + 3, videos.length)) // Load 3 more
       onLoadMore?.() // Call parent's load more if available
     }
 
@@ -187,6 +190,7 @@ function VerticalVideoFeedComponent({
               isLiked={finalLikeState.isLiked}
               likes={finalLikeState.count}
               autoplay={index === activeIndex}
+              priorityLoad={index === 0} // First video gets priority loading (no debounce)
               karaokeClassName="pt-20 md:pt-6"
               hasMobileFooter={hasMobileFooter}
               onLikeClick={async () => {
@@ -331,9 +335,9 @@ function VerticalVideoFeedComponent({
                 navigate(`/u/${video.username}`)
               }}
               onAudioClick={() => {
-                console.log('[VerticalVideoFeed] Audio clicked:', video.spotifyTrackId || video.geniusId)
-                // Prefer Spotify track ID, fallback to Genius ID
-                const songId = video.spotifyTrackId || video.geniusId
+                console.log('[VerticalVideoFeed] Audio clicked:', video.grc20WorkId || video.spotifyTrackId || video.geniusId)
+                // Use GRC-20 work ID (preferred), fallback to Spotify or Genius ID for legacy posts
+                const songId = video.grc20WorkId || video.spotifyTrackId || video.geniusId
                 if (songId) {
                   navigate(`/song/${songId}`)
                 }

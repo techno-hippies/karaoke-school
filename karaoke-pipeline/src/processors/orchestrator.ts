@@ -50,6 +50,7 @@ import { processFalEnhancement } from './10-enhance-audio';
 import { processClipCropping } from './11-crop-clips';
 import { processUploadGroveVideos } from './11-upload-grove-videos';
 import { processEmitSegmentEvents } from './12-emit-segment-events';
+import { processStoryDerivatives } from './13-mint-story-derivatives';
 
 interface PipelineStep {
   number: number;
@@ -262,6 +263,20 @@ export async function runUnifiedPipeline(env: Env, options?: {
       processor: processEmitSegmentEvents,
       enabled: true,
       optional: true  // Don't block pipeline if PRIVATE_KEY missing
+    },
+
+    // ==================== CREATOR VIDEO DERIVATIVES ====================
+
+    // Step 13: Mint Story Protocol Derivatives
+    {
+      number: 13,
+      name: 'Mint Story Protocol Derivatives',
+      description: 'Mint copyrighted TikTok creator videos as Story IP Assets (18% creator / 82% rights holders)',
+      status: 'clips_cropped',  // Technically independent but runs after segment events
+      nextStatus: 'clips_cropped',  // Doesn't change pipeline status
+      processor: processStoryDerivatives,
+      enabled: false,  // Manual step - requires creator PKP/Lens accounts
+      optional: true   // Don't block pipeline
     }
   ];
 

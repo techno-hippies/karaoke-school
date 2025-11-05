@@ -1,7 +1,10 @@
 # audio-download-service - AI Agent Context
 
 ## Purpose
-Fire-and-forget audio download service for the karaoke pipeline with two-stage fallback strategy: yt-dlp (fast, ~50% success) → Soulseek P2P (slower, ~90% success).
+Fire-and-forget audio/video download service for the karaoke pipeline with three-strategy approach:
+1. **yt-dlp** (fast, ~50% success) - Audio downloads from YouTube
+2. **Soulseek P2P** (slower, ~90% success) - Decentralized audio downloads  
+3. **TikTok video downloads** - Complete videos with thumbnail extraction
 
 **Formerly:** `slsk-service` (renamed to reflect multi-strategy approach)
 
@@ -72,8 +75,42 @@ Fire-and-forget download request. Returns immediately, processes asynchronously.
 }
 ```
 
+### POST /download-tiktok-video
+Download TikTok videos with automatic thumbnail extraction and H.264 conversion for browser compatibility.
+
+**Features:**
+- Downloads TikTok videos using yt-dlp
+- Automatic H.264 video codec conversion
+- Thumbnail extraction from first frame using ffmpeg
+- Uploads both video and thumbnail to Grove IPFS
+- Returns Grove CIDs and URLs for both video and thumbnail
+
+**Request:**
+```json
+{
+  "video_id": "unique-video-identifier",
+  "tiktok_url": "https://www.tiktok.com/@user/video/1234567890",
+  "chain_id": 37111
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "video_id": "unique-video-identifier",
+  "grove_cid": "Qm...",              // Backwards compatibility
+  "grove_url": "https://api.grove.storage/Qm...", // Backwards compatibility
+  "grove_video_cid": "Qm...",         // Video CID
+  "grove_video_url": "https://api.grove.storage/Qm...", // Video URL
+  "grove_thumbnail_cid": "Qm...",     // Thumbnail CID (optional)
+  "grove_thumbnail_url": "https://api.grove.storage/Qm...", // Thumbnail URL (optional)
+  "download_method": "yt-dlp-tiktok"
+}
+```
+
 ### GET /health
-Health check endpoint.
+Health check endpoint with service version and available strategies.
 
 ## Database Integration
 

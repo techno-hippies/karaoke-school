@@ -1,250 +1,201 @@
-# Lit Actions - Karaoke School v1
+# Lit Actions v2 - Organized Structure
 
-## Overview
+This folder contains the **2 lit actions** and supporting systems for the Karaoke School project, reorganized from the messy `lit-actions` folder.
 
-Serverless, IPFS-hosted code that executes on the Lit Protocol network with blockchain-signing capabilities for karaoke performance grading.
+## 📁 Directory Structure
 
-## 🎯 Current Working Implementation
-
-### Karaoke Grader v6 (PerformanceGrader Integration)
-**Status**: ✅ **PRODUCTION READY**
-
-- **File**: `src/karaoke/karaoke-grader-v6-performance-grader.js`
-- **IPFS CID**: `QmYUFYxDmcENmy4M4V89fJVCP4K6riWqMXXozXgmEMFSK1`
-- **Contract**: PerformanceGrader @ `0xbc831cfc35C543892B14cDe6E40ED9026eF32678` (Lens Testnet)
-- **PKP**: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
-- **Test**: `src/test/test-karaoke-grader-v6.mjs`
-
-**Features**:
-- ✅ Voxstral STT transcription
-- ✅ Pronunciation scoring
-- ✅ 16-field zkSync signature pattern (Lens testnet compatible)
-- ✅ PKP-signed transactions to PerformanceGrader
-- ✅ Event emission for leaderboard indexing
-- ✅ Test mode for rapid development
-
-**Last Tested**: 2025-11-03 (TX: `0xaa207cc9cf2fff1dde3fbf4faa71031f97447965a606e65da8bd74f3c63da56d`)
-
----
+```
+lit-actions-v2/
+├── study/              # 2 lit actions (both study-focused)
+│   ├── sat-it-back-v1.js   # Main karaoke grader (PerformanceGrader v6)
+│   └── study-scorer-v1.js  # FSRS-based study scorer
+├── scripts/            # Utility scripts for IPFS/PKPs management
+│   ├── upload-lit-action.mjs    # Upload lit actions to IPFS via Pinata
+│   ├── mint-pkp.ts             # Mint PKP on Lit Protocol
+│   ├── add-pkp-permission.mjs  # Add permissions to PKP
+│   ├── get-pkp-pubkey.mjs      # Get PKP public key
+│   ├── setup-test-credits.sh   # Setup test credits
+│   ├── test-structured-output.sh # Test structured output
+│   ├── deploy-lit-action.sh     # Deploy lit action (upload + permissions)
+│   └── README-TEST-SETUP.md     # Test setup documentation
+├── config/             # Configuration files
+│   └── contracts.config.js      # Contract addresses & network config
+├── systems/            # Shared systems & algorithms
+│   └── fsrs/                  # FSRS-4.5 spaced repetition system
+│       ├── algorithm.js        # Core FSRS algorithm
+│       ├── scoring.js          # Pronunciation scoring (Levenshtein)
+│       └── constants.js        # FSRS constants & parameters
+├── keys/               # API keys & secrets
+│   ├── voxtral_api_key.json       # Voxtral STT API key
+│   ├── voxtral_api_key_v4.json    # Voxtral API key v4
+│   ├── db_endpoint_url.json        # Database endpoint
+│   ├── db_auth_token.json          # Database auth token
+│   ├── contract_address.json       # Contract addresses
+│   └── clip_registry_address.json  # Clip registry address
+├── tests/              # Future test files
+└── karaoke/            # Empty (reserved for future use)
+```
 
 ## 🚀 Quick Start
 
-### 1. Test the Working Implementation
+### Deploy a Lit Action
 
-```bash
-# Run the v6 test
-bun run src/test/test-karaoke-grader-v6.mjs
-```
+1. **Upload to IPFS**:
+   ```bash
+   node scripts/upload-lit-action.mjs study/sat-it-back-v1.js "Sat It Back v1"
+   ```
 
-Expected output:
-```
-✅ ALL TESTS PASSED! 🎉
-🎯 v6 Features Verified:
-   ✅ Voxstral STT transcription working
-   ✅ Score calculation working
-   ✅ PerformanceGrader submission working
-   ✅ PKP signing successful
-   ✅ 16-field zkSync signature pattern working
-```
+2. **Add PKP Permissions** (if needed):
+   ```bash
+   node scripts/add-pkp-permission.mjs <IPFS_CID>
+   ```
 
-### 2. Mint a New PKP (if needed)
+3. **Deploy Complete** (upload + permissions + config):
+   ```bash
+   ./scripts/deploy-lit-action.sh study/sat-it-back-v1.js "Sat It Back v1" VITE_LIT_ACTION_SAT_IT_BACK
+   ```
+
+### Mint a New PKP
 
 ```bash
 bun run scripts/mint-pkp.ts
 ```
 
-This creates:
-- New PKP with your wallet as owner
-- Saves to `output/pkp-credentials.json`
-- Adds initial permission for placeholder IPFS CID
+This will:
+- Mint a new PKP on Chronicle Yellowstone testnet
+- Add signing permissions
+- Save credentials to `output/pkp-credentials.json`
+- Update `.env` with `PKP_ADDRESS`
 
-### 3. Upload Lit Action to IPFS
+## 📋 Lit Actions
 
-```bash
-node scripts/upload-lit-action.mjs src/karaoke/karaoke-grader-v6-performance-grader.js "Karaoke Grader v6"
-```
+### 1. `study/sat-it-back-v1.js` - Main Karaoke Grader
 
-Returns new IPFS CID.
+**Purpose**: PerformanceGrader v6 integration for karaoke learning
+- Transcribes user audio via Voxstral STT
+- Calculates pronunciation scores
+- Submits scores to PerformanceGrader contract
+- Emits PerformanceGraded events for leaderboard
 
-### 4. Add Permission to PKP
+**Network**: Lens Testnet (Chain ID: 37111)
+**Contract**: 0xab92c2708d44fab58c3c12aaa574700e80033b7d
+**PKP**: 0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30
 
-```bash
-bun run scripts/add-pkp-permission.mjs <IPFS_CID>
-```
+### 2. `study/study-scorer-v1.js` - FSRS Study Scorer
 
-### 5. Update Contract Trusted PKP
+**Purpose**: Spaced repetition learning with FSRS-4.5
+- Transcribes user audio via Voxstral STT
+- Calculates pronunciation scores (Levenshtein distance)
+- Runs FSRS-4.5 algorithm for spaced repetition
+- Writes card states to FSRSTrackerV1 contract
 
-```bash
-cd ../contracts
-bun run set-trusted-pkp.ts <PKP_ADDRESS>
-```
+**Network**: Base Sepolia (legacy) / Lens Testnet
+**Features**: Full FSRS implementation with pronunciation scoring
 
----
+## 🔧 Utility Scripts
 
-## 📁 Project Structure
+### IPFS/Pinata Management
+- `upload-lit-action.mjs` - Upload lit action to IPFS via Pinata
+- `deploy-lit-action.sh` - Complete deployment workflow
 
-```
-lit-actions/
-├── src/
-│   ├── karaoke/
-│   │   ├── karaoke-grader-v6-performance-grader.js  # ✅ WORKING
-│   │   ├── fsrs/                                    # FSRS algorithm (future use)
-│   │   └── archive/                                 # Old versions (reference)
-│   ├── stt/                                          # STT utilities (if needed)
-│   └── test/
-│       ├── test-karaoke-grader-v6.mjs               # ✅ WORKING TEST
-│       ├── test-direct-grading.mjs                   # Direct grading test
-│       └── archive/                                  # Old tests (reference)
-├── scripts/
-│   ├── mint-pkp.ts                                   # Mint new PKP
-│   ├── add-pkp-permission.mjs                        # Add IPFS CID permission
-│   ├── upload-lit-action.mjs                         # Upload to IPFS
-│   └── get-pkp-pubkey.mjs                            # Retrieve PKP public key
-├── output/
-│   └── pkp-credentials.json                          # Current PKP data
-├── .env                                              # Private keys (raw, not encrypted)
-├── README.md                                         # This file
-└── AGENTS.md                                         # Comprehensive guide
+### PKP Management
+- `mint-pkp.ts` - Mint new PKP with permissions
+- `add-pkp-permission.mjs` - Add permitted actions to existing PKP
+- `get-pkp-pubkey.mjs` - Get PKP public key information
 
-```
+### Testing & Setup
+- `setup-test-credits.sh` - Setup test credits for development
+- `test-structured-output.sh` - Test lit action structured output
+- `README-TEST-SETUP.md` - Comprehensive test setup guide
 
----
+## ⚙️ Configuration
 
-## 🔐 Environment Setup
+### Contract Configuration (`config/contracts.config.js`)
+Contains deployed contract addresses for:
+- **Performance Grading**: PerformanceGrader, Scoreboard
+- **Event Emission**: SegmentEvents, SongEvents, AccountEvents
+- **Network Config**: RPC endpoints, chain IDs
 
-The `.env` file now uses **raw private keys** (not dotenvx encrypted):
+### API Keys (`keys/`)
+Contains encrypted API keys for:
+- **Voxstral STT**: Audio transcription
+- **Database**: Endpoint and authentication
+- **Contracts**: Deployment addresses
 
-```bash
-# .env
-PRIVATE_KEY="0x..."              # Your wallet private key
-PINATA_JWT="encrypted:..."       # Pinata API key (still encrypted)
-VOXTRAL_API_KEY="encrypted:..."  # Voxtral API key (still encrypted)
-PKP_ADDRESS="0x7d8003..."        # Current PKP address
-```
+## 🧠 FSRS System (`systems/fsrs/`)
 
-No need for `DOTENV_PRIVATE_KEY` prefix anymore.
+### Core Components
+- `algorithm.js` - Complete FSRS-4.5 algorithm implementation
+- `scoring.js` - Pronunciation scoring using Levenshtein distance
+- `constants.js` - FSRS parameters and learning steps
 
----
+### Features
+- Spaced repetition scheduling
+- Memory decay modeling
+- Difficulty adjustment
+- Pronunciation similarity scoring
+- Card state management
 
-## 🛠️ Development Workflow
+## 🔐 Security & Credentials
 
-### Testing a Lit Action
+### PKP Management
+- PKP credentials are managed via `scripts/mint-pkp.ts`
+- Permissions are added via `scripts/add-pkp-permission.mjs`
+- All PKP operations use Chronicle Yellowstone testnet
 
-1. Write your Lit Action in `src/karaoke/`
-2. Create test file in `src/test/`
-3. Run test: `bun run src/test/test-YOUR-ACTION.mjs`
-4. Upload to IPFS when ready
-5. Add PKP permission
-6. Update contract if needed
+### API Keys
+- All API keys are stored in `keys/` directory
+- Keys are loaded at runtime in lit actions
+- No hardcoded credentials in lit action code
 
-### Pattern to Follow
+## 🌐 Networks
 
-Use `karaoke-grader-v6-performance-grader.js` as template:
-- ✅ 16-field zkSync signature for Lens
-- ✅ PKP public key configuration
-- ✅ Test mode support
-- ✅ Error handling with `runOnce`
-- ✅ Response format for tests
+### Primary: Lens Testnet
+- **Chain ID**: 37111
+- **RPC**: https://rpc.testnet.lens.xyz
+- **Explorer**: https://block-explorer.testnet.lens.xyz
+- **Purpose**: Production karaoke features
 
-### Critical: 16-Field zkSync Signature Pattern
+### Secondary: Chronicle Yellowstone
+- **Chain ID**: 175188  
+- **RPC**: https://yellowstone-rpc.litprotocol.com
+- **Explorer**: https://yellowstone-explorer.litprotocol.com
+- **Purpose**: PKP minting and management
 
-**Required for Lens testnet transactions:**
+## 🔄 Migration History
 
-```javascript
-const signedFields = [
-  toBeArray(nonce),                     // 0. nonce
-  toBeArray(maxPriorityFeePerGas),      // 1. maxPriorityFeePerGas
-  toBeArray(gasPrice),                  // 2. maxFeePerGas
-  toBeArray(gasLimit),                  // 3. gasLimit
-  to || '0x',                           // 4. to
-  toBeArray(0),                         // 5. value
-  txData || '0x',                       // 6. data
-  toBeArray(yParity),                   // 7. yParity (0 or 1)
-  ethers.utils.arrayify(r),             // 8. r
-  ethers.utils.arrayify(s),             // 9. s
-  toBeArray(CHAIN_ID),                  // 10. chainId
-  from,                                 // 11. from
-  toBeArray(gasPerPubdataByteLimit),    // 12. gasPerPubdata
-  [],                                   // 13. factoryDeps
-  '0x',                                 // 14. customSignature
-  []                                    // 15. paymasterParams
-];
+This organized structure was created from the messy `lit-actions` folder:
 
-const signedTxSerialized = '0x71' + ethers.utils.RLP.encode(signedFields).slice(2);
-```
+### ✅ What was moved:
+- **2 lit actions**: From archive → study/ directory
+- **Utility scripts**: From scripts/ → scripts/ (cleaned up examples)
+- **Configuration**: From src/karaoke/ → config/
+- **FSRS system**: From src/karaoke/fsrs/ → systems/fsrs/
+- **API keys**: From src/stt/keys/ → keys/
 
-**Key points**:
-- Type prefix: `0x71` (113)
-- Use `yParity` (0/1) not `v` (27/28)
-- All numbers must be minimal big-endian bytes via `toBeArray()`
-- EIP-712 domain separator + struct hash for signing
+### ❌ What was left behind (for archiving):
+- **Old versions**: All files in `src/karaoke/archive/` 
+- **Test experiments**: Various test files
+- **Deprecated contracts**: Old Base Sepolia contracts
 
----
+## 🚦 Development Workflow
 
-## 🔍 Debugging
+1. **Initialize**: Run `bun run scripts/mint-pkp.ts` to setup PKP
+2. **Develop**: Create/edit lit actions in `study/` directory
+3. **Test**: Use `scripts/upload-lit-action.mjs` for quick testing
+4. **Deploy**: Use `scripts/deploy-lit-action.sh` for production
+5. **Monitor**: Check contract events on Lens testnet explorer
 
-### Common Issues
+## 📞 Support
 
-**1. "NodeAuthSigScopeTooLimited"**
-- PKP doesn't have permission for this IPFS CID
-- Fix: Run `bun run scripts/add-pkp-permission.mjs <CID>`
-
-**2. "NotTrustedPKP" error**
-- Contract's trustedPKP doesn't match your PKP
-- Fix: Run `bun run set-trusted-pkp.ts <YOUR_PKP_ADDRESS>` in contracts/
-
-**3. "Insufficient funds"**
-- PKP needs gas on Lens testnet
-- Fix: `cast send <PKP_ADDRESS> --value 0.01ether --rpc-url https://rpc.testnet.lens.xyz --private-key $PRIVATE_KEY`
-
-**4. Transaction fails silently**
-- Check block explorer: https://explorer.testnet.lens.xyz
-- Verify contract address and function signature
-- Check PKP has funds
-
-### Verification Commands
-
-```bash
-# Check PKP balance
-cast balance <PKP_ADDRESS> --rpc-url https://rpc.testnet.lens.xyz
-
-# Check contract trustedPKP
-cast call 0xbc831cfc35C543892B14cDe6E40ED9026eF32678 "trustedPKP()" --rpc-url https://rpc.testnet.lens.xyz
-
-# Check recent events
-cast logs --rpc-url https://rpc.testnet.lens.xyz --address 0xbc831cfc35C543892B14cDe6E40ED9026eF32678 --from-block latest
-
-# Verify transaction
-cast receipt <TX_HASH> --rpc-url https://rpc.testnet.lens.xyz
-```
+For issues with:
+- **PKP minting**: Check Chronicle Yellowstone faucet and testnet tokens
+- **IPFS uploads**: Verify Pinata JWT in environment
+- **Contract calls**: Check network configuration in `config/contracts.config.js`
+- **Audio transcription**: Verify Voxstral API keys in `keys/` directory
 
 ---
 
-## 📚 Documentation
+**Status**: ✅ **Organized & Ready for Development**
 
-- **AGENTS.md**: Comprehensive guide to all Lit Actions
-- **PERFORMANCE-GRADER-INTEGRATION.md**: PerformanceGrader integration details
-- **src/karaoke/archive/**: Reference implementations (karaoke-scorer-v4, etc.)
-
----
-
-## 🎯 Next Steps
-
-1. **Implement Full Audio Grading**: Remove test mode, use real Voxstral transcription
-2. **Add FSRS Algorithm**: Integrate spaced repetition from `fsrs/` directory
-3. **Deploy to Production**: Update to mainnet contracts when ready
-4. **Subgraph Integration**: Index PerformanceGraded events for leaderboards
-
----
-
-## 🚨 Security Notes
-
-- **Never commit private keys to git**
-- PKP credentials in `output/` are safe to commit (just addresses/IDs)
-- Encrypted API keys (PINATA_JWT, VOXTRAL_API_KEY) are safe to commit
-- Raw PRIVATE_KEY in `.env` must be gitignored
-
----
-
-**Last Updated**: 2025-11-03
-**Status**: Production Ready ✅
+This structure provides a clean, maintainable codebase with 2 production-ready lit actions and comprehensive utility systems for IPFS/PKP management.

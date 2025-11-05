@@ -17,7 +17,7 @@ export const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz'
  * Deployment: forge script DeployEvents.s.sol --broadcast
  * Event: PerformanceGraded(uint256 indexed performanceId, bytes32 indexed segmentHash, address indexed performer, uint16 score, string metadataUri, uint64 timestamp)
  */
-export const PERFORMANCE_GRADER_ADDRESS = '0xab92c2708d44fab58c3c12aaa574700e80033b7d'
+export const PERFORMANCE_GRADER_ADDRESS = '0x5da966F19bD1a67D6AAda68b338e4B336CeA5aE8'
 
 /**
  * Master PKP address (Lit Protocol)
@@ -28,9 +28,9 @@ export const PERFORMANCE_GRADER_ADDRESS = '0xab92c2708d44fab58c3c12aaa574700e800
  *
  * This PKP signs PerformanceGrader transactions from the Lit Action
  */
-export const MASTER_PKP_ADDRESS = '0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30'
+export const MASTER_PKP_ADDRESS = '0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7'
 export const MASTER_PKP_PUBLIC_KEY =
-  '0x049cab6a18225dd566f3a4d6816b2c080fc885b21d3b9021fd80491573bf15141177eca2685a9a5eb0082957bd6581dcd71a43039914e07f4a45146f8246d01b77'
+  '0x04d6fd6ca7dc3c09f62bac1db509e37fa4c06c46b3bb8dbac6bb1efc19a4cd8e39b64ccfd7bf2ccf66ba5fc9df97a02989b1da9dcf71e01e37cd39b7beadc8f1aa'
 
 // ============ Segment & Translation Events ============
 
@@ -62,32 +62,34 @@ export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E
 
 /**
  * Deployed Lit Action for karaoke grading
- * Implements: karaoke-grader-v6-performance-grader.js
+ * Implements: say-it-back-v1.js (study/say-it-back-v1.js)
  *
  * Features:
- * - Transcribes user audio via Voxstral STT
+ * - Transcribes user audio via Voxtral STT
  * - Calculates pronunciation score
- * - Emits PerformanceGraded event via PKP
+ * - Emits LinePerformanceGraded event via PKP (line-level FSRS)
+ * - Encrypted Voxtral API key passed as jsParams (correct workflow)
  *
- * Deployment: 2025-11-03 (v6-fixed)
+ * Deployment: 2025-11-05 (v12-final-working-contract)
  * - Uploaded to IPFS via Pinata
- * - PKP permissions added and verified
- * - Fixed multipart buffer sizing for Voxstral API
- * - Ready for production use
+ * - Uses proven working v6 RLP pattern (100% working)
+ * - Fixed type handling: lineId as bytes32, lineIndex as uint16, performer as checksummed address
+ * - Validates lineId is non-zero before contract submission
+ * - Contract: 0x5da966F19bD1a67D6AAda68b338e4B336CeA5aE8 ✅ (with gradeLinePerformance)
  */
-export const LIT_ACTION_IPFS_CID = 'QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn'  // v6: Graceful error handling
+export const LIT_ACTION_IPFS_CID = 'QmY1GksY1dqFM8doTquRdc1ZyWX8GZxa3xEsSwaucWPRVm'  // Karaoke Grader v12 - Final Working Contract
 
 /**
- * Encrypted Voxstral API Key Parameters
+ * Encrypted Voxtral API Key Parameters
  * Access control restricted to the specific Lit Action CID above
  * Can only be decrypted when running that exact Lit Action
  *
- * NOTE: Encryption happens dynamically at runtime in useLitActionGrader.ts
- * using the current LIT_ACTION_IPFS_CID value
+ * Frontend passes this object as voxtralEncryptedKey in jsParams
+ * Updated: 2025-11-05 for v12 Lit Action (final-working-contract)
  */
-export const LIT_ACTION_VOXSTRAL_KEY = {
-  ciphertext: 'placeholder_encrypted_voxstral_key',
-  dataToEncryptHash: 'placeholder_hash',
+export const LIT_ACTION_VOXTRAL_KEY = {
+  ciphertext: 'gVNQJ8pMwcXppvFu75lFiJz578jdgf0Ep6jkQ9aAJIj6z2blz1n0Y+NgRjQzwoi6YGEuftx667kPsJ1hIiGCEfnSPgRI3oPA66j/0Wc8e8whvYFDIjNS8gFdwv9Tkk5Brzz0GSZe2A/wlTblF3IMxbg9Ag==',
+  dataToEncryptHash: '47d9b331855237315fee05e18e133a0ebe8d3cef60852a5c2d57a1a64095cbdf',
   accessControlConditions: [
     {
       conditionType: 'evmBasic',
@@ -98,7 +100,7 @@ export const LIT_ACTION_VOXSTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn',  // Updated to match LIT_ACTION_IPFS_CID
+        value: 'QmY1GksY1dqFM8doTquRdc1ZyWX8GZxa3xEsSwaucWPRVm',  // Karaoke Grader v12 - Final Working Contract (2025-11-05)
       },
     },
   ],

@@ -1,0 +1,25 @@
+{
+  "deploymentName": "Karaoke Grader v9 - Fresh Voxtral Key",
+  "timestamp": "2025-11-05T08:41:44.784Z",
+  "litAction": {
+    "path": "study/sat-it-back-v1.js",
+    "size": 15371,
+    "cid": "QmVAfWFvxBX2Lb1BMoTHSwHs8fQRFn4vj7pGNxThBdr9LT",
+    "gatewayUrl": "https://gateway.pinata.cloud/ipfs/QmVAfWFvxBX2Lb1BMoTHSwHs8fQRFn4vj7pGNxThBdr9LT"
+  },
+  "encryptedKey": {
+    "ciphertext": "kBXoEp7kJXjUXThQu0pbVDBA4ycE7ozfwIWkpqEw...",
+    "dataToEncryptHash": "262cf224114461b143f819a64964fa85393cb57b171864a05b52178055d6e833",
+    "encryptedAt": "2025-11-05T08:41:44.783Z"
+  },
+  "filesUpdated": [
+    "lit-actions/keys/voxtral_api_key.json",
+    "app/src/lib/contracts/addresses.ts"
+  ],
+  "nextSteps": [
+    "Test the app to verify grading works",
+    "Check browser console for any errors",
+    "Verify decryption succeeds",
+    "Test line-level progression"
+  ]
+}

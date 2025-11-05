@@ -27,7 +27,7 @@ async function main() {
 
   try {
     // 1. Upload to Grove (simulated)
-    console.log('📦 Would upload to Grove via Irys...');
+    console.log('📦 Would upload to Grove via IPFS...');
     console.log('   Size: 6.54MB');
     console.log('   Format: MP3 (192kbps)');
 
@@ -75,7 +75,7 @@ async function main() {
     console.log('   - Grove: Uploaded (simulated)');
     console.log('   - Database: Updated');
     console.log('\n🎉 Integration working! To test with real Grove upload:');
-    console.log('   1. Set IRYS_API_KEY in .env');
+    console.log('   1. Ensure Grove API is accessible');
     console.log('   2. Start karaoke-pipeline worker for webhook');
     console.log('   3. Submit job via processor');
 

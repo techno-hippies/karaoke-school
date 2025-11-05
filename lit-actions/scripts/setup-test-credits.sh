@@ -82,5 +82,5 @@ cast send $CREDITS_CONTRACT \
 
 echo -e "${GREEN}✓${NC} Segment unlocked!"
 echo ""
-echo "✅ Setup complete! You can now run:"
-echo "   bun run src/test/test-audio-processor.mjs"
+echo "✅ Setup complete! You can now deploy and test your lit actions:"
+echo "   bun run scripts/upload-lit-action.mjs study/sat-it-back-v1.js 'Sat It Back v1'"

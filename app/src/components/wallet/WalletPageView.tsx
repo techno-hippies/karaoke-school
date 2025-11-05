@@ -38,13 +38,25 @@ function TokenIcon({
       {/* Chain indicator in top right */}
       {chainIcon && (
         <div className="absolute -top-2 -right-2 w-8 h-8 flex items-center justify-center">
-          <img 
-            src={`/images/${chainIcon}`} 
+          <img
+            src={`/images/${chainIcon}`}
             alt="Chain"
             className="w-full h-full object-contain"
             style={{
-              width: chainIcon === 'base-chain.svg' ? '75%' : '100%',
-              height: chainIcon === 'base-chain.svg' ? '75%' : '100%',
+              width: chainIcon === 'base-chain.svg' ? '75%' :
+                     chainIcon === 'ethereum-chain.svg' ? '65%' :
+                     chainIcon === 'arbitrum-chain.svg' ? '75%' :
+                     chainIcon === 'optimism-chain.svg' ? '70%' :
+                     chainIcon === 'bsc-chain.svg' ? '100%' :
+                     chainIcon === 'polygon-chain.svg' ? '100%' :
+                     '100%',
+              height: chainIcon === 'base-chain.svg' ? '75%' :
+                      chainIcon === 'ethereum-chain.svg' ? '65%' :
+                      chainIcon === 'arbitrum-chain.svg' ? '75%' :
+                      chainIcon === 'optimism-chain.svg' ? '70%' :
+                      chainIcon === 'bsc-chain.svg' ? '100%' :
+                      chainIcon === 'polygon-chain.svg' ? '100%' :
+                      '100%',
               objectFit: 'contain',
               objectPosition: 'center',
               flexShrink: 0
@@ -99,7 +111,7 @@ export function WalletPageView({
   }, {} as Record<string, TokenBalance[]>)
 
   // Order networks logically
-  const networkOrder = ['Tron', 'Base', 'Polygon', 'BSC']
+  const networkOrder = ['Base', 'Binance Smart Chain', 'Ethereum', 'Polygon']
   const sortedNetworks = Object.keys(tokensByNetwork).sort((a, b) => {
     const aIndex = networkOrder.indexOf(a)
     const bIndex = networkOrder.indexOf(b)

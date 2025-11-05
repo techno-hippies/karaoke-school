@@ -17,6 +17,7 @@ export interface KaraokeWord {
 
 export interface VideoPostData {
   id: string
+  tiktokVideoId?: string // TikTok video ID for querying STT transcriptions
   videoUrl?: string
   thumbnailUrl?: string
   username: string
@@ -28,8 +29,9 @@ export interface VideoPostData {
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
-  geniusId?: number // Genius song ID for linking to /song/{geniusId}
-  spotifyTrackId?: string // Spotify track ID for linking to /song/{spotifyTrackId}
+  geniusId?: number // Genius song ID (deprecated)
+  spotifyTrackId?: string // Spotify track ID (deprecated)
+  grc20WorkId?: string // GRC-20 work ID for linking to /song/{grc20WorkId}
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number
@@ -56,6 +58,7 @@ export interface VideoPlayerProps {
   forceAutoplay?: boolean // Hide thumbnail on first render for video navigation (prevents flash)
   captionTracks?: CaptionTrack[] // WebVTT caption tracks
   className?: string
+  priorityLoad?: boolean // If true, load immediately without debounce (for first/priority videos)
 }
 
 export interface CaptionTrack {

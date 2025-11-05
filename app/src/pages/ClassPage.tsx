@@ -26,13 +26,16 @@ export function ClassPage() {
   const songId = searchParams.get('song') // Optional: filter to specific song
 
   // Load study cards for this song
-  const { data: dueCards = [], isLoading, error } = useStudyCards(songId || undefined)
+  const studyCardsQuery = useStudyCards(songId || undefined)
+  const { data, isLoading, error } = studyCardsQuery
+  const dueCards = data?.cards || []
+  const studyStats = data?.stats
 
   // Calculate statistics from due cards
   const stats = {
-    new: dueCards.filter(c => c.fsrs.state === 0).length,
-    learning: dueCards.filter(c => c.fsrs.state === 1).length,
-    review: dueCards.filter(c => c.fsrs.state === 2).length,
+    new: studyStats?.new || 0,
+    learning: studyStats?.learning || 0,
+    review: studyStats?.review || 0,
     due: dueCards.length,
   }
 
@@ -135,9 +138,9 @@ export function ClassPage() {
                     {idx + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{card.originalText}</p>
+                    <p className="text-sm font-medium truncate">Line {card.lineIndex + 1}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {card.fsrs?.state || 'New'} • {card.fsrs?.due ? 'Due now' : 'Review'}
+                      {['New', 'Learning', 'Review', 'Relearning'][card.fsrs.state]} • Due now
                     </p>
                   </div>
                 </Card>

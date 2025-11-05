@@ -35,7 +35,7 @@ async function downloadImage(imageUrl: string): Promise<Buffer> {
 }
 
 /**
- * Upload image to Grove (IPFS via Irys)
+ * Upload image to Grove (IPFS)
  * No AI processing - direct upload
  */
 async function uploadImageToGrove(

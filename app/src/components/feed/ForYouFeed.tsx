@@ -1,5 +1,5 @@
 import { usePosts, evmAddress } from '@lens-protocol/react'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { LENS_APP_ADDRESS } from '@/lib/lens/config'
 import { transformLensPostsToVideoData } from '@/lib/lens/transformers'
 import { batchCheckLikedPosts } from '@/lib/lens/reactions'
@@ -44,10 +44,31 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     return (postsData?.items ?? []).filter((post): post is Post => 'metadata' in post)
   }, [postsData?.items])
 
-  // Batch check liked status when authenticated and posts load
+  // Track post IDs to detect when posts actually change (not just reference)
+  const previousPostIds = useRef<Set<string>>(new Set())
+  const postsHaveChanged = useMemo(() => {
+    const currentPostIds = new Set(posts.map(post => post.id))
+    
+    // Check if any posts were added, removed, or changed
+    if (currentPostIds.size !== previousPostIds.current.size) {
+      return true
+    }
+    
+    for (const id of currentPostIds) {
+      if (!previousPostIds.current.has(id)) {
+        return true
+      }
+    }
+    
+    return false
+  }, [posts.map(post => post.id).sort().join(',')])
+
+  // Batch check liked status when authenticated and posts actually change
   useEffect(() => {
-    if (!isAuthenticated || !lensAccount?.address || !posts.length) {
-      setLikedPostsMap(new Map())
+    if (!isAuthenticated || !lensAccount?.address || !posts.length || !postsHaveChanged) {
+      if (!posts.length) {
+        setLikedPostsMap(new Map())
+      }
       return
     }
 
@@ -59,6 +80,9 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         )
         const likedMap = await batchCheckLikedPosts(lensSession, videoPosts, lensAccount.address)
         setLikedPostsMap(likedMap)
+        
+        // Update previous post IDs after successful check
+        previousPostIds.current = new Set(posts.map(post => post.id))
       } catch (error) {
         console.error('[ForYouFeed] Error checking liked posts:', error)
       } finally {
@@ -67,7 +91,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     }
 
     checkLikedPosts()
-  }, [lensSession, lensAccount?.address, posts, isAuthenticated])
+  }, [lensSession, lensAccount?.address, postsHaveChanged, isAuthenticated])
 
   // Transform Lens posts to VideoPostData using shared utility (memoized)
   const videoPosts = useMemo(() => {

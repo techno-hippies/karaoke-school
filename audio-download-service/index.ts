@@ -131,8 +131,9 @@ async function downloadWithYtDlp(
 async function downloadTikTokVideo(
   video_id: string,
   tiktok_url: string
-): Promise<{ path: string; method: 'yt-dlp-tiktok' } | null> {
+): Promise<{ videoPath: string; thumbnailPath: string; method: 'yt-dlp-tiktok' } | null> {
   const outputPath = path.join(DOWNLOADS_DIR, `tiktok-${video_id}.mp4`);
+  const thumbnailPath = path.join(DOWNLOADS_DIR, `tiktok-${video_id}-thumbnail.jpg`);
 
   try {
     console.log(`  📥 Downloading TikTok video with yt-dlp...`);
@@ -143,23 +144,91 @@ async function downloadTikTokVideo(
 
     await execAsync(cmd, { timeout: 90000 }); // 90s timeout for video
 
-    if (existsSync(outputPath)) {
-      const stats = await Bun.file(outputPath).stat();
-      if (stats.size > 100000) { // At least 100KB
-        console.log(`  ✅ Downloaded TikTok video (${(stats.size / 1024 / 1024).toFixed(1)}MB)`);
-        return { path: outputPath, method: 'yt-dlp-tiktok' };
-      }
+    if (!existsSync(outputPath)) {
+      console.log(`  ⚠️  TikTok download failed or file too small`);
+      return null;
     }
 
-    console.log(`  ⚠️  TikTok download failed or file too small`);
-    return null;
+    const stats = await Bun.file(outputPath).stat();
+    if (stats.size < 100000) { // At least 100KB
+      console.log(`  ⚠️  Downloaded file too small`);
+      await unlink(outputPath);
+      return null;
+    }
+
+    console.log(`  ✅ Downloaded TikTok video (${(stats.size / 1024 / 1024).toFixed(1)}MB)`);
+
+    // Convert to H.264 for Chrome compatibility
+    console.log(`  🔄 Converting to H.264 for browser compatibility...`);
+    const tempVideoPath = path.join(DOWNLOADS_DIR, `tiktok-${video_id}-h264.mp4`);
+
+    try {
+      // Check current codec
+      const { stdout: codecCheck } = await execAsync(
+        `ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "${outputPath}"`,
+        { timeout: 30000 }
+      );
+      const currentCodec = codecCheck.trim();
+      console.log(`     Current codec: ${currentCodec}`);
+
+      if (currentCodec !== 'h264') {
+        console.log(`     Converting ${currentCodec} → H.264...`);
+        // Convert to H.264 with web-optimized settings
+        await execAsync(
+          `ffmpeg -i "${outputPath}" -c:v libx264 -crf 23 -preset medium -profile:v high -c:a aac -b:a 128k -movflags +faststart -y "${tempVideoPath}"`,
+          { timeout: 180000 } // 3min timeout
+        );
+
+        // Replace original with converted
+        await unlink(outputPath);
+        await execAsync(`mv "${tempVideoPath}" "${outputPath}"`);
+        console.log(`     ✅ Converted to H.264`);
+      } else {
+        console.log(`     ✅ Already H.264, no conversion needed`);
+      }
+    } catch (error: any) {
+      console.log(`     ⚠️  Codec detection failed, encoding anyway to be safe`);
+      // If codec check fails, convert anyway to ensure H.264
+      await execAsync(
+        `ffmpeg -i "${outputPath}" -c:v libx264 -crf 23 -preset medium -profile:v high -c:a aac -b:a 128k -movflags +faststart -y "${tempVideoPath}"`,
+        { timeout: 180000 }
+      );
+      await unlink(outputPath);
+      await execAsync(`mv "${tempVideoPath}" "${outputPath}"`);
+      console.log(`     ✅ Converted to H.264`);
+    }
+
+    // Extract thumbnail from first frame
+    console.log(`  🖼️  Extracting thumbnail from video...`);
+    await execAsync(
+      `ffmpeg -i "${outputPath}" -vf "select=eq(n\\,0)" -vframes 1 -q:v 2 -y "${thumbnailPath}"`,
+      { timeout: 30000 }
+    );
+
+    if (existsSync(thumbnailPath)) {
+      const thumbStats = await Bun.file(thumbnailPath).stat();
+      console.log(`     ✅ Thumbnail extracted (${(thumbStats.size / 1024).toFixed(1)}KB)`);
+    } else {
+      console.log(`     ⚠️  Thumbnail extraction failed, continuing without it`);
+    }
+
+    return {
+      videoPath: outputPath,
+      thumbnailPath: existsSync(thumbnailPath) ? thumbnailPath : '',
+      method: 'yt-dlp-tiktok'
+    };
   } catch (error: any) {
     console.log(`  ⚠️  yt-dlp TikTok download failed: ${error.message}`);
 
-    // Cleanup partial download
+    // Cleanup partial downloads
     if (existsSync(outputPath)) {
       try {
         await unlink(outputPath);
+      } catch {}
+    }
+    if (existsSync(thumbnailPath)) {
+      try {
+        await unlink(thumbnailPath);
       } catch {}
     }
 
@@ -458,18 +527,34 @@ async function verifyDownload(
 async function uploadToGrove(
   filePath: string,
   spotify_track_id: string,
-  chain_id: number
+  chain_id: number,
+  contentType?: string
 ): Promise<{ cid: string; url: string }> {
   try {
     console.log(`  [grove] Uploading to IPFS...`);
 
     const fileBuffer = await readFile(filePath);
 
+    // Detect content type from file extension if not provided
+    let finalContentType = contentType;
+    if (!finalContentType) {
+      const ext = filePath.split('.').pop()?.toLowerCase();
+      if (ext === 'mp4') {
+        finalContentType = 'video/mp4';
+      } else if (ext === 'jpg' || ext === 'jpeg') {
+        finalContentType = 'image/jpeg';
+      } else if (ext === 'png') {
+        finalContentType = 'image/png';
+      } else {
+        finalContentType = 'audio/mpeg'; // Default
+      }
+    }
+
     // Grove expects: raw binary body with Content-Type header
     const response = await fetch(`https://api.grove.storage/?chain_id=${chain_id}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': finalContentType,
       },
       body: fileBuffer
     });
@@ -515,17 +600,17 @@ serve({
         return Response.json({
           status: "healthy",
           service: "audio-download-service",
-          version: "2.2.0",
+          version: "2.5.0",
           downloads_dir: DOWNLOADS_DIR,
           soulseek_configured: !!(SOULSEEK_ACCOUNT && SOULSEEK_PASSWORD),
           strategies: ["yt-dlp", "soulseek-p2p", "yt-dlp-tiktok"]
         }, { headers });
       }
 
-      // POST /download-tiktok-video
+      // POST /download-tiktok-video (FIRE-AND-FORGET)
       if (url.pathname === "/download-tiktok-video" && req.method === "POST") {
-        const body: { video_id: string; tiktok_url: string; chain_id?: number } = await req.json();
-        const { video_id, tiktok_url, chain_id = CHAIN_ID } = body;
+        const body: { video_id: string; tiktok_url: string; chain_id?: number; neon_database_url?: string } = await req.json();
+        const { video_id, tiktok_url, chain_id = CHAIN_ID, neon_database_url } = body;
 
         if (!video_id || !tiktok_url) {
           return Response.json({
@@ -533,47 +618,99 @@ serve({
           }, { status: 400, headers });
         }
 
-        console.log(`🔄 Downloading TikTok video: ${video_id}`);
+        // Prevent duplicate concurrent downloads
+        if (inflightDownloads.has(video_id)) {
+          console.log(`⏳ Video download already in progress for ${video_id}`);
+          return Response.json({
+            status: "already_processing",
+            workflow_id: video_id
+          }, { headers });
+        }
+
+        console.log(`🔄 Starting TikTok video workflow: ${video_id}`);
         console.log(`   URL: ${tiktok_url}`);
 
-        try {
-          // Step 1: Download TikTok video with yt-dlp
-          const downloadResult = await downloadTikTokVideo(video_id, tiktok_url);
+        // Start workflow asynchronously
+        const workflowPromise = (async () => {
+          try {
+            // Step 1: Download TikTok video with yt-dlp (includes H.264 conversion + thumbnail extraction)
+            const downloadResult = await downloadTikTokVideo(video_id, tiktok_url);
 
-          if (!downloadResult) {
-            throw new Error("Failed to download TikTok video");
+            if (!downloadResult) {
+              throw new Error("Failed to download TikTok video");
+            }
+
+            // Step 2: Upload video to Grove
+            console.log(`  📦 Uploading video to Grove...`);
+            const { cid: grove_video_cid, url: grove_video_url } = await uploadToGrove(
+              downloadResult.videoPath,
+              video_id,
+              chain_id
+            );
+
+            // Step 3: Upload thumbnail to Grove (if available)
+            let grove_thumbnail_cid = null;
+            let grove_thumbnail_url = null;
+
+            if (downloadResult.thumbnailPath) {
+              console.log(`  📦 Uploading thumbnail to Grove...`);
+              try {
+                const thumbnailResult = await uploadToGrove(
+                  downloadResult.thumbnailPath,
+                  `${video_id}-thumbnail`,
+                  chain_id
+                );
+                grove_thumbnail_cid = thumbnailResult.cid;
+                grove_thumbnail_url = thumbnailResult.url;
+                console.log(`     ✅ Thumbnail uploaded: ${grove_thumbnail_cid}`);
+              } catch (thumbError: any) {
+                console.log(`     ⚠️  Thumbnail upload failed: ${thumbError.message}`);
+              }
+            }
+
+            // Step 4: Update database if credentials provided
+            if (neon_database_url) {
+              console.log(`  💾 Updating database...`);
+              const sql = neon(neon_database_url);
+              await sql`
+                UPDATE tiktok_videos
+                SET
+                  grove_video_cid = ${grove_video_cid},
+                  grove_video_url = ${grove_video_url},
+                  grove_thumbnail_cid = ${grove_thumbnail_cid},
+                  grove_thumbnail_url = ${grove_thumbnail_url},
+                  grove_uploaded_at = NOW(),
+                  updated_at = NOW()
+                WHERE video_id = ${video_id}
+              `;
+              console.log(`     ✅ Database updated`);
+            }
+
+            // Step 5: Cleanup temp files
+            await unlink(downloadResult.videoPath);
+            if (downloadResult.thumbnailPath) {
+              try {
+                await unlink(downloadResult.thumbnailPath);
+              } catch {}
+            }
+            console.log(`  ✓ Cleaned up temp files`);
+
+            console.log(`✅ TikTok video workflow complete: ${grove_video_cid}`);
+
+          } catch (error: any) {
+            console.error(`❌ TikTok video workflow failed: ${error.message}`);
+          } finally {
+            inflightDownloads.delete(video_id);
           }
+        })();
 
-          // Step 2: Upload to Grove
-          console.log(`  📦 Uploading to Grove...`);
-          const { cid: grove_cid, url: grove_url } = await uploadToGrove(
-            downloadResult.path,
-            video_id,
-            chain_id
-          );
+        inflightDownloads.set(video_id, workflowPromise);
 
-          // Step 3: Cleanup temp file
-          await unlink(downloadResult.path);
-          console.log(`  ✓ Cleaned up temp file`);
-
-          console.log(`✅ TikTok video uploaded: ${grove_cid}`);
-
-          return Response.json({
-            success: true,
-            video_id,
-            grove_cid,
-            grove_url,
-            download_method: downloadResult.method
-          }, { headers });
-
-        } catch (error: any) {
-          console.error(`❌ TikTok download failed: ${error.message}`);
-          return Response.json({
-            error: "Download failed",
-            message: error.message,
-            video_id
-          }, { status: 500, headers });
-        }
+        // Return immediately (fire-and-forget)
+        return Response.json({
+          status: "processing",
+          workflow_id: video_id
+        }, { headers });
       }
 
       // POST /download-and-store

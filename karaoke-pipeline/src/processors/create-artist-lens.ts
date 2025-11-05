@@ -42,14 +42,14 @@ async function main() {
     name: string;
     pkp_address: string;
     pkp_token_id: string;
-    image_url: string | null;
+    grove_image_url: string | null;
   }>(`
     SELECT
       ga.spotify_artist_id,
       ga.name,
       pkp.pkp_address,
       pkp.pkp_token_id,
-      ga.image_url
+      ga.grove_image_url
     FROM grc20_artists ga
     INNER JOIN pkp_accounts pkp ON ga.spotify_artist_id = pkp.spotify_artist_id
       AND pkp.account_type = 'artist'
@@ -94,7 +94,7 @@ async function main() {
         handle,
         name: artist.name,
         bio: `Official Karaoke School profile for ${artist.name}`,
-        pictureUri: artist.image_url || undefined,
+        pictureUri: artist.grove_image_url || undefined,
         attributes,
       });
 

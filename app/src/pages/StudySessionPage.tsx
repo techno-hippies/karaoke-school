@@ -26,7 +26,10 @@ export function StudySessionPage() {
 
   // Data hooks
   const songId = workId
-  const { data: dueCards = [], isLoading: isLoadingCards } = useStudyCards(songId || undefined)
+  const studyCardsQuery = useStudyCards(songId || undefined)
+  const dueCards = studyCardsQuery.data?.cards || []
+  const stats = studyCardsQuery.data?.stats
+  const isLoadingCards = studyCardsQuery.isLoading
 
   const currentCard = dueCards[currentCardIndex]
   const { data: segmentMetadata, isLoading: isLoadingMetadata } = useSegmentMetadata(
@@ -66,29 +69,35 @@ export function StudySessionPage() {
   const audioRecorder = useAudioRecorder()
   const { grade } = useLitActionGrader()
 
-  // Extract exercise text - FIRST LINE ONLY
+  // Extract exercise text - Use current card's lineIndex
   // Must be computed before callbacks that reference it
   let exerciseText = 'Loading...'
   let isLoadingText = isLoadingAlignment || isLoadingTranslation
 
-  if (translationData?.lines?.[0]?.originalText) {
+  // Get line index from current card (defaults to 0 for segment-level cards)
+  const lineIndex = currentCard?.lineIndex ?? 0
+
+  if (translationData?.lines?.[lineIndex]?.originalText) {
     // Use the complete originalText from the translation (this is the full line)
-    exerciseText = translationData.lines[0].originalText
-    console.log('[StudySession] Using originalText from translation:', exerciseText)
-  } else if (translationData?.lines?.[0]?.text) {
+    exerciseText = translationData.lines[lineIndex].originalText
+    console.log(`[StudySession] Using originalText from translation line ${lineIndex}:`, exerciseText)
+  } else if (translationData?.lines?.[lineIndex]?.text) {
     // Fallback: some translations may have 'text' field instead
-    exerciseText = translationData.lines[0].text
+    exerciseText = translationData.lines[lineIndex].text
   } else if (alignmentData?.words && Array.isArray(alignmentData.words)) {
-    // Fallback: reconstruct from alignment words (first 6 words as default)
-    const firstLineWords = alignmentData.words.slice(0, 6)
-    exerciseText = firstLineWords
+    // Fallback: reconstruct from alignment words (estimate based on lineIndex)
+    const wordsPerLine = 6
+    const startWord = lineIndex * wordsPerLine
+    const endWord = startWord + wordsPerLine
+    const lineWords = alignmentData.words.slice(startWord, endWord)
+    exerciseText = lineWords
       .map((w: any) => w.text || w.word)
       .join(' ')
-  } else if (segmentMetadata?.lyrics?.original?.lines && segmentMetadata.lyrics.original.lines.length > 0) {
+  } else if (segmentMetadata?.lyrics?.original?.lines && segmentMetadata.lyrics.original.lines.length > lineIndex) {
     // Old format fallback
-    const firstLine = segmentMetadata.lyrics.original.lines[0]
-    if (firstLine?.words) {
-      exerciseText = firstLine.words
+    const currentLine = segmentMetadata.lyrics.original.lines[lineIndex]
+    if (currentLine?.words) {
+      exerciseText = currentLine.words
         .map((w: any) => w.word)
         .join(' ')
     }
@@ -145,12 +154,15 @@ export function StudySessionPage() {
 
       // Step 2: Call Lit Action to grade performance with base64 audio data
       console.log('[StudySession] Calling Lit Action grader...')
+      console.log('[StudySession] Current card lineId:', currentCard.lineId, 'lineIndex:', currentCard.lineIndex)
       const gradingResult = await grade(
         recordingData.base64,  // Pass base64-encoded audio data
         segmentMetadata.assets.instrumental,
         exerciseText,
         currentCard.segmentHash,
-        recordingData.groveUri  // Optional: Grove URI for metadata storage
+        recordingData.groveUri,  // Optional: Grove URI for metadata storage
+        currentCard.lineId,  // UUID from karaoke_lines table
+        currentCard.lineIndex  // Position within segment (0-based)
       )
 
       if (!gradingResult) {
@@ -163,9 +175,11 @@ export function StudySessionPage() {
       // using the master PKP signature. We don't need to call it again from the frontend.
       // The txHash is already included in the gradingResult if the submission was successful.
       if (gradingResult.txHash) {
-        console.log('[StudySession] Performance already submitted to contract via Lit Action, tx:', gradingResult.txHash)
+        console.log('[StudySession] ✅ Performance submitted to contract via Lit Action, tx:', gradingResult.txHash)
+      } else if (gradingResult.errorType) {
+        console.error('[StudySession] ❌ Transaction failed:', gradingResult.errorType)
       } else {
-        console.log('[StudySession] Lit Action submitted performance without returning txHash')
+        console.warn('[StudySession] ⚠️  Lit Action did not return txHash (possible error)')
       }
 
       // Step 4: Update UI with results
@@ -272,12 +286,22 @@ export function StudySessionPage() {
   // Progress: cards completed out of due cards
   const progress = dueCards.length > 0 ? Math.round((currentCardIndex / dueCards.length) * 100) : 0
 
+  // Build stats for header display
+  const headerStats = stats ? {
+    currentCard: currentCardIndex + 1,
+    totalCards: dueCards.length,
+    newToday: stats.newCardsIntroducedToday,
+    newRemaining: stats.newCardsRemaining,
+    reviewCount: stats.review + stats.relearning,
+    learningCount: stats.learning,
+  } : undefined
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-3">
-          <ExerciseHeader progress={progress} onClose={handleClose} />
+          <ExerciseHeader progress={progress} onClose={handleClose} stats={headerStats} />
         </div>
       </div>
 

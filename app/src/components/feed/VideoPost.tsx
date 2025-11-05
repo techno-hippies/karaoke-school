@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, memo } from 'react'
 import { cn } from '@/lib/utils'
 import { VideoPlayer } from './VideoPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
@@ -19,6 +19,7 @@ export interface VideoPostProps extends VideoPostData {
   onAudioClick?: () => void
   onSubscribe?: () => void | Promise<void>
   autoplay?: boolean // If true, attempt autoplay; if false, show paused
+  priorityLoad?: boolean // If true, load immediately without debounce (for first video)
   className?: string
   karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
   hasMobileFooter?: boolean // If true, add bottom spacing for mobile footer (default: false)
@@ -30,7 +31,7 @@ export interface VideoPostProps extends VideoPostData {
  * Mobile: full-screen with overlays
  * Desktop: centered 9:16 video with actions to the right
  */
-export function VideoPost({
+function VideoPostComponent({
   id,
   videoUrl,
   thumbnailUrl,
@@ -55,12 +56,11 @@ export function VideoPost({
   onProfileClick,
   onAudioClick,
   autoplay = true,
+  priorityLoad = false,
   className,
   karaokeClassName,
   hasMobileFooter = false
 }: VideoPostProps) {
-  // Debug: Log which post is rendering with how many lines
-  console.log(`[VideoPost] Rendering post ${id?.substring(0, 10)} with ${karaokeLines?.length || 0} karaoke lines, autoplay: ${autoplay}`)
   // Use shared video playback logic
   const {
     isPlaying,
@@ -106,6 +106,7 @@ export function VideoPost({
           onTogglePlay={handleTogglePlay}
           onPlayFailed={handlePlayFailed}
           onTimeUpdate={handleTimeUpdate}
+          priorityLoad={priorityLoad}
         />
 
         {/* Karaoke Overlay - top-center lyrics */}
@@ -226,3 +227,6 @@ export function VideoPost({
     </div>
   )
 }
+
+// Memoized export to prevent unnecessary re-renders
+export const VideoPost = memo(VideoPostComponent)

@@ -70,6 +70,7 @@ export const SegmentEmissionDataSchema = z.object({
   title: z.string().min(1, 'Song title required'),
   artist_name: z.string().min(1, 'Artist name required'),
   artist_image_url: z.string().url().nullable().optional(), // Grove URL for artist image
+  artist_lens_handle: z.string().nullable().optional(), // Lens handle (from lens_accounts)
 
   // From elevenlabs_word_alignments
   alignment_words: z
@@ -131,6 +132,7 @@ export const SegmentMetadataSchema = z.object({
   title: z.string(),
   artist: z.string(),
   coverUri: z.string().url().nullable().optional(), // Grove URL for artist image
+  artistLensHandle: z.string().nullable().optional(), // Lens handle for artist profile link
 
   timing: z.object({
     // Reference: Full karaoke segment timing
@@ -315,6 +317,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     gw.title,
     ga.name as artist_name,
     ga.grove_image_url as artist_image_url,
+    la.lens_handle as artist_lens_handle,
 
     -- ElevenLabs alignment (word-level timing, filtered & offset to clip window)
     (
@@ -379,6 +382,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     (gw.iswc IS NULL AND gw.genius_song_id = gwm.genius_song_id)
   )
   LEFT JOIN grc20_artists ga ON gw.primary_artist_id = ga.id
+  LEFT JOIN lens_accounts la ON ga.lens_account_id = la.id AND la.account_type = 'artist'
   LEFT JOIN elevenlabs_word_alignments ewa ON ks.spotify_track_id = ewa.spotify_track_id
   LEFT JOIN lyrics_translations lt ON ks.spotify_track_id = lt.spotify_track_id
 
@@ -403,6 +407,7 @@ export const GET_SEGMENTS_FOR_EMISSION_QUERY = `
     gw.title,
     ga.name,
     ga.grove_image_url,
+    la.lens_handle,
     ewa.words
 
   ORDER BY ks.spotify_track_id

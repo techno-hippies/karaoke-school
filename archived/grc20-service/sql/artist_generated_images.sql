@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS artist_generated_images (
 
   -- Generated image (fal.ai Seedream output)
   generated_image_url TEXT NOT NULL UNIQUE,
-  grove_uri TEXT, -- If uploaded to Grove/Irys
+  grove_uri TEXT, -- If uploaded to Grove
 
   -- Generation parameters
   prompt TEXT NOT NULL,
@@ -82,4 +82,4 @@ COMMENT ON TABLE artist_generated_images IS 'AI-generated derivative artist imag
 COMMENT ON COLUMN artist_generated_images.source_type IS 'Where the original image came from: genius, wikipedia, spotify, manual';
 COMMENT ON COLUMN artist_generated_images.is_approved IS 'Manual approval gate before using in GRC-20 mint';
 COMMENT ON COLUMN artist_generated_images.is_used_in_grc20 IS 'Tracks if this image was minted to GRC-20';
-COMMENT ON COLUMN artist_generated_images.grove_uri IS 'Irys/Arweave URI if uploaded to Grove for permanent storage';
+COMMENT ON COLUMN artist_generated_images.grove_uri IS 'Grove URI if uploaded to Grove for permanent storage';

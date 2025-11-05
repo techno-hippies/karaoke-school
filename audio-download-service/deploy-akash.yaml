@@ -3,7 +3,7 @@ version: "2.2"
 
 services:
   audio-download:
-    image: t3333chn0000/audio-download-service:v2.2.0  # ✅ Fixed: SSL/TLS ca-certificates, renamed from slsk-service
+    image: t3333chn0000/audio-download-service:v2.5.0  # ✅ Fire-and-forget TikTok video uploads with DB updates
     expose:
       - port: 3001
         as: 80

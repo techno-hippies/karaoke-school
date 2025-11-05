@@ -1,101 +1,24 @@
-import { WalletPageView, type TokenBalance } from '@/components/wallet/WalletPageView'
+import { WalletPageView } from '@/components/wallet/WalletPageView'
+import { useAuth } from '@/contexts/AuthContext'
+import { usePKPBalances } from '@/hooks/usePKPBalances'
 
 /**
  * WalletPage - Container component for wallet page
  * Handles wallet data fetching and state management
- *
- * TODO: Connect to real auth context and balance hooks
- * For now uses mock data
  */
 export function WalletPage() {
-  // TODO: Replace with real hooks
-  // const { pkpAddress, username } = useAuth()
-  // const { balances, isLoading } = useTokenBalances(pkpAddress)
+  const { pkpAddress, lensAccount, isPKPReady } = useAuth()
+  const { balances, error } = usePKPBalances()
 
-  // Mock data for now
-  const mockWalletAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
-  const mockUsername = undefined // Set to username string if user has one
-
-  const mockTokens: TokenBalance[] = [
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      balance: '125.50',
-      network: 'Tron',
-      usdValue: '125.50',
-      currencyIcon: 'usdc-logo.png',
-      chainIcon: 'tron-chain.svg',
-    },
-    {
-      symbol: 'USDT',
-      name: 'Tether',
-      balance: '89.25',
-      network: 'Tron',
-      usdValue: '89.25',
-      currencyIcon: 'tether-logo.png',
-      chainIcon: 'tron-chain.svg',
-    },
-    {
-      symbol: 'USDT',
-      name: 'Tether',
-      balance: '156.75',
-      network: 'BSC',
-      usdValue: '156.75',
-      currencyIcon: 'tether-logo.png',
-      chainIcon: 'binance-smart-chain-bsc-seeklogo.svg',
-    },
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      balance: '42.50',
-      network: 'Base',
-      usdValue: '42.50',
-      currencyIcon: 'usdc-logo.png',
-      chainIcon: 'base-chain.svg',
-    },
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      balance: '78.30',
-      network: 'Polygon',
-      usdValue: '78.30',
-      currencyIcon: 'usdc-logo.png',
-      chainIcon: 'polygon-matic-seeklogo.svg',
-    },
-    {
-      symbol: 'ETH',
-      name: 'Ethereum',
-      balance: '1.234',
-      network: 'Base',
-      usdValue: '2,468.00',
-      currencyIcon: 'ethereum-logo.png',
-      chainIcon: 'base-chain.svg',
-    },
-    {
-      symbol: 'POL',
-      name: 'Polygon',
-      balance: '245.80',
-      network: 'Polygon',
-      usdValue: '245.80',
-      currencyIcon: 'polygon-logo.png',
-      chainIcon: 'polygon-matic-seeklogo.svg',
-    },
-    {
-      symbol: 'TRX',
-      name: 'Tronix',
-      balance: '1,025.50',
-      network: 'Tron',
-      usdValue: '102.55',
-      currencyIcon: 'tron-logo.png',
-      chainIcon: 'tron-chain.svg',
-    },
-  ]
+  // Get username from lens account if available
+  const currentUsername = lensAccount?.username?.localName || undefined
 
   const handleCopyAddress = async () => {
+    if (!pkpAddress) return
+    
     try {
-      await navigator.clipboard.writeText(mockWalletAddress)
-      // TODO: Add toast notification
-      console.log('Address copied to clipboard')
+      await navigator.clipboard.writeText(pkpAddress)
+      console.log('PKP address copied to clipboard')
     } catch (err) {
       console.error('Failed to copy address:', err)
     }
@@ -118,17 +41,46 @@ export function WalletPage() {
     // Simulate purchase
     await new Promise(resolve => setTimeout(resolve, 2000))
 
-    // TODO: Add toast notification
     console.log(`Username @${username} purchased successfully!`)
 
     return true
   }
 
+  // Show loading state when PKP is not ready
+  if (!isPKPReady) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Connecting to your PKP Wallet</h2>
+          <p className="text-muted-foreground">Please sign in to view your balances.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state if balance fetching failed
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4 text-destructive">Error Loading Balances</h2>
+          <p className="text-muted-foreground mb-4">{error.message}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <WalletPageView
-      tokens={mockTokens}
-      walletAddress={mockWalletAddress}
-      currentUsername={mockUsername}
+      tokens={balances}
+      walletAddress={pkpAddress || ''}
+      currentUsername={currentUsername}
       onCopyAddress={handleCopyAddress}
       onCheckUsernameAvailability={handleCheckUsernameAvailability}
       onPurchaseUsername={handlePurchaseUsername}

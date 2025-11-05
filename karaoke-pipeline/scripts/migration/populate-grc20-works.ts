@@ -568,7 +568,7 @@ async function main() {
     }
 
     if (existingWork) {
-      // Update existing work
+      // Update existing work (only columns that exist in schema)
       await query(`
         UPDATE grc20_works SET
           title = $1,
@@ -582,28 +582,24 @@ async function main() {
           primary_artist_name = $9,
           featured_artists = $10,
           composers = $11,
-          producers = $12,
-          lyricists = $13,
-          language = $14,
-          work_type = $15,
-          genres = $16,
-          musicbrainz_url = $17,
+          lyricists = $12,
+          language = $13,
+          genres = $14,
           updated_at = NOW()
-        WHERE id = $18
+        WHERE id = $15
       `, [
         agg.title, agg.alternateTitles,
         agg.iswc, agg.iswcSource, agg.mbid,
         agg.wikidataId,
         agg.geniusSongId,
         agg.primaryArtistId, agg.primaryArtistName,
-        agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
-        agg.language, agg.workType, agg.genres,
-        agg.musicbrainzUrl,
+        agg.featuredArtists, agg.composers, agg.lyricists,
+        agg.language, agg.genres,
         existingWork.id
       ]);
       console.log(`   ✅ Work updated: ${agg.title} (ID: ${existingWork.id})`);
     } else {
-      // Insert new work
+      // Insert new work (only columns that exist in schema)
       await query(`
         INSERT INTO grc20_works (
           title, alternate_titles,
@@ -611,18 +607,16 @@ async function main() {
           wikidata_id,
           genius_song_id,
           primary_artist_id, primary_artist_name,
-          featured_artists, composers, producers, lyricists,
-          language, work_type, genres,
-          musicbrainz_url
+          featured_artists, composers, lyricists,
+          language, genres
         ) VALUES (
           $1, $2,
           $3, $4, $5,
           $6,
           $7,
           $8, $9,
-          $10, $11, $12, $13,
-          $14, $15, $16,
-          $17
+          $10, $11, $12,
+          $13, $14
         )
       `, [
         agg.title, agg.alternateTitles,
@@ -630,9 +624,8 @@ async function main() {
         agg.wikidataId,
         agg.geniusSongId,
         agg.primaryArtistId, agg.primaryArtistName,
-        agg.featuredArtists, agg.composers, agg.producers, agg.lyricists,
-        agg.language, agg.workType, agg.genres,
-        agg.musicbrainzUrl
+        agg.featuredArtists, agg.composers, agg.lyricists,
+        agg.language, agg.genres
       ]);
       console.log(`   ✅ Work inserted: ${agg.title}`);
     }
@@ -644,15 +637,19 @@ async function main() {
   const summary = await query(`
     SELECT
       COUNT(*) as total,
-      COUNT(iswc) as with_iswc,
-      COUNT(iswc) FILTER (WHERE iswc_source = 'quansic') as iswc_from_quansic,
-      COUNT(iswc) FILTER (WHERE iswc_source = 'musicbrainz') as iswc_from_musicbrainz,
-      COUNT(iswc) FILTER (WHERE iswc_source = 'mlc') as iswc_from_mlc,
-      COUNT(composers) as with_composers,
-      COUNT(primary_artist_id) as with_artist_link,
-      COUNT(grc20_entity_id) as minted,
-      COUNT(*) - COUNT(grc20_entity_id) as ready_to_mint
-    FROM grc20_works
+      COUNT(w.iswc) as with_iswc,
+      COUNT(w.iswc) FILTER (WHERE w.iswc_source = 'quansic') as iswc_from_quansic,
+      COUNT(w.iswc) FILTER (WHERE w.iswc_source = 'musicbrainz') as iswc_from_musicbrainz,
+      COUNT(w.iswc) FILTER (WHERE w.iswc_source = 'mlc') as iswc_from_mlc,
+      COUNT(w.composers) as with_composers,
+      COUNT(w.primary_artist_id) as with_artist_link,
+      COUNT(wm.grc20_entity_id) as minted,
+      COUNT(*) - COUNT(wm.grc20_entity_id) as ready_to_mint
+    FROM grc20_works w
+    LEFT JOIN grc20_work_mints wm ON (
+      (w.iswc IS NOT NULL AND w.iswc = wm.iswc) OR
+      (w.iswc IS NULL AND w.genius_song_id = wm.genius_song_id)
+    )
   `);
 
   console.log('\n📊 Summary:');

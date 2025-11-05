@@ -296,6 +296,8 @@ async function processSegment(
       artist: segment.artist_name,
       // Cover image for karaoke player (Grove URI from grc20_artists)
       coverUri: segment.artist_image_url,
+      // Artist Lens handle for profile linking
+      artistLensHandle: segment.artist_lens_handle || null,
 
       // Timing information
       timing: {

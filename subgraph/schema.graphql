@@ -5,10 +5,10 @@ References GRC-20 work entity for music metadata (decoupled design)
 type Segment @entity(immutable: false) {
   id: ID! # segmentHash
   segmentHash: Bytes!
-  
+
   # GRC-20 Reference (Public Music Metadata Layer)
   grc20WorkId: String! # GRC-20 musical work entity UUID (primary reference)
-  
+
   # App-specific data
   spotifyTrackId: String! # Spotify track ID for audio matching
   segmentStartMs: Int! # Start time in milliseconds
@@ -16,6 +16,9 @@ type Segment @entity(immutable: false) {
   metadataUri: String!
   registeredBy: Bytes!
   registeredAt: BigInt!
+
+  # Artist linking (from Grove metadata)
+  artistLensHandle: String # Lens handle for artist profile linking
 
   # Set after processing
   instrumentalUri: String # Grove URI for instrumental (primary audio)
@@ -56,7 +59,7 @@ type Translation @entity(immutable: false) {
 }
 
 """
-A graded performance of a segment
+A graded performance of a segment (DEPRECATED - use LinePerformance)
 """
 type Performance @entity(immutable: true) {
   id: ID! # performanceId
@@ -70,6 +73,44 @@ type Performance @entity(immutable: true) {
 
   # Denormalized for queries
   segmentHash: Bytes!
+}
+
+"""
+A karaoke line (minimal tracking for FSRS)
+Created dynamically when first performance is graded
+Line content (text, timing) comes from Grove segment metadata
+"""
+type LineCard @entity(immutable: false) {
+  id: ID! # lineId (UUID as hex)
+  lineId: Bytes! # Stable UUID from karaoke_lines table
+  segment: Segment!
+  segmentHash: Bytes!
+  lineIndex: Int! # Position within segment (for ordering)
+
+  # Relations
+  performances: [LinePerformance!]! @derivedFrom(field: "line")
+
+  # Aggregate stats (computed from performances)
+  performanceCount: Int!
+  averageScore: BigDecimal!
+}
+
+"""
+A graded performance of a single LINE (for FSRS tracking)
+"""
+type LinePerformance @entity(immutable: true) {
+  id: ID! # performanceId
+  performanceId: BigInt!
+  line: LineCard!
+  lineId: Bytes!
+  segment: Segment!
+  segmentHash: Bytes!
+  lineIndex: Int!
+  performer: Account!
+  performerAddress: Bytes!
+  score: Int! # 0-10000 (basis points)
+  metadataUri: String!
+  gradedAt: BigInt!
 }
 
 """

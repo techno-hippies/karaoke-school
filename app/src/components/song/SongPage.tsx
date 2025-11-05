@@ -152,7 +152,7 @@ export function SongPage({
                 <TabsTrigger value="students">Students</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="videos" className="mt-4 -mx-4 md:-mx-6">
+              <TabsContent value="videos" className="mt-4">
                 <VideoGrid
                   videos={videos}
                   isLoading={videosLoading}

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
 import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
-// import { useSongVideos } from '@/hooks/useSongVideos' // TODO: Update to work with spotifyTrackId
+import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
@@ -25,13 +25,8 @@ export function SongPageContainer() {
     error: segmentsError,
   } = useGRC20WorkSegmentsWithMetadata(workId)
 
-  // Fetch creator videos (by Spotify track ID if available)
-  // const _spotifyTrackId = workData?.spotifyTrackId
-  // TODO: Update useSongVideos to accept spotifyTrackId instead of geniusId
-  const { data: videosData, isLoading: isLoadingVideos } = {
-    data: [] as VideoPost[],
-    isLoading: false,
-  }
+  // Fetch creator videos by GRC-20 work ID
+  const { data: lensVideos, isLoading: isLoadingVideos } = useSongVideos(workId)
 
   // Loading state
   if (isLoadingSegments) {
@@ -75,8 +70,12 @@ export function SongPageContainer() {
   console.log('[SongPageContainer] coverUri in metadata?', metadata?.coverUri ? 'YES' : 'NO')
   console.log('[SongPageContainer] coverUri value:', metadata?.coverUri)
 
-  // Transform videos to VideoGrid format
-  const videos: VideoPost[] = videosData || []
+  // Transform Lens videos to VideoPost format (VideoGrid only needs id, thumbnailUrl, username)
+  const videos: VideoPost[] = lensVideos?.map(video => ({
+    id: video.id,
+    thumbnailUrl: video.thumbnailUrl,
+    username: video.username,
+  })) || []
 
   // Extract song information
   // TODO: Fetch full work info from GRC-20 graph for title, artist, etc.

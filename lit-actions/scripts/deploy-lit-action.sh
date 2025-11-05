@@ -2,7 +2,7 @@
 
 # Deploy Lit Action: Upload → Encrypt → Permissions → Update Env
 # Usage: ./scripts/deploy-lit-action.sh <action-file> <action-name> <env-var-name>
-# Example: ./scripts/deploy-lit-action.sh src/karaoke/base-alignment-v2.js "Base Alignment v2" VITE_LIT_ACTION_BASE_ALIGNMENT
+# Example: ./scripts/deploy-lit-action.sh study/sat-it-back-v1.js "Sat It Back v1" VITE_LIT_ACTION_SAT_IT_BACK
 
 set -e  # Exit on error
 
@@ -12,7 +12,7 @@ ENV_VAR=$3
 
 if [ -z "$ACTION_FILE" ] || [ -z "$ACTION_NAME" ] || [ -z "$ENV_VAR" ]; then
   echo "❌ Usage: ./scripts/deploy-lit-action.sh <action-file> <action-name> <env-var-name>"
-  echo "   Example: ./scripts/deploy-lit-action.sh src/karaoke/base-alignment-v2.js \"Base Alignment v2\" VITE_LIT_ACTION_BASE_ALIGNMENT"
+  echo "   Example: ./scripts/deploy-lit-action.sh study/sat-it-back-v1.js \"Sat It Back v1\" VITE_LIT_ACTION_SAT_IT_BACK"
   exit 1
 fi
 

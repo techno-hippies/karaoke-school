@@ -18,6 +18,7 @@
  *
  * Usage:
  *   bun src/processors/create-creator-lens.ts --limit=20
+ *   bun src/processors/create-creator-lens.ts --username=charleenweiss
  */
 
 import { parseArgs } from 'util';
@@ -29,39 +30,45 @@ async function main() {
     args: process.argv.slice(2),
     options: {
       limit: { type: 'string', default: '20' },
+      username: { type: 'string' },
     },
   });
 
   const limit = parseInt(values.limit || '20');
+  const targetUsername = values.username;
 
-  console.log(`\n🌿 Creating Lens accounts for TikTok creators (limit: ${limit})\n`);
+  if (targetUsername) {
+    console.log(`\n🌿 Creating Lens account for @${targetUsername}\n`);
+  } else {
+    console.log(`\n🌿 Creating Lens accounts for TikTok creators (limit: ${limit})\n`);
+  }
 
   // 1. Find creators with PKP but no Lens account
   const creators = await query<{
-    tiktok_handle: string;
-    name: string | null;
+    username: string;
+    nickname: string | null;
     sec_uid: string;
     follower_count: number | null;
     pkp_address: string;
     pkp_token_id: string;
+    grove_avatar_url: string | null;
   }>(`
     SELECT
-      tc.tiktok_handle,
-      tc.name,
+      tc.username,
+      tc.nickname,
       tc.sec_uid,
       tc.follower_count,
+      tc.grove_avatar_url,
       pkp.pkp_address,
       pkp.pkp_token_id
     FROM tiktok_creators tc
-    INNER JOIN pkp_accounts pkp ON tc.tiktok_handle = pkp.tiktok_handle
-      AND pkp.account_type = 'tiktok_creator'
-    LEFT JOIN lens_accounts lens ON tc.tiktok_handle = lens.tiktok_handle
-      AND lens.account_type = 'tiktok_creator'
-    WHERE lens.lens_handle IS NULL  -- No Lens account yet
-      AND pkp.pkp_address IS NOT NULL  -- Has PKP
+    INNER JOIN pkp_accounts pkp ON tc.pkp_account_id = pkp.id
+    WHERE tc.pkp_account_id IS NOT NULL  -- Has PKP
+      AND tc.lens_account_id IS NULL  -- No Lens account yet
+      ${targetUsername ? 'AND tc.username = $2' : ''}
     ORDER BY tc.follower_count DESC NULLS LAST
     LIMIT $1
-  `, [limit]);
+  `, targetUsername ? [limit, targetUsername] : [limit]);
 
   if (creators.length === 0) {
     console.log('✅ No TikTok creators need Lens account creation\n');
@@ -74,11 +81,11 @@ async function main() {
   let errorCount = 0;
 
   for (const creator of creators) {
-    console.log(`\n📍 @${creator.tiktok_handle} ${creator.name ? `(${creator.name})` : ''}`);
+    console.log(`\n📍 @${creator.username} ${creator.nickname ? `(${creator.nickname})` : ''}`);
 
     try {
-      // 2. Use TikTok handle directly (already lowercase, URL-safe)
-      const handle = creator.tiktok_handle;
+      // 2. Use TikTok username directly (already lowercase, URL-safe)
+      const handle = creator.username;
       console.log(`   🏷️  Handle: @${handle}`);
 
       // 3. Build minimal metadata attributes
@@ -87,22 +94,22 @@ async function main() {
       const attributes = [
         { type: 'String', key: 'pkpAddress', value: creator.pkp_address },
         { type: 'String', key: 'accountType', value: 'tiktok-creator' },
-        { type: 'String', key: 'tiktokHandle', value: creator.tiktok_handle },
+        { type: 'String', key: 'tiktokHandle', value: creator.username },
       ];
 
       // 4. Create Lens account
       console.log('   ⏳ Creating Lens account...');
       const lensData = await createLensAccount({
         handle,
-        name: creator.name || creator.tiktok_handle,
-        bio: `TikTok creator @${creator.tiktok_handle} on Karaoke School`,
-        // TikTok creators might not have Grove images yet
-        pictureUri: undefined,
+        name: creator.nickname || creator.username,
+        bio: `TikTok creator @${creator.username} on Karaoke School`,
+        // Use Grove avatar if available
+        pictureUri: creator.grove_avatar_url || undefined,
         attributes,
       });
 
-      // 5. Insert into lens_accounts
-      await query(`
+      // 5. Insert into lens_accounts and get ID
+      const lensAccountResult = await query<{ id: number }>(`
         INSERT INTO lens_accounts (
           account_type,
           tiktok_handle,
@@ -113,9 +120,10 @@ async function main() {
           lens_metadata_uri,
           transaction_hash
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
       `, [
         'tiktok_creator',
-        creator.tiktok_handle,
+        creator.username,
         creator.pkp_address,
         lensData.lensHandle,
         lensData.lensAccountAddress,
@@ -124,22 +132,20 @@ async function main() {
         lensData.transactionHash,
       ]);
 
-      // 6. Update tiktok_creators table
+      const lensAccountId = lensAccountResult[0].id;
+
+      // 6. Update tiktok_creators table with foreign key
       await query(`
         UPDATE tiktok_creators
-        SET lens_handle = $1,
-            lens_account_address = $2
-        WHERE tiktok_handle = $3
-      `, [
-        lensData.lensHandle,
-        lensData.lensAccountAddress,
-        creator.tiktok_handle,
-      ]);
+        SET lens_account_id = $1
+        WHERE username = $2
+      `, [lensAccountId, creator.username]);
 
       console.log(`   ✅ Lens account created: @${lensData.lensHandle}`);
       console.log(`   📍 Address: ${lensData.lensAccountAddress}`);
       console.log(`   📜 Tx: ${lensData.transactionHash}`);
       console.log(`   🗄️  Metadata: ${lensData.metadataUri}`);
+      console.log(`   💾 Lens Account ID: ${lensAccountId}`);
 
       successCount++;
 

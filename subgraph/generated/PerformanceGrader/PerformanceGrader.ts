@@ -10,6 +10,52 @@ import {
   BigInt,
 } from "@graphprotocol/graph-ts";
 
+export class LinePerformanceGraded extends ethereum.Event {
+  get params(): LinePerformanceGraded__Params {
+    return new LinePerformanceGraded__Params(this);
+  }
+}
+
+export class LinePerformanceGraded__Params {
+  _event: LinePerformanceGraded;
+
+  constructor(event: LinePerformanceGraded) {
+    this._event = event;
+  }
+
+  get performanceId(): BigInt {
+    return this._event.parameters[0].value.toBigInt();
+  }
+
+  get lineId(): Bytes {
+    return this._event.parameters[1].value.toBytes();
+  }
+
+  get segmentHash(): Bytes {
+    return this._event.parameters[2].value.toBytes();
+  }
+
+  get lineIndex(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
+  get performer(): Address {
+    return this._event.parameters[4].value.toAddress();
+  }
+
+  get score(): i32 {
+    return this._event.parameters[5].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[6].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[7].value.toBigInt();
+  }
+}
+
 export class PausedUpdated extends ethereum.Event {
   get params(): PausedUpdated__Params {
     return new PausedUpdated__Params(this);
@@ -199,6 +245,60 @@ export class ConstructorCall__Outputs {
   _call: ConstructorCall;
 
   constructor(call: ConstructorCall) {
+    this._call = call;
+  }
+}
+
+export class GradeLinePerformanceCall extends ethereum.Call {
+  get inputs(): GradeLinePerformanceCall__Inputs {
+    return new GradeLinePerformanceCall__Inputs(this);
+  }
+
+  get outputs(): GradeLinePerformanceCall__Outputs {
+    return new GradeLinePerformanceCall__Outputs(this);
+  }
+}
+
+export class GradeLinePerformanceCall__Inputs {
+  _call: GradeLinePerformanceCall;
+
+  constructor(call: GradeLinePerformanceCall) {
+    this._call = call;
+  }
+
+  get performanceId(): BigInt {
+    return this._call.inputValues[0].value.toBigInt();
+  }
+
+  get lineId(): Bytes {
+    return this._call.inputValues[1].value.toBytes();
+  }
+
+  get segmentHash(): Bytes {
+    return this._call.inputValues[2].value.toBytes();
+  }
+
+  get lineIndex(): i32 {
+    return this._call.inputValues[3].value.toI32();
+  }
+
+  get performer(): Address {
+    return this._call.inputValues[4].value.toAddress();
+  }
+
+  get score(): i32 {
+    return this._call.inputValues[5].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._call.inputValues[6].value.toString();
+  }
+}
+
+export class GradeLinePerformanceCall__Outputs {
+  _call: GradeLinePerformanceCall;
+
+  constructor(call: GradeLinePerformanceCall) {
     this._call = call;
   }
 }

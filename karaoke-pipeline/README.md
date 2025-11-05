@@ -86,6 +86,105 @@ bun src/processors/10-transcribe-tiktok-videos.ts  # Transcribe creator speech
 bun src/processors/05-enrich-wikidata.ts            # Wikidata enrichment
 ```
 
+## 🛠️ Operational Scripts
+
+### 📊 Monitoring Scripts
+**Status Checking & Health Monitoring:**
+```bash
+# Real-time pipeline status dashboard
+bun scripts:status
+
+# Find tracks needing manual review
+bun scripts:flagged
+
+# Direct monitoring script
+bun scripts/monitoring/check-pipeline-status.ts
+bun scripts/monitoring/find-flagged.ts
+```
+
+### 🔄 Migration Scripts
+**Database Schema & Data Management:**
+```bash
+# Apply karaoke segments migration
+bun scripts:migration:karaoke-segments
+
+# Clean up language data structures
+bun scripts:migration:language-data
+
+# Update track images from Spotify
+bun scripts:migration:update-images
+```
+
+### 🎵 Processing Scripts
+**Core Pipeline Operations:**
+```bash
+# Process audio separations (Demucs)
+bun scripts:processing:separations
+
+# Run unified pipeline orchestrator
+bun scripts:processing:orchestrator
+
+# Direct processing
+bun scripts/processing/process-all-separations.ts
+bun scripts/processing/run-orchestrator.ts
+```
+
+### 📝 Backfill Scripts
+**Data Enrichment Operations:**
+```bash
+# Backfill Genius annotations
+bun scripts:backfill
+
+# Direct backfill
+bun scripts/backfill/backfill-genius-data.ts
+```
+
+## 🚀 Common Operations
+
+### Quick Start Commands
+```bash
+# 1. Set up environment
+dotenvx run -f .env -- <command>
+
+# 2. Check pipeline health
+bun scripts:status
+
+# 3. Process pending separations
+bun scripts:processing:separations
+
+# 4. Run full pipeline orchestrator
+bun scripts:processing:orchestrator
+
+# 5. Backfill any missing data
+bun scripts:backfill
+```
+
+### Specific Pipeline Steps
+```bash
+# Run specific step via orchestrator
+bun scripts:processing:orchestrator --step=8
+bun scripts:processing:orchestrator --step=2 --limit=10
+
+# Or via unified runner
+bun run unified --step=3 --limit=1
+```
+
+### Health Check Commands
+```bash
+# Test database connection
+bun test:status
+
+# Test service connectivity
+bun test:demucs     # Demucs service
+bun test:genius     # Genius API validation
+
+# Check for stuck tracks
+SELECT id, title, artist_name, status, updated_at
+FROM song_pipeline 
+WHERE status IN ('spotify_resolved', 'iswc_found', 'metadata_enriched')
+AND updated_at < NOW() - INTERVAL '1 hour';
+```
+
 ## Development
 
 **Project Structure:**
@@ -112,7 +211,6 @@ GENIUS_API_KEY=...
 
 # Storage
 GROVE_TOKEN=...
-IRYS_PRIVATE_KEY=...
 ```
 
 ---

@@ -1,18 +1,18 @@
 import { useCallback, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { LIT_ACTION_IPFS_CID } from '@/lib/contracts/addresses'
+import { LIT_ACTION_IPFS_CID, LIT_ACTION_VOXTRAL_KEY } from '@/lib/contracts/addresses'
 
 /**
  * Call deployed Lit Action to grade a karaoke performance
  *
  * Flow:
  * 1. Lit Action receives base64-encoded user audio
- * 2. Transcribes user audio via Voxstral STT
+ * 2. Transcribes user audio via Voxtral STT
  * 3. Calculates pronunciation score (Levenshtein distance)
  * 4. Converts score to FSRS rating
  * 5. Returns transcript + score + rating
  * 6. PKP signs PerformanceGrader transaction
- * 7. Emits PerformanceGraded event
+ * 7. Emits LinePerformanceGraded event
  *
  * @param userAudioBase64 Base64-encoded user audio data (NOT a URI)
  * @param referenceAudioUri Grove URI of instrumental/reference (for future use)
@@ -42,7 +42,9 @@ export function useLitActionGrader() {
       _referenceAudioUri: string,  // Reference audio URI for future use
       expectedText: string,
       segmentHash: string,
-      metadataUri?: string  // Optional Grove URI for storage
+      metadataUri?: string,  // Optional Grove URI for storage
+      lineId?: string,  // UUID from karaoke_lines table
+      lineIndex?: number  // Position within segment (0-based)
     ): Promise<GradingResult | null> => {
       try {
         setError(null)
@@ -57,40 +59,11 @@ export function useLitActionGrader() {
         const litClient = await getLitClient()
 
         console.log('[useLitActionGrader] Executing Lit Action:', LIT_ACTION_IPFS_CID)
+        console.log('[useLitActionGrader] User address:', pkpInfo.ethAddress)
+        console.log('[useLitActionGrader] Segment hash:', segmentHash)
 
-        // Get and validate Voxstral API key
-        const voxstralApiKey = import.meta.env.VITE_VOXSTRAL_API_KEY
-        if (!voxstralApiKey) {
-          throw new Error('Voxstral API key not configured in environment (VITE_VOXSTRAL_API_KEY)')
-        }
-
-        // Encrypt the API key with Lit encryption
-        // Access control: only decrypt when THIS specific Lit Action is executing
-        const accessControlConditions = [
-          {
-            conditionType: 'evmBasic',
-            contractAddress: '',
-            standardContractType: '',
-            chain: 'ethereum',
-            method: '',
-            parameters: [':currentActionIpfsId'],
-            returnValueTest: {
-              comparator: '=',
-              value: LIT_ACTION_IPFS_CID,
-            },
-          },
-        ]
-
-        const encryptionResponse = await litClient.encrypt({
-          accessControlConditions,
-          dataToEncrypt: voxstralApiKey,
-        })
-
-        console.log('[useLitActionGrader] Encrypted API key:', {
-          ciphertext: encryptionResponse.ciphertext ? 'present' : 'missing',
-          dataToEncryptHash: encryptionResponse.dataToEncryptHash ? 'present' : 'missing',
-        })
-
+        // Pass encrypted Voxtral API key from addresses.ts
+        // Key is encrypted for this specific Lit Action CID
         const result = await litClient.executeJs({
           ipfsId: LIT_ACTION_IPFS_CID,
           authContext: pkpAuthContext,
@@ -102,10 +75,9 @@ export function useLitActionGrader() {
             expectedText: expectedText,
             metadataUri: metadataUri || `grove://${Date.now()}`,  // Fallback if not provided
             language: 'en',
-            // Encrypted API key (decrypted securely within Lit Action's TEE)
-            accessControlConditions,
-            ciphertext: encryptionResponse.ciphertext,
-            dataToEncryptHash: encryptionResponse.dataToEncryptHash,
+            voxtralEncryptedKey: LIT_ACTION_VOXTRAL_KEY,  // Pass encrypted key for decryption in Lit Action
+            lineId: lineId || undefined,  // Already bytes32 from keccak256(spotifyTrackId-lineIndex)
+            lineIndex: lineIndex ?? 0,  // Default to 0 for backward compatibility
           },
         })
 
@@ -126,13 +98,26 @@ export function useLitActionGrader() {
           score: response.score,
           transcript: response.transcript,
           rating,
+          txHash: response.txHash,
+          errorType: response.errorType,
         })
+
+        // Log transaction status
+        if (response.txHash) {
+          console.log('[useLitActionGrader] ✅ Transaction submitted:', response.txHash)
+        } else if (response.errorType) {
+          console.error('[useLitActionGrader] ❌ Transaction failed:', response.errorType)
+        } else {
+          console.warn('[useLitActionGrader] ⚠️  No transaction hash returned (test mode or error)')
+        }
 
         const gradingResult: GradingResult = {
           score: response.score,
           transcript: response.transcript,
           rating,
           performanceId: response.performanceId,
+          txHash: response.txHash,  // Pass transaction hash through
+          errorType: response.errorType,  // Pass any transaction errors
         }
 
         setIsGrading(false)

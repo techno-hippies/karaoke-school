@@ -4,7 +4,7 @@
  */
 
 import { PublicClient, evmAddress } from '@lens-protocol/client';
-import { createAccountWithUsername, fetchAccount } from '@lens-protocol/client/actions';
+import { createAccountWithUsername, fetchAccount, setAccountMetadata } from '@lens-protocol/client/actions';
 import { testnet } from '@lens-protocol/env';
 import { chains } from '@lens-chain/sdk/viem';
 import { signMessageWith, handleOperationWith } from '@lens-protocol/client/viem';
@@ -135,6 +135,73 @@ export async function findAvailableHandle(baseHandle: string, maxAttempts = 10):
   }
 
   throw new Error(`Could not find available handle after ${maxAttempts} attempts (base: ${baseHandle})`);
+}
+
+/**
+ * Update Lens account metadata (including profile picture)
+ */
+export async function updateLensAccountMetadata(params: {
+  accountAddress: Address;
+  handle: string;
+  name: string;
+  bio?: string;
+  pictureUri?: string;
+  attributes?: Array<{ type: string; key: string; value: string }>;
+}): Promise<{
+  metadataUri: string;
+  transactionHash: Hex;
+}> {
+  const { accountAddress, handle, name, bio, pictureUri, attributes = [] } = params;
+
+  // Initialize clients
+  const lensClient = initLensClient();
+  const walletClient = createLensWalletClient();
+  const storage = initGroveClient();
+
+  // Create metadata
+  const metadata = accountMetadata({
+    name,
+    bio: bio || `Official Karaoke School profile for ${name}`,
+    picture: pictureUri,
+    attributes,
+  });
+
+  // Upload metadata to Grove
+  const uploadResult = await storage.uploadAsJson(metadata, {
+    name: `${handle}-account-metadata-${Date.now()}.json`,
+    acl: immutable(chains.testnet.id),
+  });
+
+  // Login to Lens as account owner (not onboarding user)
+  const authenticated = await lensClient.login({
+    accountOwner: {
+      account: evmAddress(accountAddress),
+      owner: evmAddress(walletClient.account.address),
+    },
+    signMessage: signMessageWith(walletClient),
+  });
+
+  if (authenticated.isErr()) {
+    throw new Error(`Lens login failed: ${authenticated.error.message}`);
+  }
+
+  const sessionClient = authenticated.value;
+
+  // Update account metadata via Lens
+  const updateResult = await setAccountMetadata(sessionClient, {
+    metadataUri: uploadResult.uri,
+  })
+    .andThen(handleOperationWith(walletClient))
+    .andThen(sessionClient.waitForTransaction);
+
+  if (updateResult.isErr()) {
+    throw new Error(`Set account metadata failed: ${updateResult.error.message}`);
+  }
+
+  return {
+    metadataUri: uploadResult.uri,
+    transactionHash: updateResult.value as Hex,
+  };
 }
 
 /**

@@ -33,17 +33,16 @@ const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || 'ht
 /**
  * Upload a single video to Grove via audio-download-service
  */
-async function uploadVideoToGrove(video: VideoToUpload): Promise<{
+async function uploadVideoToGrove(video: VideoToUpload, neonDatabaseUrl: string): Promise<{
   success: boolean;
-  grove_cid?: string;
-  grove_url?: string;
+  status?: string;
   error?: string;
 }> {
   try {
     // Construct TikTok share URL
     const tiktokUrl = `https://www.tiktok.com/@${video.creator_username}/video/${video.video_id}`;
 
-    console.log(`  📥 Requesting download from audio-download-service...`);
+    console.log(`  📥 Submitting to audio-download-service (fire-and-forget)...`);
 
     const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-tiktok-video`, {
       method: 'POST',
@@ -51,6 +50,7 @@ async function uploadVideoToGrove(video: VideoToUpload): Promise<{
       body: JSON.stringify({
         video_id: video.video_id,
         tiktok_url: tiktokUrl,
+        neon_database_url: neonDatabaseUrl, // Service updates DB directly
       }),
     });
 
@@ -61,32 +61,31 @@ async function uploadVideoToGrove(video: VideoToUpload): Promise<{
 
     const result = await response.json();
 
-    if (!result.success) {
-      throw new Error(result.message || 'Download failed');
+    // Handle async (fire-and-forget) response
+    if (result.status === 'processing' || result.status === 'already_processing') {
+      console.log(`  ✅ Submitted (${result.status})`);
+      console.log(`     Service will update database when complete\n`);
+      return {
+        success: true,
+        status: result.status,
+      };
     }
 
-    console.log(`  ✅ Downloaded and uploaded to Grove`);
-    console.log(`     CID: ${result.grove_cid}`);
-    console.log(`     URL: ${result.grove_url}`);
+    // Handle synchronous completion
+    if (result.success && result.grove_video_cid) {
+      console.log(`  ✅ Completed synchronously`);
+      console.log(`     Video: ${result.grove_video_cid}`);
+      if (result.grove_thumbnail_cid) {
+        console.log(`     Thumbnail: ${result.grove_thumbnail_cid}`);
+      }
+      console.log(`     Method: ${result.download_method}\n`);
+      return {
+        success: true,
+        status: 'completed',
+      };
+    }
 
-    // Update database
-    await query(`
-      UPDATE tiktok_videos
-      SET
-        grove_video_cid = $1,
-        grove_video_url = $2,
-        grove_uploaded_at = NOW(),
-        updated_at = NOW()
-      WHERE video_id = $3
-    `, [result.grove_cid, result.grove_url, video.video_id]);
-
-    console.log(`  ✅ Database updated\n`);
-
-    return {
-      success: true,
-      grove_cid: result.grove_cid,
-      grove_url: result.grove_url,
-    };
+    throw new Error(`Unexpected response: ${JSON.stringify(result)}`);
 
   } catch (error: any) {
     console.error(`  ❌ Failed: ${error.message}\n`);
@@ -179,7 +178,7 @@ export async function processUploadGroveVideos(env: Env, limit = 10): Promise<vo
       console.log(`  Track: ${video.spotify_track_id}`);
     }
 
-    const result = await uploadVideoToGrove(video);
+    const result = await uploadVideoToGrove(video, env.NEON_DATABASE_URL);
     if (result.success) {
       successCount++;
     } else {
@@ -237,6 +236,7 @@ if (import.meta.main) {
 
   const env: Env = {
     DATABASE_URL: process.env.DATABASE_URL!,
+    NEON_DATABASE_URL: process.env.NEON_DATABASE_URL || process.env.DATABASE_URL!,
     AUDIO_DOWNLOAD_SERVICE_URL: process.env.AUDIO_DOWNLOAD_SERVICE_URL || 'http://localhost:3001',
   };
 

@@ -19,7 +19,8 @@ export function VideoPlayer({
   onPlayFailed,
   onTimeUpdate,
   captionTracks,
-  className
+  className,
+  priorityLoad = false // New prop: if true, load immediately without debounce
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [state, send] = useMachine(videoPlayerMachine, {
@@ -38,7 +39,7 @@ export function VideoPlayer({
     onTogglePlay()
   }
 
-  // Load video when URL changes - with aggressive debouncing and error state tracking
+  // Load video when URL changes - with smart debouncing based on priority
   const lastLoadRef = useRef<string>('')
   const errorStateRef = useRef<boolean>(false)
   const timeoutRef = useRef<NodeJS.Timeout>()
@@ -55,7 +56,7 @@ export function VideoPlayer({
 
       // Only load if URL actually changed or we're not in error state
       if (videoUrl !== lastLoadRef.current) {
-        console.log('[VideoPlayer] Loading video:', videoUrl)
+        console.log('[VideoPlayer] Loading video:', videoUrl, priorityLoad ? '(priority load)' : '(normal load)')
         lastLoadRef.current = videoUrl
         errorStateRef.current = false // Reset error state
         send({ type: 'LOAD', videoUrl, thumbnailUrl })
@@ -67,15 +68,22 @@ export function VideoPlayer({
       clearTimeout(timeoutRef.current)
     }
 
-    // Aggressive debounce - 1000ms to prevent rapid-fire attempts
-    timeoutRef.current = setTimeout(loadVideo, 1000)
+    if (priorityLoad) {
+      // Priority loads: Load immediately without debounce
+      console.log('[VideoPlayer] Loading priority video immediately:', videoUrl)
+      loadVideo()
+    } else {
+      // Normal loads: Use much shorter debounce (100ms vs 1000ms)
+      console.log('[VideoPlayer] Scheduling normal load with 100ms debounce:', videoUrl)
+      timeoutRef.current = setTimeout(loadVideo, 100)
+    }
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [videoUrl, thumbnailUrl, send])
+  }, [videoUrl, thumbnailUrl, send, priorityLoad])
 
   // Track error state to prevent immediate retries
   useEffect(() => {

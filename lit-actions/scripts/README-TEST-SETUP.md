@@ -33,11 +33,11 @@ This will:
 
 ### 2. Run Test
 
-After setup, run the audio processor test:
+After setup, deploy and test your lit actions:
 
 ```bash
 DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
-dotenvx run -- bun run src/test/test-audio-processor.mjs
+dotenvx run -- bun run scripts/upload-lit-action.mjs study/sat-it-back-v1.js 'Sat It Back v1'
 ```
 
 ## Manual Credit Management

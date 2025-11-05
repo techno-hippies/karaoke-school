@@ -12,6 +12,7 @@ import {
 import {
   PerformanceGraded,
   PerformanceSubmitted,
+  LinePerformanceGraded,
 } from "../generated/PerformanceGrader/PerformanceGrader";
 import {
   AccountCreated,
@@ -24,6 +25,8 @@ import {
   Account,
   Translation,
   GlobalStats,
+  LineCard,
+  LinePerformance,
 } from "../generated/schema";
 
 // Helper to load or create global stats
@@ -244,6 +247,79 @@ export function handlePerformanceSubmitted(event: PerformanceSubmitted): void {
   // This allows tracking of submitted vs graded performances if needed
 }
 
+// ============ Line Performance Event Handlers ============
+
+export function handleLinePerformanceGraded(event: LinePerformanceGraded): void {
+  // 1. Load or create LineCard
+  let lineCardId = event.params.lineId.toHexString();
+  let lineCard = LineCard.load(lineCardId);
+  
+  if (lineCard == null) {
+    lineCard = new LineCard(lineCardId);
+    lineCard.lineId = event.params.lineId;
+    lineCard.segmentHash = event.params.segmentHash;
+    lineCard.lineIndex = event.params.lineIndex;
+    lineCard.segment = event.params.segmentHash.toHexString();
+    lineCard.performanceCount = 0;
+    lineCard.averageScore = BigDecimal.zero();
+  }
+
+  // 2. Create LinePerformance
+  let performanceId = event.params.performanceId.toString();
+  let linePerformance = new LinePerformance(performanceId);
+  linePerformance.performanceId = event.params.performanceId;
+  linePerformance.line = lineCard.id;
+  linePerformance.lineId = event.params.lineId;
+  linePerformance.segment = event.params.segmentHash.toHexString();
+  linePerformance.segmentHash = event.params.segmentHash;
+  linePerformance.lineIndex = event.params.lineIndex;
+  linePerformance.performer = event.params.performer.toHexString();
+  linePerformance.performerAddress = event.params.performer;
+  linePerformance.score = event.params.score;
+  linePerformance.metadataUri = event.params.metadataUri;
+  linePerformance.gradedAt = event.params.timestamp;
+  linePerformance.save();
+
+  // 3. Update LineCard aggregate stats
+  let oldAvg = lineCard.averageScore;
+  let oldCount = lineCard.performanceCount;
+  let newCount = oldCount + 1;
+
+  // Calculate new average: (oldAvg * oldCount + newScore) / newCount
+  let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
+  let newScore = BigDecimal.fromString(event.params.score.toString());
+  let newTotal = totalScore.plus(newScore);
+  let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
+
+  lineCard.performanceCount = newCount;
+  lineCard.averageScore = newAvg;
+  lineCard.save();
+
+  // 4. Update Account stats
+  let accountId = event.params.performer.toHexString();
+  let account = Account.load(accountId);
+  if (account != null) {
+    account.updatedAt = event.params.timestamp;
+    account.performanceCount = account.performanceCount + 1;
+    account.totalScore = account.totalScore.plus(BigInt.fromI32(event.params.score));
+    account.averageScore = account.totalScore
+      .toBigDecimal()
+      .div(BigDecimal.fromString(account.performanceCount.toString()));
+    
+    // Update best score
+    if (event.params.score > account.bestScore) {
+      account.bestScore = event.params.score;
+    }
+    
+    account.save();
+  }
+
+  // 5. Update global stats
+  let stats = loadOrCreateGlobalStats();
+  stats.totalPerformances = stats.totalPerformances + 1;
+  stats.save();
+}
+
 // ============ Account Event Handlers ============
 
 export function handleAccountCreated(event: AccountCreated): void {
@@ -288,3 +364,4 @@ export function handleAccountVerified(event: AccountVerified): void {
     account.save();
   }
 }
+

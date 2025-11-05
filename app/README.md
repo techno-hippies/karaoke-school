@@ -787,7 +787,7 @@ The application supports basic offline functionality:
 ## 📚 Additional Resources
 
 ### Technical Documentation
-- **[Main Architecture](./CLAUDE.md)**: Complete technical specification
+- **[Main Architecture](../../docs/technical-architecture.md)**: Complete technical specification
 - **[Lens Integration](./src/lib/lens/README.md)**: Detailed Lens Protocol guide
 - **[Component Stories](./components/)**: Storybook documentation
 

@@ -1,6 +1,6 @@
 {
   "name": "audio-download-service",
-  "version": "2.2.0",
+  "version": "2.5.0",
   "type": "module",
   "description": "Multi-strategy audio/video download service (yt-dlp + Soulseek P2P) for karaoke pipeline",
   "scripts": {

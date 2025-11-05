@@ -50,7 +50,7 @@ contract PerformanceGrader {
     // ============ Events ============
 
     /**
-     * @notice Emitted when a performance is graded
+     * @notice Emitted when a performance is graded (DEPRECATED - use LinePerformanceGraded)
      * @param performanceId Unique performance ID (uint256 or UUID hash)
      * @param segmentHash Segment hash (for leaderboard grouping)
      * @param performer Performer wallet address
@@ -63,6 +63,29 @@ contract PerformanceGrader {
         uint256 indexed performanceId,
         bytes32 indexed segmentHash,
         address indexed performer,
+        uint16 score,
+        string metadataUri,
+        uint64 timestamp
+    );
+
+    /**
+     * @notice Emitted when a LINE performance is graded (for FSRS line-level tracking)
+     * @param performanceId Unique performance ID
+     * @param lineId Line UUID from karaoke_lines table (stable identifier)
+     * @param segmentHash Segment hash (for grouping lines to segments)
+     * @param lineIndex Line index within segment (0-based, for ordering)
+     * @param performer Performer wallet address
+     * @param score Performance score in basis points (0-10000)
+     * @param metadataUri Grove URI for performance metadata
+     * @param timestamp Block timestamp
+     * @dev New event for line-level FSRS. Use this instead of PerformanceGraded.
+     */
+    event LinePerformanceGraded(
+        uint256 indexed performanceId,
+        bytes32 indexed lineId,           // UUID from DB (converted to bytes32)
+        bytes32 indexed segmentHash,
+        uint16 lineIndex,
+        address performer,
         uint16 score,
         string metadataUri,
         uint64 timestamp
@@ -138,7 +161,7 @@ contract PerformanceGrader {
     // ============ Core Functions ============
 
     /**
-     * @notice Grade a performance (called by Lit Action via PKP)
+     * @notice Grade a performance (DEPRECATED - use gradeLinePerformance)
      * @param performanceId Unique performance ID
      * @param segmentHash Segment hash
      * @param performer Performer address
@@ -161,6 +184,44 @@ contract PerformanceGrader {
         emit PerformanceGraded(
             performanceId,
             segmentHash,
+            performer,
+            score,
+            metadataUri,
+            uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice Grade a LINE performance (for FSRS line-level tracking)
+     * @param performanceId Unique performance ID
+     * @param lineId Line UUID from karaoke_lines table (as bytes32)
+     * @param segmentHash Segment hash (for grouping)
+     * @param lineIndex Line index within segment (for ordering)
+     * @param performer Performer address
+     * @param score Performance score in basis points (0-10000)
+     * @param metadataUri Grove URI for performance metadata
+     * @dev ONLY trustedPKP can call - prevents score spoofing
+     */
+    function gradeLinePerformance(
+        uint256 performanceId,
+        bytes32 lineId,
+        bytes32 segmentHash,
+        uint16 lineIndex,
+        address performer,
+        uint16 score,
+        string calldata metadataUri
+    ) external onlyTrustedPKP whenNotPaused {
+        // Validate inputs
+        if (performer == address(0)) revert InvalidAddress();
+        if (score > 10000) revert InvalidScore();
+        if (lineId == bytes32(0)) revert InvalidAddress(); // lineId must be set
+
+        // Emit event for line-level FSRS indexing
+        emit LinePerformanceGraded(
+            performanceId,
+            lineId,
+            segmentHash,
+            lineIndex,
             performer,
             score,
             metadataUri,

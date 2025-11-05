@@ -29,6 +29,8 @@ export function transformLensPostToVideoData(
     : undefined
 
   const spotifyTrackId = getAttribute('spotify_track_id')
+  const grc20WorkId = getAttribute('grc20_work_id')
+  const tiktokVideoId = getAttribute('tiktok_video_id')
 
   // Extract karaoke lines from transcriptions attribute (stored as JSON)
   let karaokeLines
@@ -40,29 +42,51 @@ export function transformLensPostToVideoData(
       const englishData = transcriptionsData.languages?.en
 
       // Debug: Log segment count during parsing
-      console.log(`[Transformer] Post ${post.id.substring(0, 10)}: Parsed ${englishData?.segments?.length || 0} segments`)
+      console.log('[Transformer] Transcriptions data for post:', {
+        postId: post.id,
+        tiktokVideoId,
+        hasEnglish: !!englishData,
+        segmentCount: englishData?.segments?.length || 0,
+        firstSegment: englishData?.segments?.[0] ? {
+          text: englishData.segments[0].text?.substring(0, 50),
+          start: englishData.segments[0].start,
+          end: englishData.segments[0].end
+        } : null
+      })
 
       if (englishData?.segments) {
         // Get browser language for translation
-        // Default to Mandarin (zh) for any unsupported language (not English)
+        // Map browser language to supported translation languages
         const browserLang = navigator.language.toLowerCase()
         const langMap: Record<string, string> = {
-          'en': 'en',
-          'en-us': 'en',
           'zh-cn': 'zh',
           'zh': 'zh',
+          'zh-tw': 'zh',
           'vi': 'vi',
-          'vi-vn': 'vi'
+          'vi-vn': 'vi',
+          'id': 'id',
+          'id-id': 'id'
         }
-        const translationLang = langMap[browserLang] || 'zh' // ✨ Default to Mandarin
-        const translationData = translationLang !== 'en'
-          ? transcriptionsData.languages?.[translationLang]
-          : null
 
-        karaokeLines = englishData.segments.map((segment: any, index: number) => {
+        // Get translation language (default to Mandarin for all unsupported languages including English)
+        const translationLang = langMap[browserLang] || 'zh'
+        const translationData = transcriptionsData.languages?.[translationLang]
+
+        // Sort both English and translation segments by start time for proper alignment
+        const sortedEnglishSegments = englishData.segments.sort((a: any, b: any) => a.start - b.start)
+        const sortedTranslationSegments = (translationData?.segments || []).sort((a: any, b: any) => a.start - b.start)
+
+        karaokeLines = sortedEnglishSegments.map((segment: any) => {
           // Remove audio event descriptions in parentheses (e.g., "(cheerful country music)")
           const cleanText = segment.text.replace(/\([^)]*\)\s*/g, '').trim()
-          const cleanTranslation = translationData?.segments?.[index]?.text?.replace(/[（(][^)）]*[)）]\s*/g, '').trim()
+          
+          // Find the translation segment with the closest timing overlap
+          const matchingTranslation = sortedTranslationSegments.find((tSeg: any) => {
+            const overlap = Math.min(segment.end, tSeg.end) - Math.max(segment.start, tSeg.start)
+            return overlap > 0 // At least some timing overlap
+          })
+          
+          const cleanTranslation = matchingTranslation?.text?.replace(/[（(][^)）]*[)）]\s*/g, '').trim()
 
           return {
             text: cleanText,
@@ -79,8 +103,6 @@ export function transformLensPostToVideoData(
 
         // Filter out empty lines (where parentheses removal left nothing)
         karaokeLines = karaokeLines.filter(line => line.text.length > 0)
-
-        console.log(`[Transformer] Post ${post.id.substring(0, 10)}: Created ${karaokeLines.length} karaoke lines (after filtering)`)
       }
     } catch (err) {
       console.error('[Transformer] Failed to parse transcriptions:', err)
@@ -96,9 +118,6 @@ export function transformLensPostToVideoData(
   const thumbnailUrl = convertGroveUri(rawThumbnailUrl) ||
     `https://picsum.photos/400/711?random=${post.id}`
 
-  // Debug: Log video URL with post ID and karaoke line count
-  console.log(`[Transformer] Post ${post.id.substring(0, 10)}: videoUrl=${videoUrl?.substring(0, 60)}... karaokeLines=${karaokeLines?.length || 0}`)
-
   // Extract avatar - handle both object and string formats
   const rawAvatar = post.author.metadata?.picture
   const avatarUri = typeof rawAvatar === 'string'
@@ -112,6 +131,7 @@ export function transformLensPostToVideoData(
 
   const result = {
     id: post.id,
+    tiktokVideoId,
     videoUrl,
     thumbnailUrl,
     username: post.author.username?.localName || post.author.address,
@@ -124,6 +144,7 @@ export function transformLensPostToVideoData(
     musicImageUrl,
     geniusId,
     spotifyTrackId,
+    grc20WorkId,
     createdAt: (post as any).createdAt,
     likes: post.stats?.upvotes ?? 0,
     comments: post.stats?.comments ?? 0,

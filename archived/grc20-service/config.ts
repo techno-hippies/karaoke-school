@@ -21,7 +21,7 @@ export const config = {
   maxGasPerEdit: 15000,  // Max gas per edit (safety margin)
 
   // Grove configuration
-  groveGateway: process.env.GROVE_GATEWAY || 'https://gateway.irys.xyz',
+  groveGateway: process.env.GROVE_GATEWAY || 'https://api.grove.storage',
 
   // API endpoints
   graphApiOrigin: process.env.GRC20_NETWORK === 'MAINNET'
