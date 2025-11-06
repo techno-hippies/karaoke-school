@@ -102,8 +102,7 @@ export function upsertMBWorkSQL(work: MBWork): string {
  * Generate SQL to upsert MusicBrainz artist
  */
 export function upsertMBArtistSQL(
-  artist: MBArtist,
-  spotifyArtistId?: string
+  artist: MBArtist
 ): string {
   const socialMedia: Record<string, string> = {};
   const streaming: Record<string, string> = {};
@@ -185,7 +184,6 @@ export function upsertMBArtistSQL(
       'sort-name': a['sort-name'] || null,
       primary: a.primary || false,
     })) || [],
-    spotify_artist_id: spotifyArtistId || null,
     urls: Object.keys(allUrls).length > 0 ? allUrls : null,
     social_media: Object.keys(socialMedia).length > 0 ? socialMedia : null,
     streaming: Object.keys(streaming).length > 0 ? streaming : null,
@@ -205,7 +203,6 @@ export function upsertMBArtistSQL(
     'isnis',
     'ipis',
     'aliases',
-    'spotify_artist_id',
     'urls',
     'social_media',
     'streaming',
