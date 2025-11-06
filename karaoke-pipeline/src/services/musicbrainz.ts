@@ -107,7 +107,9 @@ export interface MBArtist {
  */
 export async function lookupRecordingByISRC(isrc: string): Promise<MBRecording | null> {
   try {
-    const url = `${MB_API_URL}/isrc/${isrc}?inc=artist-credits+work-rels+tags&fmt=json`;
+    // MusicBrainz requires uppercase ISRCs
+    const normalizedIsrc = isrc.toUpperCase();
+    const url = `${MB_API_URL}/isrc/${normalizedIsrc}?inc=artist-credits+work-rels+tags&fmt=json`;
     const response = await rateLimitedFetch(url);
 
     if (!response.ok) {
