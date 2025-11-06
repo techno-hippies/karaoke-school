@@ -4,24 +4,10 @@
   "description": "19-step GRC20 karaoke minting pipeline",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "pipeline": "bun run-pipeline.ts",
-    "pipeline:all": "bun run-pipeline.ts --all --limit=50",
-    "pipeline:step": "bun run-pipeline.ts",
     "run-unified": "bun run-unified.ts",
     "unified:all": "bun run-unified.ts --all --limit=50",
     "unified:step": "bun run-unified.ts --step",
-    "scrape": "dotenvx run -f .env -- bun src/processors/01-scrape-tiktok.ts",
-    "test:pipeline": "bun run-pipeline.ts --step=2 --limit=1",
-    "test": "echo 'Use test:* scripts - bun test:complete, bun test:steps, etc.'",
-    "test:complete": "bun tests/test-complete-pipeline.ts",
-    "test:steps": "bun tests/test-steps.ts",
-    "test:alignment": "bun tests/test-alignment.ts",
-    "test:translation": "bun tests/test-translation.ts",
-    "test:demucs": "bun tests/test-demucs-health.ts",
-    "test:genius": "bun tests/test-genius.ts",
-    "test:status": "bun scripts/monitoring/check-pipeline-status.ts",
+    "scrape": "bun src/processors/01-scrape-tiktok.ts",
     "scripts": "echo 'Use scripts from scripts/ directory organized by category'",
     "scripts:status": "bun scripts/monitoring/check-pipeline-status.ts",
     "scripts:monitor": "bun scripts/monitoring/check-pipeline-status.ts",
@@ -30,13 +16,13 @@
     "scripts:migration:karaoke-segments": "bun scripts/migration/migrate-karaoke-segments.ts",
     "scripts:migration:language-data": "bun scripts/migration/cleanup-language-data.ts",
     "scripts:migration:update-images": "bun scripts/migration/update-track-images.ts",
-    "scripts:migration:populate-grc20-artists": "dotenvx run -f .env -- bun scripts/migration/populate-grc20-artists.ts",
-    "scripts:migration:populate-grc20-works": "dotenvx run -f .env -- bun scripts/migration/populate-grc20-works.ts",
+    "scripts:migration:populate-grc20-artists": "bun scripts/migration/populate-grc20-artists.ts",
+    "scripts:migration:populate-grc20-works": "bun scripts/migration/populate-grc20-works.ts",
     "scripts:processing": "echo 'Use scripts:processing:* scripts'",
     "scripts:processing:separations": "bun scripts/processing/process-all-separations.ts",
     "scripts:processing:orchestrator": "bun scripts/processing/run-orchestrator.ts",
     "scripts:backfill": "bun scripts/backfill/backfill-genius-data.ts",
-    "scripts:backfill:genius-artists": "dotenvx run -f .env -- bun scripts/backfill/backfill-genius-artist-ids.ts"
+    "scripts:backfill:genius-artists": "bun scripts/backfill/backfill-genius-artist-ids.ts"
   },
   "dependencies": {
     "@fal-ai/client": "^1.7.0",
@@ -58,8 +44,5 @@
     "viem": "^2.21.54",
     "zod": "^4.1.12"
   },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
-    "wrangler": "^4.36.0"
-  }
+  "devDependencies": {}
 }

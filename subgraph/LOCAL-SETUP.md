@@ -54,12 +54,19 @@ npm run build
 
 ### Unix/Linux/macOS (Automatic Postgres)
 
-```bash
-# Start gnd pointing to Lens Testnet RPC
-gnd --ethereum-rpc local:https://rpc.testnet.lens.xyz --watch
+**IMPORTANT: PostgreSQL must be in PATH.** Run this single command:
 
-# The --watch flag auto-redeploys when you make changes
+```bash
+# Add PostgreSQL 16 to PATH and start gnd
+export PATH="/usr/lib/postgresql/16/bin:$PATH" && \
+  gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz --watch
 ```
+
+**Key points:**
+- Network name must be `lens-testnet:` (matches `subgraph.yaml` network declarations)
+- The `--watch` flag auto-redeploys when you make changes
+- gnd automatically creates a temporary Postgres instance in `./build` - no manual setup needed
+- First run will download blocks (5-10 minutes on initial sync)
 
 ### Windows (Manual Postgres URL)
 
@@ -142,6 +149,22 @@ Block #4187069: Processing TranslationAdded event (zh)...
 
 ## Troubleshooting
 
+### "Failed to start initdb" / "Is it installed and on your path?"
+
+**Issue**: gnd needs PostgreSQL tools (`initdb`) to create the temp database, but they're not in PATH
+
+**Fix**: Add PostgreSQL 16 to PATH before running gnd:
+```bash
+export PATH="/usr/lib/postgresql/16/bin:$PATH"
+gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz --watch
+```
+
+Or as a single command:
+```bash
+export PATH="/usr/lib/postgresql/16/bin:$PATH" && \
+  gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz --watch
+```
+
 ### "Failed to connect to Ethereum node"
 
 **Issue**: Cannot reach Lens Testnet RPC
@@ -169,6 +192,17 @@ curl https://rpc.testnet.lens.xyz \
 **Fix**: Verify contract addresses in `subgraph.yaml`:
 - SegmentEvents: `0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8`
 - TranslationEvents: `0x5A49E23A5C3a034906eE0274c266A08805770C70`
+
+### "network not supported by registrar: no network X found"
+
+**Issue**: The `--ethereum-rpc` network name doesn't match what's in `subgraph.yaml`
+
+**Fix**: This subgraph uses `network: lens-testnet` in its data sources, so start gnd with:
+```bash
+gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz --watch
+```
+
+The format is: `--ethereum-rpc [NETWORK_NAME]:[RPC_URL]`
 
 ### "No events found"
 

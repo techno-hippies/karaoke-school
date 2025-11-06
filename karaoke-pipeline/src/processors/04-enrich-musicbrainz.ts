@@ -297,15 +297,8 @@ async function main() {
   console.log(`   - Failed: ${failCount}`);
   console.log('');
 
-  // Update status to metadata_enriched only for tracks that got MB data
-  if (successCount > 0 || cachedRecordings.length > 0) {
-    await query(`
-      UPDATE song_pipeline
-      SET status = 'metadata_enriched'
-      WHERE status = 'iswc_found'
-        AND recording_mbid IS NOT NULL
-    `);
-  }
+  // Status already updated by individual updatePipelineMBSQL() calls
+  // No need for batch update
 
   console.log('✅ Done!');
 }
@@ -436,6 +429,7 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
       successCount++;
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error: any) {
+      console.log(`   ❌ ${track.artist_name} - ${track.title}: ${error.message}`);
       failCount++;
       sqlStatements.push(
         logMBProcessingSQL(
@@ -466,15 +460,8 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
     await transaction(sqlStatements);
   }
 
-  // Update status to metadata_enriched only for tracks that got MB data
-  if (successCount > 0 || cachedRecordings.length > 0) {
-    await query(`
-      UPDATE song_pipeline
-      SET status = 'metadata_enriched'
-      WHERE status = 'iswc_found'
-        AND recording_mbid IS NOT NULL
-    `);
-  }
+  // Status already updated by individual updatePipelineMBSQL() calls
+  // No need for batch update
 
   console.log(`✅ Step 4 Complete: ${successCount} fetched, ${failCount} failed`);
 }

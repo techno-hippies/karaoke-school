@@ -1,9 +1,0 @@
-demucs==4.0.1
-fastapi
-uvicorn
-python-multipart
-requests
-torch
-torchaudio
-numpy<2
-soundfile

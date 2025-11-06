@@ -8,9 +8,11 @@ const USER_AGENT = 'KaraokePipeline/1.0 (https://github.com/your-org)';
 
 // Rate limit: 1 request/second for MusicBrainz
 const RATE_LIMIT_MS = 1000;
+const REQUEST_TIMEOUT_MS = 10000; // 10 second timeout
+const MAX_RETRIES = 3;
 let lastRequestTime = 0;
 
-async function rateLimitedFetch(url: string): Promise<Response> {
+async function rateLimitedFetch(url: string, retries = MAX_RETRIES): Promise<Response> {
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
 
@@ -20,12 +22,34 @@ async function rateLimitedFetch(url: string): Promise<Response> {
 
   lastRequestTime = Date.now();
 
-  return fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Accept': 'application/json',
-    },
-  });
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    // Retry on network errors (socket closed, timeout, etc.)
+    if (retries > 0 && (
+      error.name === 'AbortError' ||
+      error.message?.includes('socket') ||
+      error.message?.includes('connection') ||
+      error.message?.includes('ECONNRESET')
+    )) {
+      console.log(`MusicBrainz fetch failed, retrying... (${MAX_RETRIES - retries + 1}/${MAX_RETRIES})`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+      return rateLimitedFetch(url, retries - 1);
+    }
+    throw error;
+  }
 }
 
 export interface MBRecording {

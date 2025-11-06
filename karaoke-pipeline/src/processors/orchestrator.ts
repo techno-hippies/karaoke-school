@@ -154,6 +154,18 @@ export async function runUnifiedPipeline(env: Env, options?: {
       optional: true  // Don't block pipeline - has retry logic now
     },
 
+    // Step 4.9: Genius Artists (MOVED HERE - must run before 4.5)
+    {
+      number: 4.9,
+      name: 'Genius Artists',
+      description: 'Fetch full artist profiles from Genius (primary, featured, producers, writers)',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processGeniusArtists,
+      enabled: true,
+      optional: true
+    },
+
     // Step 4.5: Genius Songs
     {
       number: 4.5,
@@ -195,18 +207,6 @@ export async function runUnifiedPipeline(env: Env, options?: {
     // Step 4.8: MusicBrainz Artists (part of Step 4)
     // NOTE: Currently handled by Step 4 (processMusicBrainzEnrichment)
     // MusicBrainz enrichment fetches recordings, works, AND artists together
-
-    // Step 4.9: Genius Artists
-    {
-      number: 4.9,
-      name: 'Genius Artists',
-      description: 'Fetch full artist profiles from Genius (primary, featured, producers, writers)',
-      status: 'metadata_enriched',
-      nextStatus: 'metadata_enriched',  // No status change
-      processor: processGeniusArtists,
-      enabled: true,
-      optional: true
-    },
 
     // Step 4.10: Wikidata Artists
     {

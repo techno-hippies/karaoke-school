@@ -29,28 +29,52 @@ curl http://localhost:8787/health
 ```
 
 ### **Service Architecture:**
-```
-┌─────────────────────────────────────┐
-│ Standalone Pipeline Server          │
-│ • Port 8787 (Worker-compatible)     │
-│ • All pipeline steps as HTTP API    │
-│ • Webhooks, triggers, health checks │
-└─────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────┐
-│ Audio Download Service              │
-│ • Port 3001                         │
-│ • yt-dlp + Soulseek P2P strategies  │
-│ • Fire-and-forget processing        │
-└─────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────┐
-│ Demucs GPU Service                  │
-│ • Port 8001                         │
-│ • Vocal/instrumental separation     │
-│ • Callback to pipeline when done    │
-└─────────────────────────────────────┘
-```
+
+**Local Services (supervisor.sh)**:
+- **Audio Download Service** (port 3001) - yt-dlp + Soulseek P2P strategies
+- **Demucs GPU Service** (port 8001) - Vocal/instrumental separation
+- **Quansic Service** (port 3000) - ISWC discovery via Akash
+
+**Akash-Hosted API Services** (managed in root folders):
+- **BMI Service** (`/bmi-service`) - ISWC lookup fallback #2
+- **MLC Service** (`/mlc-service`) - ISWC lookup fallback #1 (direct ISRC→ISWC)
+- **FFmpeg Service** (`/ffmpeg-service`) - Audio processing endpoints
+
+**Pipeline Orchestrator**:
+- Run via `bun run-unified.ts` (CLI) or `standalone-server.ts` (HTTP API on port 8787)
+- Coordinates all services and processes 19 pipeline steps
+
+## 📐 Pipeline Architecture
+
+### **Block Structure**
+
+The pipeline is organized into 4 logical blocks:
+
+**BLOCK 1: WORKS ENRICHMENT** (Steps 2-4.6)
+- Step 2: Spotify Tracks (metadata + ISRC)
+- Step 3: ISWC Discovery (Quansic → MLC → BMI fallback chain)
+- Step 4: MusicBrainz Works (recordings + works + artists)
+- Step 4.5: Genius Songs (language, annotations, referents)
+- Step 4.6: Wikidata Works (ISWC, composers, international IDs)
+
+**BLOCK 2: ARTISTS ENRICHMENT** (Steps 4.7-4.10)
+- Step 4.7: Quansic Artists (ISNI, IPI, Wikidata IDs)
+- Step 4.9: Genius Artists (bios, social links, all roles)
+- Step 4.10: Wikidata Artists (library IDs, 40+ identifiers)
+
+**BLOCK 3: LYRICS & AUDIO PROCESSING** (Steps 5-11)
+- Step 5: Discover Lyrics (synced LRC format)
+- Step 6: Download Audio (fire-and-forget to Grove)
+- Step 6.5: ElevenLabs Forced Alignment (word-level timing)
+- Step 7.5: Multi-language Translation (zh, vi, id)
+- Step 8: Audio Separation (Demucs vocal/instrumental)
+- Step 9: AI Segment Selection (optimal 190s segment)
+- Step 10: fal.ai Enhancement (full-song chunking + 2s crossfade)
+- Step 11: AI Viral Clip Selection (30-60s verse+chorus via Claude)
+
+**BLOCK 4: BLOCKCHAIN EMISSION** (Steps 12-13)
+- Step 12: Emit Segment Events (on-chain karaoke data)
+- Step 13: Story Protocol Derivatives (TikTok creator videos)
 
 ## 🆕 Web3 & Metadata Features
 

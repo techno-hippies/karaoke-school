@@ -52,6 +52,8 @@ bun scripts:status
 - **Multi-source enrichment** (ISNI, ISRC, ISWC)
 
 ### **🎙️ AI Processing**
+- **Full-song audio enhancement** with 190s chunking & 2s crossfade
+- **AI-powered viral clip selection** (30-60s verse+chorus via Claude)
 - **TikTok transcription** (creator speech, separate from lyrics)
 - **Multi-language translation** with word-level timing
 - **Vector similarity** for context matching
@@ -65,6 +67,32 @@ tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
 lyrics_ready → audio_downloaded → alignment_complete → translations_ready → 
 stems_separated → segments_selected → enhanced → clips_cropped → images_generated
 ```
+
+---
+
+## Full-Song Enhancement Workflow
+
+### Step 10: fal.ai Chunking & Enhancement
+**Processes ENTIRE songs** (not just 190s segments):
+1. Splits songs into 190s chunks with 2s overlap
+2. Submits all chunks to fal.ai in parallel ($0.20/chunk)
+3. Downloads enhanced chunks from fal.ai
+4. Merges with FFmpeg crossfade for seamless transitions
+5. Uploads merged full-song instrumental to Grove
+6. Stores chunk metadata in `karaoke_segments.fal_chunks` (JSONB)
+
+**Example**: 200s song → 2 chunks (0-190s, 188-200.4s) → $0.40 total
+
+### Step 11: AI Viral Clip Selection
+**Uses Claude 3.5 Sonnet to select optimal clips**:
+1. Loads all karaoke lines with timestamps
+2. AI analyzes song structure to find best verse+chorus
+3. Ensures 30-60s duration (ideally 40-50s)
+4. Crops selected segment from merged instrumental
+5. Uploads viral clip to Grove
+6. Updates `karaoke_segments` with clip metadata
+
+**Example**: Ocean Eyes → Selected 49.2s-91.9s (42.7s verse+chorus)
 
 ---
 
@@ -190,13 +218,33 @@ AND updated_at < NOW() - INTERVAL '1 hour';
 **Project Structure:**
 ```
 karaoke-pipeline/
-├── run-pipeline.ts          # Main pipeline orchestrator
+├── run-unified.ts           # Main pipeline orchestrator
+├── standalone-server.ts     # HTTP API server (port 8787)
+├── supervisor.sh            # Process supervisor for local services
 ├── src/
-│   ├── processors/           # 19 pipeline steps + Web3 processors  
-│   ├── db/                   # Database connections
-│   └── services/             # External API integrations
-├── scripts/                  # Organized utility scripts
+│   ├── processors/           # 26 pipeline steps + orchestrator
+│   ├── services/             # API integrations (21 services)
+│   ├── db/                   # Database modules (10 files)
+│   ├── schemas/              # GRC-20 & Story Protocol schemas
+│   └── utils/                # Utilities (status reconciliation)
+├── scripts/                  # Organized by category
+│   ├── backfill/             # Data backfill operations
+│   ├── migration/            # Database migrations & population
+│   ├── monitoring/           # Status and health checks
+│   ├── processing/           # Core pipeline operations
+│   ├── validation/           # Data validation
+│   └── contracts/            # Contract deployment
+├── grc20-v2/                 # Standalone GRC-20 minting system
+└── schema/migrations/        # SQL migration files
+```
 
+**External Services** (Akash-hosted, managed in project root):
+```
+../bmi-service/              # ISWC lookup fallback #2
+../mlc-service/              # ISWC lookup fallback #1
+../ffmpeg-service/           # Audio processing endpoints
+../audio-download-service/   # yt-dlp + Soulseek download
+../quansic-service/          # ISWC discovery service
 ```
 
 **Environment Variables (.env):**
@@ -218,8 +266,10 @@ GROVE_TOKEN=...
 ## Support & Documentation
 
 **For complete developer guide:**
-- **[AGENTS.md](AGENTS.md)** - Complete developer guide with all features
-- **[scripts/README.md](scripts/README.md)** - Operational scripts and monitoring
+- **[AGENTS.md](AGENTS.md)** - Complete developer guide with architecture & all features
+- **[CLAUDE.md](CLAUDE.md)** - Claude Code configuration & pre-approved commands
+- **[scripts/migration/README-POPULATION.md](scripts/migration/README-POPULATION.md)** - GRC-20 population guide
+- **[scripts/contracts/README.md](scripts/contracts/README.md)** - Contract deployment guide
 
 **Quick help:**
 - Status issues: Check `bun scripts:status`

@@ -149,6 +149,38 @@ export async function updateFalEnhancement(
 }
 
 /**
+ * Update fal.ai chunks (new chunking architecture)
+ */
+export async function updateFalChunks(
+  databaseUrl: string,
+  spotifyTrackId: string,
+  data: {
+    chunks: Array<{
+      index: number;
+      start_ms: number;
+      end_ms: number;
+      duration_ms: number;
+      fal_url: string;
+      fal_request_id: string;
+      grove_cid: string;
+      grove_url: string;
+    }>;
+    mergedInstrumentalCid: string;
+  }
+): Promise<void> {
+  const sql = neon(databaseUrl);
+
+  await sql`
+    UPDATE karaoke_segments
+    SET
+      fal_chunks = ${JSON.stringify(data.chunks)}::jsonb,
+      merged_instrumental_cid = ${data.mergedInstrumentalCid},
+      updated_at = NOW()
+    WHERE spotify_track_id = ${spotifyTrackId}
+  `;
+}
+
+/**
  * Get tracks needing segment selection
  */
 export async function getTracksNeedingSegmentSelection(

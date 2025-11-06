@@ -1,6 +1,0 @@
-node_modules/
-.env
-.env.keys
-*.log
-songs/*/karaoke-alignment.json
-dist/

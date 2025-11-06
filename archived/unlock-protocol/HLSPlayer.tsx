@@ -1,0 +1,412 @@
+/**
+ * HLS Video Player with Encrypted Segment Decryption
+ *
+ * Uses HLS.js with custom loader to decrypt segments on-the-fly
+ */
+
+import { useEffect, useRef, useState } from 'react'
+import Hls from 'hls.js'
+import { Play } from '@phosphor-icons/react'
+import { Spinner } from '@/components/ui/spinner'
+import type { EncryptionMetadata, HLSMetadata } from '@/lib/lit/decrypt-video'
+import { decryptSymmetricKey, decryptSegment } from '@/lib/lit/decrypt-video'
+import type { PKPInfo, AuthData } from '@/lib/lit-webauthn/types'
+
+interface HLSPlayerProps {
+  playlistUrl: string
+  thumbnailUrl?: string
+  hlsMetadata: HLSMetadata
+  encryption: EncryptionMetadata
+  pkpInfo: PKPInfo
+  authData: AuthData
+  className?: string
+  isPlaying?: boolean
+  isMuted?: boolean
+  loop?: boolean
+  controls?: boolean
+  onTogglePlay?: () => void
+  onError?: (error: Error) => void
+  onTimeUpdate?: (currentTime: number) => void
+  onPlayFailed?: () => void
+}
+
+/**
+ * Converts lens:// URI to Grove storage URL
+ */
+function lensToGroveUrl(lensUri: string): string {
+  if (!lensUri) return ''
+  const lower = lensUri.toLowerCase()
+  if (!lower.startsWith('lens') && !lower.startsWith('glen')) return lensUri
+
+  const hash = lensUri
+    .replace(/^(lens|glens?):\/\//i, '')
+    .replace(/:\d+$/, '')
+
+  return `https://api.grove.storage/${hash}`
+}
+
+export function HLSPlayer({
+  playlistUrl,
+  thumbnailUrl,
+  hlsMetadata,
+  encryption,
+  pkpInfo,
+  authData,
+  className = '',
+  isPlaying = false,
+  isMuted = true,
+  loop = true,
+  controls = false,
+  onTogglePlay,
+  onError,
+  onTimeUpdate,
+  onPlayFailed,
+}: HLSPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const hlsRef = useRef<Hls | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const symmetricKeyRef = useRef<Uint8Array | null>(null)
+  const isInitializedRef = useRef(false)
+  const cancelledRef = useRef(false)
+
+  // Handle manual play (when user clicks play button)
+  const handlePlayPause = () => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (video.paused) {
+      // Directly call play() to ensure Chrome recognizes the user gesture
+      video.play()
+        .then(() => {
+          // Only update parent state after play succeeds
+          onTogglePlay?.()
+        })
+        .catch((e) => {
+          if (e.name === 'NotAllowedError' && onPlayFailed) {
+            onPlayFailed()
+          }
+        })
+    } else {
+      // For pause, call the parent handler
+      onTogglePlay?.()
+    }
+  }
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    // Prevent double initialization (React StrictMode)
+    if (isInitializedRef.current) {
+      console.log('[HLSPlayer] Already initialized, skipping')
+      return
+    }
+
+    console.log('[HLSPlayer] Initializing HLS player...')
+    console.log('[HLSPlayer] Playlist:', playlistUrl)
+    console.log('[HLSPlayer] Segments:', hlsMetadata.segmentCount)
+
+    // Check if HLS.js is supported
+    if (!Hls.isSupported()) {
+      const errorMsg = 'HLS.js is not supported in this browser'
+      console.error('[HLSPlayer]', errorMsg)
+      setError(errorMsg)
+      onError?.(new Error(errorMsg))
+      return
+    }
+
+    isInitializedRef.current = true
+    cancelledRef.current = false
+
+    // Initialize: Decrypt symmetric key ONCE
+    const init = async () => {
+      try {
+        console.log('[HLSPlayer] Decrypting symmetric key...')
+        const symmetricKey = await decryptSymmetricKey(encryption, pkpInfo, authData)
+
+        if (cancelledRef.current) return
+
+        symmetricKeyRef.current = symmetricKey
+        console.log('[HLSPlayer] ✅ Symmetric key decrypted, ready to play')
+
+        // Create custom loader that decrypts segments
+        const customLoader = class extends Hls.DefaultConfig.loader! {
+          constructor(config: any) {
+            super(config)
+          }
+
+          load(
+            context: any,
+            config: any,
+            callbacks: {
+              onSuccess: (response: any, stats: any, context: any) => void
+              onError: (error: any, context: any) => void
+              onTimeout: (stats: any, context: any) => void
+            }
+          ) {
+            const url = context.url
+
+            // Check if this is a segment (ends with .ts)
+            const isSegment = url.endsWith('.ts')
+
+            if (!isSegment) {
+              // Playlist file - fetch normally
+              super.load(context, config, callbacks)
+              return
+            }
+
+            // Extract filename from URL (handle both relative and absolute URLs)
+            const filename = url.split('/').pop()!
+
+            // Find segment metadata
+            const segmentMeta = encryption.segments.find(s => s.filename === filename)
+
+            if (!segmentMeta) {
+              console.error('[HLSPlayer] No encryption metadata for segment:', filename)
+              callbacks.onError({ code: 404, text: 'Segment metadata not found' }, context)
+              return
+            }
+
+            // Get the actual Grove URI for this segment
+            const segmentUri = hlsMetadata.segmentUris[filename]
+            if (!segmentUri) {
+              console.error('[HLSPlayer] No Grove URI for segment:', filename)
+              callbacks.onError({ code: 404, text: 'Segment URI not found' }, context)
+              return
+            }
+
+            const resolvedUrl = lensToGroveUrl(segmentUri)
+            console.log(`[HLSPlayer] Loading encrypted segment: ${filename} from ${resolvedUrl}`)
+
+            // Fetch encrypted segment from Grove storage
+            fetch(resolvedUrl)
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`)
+                }
+                return response.arrayBuffer()
+              })
+              .then(async encryptedData => {
+                // Check if component was unmounted during fetch
+                if (cancelledRef.current) {
+                  throw new Error('Component unmounted, aborting decryption')
+                }
+
+                // Check if symmetric key is still available
+                if (!symmetricKeyRef.current) {
+                  throw new Error('Decryption key not available')
+                }
+
+                // Decrypt segment with symmetric key
+                const decryptedData = await decryptSegment(
+                  encryptedData,
+                  symmetricKeyRef.current,
+                  segmentMeta.iv,
+                  segmentMeta.authTag
+                )
+
+                console.log(`[HLSPlayer] ✅ Decrypted segment: ${filename} (${(decryptedData.byteLength / 1024).toFixed(1)} KB)`)
+
+                // Return decrypted data to HLS.js
+                callbacks.onSuccess(
+                  {
+                    url,
+                    data: decryptedData,
+                  },
+                  {
+                    trequest: performance.now(),
+                    tfirst: performance.now(),
+                    tload: performance.now(),
+                    loaded: decryptedData.byteLength,
+                    total: decryptedData.byteLength,
+                  },
+                  context
+                )
+              })
+              .catch(error => {
+                console.error(`[HLSPlayer] ❌ Failed to load/decrypt segment ${filename}:`, error)
+                callbacks.onError(
+                  { code: 500, text: error.message },
+                  context
+                )
+              })
+          }
+        }
+
+        // Initialize HLS.js with custom loader
+        const hls = new Hls({
+          loader: customLoader,
+          debug: false,
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+        })
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('[HLSPlayer] HLS error:', data)
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.error('[HLSPlayer] Fatal network error, trying to recover...')
+                hls.startLoad()
+                break
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.error('[HLSPlayer] Fatal media error, trying to recover...')
+                hls.recoverMediaError()
+                break
+              default:
+                console.error('[HLSPlayer] Fatal error, cannot recover')
+                hls.destroy()
+                setError('Playback error: ' + data.details)
+                onError?.(new Error(data.details))
+                break
+            }
+          }
+        })
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('[HLSPlayer] ✅ Manifest parsed, video ready')
+          setIsLoading(false)
+        })
+
+        // Track loading state
+        const handleWaiting = () => setIsLoading(true)
+        const handleCanPlay = () => setIsLoading(false)
+        const handleTimeUpdate = () => {
+          if (onTimeUpdate) {
+            onTimeUpdate(video.currentTime)
+          }
+        }
+
+        video.addEventListener('waiting', handleWaiting)
+        video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('timeupdate', handleTimeUpdate)
+
+        // Load playlist (will be fetched without decryption, segments will be decrypted)
+        const resolvedPlaylistUrl = lensToGroveUrl(playlistUrl)
+        console.log('[HLSPlayer] Loading playlist:', resolvedPlaylistUrl)
+        hls.loadSource(resolvedPlaylistUrl)
+        hls.attachMedia(video)
+
+        hlsRef.current = hls
+
+        // Cleanup event listeners
+        return () => {
+          video.removeEventListener('waiting', handleWaiting)
+          video.removeEventListener('canplay', handleCanPlay)
+          video.removeEventListener('timeupdate', handleTimeUpdate)
+        }
+
+      } catch (error: any) {
+        console.error('[HLSPlayer] ❌ Initialization failed:', error)
+        setError(error.message)
+        onError?.(error)
+      }
+    }
+
+    init()
+
+    // Cleanup
+    return () => {
+      console.log('[HLSPlayer] Cleanup: Destroying HLS instance')
+      cancelledRef.current = true
+
+      if (hlsRef.current) {
+        hlsRef.current.destroy()
+        hlsRef.current = null
+      }
+
+      // Reset refs to allow re-initialization on next mount
+      symmetricKeyRef.current = null
+      isInitializedRef.current = false
+    }
+  }, [playlistUrl, hlsMetadata, encryption, pkpInfo, authData, onError, onTimeUpdate])
+
+  // Sync isPlaying prop with actual video playback state (like VideoPlayer)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (isPlaying) {
+      // Only call play() if video is not already playing
+      if (video.paused) {
+        video.play().catch((e) => {
+          // Notify parent that autoplay failed so it can show the play button
+          if (e.name === 'NotAllowedError' && onPlayFailed) {
+            console.log('[HLSPlayer] Autoplay blocked, notifying parent')
+            onPlayFailed()
+          }
+        })
+      }
+    } else {
+      // Only pause if video is actually playing
+      if (!video.paused) {
+        video.pause()
+      }
+    }
+  }, [isPlaying, onPlayFailed])
+
+  // Sync isMuted prop with video element (like VideoPlayer)
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = isMuted
+  }, [isMuted])
+
+  if (error) {
+    return (
+      <div className={`flex items-center justify-center bg-black ${className}`}>
+        <div className="text-red-500 p-4 text-center">
+          <p className="font-semibold">Playback Error</p>
+          <p className="text-sm mt-2">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`relative ${className}`}>
+      {/* Video element */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        loop={loop}
+        controls={controls}
+        playsInline
+        poster={thumbnailUrl}
+        onClick={handlePlayPause}
+      />
+
+      {/* Thumbnail overlay when loading or paused */}
+      {(isLoading || !isPlaying) && thumbnailUrl && (
+        <div className="absolute inset-0 bg-black z-10">
+          <img
+            src={thumbnailUrl}
+            alt="Video thumbnail"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      {/* Loading spinner overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-20">
+          <Spinner size="lg" className="text-white" />
+        </div>
+      )}
+
+      {/* Play button overlay - show when not playing (like VideoPlayer) */}
+      {!isPlaying && !isLoading && (
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 cursor-pointer transition-colors group z-30"
+          onClick={handlePlayPause}
+        >
+          <div className="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
+            <Play className="w-10 h-10 text-foreground fill-white ml-1" weight="fill" />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

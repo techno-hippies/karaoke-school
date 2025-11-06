@@ -5,6 +5,7 @@
  */
 
 const LYRICS_OVH_API_URL = 'https://api.lyrics.ovh/v1';
+const TIMEOUT_MS = 10000; // 10 second timeout (service is unstable)
 
 export interface LyricsOvhResult {
   lyrics: string;
@@ -21,7 +22,12 @@ export async function searchLyrics(
   try {
     const url = `${LYRICS_OVH_API_URL}/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
 
-    const response = await fetch(url);
+    // Add timeout since service is unstable (frequently 504s)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 404) return null;

@@ -218,14 +218,14 @@ export function upsertMBArtistSQL(
  */
 export function updatePipelineMBSQL(
   spotifyTrackId: string,
-  recordingMbid: string,
+  recordingMbid: string | null,
   workMbid: string | null
 ): string {
   return `
     UPDATE song_pipeline
     SET
       status = 'metadata_enriched',
-      recording_mbid = '${recordingMbid}',
+      recording_mbid = ${recordingMbid ? `'${recordingMbid}'` : 'NULL'},
       work_mbid = ${workMbid ? `'${workMbid}'` : 'NULL'},
       updated_at = NOW()
     WHERE spotify_track_id = '${spotifyTrackId}'

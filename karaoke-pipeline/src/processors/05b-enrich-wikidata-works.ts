@@ -166,7 +166,99 @@ async function main() {
   await close();
 }
 
-main().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+/**
+ * Process Wikidata Works enrichment (for orchestrator)
+ */
+export async function processWikidataWorks(_env: any, limit: number = 10): Promise<void> {
+  console.log(`[Step 4.6] Wikidata Works Enrichment (limit: ${limit})`);
+
+  // Find works from MusicBrainz with Wikidata URLs
+  const worksToProcess = await query<{
+    spotify_track_id: string;
+    work_mbid: string;
+    title: string;
+    wikidata_id: string | null;
+    source: string;
+  }>(`
+    WITH mb_wikidata_works AS (
+      -- SOURCE: MusicBrainz works (extract Wikidata URL from relations array)
+      SELECT DISTINCT
+        sp.spotify_track_id,
+        mbw.work_mbid,
+        mbw.title,
+        (
+          SELECT SUBSTRING(rel->>'url' FROM 'Q[0-9]+')
+          FROM jsonb_array_elements(mbw.raw_data->'relations') AS rel
+          WHERE rel->>'type' = 'wikidata'
+            AND rel->'url' IS NOT NULL
+          LIMIT 1
+        ) as wikidata_id,
+        'musicbrainz' as source
+      FROM song_pipeline sp
+      JOIN musicbrainz_recordings mbr ON sp.recording_mbid = mbr.recording_mbid
+      JOIN musicbrainz_works mbw ON mbr.work_mbid = mbw.work_mbid
+      WHERE mbw.raw_data IS NOT NULL
+    ),
+    existing_works AS (
+      SELECT wikidata_id FROM wikidata_works
+    )
+    SELECT *
+    FROM mb_wikidata_works
+    WHERE wikidata_id IS NOT NULL
+      AND wikidata_id NOT IN (SELECT wikidata_id FROM existing_works)
+    LIMIT $1
+  `, [limit]);
+
+  if (worksToProcess.length === 0) {
+    console.log('✅ No works need Wikidata enrichment');
+    return;
+  }
+
+  console.log(`Found ${worksToProcess.length} works`);
+
+  let successCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const work of worksToProcess) {
+    console.log(`\n🎼 ${work.title} (${work.wikidata_id})`);
+
+    try {
+      const wikidataWork = await getWikidataWork(work.wikidata_id);
+
+      if (!wikidataWork) {
+        console.log(`   ⚠️ Not found`);
+        skippedCount++;
+        continue;
+      }
+
+      if (wikidataWork.iswc) {
+        console.log(`   ✅ ISWC: ${wikidataWork.iswc}`);
+      }
+
+      const sql = upsertWikidataWorkSQL(wikidataWork, work.work_mbid, work.spotify_track_id);
+      await query(sql);
+
+      console.log(`   ✅ Saved`);
+      successCount++;
+
+      // Rate limit: 1 request/second
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error: any) {
+      console.error(`   ❌ Error: ${error.message}`);
+      failedCount++;
+    }
+  }
+
+  console.log('\n✅ Step 4.6 Complete:');
+  console.log(`   Works enriched: ${successCount}`);
+  console.log(`   Skipped: ${skippedCount}`);
+  console.log(`   Failed: ${failedCount}`);
+}
+
+if (import.meta.main) {
+  main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}

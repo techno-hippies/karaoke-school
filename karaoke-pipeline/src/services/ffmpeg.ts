@@ -100,6 +100,147 @@ export class FFmpegService {
   }
 
   /**
+   * Concatenate multiple audio files using FFmpeg concat demuxer
+   */
+  async concatenateFiles(
+    inputFiles: string[],
+    outputFile: string
+  ): Promise<void> {
+    if (inputFiles.length === 0) {
+      throw new Error('No input files provided');
+    }
+
+    if (inputFiles.length === 1) {
+      // Single file, just copy
+      fs.copyFileSync(inputFiles[0], outputFile);
+      return;
+    }
+
+    const jobId = `concat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const workDir = path.join(this.tmpDir, jobId);
+    fs.mkdirSync(workDir, { recursive: true });
+
+    try {
+      // Create concat list file
+      const listFile = path.join(workDir, 'concat-list.txt');
+      const listContent = inputFiles.map(f => `file '${f}'`).join('\n');
+      fs.writeFileSync(listFile, listContent);
+
+      console.log(`[FFmpeg] Concatenating ${inputFiles.length} files...`);
+
+      // Run FFmpeg concat
+      try {
+        // Use libmp3lame encoding instead of -c copy since fal.ai returns WAV/PCM
+        execSync(
+          `ffmpeg -y -f concat -safe 0 -i "${listFile}" -c:a libmp3lame -b:a 192k "${outputFile}" 2>&1`,
+          { stdio: 'pipe' }
+        );
+      } catch (error: any) {
+        // FFmpeg writes to stderr, check if output file was created
+        if (!fs.existsSync(outputFile)) {
+          throw new Error(`FFmpeg concat failed: ${error.message}`);
+        }
+        const stats = fs.statSync(outputFile);
+        if (stats.size === 0) {
+          throw new Error(`FFmpeg concat created empty file: ${error.message}`);
+        }
+      }
+
+      console.log(`[FFmpeg] ✓ Concatenated to: ${outputFile}`);
+
+    } finally {
+      // Cleanup work directory
+      try {
+        execSync(`rm -rf "${workDir}"`);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  /**
+   * Concatenate audio files with crossfade between chunks
+   * Uses FFmpeg's acrossfade filter for seamless transitions
+   */
+  async concatenateWithCrossfade(
+    inputFiles: string[],
+    outputFile: string,
+    crossfadeDurationMs: number = 2000
+  ): Promise<void> {
+    if (inputFiles.length === 0) {
+      throw new Error('No input files provided');
+    }
+
+    if (inputFiles.length === 1) {
+      // Single file, just convert to MP3
+      execSync(
+        `ffmpeg -y -i "${inputFiles[0]}" -c:a libmp3lame -b:a 192k "${outputFile}" 2>&1`,
+        { stdio: 'pipe' }
+      );
+      return;
+    }
+
+    const jobId = `crossfade-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const workDir = path.join(this.tmpDir, jobId);
+    fs.mkdirSync(workDir, { recursive: true });
+
+    try {
+      const crossfadeSec = crossfadeDurationMs / 1000;
+
+      if (inputFiles.length === 2) {
+        // Two files: simple acrossfade
+        console.log(`[FFmpeg] Applying ${crossfadeSec}s crossfade between 2 chunks...`);
+
+        execSync(
+          `ffmpeg -y -i "${inputFiles[0]}" -i "${inputFiles[1]}" ` +
+          `-filter_complex "[0][1]acrossfade=d=${crossfadeSec}:c1=tri:c2=tri" ` +
+          `-c:a libmp3lame -b:a 192k "${outputFile}" 2>&1`,
+          { stdio: 'pipe' }
+        );
+      } else {
+        // Multiple files: chain crossfades
+        console.log(`[FFmpeg] Applying ${crossfadeSec}s crossfades between ${inputFiles.length} chunks...`);
+
+        // Build filter chain: [0][1]acrossfade[a1]; [a1][2]acrossfade[a2]; ...
+        let filterParts: string[] = [];
+        let lastLabel = '0';
+
+        for (let i = 1; i < inputFiles.length; i++) {
+          const currentInput = i.toString();
+          const outputLabel = i === inputFiles.length - 1 ? '' : `[a${i}]`;
+
+          if (i === 1) {
+            filterParts.push(`[${lastLabel}][${currentInput}]acrossfade=d=${crossfadeSec}:c1=tri:c2=tri${outputLabel}`);
+          } else {
+            filterParts.push(`[${lastLabel}][${currentInput}]acrossfade=d=${crossfadeSec}:c1=tri:c2=tri${outputLabel}`);
+          }
+
+          lastLabel = `a${i}`;
+        }
+
+        const filterComplex = filterParts.join('; ');
+        const inputArgs = inputFiles.map(f => `-i "${f}"`).join(' ');
+
+        execSync(
+          `ffmpeg -y ${inputArgs} -filter_complex "${filterComplex}" ` +
+          `-c:a libmp3lame -b:a 192k "${outputFile}" 2>&1`,
+          { stdio: 'pipe' }
+        );
+      }
+
+      console.log(`[FFmpeg] ✓ Crossfaded merge complete`);
+
+    } finally {
+      // Cleanup work directory
+      try {
+        execSync(`rm -rf "${workDir}"`);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+  }
+
+  /**
    * Check if FFmpeg is available on the system
    */
   static isAvailable(): boolean {

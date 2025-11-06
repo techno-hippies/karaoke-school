@@ -1,4 +1,0 @@
-hrequests>=0.8.0
-yt-dlp>=2024.0.0
-rich>=13.0.0
-Pillow>=10.0.0
