@@ -7,7 +7,7 @@
     "run-unified": "bun run-unified.ts",
     "unified:all": "bun run-unified.ts --all --limit=50",
     "unified:step": "bun run-unified.ts --step",
-    "scrape": "bun src/processors/01-scrape-tiktok.ts",
+    "scrape": "bun src/processors/scrape-tiktok.ts",
     "scripts": "echo 'Use scripts from scripts/ directory organized by category'",
     "scripts:status": "bun scripts/monitoring/check-pipeline-status.ts",
     "scripts:monitor": "bun scripts/monitoring/check-pipeline-status.ts",
