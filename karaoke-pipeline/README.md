@@ -112,8 +112,8 @@ bun src/processors/create-lens-accounts.ts   # Create Lens accounts (requires PK
 bun scripts:migration:populate-grc20-artists  # Populate metadata (links PKP/Lens via FK)
 
 # Advanced Features
-bun src/processors/10-transcribe-tiktok-videos.ts  # Transcribe creator speech
-bun src/processors/05-enrich-wikidata.ts            # Wikidata enrichment
+bun src/processors/transcribe-tiktok.ts           # Transcribe creator speech
+bun src/processors/enrich-wikidata-artists.ts     # Wikidata enrichment
 ```
 
 ## 🛠️ Operational Scripts

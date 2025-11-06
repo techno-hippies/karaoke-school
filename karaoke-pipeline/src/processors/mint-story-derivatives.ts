@@ -18,8 +18,8 @@
  *   6. (Optional) Post to Lens custom feed
  *
  * Usage:
- *   bun src/processors/13-mint-story-derivatives.ts --limit=3
- *   bun src/processors/13-mint-story-derivatives.ts --video-id=7558957526327332118
+ *   bun src/processors/mint-story-derivatives.ts --limit=3
+ *   bun src/processors/mint-story-derivatives.ts --video-id=7558957526327332118
  */
 
 import { parseArgs } from 'util';

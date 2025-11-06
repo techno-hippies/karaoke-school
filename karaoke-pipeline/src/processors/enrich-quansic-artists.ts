@@ -9,7 +9,7 @@
  * 3. Store in quansic_artists table
  *
  * Usage:
- *   bun src/processors/08-enrich-quansic-artists.ts [batchSize]
+ *   bun src/processors/enrich-quansic-artists.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

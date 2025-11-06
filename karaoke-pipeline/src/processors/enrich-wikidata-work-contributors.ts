@@ -4,7 +4,7 @@
  * Extracts work contributor Wikidata IDs from Quansic raw_data and enriches them
  *
  * Usage:
- *   bun src/processors/05c-enrich-wikidata-work-contributors.ts [batchSize]
+ *   bun src/processors/enrich-wikidata-work-contributors.ts [batchSize]
  */
 
 import { query, close } from '../db/neon';

@@ -4,7 +4,7 @@
  * Fetches work/composition metadata from Wikidata
  *
  * Usage:
- *   bun src/processors/05b-enrich-wikidata-works.ts [batchSize]
+ *   bun src/processors/enrich-wikidata-works.ts [batchSize]
  */
 
 import { query, close } from '../db/neon';

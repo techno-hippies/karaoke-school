@@ -17,9 +17,9 @@
  * 5. Processor returns immediately (webhook updates DB when done)
  * 6. Webhook: Receives instrumental_base64 → uploads to Grove → updates status
  *
- * Usage as CLI:
- *   bun src/processors/08-separate-audio.ts [batchSize]
- *   Example: bun src/processors/08-separate-audio.ts 10
+ * Example Usage:
+ *   bun src/processors/separate-audio.ts [batchSize]
+ *   Example: bun src/processors/separate-audio.ts 10
  *
  * Usage in orchestrator:
  *   Imported and called by runUnifiedPipeline()

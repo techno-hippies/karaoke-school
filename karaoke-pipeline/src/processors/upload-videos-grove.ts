@@ -14,7 +14,7 @@
  * - Upload to Grove and update tiktok_videos table
  *
  * Usage:
- *   bun run src/processors/11-upload-grove-videos.ts --limit=10
+ *   bun src/processors/upload-videos-grove.ts --limit=10
  */
 
 import type { Env } from '../types';

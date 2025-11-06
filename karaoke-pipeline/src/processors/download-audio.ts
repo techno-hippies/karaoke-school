@@ -15,7 +15,7 @@
  * 4. audio-download-service completes workflow and updates both tables
  *
  * Usage:
- *   bun src/processors/06-download-audio.ts [batchSize]
+ *   bun src/processors/download-audio.ts [batchSize]
  */
 
 import { query, close } from '../db/neon';

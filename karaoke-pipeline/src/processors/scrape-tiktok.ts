@@ -4,7 +4,7 @@
  * Fetches creator profile + videos and stores in database
  *
  * Usage:
- *   bun src/processors/01-scrape-tiktok.ts @gioscottii [maxVideos]
+ *   bun src/processors/scrape-tiktok.ts @gioscottii [maxVideos]
  */
 
 import { TikTokScraper } from '../services/tiktok-scraper';
@@ -19,8 +19,8 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.error('Usage: bun src/processors/01-scrape-tiktok.ts <@username> [maxVideos]');
-    console.error('Example: bun src/processors/01-scrape-tiktok.ts @gioscottii 5');
+    console.error('Usage: bun src/processors/scrape-tiktok.ts <@username> [maxVideos]');
+    console.error('Example: bun src/processors/scrape-tiktok.ts @gioscottii 5');
     process.exit(1);
   }
 

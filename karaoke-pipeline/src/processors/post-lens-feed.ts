@@ -16,8 +16,8 @@
  *   6. Update database with post info
  *
  * Usage:
- *   bun src/processors/14-post-lens-feed.ts --limit=3
- *   bun src/processors/14-post-lens-feed.ts --video-id=7558957526327332118
+ *   bun src/processors/post-lens-feed.ts --limit=3
+ *   bun src/processors/post-lens-feed.ts --video-id=7558957526327332118
  */
 
 import { parseArgs } from 'util';

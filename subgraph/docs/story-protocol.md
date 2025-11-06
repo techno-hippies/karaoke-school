@@ -184,7 +184,7 @@ bun karaoke-pipeline/src/processors/create-creator-lens.ts --username=charleenwe
 ### Step 2: Mint Single Video to Story Protocol
 ```bash
 # New processor (to be created)
-bun karaoke-pipeline/src/processors/13-mint-story-derivatives.ts \
+bun karaoke-pipeline/src/processors/mint-story-derivatives.ts \
   --video-id=7558957526327332118 \
   --test-mode
 ```
@@ -193,14 +193,14 @@ bun karaoke-pipeline/src/processors/13-mint-story-derivatives.ts \
 ```bash
 # Check Story Protocol explorer
 # Post to Lens feed if successful
-bun karaoke-pipeline/src/processors/13-mint-story-derivatives.ts \
+bun karaoke-pipeline/src/processors/mint-story-derivatives.ts \
   --video-id=7558957526327332118 \
   --post-lens
 ```
 
 ### Step 4: Scale to All 3 Videos
 ```bash
-bun karaoke-pipeline/src/processors/13-mint-story-derivatives.ts --limit=3
+bun karaoke-pipeline/src/processors/mint-story-derivatives.ts --limit=3
 ```
 
 ---

@@ -11,7 +11,7 @@
  * context matching against music lyrics corpus.
  *
  * Usage:
- *   bun run src/processors/10-transcribe-tiktok-videos.ts --limit=10
+ *   bun src/processors/transcribe-tiktok.ts --limit=10
  */
 
 import { VideoTranscriptionService, LANGUAGE_NAMES } from '../services/video-transcription';

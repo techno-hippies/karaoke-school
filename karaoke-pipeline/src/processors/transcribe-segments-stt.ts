@@ -17,9 +17,9 @@
  *   4. Validate and store result
  *
  * Usage:
- *   bun src/processors/15-segment-stt-gemini.ts --limit=10
- *   bun src/processors/15-segment-stt-gemini.ts --video-id=7038014113984875822
- *   bun src/processors/15-segment-stt-gemini.ts --reprocess  # Re-run all videos
+ *   bun src/processors/transcribe-segments-stt.ts --limit=10
+ *   bun src/processors/transcribe-segments-stt.ts --video-id=7038014113984875822
+ *   bun src/processors/transcribe-segments-stt.ts --reprocess  # Re-run all videos
  */
 
 import { parseArgs } from 'util';

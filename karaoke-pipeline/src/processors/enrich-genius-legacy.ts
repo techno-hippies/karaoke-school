@@ -17,7 +17,7 @@
  * - Lyrics annotations and community data
  *
  * Usage:
- *   GENIUS_API_KEY=your_key bun src/processors/07-genius-enrichment.ts [batchSize]
+ *   GENIUS_API_KEY=your_key bun src/processors/enrich-genius-legacy.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

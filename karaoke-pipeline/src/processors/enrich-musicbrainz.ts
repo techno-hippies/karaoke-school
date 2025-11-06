@@ -4,7 +4,7 @@
  * Looks up recordings, works, and artists in MusicBrainz for canonical IDs
  *
  * Usage:
- *   bun src/processors/04-enrich-musicbrainz.ts [batchSize]
+ *   bun src/processors/enrich-musicbrainz.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

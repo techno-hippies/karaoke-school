@@ -12,7 +12,7 @@
  * 6. Store in song_lyrics table
  *
  * Usage:
- *   bun src/processors/05-discover-lyrics.ts [batchSize]
+ *   bun src/processors/discover-lyrics.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

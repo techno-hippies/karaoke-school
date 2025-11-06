@@ -109,7 +109,7 @@ bun src/processors/create-creator-lens.ts --limit=20
 New transcription pipeline captures creator speech (not song lyrics):
 ```bash
 # Process 10 TikTok videos for transcription + translation
-bun src/processors/10-transcribe-tiktok-videos.ts --limit=10
+bun src/processors/transcribe-tiktok.ts --limit=10
 ```
 
 **Features:**
@@ -140,20 +140,20 @@ bun scripts/migration:validate-grc20-mint-readiness
 
 | Step | Name | Status Transition | Processor | New |
 |------|------|-------------------|-----------|-----|
-| 1 | Scrape TikTok | `n/a → tiktok_scraped` | `01-scrape-tiktok.ts` | |
-| 2 | Resolve Spotify | `tiktok_scraped → spotify_resolved` | `02-resolve-spotify.ts` | |
-| 3 | ISWC Discovery | `spotify_resolved → iswc_found` | `03-resolve-iswc.ts` | |
-| 4 | Enrich MusicBrainz | `iswc_found → metadata_enriched` | `04-enrich-musicbrainz.ts` | |
-| 5 | Discover Lyrics | `metadata_enriched → lyrics_ready` | `05-discover-lyrics.ts` | |
-| 6 | Download Audio | `lyrics_ready → audio_downloaded` | `06-download-audio.ts` | |
-| 6.5 | Forced Alignment | `audio_downloaded → alignment_complete` | `06-forced-alignment.ts` | |
-| 7 | Genius Enrichment | `lyrics_ready+ → lyrics_ready` | `07-genius-enrichment.ts` | |
-| 7.5 | Lyrics Translation | `alignment_complete → translations_ready` | `07-translate-lyrics.ts` | |
-| 8 | Audio Separation | `translations_ready → stems_separated` | `08-separate-audio.ts` | 🆕 |
-| 9 | Full-Song Segments | `stems_separated → segments_selected` | `09-select-segments.ts` | ✨ Simplified (0-190s) |
-| 10 | Audio Enhancement | `segments_selected → enhanced` | `10-enhance-audio.ts` | |
-| 11 | Crop TikTok Clips | `enhanced → clips_cropped` | `11-crop-clips.ts` | |
-| 11.5 | Upload TikTok Videos | `clips_cropped → clips_cropped` | `11-upload-grove-videos.ts` | |
+| 1 | Scrape TikTok | `n/a → tiktok_scraped` | `scrape-tiktok.ts` | |
+| 2 | Resolve Spotify | `tiktok_scraped → spotify_resolved` | `resolve-spotify.ts` | |
+| 3 | ISWC Discovery | `spotify_resolved → iswc_found` | `discover-iswc.ts` | |
+| 4 | Enrich MusicBrainz | `iswc_found → metadata_enriched` | `enrich-musicbrainz.ts` | |
+| 5 | Discover Lyrics | `metadata_enriched → lyrics_ready` | `discover-lyrics.ts` | |
+| 6 | Download Audio | `lyrics_ready → audio_downloaded` | `download-audio.ts` | |
+| 6.5 | Forced Alignment | `audio_downloaded → alignment_complete` | `align-lyrics-forced.ts` | |
+| 7 | Genius Enrichment | `lyrics_ready+ → lyrics_ready` | `enrich-genius-legacy.ts` | |
+| 7.5 | Lyrics Translation | `alignment_complete → translations_ready` | `translate-lyrics.ts` | |
+| 8 | Audio Separation | `translations_ready → stems_separated` | `separate-audio.ts` | 🆕 |
+| 9 | Full-Song Segments | `stems_separated → segments_selected` | `select-segments.ts` | ✨ Simplified (0-190s) |
+| 10 | Audio Enhancement | `segments_selected → enhanced` | `enhance-audio.ts` | |
+| 11 | Crop TikTok Clips | `enhanced → clips_cropped` | `select-viral-clip.ts` | |
+| 11.5 | Upload TikTok Videos | `clips_cropped → clips_cropped` | `upload-videos-grove.ts` | |
 
 ### **🆕 New Processors (Web3 & Advanced):**
 
@@ -163,12 +163,12 @@ bun scripts/migration:validate-grc20-mint-readiness
 | `mint-creator-pkps.ts` | Mint PKPs for TikTok creators | `bun src/processors/mint-creator-pkps.ts --limit=20` |
 | `create-artist-lens.ts` | Create Lens accounts for artists | `bun src/processors/create-artist-lens.ts --limit=20` |
 | `create-creator-lens.ts` | Create Lens accounts for creators | `bun src/processors/create-creator-lens.ts --limit=20` |
-| `10-transcribe-tiktok-videos.ts` | Creator speech transcription | `bun src/processors/10-transcribe-tiktok-videos.ts --limit=10` |
-| `05-enrich-wikidata.ts` | Wikidata artist enrichment | ` bun src/processors/05-enrich-wikidata.ts --limit=20` |
-| `05b-enrich-wikidata-works.ts` | Wikidata works enrichment | `bun src/processors/05b-enrich-wikidata-works.ts --limit=20` |
-| `05c-enrich-wikidata-work-contributors.ts` | Work contributors | `bun src/processors/05c-enrich-wikidata-work-contributors.ts --limit=20` |
-| `08-enrich-quansic-artists.ts` | Quansic artist data enrichment | `bun src/processors/08-enrich-quansic-artists.ts --limit=20` |
-| `11-upload-grove-videos.ts` | Upload TikTok videos to Grove | `bun src/processors/11-upload-grove-videos.ts --limit=20` |
+| `transcribe-tiktok.ts` | Creator speech transcription | `bun src/processors/transcribe-tiktok.ts --limit=10` |
+| `enrich-wikidata-artists.ts` | Wikidata artist enrichment | `bun src/processors/enrich-wikidata-artists.ts --limit=20` |
+| `enrich-wikidata-works.ts` | Wikidata works enrichment | `bun src/processors/enrich-wikidata-works.ts --limit=20` |
+| `enrich-wikidata-work-contributors.ts` | Work contributors | `bun src/processors/enrich-wikidata-work-contributors.ts --limit=20` |
+| `enrich-quansic-artists.ts` | Quansic artist data enrichment | `bun src/processors/enrich-quansic-artists.ts --limit=20` |
+| `upload-videos-grove.ts` | Upload TikTok videos to Grove | `bun src/processors/upload-videos-grove.ts --limit=20` |
 
 ### 🎯 Segment Simplification (Step 9)
 
@@ -205,7 +205,7 @@ dotenvx run -f .env -- bun -e "
 # 4. Run Web3 processes
 bun src/processors/mint-artist-pkps.ts --limit=20
 bun src/processors/create-artist-lens.ts --limit=20
-bun src/processors/10-transcribe-tiktok-videos.ts --limit=10
+bun src/processors/transcribe-tiktok.ts --limit=10
 ```
 
 **Debug Specific Step**:
@@ -213,12 +213,12 @@ bun src/processors/10-transcribe-tiktok-videos.ts --limit=10
 # Test ISWC discovery on 1 track
 bun run unified --step=3 --limit=1
 
-# Check logs in real-time  
+# Check logs in real-time
 tail -f /tmp/pipeline-*.log
 
 # Test new processors
-bun src/processors/05-enrich-wikidata.ts --limit=1
-bun src/processors/10-transcribe-tiktok-videos.ts --limit=1
+bun src/processors/enrich-wikidata-artists.ts --limit=1
+bun src/processors/transcribe-tiktok.ts --limit=1
 ```
 
 ## Error Handling
@@ -346,16 +346,16 @@ bun src/processors/create-creator-lens.ts --limit=20   # For creators with PKPs
 ### **🎙️ Transcription & Advanced Scripts**
 ```bash
 # TikTok Video Transcription
-bun src/processors/10-transcribe-tiktok-videos.ts --limit=10
+bun src/processors/transcribe-tiktok.ts --limit=10
 
 # Advanced Metadata Enrichment
-bun src/processors/05-enrich-wikidata.ts --limit=20              # Wikidata artist data
-bun src/processors/05b-enrich-wikidata-works.ts --limit=20       # Wikidata works data
-bun src/processors/05c-enrich-wikidata-work-contributors.ts --limit=20 # Work contributors
-bun src/processors/08-enrich-quansic-artists.ts --limit=20        # Quansic enrichment
+bun src/processors/enrich-wikidata-artists.ts --limit=20              # Wikidata artist data
+bun src/processors/enrich-wikidata-works.ts --limit=20               # Wikidata works data
+bun src/processors/enrich-wikidata-work-contributors.ts --limit=20   # Work contributors
+bun src/processors/enrich-quansic-artists.ts --limit=20              # Quansic enrichment
 
 # Video & Media Processing
-bun src/processors/11-upload-grove-videos.ts --limit=20          # Upload to Grove IPFS
+bun src/processors/upload-videos-grove.ts --limit=20                # Upload to Grove IPFS
 ```
 
 ---
@@ -370,13 +370,13 @@ karaoke-pipeline/
 │   │   ├── neon.ts         # PostgreSQL client
 │   │   ├── spotify.ts      # Spotify-specific queries
 │   │   └── ...
-│   ├── processors/          # Individual step processors
-│   │   ├── 01-scrape-tiktok.ts
-│   │   ├── 02-resolve-spotify.ts
-│   │   ├── 03-resolve-iswc.ts
-│   │   ├── 04-enrich-musicbrainz.ts
-│   │   ├── 05-discover-lyrics.ts
-│   │   └── 06-download-audio.ts
+│   ├── processors/          # Individual step processors (see orchestrator.ts for order)
+│   │   ├── scrape-tiktok.ts
+│   │   ├── resolve-spotify.ts
+│   │   ├── discover-iswc.ts
+│   │   ├── enrich-musicbrainz.ts
+│   │   ├── discover-lyrics.ts
+│   │   └── download-audio.ts
 │   └── services/           # External API integrations
 │       ├── spotify.ts
 │       ├── quansic.ts

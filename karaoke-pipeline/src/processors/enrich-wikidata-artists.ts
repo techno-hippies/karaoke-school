@@ -4,7 +4,7 @@
  * Fetches international library IDs and identifiers from Wikidata
  *
  * Usage:
- *   bun src/processors/05-enrich-wikidata.ts [batchSize]
+ *   bun src/processors/enrich-wikidata-artists.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

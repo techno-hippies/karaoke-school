@@ -4,7 +4,7 @@
  * Takes videos with spotify_track_id and resolves full track + artist metadata
  *
  * Usage:
- *   bun src/processors/02-resolve-spotify.ts [batchSize]
+ *   bun src/processors/resolve-spotify.ts [batchSize]
  */
 
 import { query, transaction, close } from '../db/neon';

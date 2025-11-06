@@ -25,7 +25,7 @@ All commands are simple - no dotenvx wrapper needed:
 
 ```bash
 # Examples
-bun src/processors/06-download-audio.ts
+bun src/processors/download-audio.ts
 bun -e "import { query } from './src/db/neon'; ..."
 bun scripts/migration/populate-grc20-artists.ts
 ```
@@ -35,7 +35,7 @@ bun scripts/migration/populate-grc20-artists.ts
 To submit audio for download:
 
 ```bash
-bun src/processors/06-download-audio.ts [batch_size]
+bun src/processors/download-audio.ts [batch_size]
 ```
 
 To check service logs:
