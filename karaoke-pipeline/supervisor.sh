@@ -15,9 +15,9 @@ NC='\033[0m'
 
 # Configuration
 PIPELINE_DIR="/media/t42/th42/Code/karaoke-school-v1/karaoke-pipeline"
-AUDIO_SERVICE_DIR="/media/t42/th42/Code/karaoke-school-v1/audio-download-service"
-DEMUCS_DIR="/media/t42/th42/Code/karaoke-school-v1/demucs-local"
-QUANSIC_DIR="/media/t42/th42/Code/karaoke-school-v1/quansic-service"
+API_SERVICES_DIR="${PIPELINE_DIR}/api-services"
+AUDIO_SERVICE_DIR="${API_SERVICES_DIR}/audio-download-service"
+QUANSIC_DIR="${API_SERVICES_DIR}/quansic-service"
 LOG_DIR="${PIPELINE_DIR}/logs"
 
 # Service configuration
@@ -25,9 +25,8 @@ declare -A SERVICES
 SERVICES=(
     ["quansic"]="Quansic ISWC Service:3000:${QUANSIC_DIR}/main.py"
     ["audio"]="Audio Download Service:3001:${AUDIO_SERVICE_DIR}/index.ts"
-    ["demucs"]="Demucs GPU Service:8001:${DEMUCS_DIR}/start.sh"
 )
-# Note: Pipeline is CLI-only (bun run-unified.ts), not a service
+# Note: Demucs runs on RunPod (not local), Pipeline is CLI-only (bun run-unified.ts)
 
 # PID tracking
 declare -A PIDS

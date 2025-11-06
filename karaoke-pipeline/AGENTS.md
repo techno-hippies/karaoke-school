@@ -30,15 +30,18 @@ curl http://localhost:8787/health
 
 ### **Service Architecture:**
 
-**Local Services (supervisor.sh)**:
-- **Audio Download Service** (port 3001) - yt-dlp + Soulseek P2P strategies
-- **Demucs GPU Service** (port 8001) - Vocal/instrumental separation
-- **Quansic Service** (port 3000) - ISWC discovery via Akash
+**Local Services** (managed by `supervisor.sh`):
+- **Audio Download Service** (port 3001) - yt-dlp + Soulseek P2P
+- **Quansic Service** (port 3000) - ISWC discovery
 
-**Akash-Hosted API Services** (managed in root folders):
-- **BMI Service** (`/bmi-service`) - ISWC lookup fallback #2
-- **MLC Service** (`/mlc-service`) - ISWC lookup fallback #1 (direct ISRC→ISWC)
-- **FFmpeg Service** (`/ffmpeg-service`) - Audio processing endpoints
+**API Services** (in `api-services/` folder, deployed to Akash):
+- **audio-download-service** - Also deployed to Akash for redundancy
+- **bmi-service** - ISWC lookup fallback #2
+- **ffmpeg-service** - Audio processing endpoints
+- **quansic-service** - Also runs locally via supervisor
+
+**External Services**:
+- **demucs-runpod** - GPU vocal separation (RunPod)
 
 **Pipeline Orchestrator**:
 - Run via `bun run-unified.ts` (CLI) or `standalone-server.ts` (HTTP API on port 8787)

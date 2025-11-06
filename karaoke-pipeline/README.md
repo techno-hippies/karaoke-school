@@ -221,9 +221,14 @@ karaoke-pipeline/
 ├── run-unified.ts           # Main pipeline orchestrator
 ├── standalone-server.ts     # HTTP API server (port 8787)
 ├── supervisor.sh            # Process supervisor for local services
+├── api-services/            # HTTP API services (local + Akash)
+│   ├── audio-download-service/
+│   ├── bmi-service/
+│   ├── ffmpeg-service/
+│   └── quansic-service/
 ├── src/
 │   ├── processors/           # 26 pipeline steps + orchestrator
-│   ├── services/             # API integrations (21 services)
+│   ├── services/             # API client libraries (21 services)
 │   ├── db/                   # Database modules (10 files)
 │   ├── schemas/              # GRC-20 & Story Protocol schemas
 │   └── utils/                # Utilities (status reconciliation)
@@ -238,14 +243,14 @@ karaoke-pipeline/
 └── schema/migrations/        # SQL migration files
 ```
 
-**External Services** (Akash-hosted, managed in project root):
-```
-../bmi-service/              # ISWC lookup fallback #2
-../mlc-service/              # ISWC lookup fallback #1
-../ffmpeg-service/           # Audio processing endpoints
-../audio-download-service/   # yt-dlp + Soulseek download
-../quansic-service/          # ISWC discovery service
-```
+**API Services** (in `api-services/` folder):
+- **audio-download-service/** - yt-dlp + Soulseek (local + Akash)
+- **bmi-service/** - ISWC lookup fallback #2 (Akash)
+- **ffmpeg-service/** - Audio processing endpoints (Akash)
+- **quansic-service/** - ISWC discovery service (local + Akash)
+
+**External Services** (RunPod):
+- **demucs-runpod/** - GPU vocal separation service
 
 **Environment Variables (.env):**
 ```bash
