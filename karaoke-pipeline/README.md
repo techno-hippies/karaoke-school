@@ -8,29 +8,20 @@
 
 ## Quick Start
 
-### Option 1: Robust Local System (Recommended)
 ```bash
-# 1. Start supervised services
-./supervisor.sh
-
-# 2. Run pipeline via API
-curl -X POST "http://localhost:8787/trigger?step=6&limit=20"
-
-# 3. Check health
-curl http://localhost:8787/health
-```
-
-### Option 2: Direct Bun Runner
-```bash
-# 1. Scrape fresh content
+# 1. Scrape fresh content (TikTok)
 bun run scrape @charleenweii 20
 
-# 2. Run full pipeline
-bun run unified:all
+# 2. Run full pipeline (metadata → audio → separation → segments)
+bun run-unified.ts --all --limit=50
 
 # 3. Check results
 bun scripts:status
 ```
+
+**Remote Services** (Akash - no local setup needed):
+- Quansic ISWC Service (port 3000)
+- Audio Download Service (port 3001)
 
 ---
 
@@ -38,8 +29,8 @@ bun scripts:status
 
 ### **🎵 Pipeline Processing**
 - **19-step orchestrator** from TikTok scrape to GRC-20 minting
-- **Robust supervision** with auto-restart and health monitoring
-- **Multiple service architecture** with HTTP API endpoints
+- **Simple CLI execution** - just run `bun run-unified.ts`
+- **Remote services** on Akash for Quansic & audio downloads
 
 ### **🌐 Web3 Integration**
 - **PKP/Lens accounts** for artists and creators
@@ -204,15 +195,14 @@ bun run unified --step=3 --limit=1
 # Test database connection
 bun test:status
 
-# Test service connectivity
-bun test:demucs     # Demucs service
-bun test:genius     # Genius API validation
-
 # Check for stuck tracks
 SELECT id, title, artist_name, status, updated_at
-FROM song_pipeline 
+FROM song_pipeline
 WHERE status IN ('spotify_resolved', 'iswc_found', 'metadata_enriched')
 AND updated_at < NOW() - INTERVAL '1 hour';
+
+# Check remote service connectivity (Quansic, Audio Download)
+bun src/services/quansic.ts   # Verify Quansic on Akash
 ```
 
 ## Development
@@ -220,14 +210,12 @@ AND updated_at < NOW() - INTERVAL '1 hour';
 **Project Structure:**
 ```
 karaoke-pipeline/
-├── run-unified.ts           # Main pipeline orchestrator
-├── standalone-server.ts     # HTTP API server (port 8787)
-├── supervisor.sh            # Process supervisor for local services
-├── api-services/            # HTTP API services (local + Akash)
-│   ├── audio-download-service/
-│   ├── bmi-service/
-│   ├── ffmpeg-service/
-│   └── quansic-service/
+├── run-unified.ts           # Main pipeline orchestrator (CLI)
+├── api-services/            # HTTP API services (Akash deployment)
+│   ├── audio-download-service/   # Audio downloading
+│   ├── bmi-service/               # ISWC fallback
+│   ├── ffmpeg-service/            # Audio processing
+│   └── quansic-service/           # ISWC discovery
 ├── src/
 │   ├── processors/           # 26 pipeline steps + orchestrator
 │   ├── services/             # API client libraries (21 services)
@@ -281,4 +269,4 @@ GROVE_TOKEN=...
 **Quick help:**
 - Status issues: Check `bun scripts:status`
 - Step failures: Run single step with `--limit=1`
-- Service health: `curl http://localhost:8787/health`
+- Pipeline issues: Check logs in real-time with `tail -f /tmp/pipeline-*.log`

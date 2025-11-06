@@ -1,50 +1,45 @@
 # Karaoke Pipeline - Complete Developer Guide
 
-## 🚀 Robust Local Architecture (V2.0)
+## 🚀 Simplified Pipeline Architecture
 
-The pipeline features a robust local-first architecture with process supervision, health monitoring, and auto-restart capabilities.
+The pipeline features a clean, CLI-first architecture with remote services on Akash.
 
 ### **Recent Major Additions:**
 - ✅ **PKP/Lens Web3 Integration** - Programmable Key Pairs and Lens Protocol accounts
 - ✅ **TikTok Video Transcription** - Creator speech transcription and translation
 - ✅ **GRC-20 Minting Pipeline** - Industry-standard music metadata with mint-ready data
 - ✅ **Advanced Wikidata Integration** - 40+ library identifiers and international metadata
-- ✅ **Process Supervision** - Auto-restart on failure, health monitoring
+- ✅ **Akash Remote Services** - Quansic and Audio Download running on Akash
 
 ### **Quick Start:**
 
 ```bash
-# 1. Start all services with supervision
+# 1. Run pipeline directly (no service management needed)
 cd /media/t42/th42/Code/karaoke-school-v1/karaoke-pipeline
-./supervisor.sh
+bun run-unified.ts --all --limit=50
 
-# 2. Run pipeline via HTTP API (stable, reliable)
-curl -X POST "http://localhost:8787/trigger?step=6&limit=20"  # Audio download
-curl -X POST "http://localhost:8787/trigger?step=8&limit=10"  # Demucs separation
-curl -X POST "http://localhost:8787/trigger?step=10&limit=5"  # TikTok transcription
+# 2. Run specific step
+bun run-unified.ts --step=6 --limit=20   # Audio download
+bun run-unified.ts --step=8 --limit=10   # Demucs separation
+bun run-unified.ts --step=10 --limit=5   # Audio enhancement
 
 # 3. Check system health
-curl http://localhost:8787/health
-./supervisor.sh --status
+bun scripts:status
 ```
 
 ### **Service Architecture:**
 
-**Local Services** (managed by `supervisor.sh`):
+**Remote Services** (Akash - no local setup needed):
 - **Audio Download Service** (port 3001) - yt-dlp + Soulseek P2P
 - **Quansic Service** (port 3000) - ISWC discovery
-
-**API Services** (in `api-services/` folder, deployed to Akash):
-- **audio-download-service** - Also deployed to Akash for redundancy
-- **bmi-service** - ISWC lookup fallback #2
-- **ffmpeg-service** - Audio processing endpoints
-- **quansic-service** - Also runs locally via supervisor
+- **BMI Service** - ISWC lookup fallback #2
+- **FFmpeg Service** - Audio processing endpoints
 
 **External Services**:
-- **demucs-runpod** - GPU vocal separation (RunPod)
+- **Demucs RunPod** - GPU vocal separation (RunPod serverless)
 
 **Pipeline Orchestrator**:
-- Run via `bun run-unified.ts` (CLI) or `standalone-server.ts` (HTTP API on port 8787)
+- Run via `bun run-unified.ts` (CLI)
 - Coordinates all services and processes 19 pipeline steps
 
 ## 📐 Pipeline Architecture
@@ -184,7 +179,7 @@ bun scripts/migration:validate-grc20-mint-readiness
 
 **Run**:
 ```bash
-bun run unified --step=9 --limit=20  # Set segments for 20 tracks
+bun run-unified.ts --step=9 --limit=20  # Set segments for 20 tracks
 ```
 
 **Run Complete Flow**:
@@ -193,7 +188,7 @@ bun run unified --step=9 --limit=20  # Set segments for 20 tracks
 bun run scrape @gioscottii 10
 
 # 2. Run full unified pipeline
-bun run unified:all
+bun run-unified.ts --all --limit=50
 
 # 3. Check results
 dotenvx run -f .env -- bun -e "
@@ -211,7 +206,7 @@ bun src/processors/transcribe-tiktok.ts --limit=10
 **Debug Specific Step**:
 ```bash
 # Test ISWC discovery on 1 track
-bun run unified --step=3 --limit=1
+bun run-unified.ts --step=3 --limit=1
 
 # Check logs in real-time
 tail -f /tmp/pipeline-*.log
@@ -229,7 +224,7 @@ bun src/processors/transcribe-tiktok.ts --limit=1
 ```bash
 # Track already processed - safe to ignore
 # Run with fresh content or different step
-bun run pipeline --step=3 --limit=1  # Try different step
+bun run-unified.ts --step=3 --limit=1  # Try different step
 ```
 
 **API Rate Limits**:
@@ -259,9 +254,9 @@ AND updated_at < NOW() - INTERVAL '1 hour';
 **Batch Processing**:
 ```bash
 # Process larger batches for efficiency
-bun run unified --step=3 --limit=100    # ISWC discovery
-bun run unified --step=6 --limit=20     # Audio download (slower)
-bun run unified --step=11 --limit=50    # Crop TikTok clips
+bun run-unified.ts --step=3 --limit=100    # ISWC discovery
+bun run-unified.ts --step=6 --limit=20     # Audio download (slower)
+bun run-unified.ts --step=11 --limit=50    # Crop TikTok clips
 ```
 
 **Parallel Processing** (future):
@@ -364,7 +359,7 @@ bun src/processors/upload-videos-grove.ts --limit=20                # Upload to 
 
 ```
 karaoke-pipeline/
-├── run-pipeline.ts           # Main CLI orchestrator
+├── run-unified.ts            # Main CLI orchestrator
 ├── src/
 │   ├── db/                  # Database connections
 │   │   ├── neon.ts         # PostgreSQL client
@@ -432,10 +427,10 @@ See package.json for complete script definitions and scripts/README.md for opera
 **CLI Usage** (current):
 ```bash
 # Manual execution
-bun run pipeline:all
+bun run-unified.ts --all --limit=50
 
 # Cron job (if needed)
-*/30 * * * * cd /path/to/karaoke-pipeline && bun run pipeline:all
+*/30 * * * * cd /path/to/karaoke-pipeline && bun run-unified.ts --all --limit=50
 ```
 
 **Cloudflare Workers** (legacy):
