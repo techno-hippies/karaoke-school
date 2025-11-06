@@ -388,10 +388,18 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
         continue;
       }
 
-      sqlStatements.push(upsertMBRecordingSQL(recording));
+      sqlStatements.push(upsertMBRecordingSQL(recording, track.isrc, track.spotify_track_id, recording));
 
-      if (recording.work_mbid) {
-        const work = await lookupWork(recording.work_mbid);
+      // Find work from relations (recording.work_mbid doesn't exist on API response)
+      const workRel = recording.relations?.find(
+        rel => rel.type === 'performance' && rel.work
+      );
+
+      let workMbid: string | null = null;
+
+      if (workRel?.work) {
+        workMbid = workRel.work.id;
+        const work = await lookupWork(workMbid);
         if (work) {
           sqlStatements.push(upsertMBWorkSQL(work));
         }
@@ -412,7 +420,7 @@ export async function processMusicBrainzEnrichment(_env: any, limit: number = 50
         updatePipelineMBSQL(
           track.spotify_track_id,
           recording.id,
-          recording.work_mbid
+          workMbid
         )
       );
 
