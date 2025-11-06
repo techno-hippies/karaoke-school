@@ -1,9 +1,12 @@
 /**
- * Step 9: AI Segment Selection
+ * Step 9: Full-Song Segment Selection (Simplified)
  *
- * Analyzes lyrics with word-level timing to select optimal segments:
- * 1. Optimal 190s karaoke segment (songs ≥190s only)
- * 2. Best 20-50s clip (ALL songs)
+ * Sets segments to use the full song (up to 190s max):
+ * - Start: 0ms
+ * - End: min(song_duration, 190000ms)
+ *
+ * Why simplified? AI-selected segments caused broken line breaks.
+ * Full songs provide better learning context and natural lyric structure.
  *
  * Processes tracks that have:
  * - Separated instrumentals (song_audio.instrumental_grove_url)
@@ -16,18 +19,10 @@ import {
   updateSelectedSegments,
   getTracksNeedingSegmentSelection
 } from '../db/karaoke-segments';
-import { SegmentSelectorService, type WordTiming } from '../services/segment-selector';
 import type { Env } from '../types';
 
 export async function processSegmentSelection(env: Env, limit: number = 50): Promise<void> {
-  console.log(`\n[Step 9] AI Segment Selection (limit: ${limit})`);
-
-  if (!env.OPENROUTER_API_KEY) {
-    console.log('⚠️ OPENROUTER_API_KEY not configured, skipping');
-    return;
-  }
-
-  const segmentSelector = new SegmentSelectorService(env.OPENROUTER_API_KEY);
+  console.log(`\n[Step 9] Full-Song Segment Selection (limit: ${limit})`);
 
   try {
     // Find tracks needing segment selection
@@ -45,38 +40,30 @@ export async function processSegmentSelection(env: Env, limit: number = 50): Pro
 
     for (const track of tracks) {
       try {
-        console.log(`\n📍 Selecting segments: ${track.spotify_track_id}`);
+        console.log(`\n📍 Setting full-song segment: ${track.spotify_track_id}`);
         console.log(`   Duration: ${(track.duration_ms / 1000).toFixed(1)}s`);
-        console.log(`   Words: ${track.word_alignments.length}`);
 
         // Ensure karaoke_segments record exists
         await ensureKaraokeSegment(env.DATABASE_URL, track.spotify_track_id);
 
-        // Convert word alignments to expected format
-        const words: WordTiming[] = track.word_alignments.map((w: any) => ({
-          text: w.text,
-          start: w.start,
-          end: w.end
-        }));
+        // Simple logic: use full song up to 190s
+        const segmentEndMs = Math.min(track.duration_ms, 190000);
 
-        // Select segments using AI
-        const result = await segmentSelector.selectSegments(words, track.duration_ms);
-
-        // Update database
+        // Update database with full-song boundaries
         await updateSelectedSegments(env.DATABASE_URL, track.spotify_track_id, {
-          optimalSegmentStartMs: result.optimalSegment?.startMs,
-          optimalSegmentEndMs: result.optimalSegment?.endMs,
-          clipStartMs: result.clip.startMs,
-          clipEndMs: result.clip.endMs
+          optimalSegmentStartMs: 0,
+          optimalSegmentEndMs: segmentEndMs,
+          clipStartMs: 0,
+          clipEndMs: segmentEndMs
         });
 
         // Log results
-        if (result.optimalSegment) {
-          console.log(`   ✓ Optimal 190s: ${result.optimalSegment.startMs}ms - ${result.optimalSegment.endMs}ms`);
+        const durationSeconds = (segmentEndMs / 1000).toFixed(1);
+        if (segmentEndMs < track.duration_ms) {
+          console.log(`   ✓ Segment: 0ms - ${segmentEndMs}ms (${durationSeconds}s, 190s limit)`);
         } else {
-          console.log(`   ✓ Song <190s: Using full track`);
+          console.log(`   ✓ Segment: 0ms - ${segmentEndMs}ms (${durationSeconds}s, full song)`);
         }
-        console.log(`   ✓ Best clip: ${result.clip.startMs}ms - ${result.clip.endMs}ms (${result.clip.durationMs}ms)`);
 
         selectedCount++;
       } catch (error: any) {

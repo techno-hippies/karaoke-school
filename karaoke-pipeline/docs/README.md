@@ -37,12 +37,14 @@ schema/migrations/
 5. Audio Download      → Original tracks
 6. Demucs Separation   → Vocals + Instrumental
 7. fal.ai Enhancement  → High-quality audio
-8. Gemini Segmentation → Karaoke-worthy clips
+8. Full-Song Segments  → 0-190s (simplified!)
 9. ElevenLabs Timing   → Word-level alignment
 10. Gemini Translation → Multi-language
 11. Grove Upload       → IPFS storage
 12. Event Emission     → Blockchain events
 ```
+
+**Note**: Step 8 was simplified from AI-selected "optimal segments" to full-song segments (0-190s max). This eliminates broken line breaks and provides better learning context.
 
 ## 🏗️ Line-Level FSRS Database
 

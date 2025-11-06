@@ -123,7 +123,7 @@ bun scripts/migration:validate-grc20-mint-readiness
 | 7 | Genius Enrichment | `lyrics_ready+ → lyrics_ready` | `07-genius-enrichment.ts` | |
 | 7.5 | Lyrics Translation | `alignment_complete → translations_ready` | `07-translate-lyrics.ts` | |
 | 8 | Audio Separation | `translations_ready → stems_separated` | `08-separate-audio.ts` | 🆕 |
-| 9 | AI Segment Selection | `stems_separated → segments_selected` | `09-select-segments.ts` | |
+| 9 | Full-Song Segments | `stems_separated → segments_selected` | `09-select-segments.ts` | ✨ Simplified (0-190s) |
 | 10 | Audio Enhancement | `segments_selected → enhanced` | `10-enhance-audio.ts` | |
 | 11 | Crop TikTok Clips | `enhanced → clips_cropped` | `11-crop-clips.ts` | |
 | 11.5 | Upload TikTok Videos | `clips_cropped → clips_cropped` | `11-upload-grove-videos.ts` | |
@@ -142,6 +142,23 @@ bun scripts/migration:validate-grc20-mint-readiness
 | `05c-enrich-wikidata-work-contributors.ts` | Work contributors | `bun src/processors/05c-enrich-wikidata-work-contributors.ts --limit=20` |
 | `08-enrich-quansic-artists.ts` | Quansic artist data enrichment | `bun src/processors/08-enrich-quansic-artists.ts --limit=20` |
 | `11-upload-grove-videos.ts` | Upload TikTok videos to Grove | `bun src/processors/11-upload-grove-videos.ts --limit=20` |
+
+### 🎯 Segment Simplification (Step 9)
+
+**Change**: Removed AI-selected "optimal segments" → Now uses full-song segments (0-190s max)
+
+**Why**: AI segment selection was causing broken line breaks (e.g., "Gone blind can't." instead of complete lyrics). Full songs provide better learning context.
+
+**Behavior**:
+- All songs: 0ms → min(duration, 190000ms)
+- Database: `optimal_segment_start_ms = 0` (always)
+- Lines: 2,283 with segments (82.5%), 483 beyond 190s (17.5%)
+- No AI inference needed (simpler & faster)
+
+**Run**:
+```bash
+bun run unified --step=9 --limit=20  # Set segments for 20 tracks
+```
 
 **Run Complete Flow**:
 ```bash
