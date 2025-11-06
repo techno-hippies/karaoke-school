@@ -120,7 +120,7 @@ async function main() {
         data.ids?.isnis?.[0] || null,
         data.ids?.isnis || null,
         data.ids?.ipis || null,
-        data.ids?.musicbrainz_mbid || null,
+        data.ids?.musicBrainzIds?.[0] || null,
         data.ids?.luminateIds || null,
         data.ids?.gracenoteIds || null,
         data.ids?.amazonIds || null,
@@ -218,7 +218,7 @@ export async function processQuansicArtistEnrichment(_env: any, limit: number = 
       `, [
         spotifyId, data.ids?.quansic_id || null, data.name,
         data.ids?.isnis?.[0] || null, data.ids?.isnis || null, data.ids?.ipis || null,
-        data.ids?.musicbrainz_mbid || null, data.ids?.luminateIds || null,
+        data.ids?.musicBrainzIds?.[0] || null, data.ids?.luminateIds || null,
         data.ids?.gracenoteIds || null, data.ids?.amazonIds || null,
         data.ids?.appleIds || null, data.raw_data || null
       ]);
