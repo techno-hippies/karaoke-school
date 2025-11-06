@@ -104,10 +104,12 @@ bun unified:all                    # Run complete pipeline
 bun scripts:status                 # Check pipeline health
 bun scripts:flagged                # Find tracks needing review
 
-# GRC-20 & Web3
-bun scripts:migration:populate-grc20-artists  # Populate metadata
-bun src/processors/mint-artist-pkps.ts         # Mint PKPs
-bun src/processors/create-artist-lens.ts       # Create Lens accounts
+# Web3 Identity (run BEFORE GRC-20 population)
+bun src/processors/mint-pkps.ts              # Mint PKPs for artists & creators
+bun src/processors/create-lens-accounts.ts   # Create Lens accounts (requires PKPs)
+
+# GRC-20 Metadata (run AFTER PKP/Lens creation)
+bun scripts:migration:populate-grc20-artists  # Populate metadata (links PKP/Lens via FK)
 
 # Advanced Features
 bun src/processors/10-transcribe-tiktok-videos.ts  # Transcribe creator speech

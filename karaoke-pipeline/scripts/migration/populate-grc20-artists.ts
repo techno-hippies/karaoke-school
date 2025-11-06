@@ -511,7 +511,7 @@ async function main() {
       agg.pkpAccountId = pkp[0].id;
       console.log(`   ✅ PKP: ${pkp[0].pkp_address} (FK: ${agg.pkpAccountId})`);
     } else {
-      console.log(`   ⚠️  PKP: not minted (run: bun src/processors/mint-artist-pkps.ts)`);
+      console.log(`   ⚠️  PKP: not minted (run: bun src/processors/mint-pkps.ts)`);
     }
 
     // 7. LENS - Lens Protocol account data (store foreign key only)
@@ -526,7 +526,7 @@ async function main() {
       agg.lensAccountId = lens[0].id;
       console.log(`   ✅ Lens: @${lens[0].lens_handle} (${lens[0].lens_account_address}, FK: ${agg.lensAccountId})`);
     } else {
-      console.log(`   ⚠️  Lens: not created (run: bun src/processors/create-artist-lens.ts)`);
+      console.log(`   ⚠️  Lens: not created (run: bun src/processors/create-lens-accounts.ts)`);
     }
 
     // INSERT

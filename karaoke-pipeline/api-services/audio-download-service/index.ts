@@ -99,7 +99,7 @@ async function downloadWithYtDlp(
 
     // Use yt-dlp to search YouTube and download best audio
     const searchQuery = `${artist} ${title}`.replace(/"/g, '\\"');
-    const cmd = `yt-dlp "ytsearch1:${searchQuery}" -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-playlist --quiet --no-warnings`;
+    const cmd = `yt-dlp "ytsearch1:${searchQuery}" -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-playlist --quiet --no-warnings --cookies-from-browser chrome`;
 
     await execAsync(cmd, { timeout: 60000 }); // 60s timeout
 
@@ -362,14 +362,14 @@ async function downloadWithSoulseek(
               const totalSize = Number(file.size);
               let lastProgressLog = 0;
 
-              // Timeout if no data for 60 seconds
+              // Timeout if no data for 180 seconds (increased for large files)
               let lastDataTime = Date.now();
               const progressTimeout = setInterval(() => {
                 const elapsed = Date.now() - lastDataTime;
-                if (elapsed > 60000) {
+                if (elapsed > 180000) {
                   clearInterval(progressTimeout);
                   stream.destroy();
-                  reject(new Error('Download timeout: no data for 60 seconds'));
+                  reject(new Error('Download timeout: no data for 180 seconds'));
                 }
               }, 1000);
 
