@@ -17,7 +17,7 @@
 ## 🔄 Data Flow
 
 ```
-TikTok → Pipeline → Database → GRC-20 → Contracts → Subgraph → Grove → App
+TikTok → Pipeline → Database → GRC-20 , Contracts → Subgraph → Grove → App
      ↓         ↓          ↓         ↓         ↓          ↓       ↓      ↓
   8,196    12-Step     2,766    92.3%    5/5 Deployed  Local   IPFS   React
 ```

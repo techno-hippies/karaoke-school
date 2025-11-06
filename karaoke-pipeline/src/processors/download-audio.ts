@@ -95,9 +95,11 @@ async function main() {
       COALESCE(tp.retry_count, 0) as retry_count
     FROM song_pipeline tp
     JOIN spotify_tracks st ON tp.spotify_track_id = st.spotify_track_id
+    JOIN song_lyrics sl ON tp.spotify_track_id = sl.spotify_track_id
     LEFT JOIN song_audio sa ON tp.spotify_track_id = sa.spotify_track_id
     WHERE tp.status = 'lyrics_ready'
       AND tp.has_audio = FALSE
+      AND sl.normalized_lyrics IS NOT NULL  -- MUST have actual lyrics
       AND (
         -- Either no song_audio entry exists OR it exists but failed (grove_cid IS NULL)
         sa.spotify_track_id IS NULL

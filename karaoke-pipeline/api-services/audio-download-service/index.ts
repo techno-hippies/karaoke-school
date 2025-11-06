@@ -315,13 +315,34 @@ async function downloadWithSoulseek(
 
     console.log(`     Free slots: ${freeSlots.length}, Queued: ${queued.length}`);
 
-    // Sort: free slots > speed > file size
+    // Better scoring algorithm to avoid firewalled/throttled peers
+    const scorePeer = (peer: any) => {
+      const file = peer.files[0];
+      const fileSizeMB = Number(file.size) / 1024 / 1024;
+      const speedMBps = peer.speed / 1024;
+
+      // Prefer MP3 (smaller, faster) over FLAC
+      const isMP3 = file.path.toLowerCase().endsWith('.mp3');
+      const formatBonus = isMP3 ? 50000 : 0;
+
+      // Prefer moderate file sizes (3-15MB = likely 320kbps mp3)
+      const sizeBonus = (fileSizeMB >= 3 && fileSizeMB <= 15) ? 30000 : 0;
+
+      // Penalize unrealistic speeds (>10MB/s is suspicious, likely firewalled)
+      const speedPenalty = speedMBps > 10000 ? -100000 : 0;
+
+      // Free slots get priority
+      const slotBonus = peer.slotsFree ? 1000000 : 0;
+
+      // Moderate speed bonus (capped to avoid unrealistic values)
+      const cappedSpeed = Math.min(speedMBps, 5000);
+
+      return slotBonus + formatBonus + sizeBonus + speedPenalty + cappedSpeed;
+    };
+
+    // Sort by composite score
     const candidates = [...freeSlots, ...queued].sort((a, b) => {
-      return (
-        (b.slotsFree ? 1000000 : 0) - (a.slotsFree ? 1000000 : 0) ||
-        b.speed - a.speed ||
-        Number(b.files[0].size) - Number(a.files[0].size)
-      );
+      return scorePeer(b) - scorePeer(a);
     });
 
     if (candidates.length === 0) {
@@ -335,8 +356,8 @@ async function downloadWithSoulseek(
       console.log(`     ${i+1}. ${c.username} - ${(Number(file.size)/1024/1024).toFixed(1)}MB, ${c.speed}kb/s, ${c.slotsFree ? 'FREE' : 'QUEUED'}`);
     });
 
-    // Try up to 3 best peers
-    for (let i = 0; i < Math.min(3, candidates.length); i++) {
+    // Try up to 5 best peers
+    for (let i = 0; i < Math.min(5, candidates.length); i++) {
       const peer = candidates[i];
       const file = peer.files[0];
 
@@ -362,14 +383,14 @@ async function downloadWithSoulseek(
               const totalSize = Number(file.size);
               let lastProgressLog = 0;
 
-              // Timeout if no data for 180 seconds (increased for large files)
+              // Timeout if no data for 60 seconds (fail fast to try next peer)
               let lastDataTime = Date.now();
               const progressTimeout = setInterval(() => {
                 const elapsed = Date.now() - lastDataTime;
-                if (elapsed > 180000) {
+                if (elapsed > 60000) {
                   clearInterval(progressTimeout);
                   stream.destroy();
-                  reject(new Error('Download timeout: no data for 180 seconds'));
+                  reject(new Error('Download timeout: no data for 60 seconds'));
                 }
               }, 1000);
 
@@ -416,7 +437,7 @@ async function downloadWithSoulseek(
         return { path: cachedPath, method: 'soulseek' };
       } catch (downloadError: any) {
         console.log(`  ⚠️  Download failed from ${peer.username}: ${downloadError.message}`);
-        if (i < Math.min(3, candidates.length) - 1) {
+        if (i < Math.min(5, candidates.length) - 1) {
           console.log(`  🔄 Trying next peer...`);
         }
       }
