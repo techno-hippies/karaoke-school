@@ -184,7 +184,8 @@ async function main() {
 export async function processWikidataArtists(_env: any, limit: number = 10): Promise<void> {
   console.log(`[Step 4.10] Wikidata Artists Enrichment (limit: ${limit})`);
 
-  // Find artists from spotify_artists with dual-source Wikidata ID discovery
+  // Find artists from spotify_artists with Wikidata ID discovery from Quansic
+  // NOTE: MusicBrainz fallback disabled - spotify_artists has no mbid column for join
   const artistsToProcess = await query<{
     spotify_artist_id: string;
     artist_name: string;
@@ -192,7 +193,7 @@ export async function processWikidataArtists(_env: any, limit: number = 10): Pro
     source: string;
   }>(`
     WITH quansic_wikidata AS (
-      -- PRIMARY SOURCE: Quansic
+      -- SOURCE: Quansic only
       SELECT DISTINCT
         sa.spotify_artist_id,
         sa.name as artist_name,
@@ -202,39 +203,16 @@ export async function processWikidataArtists(_env: any, limit: number = 10): Pro
       JOIN quansic_artists qa ON sa.spotify_artist_id = qa.spotify_artist_id
       WHERE qa.raw_data->'ids'->'wikidataIds' IS NOT NULL
         AND jsonb_array_length(qa.raw_data->'ids'->'wikidataIds') > 0
-    ),
-    mb_wikidata AS (
-      -- FALLBACK SOURCE: MusicBrainz
-      SELECT DISTINCT
-        sa.spotify_artist_id,
-        sa.name as artist_name,
-        SUBSTRING((SELECT value FROM jsonb_each_text(ma.all_urls)
-                   WHERE key LIKE '%wikidata%' LIMIT 1) FROM 'Q[0-9]+') as wikidata_id,
-        'musicbrainz' as source
-      FROM spotify_artists sa
-      JOIN musicbrainz_artists ma ON sa.mbid = ma.artist_mbid
-      WHERE ma.all_urls IS NOT NULL
-        AND (SELECT value FROM jsonb_each_text(ma.all_urls) WHERE key LIKE '%wikidata%' LIMIT 1) IS NOT NULL
-    ),
-    combined_sources AS (
-      SELECT
-        COALESCE(qw.spotify_artist_id, mw.spotify_artist_id) as spotify_artist_id,
-        COALESCE(qw.artist_name, mw.artist_name) as artist_name,
-        COALESCE(qw.wikidata_id, mw.wikidata_id) as wikidata_id,
-        COALESCE(qw.source, mw.source) as source
-      FROM quansic_wikidata qw
-      FULL OUTER JOIN mb_wikidata mw ON qw.spotify_artist_id = mw.spotify_artist_id
-      WHERE COALESCE(qw.wikidata_id, mw.wikidata_id) IS NOT NULL
     )
     SELECT
-      cs.spotify_artist_id,
-      cs.artist_name,
-      cs.wikidata_id,
-      cs.source
-    FROM combined_sources cs
-    LEFT JOIN wikidata_artists wd ON cs.wikidata_id = wd.wikidata_id
+      qw.spotify_artist_id,
+      qw.artist_name,
+      qw.wikidata_id,
+      qw.source
+    FROM quansic_wikidata qw
+    LEFT JOIN wikidata_artists wd ON qw.wikidata_id = wd.wikidata_id
     WHERE wd.wikidata_id IS NULL
-    ORDER BY cs.source DESC, cs.spotify_artist_id
+    ORDER BY qw.spotify_artist_id
     LIMIT $1
   `, [limit]);
 

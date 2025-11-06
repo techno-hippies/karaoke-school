@@ -59,23 +59,6 @@ CREATE TABLE IF NOT EXISTS quansic_cache (
 CREATE INDEX idx_quansic_iswc ON quansic_cache(iswc) WHERE iswc IS NOT NULL;
 CREATE INDEX idx_quansic_isni ON quansic_cache(isni) WHERE isni IS NOT NULL;
 
--- MusicBrainz Cache (ISRC/ISWC/ISNI lookups)
-CREATE TABLE IF NOT EXISTS musicbrainz_cache (
-  isrc TEXT PRIMARY KEY,
-  recording_mbid TEXT,
-  work_mbid TEXT,
-  iswc TEXT,
-  isni TEXT,
-  artist_name TEXT,
-  work_title TEXT,
-  raw_data JSONB, -- full response
-  fetched_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_mb_iswc ON musicbrainz_cache(iswc) WHERE iswc IS NOT NULL;
-CREATE INDEX idx_mb_isni ON musicbrainz_cache(isni) WHERE isni IS NOT NULL;
-CREATE INDEX idx_mb_mbid ON musicbrainz_cache(recording_mbid) WHERE recording_mbid IS NOT NULL;
-
 -- Processing Log (for debugging and monitoring)
 CREATE TABLE IF NOT EXISTS processing_log (
   id SERIAL PRIMARY KEY,

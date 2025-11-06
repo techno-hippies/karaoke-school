@@ -31,7 +31,7 @@ interface ISWCResult {
 
 /**
  * Check all cache layers for ISWC
- * Priority: Quansic → MLC → BMI → MusicBrainz
+ * Priority: Quansic → MLC → BMI → MusicBrainz (live join)
  */
 async function checkAllCaches(isrc: string): Promise<ISWCResult | null> {
   // Priority 1: Quansic recordings
@@ -73,7 +73,7 @@ async function checkAllCaches(isrc: string): Promise<ISWCResult | null> {
     LIMIT 1
   `, [isrc]);
   if (mb[0]?.iswc) {
-    return { iswc: mb[0].iswc, source: 'musicbrainz_cache' };
+    return { iswc: mb[0].iswc, source: 'musicbrainz' };
   }
 
   return null;
