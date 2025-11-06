@@ -71,6 +71,7 @@ async function main() {
 
   // Step 3: Fetch uncached tracks from Spotify API
   const sqlStatements: string[] = [];
+  const fetchedTrackData = new Map<string, { isrc: string | null, primaryArtistId: string | null }>();
   let successCount = 0;
   let failCount = 0;
 
@@ -98,6 +99,12 @@ async function main() {
 
         console.log(`  ✅ ${track.title} - ${track.artists.map(a => a.name).join(', ')}`);
         console.log(`     ISRC: ${track.isrc || 'N/A'} | Artists: ${track.artists.length}`);
+
+        // Store track data for pipeline entry creation
+        fetchedTrackData.set(video.spotify_track_id, {
+          isrc: track.isrc || null,
+          primaryArtistId: track.artists[0]?.id || null
+        });
 
         // Store track
         sqlStatements.push(upsertSpotifyTrackSQL(track));
@@ -195,27 +202,16 @@ async function main() {
     }
   }
 
-  // For newly fetched tracks, get their ISRCs and create entries
+  // For newly fetched tracks, use stored track data
   for (const video of uncachedVideos) {
-    const trackResult = await query<{ isrc: string | null }>(`
-      SELECT isrc FROM spotify_tracks WHERE spotify_track_id = '${video.spotify_track_id}'
-    `);
-
-    if (trackResult.length > 0) {
-      const artistResult = await query<{ spotify_artist_id: string }>(`
-        SELECT (artists->0->>'id')::text as spotify_artist_id
-        FROM spotify_tracks
-        WHERE spotify_track_id = '${video.spotify_track_id}'
-      `);
-
-      const primaryArtistId = artistResult[0]?.spotify_artist_id || null;
-
+    const trackData = fetchedTrackData.get(video.spotify_track_id);
+    if (trackData) {
       sqlStatements.push(
         createPipelineEntrySQL(
           video.video_id,
           video.spotify_track_id,
-          trackResult[0].isrc,
-          primaryArtistId
+          trackData.isrc,
+          trackData.primaryArtistId
         )
       );
     }
@@ -290,6 +286,7 @@ export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Pro
   console.log(`   Cache hits: ${cachedTracks.length}, API requests: ${uncachedVideos.length}`);
 
   const sqlStatements: string[] = [];
+  const fetchedTrackData = new Map<string, { isrc: string | null, primaryArtistId: string | null }>();
   let successCount = 0;
   let failCount = 0;
 
@@ -311,6 +308,12 @@ export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Pro
           );
           continue;
         }
+
+        // Store track data for pipeline entry creation
+        fetchedTrackData.set(video.spotify_track_id, {
+          isrc: track.isrc || null,
+          primaryArtistId: track.artists[0]?.id || null
+        });
 
         sqlStatements.push(upsertSpotifyTrackSQL(track));
 
@@ -388,25 +391,14 @@ export async function resolveSpotifyMetadata(_env: any, limit: number = 50): Pro
   }
 
   for (const video of uncachedVideos) {
-    const trackResult = await query<{ isrc: string | null }>(`
-      SELECT isrc FROM spotify_tracks WHERE spotify_track_id = '${video.spotify_track_id}'
-    `);
-
-    if (trackResult.length > 0) {
-      const artistResult = await query<{ spotify_artist_id: string }>(`
-        SELECT (artists->0->>'id')::text as spotify_artist_id
-        FROM spotify_tracks
-        WHERE spotify_track_id = '${video.spotify_track_id}'
-      `);
-
-      const primaryArtistId = artistResult[0]?.spotify_artist_id || null;
-
+    const trackData = fetchedTrackData.get(video.spotify_track_id);
+    if (trackData) {
       sqlStatements.push(
         createPipelineEntrySQL(
           video.video_id,
           video.spotify_track_id,
-          trackResult[0].isrc,
-          primaryArtistId
+          trackData.isrc,
+          trackData.primaryArtistId
         )
       );
     }

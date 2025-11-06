@@ -1,31 +1,51 @@
 /**
  * Unified Pipeline Processor
  *
- * Orchestrates the complete karaoke processing pipeline (steps 2-12):
+ * Orchestrates the complete karaoke processing pipeline with BLOCK ARCHITECTURE:
+ *
+ * BLOCK 1: WORKS ENRICHMENT (Steps 2-4.6)
+ * ────────────────────────────────────────
+ * - Step 2: Spotify Tracks (metadata + ISRC)
+ * - Step 3: ISWC Discovery (Quansic → MLC → BMI fallback) [FIXED ORDER]
+ * - Step 4: MusicBrainz Works (recordings + works + artists)
+ * - Step 4.5: Genius Songs (language, annotations, referents)
+ * - Step 4.6: Wikidata Works (ISWC, composers, international IDs)
+ *
+ * BLOCK 2: ARTISTS ENRICHMENT (Steps 4.7-4.10)
+ * ─────────────────────────────────────────────
+ * - Step 4.7: Quansic Artists (ISNI, IPI, Wikidata IDs)
+ * - Step 4.8: MusicBrainz Artists (handled by Step 4)
+ * - Step 4.9: Genius Artists (bios, social links, all roles)
+ * - Step 4.10: Wikidata Artists (library IDs, 40+ identifiers) [REFACTORED]
+ *
+ * BLOCK 3: LYRICS & AUDIO PROCESSING (Steps 5-11)
+ * ────────────────────────────────────────────────
+ * - Step 5: Discover Lyrics (synced LRC format)
+ * - Step 6: Download Audio (fire-and-forget to Grove)
+ * - Step 6.5: ElevenLabs Forced Alignment (word-level timing)
+ * - Step 7: Genius Enrichment (LEGACY - kept for compatibility)
+ * - Step 7.5: Multi-language Translation (zh, vi, id)
+ * - Step 8: Audio Separation (Demucs vocal/instrumental)
+ * - Step 9: AI Segment Selection (optimal 190s segment)
+ * - Step 10: fal.ai Enhancement (full-song chunking + 2s crossfade)
+ * - Step 11: AI Viral Clip Selection (30-60s verse+chorus via Claude)
+ * - Step 11.5: Upload TikTok Videos to Grove (IPFS)
+ *
+ * BLOCK 4: BLOCKCHAIN EMISSION & CONSOLIDATION (Steps 12-13)
+ * ───────────────────────────────────────────────────────────
+ * - Step 12: Emit Segment Events (on-chain karaoke data)
+ * - Step 13: Story Protocol Derivatives (TikTok creator videos)
  *
  * Main karaoke pipeline status flow:
  * tiktok_scraped → spotify_resolved → iswc_found → metadata_enriched →
- * lyrics_ready → audio_downloaded → alignment_complete → translations_ready → stems_separated →
- * segments_selected → enhanced → clips_cropped
+ * lyrics_ready → audio_downloaded → alignment_complete → translations_ready →
+ * stems_separated → segments_selected → enhanced → clips_cropped
  *
- * Can be triggered manually or via cron. Steps run sequentially based on status dependencies.
- * Each step processes tracks and advances them to the next status.
- *
- * STEPS:
- * - Step 2: Resolve Spotify Metadata (enabled)
- * - Step 3: ISWC Discovery (enabled optional - gate for GRC-20, includes MLC fallback)
- * - Step 4: MusicBrainz Enrichment (enabled optional - metadata)
- * - Step 5: Discover Lyrics (enabled optional - synced lyrics)
- * - Step 6: Download Audio (enabled - fire-and-forget via audio-download-service)
- * - Step 6.5: ElevenLabs Forced Alignment (enabled - word timing)
- * - Step 7: Genius Enrichment (enabled optional - metadata)
- * - Step 7.5: Multi-language Translation (enabled - zh, vi, id)
- * - Step 8: Audio Separation (enabled - Demucs vocal/instrumental separation)
- * - Step 9: AI Segment Selection (enabled - optimal segment selection)
- * - Step 10: fal.ai Audio Enhancement (enabled - audio enhancement)
- * - Step 11: Viral Clip Cropping (enabled - clip extraction)
- * - Step 11.5: Upload TikTok Videos to Grove (enabled optional - IPFS upload)
- * - Step 12: Emit Segment Events (enabled optional - blockchain indexing)
+ * KEY ARCHITECTURAL CHANGES:
+ * 1. ISWC fallback order FIXED: Quansic → MLC (direct ISRC→ISWC) → BMI (fuzzy match)
+ * 2. Works vs Artists enrichment now happens in PARALLEL (same status: metadata_enriched)
+ * 3. Wikidata Artists REFACTORED to query spotify_artists (not grc20_artists)
+ * 4. grc20_artists consolidation moved to Step 13 (was causing circular dependency)
  *
  * KEY INSIGHT: Step 12 only uploads the 50s TikTok clip's lyrics/alignment
  * to Grove, not the full 190s segment. The SQL query filters to only lines
@@ -36,9 +56,15 @@
 
 import type { Env } from '../types';
 import { reconcileAllStatuses } from '../utils/reconcile-status';
+import { close } from '../db/neon';
 import { resolveSpotifyMetadata } from './02-resolve-spotify';
 import { processISWCDiscovery } from './03-iswc-discovery';
 import { processMusicBrainzEnrichment } from './04-enrich-musicbrainz';
+import { processGeniusSongs } from './04-genius-songs';
+import { processWikidataWorks } from './05b-enrich-wikidata-works';
+import { processQuansicArtistEnrichment } from './08-enrich-quansic-artists';
+import { processGeniusArtists } from './04-genius-artists';
+import { processWikidataArtists } from './05-enrich-wikidata';
 import { processDiscoverLyrics } from './05-discover-lyrics';
 import { processDownloadAudio } from './06-download-audio';
 import { processGeniusEnrichment } from './07-genius-enrichment';
@@ -46,8 +72,8 @@ import { processForcedAlignment } from './06-forced-alignment';
 import { processLyricsTranslation } from './07-translate-lyrics';
 import { processSeparateAudio } from './08-separate-audio';
 import { processSegmentSelection } from './09-select-segments';
-import { processFalEnhancement } from './10-enhance-audio';
-import { processClipCropping } from './11-crop-clips';
+import { processFalEnhancementChunked } from './10-enhance-audio-chunked';
+import { processViralClipSelection } from './11-select-viral-clip';
 import { processUploadGroveVideos } from './11-upload-grove-videos';
 import { processEmitSegmentEvents } from './12-emit-segment-events';
 import { processStoryDerivatives } from './13-mint-story-derivatives';
@@ -91,7 +117,7 @@ export async function runUnifiedPipeline(env: Env, options?: {
   }
 
   const steps: PipelineStep[] = [
-    // ==================== EARLY PIPELINE STEPS ====================
+    // ==================== BLOCK 1: WORKS ENRICHMENT ====================
 
     // Step 2: Resolve Spotify Metadata
     {
@@ -104,11 +130,11 @@ export async function runUnifiedPipeline(env: Env, options?: {
       enabled: true
     },
 
-    // Step 3: ISWC Discovery (THE GATE)
+    // Step 3: ISWC Discovery (Quansic → MLC → BMI fallback)
     {
       number: 3,
       name: 'ISWC Discovery',
-      description: 'Resolve ISWC codes via Quansic (gate: required for GRC-20)',
+      description: 'Resolve ISWC codes via Quansic/MLC/BMI (gate: required for GRC-20)',
       status: 'spotify_resolved',
       nextStatus: 'iswc_found',
       processor: processISWCDiscovery,
@@ -116,19 +142,85 @@ export async function runUnifiedPipeline(env: Env, options?: {
       optional: true  // Don't block pipeline - has retry logic now
     },
 
-    // ==================== MIDDLE PIPELINE STEPS ====================
-
-    // Step 4: MusicBrainz Enrichment
+    // Step 4: MusicBrainz Works (recordings + works)
     {
       number: 4,
-      name: 'MusicBrainz Enrichment',
-      description: 'Add MusicBrainz metadata (recordings, works, artists)',
+      name: 'MusicBrainz Works',
+      description: 'Add MusicBrainz metadata for recordings and works',
       status: 'iswc_found',
       nextStatus: 'metadata_enriched',
       processor: processMusicBrainzEnrichment,
       enabled: true,
       optional: true  // Don't block pipeline - has retry logic now
     },
+
+    // Step 4.5: Genius Songs
+    {
+      number: 4.5,
+      name: 'Genius Songs',
+      description: 'Match songs to Genius for work-level metadata (language, annotations)',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processGeniusSongs,
+      enabled: true,
+      optional: true
+    },
+
+    // Step 4.6: Wikidata Works
+    {
+      number: 4.6,
+      name: 'Wikidata Works',
+      description: 'Enrich works with Wikidata metadata (ISWC, composers, identifiers)',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processWikidataWorks,
+      enabled: true,
+      optional: true
+    },
+
+    // ==================== BLOCK 2: ARTISTS ENRICHMENT ====================
+
+    // Step 4.7: Quansic Artists
+    {
+      number: 4.7,
+      name: 'Quansic Artists',
+      description: 'Enrich artists with ISNI/IPI data from Quansic',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processQuansicArtistEnrichment,
+      enabled: true,
+      optional: true
+    },
+
+    // Step 4.8: MusicBrainz Artists (part of Step 4)
+    // NOTE: Currently handled by Step 4 (processMusicBrainzEnrichment)
+    // MusicBrainz enrichment fetches recordings, works, AND artists together
+
+    // Step 4.9: Genius Artists
+    {
+      number: 4.9,
+      name: 'Genius Artists',
+      description: 'Fetch full artist profiles from Genius (primary, featured, producers, writers)',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processGeniusArtists,
+      enabled: true,
+      optional: true
+    },
+
+    // Step 4.10: Wikidata Artists
+    {
+      number: 4.10,
+      name: 'Wikidata Artists',
+      description: 'Enrich artists with Wikidata metadata (library IDs, international identifiers)',
+      status: 'metadata_enriched',
+      nextStatus: 'metadata_enriched',  // No status change
+      processor: processWikidataArtists,
+      enabled: true,
+      optional: true
+    },
+
+    // ==================== BLOCK 3: LYRICS & AUDIO PROCESSING ====================
 
     // Step 5: Discover Lyrics
     {
@@ -215,25 +307,25 @@ export async function runUnifiedPipeline(env: Env, options?: {
       enabled: true
     },
 
-    // Step 10: fal.ai Audio Enhancement
+    // Step 10: fal.ai Audio Enhancement (Full-Song Chunking)
     {
       number: 10,
       name: 'fal.ai Audio Enhancement',
-      description: 'Enhance instrumental tracks using Stable Audio 2.5 with FFmpeg cropping',
+      description: 'Enhance ENTIRE songs using Stable Audio 2.5 with 190s chunking, 2s crossfade merging',
       status: 'segments_selected',
       nextStatus: 'enhanced',
-      processor: processFalEnhancement,
+      processor: processFalEnhancementChunked,
       enabled: true
     },
 
-    // Step 11: Viral Clip Cropping
+    // Step 11: AI-Powered Viral Clip Selection
     {
       number: 11,
-      name: 'Viral Clip Cropping',
-      description: 'Crop enhanced 190s instrumental to extract best 20-50s viral clip',
+      name: 'AI-Powered Viral Clip Selection',
+      description: 'AI analyzes song structure to select optimal 30-60s verse+chorus, crops from enhanced instrumental',
       status: 'enhanced',
       nextStatus: 'clips_cropped',
-      processor: processClipCropping,
+      processor: processViralClipSelection,
       enabled: true
     },
 
@@ -357,4 +449,36 @@ export async function runUnifiedPipeline(env: Env, options?: {
     });
     console.log('');
   }
+}
+
+// Only run if this file is executed directly
+if (import.meta.main) {
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  let step: number | undefined;
+  let limit = 50;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--step' && args[i + 1]) {
+      step = parseInt(args[i + 1]);
+      i++;
+    } else if (args[i] === '--limit' && args[i + 1]) {
+      limit = parseInt(args[i + 1]);
+      i++;
+    }
+  }
+
+  const env: Env = {
+    DATABASE_URL: process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '',
+    QUANSIC_SERVICE_URL: process.env.QUANSIC_SERVICE_URL,
+  } as Env;
+
+  runUnifiedPipeline(env, { step, limit })
+    .catch((error) => {
+      console.error('❌ Fatal error:', error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await close();
+    });
 }

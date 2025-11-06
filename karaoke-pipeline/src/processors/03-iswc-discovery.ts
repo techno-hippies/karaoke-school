@@ -2,10 +2,10 @@
  * Step 3: ISWC Discovery (Clean Implementation)
  *
  * Fault-tolerant ISWC lookup with multi-source fallback:
- * 1. Check caches (Quansic, BMI, MLC, MusicBrainz)
+ * 1. Check caches (Quansic, MLC, BMI, MusicBrainz)
  * 2. Call Quansic API
- * 3. BMI fallback
- * 4. MLC fallback
+ * 3. MLC fallback (direct ISRC→ISWC)
+ * 4. BMI fallback (fuzzy title/artist match)
  * 5. Mark as failure (prevents re-queries)
  *
  * Pipeline advances regardless of ISWC availability (has_iswc flag tracks presence).
@@ -31,7 +31,7 @@ interface ISWCResult {
 
 /**
  * Check all cache layers for ISWC
- * Priority: Quansic → BMI → MLC → MusicBrainz
+ * Priority: Quansic → MLC → BMI → MusicBrainz
  */
 async function checkAllCaches(isrc: string): Promise<ISWCResult | null> {
   // Priority 1: Quansic recordings
@@ -44,17 +44,7 @@ async function checkAllCaches(isrc: string): Promise<ISWCResult | null> {
     return { iswc: quansic[0].iswc, source: 'quansic_cache' };
   }
 
-  // Priority 2: BMI works
-  const bmi = await query<{ iswc: string }>(`
-    SELECT iswc FROM bmi_works
-    WHERE isrc = $1 AND iswc IS NOT NULL
-    LIMIT 1
-  `, [isrc]);
-  if (bmi[0]?.iswc) {
-    return { iswc: bmi[0].iswc, source: 'bmi_cache' };
-  }
-
-  // Priority 3: MLC works
+  // Priority 2: MLC works (direct ISRC→ISWC)
   const mlc = await query<{ iswc: string }>(`
     SELECT iswc FROM mlc_works
     WHERE isrc = $1 AND iswc IS NOT NULL
@@ -62,6 +52,16 @@ async function checkAllCaches(isrc: string): Promise<ISWCResult | null> {
   `, [isrc]);
   if (mlc[0]?.iswc) {
     return { iswc: mlc[0].iswc, source: 'mlc_cache' };
+  }
+
+  // Priority 3: BMI works (fuzzy match)
+  const bmi = await query<{ iswc: string }>(`
+    SELECT iswc FROM bmi_works
+    WHERE isrc = $1 AND iswc IS NOT NULL
+    LIMIT 1
+  `, [isrc]);
+  if (bmi[0]?.iswc) {
+    return { iswc: bmi[0].iswc, source: 'bmi_cache' };
   }
 
   // Priority 4: MusicBrainz (via recording → work link)
@@ -341,35 +341,9 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
         }
       }
 
-      // STEP 4: Try BMI fallback
-      if (!track.artist_name) {
-        console.log(`   ⏭️  No artist name, skipping BMI/MLC`);
-        await markAsFailure(track.isrc, attemptedSources, 'No artist name for fallback search');
-        await updatePipeline(track, null, 'no_artist');
-        failed++;
-        continue;
-      }
-
-      attemptedSources.push('bmi');
-      console.log(`   🔍 Trying BMI fallback...`);
-      const bmiResult = await searchBMI(track.title, track.artist_name);
-
-      if (bmiResult?.iswc) {
-        await cacheBMIResult(track.isrc, bmiResult);
-        iswc = bmiResult.iswc;
-        source = 'bmi_api';
-        console.log(`   ✅ BMI found ISWC: ${iswc}`);
-        await updatePipeline(track, iswc, source);
-        succeeded++;
-        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limit
-        continue;
-      } else {
-        console.log(`   ⚠️  BMI returned no ISWC`);
-      }
-
-      // STEP 5: Try MLC fallback
+      // STEP 4: Try MLC fallback (direct ISRC→ISWC)
       attemptedSources.push('mlc');
-      console.log(`   🔍 Trying MLC fallback...`);
+      console.log(`   🔍 Trying MLC fallback (ISRC→ISWC)...`);
       const mlcResult = await searchMLC(track.isrc, track.title, track.artist_name);
 
       if (mlcResult?.iswc) {
@@ -383,6 +357,32 @@ export async function processISWCDiscovery(env: Env, limit: number = 50): Promis
         continue;
       } else {
         console.log(`   ⚠️  MLC returned no ISWC`);
+      }
+
+      // STEP 5: Try BMI fallback (fuzzy title/artist match)
+      if (!track.artist_name) {
+        console.log(`   ⏭️  No artist name, skipping BMI`);
+        await markAsFailure(track.isrc, attemptedSources, 'No artist name for BMI fallback search');
+        await updatePipeline(track, null, 'no_artist');
+        failed++;
+        continue;
+      }
+
+      attemptedSources.push('bmi');
+      console.log(`   🔍 Trying BMI fallback (fuzzy match)...`);
+      const bmiResult = await searchBMI(track.title, track.artist_name);
+
+      if (bmiResult?.iswc) {
+        await cacheBMIResult(track.isrc, bmiResult);
+        iswc = bmiResult.iswc;
+        source = 'bmi_api';
+        console.log(`   ✅ BMI found ISWC: ${iswc}`);
+        await updatePipeline(track, iswc, source);
+        succeeded++;
+        await new Promise(resolve => setTimeout(resolve, 200)); // Rate limit
+        continue;
+      } else {
+        console.log(`   ⚠️  BMI returned no ISWC`);
       }
 
       // STEP 6: All sources exhausted - mark as failure
