@@ -27,6 +27,15 @@ function normalizeReleaseDate(releaseDate: string | null): string | null {
 }
 
 /**
+ * Normalize ISRC to uppercase
+ * ISRCs should always be uppercase per the standard, but Spotify occasionally returns lowercase
+ */
+function normalizeISRC(isrc: string | null): string | null {
+  if (!isrc) return null;
+  return isrc.toUpperCase();
+}
+
+/**
  * Generate SQL to upsert a Spotify track
  */
 export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
@@ -36,7 +45,7 @@ export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
     artists: track.artists,
     album: track.album,
     image_url: track.image_url,
-    isrc: track.isrc,
+    isrc: normalizeISRC(track.isrc),
     duration_ms: track.duration_ms,
     release_date: normalizeReleaseDate(track.release_date),
     popularity: track.popularity,
@@ -96,6 +105,9 @@ export function createPipelineEntrySQL(
   isrc: string | null,
   primaryArtistId: string | null
 ): string {
+  // Normalize ISRC to uppercase
+  const normalizedIsrc = normalizeISRC(isrc);
+
   // Custom SQL to handle conflict intelligently
   // If song already exists in pipeline, just update the TikTok video reference
   // This prevents resetting pipeline progress when the same song appears in multiple videos
@@ -112,7 +124,7 @@ export function createPipelineEntrySQL(
       '${videoId}',
       '${spotifyTrackId}',
       'spotify_resolved',
-      ${isrc ? `'${isrc}'` : 'NULL'},
+      ${normalizedIsrc ? `'${normalizedIsrc}'` : 'NULL'},
       ${primaryArtistId ? `'${primaryArtistId}'` : 'NULL'},
       NOW(),
       NOW()
