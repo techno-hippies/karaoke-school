@@ -246,55 +246,71 @@ export async function insertLensAccount(data: LensAccountData): Promise<void> {
  * Returns unified interface for both entity types.
  *
  * @param limit - Maximum number of entities to return
+ * @param accountType - Optional filter: 'artist', 'tiktok_creator', or undefined for both
  */
 export async function findEntitiesWithoutLens(
-  limit: number = 20
+  limit: number = 20,
+  accountType?: 'artist' | 'tiktok_creator'
 ): Promise<EntityWithPKP[]> {
-  return await query<EntityWithPKP>(
-    `-- Artists with PKP but no Lens
-    SELECT
-      'artist'::TEXT as account_type,
-      sa.spotify_artist_id,
-      NULL::TEXT as tiktok_handle,
-      sa.name,
-      pkp.pkp_address,
-      pkp.pkp_token_id,
-      sa.images->0->>'url' as image_url,
-      sa.genius_artist_id
-    FROM spotify_artists sa
-    INNER JOIN pkp_accounts pkp
-      ON pkp.spotify_artist_id = sa.spotify_artist_id
-      AND pkp.account_type = 'artist'
-    WHERE NOT EXISTS (
-      SELECT 1 FROM lens_accounts la
-      WHERE la.spotify_artist_id = sa.spotify_artist_id
-    )
+  // Build query dynamically based on accountType filter
+  const includeArtists = !accountType || accountType === 'artist';
+  const includeCreators = !accountType || accountType === 'tiktok_creator';
 
-    UNION ALL
+  const queries: string[] = [];
 
-    -- TikTok creators with PKP but no Lens
-    SELECT
-      'tiktok_creator'::TEXT as account_type,
-      NULL::TEXT as spotify_artist_id,
-      tc.username as tiktok_handle,
-      tc.display_name as name,
-      pkp.pkp_address,
-      pkp.pkp_token_id,
-      NULL::TEXT as image_url,
-      NULL::INTEGER as genius_artist_id
-    FROM tiktok_creators tc
-    INNER JOIN pkp_accounts pkp
-      ON pkp.tiktok_handle = tc.username
-      AND pkp.account_type = 'tiktok_creator'
-    WHERE NOT EXISTS (
-      SELECT 1 FROM lens_accounts la
-      WHERE la.tiktok_handle = tc.username
-    )
+  if (includeArtists) {
+    queries.push(`
+      -- Artists with PKP but no Lens
+      SELECT
+        'artist'::TEXT as account_type,
+        sa.spotify_artist_id,
+        NULL::TEXT as tiktok_handle,
+        sa.name,
+        pkp.pkp_address,
+        pkp.pkp_token_id,
+        sa.images->0->>'url' as image_url,
+        sa.genius_artist_id
+      FROM spotify_artists sa
+      INNER JOIN pkp_accounts pkp
+        ON pkp.spotify_artist_id = sa.spotify_artist_id
+        AND pkp.account_type = 'artist'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM lens_accounts la
+        WHERE la.spotify_artist_id = sa.spotify_artist_id
+      )
+    `);
+  }
 
+  if (includeCreators) {
+    queries.push(`
+      -- TikTok creators with PKP but no Lens
+      SELECT
+        'tiktok_creator'::TEXT as account_type,
+        NULL::TEXT as spotify_artist_id,
+        tc.username as tiktok_handle,
+        tc.display_name as name,
+        pkp.pkp_address,
+        pkp.pkp_token_id,
+        NULL::TEXT as image_url,
+        NULL::INTEGER as genius_artist_id
+      FROM tiktok_creators tc
+      INNER JOIN pkp_accounts pkp
+        ON pkp.tiktok_handle = tc.username
+        AND pkp.account_type = 'tiktok_creator'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM lens_accounts la
+        WHERE la.tiktok_handle = tc.username
+      )
+    `);
+  }
+
+  const sql = `
+    ${queries.join('\n    UNION ALL\n')}
     ORDER BY account_type, name
-    LIMIT $1`,
-    [limit]
-  );
+    LIMIT $1
+  `;
+
+  return await query<EntityWithPKP>(sql, [limit]);
 }
 
 // ============================================================================

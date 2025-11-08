@@ -136,18 +136,11 @@ export async function createLensAccounts(
   let totalSuccess = 0;
   let totalFailed = 0;
 
-  // Find ALL entities with PKP but no Lens account
-  // (Query already filters by account_type, so we get the right entities)
-  const entities = await findEntitiesWithoutLens(limit);
+  // Map mode to accountType for SQL filtering
+  const accountType = mode === 'both' ? undefined : mode === 'artist' ? 'artist' : 'tiktok_creator';
 
-  // Filter by mode if not 'both'
-  const filteredEntities = mode === 'both'
-    ? entities
-    : entities.filter(e => {
-        if (mode === 'artist') return e.account_type === 'artist';
-        if (mode === 'creator') return e.account_type === 'tiktok_creator';
-        return false;
-      });
+  // Find entities with PKP but no Lens account (filtered at SQL level)
+  const filteredEntities = await findEntitiesWithoutLens(limit, accountType);
 
   if (filteredEntities.length === 0) {
     console.log('✓ No entities need Lens account creation\n');
