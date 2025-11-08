@@ -200,32 +200,5 @@ export function createGroveService(): GroveService {
   return new GroveService(); // Uses 37111 (Lens Testnet) by default
 }
 
-/**
- * Upload file to Grove (simplified helper for processors)
- * Uses the existing Grove API
- *
- * @param buffer File data as Buffer
- * @param contentType MIME type (e.g., 'audio/mpeg')
- * @param fileName Descriptive filename for logging
- * @returns Upload result with CID and URL
- */
-export async function uploadToGrove(
-  buffer: Buffer,
-  contentType: string,
-  fileName: string
-): Promise<GroveUploadResult> {
-  // Convert buffer to base64 (Grove API expects base64)
-  const base64Audio = buffer.toString('base64');
-
-  // Use the existing Grove service
-  const groveService = createGroveService();
-
-  // Upload to Grove
-  const result = await groveService.uploadAudio(
-    base64Audio,
-    fileName,
-    'instrumental'
-  );
-
-  return result;
-}
+// Note: uploadToGrove() has been consolidated to src/services/storage.ts
+// All processors should import from storage.ts for unified storage handling
