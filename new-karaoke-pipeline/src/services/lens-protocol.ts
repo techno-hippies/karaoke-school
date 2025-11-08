@@ -67,14 +67,22 @@ export interface CreateAccountParams {
  * - "Ariana Grande" → "ariana-grande"
  * - "21 Savage!!!" → "21-savage"
  * - "---Bad-Name---" → "bad-name"
+ * - "★★★" → "artist-{hash}" (symbols-only fallback)
  */
 export function sanitizeHandle(name: string): string {
-  return name
+  const sanitized = name
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')  // Replace non-alphanumeric with dashes
     .replace(/-+/g, '-')          // Collapse multiple dashes
     .replace(/^-|-$/g, '')        // Remove leading/trailing dashes
     .substring(0, 30);             // Lens handle max length
+
+  // Fallback for empty string (all symbols/special chars)
+  if (!sanitized || sanitized.length === 0) {
+    return `artist-${Date.now().toString(36)}`;
+  }
+
+  return sanitized;
 }
 
 /**

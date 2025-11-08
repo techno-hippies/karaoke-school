@@ -62,10 +62,9 @@ export interface ArtistWithoutPKP {
  * TikTok creator without PKP
  */
 export interface CreatorWithoutPKP {
-  tiktok_handle: string;
-  tiktok_user_id: string;
+  username: string;              // Primary key from tiktok_creators
   display_name: string;
-  avatar_url: string | null;
+  follower_count: number | null;
 }
 
 /**
@@ -105,7 +104,10 @@ export async function insertPKPAccount(data: PKPAccountData): Promise<void> {
       pkp_public_key,
       pkp_owner_eoa,
       transaction_hash
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (pkp_address) DO UPDATE SET
+      transaction_hash = EXCLUDED.transaction_hash,
+      updated_at = NOW()`,
     [
       data.account_type,
       data.spotify_artist_id || null,
@@ -141,19 +143,22 @@ export async function findArtistsWithoutPKP(
       sa.spotify_artist_id,
       sa.name,
       sa.genius_artist_id,
-      sa.image_url
+      sa.images->0->>'url' as image_url
     FROM spotify_artists sa
     WHERE EXISTS (
-      SELECT 1 FROM karaoke_segments ks
-      WHERE ks.primary_artist_id = sa.spotify_artist_id
+      SELECT 1 FROM tracks t
+      JOIN karaoke_segments ks ON t.spotify_track_id = ks.spotify_track_id
+      WHERE t.primary_artist_id = sa.spotify_artist_id
     )
     AND NOT EXISTS (
       SELECT 1 FROM pkp_accounts pkp
       WHERE pkp.spotify_artist_id = sa.spotify_artist_id
     )
     ORDER BY (
-      SELECT MAX(ks.created_at) FROM karaoke_segments ks
-      WHERE ks.primary_artist_id = sa.spotify_artist_id
+      SELECT MAX(ks.created_at)
+      FROM tracks t
+      JOIN karaoke_segments ks ON t.spotify_track_id = ks.spotify_track_id
+      WHERE t.primary_artist_id = sa.spotify_artist_id
     ) DESC
     LIMIT $1`,
     [limit]
@@ -172,18 +177,17 @@ export async function findCreatorsWithoutPKP(
 ): Promise<CreatorWithoutPKP[]> {
   return await query<CreatorWithoutPKP>(
     `SELECT
-      tc.tiktok_handle,
-      tc.tiktok_user_id,
+      tc.username,
       tc.display_name,
-      tc.avatar_url
+      tc.follower_count
     FROM tiktok_creators tc
     WHERE EXISTS (
       SELECT 1 FROM tiktok_videos tv
-      WHERE tv.tiktok_user_id = tc.tiktok_user_id
+      WHERE tv.creator_username = tc.username
     )
     AND NOT EXISTS (
       SELECT 1 FROM pkp_accounts pkp
-      WHERE pkp.tiktok_handle = tc.tiktok_handle
+      WHERE pkp.tiktok_handle = tc.username
     )
     ORDER BY tc.follower_count DESC NULLS LAST
     LIMIT $1`,
@@ -214,7 +218,11 @@ export async function insertLensAccount(data: LensAccountData): Promise<void> {
       lens_account_id,
       lens_metadata_uri,
       transaction_hash
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ON CONFLICT (lens_handle) DO UPDATE SET
+      lens_metadata_uri = EXCLUDED.lens_metadata_uri,
+      transaction_hash = EXCLUDED.transaction_hash,
+      updated_at = NOW()`,
     [
       data.account_type,
       data.spotify_artist_id || null,
@@ -251,7 +259,7 @@ export async function findEntitiesWithoutLens(
       sa.name,
       pkp.pkp_address,
       pkp.pkp_token_id,
-      sa.image_url,
+      sa.images->0->>'url' as image_url,
       sa.genius_artist_id
     FROM spotify_artists sa
     INNER JOIN pkp_accounts pkp
@@ -268,19 +276,19 @@ export async function findEntitiesWithoutLens(
     SELECT
       'tiktok_creator'::TEXT as account_type,
       NULL::TEXT as spotify_artist_id,
-      tc.tiktok_handle,
+      tc.username as tiktok_handle,
       tc.display_name as name,
       pkp.pkp_address,
       pkp.pkp_token_id,
-      tc.avatar_url as image_url,
+      NULL::TEXT as image_url,
       NULL::INTEGER as genius_artist_id
     FROM tiktok_creators tc
     INNER JOIN pkp_accounts pkp
-      ON pkp.tiktok_handle = tc.tiktok_handle
+      ON pkp.tiktok_handle = tc.username
       AND pkp.account_type = 'tiktok_creator'
     WHERE NOT EXISTS (
       SELECT 1 FROM lens_accounts la
-      WHERE la.tiktok_handle = tc.tiktok_handle
+      WHERE la.tiktok_handle = tc.username
     )
 
     ORDER BY account_type, name

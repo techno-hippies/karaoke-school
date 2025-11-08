@@ -81,7 +81,7 @@ async function mintCreatorPKP(
   creator: CreatorWithoutPKP,
   litService: ReturnType<typeof createLitService>
 ): Promise<void> {
-  console.log(`\n📱 ${creator.display_name} (@${creator.tiktok_handle})`);
+  console.log(`\n📱 ${creator.display_name} (@${creator.username})`);
 
   try {
     // Mint PKP on Chronicle Yellowstone
@@ -91,7 +91,7 @@ async function mintCreatorPKP(
     // Store in database
     await insertPKPAccount({
       account_type: 'tiktok_creator',
-      tiktok_handle: creator.tiktok_handle,
+      tiktok_handle: creator.username,  // Note: pkp_accounts.tiktok_handle stores the username
       pkp_address: pkp.pkpAddress,
       pkp_token_id: pkp.pkpTokenId,
       pkp_public_key: pkp.pkpPublicKey,
