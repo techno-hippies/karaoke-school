@@ -188,7 +188,8 @@ async function resolveSpotifyTracks(limit: number = 50) {
         'genius_artists',
         'wikidata_works',
         'wikidata_artists',
-        'quansic_artists'
+        'quansic_artists',
+        'spotify_artists'
       ];
 
       for (const taskType of enrichmentTypes) {

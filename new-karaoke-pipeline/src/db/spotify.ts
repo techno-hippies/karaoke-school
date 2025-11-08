@@ -76,17 +76,19 @@ export function upsertSpotifyArtistSQL(artist: SpotifyArtistInfo): string {
     spotify_artist_id: artist.spotify_artist_id,
     name: artist.name,
     genres: artist.genres,
-    image_url: artist.image_url,
+    images: artist.image_url ? [{ url: artist.image_url }] : [],
     popularity: artist.popularity,
     followers: artist.followers,
+    external_urls: {},
   };
 
   return buildUpsert('spotify_artists', data, 'spotify_artist_id', [
     'name',
     'genres',
-    'image_url',
+    'images',
     'popularity',
     'followers',
+    'external_urls',
     'updated_at'
   ]) + ' RETURNING spotify_artist_id';
 }

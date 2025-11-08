@@ -8,6 +8,7 @@
     "db:migrate": "bun run src/db/migrate.ts",
     "db:status": "bun run src/db/status.ts",
     "task:iswc": "bun run src/tasks/enrichment/iswc-discovery.ts",
+    "task:spotify-artists": "bun run src/tasks/enrichment/spotify-artists.ts",
     "task:separate": "bun src/tasks/audio/separate-audio.ts",
     "task:segment": "bun src/tasks/audio/select-segments-simple.ts",
     "task:enhance": "bun src/tasks/audio/enhance-audio.ts",
