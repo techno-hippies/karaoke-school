@@ -19,6 +19,7 @@
 
 import { parseArgs } from 'util';
 import { ElevenLabsService } from '../../services/elevenlabs';
+import { TrackStage } from '../../db/task-stages';
 
 interface AlignmentTask {
   id: number;
@@ -168,11 +169,11 @@ async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsS
   // Update track stage: audio_ready → aligned
   await runQuery(
     `UPDATE tracks
-     SET stage = 'aligned',
+     SET stage = $1,
          updated_at = NOW()
-     WHERE spotify_track_id = $1
-       AND stage = 'audio_ready'`,
-    [task.spotify_track_id]
+     WHERE spotify_track_id = $2
+       AND stage = $3`,
+    [TrackStage.Aligned, task.spotify_track_id, TrackStage.AudioReady]
   );
 
   console.log(
