@@ -22,10 +22,10 @@
 
 import { query } from '../../db/connection';
 import { ensureAudioTask, startTask, completeTask, failTask, updateTrackStage } from '../../db/audio-tasks';
+import { TrackStage } from '../../db/task-stages';
 import { createFalService } from '../../services/fal';
 import { createFFmpegService } from '../../services/ffmpeg';
 import { uploadToGrove } from '../../services/storage';
-import { uploadToGrove, downloadFromGrove } from '../../services/grove';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
@@ -220,7 +220,7 @@ export async function processAudioEnhancement(limit: number = 10): Promise<void>
       t.title
     FROM tracks t
     JOIN song_audio sa ON t.spotify_track_id = sa.spotify_track_id
-    WHERE t.stage = 'segmented'
+    WHERE t.stage = $1
       AND sa.instrumental_grove_url IS NOT NULL
       AND (
         SELECT status FROM audio_tasks
@@ -230,8 +230,8 @@ export async function processAudioEnhancement(limit: number = 10): Promise<void>
         WHERE spotify_track_id = t.spotify_track_id AND task_type = 'enhance'
       ) = 'pending'
     ORDER BY t.created_at ASC
-    LIMIT $1
-  `, [limit]);
+    LIMIT $2
+  `, [TrackStage.Segmented, limit]);
 
   if (tracks.length === 0) {
     console.log('✓ No tracks need enhancement');

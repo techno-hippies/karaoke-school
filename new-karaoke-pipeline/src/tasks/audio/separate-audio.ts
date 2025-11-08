@@ -21,6 +21,7 @@
 import { query } from '../../db/connection';
 import { createDemucsService } from '../../services/demucs';
 import { ensureAudioTask, startTask, completeTask, failTask, updateTrackStage } from '../../db/audio-tasks';
+import { TrackStage } from '../../db/task-stages';
 
 interface TrackForSeparation {
   spotify_track_id: string;
@@ -53,12 +54,12 @@ async function separateAudio(limit: number = 10) {
         sa.grove_url
       FROM tracks t
       JOIN song_audio sa ON t.spotify_track_id = sa.spotify_track_id
-      WHERE t.stage = 'translated'
+      WHERE t.stage = $1
         AND sa.grove_url IS NOT NULL
         AND sa.instrumental_grove_url IS NULL
       ORDER BY t.updated_at ASC
-      LIMIT $1`,
-      [limit]
+      LIMIT $2`,
+      [TrackStage.Translated, limit]
     );
 
     if (tracks.length === 0) {
