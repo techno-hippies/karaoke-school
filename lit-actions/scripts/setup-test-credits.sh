@@ -22,9 +22,8 @@ echo "=================================================="
 
 # Get test wallet address from .env PRIVATE_KEY
 if [ -z "$PRIVATE_KEY" ]; then
-  echo "❌ PRIVATE_KEY not set. Run with dotenvx:"
-  echo "   DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \\"
-  echo "   dotenvx run -- bash $0"
+  echo "❌ PRIVATE_KEY not set. Add it to your .env file:"
+  echo "   PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24"
   exit 1
 fi
 

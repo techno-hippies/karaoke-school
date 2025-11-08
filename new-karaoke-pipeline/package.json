@@ -1,0 +1,26 @@
+{
+  "name": "karaoke-pipeline-v2",
+  "version": "2.0.0",
+  "description": "Clean task-based karaoke content processing pipeline",
+  "type": "module",
+  "scripts": {
+    "pipeline": "bun run.ts",
+    "db:migrate": "bun run src/db/migrate.ts",
+    "db:status": "bun run src/db/status.ts",
+    "task:iswc": "bun run src/tasks/enrichment/iswc-discovery.ts",
+    "task:separate": "bun src/tasks/audio/separate-audio.ts",
+    "task:segment": "bun src/tasks/audio/select-segments-simple.ts",
+    "task:enhance": "bun src/tasks/audio/enhance-audio.ts",
+    "task:clip": "bun src/tasks/audio/clip-segments.ts"
+  },
+  "dependencies": {
+    "@ardrive/turbo-sdk": "^1.36.0",
+    "@neondatabase/serverless": "^0.10.3",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

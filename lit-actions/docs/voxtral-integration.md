@@ -125,11 +125,11 @@ rg -i "voxtral" app/ lit-actions/ --glob '!archived/**' --glob '!node_modules/**
 ### Environment Variable
 ```bash
 # Correct env var name:
-dotenvx run -f .env -- sh -c 'echo "VOXTRAL_API_KEY length: ${#VOXTRAL_API_KEY}"'
+sh -c 'echo "VOXTRAL_API_KEY length: ${#VOXTRAL_API_KEY}"'
 # Expected: VOXTRAL_API_KEY length: 25
 
 # Old env var (should not exist):
-dotenvx run -f .env -- sh -c 'echo "VOXSTRAL_API_KEY length: ${#VOXSTRAL_API_KEY}"'
+sh -c 'echo "VOXSTRAL_API_KEY length: ${#VOXSTRAL_API_KEY}"'
 # Expected: VOXSTRAL_API_KEY length: 0
 ```
 
@@ -175,21 +175,21 @@ const result = await litClient.executeJs({
 ### Environment Variable
 ```bash
 # ✅ CORRECT
-dotenvx run -f .env -- node script.js
+node script.js
 # Uses: VOXTRAL_API_KEY (no S)
 
 # ❌ WRONG
-dotenvx run -f .env -- node script.js
+node script.js
 # Tries to use: VOXSTRAL_API_KEY (with S) - does not exist!
 ```
 
 ### Encryption Script
 ```bash
 # ✅ CORRECT
-dotenvx run -f .env -- node scripts/encrypt-voxtral-key.mjs <CID> "$VOXTRAL_API_KEY"
+node scripts/encrypt-voxtral-key.mjs <CID> "$VOXTRAL_API_KEY"
 
 # ❌ WRONG
-dotenvx run -f .env -- node scripts/encrypt-voxstral-key.mjs <CID> "$VOXSTRAL_API_KEY"
+node scripts/encrypt-voxstral-key.mjs <CID> "$VOXSTRAL_API_KEY"
 # File does not exist! And env var is wrong!
 ```
 

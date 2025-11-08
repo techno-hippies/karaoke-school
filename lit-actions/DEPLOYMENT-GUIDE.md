@@ -10,7 +10,7 @@
 
 ```bash
 cd lit-actions
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs study/sat-it-back-v1.js "Karaoke Grader v9"
+node scripts/deploy-lit-action-full.mjs study/sat-it-back-v1.js "Karaoke Grader v9"
 ```
 
 **That's it!** This single command:
@@ -61,7 +61,7 @@ Creates JSON file in `deployments/` with:
 ## 🧪 Test Before Deploying (Dry Run)
 
 ```bash
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs study/sat-it-back-v1.js "Test Deploy" --dry-run
+node scripts/deploy-lit-action-full.mjs study/sat-it-back-v1.js "Test Deploy" --dry-run
 ```
 
 **Dry run:**
@@ -76,21 +76,21 @@ dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs study/sat-it-back
 
 ### Deploy New Version
 ```bash
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs \
+node scripts/deploy-lit-action-full.mjs \
   study/sat-it-back-v1.js \
   "Karaoke Grader v10 - Bug fixes"
 ```
 
 ### Deploy Different Lit Action
 ```bash
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs \
+node scripts/deploy-lit-action-full.mjs \
   study/new-grader.js \
   "New Grading Algorithm v1"
 ```
 
 ### Test Deployment
 ```bash
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs \
+node scripts/deploy-lit-action-full.mjs \
   study/sat-it-back-v1.js \
   "Test Deployment" \
   --dry-run
@@ -144,7 +144,7 @@ Look for:
 
 **Fix:** Check `PINATA_JWT` environment variable:
 ```bash
-dotenvx run -f .env -- sh -c 'echo "PINATA_JWT: ${PINATA_JWT:0:20}..."'
+sh -c 'echo "PINATA_JWT: ${PINATA_JWT:0:20}..."'
 ```
 
 ### Encryption Failed
@@ -154,7 +154,7 @@ dotenvx run -f .env -- sh -c 'echo "PINATA_JWT: ${PINATA_JWT:0:20}..."'
 
 **Fix:** Check environment variable:
 ```bash
-dotenvx run -f .env -- sh -c 'echo "VOXTRAL_API_KEY length: ${#VOXTRAL_API_KEY}"'
+sh -c 'echo "VOXTRAL_API_KEY length: ${#VOXTRAL_API_KEY}"'
 ```
 
 ### App Update Failed
@@ -165,7 +165,7 @@ dotenvx run -f .env -- sh -c 'echo "VOXTRAL_API_KEY length: ${#VOXTRAL_API_KEY}"
 **Fix:** Run from `lit-actions/` directory:
 ```bash
 cd /path/to/karaoke-school-v1/lit-actions
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs ...
+node scripts/deploy-lit-action-full.mjs ...
 ```
 
 ---
@@ -211,7 +211,7 @@ Each file contains:
 ### 1. Test First
 Always run with `--dry-run` before deploying:
 ```bash
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs \
+node scripts/deploy-lit-action-full.mjs \
   study/sat-it-back-v1.js "Test" --dry-run
 ```
 
@@ -270,7 +270,7 @@ node scripts/encrypt-voxtral-key.mjs QmNew... "$VOXTRAL_API_KEY"
 ### New Workflow (Automated - Robust)
 ```bash
 # ONE COMMAND!
-dotenvx run -f .env -- node scripts/deploy-lit-action-full.mjs \
+node scripts/deploy-lit-action-full.mjs \
   study/sat-it-back-v1.js "Karaoke Grader v10"
 
 # Everything updated automatically!

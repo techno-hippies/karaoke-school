@@ -89,6 +89,42 @@ VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/subgraph-0/
 
 ## 📊 Database Integration
 
+### ⚠️ DATABASE QUERY RULES - CRITICAL
+
+**ALWAYS use MCP tools for database queries. NEVER use inline scripts or dotenvx.**
+
+✅ **CORRECT - Use MCP:**
+```typescript
+// Use call_mcp_tool with run_sql or run_sql_transaction
+call_mcp_tool("run_sql", {
+  params: {
+    projectId: "frosty-smoke-70266868",
+    databaseName: "neondb",
+    sql: "SELECT * FROM song_pipeline_status LIMIT 10"
+  }
+})
+```
+
+❌ **FORBIDDEN - Never do this:**
+```bash
+# DO NOT use dotenvx
+DOTENV_PRIVATE_KEY=xxx dotenvx run ...
+
+# DO NOT use inline bun scripts with database imports
+bun -e "import { query } from './src/db/neon'; ..."
+
+# DO NOT manually call database functions via shell
+```
+
+**Why:** MCP tools handle authentication automatically via `.claude/settings.local.json`. Manual imports fail and waste time.
+
+**Available MCP Database Tools:**
+- `run_sql` - Execute single SQL statement
+- `run_sql_transaction` - Execute multiple statements
+- `describe_table_schema` - Get table structure
+- `get_database_tables` - List all tables
+- `describe_branch` - Get database tree view
+
 ### Key Tables
 ```sql
 -- Segments with Grove URLs

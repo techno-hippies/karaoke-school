@@ -6,7 +6,7 @@
  * Tests with embedded encrypted Voxtral API key
  *
  * Usage:
- *   DOTENV_PRIVATE_KEY='fbb75e6530c802b0cd320a371ebf3c85a38c56ed2305ad22a7bf0fb95fbecb52' dotenvx run -- bun tests/test-say-it-back-v1.mjs
+ *   DOTENV_PRIVATE_KEY='fbb75e6530c802b0cd320a371ebf3c85a38c56ed2305ad22a7bf0fb95fbecb52' bun tests/test-say-it-back-v1.mjs
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';

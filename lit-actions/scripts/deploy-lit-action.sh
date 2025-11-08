@@ -23,7 +23,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # 1. Upload to IPFS
 echo ""
 echo "📦 Step 1/4: Uploading to IPFS..."
-UPLOAD_OUTPUT=$(DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/upload-lit-action.mjs "$ACTION_FILE" "$ACTION_NAME")
+UPLOAD_OUTPUT=$(node scripts/upload-lit-action.mjs "$ACTION_FILE" "$ACTION_NAME")
 CID=$(echo "$UPLOAD_OUTPUT" | grep -oP 'Qm[a-zA-Z0-9]{44}' | head -1)
 
 if [ -z "$CID" ]; then
@@ -39,7 +39,7 @@ if [[ "$ACTION_FILE" == *"base-alignment"* ]]; then
   echo ""
   echo "🔐 Step 2/4: Re-encrypting ElevenLabs API key..."
   KEY_FILE="src/karaoke/keys/elevenlabs_api_key_v11.json"
-  DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
+  node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key elevenlabs_api_key \
     --output $KEY_FILE
@@ -54,11 +54,11 @@ elif [[ "$ACTION_FILE" == *"match-and-segment"* ]]; then
   GENIUS_KEY_FILE="src/karaoke/keys/genius_api_key_v16.json"
   OPENROUTER_KEY_FILE="src/karaoke/keys/openrouter_api_key_v16.json"
 
-  DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
+  node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key genius_api_key \
     --output $GENIUS_KEY_FILE
-  DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
+  node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key openrouter_api_key \
     --output $OPENROUTER_KEY_FILE
@@ -71,7 +71,7 @@ elif [[ "$ACTION_FILE" == *"match-and-segment"* ]]; then
 elif [[ "$ACTION_FILE" == *"translate-lyrics"* ]]; then
   echo ""
   echo "🔐 Step 2/4: Re-encrypting OpenRouter API key..."
-  DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- node scripts/encrypt-keys-v8.mjs \
+  node scripts/encrypt-keys-v8.mjs \
     --cid $CID \
     --key openrouter_api_key \
     --output src/karaoke/keys/openrouter_api_key_translate_v1.json
@@ -84,7 +84,7 @@ fi
 # 3. Add PKP permissions
 echo ""
 echo "🔑 Step 3/4: Adding PKP permissions..."
-DOTENV_PRIVATE_KEY=4406ead1460a14dd7112d777c30bbfaaa67f72b5f2b2210b1d2dbbd59a1a5a31 dotenvx run -- bun run scripts/add-pkp-permission.mjs $CID > /dev/null
+bun run scripts/add-pkp-permission.mjs $CID > /dev/null
 echo "✅ Permissions added!"
 
 # 4. Update TypeScript config file (source of truth)

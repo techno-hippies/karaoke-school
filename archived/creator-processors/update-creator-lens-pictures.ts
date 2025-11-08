@@ -13,8 +13,8 @@
  *   3. Update lens_metadata_uri in lens_accounts table
  *
  * Usage:
- *   DOTENV_PRIVATE_KEY='...' dotenvx run -f .env -- bun src/processors/update-creator-lens-pictures.ts --limit=10
- *   DOTENV_PRIVATE_KEY='...' dotenvx run -f .env -- bun src/processors/update-creator-lens-pictures.ts --username=charleenweiss
+ *   bun src/processors/update-creator-lens-pictures.ts --limit=10
+ *   bun src/processors/update-creator-lens-pictures.ts --username=charleenweiss
  */
 
 import { parseArgs } from 'util';

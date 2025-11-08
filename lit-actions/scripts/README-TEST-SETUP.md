@@ -22,8 +22,7 @@ Run the setup script to grant credits and unlock the test segment:
 
 ```bash
 cd lit-actions
-DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
-dotenvx run -- bash scripts/setup-test-credits.sh
+bash scripts/setup-test-credits.sh
 ```
 
 This will:
@@ -36,8 +35,7 @@ This will:
 After setup, deploy and test your lit actions:
 
 ```bash
-DOTENV_PRIVATE_KEY=40e9ed2b556418dc70af5b3512c03cd40b462872f444f71c18c35aedf9434d24 \
-dotenvx run -- bun run scripts/upload-lit-action.mjs study/sat-it-back-v1.js 'Sat It Back v1'
+bun run scripts/upload-lit-action.mjs study/sat-it-back-v1.js 'Sat It Back v1'
 ```
 
 ## Manual Credit Management

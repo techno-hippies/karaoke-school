@@ -59,7 +59,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Add 0x prefix if missing (dotenvx decryption strips it)
+  // Add 0x prefix if missing
   if (!privateKey.startsWith('0x')) {
     privateKey = '0x' + privateKey;
   }
