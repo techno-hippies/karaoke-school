@@ -4,17 +4,12 @@
  */
 
 import { query } from './connection';
-
-export type AudioTaskType =
-  | 'download'
-  | 'align'
-  | 'translate'
-  | 'separate'
-  | 'segment'
-  | 'enhance'
-  | 'clip';
-
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
+import {
+  AudioTaskType,
+  TaskStatus,
+  TrackStage,
+  deriveStageFromTasks,
+} from './task-stages';
 
 export interface AudioTask {
   id: number;
@@ -187,13 +182,7 @@ export async function getPendingTasks(
 
 /**
  * Update track stage based on completed audio tasks
- * Stage derivation rules:
- * - aligned: download + align completed
- * - translated: download + align + translate completed
- * - separated: download + align + translate + separate completed
- * - segmented: all above + segment completed
- * - enhanced: all above + enhance completed
- * - ready: all audio tasks completed
+ * Uses deriveStageFromTasks() for centralized stage derivation logic
  */
 export async function updateTrackStage(spotifyTrackId: string): Promise<void> {
   const tasks = await query<{ task_type: string; status: string }>(
@@ -202,31 +191,13 @@ export async function updateTrackStage(spotifyTrackId: string): Promise<void> {
     [spotifyTrackId]
   );
 
-  const completed = new Set(
-    tasks.filter(t => t.status === 'completed').map(t => t.task_type)
-  );
+  // Get completed task types
+  const completedTaskTypes = tasks
+    .filter(t => t.status === 'completed')
+    .map(t => t.task_type as AudioTaskType);
 
-  let newStage = 'audio_ready'; // Has audio downloaded
-
-  // Derive stage from completed tasks
-  if (completed.has('download') && completed.has('align')) {
-    newStage = 'aligned';
-  }
-  if (completed.has('translate')) {
-    newStage = 'translated';
-  }
-  if (completed.has('separate')) {
-    newStage = 'separated';
-  }
-  if (completed.has('segment')) {
-    newStage = 'segmented';
-  }
-  if (completed.has('enhance')) {
-    newStage = 'enhanced';
-  }
-  if (completed.has('clip')) {
-    newStage = 'ready';
-  }
+  // Derive new stage using centralized logic
+  const newStage = deriveStageFromTasks(completedTaskTypes);
 
   await query(
     `UPDATE tracks
