@@ -15,6 +15,13 @@
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.36.0",
+    "@lens-chain/sdk": "^1.0.3",
+    "@lens-chain/storage-client": "^1.0.6",
+    "@lens-protocol/client": "^0.0.0-canary-20250430134539",
+    "@lens-protocol/env": "^0.0.0-canary-20241127131427",
+    "@lens-protocol/metadata": "^2.1.0",
+    "@lit-protocol/lit-client": "^8.2.3",
+    "@lit-protocol/networks": "^8.3.2",
     "@neondatabase/serverless": "^0.10.3",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "dotenv": "^17.2.3",
