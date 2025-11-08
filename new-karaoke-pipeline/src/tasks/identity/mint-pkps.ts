@@ -56,7 +56,6 @@ async function mintArtistPKP(
     await insertPKPAccount({
       account_type: 'artist',
       spotify_artist_id: artist.spotify_artist_id,
-      genius_artist_id: artist.genius_artist_id || undefined,
       pkp_address: pkp.pkpAddress,
       pkp_token_id: pkp.pkpTokenId,
       pkp_public_key: pkp.pkpPublicKey,

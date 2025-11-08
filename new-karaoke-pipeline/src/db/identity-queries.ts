@@ -54,7 +54,6 @@ export interface LensAccountData {
 export interface ArtistWithoutPKP {
   spotify_artist_id: string;
   name: string;
-  genius_artist_id: number | null;
   image_url: string | null;
 }
 
@@ -78,7 +77,6 @@ export interface EntityWithPKP {
   pkp_address: Address;
   pkp_token_id: string;
   image_url: string | null;
-  genius_artist_id: number | null;
 }
 
 // ============================================================================
@@ -139,27 +137,20 @@ export async function findArtistsWithoutPKP(
   limit: number = 20
 ): Promise<ArtistWithoutPKP[]> {
   return await query<ArtistWithoutPKP>(
-    `SELECT DISTINCT
+    `SELECT
       sa.spotify_artist_id,
       sa.name,
-      sa.genius_artist_id,
-      sa.images->0->>'url' as image_url
+      sa.images->0->>'url' as image_url,
+      MAX(ks.created_at) as latest_segment
     FROM spotify_artists sa
-    WHERE EXISTS (
-      SELECT 1 FROM tracks t
-      JOIN karaoke_segments ks ON t.spotify_track_id = ks.spotify_track_id
-      WHERE t.primary_artist_id = sa.spotify_artist_id
-    )
-    AND NOT EXISTS (
+    JOIN tracks t ON t.primary_artist_id = sa.spotify_artist_id
+    JOIN karaoke_segments ks ON ks.spotify_track_id = t.spotify_track_id
+    WHERE NOT EXISTS (
       SELECT 1 FROM pkp_accounts pkp
       WHERE pkp.spotify_artist_id = sa.spotify_artist_id
     )
-    ORDER BY (
-      SELECT MAX(ks.created_at)
-      FROM tracks t
-      JOIN karaoke_segments ks ON t.spotify_track_id = ks.spotify_track_id
-      WHERE t.primary_artist_id = sa.spotify_artist_id
-    ) DESC
+    GROUP BY sa.spotify_artist_id, sa.name, sa.images
+    ORDER BY latest_segment DESC
     LIMIT $1`,
     [limit]
   );
@@ -268,8 +259,7 @@ export async function findEntitiesWithoutLens(
         sa.name,
         pkp.pkp_address,
         pkp.pkp_token_id,
-        sa.images->0->>'url' as image_url,
-        sa.genius_artist_id
+        sa.images->0->>'url' as image_url
       FROM spotify_artists sa
       INNER JOIN pkp_accounts pkp
         ON pkp.spotify_artist_id = sa.spotify_artist_id
@@ -291,8 +281,7 @@ export async function findEntitiesWithoutLens(
         tc.display_name as name,
         pkp.pkp_address,
         pkp.pkp_token_id,
-        NULL::TEXT as image_url,
-        NULL::INTEGER as genius_artist_id
+        NULL::TEXT as image_url
       FROM tiktok_creators tc
       INNER JOIN pkp_accounts pkp
         ON pkp.tiktok_handle = tc.username

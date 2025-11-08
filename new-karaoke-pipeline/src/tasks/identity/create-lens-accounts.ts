@@ -64,14 +64,6 @@ async function createEntityLensAccount(
         key: 'spotifyArtistId',
         value: entity.spotify_artist_id,
       });
-
-      if (entity.genius_artist_id) {
-        attributes.push({
-          type: 'String',
-          key: 'geniusArtistId',
-          value: entity.genius_artist_id.toString(),
-        });
-      }
     } else if (entity.account_type === 'tiktok_creator' && entity.tiktok_handle) {
       attributes.push({
         type: 'String',
