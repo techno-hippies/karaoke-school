@@ -17,9 +17,9 @@
 export enum AudioTaskType {
   Download = 'download',      // Download from Spotify/YouTube
   Align = 'align',            // ElevenLabs word-level alignment
-  Translate = 'translate',    // DeepL translation
+  Translate = 'translate',    // Gemini Flash 2.5 Lite via OpenRouter
   Separate = 'separate',      // Demucs stem separation
-  Segment = 'segment',        // Viral clip selection
+  Segment = 'segment',        // Viral clip selection (hybrid: deterministic + AI)
   Enhance = 'enhance',        // Fal.ai audio enhancement
   Clip = 'clip',              // FFmpeg final clip creation
 }
