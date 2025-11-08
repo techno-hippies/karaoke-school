@@ -26,6 +26,7 @@ import { TrackStage } from '../../db/task-stages';
 import { createFalService } from '../../services/fal';
 import { createFFmpegService } from '../../services/ffmpeg';
 import { uploadToGrove } from '../../services/storage';
+import { upsertKaraokeSegment } from '../../db/audio-queries';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
@@ -281,25 +282,11 @@ export async function processAudioEnhancement(limit: number = 10): Promise<void>
       console.log(`  Grove URL: ${groveResult.url}`);
 
       // Step 5: Upsert karaoke_segments
-      await query(`
-        INSERT INTO karaoke_segments (
-          spotify_track_id,
-          fal_request_id,
-          fal_enhanced_grove_cid,
-          fal_enhanced_grove_url
-        ) VALUES ($1, $2, $3, $4)
-        ON CONFLICT (spotify_track_id)
-        DO UPDATE SET
-          fal_request_id = EXCLUDED.fal_request_id,
-          fal_enhanced_grove_cid = EXCLUDED.fal_enhanced_grove_cid,
-          fal_enhanced_grove_url = EXCLUDED.fal_enhanced_grove_url,
-          updated_at = NOW()
-      `, [
-        track.spotify_track_id,
-        processedChunks[0].fal_request_id,
-        groveResult.cid,
-        groveResult.url
-      ]);
+      await upsertKaraokeSegment(track.spotify_track_id, {
+        fal_request_id: processedChunks[0].fal_request_id,
+        fal_enhanced_grove_cid: groveResult.cid,
+        fal_enhanced_grove_url: groveResult.url
+      });
 
       // Step 6: Complete task
       const processingTime = Date.now() - startTime;

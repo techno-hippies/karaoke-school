@@ -22,6 +22,7 @@ import { query } from '../../db/connection';
 import { createDemucsService } from '../../services/demucs';
 import { ensureAudioTask, startTask, completeTask, failTask, updateTrackStage } from '../../db/audio-tasks';
 import { TrackStage } from '../../db/task-stages';
+import { updateSongAudioStems } from '../../db/audio-queries';
 
 interface TrackForSeparation {
   spotify_track_id: string;
@@ -99,22 +100,12 @@ async function separateAudio(limit: number = 10) {
         console.log(`   ✓ GPU time: ${result.gpu_time.toFixed(1)}s`);
 
         // Update song_audio with stem URLs
-        await query(
-          `UPDATE song_audio
-           SET vocals_grove_cid = $1,
-               vocals_grove_url = $2,
-               instrumental_grove_cid = $3,
-               instrumental_grove_url = $4,
-               updated_at = NOW()
-           WHERE spotify_track_id = $5`,
-          [
-            result.vocals_grove_cid,
-            result.vocals_grove_url,
-            result.instrumental_grove_cid,
-            result.instrumental_grove_url,
-            track.spotify_track_id
-          ]
-        );
+        await updateSongAudioStems(track.spotify_track_id, {
+          vocals_grove_cid: result.vocals_grove_cid,
+          vocals_grove_url: result.vocals_grove_url,
+          instrumental_grove_cid: result.instrumental_grove_cid,
+          instrumental_grove_url: result.instrumental_grove_url
+        });
 
         const processingTime = Date.now() - startTime;
 

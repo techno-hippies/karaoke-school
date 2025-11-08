@@ -21,6 +21,8 @@
 import { query } from '../../db/connection';
 import { LyricsTranslator, type LanguageCode, type ElevenLabsWord } from '../../services/lyrics-translator';
 import { ensureAudioTask, startTask, completeTask, failTask, updateTrackStage } from '../../db/audio-tasks';
+import { TrackStage } from '../../db/task-stages';
+import { upsertTranslation, getExistingTranslations, countTranslations } from '../../db/audio-queries';
 
 // Default target languages for karaoke (prioritize Asian markets)
 const DEFAULT_TARGET_LANGUAGES: LanguageCode[] = ['zh', 'vi', 'id'];
@@ -60,12 +62,12 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
       FROM tracks t
       JOIN song_lyrics sl ON t.spotify_track_id = sl.spotify_track_id
       JOIN elevenlabs_word_alignments ewa ON t.spotify_track_id = ewa.spotify_track_id
-      WHERE t.stage = 'aligned'
+      WHERE t.stage = $1
         AND sl.normalized_lyrics IS NOT NULL
         AND ewa.words IS NOT NULL
       ORDER BY t.updated_at ASC
-      LIMIT $1`,
-      [limit]
+      LIMIT $2`,
+      [TrackStage.Aligned, limit]
     );
 
     if (tracks.length === 0) {
@@ -101,16 +103,8 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
         console.log(`   Parsed ${lines.length} lines from alignment`);
 
         // Check which languages are already translated
-        const existingTranslations = await query<{ language_code: string }>(
-          `SELECT language_code
-           FROM lyrics_translations
-           WHERE spotify_track_id = $1`,
-          [track.spotify_track_id]
-        );
-
-        const existingLanguages = new Set(
-          existingTranslations.map(r => r.language_code)
-        );
+        const existingLanguageCodes = await getExistingTranslations(track.spotify_track_id);
+        const existingLanguages = new Set(existingLanguageCodes);
 
         const languagesToTranslate = targetLanguages.filter(
           lang => !existingLanguages.has(lang) && lang !== sourceLanguage
@@ -154,28 +148,11 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
 
         // Store each translation in database
         for (const [lang, translation] of translations.entries()) {
-          await query(
-            `INSERT INTO lyrics_translations (
-              spotify_track_id,
-              language_code,
-              lines,
-              translator,
-              quality_score
-            ) VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (spotify_track_id, language_code)
-            DO UPDATE SET
-              lines = EXCLUDED.lines,
-              translator = EXCLUDED.translator,
-              quality_score = EXCLUDED.quality_score,
-              updated_at = NOW()`,
-            [
-              track.spotify_track_id,
-              lang,
-              JSON.stringify(translation.lines),
-              translation.translationSource,
-              translation.confidenceScore
-            ]
-          );
+          await upsertTranslation(track.spotify_track_id, lang, {
+            lines: translation.lines,
+            translator: translation.translationSource,
+            quality_score: translation.confidenceScore
+          });
 
           console.log(
             `   ✓ Translated to ${lang}: ${translation.lines.length} lines, ` +
@@ -184,13 +161,7 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
         }
 
         // Check total translations count
-        const totalTranslationsResult = await query<{ count: string }>(
-          `SELECT COUNT(*) as count
-           FROM lyrics_translations
-           WHERE spotify_track_id = $1`,
-          [track.spotify_track_id]
-        );
-        const totalTranslations = parseInt(totalTranslationsResult[0].count);
+        const totalTranslations = await countTranslations(track.spotify_track_id);
 
         // Update stage to translated if we have enough translations (3+)
         if (totalTranslations >= 3) {
