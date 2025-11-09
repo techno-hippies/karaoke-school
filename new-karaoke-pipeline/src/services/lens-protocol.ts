@@ -51,6 +51,7 @@ export interface CreateAccountParams {
     key: string;
     value: string;
   }>;
+  pkpAddress: Address;             // PKP owner that should control the account
 }
 
 /**
@@ -62,12 +63,13 @@ export interface CreateAccountParams {
  * - No consecutive hyphens
  * - No leading/trailing hyphens
  * - Max 30 characters
+ * - Appends "-ks1" suffix (Karaoke School v1)
  *
  * Examples:
- * - "Ariana Grande" → "ariana-grande"
- * - "21 Savage!!!" → "21-savage"
- * - "---Bad-Name---" → "bad-name"
- * - "★★★" → "artist-{hash}" (symbols-only fallback)
+ * - "Ariana Grande" → "ariana-grande-ks1"
+ * - "21 Savage!!!" → "21-savage-ks1"
+ * - "---Bad-Name---" → "bad-name-ks1"
+ * - "★★★" → "artist-{hash}-ks1" (symbols-only fallback)
  */
 export function sanitizeHandle(name: string): string {
   const sanitized = name
@@ -75,14 +77,14 @@ export function sanitizeHandle(name: string): string {
     .replace(/[^a-z0-9-]/g, '-')  // Replace non-alphanumeric with dashes
     .replace(/-+/g, '-')          // Collapse multiple dashes
     .replace(/^-|-$/g, '')        // Remove leading/trailing dashes
-    .substring(0, 30);             // Lens handle max length
+    .substring(0, 26);             // Leave room for "-ks1" suffix (30 char max)
 
   // Fallback for empty string (all symbols/special chars)
   if (!sanitized || sanitized.length === 0) {
-    return `artist-${Date.now().toString(36)}`;
+    return `artist-${Date.now().toString(36)}-ks1`;
   }
 
-  return sanitized;
+  return `${sanitized}-ks1`;
 }
 
 /**
@@ -104,10 +106,10 @@ export function createLensService() {
 
     // Dynamic import to avoid loading Lens SDK unless needed
     const { PublicClient } = await import('@lens-protocol/client');
-    const { testnet } = await import('@lens-protocol/env');
+    const { staging } = await import('@lens-protocol/env');
 
     lensClient = PublicClient.create({
-      environment: testnet,
+      environment: staging,
       origin: 'http://localhost:3000', // Required for non-browser environments
     });
 
@@ -170,9 +172,12 @@ export function createLensService() {
    * Check if a Lens handle is available
    *
    * @param handle - Username to check (already sanitized)
-   * @returns True if available, false if taken
+   * @returns Availability flag plus account data when taken
    */
-  async function isHandleAvailable(handle: string): Promise<boolean> {
+  async function isHandleAvailable(handle: string): Promise<{
+    available: boolean;
+    account: any | null;
+  }> {
     const client = await initLensClient();
     const walletClient = await createLensWalletClient();
 
@@ -201,56 +206,75 @@ export function createLensService() {
       username: { localName: handle },
     });
 
-    // If account exists, handle is NOT available
-    return accountResult.isErr() || !accountResult.value;
+    if (accountResult.isErr() || !accountResult.value) {
+      return { available: true, account: null };
+    }
+
+    return { available: false, account: accountResult.value };
   }
 
   /**
-   * Find an available Lens handle with collision handling
+   * Find an available Lens handle with collision handling while respecting ownership
    *
    * Strategy:
-   * 1. Try base handle
-   * 2. Try "{base}-ks" (Karaoke School branding)
-   * 3. Try "{base}-ks-2", "{base}-ks-3", etc.
+   * 1. Try base handle (e.g. "artist-ks1")
+   * 2. If taken by this artist's PKP, reuse existing handle
+   * 3. If taken by someone else, increment numeric suffix (artist-ks2, artist-ks3, ...)
    *
    * @param baseHandle - Sanitized handle to start with
+   * @param pkpAddress - PKP address that should own the handle
    * @param maxAttempts - Maximum collision attempts (default: 10)
-   * @returns Available handle
+   * @returns Handle information including ownership status
    */
   async function findAvailableHandle(
     baseHandle: string,
+    pkpAddress: Address,
     maxAttempts: number = 10
-  ): Promise<string> {
-    let handle = baseHandle;
+  ): Promise<{ handle: string; owned: boolean; account: any | null }> {
+    const suffixMatch = baseHandle.match(/^(.*?)-ks(\d+)$/);
+    const basePrefix = suffixMatch ? suffixMatch[1] : baseHandle;
+    const baseNumber = suffixMatch ? parseInt(suffixMatch[2], 10) : 0;
+
     let attempt = 0;
+    let handle = baseHandle;
 
     while (attempt <= maxAttempts) {
       console.log(`   🔍 Checking handle: ${handle}`);
 
-      const available = await isHandleAvailable(handle);
+      const { available, account } = await isHandleAvailable(handle);
 
       if (available) {
         console.log(`   ✓ Handle available: ${handle}`);
-        return handle;
+        return { handle, owned: false, account: null };
       }
 
-      console.log(`   ⚠️  Handle taken: ${handle}`);
+      const attributes: Array<{ key: string; value: string }> = account?.metadata?.attributes ?? [];
+      const hasMatchingPKP = attributes.some(
+        (attr) =>
+          attr &&
+          attr.key === 'pkpAddress' &&
+          typeof attr.value === 'string' &&
+          attr.value.toLowerCase() === pkpAddress.toLowerCase()
+      );
+
+      if (account && hasMatchingPKP) {
+        console.log(`   ✓ Handle already linked to PKP metadata: ${handle}`);
+        return { handle, owned: true, account };
+      }
+
+      console.log(`   ⚠️  Handle taken by another account: ${handle}`);
       attempt++;
 
-      // Build next variation
-      let suffix: string;
-      if (attempt === 1) {
-        // First fallback: add "-ks" for Karaoke School branding
-        suffix = '-ks';
-      } else {
-        // Subsequent fallbacks: "-ks-2", "-ks-3", etc.
-        suffix = `-ks-${attempt}`;
+      const nextSuffixNumber = baseNumber > 0 ? baseNumber + attempt : attempt + 1;
+      const suffix = `-ks${nextSuffixNumber}`;
+      const maxPrefixLength = 30 - suffix.length;
+      const truncatedPrefix = basePrefix.substring(0, Math.max(0, maxPrefixLength));
+
+      if (truncatedPrefix.length === 0) {
+        throw new Error('Unable to construct valid Lens handle within 30 character limit');
       }
 
-      // Ensure total length doesn't exceed 30 chars
-      const maxBaseLength = 30 - suffix.length;
-      const truncatedBase = baseHandle.substring(0, maxBaseLength);
-      handle = `${truncatedBase}${suffix}`;
+      handle = `${truncatedPrefix}${suffix}`;
     }
 
     throw new Error(
@@ -277,30 +301,45 @@ export function createLensService() {
   async function createAccount(
     params: CreateAccountParams
   ): Promise<LensAccountResult> {
-    const { handle: requestedHandle, name, bio, pictureUri, attributes = [] } = params;
+    const { handle: requestedHandle, name, bio, pictureUri, attributes = [], pkpAddress } = params;
 
-    // Sanitize and find available handle
     const sanitized = sanitizeHandle(requestedHandle);
-    const handle = await findAvailableHandle(sanitized);
+    const { handle, owned, account: existingAccount } = await findAvailableHandle(sanitized, pkpAddress);
 
-    if (handle !== sanitized) {
+    if (handle !== sanitized && !owned) {
       console.log(`   ⚠️  Using alternate handle: ${handle} (requested: ${sanitized})`);
     }
 
-    // Initialize all clients
+    if (owned && existingAccount) {
+      console.log(`   ✓ Reusing existing Lens account @${handle}`);
+
+      const metadataUri =
+        existingAccount.metadataUri ||
+        existingAccount.metadata?.uri ||
+        (existingAccount.metadata?.id ? `lens://metadata/${existingAccount.metadata.id}` : '');
+      const existingTxHash = (existingAccount.transactionHash || existingAccount.creationTransactionHash || existingAccount.txHash || '0x0') as Hex;
+
+      return {
+        lensHandle: handle,
+        lensAccountAddress: existingAccount.address as Address,
+        lensAccountId: existingAccount.address as Hex,
+        metadataUri,
+        transactionHash: existingTxHash,
+      };
+    }
+
+    // Initialize all clients required for account creation
     const client = await initLensClient();
     const walletClient = await createLensWalletClient();
     const storage = await initStorageClient();
     const chainsConfig = await initChains();
 
-    // Dynamic imports for Lens functions
     const { evmAddress } = await import('@lens-protocol/client');
     const { signMessageWith, handleOperationWith } = await import('@lens-protocol/client/viem');
     const { createAccountWithUsername, fetchAccount } = await import('@lens-protocol/client/actions');
     const { immutable } = await import('@lens-chain/storage-client');
     const { account: accountMetadata } = await import('@lens-protocol/metadata');
 
-    // Create metadata
     const metadata = accountMetadata({
       name,
       bio: bio || `Official Karaoke School profile for ${name}`,
@@ -308,7 +347,6 @@ export function createLensService() {
       attributes,
     });
 
-    // Upload metadata to Grove
     console.log('   📤 Uploading metadata to Grove...');
     const uploadResult = await storage.uploadAsJson(metadata, {
       name: `${handle}-account-metadata.json`,
@@ -317,7 +355,6 @@ export function createLensService() {
 
     console.log(`   ✓ Metadata URI: ${uploadResult.uri}`);
 
-    // Login to Lens
     console.log('   🔐 Authenticating with Lens Protocol...');
     const authenticated = await client.login({
       onboardingUser: {
@@ -333,36 +370,53 @@ export function createLensService() {
 
     const sessionClient = authenticated.value;
 
-    // Create account with username
     console.log(`   ⏳ Creating Lens account @${handle}...`);
-    const createResult = await createAccountWithUsername(sessionClient, {
+    const operationResult = await createAccountWithUsername(sessionClient, {
       username: { localName: handle },
       metadataUri: uploadResult.uri,
-    })
-      .andThen(handleOperationWith(walletClient))
-      .andThen(sessionClient.waitForTransaction);
+    }).andThen(handleOperationWith(walletClient));
 
-    if (createResult.isErr()) {
-      throw new Error(`Account creation failed: ${createResult.error.message}`);
+    if (operationResult.isErr()) {
+      throw new Error(`Account creation failed: ${operationResult.error.message}`);
     }
 
-    // Fetch account details
-    const accountResult = await fetchAccount(sessionClient, {
-      username: { localName: handle },
-    });
+    const txHash = operationResult.value;
+    const waitResult = await sessionClient.waitForTransaction(txHash);
 
-    if (accountResult.isErr() || !accountResult.value) {
-      throw new Error('Failed to fetch created account');
+    if (waitResult.isErr()) {
+      const message = waitResult.error.message || 'Unknown waitForTransaction error';
+      if (!message.includes('Timeout waiting for transaction')) {
+        throw new Error(`Account creation failed: ${message}`);
+      }
+
+      console.warn(`   ⚠️  ${message} — continuing to poll for indexing`);
     }
 
-    const createdAccount = accountResult.value;
+    const maxAttempts = 12;
+    const delayMs = 5000;
+    let createdAccount: any = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const accountResult = await fetchAccount(sessionClient, { txHash });
+
+      if (accountResult.isOk() && accountResult.value) {
+        createdAccount = accountResult.value;
+        break;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    if (!createdAccount) {
+      throw new Error('Lens account transaction mined but not indexed yet; please retry shortly');
+    }
 
     return {
       lensHandle: handle,
       lensAccountAddress: createdAccount.address as Address,
       lensAccountId: createdAccount.address as Hex,
       metadataUri: uploadResult.uri,
-      transactionHash: createResult.value as Hex,
+      transactionHash: txHash as Hex,
     };
   }
 

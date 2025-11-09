@@ -3,7 +3,7 @@
  * Fallback for ISWC discovery when Quansic doesn't have the work
  */
 
-const BMI_SERVICE_URL = 'http://d8rb3sbkd9dir7f1o6avmg49u4.ingress.dhcloud.xyz';
+const BMI_SERVICE_URL = 'https://u0s81gq1qla2p06rod2p6s47nk.ingress.h6i-dedicated.eu-se-1.digitalfrontier.so';
 
 export interface BMIWriter {
   name: string;

@@ -90,14 +90,14 @@ export const feedStateMachine = setup({
           target: 'loaded',
           actions: assign({
             videos: ({ event, context }) => [...context.videos, ...event.data.videos],
-            hasMore: ({ event, context }) => event.data.hasMore,
+            hasMore: ({ event }) => event.data.hasMore,
             error: null,
           }),
         },
         onError: {
           target: 'error',
           actions: assign({
-            error: ({ event }) => event.data,
+            error: ({ event }) => event.data.message || event.data,
           }),
         },
       },
@@ -118,7 +118,7 @@ export const feedStateMachine = setup({
   },
 }, {
   services: {
-    loadMoreVideos: async (context) => {
+    loadMoreVideos: async () => {
       // This would call your actual data fetching function
       // Return new videos and hasMore flag
       const response = await fetchMoreVideos();

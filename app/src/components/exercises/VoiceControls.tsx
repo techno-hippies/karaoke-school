@@ -24,7 +24,6 @@ export function VoiceControls({
   onStartRecording,
   onStopRecording,
   label = 'Record',
-  className,
 }: VoiceControlsProps) {
   const handleRecordToggle = () => {
     if (isRecording) {

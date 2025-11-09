@@ -7,7 +7,7 @@
  * 3. Filters and sorts cards based on FSRS algorithm
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { graphClient } from '../lib/graphql/client'
 import {
   GET_USER_SEGMENT_PROGRESS,
@@ -46,7 +46,7 @@ export function useFSRSState(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetchFSRSState = async () => {
+  const fetchFSRSState = useCallback(async () => {
     if (!userAddress || !segmentHash) {
       setFsrsState(new Map())
       setLoading(false)
@@ -106,11 +106,11 @@ export function useFSRSState(
     } finally {
       setLoading(false)
     }
-  }
+  }, [segmentHash, userAddress])
 
   useEffect(() => {
     fetchFSRSState()
-  }, [userAddress, segmentHash])
+  }, [fetchFSRSState])
 
   return {
     fsrsState,

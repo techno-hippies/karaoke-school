@@ -94,11 +94,7 @@ export class StorageService {
   ): Promise<StorageUploadResult> {
     console.log(`[Storage] Uploading to Grove (temp): ${fileName} (${(buffer.length / 1024).toFixed(2)} KB)`);
 
-    const result = await this.groveService.uploadAudio(
-      buffer.toString('base64'),
-      fileName,
-      'instrumental'
-    );
+    const result = await this.groveService.uploadFile(buffer, fileName, contentType);
 
     return {
       cid: result.cid,

@@ -139,7 +139,7 @@ export function useSegmentsByGRC20Work(grc20WorkId?: string) {
  * @param segmentHash - The segment hash
  * @returns Segment enriched with Grove metadata
  */
-export function useSegmentWithMetadata(_segmentHash?: string) {
+export function useSegmentWithMetadata() {
   // Placeholder - would query single segment and fetch Grove metadata
   // Not fully implemented yet
   return {

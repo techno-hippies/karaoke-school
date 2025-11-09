@@ -311,7 +311,7 @@ async function waitForUsernameAssignment(
         console.log('[Account Creation] ✓ Username assigned')
         return
       }
-    } catch (error) {
+    } catch {
       // Continue polling
     }
   }

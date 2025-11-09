@@ -3,6 +3,7 @@ import {
   SegmentRegistered,
   SegmentProcessed,
   SegmentToggled,
+  SegmentEncrypted,
 } from "../generated/SegmentEvents/SegmentEvents";
 import {
   TranslationAdded,
@@ -14,6 +15,13 @@ import {
   PerformanceSubmitted,
   LinePerformanceGraded,
 } from "../generated/PerformanceGrader/PerformanceGrader";
+import {
+  TranslationQuestionRegistered,
+  TriviaQuestionRegistered,
+  SayItBackAttemptGraded,
+  MultipleChoiceAttemptGraded,
+  QuestionToggled,
+} from "../generated/ExerciseEvents/ExerciseEvents";
 import {
   AccountCreated,
   AccountMetadataUpdated,
@@ -27,7 +35,9 @@ import {
   GlobalStats,
   LineCard,
   LinePerformance,
-} from "../generated/schema";
+  ExerciseCard,
+  ExerciseAttempt,
+} from "./entities";
 
 // Helper to load or create global stats
 function loadOrCreateGlobalStats(): GlobalStats {
@@ -39,6 +49,8 @@ function loadOrCreateGlobalStats(): GlobalStats {
     stats.totalAccounts = 0;
     stats.totalTranslations = 0;
     stats.enabledTranslations = 0;
+    stats.totalExerciseCards = 0;
+    stats.totalExerciseAttempts = 0;
   }
   return stats;
 }
@@ -54,6 +66,19 @@ function getConfidenceLevel(score: i32): string {
 function updateSegmentProcessingStatus(segment: Segment): void {
   segment.hasInstrumental = segment.instrumentalUri != null && segment.instrumentalUri != "";
   segment.hasAlignments = segment.alignmentUri != null && segment.alignmentUri != "";
+  segment.hasEncryptedFull = segment.encryptedFullUri != null && segment.encryptedFullUri != "";
+}
+
+function updateExerciseCardAverages(card: ExerciseCard, newScore: i32): void {
+  let oldAvg = card.averageScore;
+  let oldCount = card.attemptCount;
+  let newCount = oldCount + 1;
+
+  let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
+  let newScoreDecimal = BigDecimal.fromString(newScore.toString());
+  let newTotal = totalScore.plus(newScoreDecimal);
+  card.attemptCount = newCount;
+  card.averageScore = newTotal.div(BigDecimal.fromString(newCount.toString()));
 }
 
 // ============ Segment Event Handlers ============
@@ -75,10 +100,15 @@ export function handleSegmentRegistered(event: SegmentRegistered): void {
   segment.alignmentUri = null;
   segment.processedAt = null;
   segment.translationCount = 0;
+  segment.encryptedFullUri = null;
+  segment.encryptedManifestUri = null;
+  segment.unlockLockAddress = null;
+  segment.unlockChainId = 0;
   segment.performanceCount = 0;
   segment.averageScore = BigDecimal.zero();
   segment.hasInstrumental = false;
   segment.hasAlignments = false;
+  segment.hasEncryptedFull = false;
   segment.save();
 
   let stats = loadOrCreateGlobalStats();
@@ -109,6 +139,22 @@ export function handleSegmentToggled(event: SegmentToggled): void {
   if (segment != null) {
     // Could add enabled field to Segment entity if needed
     // For now, just log the toggle event
+    segment.save();
+  }
+}
+
+export function handleSegmentEncrypted(event: SegmentEncrypted): void {
+  let segmentId = event.params.segmentHash.toHexString();
+  let segment = Segment.load(segmentId);
+
+  if (segment != null) {
+    segment.encryptedFullUri = event.params.encryptedFullUri;
+    segment.encryptedManifestUri = event.params.encryptedManifestUri;
+    segment.unlockLockAddress = event.params.unlockLockAddress;
+    segment.unlockChainId = event.params.unlockChainId.toI32();
+    segment.metadataUri = event.params.metadataUri;
+
+    updateSegmentProcessingStatus(segment);
     segment.save();
   }
 }
@@ -318,6 +364,179 @@ export function handleLinePerformanceGraded(event: LinePerformanceGraded): void 
   let stats = loadOrCreateGlobalStats();
   stats.totalPerformances = stats.totalPerformances + 1;
   stats.save();
+}
+
+// ============ Exercise Event Handlers ============
+
+export function handleTranslationQuestionRegistered(event: TranslationQuestionRegistered): void {
+  let cardId = event.params.questionId.toHexString();
+  let card = new ExerciseCard(cardId);
+  card.questionId = event.params.questionId;
+  card.exerciseType = "TRANSLATION_MULTIPLE_CHOICE";
+  card.spotifyTrackId = event.params.spotifyTrackId;
+  card.languageCode = event.params.languageCode;
+  card.metadataUri = event.params.metadataUri;
+  card.distractorPoolSize = event.params.distractorPoolSize;
+  card.enabled = true;
+  card.createdAt = event.params.timestamp;
+  card.registeredBy = event.params.registeredBy;
+  card.segmentHash = event.params.segmentHash;
+  card.lineId = event.params.lineId;
+  card.lineIndex = event.params.lineIndex;
+
+  let segmentId = event.params.segmentHash.toHexString();
+  let lineId = event.params.lineId.toHexString();
+
+  let lineCard = LineCard.load(lineId);
+  if (lineCard == null) {
+    lineCard = new LineCard(lineId);
+    lineCard.lineId = event.params.lineId;
+    lineCard.segmentHash = event.params.segmentHash;
+    lineCard.lineIndex = event.params.lineIndex;
+    lineCard.segment = segmentId;
+    lineCard.performanceCount = 0;
+    lineCard.averageScore = BigDecimal.zero();
+    lineCard.save();
+  }
+
+  card.segment = segmentId;
+  card.line = lineId;
+
+  card.attemptCount = 0;
+  card.averageScore = BigDecimal.zero();
+  card.save();
+
+  let stats = loadOrCreateGlobalStats();
+  stats.totalExerciseCards = stats.totalExerciseCards + 1;
+  stats.save();
+}
+
+export function handleTriviaQuestionRegistered(event: TriviaQuestionRegistered): void {
+  let cardId = event.params.questionId.toHexString();
+  let card = new ExerciseCard(cardId);
+  card.questionId = event.params.questionId;
+  card.exerciseType = "TRIVIA_MULTIPLE_CHOICE";
+  card.spotifyTrackId = event.params.spotifyTrackId.toHexString();
+  card.languageCode = event.params.languageCode;
+  card.metadataUri = event.params.metadataUri;
+  card.distractorPoolSize = event.params.distractorPoolSize;
+  card.enabled = true;
+  card.createdAt = event.params.timestamp;
+  card.registeredBy = event.params.registeredBy;
+
+  // Trivia questions are song-level; leave segment/line fields null
+  card.attemptCount = 0;
+  card.averageScore = BigDecimal.zero();
+  card.save();
+
+  let stats = loadOrCreateGlobalStats();
+  stats.totalExerciseCards = stats.totalExerciseCards + 1;
+  stats.save();
+}
+
+export function handleSayItBackAttemptGraded(event: SayItBackAttemptGraded): void {
+  let cardId = event.params.lineId.toHexString();
+  let card = ExerciseCard.load(cardId);
+
+  if (card == null) {
+    card = new ExerciseCard(cardId);
+    card.questionId = event.params.lineId;
+    card.exerciseType = "SAY_IT_BACK";
+
+    let segmentId = event.params.segmentHash.toHexString();
+    card.segment = segmentId;
+    card.segmentHash = event.params.segmentHash;
+    card.line = cardId;
+    card.lineId = event.params.lineId;
+    card.lineIndex = event.params.lineIndex;
+
+    let segment = Segment.load(segmentId);
+    if (segment != null) {
+      card.spotifyTrackId = segment.spotifyTrackId;
+    } else {
+      card.spotifyTrackId = "";
+    }
+
+    card.languageCode = "en"; // default placeholder; actual language derived from metadata
+    card.metadataUri = "";
+    card.distractorPoolSize = 0;
+    card.enabled = true;
+    card.createdAt = event.params.timestamp;
+    card.registeredBy = event.transaction.from;
+    card.attemptCount = 0;
+    card.averageScore = BigDecimal.zero();
+  }
+
+  let attemptId = event.params.attemptId.toString();
+  let attempt = new ExerciseAttempt(attemptId);
+  attempt.attemptId = event.params.attemptId;
+  attempt.card = card.id;
+  attempt.questionId = card.questionId;
+  let accountId = event.params.learner.toHexString();
+  attempt.performer = accountId;
+  attempt.performerAddress = event.params.learner;
+  attempt.score = event.params.score;
+  attempt.rating = event.params.rating;
+  attempt.metadataUri = event.params.metadataUri;
+  attempt.gradedAt = event.params.timestamp;
+  attempt.save();
+
+  updateExerciseCardAverages(card, event.params.score);
+  card.save();
+
+  let stats = loadOrCreateGlobalStats();
+  stats.totalExerciseAttempts = stats.totalExerciseAttempts + 1;
+  stats.save();
+}
+
+export function handleMultipleChoiceAttemptGraded(event: MultipleChoiceAttemptGraded): void {
+  let cardId = event.params.questionId.toHexString();
+  let card = ExerciseCard.load(cardId);
+  if (card == null) {
+    // If a grading event arrives before registration, create placeholder to avoid null references
+    card = new ExerciseCard(cardId);
+    card.questionId = event.params.questionId;
+    card.exerciseType = "TRANSLATION_MULTIPLE_CHOICE";
+    card.spotifyTrackId = "";
+    card.languageCode = "";
+    card.metadataUri = "";
+    card.distractorPoolSize = 0;
+    card.enabled = true;
+    card.createdAt = event.params.timestamp;
+    card.registeredBy = event.transaction.from;
+    card.attemptCount = 0;
+    card.averageScore = BigDecimal.zero();
+  }
+
+  let attemptId = event.params.attemptId.toString();
+  let attempt = new ExerciseAttempt(attemptId);
+  attempt.attemptId = event.params.attemptId;
+  attempt.card = card.id;
+  attempt.questionId = event.params.questionId;
+  let accountId = event.params.learner.toHexString();
+  attempt.performer = accountId;
+  attempt.performerAddress = event.params.learner;
+  attempt.score = event.params.score;
+  attempt.rating = event.params.rating;
+  attempt.metadataUri = event.params.metadataUri;
+  attempt.gradedAt = event.params.timestamp;
+  attempt.save();
+
+  updateExerciseCardAverages(card, event.params.score);
+  card.save();
+
+  let stats = loadOrCreateGlobalStats();
+  stats.totalExerciseAttempts = stats.totalExerciseAttempts + 1;
+  stats.save();
+}
+
+export function handleQuestionToggled(event: QuestionToggled): void {
+  let cardId = event.params.questionId.toHexString();
+  let card = ExerciseCard.load(cardId);
+  if (card != null) {
+    card.enabled = event.params.enabled;
+    card.save();
+  }
 }
 
 // ============ Account Event Handlers ============

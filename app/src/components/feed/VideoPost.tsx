@@ -32,7 +32,6 @@ export interface VideoPostProps extends VideoPostData {
  * Desktop: centered 9:16 video with actions to the right
  */
 function VideoPostComponent({
-  id,
   videoUrl,
   thumbnailUrl,
   username,

@@ -18,7 +18,7 @@ contract SegmentEventsTest is Test {
     
     event SegmentRegistered(
         bytes32 indexed segmentHash,
-        string indexed grc20WorkId,
+        string grc20WorkId,
         string spotifyTrackId,
         uint32 segmentStartMs,
         uint32 segmentEndMs,
@@ -36,6 +36,17 @@ contract SegmentEventsTest is Test {
         uint64 timestamp
     );
     
+    event SegmentEncrypted(
+        bytes32 indexed segmentHash,
+        string spotifyTrackId,
+        string encryptedFullUri,
+        string encryptedManifestUri,
+        address unlockLockAddress,
+        uint32 unlockChainId,
+        string metadataUri,
+        uint64 timestamp
+    );
+
     event SegmentToggled(
         bytes32 indexed segmentHash,
         bool enabled,
@@ -225,6 +236,36 @@ contract SegmentEventsTest is Test {
             instrumentalUri,
             alignmentUri,
             translationCount,
+            metadataUri
+        );
+    }
+
+    function testEmitSegmentEncryptedSuccess() public {
+        string memory encryptedFullUri = "grove://encrypted-full";
+        string memory encryptedManifestUri = "grove://encrypted-manifest";
+        address lock = address(0x1234);
+        uint32 chainId = 84532;
+        string memory metadataUri = "lens://segment-encrypted";
+
+        vm.prank(user1);
+        vm.expectEmit();
+        emit SegmentEncrypted(
+            SEGMENT_HASH_1,
+            SPOTIFY_TRACK_ID,
+            encryptedFullUri,
+            encryptedManifestUri,
+            lock,
+            chainId,
+            metadataUri,
+            uint64(block.timestamp)
+        );
+        segmentEvents.emitSegmentEncrypted(
+            SEGMENT_HASH_1,
+            SPOTIFY_TRACK_ID,
+            encryptedFullUri,
+            encryptedManifestUri,
+            lock,
+            chainId,
             metadataUri
         );
     }

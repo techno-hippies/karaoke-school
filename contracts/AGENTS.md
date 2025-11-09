@@ -109,7 +109,7 @@ forge test --zksync  # Switches to EraVM context during test
   - Song registration events (~28k gas)
   - Events: `SongRegistered`, `SongProcessed`
 
-- **SegmentEvents**: `0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8` ✅
+- **SegmentEvents**: `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274` ✅
   - Segment processing events (~30k gas)
   - Events: `SegmentRegistered`, `SegmentProcessed`
 

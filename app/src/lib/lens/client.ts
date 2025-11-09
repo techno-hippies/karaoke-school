@@ -4,6 +4,8 @@
  */
 
 import { PublicClient, testnet, mainnet } from '@lens-protocol/react'
+
+export type LensClient = ReturnType<typeof PublicClient.create>
 import './fragments'
 
 export { LENS_APP_ADDRESS, isLensConfigured } from './config'
@@ -18,7 +20,7 @@ const LENS_ENV = import.meta.env.VITE_LENS_ENVIRONMENT === 'mainnet' ? mainnet :
 console.log('[lens/client] Creating PublicClient with env:', LENS_ENV)
 console.log('[lens/client] PublicClient:', PublicClient)
 
-export const lensClient = PublicClient.create({
+export const lensClient: LensClient = PublicClient.create({
   environment: LENS_ENV,
   storage: typeof window !== 'undefined' ? window.localStorage : undefined,
 })

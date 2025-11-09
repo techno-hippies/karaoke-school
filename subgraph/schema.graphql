@@ -25,16 +25,22 @@ type Segment @entity(immutable: false) {
   alignmentUri: String # Grove URI for alignment metadata (ElevenLabs word timing)
   processedAt: BigInt
   translationCount: Int! # Number of translations available
+  encryptedFullUri: String # Encrypted full-length audio URI
+  encryptedManifestUri: String # Lit manifest / ACC URI
+  unlockLockAddress: Bytes # Unlock Protocol lock gating access
+  unlockChainId: Int # Chain ID for the lock
 
   # Relations
   performances: [Performance!]! @derivedFrom(field: "segment")
   translations: [Translation!]! @derivedFrom(field: "segment")
+  exerciseCards: [ExerciseCard!]! @derivedFrom(field: "segment")
 
   # Computed
   performanceCount: Int!
   averageScore: BigDecimal!
   hasInstrumental: Boolean!
   hasAlignments: Boolean!
+  hasEncryptedFull: Boolean!
 }
 
 """
@@ -89,6 +95,7 @@ type LineCard @entity(immutable: false) {
 
   # Relations
   performances: [LinePerformance!]! @derivedFrom(field: "line")
+  exerciseCards: [ExerciseCard!]! @derivedFrom(field: "line")
 
   # Aggregate stats (computed from performances)
   performanceCount: Int!
@@ -128,6 +135,7 @@ type Account @entity(immutable: false) {
 
   # Relations
   performances: [Performance!]! @derivedFrom(field: "performer")
+  exerciseAttempts: [ExerciseAttempt!]! @derivedFrom(field: "performer")
 
   # Stats
   performanceCount: Int!
@@ -146,6 +154,8 @@ type GlobalStats @entity(immutable: false) {
   totalAccounts: Int!
   totalTranslations: Int!
   enabledTranslations: Int!
+  totalExerciseCards: Int!
+  totalExerciseAttempts: Int!
 }
 
 """
@@ -160,4 +170,54 @@ type SegmentLeaderboard @entity(immutable: false) {
   lowestScore: Int!
   createdAt: BigInt!
   updatedAt: BigInt!
+}
+
+enum ExerciseType {
+  SAY_IT_BACK
+  TRANSLATION_MULTIPLE_CHOICE
+  TRIVIA_MULTIPLE_CHOICE
+}
+
+"""
+An FSRS-tracked exercise card (audio or multiple choice)
+"""
+type ExerciseCard @entity(immutable: false) {
+  id: ID! # questionId / lineId hex
+  questionId: Bytes!
+  exerciseType: ExerciseType!
+  spotifyTrackId: String!
+  languageCode: String!
+  metadataUri: String!
+  distractorPoolSize: Int!
+  enabled: Boolean!
+  createdAt: BigInt!
+  registeredBy: Bytes!
+
+  # Optional relations (translation-specific)
+  segment: Segment
+  segmentHash: Bytes
+  line: LineCard
+  lineId: Bytes
+  lineIndex: Int
+
+  # Derived attempts
+  attempts: [ExerciseAttempt!]! @derivedFrom(field: "card")
+  attemptCount: Int!
+  averageScore: BigDecimal!
+}
+
+"""
+Learner attempt for an exercise card (immutable history)
+"""
+type ExerciseAttempt @entity(immutable: true) {
+  id: ID! # attemptId
+  attemptId: BigInt!
+  card: ExerciseCard!
+  questionId: Bytes!
+  performer: Account!
+  performerAddress: Bytes!
+  score: Int!
+  rating: Int!
+  metadataUri: String!
+  gradedAt: BigInt!
 }

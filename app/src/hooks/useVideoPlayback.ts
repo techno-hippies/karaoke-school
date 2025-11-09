@@ -65,7 +65,7 @@ export function useVideoPlayback({
     } else if (!autoplay) {
       setIsPlaying(false)
     }
-  }, [autoplay, forceAutoplay]) // Don't include hasUserInteracted - it's a function we call, not a dependency
+  }, [autoplay, forceAutoplay, hasUserInteracted])
 
   const handleTogglePlay = useCallback(() => {
     // Mark that user has interacted globally
@@ -85,7 +85,7 @@ export function useVideoPlayback({
     if (newPlayingState && isMuted) {
       setIsMuted(false)
     }
-  }, [isPlaying, isMuted, setUserInteracted])
+  }, [isMuted, isPlaying, setUserInteracted])
 
   const handlePlayFailed = useCallback(() => {
     setIsPlaying(false)

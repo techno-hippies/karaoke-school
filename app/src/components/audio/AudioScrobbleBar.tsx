@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { formatTime } from '@/utils/time'
 
 export interface AudioScrobbleBarProps {
@@ -23,13 +23,13 @@ export function AudioScrobbleBar({
   const progressBarRef = useRef<HTMLDivElement>(null)
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
-  const calculateSeekTime = (clientX: number): number => {
+  const calculateSeekTime = useCallback((clientX: number): number => {
     if (!progressBarRef.current || duration === 0) return 0
     const rect = progressBarRef.current.getBoundingClientRect()
     const clickX = clientX - rect.left
     const clickRatio = Math.max(0, Math.min(1, clickX / rect.width))
     return clickRatio * duration
-  }
+  }, [duration])
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onSeek) return
@@ -38,15 +38,15 @@ export function AudioScrobbleBar({
     onSeek(seekTime)
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !onSeek) return
     const seekTime = calculateSeekTime(e.clientX)
     onSeek(seekTime)
-  }
+  }, [calculateSeekTime, isDragging, onSeek])
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false)
-  }
+  }, [])
 
   // Attach global mouse move/up listeners when dragging
   useEffect(() => {
@@ -58,7 +58,7 @@ export function AudioScrobbleBar({
         document.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [isDragging])
+  }, [handleMouseMove, handleMouseUp, isDragging])
 
   return (
     <div className={className}>

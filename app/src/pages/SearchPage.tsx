@@ -4,7 +4,7 @@ import { SearchPageView, type Song } from '@/components/search/SearchPageView'
 import { useKaraokeSongsSearchWithMetadata } from '@/hooks/useKaraokeSongsSearch'
 
 // Transform KaraokeSong to Song for SearchPageView compatibility
-function transformKaraokeSongToSong(karaokeSong: any): Song {
+function transformKaraokeSongToSong(karaokeSong: { grc20WorkId: string; title: string; artist: string; artworkUrl: string; hasInstrumental: boolean; spotifyTrackId?: string; totalSegments?: number; hasAlignments?: boolean; translationCount?: number; performanceCount?: number }): Song {
   // Create a consistent numeric ID from the GRC-20 work ID
   const workIdHash = Math.abs(karaokeSong.grc20WorkId.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0)
@@ -35,8 +35,7 @@ export function SearchPage() {
   // Use the new hook to fetch real karaoke songs with segments
   const { 
     data: karaokeSongs, 
-    isLoading, 
-    error 
+    isLoading
   } = useKaraokeSongsSearchWithMetadata(searchTerm, {
     hasInstrumental: true,  // Only show songs with instrumentals
     first: 20,             // Limit to 20 results

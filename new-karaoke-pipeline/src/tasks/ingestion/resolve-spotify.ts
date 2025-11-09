@@ -189,6 +189,7 @@ async function resolveSpotifyTracks(limit: number = 50) {
         'wikidata_works',
         'wikidata_artists',
         'quansic_artists',
+        'lyrics_discovery',
         'spotify_artists'
       ];
 

@@ -10,6 +10,52 @@ import {
   BigInt,
 } from "@graphprotocol/graph-ts";
 
+export class SegmentEncrypted extends ethereum.Event {
+  get params(): SegmentEncrypted__Params {
+    return new SegmentEncrypted__Params(this);
+  }
+}
+
+export class SegmentEncrypted__Params {
+  _event: SegmentEncrypted;
+
+  constructor(event: SegmentEncrypted) {
+    this._event = event;
+  }
+
+  get segmentHash(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get spotifyTrackId(): string {
+    return this._event.parameters[1].value.toString();
+  }
+
+  get encryptedFullUri(): string {
+    return this._event.parameters[2].value.toString();
+  }
+
+  get encryptedManifestUri(): string {
+    return this._event.parameters[3].value.toString();
+  }
+
+  get unlockLockAddress(): Address {
+    return this._event.parameters[4].value.toAddress();
+  }
+
+  get unlockChainId(): BigInt {
+    return this._event.parameters[5].value.toBigInt();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[6].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[7].value.toBigInt();
+  }
+}
+
 export class SegmentProcessed extends ethereum.Event {
   get params(): SegmentProcessed__Params {
     return new SegmentProcessed__Params(this);
@@ -155,6 +201,60 @@ export class SegmentEvents extends ethereum.SmartContract {
     }
     let value = result.value;
     return ethereum.CallResult.fromValue(value[0].toBytes());
+  }
+}
+
+export class EmitSegmentEncryptedCall extends ethereum.Call {
+  get inputs(): EmitSegmentEncryptedCall__Inputs {
+    return new EmitSegmentEncryptedCall__Inputs(this);
+  }
+
+  get outputs(): EmitSegmentEncryptedCall__Outputs {
+    return new EmitSegmentEncryptedCall__Outputs(this);
+  }
+}
+
+export class EmitSegmentEncryptedCall__Inputs {
+  _call: EmitSegmentEncryptedCall;
+
+  constructor(call: EmitSegmentEncryptedCall) {
+    this._call = call;
+  }
+
+  get segmentHash(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get spotifyTrackId(): string {
+    return this._call.inputValues[1].value.toString();
+  }
+
+  get encryptedFullUri(): string {
+    return this._call.inputValues[2].value.toString();
+  }
+
+  get encryptedManifestUri(): string {
+    return this._call.inputValues[3].value.toString();
+  }
+
+  get unlockLockAddress(): Address {
+    return this._call.inputValues[4].value.toAddress();
+  }
+
+  get unlockChainId(): BigInt {
+    return this._call.inputValues[5].value.toBigInt();
+  }
+
+  get metadataUri(): string {
+    return this._call.inputValues[6].value.toString();
+  }
+}
+
+export class EmitSegmentEncryptedCall__Outputs {
+  _call: EmitSegmentEncryptedCall;
+
+  constructor(call: EmitSegmentEncryptedCall) {
+    this._call = call;
   }
 }
 

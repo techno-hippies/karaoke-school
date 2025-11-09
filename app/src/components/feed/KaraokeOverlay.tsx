@@ -77,7 +77,7 @@ export function KaraokeOverlay({
     if (!currentLine) return []
 
     // Check if this is English text by looking for ASCII characters
-    const isEnglish = /^[\x00-\x7F\s]*$/.test(currentLine.text)
+    const isEnglish = /^[\u0020-\u007F\s]*$/.test(currentLine.text)
 
     // Only use word-level highlighting for English text
     // For other languages, show the full line (translation has no word timings)

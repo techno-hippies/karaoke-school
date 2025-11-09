@@ -18,6 +18,8 @@ export enum AudioTaskType {
   Download = 'download',      // Download from Spotify/YouTube
   Align = 'align',            // ElevenLabs word-level alignment
   Translate = 'translate',    // Gemini Flash 2.5 Lite via OpenRouter
+  TranslationQuiz = 'translation_quiz', // Translation MCQ generation
+  Trivia = 'trivia',          // Trivia generation from annotations
   Separate = 'separate',      // Demucs stem separation
   Segment = 'segment',        // Viral clip selection (hybrid: deterministic + AI)
   Enhance = 'enhance',        // Fal.ai audio enhancement
@@ -52,6 +54,8 @@ export enum TrackStage {
   AudioReady = 'audio_ready',          // Download task completed
   Aligned = 'aligned',                 // Download + align completed
   Translated = 'translated',           // Download + align + translate completed
+  TranslationQuizReady = 'translation_quiz_ready', // Translation quiz generated
+  TriviaReady = 'trivia_ready',        // Trivia generated from annotations
   Separated = 'separated',             // All above + separate completed
   Segmented = 'segmented',             // All above + segment completed
   Enhanced = 'enhanced',               // All above + enhance completed
@@ -88,6 +92,19 @@ export const STAGE_REQUIREMENTS: Record<TrackStage, AudioTaskType[]> = {
   [TrackStage.AudioReady]: [AudioTaskType.Download],
   [TrackStage.Aligned]: [AudioTaskType.Download, AudioTaskType.Align],
   [TrackStage.Translated]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate],
+  [TrackStage.TranslationQuizReady]: [
+    AudioTaskType.Download,
+    AudioTaskType.Align,
+    AudioTaskType.Translate,
+    AudioTaskType.TranslationQuiz,
+  ],
+  [TrackStage.TriviaReady]: [
+    AudioTaskType.Download,
+    AudioTaskType.Align,
+    AudioTaskType.Translate,
+    AudioTaskType.TranslationQuiz,
+    AudioTaskType.Trivia,
+  ],
   [TrackStage.Separated]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate],
   [TrackStage.Segmented]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate, AudioTaskType.Segment],
   [TrackStage.Enhanced]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance],
@@ -117,6 +134,8 @@ export const STAGE_ORDER = [
   TrackStage.AudioReady,
   TrackStage.Aligned,
   TrackStage.Translated,
+  TrackStage.TranslationQuizReady,
+  TrackStage.TriviaReady,
   TrackStage.Separated,
   TrackStage.Segmented,
   TrackStage.Enhanced,
@@ -204,6 +223,8 @@ export function isAudioPipelineStage(stage: TrackStage): boolean {
     TrackStage.AudioReady,
     TrackStage.Aligned,
     TrackStage.Translated,
+    TrackStage.TranslationQuizReady,
+    TrackStage.TriviaReady,
     TrackStage.Separated,
     TrackStage.Segmented,
     TrackStage.Enhanced,
@@ -224,6 +245,8 @@ export function getStageDescription(stage: TrackStage): string {
     [TrackStage.AudioReady]: 'Audio downloaded',
     [TrackStage.Aligned]: 'Word-level timing aligned',
     [TrackStage.Translated]: 'Lyrics translated',
+    [TrackStage.TranslationQuizReady]: 'Translation quizzes generated',
+    [TrackStage.TriviaReady]: 'Trivia questions generated',
     [TrackStage.Separated]: 'Vocal stems separated',
     [TrackStage.Segmented]: 'Viral clip selected',
     [TrackStage.Enhanced]: 'Audio enhanced',

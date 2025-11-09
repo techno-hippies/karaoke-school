@@ -76,10 +76,14 @@ export async function processWikidataWorks(limit: number = 50): Promise<void> {
     if (work.raw_data?.relations) {
       for (const rel of work.raw_data.relations) {
         if (rel.type === 'wikidata' && rel.url) {
-          const match = rel.url.match(/Q[0-9]+/);
-          if (match) {
-            wikidataId = match[0];
-            break;
+          // url might be a string or an object with 'resource' property
+          const urlString = typeof rel.url === 'string' ? rel.url : rel.url.resource;
+          if (urlString && typeof urlString === 'string') {
+            const match = urlString.match(/Q[0-9]+/);
+            if (match) {
+              wikidataId = match[0];
+              break;
+            }
           }
         }
       }

@@ -80,7 +80,7 @@ export async function processWikidataArtists(limit: number = 50): Promise<void> 
       // Check if already processed
       const existing = await query<{ wikidata_id: string }>(`
         SELECT wikidata_id FROM wikidata_artists
-        WHERE spotify_artist_id = $1
+        WHERE spotify_id = $1
       `, [spotifyArtistId]);
 
       if (existing.length > 0) {
@@ -93,7 +93,7 @@ export async function processWikidataArtists(limit: number = 50): Promise<void> 
       const quansicData = await query<{
         wikidata_ids: any;
       }>(`
-        SELECT raw_data->'ids'->'wikidataIds' as wikidata_ids
+        SELECT metadata->'ids'->'wikidataIds' as wikidata_ids
         FROM quansic_artists
         WHERE spotify_artist_id = $1
       `, [spotifyArtistId]);
@@ -113,12 +113,9 @@ export async function processWikidataArtists(limit: number = 50): Promise<void> 
         const mbData = await query<{
           all_urls: any;
         }>(`
-          SELECT ma.all_urls
-          FROM musicbrainz_artists ma
-          WHERE ma.artist_mbid IN (
-            SELECT artist_mbid FROM genius_artists
-            WHERE spotify_artist_id = $1
-          )
+          SELECT all_urls
+          FROM musicbrainz_artists
+          WHERE spotify_id = $1
           LIMIT 1
         `, [spotifyArtistId]);
 

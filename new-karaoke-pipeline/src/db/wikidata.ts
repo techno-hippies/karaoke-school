@@ -3,12 +3,13 @@
  * Handles wikidata_artists and wikidata_works tables
  */
 
-import { buildUpsert } from './neon';
+import { buildUpsert } from './sql-helpers';
 import type { WikidataArtist } from '../services/wikidata';
 import type { WikidataWork } from '../services/wikidata-works';
 
 /**
  * Generate SQL to upsert Wikidata artist
+ * Schema: wikidata_id (PK), name, aliases, isni, viaf, musicbrainz_id, spotify_id, identifiers
  */
 export function upsertWikidataArtistSQL(
   artist: WikidataArtist,
@@ -16,38 +17,28 @@ export function upsertWikidataArtistSQL(
 ): string {
   const data = {
     wikidata_id: artist.wikidataId,
-    spotify_artist_id: spotifyArtistId || null,
+    name: artist.name,
+    spotify_id: spotifyArtistId || null,
 
-    // International Library IDs
-    viaf_id: artist.viafId || null,
-    gnd_id: artist.gndId || null,
-    bnf_id: artist.bnfId || null,
-    loc_id: artist.locId || null,
-    sbn_id: artist.sbnId || null,
-    bnmm_id: artist.bnmmId || null,
-    selibr_id: artist.selibrId || null,
+    // Core library IDs (direct columns)
+    isni: artist.isni || null,
+    viaf: artist.viafId || null,
+    musicbrainz_id: artist.musicBrainzId || null,
 
-    // Labels and aliases as JSONB
-    labels: artist.labels || null,
+    // Aliases and identifiers as JSONB (labels stored in identifiers if needed)
     aliases: artist.aliases || null,
-
-    // Other identifiers as JSONB
     identifiers: artist.identifiers || null,
   };
 
   return buildUpsert('wikidata_artists', data, 'wikidata_id', [
-    'spotify_artist_id',
-    'viaf_id',
-    'gnd_id',
-    'bnf_id',
-    'loc_id',
-    'sbn_id',
-    'bnmm_id',
-    'selibr_id',
-    'labels',
+    'name',
+    'spotify_id',
+    'isni',
+    'viaf',
+    'musicbrainz_id',
     'aliases',
     'identifiers',
-  ]) + ' RETURNING wikidata_id, viaf_id, gnd_id, bnf_id, loc_id';
+  ]) + ' RETURNING wikidata_id, name, isni, viaf, musicbrainz_id';
 }
 
 /**
@@ -86,46 +77,25 @@ export function logWikidataProcessingSQL(
 
 /**
  * Generate SQL to upsert Wikidata work
+ * Schema: wikidata_id (PK), iswc, title, composers (jsonb), lyricists (jsonb), identifiers (jsonb)
  */
 export function upsertWikidataWorkSQL(
-  work: WikidataWork,
-  musicbrainzWorkId?: string,
-  spotifyTrackId?: string
+  work: WikidataWork
 ): string {
   const data = {
     wikidata_id: work.wikidataId,
-    musicbrainz_work_id: musicbrainzWorkId || null,
-    spotify_track_id: spotifyTrackId || null,
-
-    // Core metadata
-    title: work.title || null,
     iswc: work.iswc || null,
-    language: work.language || null,
-
-    // Labels and aliases as JSONB
-    labels: work.labels || null,
-    aliases: work.aliases || null,
-
-    // Relations as JSONB
+    title: work.title || null,
     composers: work.composers || null,
     lyricists: work.lyricists || null,
-    performers: work.performers || null,
-
-    // Other identifiers as JSONB
     identifiers: work.identifiers || null,
   };
 
   return buildUpsert('wikidata_works', data, 'wikidata_id', [
-    'musicbrainz_work_id',
-    'spotify_track_id',
-    'title',
     'iswc',
-    'language',
-    'labels',
-    'aliases',
+    'title',
     'composers',
     'lyricists',
-    'performers',
     'identifiers',
   ]) + ' RETURNING wikidata_id, title, iswc';
 }

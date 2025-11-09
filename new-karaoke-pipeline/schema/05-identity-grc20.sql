@@ -226,6 +226,7 @@ CREATE TABLE IF NOT EXISTS grc20_artists (
   grc20_entity_id UUID UNIQUE,           -- Set after minting to GRC-20
   minted_at TIMESTAMP,
   needs_update BOOLEAN DEFAULT FALSE,    -- Flag when source data changes
+  source_evidence JSONB,
 
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -309,6 +310,7 @@ CREATE TABLE IF NOT EXISTS grc20_works (
   grc20_entity_id UUID UNIQUE,           -- Set after minting to GRC-20
   minted_at TIMESTAMP,
   needs_update BOOLEAN DEFAULT FALSE,    -- Flag when source data changes
+  source_evidence JSONB,
 
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),

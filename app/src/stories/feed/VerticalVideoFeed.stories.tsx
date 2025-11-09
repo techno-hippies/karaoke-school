@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { VerticalVideoFeed } from '@/components/feed/VerticalVideoFeed'
 import type { VideoPostData } from '@/components/feed/types'
 import { AuthProvider } from '@/contexts/AuthContext'

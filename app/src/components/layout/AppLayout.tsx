@@ -29,7 +29,6 @@ export function AppLayout({
   isConnected = false,
   walletAddress,
   onConnectWallet,
-  onDisconnect: _onDisconnect,
   hideMobileFooter = false
 }: AppLayoutProps) {
   return (

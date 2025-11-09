@@ -21,13 +21,13 @@ import { BookOpen, Play, ArrowUpRight } from '@phosphor-icons/react'
 export function ClassPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isPKPReady, pkpAddress } = useAuth()
+  const { isPKPReady } = useAuth()
 
   const songId = searchParams.get('song') // Optional: filter to specific song
 
   // Load study cards for this song
   const studyCardsQuery = useStudyCards(songId || undefined)
-  const { data, isLoading, error } = studyCardsQuery
+  const { data, isLoading } = studyCardsQuery
   const dueCards = data?.cards || []
   const studyStats = data?.stats
 

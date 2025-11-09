@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState, useEffect } from 'react'
 import { KaraokeOverlay } from '@/components/feed/KaraokeOverlay'
 import type { KaraokeLine } from '@/components/feed/types'

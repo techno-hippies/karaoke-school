@@ -79,6 +79,7 @@ async function createEntityLensAccount(
       bio: `Official Karaoke School profile for ${entity.name}`,
       pictureUri: entity.image_url || undefined,
       attributes,
+      pkpAddress: entity.pkp_address,
     });
 
     // Store in database

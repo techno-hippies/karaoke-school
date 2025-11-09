@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { FeedPage } from '@/components/feed/FeedPage'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { LensProvider } from '@lens-protocol/react'

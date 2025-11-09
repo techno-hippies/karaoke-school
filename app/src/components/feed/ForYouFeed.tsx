@@ -46,22 +46,23 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
 
   // Track post IDs to detect when posts actually change (not just reference)
   const previousPostIds = useRef<Set<string>>(new Set())
+  const currentPostIds = useMemo(() => posts.map(post => post.id), [posts])
+
   const postsHaveChanged = useMemo(() => {
-    const currentPostIds = new Set(posts.map(post => post.id))
-    
-    // Check if any posts were added, removed, or changed
-    if (currentPostIds.size !== previousPostIds.current.size) {
+    const currentPostIdSet = new Set(currentPostIds)
+
+    if (currentPostIdSet.size !== previousPostIds.current.size) {
       return true
     }
-    
-    for (const id of currentPostIds) {
+
+    for (const id of currentPostIdSet) {
       if (!previousPostIds.current.has(id)) {
         return true
       }
     }
-    
+
     return false
-  }, [posts.map(post => post.id).sort().join(',')])
+  }, [currentPostIds])
 
   // Batch check liked status when authenticated and posts actually change
   useEffect(() => {
@@ -82,7 +83,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
         setLikedPostsMap(likedMap)
         
         // Update previous post IDs after successful check
-        previousPostIds.current = new Set(posts.map(post => post.id))
+        previousPostIds.current = new Set(currentPostIds)
       } catch (error) {
         console.error('[ForYouFeed] Error checking liked posts:', error)
       } finally {
@@ -91,7 +92,7 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     }
 
     checkLikedPosts()
-  }, [lensSession, lensAccount?.address, postsHaveChanged, isAuthenticated])
+  }, [currentPostIds, isAuthenticated, lensAccount?.address, lensSession, posts, postsHaveChanged])
 
   // Transform Lens posts to VideoPostData using shared utility (memoized)
   const videoPosts = useMemo(() => {

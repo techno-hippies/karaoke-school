@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { WalletPageView, type TokenBalance } from '@/components/wallet/WalletPageView'
 
 const meta = {

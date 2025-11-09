@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { VideoPlayer } from '@/components/feed/VideoPlayer'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
@@ -27,16 +27,13 @@ type Story = StoryObj<typeof meta>
 // Interactive wrapper component
 function InteractivePlayer(props: Partial<React.ComponentProps<typeof VideoPlayer>>) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
 
   return (
     <VideoPlayer
       isPlaying={isPlaying}
-      isMuted={isMuted}
+      isMuted={false}
       onTogglePlay={() => setIsPlaying(!isPlaying)}
       onPlayFailed={() => setIsPlaying(false)}
-      onTimeUpdate={setCurrentTime}
       {...props}
     />
   )
@@ -87,14 +84,13 @@ export const WithoutThumbnail: Story = {
 export const AutoplayEnabled: Story = {
   render: () => {
     const [isPlaying, setIsPlaying] = useState(true)
-    const [isMuted, setIsMuted] = useState(false)
 
     return (
       <VideoPlayer
         videoUrl="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
         thumbnailUrl="https://picsum.photos/400/711?random=3"
         isPlaying={isPlaying}
-        isMuted={isMuted}
+        isMuted={false}
         onTogglePlay={() => setIsPlaying(!isPlaying)}
         onPlayFailed={() => setIsPlaying(false)}
       />
@@ -119,14 +115,13 @@ export const NoMedia: Story = {
 export const Loading: Story = {
   render: () => {
     const [isPlaying, setIsPlaying] = useState(true)
-    const [isMuted, setIsMuted] = useState(false)
 
     return (
       <VideoPlayer
         videoUrl="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
         thumbnailUrl="https://picsum.photos/400/711?random=4"
         isPlaying={isPlaying}
-        isMuted={isMuted}
+        isMuted={false}
         onTogglePlay={() => setIsPlaying(!isPlaying)}
         onPlayFailed={() => setIsPlaying(false)}
       />

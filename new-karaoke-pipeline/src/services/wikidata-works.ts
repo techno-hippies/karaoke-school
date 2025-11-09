@@ -182,10 +182,47 @@ export async function parseWikidataWork(entity: WikidataEntity): Promise<Wikidat
 }
 
 /**
+ * Fetch ISWC from MusicBrainz work
+ */
+async function fetchMusicBrainzISWC(mbid: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://musicbrainz.org/ws/2/work/${mbid}?fmt=json&inc=aliases`,
+      {
+        headers: {
+          'User-Agent': 'KaraokeSchool/1.0 (https://karaoke.school)',
+        },
+      }
+    );
+
+    if (!response.ok) return null;
+    const data = await response.json();
+
+    // Return first ISWC if available
+    return data.iswcs?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Convenience function: fetch and parse work in one call
+ * Also enriches with ISWC from MusicBrainz if available
  */
 export async function getWikidataWork(wikidataId: string): Promise<WikidataWork | null> {
   const entity = await getWikidataEntity(wikidataId);
   if (!entity) return null;
-  return await parseWikidataWork(entity);
+
+  const work = await parseWikidataWork(entity);
+
+  // If no ISWC from Wikidata but we have a MusicBrainz work ID, fetch from MB
+  if (!work.iswc && work.identifiers?.musicbrainz_work) {
+    const mbid = work.identifiers.musicbrainz_work;
+    const iswc = await fetchMusicBrainzISWC(mbid);
+    if (iswc) {
+      work.iswc = iswc;
+    }
+  }
+
+  return work;
 }

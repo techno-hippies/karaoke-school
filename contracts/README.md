@@ -45,7 +45,7 @@ forge script script/DeployEvents.s.sol:DeployEvents \
 - **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
   - Song registration events (~28k gas)
 
-- **SegmentEvents**: `0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8` ✅
+- **SegmentEvents**: `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274` ✅
   - Segment processing events (~30k gas)
 
 - **TranslationEvents**: `0x5A49E23A5C3a034906eE0274c266A08805770C70` ✅

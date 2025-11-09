@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SongItem } from '@/components/ui/SongItem'
 import { ItemGroup } from '@/components/ui/item'
 

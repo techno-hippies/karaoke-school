@@ -13,7 +13,7 @@ if (process.env.NODE_ENV === 'development' && process.env.REACT_SCAN_ENABLED ===
     .then((whyDidYouRender) => {
       whyDidYouRender.default(React, {
         trackAllPureComponents: true,
-        trackExtraHooks: [require('@tanstack/react-query').useQuery],
+        trackExtraHooks: [],
       });
       console.log('🔍 React Scan enabled - Check console for re-render warnings');
     })

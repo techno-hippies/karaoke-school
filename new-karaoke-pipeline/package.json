@@ -12,7 +12,14 @@
     "task:separate": "bun src/tasks/audio/separate-audio.ts",
     "task:segment": "bun src/tasks/audio/select-segments-simple.ts",
     "task:enhance": "bun src/tasks/audio/enhance-audio.ts",
-    "task:clip": "bun src/tasks/audio/clip-segments.ts"
+    "task:clip": "bun src/tasks/audio/clip-segments.ts",
+    "task:translation-quiz": "bun src/tasks/content/generate-translation-quiz.ts",
+    "task:trivia": "bun src/tasks/content/generate-trivia.ts",
+    "task:trivia-translate": "bun src/tasks/content/translate-trivia.ts",
+    "task:deploy-locks": "bun src/tasks/identity/deploy-unlock-locks.ts",
+    "task:encrypt": "bun src/tasks/audio/encrypt-segments.ts",
+    "task:populate-source-facts": "bun src/tasks/grc20/populate-source-facts.ts",
+    "task:populate-grc20": "bun src/tasks/grc20/populate-grc20.ts"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.36.0",
@@ -21,12 +28,14 @@
     "@lens-protocol/client": "^0.0.0-canary-20250430134539",
     "@lens-protocol/env": "^0.0.0-canary-20241127131427",
     "@lens-protocol/metadata": "^2.1.0",
+    "@lit-protocol/access-control-conditions": "^8.0.2",
     "@lit-protocol/lit-client": "^8.2.3",
     "@lit-protocol/networks": "^8.3.2",
     "@neondatabase/serverless": "^0.10.3",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "dotenv": "^17.2.3",
-    "ethers": "^6.15.0"
+    "ethers": "^6.15.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/bun": "latest"

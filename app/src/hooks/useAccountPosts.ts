@@ -4,6 +4,8 @@ import { evmAddress } from '@lens-protocol/client'
 import { fetchAccount, fetchPosts } from '@lens-protocol/client/actions'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
+import type { AnyClient } from '@lens-protocol/client'
+import type { Post } from '@lens-protocol/graphql'
 
 /**
  * Lens post metadata from Grove
@@ -49,7 +51,7 @@ export function useAccountPosts(accountAddress?: string) {
       }
 
       // Fetch account by address
-      const accountResult = await fetchAccount(lensClient as any, {
+      const accountResult = await fetchAccount(lensClient as AnyClient, {
         address: evmAddress(accountAddress),
       })
 
@@ -63,7 +65,7 @@ export function useAccountPosts(accountAddress?: string) {
       }
 
       // Fetch posts by account
-      const postsResult = await fetchPosts(lensClient as any, {
+      const postsResult = await fetchPosts(lensClient as AnyClient, {
         filter: {
           authors: [accountData.address],
         },
@@ -73,22 +75,22 @@ export function useAccountPosts(accountAddress?: string) {
         throw new Error(`Failed to fetch posts: ${postsResult.error?.message}`)
       }
 
-      const posts = Array.from(postsResult.value.items)
+      const posts = Array.from(postsResult.value.items) as Post[]
 
       // Fetch metadata for each post
       const videoPosts = (await Promise.all(
-        posts.map(async (p: any) => {
+        posts.map(async (post) => {
           try {
             // Fetch metadata from Grove
-            const metadataUrl = convertGroveUri(p.metadata)
+            const metadataUrl = convertGroveUri(post.metadata)
             const response = await fetch(metadataUrl)
 
             if (!response.ok) {
-              console.warn(`Failed to fetch metadata for post ${p.id}:`, response.status)
+              console.warn(`Failed to fetch metadata for post ${post.id}:`, response.status)
               return null
             }
 
-            const metadata: LensPostMetadata = await response.json()
+            const metadata = (await response.json()) as LensPostMetadata
 
             // Extract video URI
             const videoUri = metadata.video?.uri ||
@@ -96,24 +98,24 @@ export function useAccountPosts(accountAddress?: string) {
                            metadata.image?.uri
 
             if (!videoUri) {
-              console.warn(`No video URI found for post ${p.id}`)
+              console.warn(`No video URI found for post ${post.id}`)
               return null
             }
 
             // Convert to VideoPost format
             return {
-              id: p.id,
+              id: post.id,
               videoUrl: convertGroveUri(videoUri),
               thumbnailUrl: convertGroveUri(videoUri), // Use video as thumbnail for now
               username: accountData.username?.localName || 'unknown',
               songTitle: metadata.lens?.title || 'Untitled',
-              timestamp: new Date(p.timestamp),
+              timestamp: new Date(post.timestamp),
               likes: 0, // TODO: Fetch from Lens reactions
               comments: 0, // TODO: Fetch from Lens comments
               views: 0, // TODO: Fetch from Lens stats
             } as VideoPost
           } catch (error) {
-            console.error(`Error processing post ${p.id}:`, error)
+            console.error(`Error processing post ${post.id}:`, error)
             return null
           }
         })

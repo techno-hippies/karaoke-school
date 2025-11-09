@@ -42,25 +42,19 @@ export interface WikidataEntity {
 
 export interface WikidataArtist {
   wikidataId: string;
+  name: string; // English label
 
-  // International Library IDs (PRIMARY FOCUS)
+  // Core library IDs (match simplified schema)
   viafId?: string;
-  gndId?: string;
-  bnfId?: string;
-  locId?: string;
-  sbnId?: string;
-  bnmmId?: string;
-  selibrId?: string;
+  isni?: string;
+  musicBrainzId?: string;
 
-  // Labels and aliases
+  // Labels and aliases as JSONB
   labels?: Record<string, string>;
   aliases?: Record<string, string[]>;
 
-  // Other identifiers
+  // All other identifiers as JSONB
   identifiers?: Record<string, any>;
-
-  // Sitelinks
-  sitelinks?: Record<string, string>;
 }
 
 /**
@@ -69,6 +63,7 @@ export interface WikidataArtist {
 const PROPERTY_MAP = {
   // International Libraries (PRIMARY)
   'P214': 'viaf',
+  'P213': 'isni',
   'P227': 'gnd',
   'P268': 'bnf',  // FIX: Was P5361 (BNF thesaurus), should be P268 (BNF authority ID)
   'P244': 'loc',
@@ -300,15 +295,18 @@ Return only the valid name variants. When in doubt, keep it.`;
 
 /**
  * Parse Wikidata entity into structured artist data
- * Now async due to Gemini validation
+ * Adapted for simplified schema: only viaf, isni, musicbrainz_id as columns
  */
 export async function parseWikidataArtist(entity: WikidataEntity): Promise<WikidataArtist> {
+  // Extract name (prefer English label)
+  const name = entity.labels?.en?.value || entity.id;
+
   const result: WikidataArtist = {
     wikidataId: entity.id,
+    name,
   };
 
   // Extract labels - names in different languages/scripts
-  // These ARE useful for international display/search
   const englishLabel = entity.labels?.en?.value || entity.id;
   if (entity.labels) {
     result.labels = {};
@@ -317,55 +315,32 @@ export async function parseWikidataArtist(entity: WikidataEntity): Promise<Wikid
     }
   }
 
-  // Extract raw aliases
-  const rawAliases: Record<string, string[]> = {};
+  // Extract raw aliases (NO Gemini validation to avoid API costs)
   if (entity.aliases) {
+    result.aliases = {};
     for (const [lang, aliasArray] of Object.entries(entity.aliases)) {
-      rawAliases[lang] = aliasArray.map(a => a.value);
+      result.aliases[lang] = aliasArray.map(a => a.value);
     }
   }
 
-  // Validate aliases using Gemini (filters garbage, transliterations, etc.)
-  if (Object.keys(rawAliases).length > 0) {
-    result.aliases = await validateAliasesWithGemini(
-      englishLabel,
-      result.labels || {},
-      rawAliases
-    );
-  }
-
-  // Skip sitelinks - they're just Wikipedia article titles, not useful
-
   const claims = entity.claims || {};
 
-  // Extract International Library IDs (PRIMARY)
+  // Extract core library IDs (match simplified schema columns)
   const viaf = extractClaimValues(claims, 'P214');
   if (viaf.length > 0) result.viafId = viaf[0];
 
-  const gnd = extractClaimValues(claims, 'P227');
-  if (gnd.length > 0) result.gndId = gnd[0];
+  const isni = extractClaimValues(claims, 'P213');
+  if (isni.length > 0) result.isni = isni[0];
 
-  const bnf = extractClaimValues(claims, 'P268');  // FIX: Was P5361 (wrong!)
-  if (bnf.length > 0) result.bnfId = bnf[0];
+  const musicbrainz = extractClaimValues(claims, 'P434');
+  if (musicbrainz.length > 0) result.musicBrainzId = musicbrainz[0];
 
-  const loc = extractClaimValues(claims, 'P244');
-  if (loc.length > 0) result.locId = loc[0];
-
-  const sbn = extractClaimValues(claims, 'P396');
-  if (sbn.length > 0) result.sbnId = sbn[0];
-
-  const bnmm = extractClaimValues(claims, 'P1015');
-  if (bnmm.length > 0) result.bnmmId = bnmm[0];
-
-  const selibr = extractClaimValues(claims, 'P906');
-  if (selibr.length > 0) result.selibrId = selibr[0];
-
-  // Extract other identifiers into JSONB
+  // Extract ALL other identifiers into JSONB
   result.identifiers = {};
 
   for (const [propId, key] of Object.entries(PROPERTY_MAP)) {
-    // Skip library IDs (already extracted above)
-    if (['viaf', 'gnd', 'bnf', 'loc', 'sbn', 'bnmm', 'selibr'].includes(key)) {
+    // Skip already extracted columns
+    if (['viaf', 'isni', 'musicbrainz'].includes(key)) {
       continue;
     }
 

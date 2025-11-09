@@ -95,22 +95,18 @@ export async function insertPKPAccount(data: PKPAccountData): Promise<void> {
     `INSERT INTO pkp_accounts (
       account_type,
       spotify_artist_id,
-      tiktok_handle,
-      genius_artist_id,
       pkp_address,
       pkp_token_id,
       pkp_public_key,
       pkp_owner_eoa,
       transaction_hash
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (pkp_address) DO UPDATE SET
       transaction_hash = EXCLUDED.transaction_hash,
       updated_at = NOW()`,
     [
       data.account_type,
       data.spotify_artist_id || null,
-      data.tiktok_handle || null,
-      data.genius_artist_id || null,
       data.pkp_address,
       data.pkp_token_id,
       data.pkp_public_key,

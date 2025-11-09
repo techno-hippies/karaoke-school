@@ -38,7 +38,7 @@ export const MASTER_PKP_PUBLIC_KEY =
  * SegmentEvents.sol
  * Emits segment registration and processing events
  */
-export const SEGMENT_EVENTS_ADDRESS = '0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8'
+export const SEGMENT_EVENTS_ADDRESS = '0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274'
 
 /**
  * TranslationEvents.sol
@@ -57,6 +57,12 @@ export const SONG_EVENTS_ADDRESS = '0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6'
  * Emits account creation/update events
  */
 export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E8'
+
+/**
+ * ExerciseEvents.sol
+ * Emits exercise registration and grading events (FSRS)
+ */
+export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832'
 
 // ============ Lit Action Configuration ============
 

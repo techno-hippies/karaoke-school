@@ -72,7 +72,7 @@ export function StudySessionPage() {
   // Extract exercise text - Use current card's lineIndex
   // Must be computed before callbacks that reference it
   let exerciseText = 'Loading...'
-  let isLoadingText = isLoadingAlignment || isLoadingTranslation
+  const isLoadingText = isLoadingAlignment || isLoadingTranslation
 
   // Get line index from current card (defaults to 0 for segment-level cards)
   const lineIndex = currentCard?.lineIndex ?? 0

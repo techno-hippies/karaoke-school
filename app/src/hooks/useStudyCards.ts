@@ -49,16 +49,20 @@ const Rating = {
  */
 export interface StudyCard {
   id: string // lineId (UUID) or segmentHash (fallback)
+  questionId?: string // Exercise question identifier (bytes32 hex)
   lineId?: string // UUID from karaoke_lines table
-  lineIndex: number // Position within segment (0-based)
-  segmentHash: string
-  grc20WorkId: string
-  spotifyTrackId: string
+  lineIndex?: number // Position within segment (0-based)
+  segmentHash?: string
+  grc20WorkId?: string
+  spotifyTrackId?: string
+  exerciseType?: 'SAY_IT_BACK' | 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE'
 
   // Content
   metadataUri: string
   instrumentalUri?: string
   alignmentUri?: string
+  languageCode?: string
+  distractorPoolSize?: number
 
   translations?: Array<{
     languageCode: string
@@ -66,8 +70,8 @@ export interface StudyCard {
   }>
 
   // Timing
-  segmentStartMs: number
-  segmentEndMs: number
+  segmentStartMs?: number
+  segmentEndMs?: number
 
   // FSRS state
   fsrs: {
@@ -119,6 +123,37 @@ const GET_SEGMENTS_WITH_PERFORMANCES = gql`
       segmentHash
       score
       gradedAt
+    }
+  }
+`
+
+const GET_EXERCISE_CARDS = gql`
+  query GetExerciseCards($spotifyTrackIds: [String!]!, $performer: Bytes!) {
+    exerciseCards(where: { spotifyTrackId_in: $spotifyTrackIds, enabled: true }) {
+      id
+      questionId
+      exerciseType
+      spotifyTrackId
+      languageCode
+      metadataUri
+      distractorPoolSize
+      lineId
+      lineIndex
+      segmentHash
+      segment {
+        segmentHash
+        grc20WorkId
+      }
+      attempts(
+        where: { performerAddress: $performer }
+        orderBy: gradedAt
+        orderDirection: desc
+        first: 100
+      ) {
+        id
+        score
+        gradedAt
+      }
     }
   }
 `
@@ -184,8 +219,61 @@ export function useStudyCards(songId?: string) {
           }
         }
 
+        const spotifyTrackIds = Array.from(
+          new Set(
+            (data.segments || [])
+              .map((segment: any) => segment.spotifyTrackId)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0)
+          )
+        )
+
+        let exerciseCardResponse: { exerciseCards: any[] } = { exerciseCards: [] }
+
+        if (spotifyTrackIds.length > 0) {
+          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, {
+            spotifyTrackIds,
+            performer: pkpAddress.toLowerCase(),
+          })
+        }
+
+        const onChainExerciseCards = exerciseCardResponse.exerciseCards || []
+        console.log(`[useStudyCards] Fetched ${onChainExerciseCards.length} exercise cards for user`)
+
         // Expand segments into line-level cards by fetching translation data
         const studyCards: StudyCard[] = []
+        const seenCardIds = new Set<string>()
+        const exerciseCardAttemptsById = new Map<string, any[]>()
+
+        for (const card of onChainExerciseCards) {
+          const attempts = card.attempts || []
+          exerciseCardAttemptsById.set(card.id.toLowerCase(), attempts)
+
+          const fsrsState = calculateFSRSState(attempts)
+          const lineIndexValue = card.lineIndex === null || card.lineIndex === undefined
+            ? undefined
+            : Number(card.lineIndex)
+
+          if (seenCardIds.has(card.id)) {
+            continue
+          }
+          seenCardIds.add(card.id)
+
+          studyCards.push({
+            id: card.id,
+            questionId: card.questionId ?? card.id,
+            lineId: card.lineId ?? undefined,
+            lineIndex: Number.isNaN(lineIndexValue) ? undefined : lineIndexValue,
+            segmentHash: card.segmentHash ?? card.segment?.segmentHash ?? undefined,
+            grc20WorkId: card.segment?.grc20WorkId ?? undefined,
+            spotifyTrackId: card.spotifyTrackId ?? undefined,
+            metadataUri: card.metadataUri,
+            languageCode: card.languageCode ?? undefined,
+            distractorPoolSize: card.distractorPoolSize ?? undefined,
+            exerciseType: card.exerciseType as StudyCard['exerciseType'],
+            fsrs: fsrsState,
+            translations: [],
+          })
+        }
 
         // Get all line performances for this user (from GraphQL query)
         const allLinePerformances = data.linePerformances || []
@@ -198,6 +286,12 @@ export function useStudyCards(songId?: string) {
           if (!firstTranslation?.translationUri) {
             // Fallback: segment-level card if no translations
             const fsrsState = calculateFSRSState(segment.performances || [])
+
+            if (seenCardIds.has(segment.segmentHash)) {
+              continue
+            }
+            seenCardIds.add(segment.segmentHash)
+
             studyCards.push({
               id: segment.segmentHash,
               lineId: undefined,
@@ -211,6 +305,7 @@ export function useStudyCards(songId?: string) {
               segmentStartMs: segment.segmentStartMs,
               segmentEndMs: segment.segmentEndMs,
               translations: segment.translations || [],
+              exerciseType: 'SAY_IT_BACK',
               fsrs: fsrsState,
             })
             continue
@@ -251,6 +346,11 @@ export function useStudyCards(songId?: string) {
               // Calculate FSRS state for this line
               const fsrsState = calculateFSRSState(linePerformances)
 
+              if (seenCardIds.has(lineId)) {
+                continue
+              }
+              seenCardIds.add(lineId)
+
               studyCards.push({
                 id: lineId, // Use lineId as primary identifier
                 lineId, // Deterministic bytes32 from Grove data (no contract needed!)
@@ -264,6 +364,7 @@ export function useStudyCards(songId?: string) {
                 segmentStartMs: segment.segmentStartMs,
                 segmentEndMs: segment.segmentEndMs,
                 translations: segment.translations || [],
+                exerciseType: 'SAY_IT_BACK',
                 fsrs: fsrsState,
               })
             }
@@ -271,21 +372,25 @@ export function useStudyCards(songId?: string) {
             console.error('[useStudyCards] Failed to fetch translation, falling back to segment-level:', error)
             // Fallback: segment-level card
             const fsrsState = calculateFSRSState(segment.performances || [])
-            studyCards.push({
-              id: segment.segmentHash,
-              lineId: undefined,
-              lineIndex: 0,
-              segmentHash: segment.segmentHash,
-              grc20WorkId: segment.grc20WorkId,
-              spotifyTrackId: segment.spotifyTrackId,
-              metadataUri: segment.metadataUri,
-              instrumentalUri: segment.instrumentalUri,
-              alignmentUri: segment.alignmentUri,
-              segmentStartMs: segment.segmentStartMs,
-              segmentEndMs: segment.segmentEndMs,
-              translations: segment.translations || [],
-              fsrs: fsrsState,
-            })
+            if (!seenCardIds.has(segment.segmentHash)) {
+              seenCardIds.add(segment.segmentHash)
+              studyCards.push({
+                id: segment.segmentHash,
+                lineId: undefined,
+                lineIndex: 0,
+                segmentHash: segment.segmentHash,
+                grc20WorkId: segment.grc20WorkId,
+                spotifyTrackId: segment.spotifyTrackId,
+                metadataUri: segment.metadataUri,
+                instrumentalUri: segment.instrumentalUri,
+                alignmentUri: segment.alignmentUri,
+                segmentStartMs: segment.segmentStartMs,
+                segmentEndMs: segment.segmentEndMs,
+                translations: segment.translations || [],
+                exerciseType: 'SAY_IT_BACK',
+                fsrs: fsrsState,
+              })
+            }
           }
         }
 
@@ -309,19 +414,38 @@ export function useStudyCards(songId?: string) {
         // Calculate daily new card limit (FSRS/Anki style)
         const todayStart = getTodayStartTimestamp()
 
-        // Find first performance time for each lineId
-        const firstPerformanceByLine = new Map<string, number>()
-        allLinePerformances.forEach((perf: any) => {
-          const gradedAt = parseInt(perf.gradedAt)
-          const lineId = perf.lineId.toLowerCase()
-          if (!firstPerformanceByLine.has(lineId)) {
-            firstPerformanceByLine.set(lineId, gradedAt)
+        const recordFirstAttempt = (cardId: string | undefined, gradedAt: any, store: Map<string, number>) => {
+          if (!cardId) {
+            return
           }
+          const parsed = Number(gradedAt)
+          if (!Number.isFinite(parsed) || parsed <= 0) {
+            return
+          }
+          const key = cardId.toLowerCase()
+          const existing = store.get(key)
+          if (existing === undefined || parsed < existing) {
+            store.set(key, parsed)
+          }
+        }
+
+        const firstAttemptByCard = new Map<string, number>()
+
+        allLinePerformances.forEach((perf: any) => {
+          recordFirstAttempt(perf.lineId, perf.gradedAt, firstAttemptByCard)
         })
 
-        // Count how many lines had their first performance today
+        exerciseCardAttemptsById.forEach((attempts, cardId) => {
+          attempts.forEach((attempt: any) => {
+            recordFirstAttempt(cardId, attempt.gradedAt, firstAttemptByCard)
+          })
+        })
+
+        console.log(`[useStudyCards] Tracking ${firstAttemptByCard.size} cards with attempt history`)
+
+        // Count how many cards had their first attempt today
         let newCardsIntroducedToday = 0
-        firstPerformanceByLine.forEach(firstTime => {
+        firstAttemptByCard.forEach(firstTime => {
           if (firstTime >= todayStart) {
             newCardsIntroducedToday++
           }

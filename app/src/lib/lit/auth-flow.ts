@@ -167,7 +167,7 @@ export async function authenticateUser(
   try {
     // Try login first
     return await loginUser(onStatusUpdate)
-  } catch (error) {
+  } catch {
     // If login fails, try register
     console.log('Login failed, attempting registration...')
     return await registerUser(undefined, onStatusUpdate)

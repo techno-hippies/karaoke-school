@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useRef, useCallback, type ReactNode } from 'react'
 
 interface VideoPlaybackContextType {
   hasUserInteracted: () => boolean
@@ -17,11 +17,11 @@ const VideoPlaybackContext = createContext<VideoPlaybackContextType | null>(null
 export function VideoPlaybackProvider({ children }: { children: ReactNode }) {
   const hasInteractedRef = useRef(false)
 
-  const hasUserInteracted = () => hasInteractedRef.current
+  const hasUserInteracted = useCallback(() => hasInteractedRef.current, [])
 
-  const setUserInteracted = () => {
+  const setUserInteracted = useCallback(() => {
     hasInteractedRef.current = true
-  }
+  }, [])
 
   return (
     <VideoPlaybackContext.Provider value={{ hasUserInteracted, setUserInteracted }}>
@@ -36,6 +36,7 @@ export function VideoPlaybackProvider({ children }: { children: ReactNode }) {
  * Use this to check if user has interacted with any video player,
  * which determines autoplay behavior across the app.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useVideoPlaybackContext() {
   const context = useContext(VideoPlaybackContext)
   if (!context) {

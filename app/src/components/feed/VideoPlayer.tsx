@@ -116,6 +116,7 @@ export function VideoPlayer({
         const errorMsg = `Code ${video.error.code}: ${video.error.message || 'Unknown error'}`
         // Only log non-empty errors
         if (video.error.message) {
+          console.error('[VideoPlayer] Error loading video:', errorMsg)
         }
         send({ type: 'VIDEO_ERROR', error: errorMsg })
       }
@@ -156,11 +157,11 @@ export function VideoPlayer({
   }, [isPlaying, send])
 
   // Sync actual video playback with state machine
+  const isInPlayingState = state.matches({ loaded: 'playing' }) || state.matches({ loaded: 'attemptingPlay' })
+
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-
-    const isInPlayingState = state.matches({ loaded: 'playing' }) || state.matches({ loaded: 'attemptingPlay' })
 
     if (isInPlayingState && video.paused) {
       video.play().catch((e) => {
@@ -172,7 +173,7 @@ export function VideoPlayer({
     } else if (!isInPlayingState && !video.paused) {
       video.pause()
     }
-  }, [state.value, send, onPlayFailed])
+  }, [isInPlayingState, onPlayFailed, send])
 
   // Sync isMuted prop with video element
   useEffect(() => {

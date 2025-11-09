@@ -11,10 +11,10 @@ const envPaths = [
   path.resolve(__dirname, "../api-services/audio-download-service/.env")
 ];
 
-for (const envPath of envPaths) {
+envPaths.forEach((envPath, index) => {
   if (existsSync(envPath)) {
-    config({ path: envPath, override: false });
+    config({ path: envPath, override: index === 0 });
   }
-}
+});
 
 export {};

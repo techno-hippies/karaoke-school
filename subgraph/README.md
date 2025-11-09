@@ -66,7 +66,7 @@ bun run deploy-local
 ## Deployed Contracts
 
 - **SongEvents:** `0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d`
-- **SegmentEvents:** `0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8`
+- **SegmentEvents:** `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
 - **PerformanceGrader:** `0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0`
 - **AccountEvents:** `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
 

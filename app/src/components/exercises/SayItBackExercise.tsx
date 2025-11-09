@@ -1,26 +1,6 @@
 import React from 'react'
 import { AudioButton } from '@/components/media/AudioButton'
 
-// Simple text similarity scoring (can be enhanced with phoneme matching later)
-export function calculateTextSimilarity(expected: string, actual: string): number {
-  const normalize = (text: string) => text.toLowerCase().replace(/[^\w\s]/g, '').trim()
-  const expectedNorm = normalize(expected)
-  const actualNorm = normalize(actual)
-
-  if (expectedNorm === actualNorm) return 100
-
-  // Simple word-based similarity
-  const expectedWords = expectedNorm.split(/\s+/)
-  const actualWords = actualNorm.split(/\s+/)
-
-  let matches = 0
-  for (const word of expectedWords) {
-    if (actualWords.includes(word)) matches++
-  }
-
-  return Math.round((matches / expectedWords.length) * 100)
-}
-
 export interface SayItBackExerciseProps {
   /** The text the user should say */
   expectedText: string

@@ -8,7 +8,7 @@
 import { signMessageWith } from '@lens-protocol/client/viem'
 import { fetchAccountsAvailable } from '@lens-protocol/client/actions'
 import { evmAddress } from '@lens-protocol/client'
-import type { SessionClient } from '@lens-protocol/client'
+import type { AnyClient, SessionClient } from '@lens-protocol/client'
 import type { WalletClient, Address } from 'viem'
 import { lensClient, LENS_APP_ADDRESS } from './client'
 
@@ -25,7 +25,7 @@ export async function loginAsOnboardingUser(
       app: LENS_APP_ADDRESS,
       wallet: evmAddress(walletAddress),
     },
-    signMessage: signMessageWith(walletClient as any),
+    signMessage: signMessageWith(walletClient),
   })
 
   if (authenticated.isErr()) {
@@ -50,7 +50,7 @@ export async function loginAsAccountOwner(
       app: LENS_APP_ADDRESS,
       owner: evmAddress(walletAddress),
     },
-    signMessage: signMessageWith(walletClient as any),
+    signMessage: signMessageWith(walletClient),
   })
 
   if (authenticated.isErr()) {
@@ -64,7 +64,7 @@ export async function loginAsAccountOwner(
  * Check if user has existing Lens accounts
  */
 export async function getExistingAccounts(walletAddress: Address) {
-  const result = await fetchAccountsAvailable(lensClient as any, {
+  const result = await fetchAccountsAvailable(lensClient as AnyClient, {
     managedBy: evmAddress(walletAddress),
     includeOwned: true,
   })

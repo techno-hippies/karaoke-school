@@ -10,7 +10,7 @@ services:
         to:
           - global: true
         accept:
-          - webdisplay
+          - u0s81gq1qla2p06rod2p6s47nk.ingress.h6i-dedicated.eu-se-1.digitalfrontier.so
     env:
       - PORT=3000
       - NODE_ENV=production

@@ -41,12 +41,21 @@ export class GroveService {
     fileName: string,
     audioType: 'instrumental' | 'vocal' = 'instrumental'
   ): Promise<GroveUploadResult> {
-    // Decode base64 to bytes
     const audioBuffer = Buffer.from(base64Audio, 'base64');
-    const fileSizeKb = (audioBuffer.length / 1024).toFixed(2);
-
     console.log(
-      `[Grove] Uploading ${audioType} audio: ${fileName} (${fileSizeKb} KB)`
+      `[Grove] Uploading ${audioType} audio: ${fileName} (${(audioBuffer.length / 1024).toFixed(2)} KB)`
+    );
+    return this.uploadFile(audioBuffer, fileName, 'audio/mpeg');
+  }
+
+  async uploadFile(
+    buffer: Buffer,
+    fileName: string,
+    contentType: string
+  ): Promise<GroveUploadResult> {
+    const fileSizeKb = (buffer.length / 1024).toFixed(2);
+    console.log(
+      `[Grove] Uploading file: ${fileName} (${fileSizeKb} KB, ${contentType})`
     );
 
     // Retry logic
@@ -54,7 +63,7 @@ export class GroveService {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        const result = await this._uploadWithRetry(audioBuffer, fileName);
+        const result = await this._uploadWithRetry(buffer, fileName, contentType);
         console.log(
           `[Grove] ✓ Upload successful on attempt ${attempt}: ${result.cid}`
         );
@@ -65,7 +74,6 @@ export class GroveService {
           `[Grove] Attempt ${attempt}/${this.maxRetries} failed: ${error.message}`
         );
 
-        // Exponential backoff: 1s, 2s, 4s
         if (attempt < this.maxRetries) {
           const delayMs = this.retryDelayMs * Math.pow(2, attempt - 1);
           await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -83,8 +91,9 @@ export class GroveService {
    * Posts file data and receives storage_key
    */
   private async _uploadWithRetry(
-    audioBuffer: Buffer,
-    fileName: string
+    buffer: Buffer,
+    fileName: string,
+    contentType: string
   ): Promise<GroveUploadResult> {
     const uploadUrl = `${this.groveApiUrl}/?chain_id=${this.chainId}`;
 
@@ -92,9 +101,9 @@ export class GroveService {
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'audio/mpeg',
+          'Content-Type': contentType,
         },
-        body: audioBuffer,
+        body: buffer,
       });
 
       if (!response.ok) {
@@ -115,7 +124,7 @@ export class GroveService {
       return {
         cid,
         url: `${this.groveApiUrl}/${cid}`,
-        size: audioBuffer.length,
+        size: buffer.length,
         timestamp: new Date(),
       };
     } catch (error: any) {

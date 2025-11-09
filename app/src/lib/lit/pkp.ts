@@ -12,6 +12,8 @@ import {
   type Hex,
   type LocalAccount,
   type Chain,
+  type TransactionSerializable,
+  type TypedDataDefinition,
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
 import { getLitClient, getAuthManager } from './client'
@@ -47,7 +49,7 @@ export async function registerUser(
   const registerResult = await WebAuthnAuthenticator.registerAndMintPKP({
     username: username || 'K-School User',
     authServiceBaseUrl: LIT_WEBAUTHN_CONFIG.authServiceUrl,
-    scopes: LIT_WEBAUTHN_CONFIG.pkpScopes as any,
+    scopes: [...LIT_WEBAUTHN_CONFIG.pkpScopes],
   })
 
   console.log('✅ Registered new credential and minted PKP')
@@ -211,7 +213,7 @@ export async function createPKPAuthContext(
         domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
         statement: 'Execute Lit Actions and sign transactions',
         expiration: getConsistentExpiration(),
-        resources: LIT_WEBAUTHN_CONFIG.authResources as any,
+        resources: LIT_WEBAUTHN_CONFIG.authResources.map((resource) => [...resource]),
       },
       litClient: litClient,
     })
@@ -313,14 +315,14 @@ function createPKPAccount(
     },
 
     // Sign transaction using PKP
-    async signTransaction(transaction) {
+    async signTransaction(transaction: TransactionSerializable) {
       if (IS_DEV) console.log('[PKP] Signing transaction')
 
       const litClient = await getLitClient()
 
       // Serialize transaction for signing
       const { serializeTransaction, keccak256 } = await import('viem')
-      const serializedTx = serializeTransaction(transaction as any)
+      const serializedTx = serializeTransaction(transaction)
       const txHash = keccak256(serializedTx)
 
       const litActionCode = `(async () => {
@@ -354,13 +356,13 @@ function createPKPAccount(
             const v = isEIP1559 ? BigInt(yParity) : BigInt(yParity + 27)
 
             const { serializeTransaction } = await import('viem')
-            const signedTx = {
+            const signedTx: TransactionSerializable = {
               ...transaction,
               r,
               s,
               ...(isEIP1559 ? { yParity } : { v }),
             }
-            return serializeTransaction(signedTx as any)
+            return serializeTransaction(signedTx)
           }
         }
 
@@ -372,13 +374,13 @@ function createPKPAccount(
     },
 
     // Sign typed data (EIP-712)
-    async signTypedData(typedData) {
+    async signTypedData(typedData: TypedDataDefinition) {
       if (IS_DEV) console.log('[PKP] Signing typed data')
 
       const litClient = await getLitClient()
 
       const { hashTypedData } = await import('viem')
-      const hash = hashTypedData(typedData as any)
+      const hash = hashTypedData(typedData)
 
       const litActionCode = `(async () => {
         const sigShare = await Lit.Actions.signEcdsa({
@@ -457,7 +459,7 @@ export async function createPKPWalletClient(
           transport: http(),
         })
 
-        return await (publicClient as any).request({ method, params })
+        return await publicClient.request({ method, params })
       },
     }),
   })

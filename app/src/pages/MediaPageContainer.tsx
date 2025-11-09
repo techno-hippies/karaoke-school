@@ -211,7 +211,7 @@ export function MediaPageContainer() {
         console.log('[MediaPageContainer] First line timing:', lyricsLines[0])
       }
     })
-  }, [segmentMetadata?.translations, segmentMetadata?.assets?.alignment, segmentMetadata?.timing])
+  }, [segmentMetadata])
 
   // Loading state
   if (isLoadingWork || isLoadingSegment) {

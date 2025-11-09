@@ -11,6 +11,8 @@ import {
   type Hex,
   type LocalAccount,
   type Chain,
+  type TransactionSerializable,
+  type TypedDataDefinition,
   defineChain,
 } from 'viem'
 import { getLitClient } from './client'
@@ -116,14 +118,14 @@ function createPKPAccount(
     },
 
     // Sign transaction using PKP via Lit Protocol
-    async signTransaction(transaction) {
+    async signTransaction(transaction: TransactionSerializable) {
       if (IS_DEV) console.log('[PKPSigner] Signing transaction:', transaction)
 
       const litClient = await getLitClient()
 
       // Serialize transaction for signing
       const { serializeTransaction, keccak256 } = await import('viem')
-      const serializedTx = serializeTransaction(transaction as any)
+      const serializedTx = serializeTransaction(transaction)
 
       // Hash the serialized transaction (Lit requires exactly 32 bytes)
       const txHash = keccak256(serializedTx)
@@ -168,13 +170,13 @@ function createPKPAccount(
 
             // Serialize signed transaction with signature components
             const { serializeTransaction } = await import('viem')
-            const signedTx = {
+            const signedTx: TransactionSerializable = {
               ...transaction,
               r,
               s,
               ...(isEIP1559 ? { yParity } : { v }),
             }
-            return serializeTransaction(signedTx as any)
+            return serializeTransaction(signedTx)
           }
         }
 
@@ -186,14 +188,14 @@ function createPKPAccount(
     },
 
     // Sign typed data (EIP-712) using PKP
-    async signTypedData(typedData) {
+    async signTypedData(typedData: TypedDataDefinition) {
       if (IS_DEV) console.log('[PKPSigner] Signing typed data:', typedData)
 
       const litClient = await getLitClient()
 
       // Hash typed data
       const { hashTypedData } = await import('viem')
-      const hash = hashTypedData(typedData as any)
+      const hash = hashTypedData(typedData)
 
       // Lit Action to sign hash
       const litActionCode = `(async () => {
@@ -274,7 +276,7 @@ export async function createPKPWalletClient(
           transport: http(),
         })
 
-        return await (publicClient as any).request({ method, params })
+        return await publicClient.request({ method, params })
       },
     }),
   })

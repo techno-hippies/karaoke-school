@@ -25,7 +25,7 @@ export interface MediaPageProps {
     startTime: number
     lastActiveLine: number | null
     lastActiveWord: { lineIndex: number; wordIndex: number } | null
-    calculateActiveLineAndWord: (currentTime: number, lyrics: any[]) => { lineIndex: number; wordIndex: number }
+    calculateActiveLineAndWord: (currentTime: number, lyrics: LyricLine[]) => { lineIndex: number; wordIndex: number }
     timingLogsRef: React.MutableRefObject<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>
   }
 }

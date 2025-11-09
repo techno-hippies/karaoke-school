@@ -8,6 +8,7 @@ import {SegmentEvents} from "../src/events/SegmentEvents.sol";
 import {TranslationEvents} from "../src/events/TranslationEvents.sol";
 import {LineEvents} from "../src/events/LineEvents.sol";
 import {PerformanceGrader} from "../src/events/PerformanceGrader.sol";
+import {ExerciseEvents} from "../src/events/ExerciseEvents.sol";
 import {AccountEvents} from "../src/events/AccountEvents.sol";
 
 /**
@@ -78,6 +79,12 @@ contract DeployEvents is Script {
         console.log("  PerformanceGrader deployed at:", address(performanceGrader));
         console.log("");
 
+        // Deploy ExerciseEvents (reuses trusted PKP for grading)
+        console.log("Deploying ExerciseEvents...");
+        ExerciseEvents exerciseEvents = new ExerciseEvents(trustedPKP);
+        console.log("  ExerciseEvents deployed at:", address(exerciseEvents));
+        console.log("");
+
         // Deploy AccountEvents (no constructor params, optional)
         console.log("Deploying AccountEvents...");
         AccountEvents accountEvents = new AccountEvents();
@@ -95,6 +102,7 @@ contract DeployEvents is Script {
         console.log("TranslationEvents:   ", address(translationEvents));
         console.log("LineEvents:          ", address(lineEvents));
         console.log("PerformanceGrader:   ", address(performanceGrader));
+        console.log("ExerciseEvents:      ", address(exerciseEvents));
         console.log("AccountEvents:       ", address(accountEvents));
         console.log("");
         console.log("Next steps:");

@@ -71,7 +71,7 @@ function gradeLinePerformance(
 const CONTRACTS = {
   PerformanceGrader: "0xdd231de1016F5BBe56cEB3B617Aa38A5B454610D",
   SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6", 
-  SegmentEvents: "0x012C266f5c35f7C468Ccc4a179708AFA871e2bb8",
+  SegmentEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274",
   AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
   TranslationEvents: "0x..."
 };

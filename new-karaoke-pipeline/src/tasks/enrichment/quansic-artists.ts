@@ -17,7 +17,7 @@ import {
 } from '../../db/queries';
 import { query } from '../../db/connection';
 
-const QUANSIC_URL = process.env.QUANSIC_URL || 'http://1lsb38mac5f273k366859u5390.ingress.akash-palmito.org';
+const QUANSIC_URL = process.env.QUANSIC_URL || 'http://lojcjq8bi9e71b3q1ns6igbh58.ingress.akash.isites.pl';
 
 interface QuansicArtistData {
   ids?: {
@@ -114,22 +114,41 @@ export async function processQuansicArtists(limit: number = 50): Promise<void> {
       try {
         // Call Quansic /lookup-artist
         console.log(`      🔍 Calling Quansic API...`);
-        const response = await fetch(`${QUANSIC_URL}/lookup-artist`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ spotify_artist_id: spotifyArtistId })
-        });
 
-        if (!response.ok) {
-          console.log(`      ⚠️ Quansic API error: ${response.status}`);
-          artistsSkipped++;
-          results.push({
-            spotify_artist_id: spotifyArtistId,
-            name: artistName,
-            isni: null,
-            found: false,
+        let response;
+        try {
+          response = await fetch(`${QUANSIC_URL}/lookup-artist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ spotify_artist_id: spotifyArtistId }),
+            signal: AbortSignal.timeout(15000) // 15 second timeout
           });
-          continue;
+        } catch (fetchError: any) {
+          // Network failure, timeout, or service unavailable
+          console.log(`      ❌ Service unavailable: ${fetchError.message}`);
+          console.log(`      🔄 Will retry later`);
+          throw new Error(`Quansic service unavailable: ${fetchError.message}`);
+        }
+
+        // Got response from service - now check status
+        if (!response.ok) {
+          if (response.status === 404) {
+            // Legitimate 404 from working service = artist not in Quansic DB
+            console.log(`      ⚠️ Not found in Quansic database`);
+            artistsSkipped++;
+            results.push({
+              spotify_artist_id: spotifyArtistId,
+              name: artistName,
+              isni: null,
+              found: false,
+            });
+            continue;
+          } else {
+            // Other HTTP errors (500, 502, 503, etc.) = service problem
+            console.log(`      ❌ Quansic API error: ${response.status}`);
+            console.log(`      🔄 Will retry later`);
+            throw new Error(`Quansic API returned ${response.status}`);
+          }
         }
 
         const result = await response.json();
@@ -150,64 +169,49 @@ export async function processQuansicArtists(limit: number = 50): Promise<void> {
 
         // Extract identifiers
         const isni = data.ids?.isnis?.[0] || null;
-        const isniAll = data.ids?.isnis || null;
-        const ipiAll = data.ids?.ipis || null;
-        const mbid = data.ids?.musicBrainzIds?.[0] || null;
-        const wikidataIds = data.ids?.wikidataIds || null;
+        const ipi = data.ids?.ipis?.[0] || null;
 
         console.log(`      ✅ Found: ${data.name}`);
         if (isni) {
           console.log(`      📋 ISNI: ${isni}`);
         }
-        if (ipiAll && ipiAll.length > 0) {
-          console.log(`      📋 IPI: ${ipiAll.length} code(s)`);
+        if (data.ids?.ipis && data.ids.ipis.length > 0) {
+          console.log(`      📋 IPI: ${data.ids.ipis.length} code(s)`);
         }
-        if (wikidataIds && wikidataIds.length > 0) {
-          console.log(`      🌐 Wikidata: ${wikidataIds[0]}`);
+        if (data.ids?.wikidataIds && data.ids.wikidataIds.length > 0) {
+          console.log(`      🌐 Wikidata: ${data.ids.wikidataIds[0]}`);
         }
 
-        // Store in quansic_artists table
+        // Store in quansic_artists table (matches archived schema)
         await query(`
           INSERT INTO quansic_artists (
+            artist_name,
             spotify_artist_id,
-            quansic_id,
-            name,
             isni,
-            isni_all,
-            ipi_all,
-            musicbrainz_mbid,
-            luminate_ids,
-            gracenote_ids,
-            amazon_ids,
-            apple_ids,
-            raw_data
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-          ON CONFLICT (spotify_artist_id) DO UPDATE SET
-            quansic_id = EXCLUDED.quansic_id,
-            name = EXCLUDED.name,
+            ipi,
+            aliases,
+            metadata
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (artist_name) DO UPDATE SET
+            spotify_artist_id = EXCLUDED.spotify_artist_id,
             isni = EXCLUDED.isni,
-            isni_all = EXCLUDED.isni_all,
-            ipi_all = EXCLUDED.ipi_all,
-            musicbrainz_mbid = EXCLUDED.musicbrainz_mbid,
-            luminate_ids = EXCLUDED.luminate_ids,
-            gracenote_ids = EXCLUDED.gracenote_ids,
-            amazon_ids = EXCLUDED.amazon_ids,
-            apple_ids = EXCLUDED.apple_ids,
-            raw_data = EXCLUDED.raw_data,
+            ipi = EXCLUDED.ipi,
+            aliases = EXCLUDED.aliases,
+            metadata = EXCLUDED.metadata,
             updated_at = NOW()
         `, [
-          spotifyArtistId,
-          data.ids?.quansic_id || null,
           data.name,
+          spotifyArtistId,
           isni,
-          isniAll,
-          ipiAll,
-          mbid,
-          data.ids?.luminateIds || null,
-          data.ids?.gracenoteIds || null,
-          data.ids?.amazonIds || null,
-          data.ids?.appleIds || null,
-          data.raw_data || null
+          ipi,
+          JSON.stringify([]),
+          JSON.stringify({
+            ids: data.ids,
+            isni,
+            ipi,
+            name: data.name,
+            role: 'MainArtist'
+          })
         ]);
 
         console.log(`      ✅ Stored in quansic_artists`);
@@ -223,7 +227,21 @@ export async function processQuansicArtists(limit: number = 50): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, 200));
 
       } catch (error: any) {
-        console.log(`      ❌ Error: ${error.message}`);
+        // Check if this is a service failure (thrown from fetch block above)
+        if (error.message.includes('Quansic service unavailable') ||
+            error.message.includes('Quansic API returned')) {
+          // Service failure - fail the entire task so it retries later
+          console.log(`\n❌ Quansic service failure, task will retry`);
+          await updateEnrichmentTask(task.id, {
+            status: 'failed',
+            error_message: error.message,
+          });
+          failedCount++;
+          throw error; // Stop processing this batch
+        }
+
+        // Other errors (DB errors, parsing errors, etc.)
+        console.log(`      ❌ Unexpected error: ${error.message}`);
         artistsSkipped++;
         results.push({
           spotify_artist_id: spotifyArtistId,

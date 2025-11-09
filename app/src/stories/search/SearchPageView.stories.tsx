@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 import { SearchPageView, type Song } from '@/components/search/SearchPageView'
 
@@ -129,7 +129,7 @@ export const Default: Story = {
 
 export const WithSearchResults: Story = {
   render: () => <InteractiveSearch initialSearchQuery="harry" />,
-  play: async ({ canvasElement }) => {
+  play: async () => {
     // This will auto-trigger search since initialSearchQuery is set
   },
 }
@@ -156,7 +156,6 @@ export const NoResults: Story = {
     onSongClick: () => {},
   },
   render: (args) => {
-    const [hasSearched] = useState(true)
     return (
       <SearchPageView
         {...args}

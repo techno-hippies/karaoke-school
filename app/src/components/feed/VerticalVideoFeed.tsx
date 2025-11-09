@@ -54,7 +54,7 @@ function VerticalVideoFeedComponent({
         setActiveIndex(index)
       }
     }
-  }, [initialVideoId, videos.length])
+  }, [initialVideoId, videos])
 
   // Reset active index and scroll position when first video ID changes (e.g., tab switch)
   const firstVideoId = videos.length > 0 ? videos[0].id : null

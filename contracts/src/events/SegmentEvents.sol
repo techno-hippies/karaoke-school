@@ -67,6 +67,28 @@ contract SegmentEvents {
     );
 
     /**
+     * @notice Emitted when a segment's full track is encrypted for subscription access
+     * @param segmentHash Unique segment hash
+     * @param spotifyTrackId Spotify track ID (redundant for convenience)
+     * @param encryptedFullUri Grove URI (or load.network) for encrypted full-length audio
+     * @param encryptedManifestUri Grove URI for Lit manifest / ACC payload
+     * @param unlockLockAddress Unlock Protocol lock gating access
+     * @param unlockChainId Chain ID for the lock (e.g., Base Sepolia = 84532)
+     * @param metadataUri Metadata URI including references to encrypted artifacts
+     * @param timestamp Block timestamp
+     */
+    event SegmentEncrypted(
+        bytes32 indexed segmentHash,
+        string spotifyTrackId,
+        string encryptedFullUri,
+        string encryptedManifestUri,
+        address unlockLockAddress,
+        uint32 unlockChainId,
+        string metadataUri,
+        uint64 timestamp
+    );
+
+    /**
      * @notice Emitted when a segment is enabled/disabled
      * @param segmentHash Unique segment hash
      * @param enabled Whether segment is enabled
@@ -130,6 +152,37 @@ contract SegmentEvents {
             instrumentalUri,
             alignmentUri,
             translationCount,
+            metadataUri,
+            uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice Emit full-track encryption event tying content to an Unlock lock
+     * @param segmentHash Unique segment identifier
+     * @param spotifyTrackId Spotify track ID
+     * @param encryptedFullUri Encrypted full-length audio URI
+     * @param encryptedManifestUri Manifest/ACC URI for Lit decryption payload
+     * @param unlockLockAddress Unlock Protocol lock address
+     * @param unlockChainId Chain ID for the lock
+     * @param metadataUri Metadata URI including encrypted asset references
+     */
+    function emitSegmentEncrypted(
+        bytes32 segmentHash,
+        string calldata spotifyTrackId,
+        string calldata encryptedFullUri,
+        string calldata encryptedManifestUri,
+        address unlockLockAddress,
+        uint32 unlockChainId,
+        string calldata metadataUri
+    ) external {
+        emit SegmentEncrypted(
+            segmentHash,
+            spotifyTrackId,
+            encryptedFullUri,
+            encryptedManifestUri,
+            unlockLockAddress,
+            unlockChainId,
             metadataUri,
             uint64(block.timestamp)
         );

@@ -190,7 +190,7 @@ curl https://rpc.testnet.lens.xyz \
 **Issue**: Contract address mismatch or wrong network
 
 **Fix**: Verify contract addresses in `subgraph.yaml`:
-- SegmentEvents: `0x4b410DA7e0D87fB0e4116218e3319FF9acAd82c8`
+- SegmentEvents: `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
 - TranslationEvents: `0x5A49E23A5C3a034906eE0274c266A08805770C70`
 
 ### "network not supported by registrar: no network X found"

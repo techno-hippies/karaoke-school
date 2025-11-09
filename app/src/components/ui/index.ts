@@ -1,7 +1,7 @@
 // shadcn/ui components
 export { Accordion } from './accordion'
 export { Badge } from './badge'
-export { Button, buttonVariants } from './button'
+export { Button } from './button'
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card'
 export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './dialog'
 export { Drawer, DrawerPortal, DrawerOverlay, DrawerClose, DrawerTrigger, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from './drawer'

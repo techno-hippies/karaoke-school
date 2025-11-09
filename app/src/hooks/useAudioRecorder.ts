@@ -89,7 +89,7 @@ export function useAudioRecorder() {
 
             // Upload to Grove
             setIsUploading(true)
-            const uri = await uploadToGrove(blob)
+            const uri = await uploadToGrove()
             setGroveUri(uri)
             setIsUploading(false)
 
@@ -129,7 +129,7 @@ export function useAudioRecorder() {
  *
  * TODO: Implement using Grove client (already used in pipeline)
  */
-async function uploadToGrove(audioBlob: Blob): Promise<string> {
+async function uploadToGrove(): Promise<string> {
   // TODO: Use existing Grove integration from karaoke-pipeline
   // For now, return placeholder
   return `grove://${Date.now()}`
