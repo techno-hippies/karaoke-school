@@ -27,7 +27,7 @@ import { query } from '../../db/connection';
 import { createDemucsService } from '../../services/demucs';
 import { TrackStage, AudioTaskType } from '../../db/task-stages';
 import { updateSongAudioStems } from '../../db/audio-queries';
-import { BaseTask, type BaseTrackInput, type TaskResult } from '../../lib/base-task';
+import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
 import { CONFIG } from '../../config';
 import type { SeparateMetadata } from '../../types/task-metadata';
 
@@ -75,8 +75,10 @@ export class SeparateAudioTask extends BaseTask<TrackForSeparation, SeparationRe
 
   /**
    * Select tracks at 'translated' stage with audio but no instrumental yet
+   * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
   async selectTracks(limit: number): Promise<TrackForSeparation[]> {
+    const retryFilter = buildAudioTasksFilter(this.taskType);
     return query<TrackForSeparation>(
       `SELECT
         t.spotify_track_id,
@@ -89,6 +91,7 @@ export class SeparateAudioTask extends BaseTask<TrackForSeparation, SeparationRe
       WHERE t.stage = $1
         AND sa.grove_url IS NOT NULL
         AND sa.instrumental_grove_url IS NULL
+        ${retryFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
       [TrackStage.Translated, limit]

@@ -26,7 +26,7 @@ import { query } from '../../db/connection';
 import { TrackStage, AudioTaskType } from '../../db/task-stages';
 import { createFFmpegService } from '../../services/ffmpeg';
 import { uploadToGrove } from '../../services/storage';
-import { BaseTask, type BaseTrackInput, type TaskResult } from '../../lib/base-task';
+import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
 import type { ClipMetadata } from '../../types/task-metadata';
 
 interface TrackForClipping extends BaseTrackInput {
@@ -63,8 +63,10 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
   /**
    * Select tracks with enhanced audio and clip boundaries
    * NOTE: Tracks are at 'enhanced' stage after enhancement completes, not 'segmented'
+   * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
   async selectTracks(limit: number): Promise<TrackForClipping[]> {
+    const retryFilter = buildAudioTasksFilter(this.taskType);
     return query<TrackForClipping>(
       `SELECT
         t.spotify_track_id,
@@ -80,6 +82,7 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
         AND ks.clip_start_ms IS NOT NULL
         AND ks.clip_end_ms IS NOT NULL
         AND ks.clip_grove_url IS NULL
+        ${retryFilter}
       ORDER BY t.created_at DESC
       LIMIT $2`,
       [TrackStage.Enhanced, limit]

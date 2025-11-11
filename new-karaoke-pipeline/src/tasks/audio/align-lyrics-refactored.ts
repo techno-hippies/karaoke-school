@@ -26,7 +26,7 @@
 import { query } from '../../db/connection';
 import { ElevenLabsService } from '../../services/elevenlabs';
 import { TrackStage, AudioTaskType } from '../../db/task-stages';
-import { BaseTask, type BaseTrackInput, type TaskResult } from '../../lib/base-task';
+import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
 import { CONFIG } from '../../config';
 import type { AlignMetadata } from '../../types/task-metadata';
 
@@ -99,8 +99,10 @@ export class AlignLyricsTask extends BaseTask<TrackForAlignment, AlignmentResult
 
   /**
    * Select tracks at 'audio_ready' stage with audio and lyrics
+   * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
   async selectTracks(limit: number): Promise<TrackForAlignment[]> {
+    const retryFilter = buildAudioTasksFilter(this.taskType);
     return query<TrackForAlignment>(
       `SELECT
         t.spotify_track_id,
@@ -115,6 +117,7 @@ export class AlignLyricsTask extends BaseTask<TrackForAlignment, AlignmentResult
       WHERE t.stage = $1
         AND sa.grove_url IS NOT NULL
         AND (sl.plain_lyrics IS NOT NULL OR sl.synced_lyrics IS NOT NULL)
+        ${retryFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
       [TrackStage.AudioReady, limit]

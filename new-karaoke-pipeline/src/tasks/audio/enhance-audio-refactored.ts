@@ -31,7 +31,7 @@ import { createFalService } from '../../services/fal';
 import { createFFmpegService } from '../../services/ffmpeg';
 import { uploadToGrove } from '../../services/storage';
 import { upsertKaraokeSegment } from '../../db/audio-queries';
-import { BaseTask, type BaseTrackInput, type TaskResult } from '../../lib/base-task';
+import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
 import { CONFIG } from '../../config';
 import type { EnhanceMetadata } from '../../types/task-metadata';
 import { tmpdir } from 'os';
@@ -130,8 +130,10 @@ export class EnhanceAudioTask extends BaseTask<TrackForEnhancement, EnhancementR
 
   /**
    * Select tracks at 'segmented' stage ready for enhancement
+   * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
   async selectTracks(limit: number): Promise<TrackForEnhancement[]> {
+    const retryFilter = buildAudioTasksFilter(this.taskType);
     return query<TrackForEnhancement>(
       `SELECT
         t.spotify_track_id,
@@ -143,6 +145,7 @@ export class EnhanceAudioTask extends BaseTask<TrackForEnhancement, EnhancementR
       JOIN song_audio sa ON t.spotify_track_id = sa.spotify_track_id
       WHERE t.stage = $1
         AND sa.instrumental_grove_url IS NOT NULL
+        ${retryFilter}
       ORDER BY t.created_at ASC
       LIMIT $2`,
       [TrackStage.Segmented, limit]

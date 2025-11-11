@@ -27,7 +27,7 @@ import { query } from '../../db/connection';
 import { LyricsTranslator, type ElevenLabsWord } from '../../services/lyrics-translator';
 import { TrackStage, AudioTaskType } from '../../db/task-stages';
 import { upsertTranslation, getExistingTranslations, countTranslations } from '../../db/audio-queries';
-import { BaseTask, type BaseTrackInput, type TaskResult } from '../../lib/base-task';
+import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
 import { CONFIG } from '../../config';
 import type { TranslateMetadata } from '../../types/task-metadata';
 
@@ -80,8 +80,10 @@ export class TranslateLyricsTask extends BaseTask<TrackForTranslation, Translati
   /**
    * Select tracks at 'aligned' stage with lyrics and word alignments
    * Only processes tracks with valid Wikidata (GRC-20 legitimacy gate)
+   * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
   async selectTracks(limit: number): Promise<TrackForTranslation[]> {
+    const retryFilter = buildAudioTasksFilter(this.taskType);
     return query<TrackForTranslation>(
       `SELECT
         t.spotify_track_id,
@@ -106,6 +108,7 @@ export class TranslateLyricsTask extends BaseTask<TrackForTranslation, Translati
             AND wa.name IS NOT NULL
             AND wa.name != wa.wikidata_id
         )
+        ${retryFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
       [TrackStage.Aligned, limit]
