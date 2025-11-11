@@ -160,8 +160,11 @@ if (import.meta.main) {
   const limitArg = process.argv.find(arg => arg.startsWith('--limit='));
   const limit = limitArg ? parseInt(limitArg.split('=')[1]) : 10;
 
+  const trackIdArg = process.argv.find(arg => arg.startsWith('--trackId='));
+  const trackId = trackIdArg ? trackIdArg.split('=')[1] : undefined;
+
   const task = new SeparateAudioTask();
-  task.run({ limit }).catch((error) => {
+  task.run({ limit, trackId }).catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
   });
