@@ -65,8 +65,11 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
    * NOTE: Tracks are at 'enhanced' stage after enhancement completes, not 'segmented'
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForClipping[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForClipping[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.Enhanced, limit, trackId] : [TrackStage.Enhanced, limit];
+
     return query<TrackForClipping>(
       `SELECT
         t.spotify_track_id,
@@ -83,9 +86,10 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
         AND ks.clip_end_ms IS NOT NULL
         AND ks.clip_grove_url IS NULL
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.created_at DESC
       LIMIT $2`,
-      [TrackStage.Enhanced, limit]
+      params
     );
   }
 

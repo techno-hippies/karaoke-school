@@ -95,8 +95,11 @@ export class SelectSegmentsTask extends BaseTask<TrackForSegmentation, Segmentat
    * (separated + aligned, with normalized lyrics)
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForSegmentation[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForSegmentation[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.Separated, limit, trackId] : [TrackStage.Separated, limit];
+
     return query<TrackForSegmentation>(
       `SELECT DISTINCT
         t.spotify_track_id,
@@ -118,9 +121,10 @@ export class SelectSegmentsTask extends BaseTask<TrackForSegmentation, Segmentat
         AND sl.normalized_lyrics IS NOT NULL
         AND t.stage = $1
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.created_at DESC
       LIMIT $2`,
-      [TrackStage.Separated, limit]
+      params
     );
   }
 
@@ -177,7 +181,7 @@ export class SelectSegmentsTask extends BaseTask<TrackForSegmentation, Segmentat
 
     return {
       metadata: {
-        method: 'hybrid',
+        method: selection.method, // Use actual method ('deterministic' or 'ai')
         start_ms: selection.start_ms,
         end_ms: selection.end_ms,
         duration_ms: selection.duration_ms,

@@ -132,8 +132,11 @@ export class EnhanceAudioTask extends BaseTask<TrackForEnhancement, EnhancementR
    * Select tracks at 'segmented' stage ready for enhancement
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForEnhancement[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForEnhancement[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.Segmented, limit, trackId] : [TrackStage.Segmented, limit];
+
     return query<TrackForEnhancement>(
       `SELECT
         t.spotify_track_id,
@@ -146,9 +149,10 @@ export class EnhanceAudioTask extends BaseTask<TrackForEnhancement, EnhancementR
       WHERE t.stage = $1
         AND sa.instrumental_grove_url IS NOT NULL
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.created_at ASC
       LIMIT $2`,
-      [TrackStage.Segmented, limit]
+      params
     );
   }
 

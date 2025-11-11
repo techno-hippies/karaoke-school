@@ -118,9 +118,10 @@ export abstract class BaseTask<TInput extends BaseTrackInput, TResult extends Ta
    * Select tracks ready for processing
    *
    * @param limit Maximum number of tracks to return
+   * @param trackId Optional specific track ID to select
    * @returns Array of tracks to process
    */
-  abstract selectTracks(limit: number): Promise<TInput[]>;
+  abstract selectTracks(limit: number, trackId?: string): Promise<TInput[]>;
 
   /**
    * Process a single track
@@ -177,20 +178,9 @@ export abstract class BaseTask<TInput extends BaseTrackInput, TResult extends Ta
     }
 
     // Select tracks to process
-    let tracks: TInput[];
-    if (trackId) {
-      // Process specific track
-      const selected = await this.selectTracks(1);
-      tracks = selected.filter(t => t.spotify_track_id === trackId);
-
-      if (tracks.length === 0) {
-        console.log(`Track ${trackId} not found or not ready for ${this.taskType}`);
-        return;
-      }
-    } else {
-      // Process batch
-      tracks = await this.selectTracks(limit);
-    }
+    const tracks = trackId
+      ? await this.selectTracks(1, trackId)  // Pass trackId to selectTracks
+      : await this.selectTracks(limit);
 
     if (tracks.length === 0) {
       console.log(`No tracks ready for ${this.taskType}`);

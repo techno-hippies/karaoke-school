@@ -82,8 +82,11 @@ export class TranslateLyricsTask extends BaseTask<TrackForTranslation, Translati
    * Only processes tracks with valid Wikidata (GRC-20 legitimacy gate)
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForTranslation[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForTranslation[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.Aligned, limit, trackId] : [TrackStage.Aligned, limit];
+
     return query<TrackForTranslation>(
       `SELECT
         t.spotify_track_id,
@@ -109,9 +112,10 @@ export class TranslateLyricsTask extends BaseTask<TrackForTranslation, Translati
             AND wa.name != wa.wikidata_id
         )
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
-      [TrackStage.Aligned, limit]
+      params
     );
   }
 

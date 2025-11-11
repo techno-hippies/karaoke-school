@@ -77,8 +77,11 @@ export class SeparateAudioTask extends BaseTask<TrackForSeparation, SeparationRe
    * Select tracks at 'translated' stage with audio but no instrumental yet
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForSeparation[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForSeparation[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.Translated, limit, trackId] : [TrackStage.Translated, limit];
+
     return query<TrackForSeparation>(
       `SELECT
         t.spotify_track_id,
@@ -92,9 +95,10 @@ export class SeparateAudioTask extends BaseTask<TrackForSeparation, SeparationRe
         AND sa.grove_url IS NOT NULL
         AND sa.instrumental_grove_url IS NULL
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
-      [TrackStage.Translated, limit]
+      params
     );
   }
 

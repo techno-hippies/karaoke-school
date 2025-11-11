@@ -101,8 +101,11 @@ export class AlignLyricsTask extends BaseTask<TrackForAlignment, AlignmentResult
    * Select tracks at 'audio_ready' stage with audio and lyrics
    * Respects audio_tasks retry logic (attempts, backoff, max_attempts)
    */
-  async selectTracks(limit: number): Promise<TrackForAlignment[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackForAlignment[]> {
     const retryFilter = buildAudioTasksFilter(this.taskType);
+    const trackIdFilter = trackId ? `AND t.spotify_track_id = $3` : '';
+    const params = trackId ? [TrackStage.AudioReady, limit, trackId] : [TrackStage.AudioReady, limit];
+
     return query<TrackForAlignment>(
       `SELECT
         t.spotify_track_id,
@@ -118,9 +121,10 @@ export class AlignLyricsTask extends BaseTask<TrackForAlignment, AlignmentResult
         AND sa.grove_url IS NOT NULL
         AND (sl.plain_lyrics IS NOT NULL OR sl.synced_lyrics IS NOT NULL)
         ${retryFilter}
+        ${trackIdFilter}
       ORDER BY t.updated_at ASC
       LIMIT $2`,
-      [TrackStage.AudioReady, limit]
+      params
     );
   }
 
