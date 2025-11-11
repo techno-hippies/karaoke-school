@@ -418,7 +418,7 @@ We've successfully created the foundation for a cleaner, more maintainable pipel
 
 ### Completed Migrations
 
-**Audio Pipeline Tasks (3/8 complete):**
+**Audio Pipeline Tasks (5/8 complete):**
 
 1. ✅ **align-lyrics.ts** → `align-lyrics-refactored.ts`
    - **Reduction**: 285 lines → ~230 lines (19% reduction)
@@ -444,6 +444,23 @@ We've successfully created the foundation for a cleaner, more maintainable pipel
      - Uses `CONFIG.audio.segment.maxDurationMs` for chunk size
      - Strict `EnhanceMetadata` typing
      - Hooks for setup/cleanup (`beforeRun`, `afterRun`)
+
+4. ✅ **select-segments.ts** → `select-segments-refactored.ts`
+   - **Reduction**: 475 lines → ~410 lines (14% reduction)
+   - **Key improvements**:
+     - Eliminated manual lifecycle management from hybrid AI/deterministic system
+     - Private methods preserve complex logic: `identifySongStructure`, `selectSegmentFromStructure`, `selectSegmentFromBreaks`, `findSegmentBoundaries`
+     - Uses `CONFIG.audio.segment.maxDurationMs` and `minDurationMs` throughout
+     - Uses `CONFIG.translation.model` for AI fallback
+     - Strict `SegmentMetadata` typing with selection method tracking
+
+5. ✅ **clip-segments.ts** → `clip-segments-refactored.ts`
+   - **Reduction**: 179 lines → ~140 lines (22% reduction)
+   - **Key improvements**:
+     - Clean FFmpeg cropping and Grove upload flow
+     - Service initialization in constructor
+     - Strict `ClipMetadata` typing (duration, file size, format)
+     - No manual error handling, all via BaseTask
 
 ### Configuration Updates
 
