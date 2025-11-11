@@ -411,3 +411,102 @@ mv src/tasks/my-task-refactored.ts src/tasks/my-task.ts
 We've successfully created the foundation for a cleaner, more maintainable pipeline architecture. The BaseTask abstraction eliminates boilerplate while maintaining full flexibility through hooks.
 
 **Next**: Migrate remaining 20 tasks to BaseTask pattern (Phase 2).
+
+---
+
+## Phase 2 Progress (In Progress)
+
+### Completed Migrations
+
+**Audio Pipeline Tasks (3/8 complete):**
+
+1. ✅ **align-lyrics.ts** → `align-lyrics-refactored.ts`
+   - **Reduction**: 285 lines → ~230 lines (19% reduction)
+   - **Key improvements**:
+     - Eliminated manual task lifecycle management
+     - Added rate limiting hook using `CONFIG.audio.elevenlabs.rateLimitMs`
+     - Strict `AlignMetadata` typing
+     - Cleaner error handling
+
+2. ✅ **separate-audio.ts** → `separate-audio-refactored.ts`
+   - **Reduction**: 163 lines → ~155 lines (5% reduction, but cleaner structure)
+   - **Key improvements**:
+     - Removed manual `ensureAudioTask/startTask/completeTask/failTask`
+     - Automatic stage updates via BaseTask
+     - Strict `SeparateMetadata` typing
+     - Service initialization in constructor
+
+3. ✅ **enhance-audio.ts** → `enhance-audio-refactored.ts`
+   - **Reduction**: 346 lines → ~320 lines (8% reduction, complex logic preserved)
+   - **Key improvements**:
+     - Eliminated task lifecycle boilerplate (~50 lines)
+     - Private methods for chunking logic (`processChunk`, `mergeChunks`)
+     - Uses `CONFIG.audio.segment.maxDurationMs` for chunk size
+     - Strict `EnhanceMetadata` typing
+     - Hooks for setup/cleanup (`beforeRun`, `afterRun`)
+
+### Configuration Updates
+
+Added to `src/config/index.ts`:
+```typescript
+elevenlabs: {
+  timeout: 60000,
+  maxRetries: 3,
+  rateLimitMs: 2000, // NEW: 2 seconds between calls
+}
+```
+
+### Next Steps
+
+**Remaining Audio Pipeline Tasks (5/8):**
+- [ ] `translate-lyrics.ts` (replace with existing refactored version)
+- [ ] `select-segments.ts`
+- [ ] `clip-segments.ts`
+- [ ] `encrypt-clips.ts`
+- [ ] `download-audio.ts` (special case: delegates to external service)
+
+**Content Pipeline Tasks (5 tasks):**
+- [ ] `generate-translation-quiz.ts`
+- [ ] `generate-trivia.ts`
+- [ ] `emit-clip-events.ts`
+- [ ] `update-translation-questions.ts`
+- [ ] `translate-trivia.ts`
+
+**Enrichment Pipeline Tasks (7 tasks):**
+- [ ] `iswc-discovery.ts`
+- [ ] `musicbrainz.ts`
+- [ ] `genius-songs.ts`
+- [ ] `genius-artists.ts`
+- [ ] `quansic-artists.ts`
+- [ ] `spotify-artists.ts`
+- [ ] `wikidata-artists.ts`
+
+### Lessons Learned
+
+1. **Complex tasks benefit more from BaseTask**: While simple tasks show smaller percentage reductions, complex tasks (like `enhance-audio.ts`) benefit significantly from eliminating repetitive lifecycle code.
+
+2. **Hooks are powerful**: The `afterProcessTrack` hook enabled clean rate limiting without cluttering business logic.
+
+3. **Private methods preserve clarity**: Complex tasks with helper functions (chunking, merging) remain readable by keeping them as private methods within the task class.
+
+4. **Config centralization pays off**: Using `CONFIG.audio.segment.maxDurationMs` instead of hardcoded 190000 makes the code self-documenting and easier to maintain.
+
+### Testing Plan
+
+Before replacing original files:
+1. Test each refactored task with `--limit=1`
+2. Verify task lifecycle in `audio_tasks` table
+3. Confirm stage progression in `tracks.stage`
+4. Check metadata structure matches type definitions
+
+### Deployment Strategy
+
+1. Keep both versions (`*-refactored.ts` and originals) during testing
+2. Test refactored versions in development
+3. Once validated, replace originals:
+   ```bash
+   mv src/tasks/audio/align-lyrics.ts src/tasks/audio/align-lyrics-old.ts
+   mv src/tasks/audio/align-lyrics-refactored.ts src/tasks/audio/align-lyrics.ts
+   ```
+4. Update package.json scripts to point to new filenames
+5. Archive old versions after 1 week of production use

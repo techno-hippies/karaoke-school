@@ -86,6 +86,7 @@ export const AUDIO_CONFIG = {
   elevenlabs: {
     timeout: 60000, // 1 minute
     maxRetries: 3,
+    rateLimitMs: 2000, // 2 seconds between calls
   },
 
   /** FFmpeg processing */
