@@ -5,6 +5,7 @@
 
 import { buildUpsert } from './connection';
 import type { MBRecording, MBWork, MBArtist } from '../services/musicbrainz';
+import { normalizeISWC } from '../utils/iswc';
 
 /**
  * Normalize date to PostgreSQL DATE format
@@ -79,7 +80,7 @@ export function upsertMBWorkSQL(work: MBWork): string {
     work_mbid: work.id,
     title: work.title,
     work_type: work.type || null,
-    iswc: work.iswcs?.[0] || null,
+    iswc: normalizeISWC(work.iswcs?.[0] || null),
     contributors: work.relations?.filter(rel => rel.artist).map(rel => ({
       type: rel.type,
       mbid: rel.artist!.id,
@@ -100,9 +101,12 @@ export function upsertMBWorkSQL(work: MBWork): string {
 
 /**
  * Generate SQL to upsert MusicBrainz artist
+ * @param artist MusicBrainz artist data
+ * @param authoritativeSpotifyId Authoritative Spotify artist ID from our Spotify API (overrides MB's extracted ID)
  */
 export function upsertMBArtistSQL(
-  artist: MBArtist
+  artist: MBArtist,
+  authoritativeSpotifyId?: string
 ): string {
   const socialMedia: Record<string, string> = {};
   const streaming: Record<string, string> = {};
@@ -198,7 +202,9 @@ export function upsertMBArtistSQL(
     // Store first ISNI in singular field for easy querying
     isni: artist.isnis?.[0] || null,
     wikidata_id: wikidataId,
-    spotify_id: spotifyId,
+    // Use authoritative Spotify ID from our API if provided (single source of truth)
+    // Otherwise fall back to MB's extracted ID (may be stale/incorrect)
+    spotify_id: authoritativeSpotifyId || spotifyId,
     aliases: artist.aliases?.map(a => ({
       name: a.name,
       locale: a.locale || null,

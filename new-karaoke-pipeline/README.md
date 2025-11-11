@@ -4,18 +4,21 @@ Dual-format karaoke processing with encrypted full songs, public clips, and Web3
 
 ---
 
-## 📍 Snapshot (2025-11-08)
+## 📍 Snapshot (2025-11-10)
 
 - **Database**: `flat-mode-57592166` (Neon Postgres)
 - **Tracks**: 9 imported
-  - `ready`: 1
-  - `segmented`: 4
-  - `aligned` / `audio_ready`: remaining
-- **Identity**:
-  - PKP minted: Eminem (`0x9a36…Bc9`)
-  - Lens handle format: `artist-name-ks1`
-  - Unlock lock deployed: Eminem (`0x6b39…ca7d`, 0.0006 ETH / 30 days)
-- **Content Security**: Lit Protocol encryption task wired to Unlock locks; schema columns live in `karaoke_segments`.
+  - `ready`: 5 tracks (enhanced audio + clips complete)
+  - All stages complete through `clip` generation
+- **Identity & Minting**:
+  - PKPs minted: 9 artists
+  - Lens accounts created: 9 artists (format: `artist-name-ks1`)
+  - GRC-20 entities minted: 10 artists + 10 works ✅
+  - Unlock locks deployed: 1 artist (Eminem `0x6b39…ca7d`, 0.0006 ETH / 30 days)
+  - **Blocker**: 4 artists need Unlock lock deployment before full song encryption
+- **Events**:
+  - `ClipRegistered` + `ClipProcessed`: 1 emitted ✅
+  - `SongEncrypted`: 0 emitted (blocked by missing Unlock locks)
 
 ---
 
@@ -65,9 +68,29 @@ This architecture reflects the natural lifecycle difference:
 
 ## 🚀 Getting Started
 
+### Prerequisites
+
+**Required Services** (must be running locally):
+
+1. **Quansic Service** (port 3000) – Music metadata enrichment via headless browser automation
+   ```bash
+   cd api-services/quansic-service
+   python main.py
+   # Health check: curl http://localhost:3000/health
+   ```
+
+2. **Audio Download Service** (port 3001) – YouTube/P2P audio extraction
+   ```bash
+   cd api-services/audio-download-service
+   bun run start
+   # Health check: curl http://localhost:3001/health
+   ```
+
+**Environment Setup**:
 ```bash
 # 1. Configure environment
 cp .env.example .env
+# Set QUANSIC_SERVICE_URL=http://localhost:3000
 # Fill NEON_DATABASE_URL, SPOTIFY credentials, PRIVATE_KEY, GROVE API key…
 
 # 2. Install dependencies
@@ -96,6 +119,12 @@ bun db:status
    ```
 
 ### Audio Processing (sequential per track)
+
+**Dual-Format Output**:
+- **Full songs**: Enhanced instrumental, encrypted with Lit Protocol, gated by Unlock locks, emitted via `SongEncrypted`
+- **Clips**: 40-100s public preview, emitted via `ClipRegistered`/`ClipProcessed`, no encryption
+
+**Clip Selection**: Simple deterministic algorithm accumulates natural sections from song start until reaching 40-100s duration. Includes intro if lyrics start within 15s. Fast (1s vs 10s+ for AI), reliable, captures iconic openings.
 
 | Stage | Command | Notes |
 |-------|---------|-------|
@@ -134,6 +163,81 @@ Each task uses the helpers in `src/db/audio-tasks.ts` to set `audio_tasks.status
    - Persists Grove ciphertext + manifest URLs in `karaoke_segments`.
 
 Resulting data lands in `pkp_accounts`, `lens_accounts`, and the encryption columns on `karaoke_segments`.
+
+### GRC-20 Space & Minting
+
+GRC-20 (Geo Resource Catalog) is a decentralized metadata standard for music entities. All artist and work metadata is published to IPFS and stored on-chain via the Geo Browser space.
+
+**Core Files**:
+- `src/config/grc20-space.ts` – Space ID, contract addresses, property/type/relation UUIDs, legacy properties list
+- `src/tasks/grc20/setup-space.ts` – Idempotent schema bootstrap (creates properties, types, relations)
+- `src/tasks/grc20/mint.ts` – Mints new artists and works from `grc20_artists` and `grc20_works` tables
+- `src/tasks/grc20/update-artist-metadata.ts` – Updates existing artist entities (use when `needs_update = true`)
+- `src/tasks/grc20/update-work-metadata.ts` – Updates existing work entities (use when `needs_update = true`)
+- `src/tasks/grc20/utils/artist-values.ts` – Artist metadata value builder with all property mappings
+- `src/tasks/grc20/utils/work-values.ts` – Work metadata value builder with all property mappings
+
+**Prerequisites**
+
+1. `.env` (or the parent env) must expose the Neon connection string (`NEON_DATABASE_URL`) and the Geo wallet `PRIVATE_KEY` used for the space.
+2. If you have multiple Neon configs loaded, prefer overriding the URL per invocation to avoid stale credentials:
+   ```bash
+   NEON_DATABASE_URL='postgresql://neondb_owner:***@ep-royal-block-a4s10rvi-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' \ 
+   bun run src/tasks/grc20/mint.ts
+   ```
+
+**Provision / Sync the Space Schema**
+
+```bash
+bun run src/tasks/grc20/setup-space.ts
+```
+
+This script uploads each missing property/type via `Ipfs.publishEdit` and submits personal-space edits through the space plugin. It is safe to re-run; existing entities are skipped.
+
+**Mint Artists & Works**
+
+```bash
+bun run src/tasks/grc20/mint.ts
+```
+
+1. Reads unminted rows from `grc20_artists` and `grc20_works`.
+2. Generates cover images (via Geo image entities) and entity ops.
+3. Publishes a single edit for all artists, then another for all works.
+4. Updates `grc20_entity_id`, `minted_at`, and clears `needs_update` locally once the transaction confirms.
+
+The script prints both IPFS CIDs and transaction hashes so they can be cross-checked on Geo Testnet.
+
+**Update Existing Entities**
+
+When artist or work metadata changes in the database, flag entities for update and run the updater:
+
+```bash
+# Update all artists with new/changed metadata
+bun run src/tasks/grc20/update-artist-metadata.ts
+
+# Update all works with new/changed metadata
+bun run src/tasks/grc20/update-work-metadata.ts
+```
+
+These scripts:
+1. Query entities where `needs_update = true`
+2. Build property values using the utils functions
+3. Unset any properties that are now empty
+4. Remove legacy properties (defined in `GRC20_LEGACY_ARTIST_PROPERTIES` / `GRC20_LEGACY_WORK_PROPERTIES`)
+5. Update all property values in a single transaction
+6. Clear the `needs_update` flag after successful update
+
+**Data Formatting Standards**:
+- **Release Dates**: ISO 8601 date-only format (YYYY-MM-DD). No time components. Example: `2020-03-20`
+- **URLs**: Individual properties for each platform (Spotify, Genius, Wikidata, etc.). No JSON blobs.
+- **Library IDs**: Separate properties for VIAF, BNF, GND, LOC. No aggregated JSON.
+- **Aliases**: Flattened from JSONB `aliases->en` into TEXT `alternate_names` for backward compatibility.
+
+**Removed Legacy Properties** (too large or redundant):
+- `artistExternalIds` – redundant with individual URL fields
+- `artistWikipediaUrls` – 70+ languages, queryable from Wikidata instead
+- `artistLibraryIds` – redundant with separate VIAF/BNF/GND/LOC properties
+- `workIsrc` / `workSpotifyTrackId` / `workSpotifyUrl` / `workImageSource` – moved to separate tracking
 
 ---
 
@@ -199,9 +303,15 @@ call_mcp_tool("run_sql", { params: { sql: "SELECT spotify_track_id FROM karaoke_
 **Sequential artist pipeline**:
 1. Enrichment tasks (optional, parallel): spotify_enrichment, quansic_enrichment, wikidata_enrichment, genius_enrichment
 2. Identity tasks (required, sequential):
-   - `mint_pkp` → `create_lens` → `deploy_unlock`
+   - `mint_pkp` → `create_lens` → `populate_grc20` → `mint_grc20` → `deploy_unlock`
 3. Track encryption (requires `deploy_unlock` completed):
    - Segment encryption uses artist's Unlock lock for Lit Protocol ACCs
+
+**Why GRC-20 comes BEFORE Unlock deployment**:
+- Lens handles are stored in GRC-20 artist entities (immutable once minted)
+- Unlock lock addresses are NOT in GRC-20 entities - they stay in `lens_accounts` only
+- Locks can be deployed after GRC-20 minting without requiring entity updates
+- Encryption depends on locks, but GRC-20 minting does not
 
 ### Integration Pattern
 

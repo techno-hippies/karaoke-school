@@ -17,7 +17,7 @@ import {
 } from '../../db/queries';
 import { query } from '../../db/connection';
 
-const QUANSIC_URL = process.env.QUANSIC_URL || 'http://lojcjq8bi9e71b3q1ns6igbh58.ingress.akash.isites.pl';
+const QUANSIC_URL = process.env.QUANSIC_SERVICE_URL || process.env.QUANSIC_URL || 'http://localhost:3000';
 
 interface QuansicArtistData {
   ids?: {

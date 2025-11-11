@@ -25,6 +25,27 @@ Deliver dual-format karaoke content sourced from TikTok:
 
 ---
 
+## 🔧 Required Services
+
+**The pipeline requires these local services to be running:**
+
+1. **Quansic Service** (port 3000)
+   - Purpose: Music metadata enrichment (ISNI, ISWC, IPI from Quansic database)
+   - Location: `api-services/quansic-service/`
+   - Start: `python main.py`
+   - Environment: Set `QUANSIC_SERVICE_URL=http://localhost:3000` in pipeline `.env`
+   - Mode: Runs headless (no browser windows)
+
+2. **Audio Download Service** (port 3001)
+   - Purpose: YouTube/P2P audio extraction for pipeline ingestion
+   - Location: `api-services/audio-download-service/`
+   - Start: `bun run start`
+   - Environment: Configured via service's own `.env`
+
+**Why local?** At small scale, local services are faster, easier to debug, and avoid network latency. Deploy to cloud when scaling.
+
+---
+
 ## 🚨 Ground Rules
 
 1. **Use MCP for SQL**. Do not import Neon clients or run inline scripts with DB credentials.
@@ -32,7 +53,8 @@ Deliver dual-format karaoke content sourced from TikTok:
 3. **Respect storage split**: temp uploads → Grove, final immutable data → load.network.
 4. **Never regress `tracks.stage` manually**. Stages are recalculated by `updateTrackStage()` based on `audio_tasks` completion.
 5. **Lens handle suffix**: always `sanitizeHandle(name) + '-ks1'`.
-6. **Unlock + Lit**: ACCs must enforce ownership of the artist’s lock (`balanceOf(:userAddress) > 0`).
+6. **Unlock + Lit**: ACCs must enforce ownership of the artist's lock (`balanceOf(:userAddress) > 0`).
+7. **GRC-20 Legitimacy Gate**: Translation task (`translate-lyrics.ts`) blocks tracks without Wikidata, preventing expensive processing of illegitimate content. At 10K scale, saves $890 + 52.7 hours.
 
 ---
 
@@ -62,14 +84,21 @@ Deliver dual-format karaoke content sourced from TikTok:
 - Verify artist metadata populated before identity tasks.
 
 ### Audio Pipeline (sequential per track)
-1. `download` → `audio_ready`
-2. `align` → `aligned`
-3. `translate` → `translated`
-4. `separate` → `separated`
-5. `enhance` → `enhanced`
-6. `segment` → `segmented`
-7. `clip` / `generate_lines` → `ready`
-8. `encrypt` (on demand after Unlock lock exists) → emits `SegmentEncrypted`
+1. `download` → `audio_ready` (free: TikTok/YouTube API)
+2. `align` → `aligned` (free: ElevenLabs free tier)
+3. **🚨 GRC-20 LEGITIMACY GATE** → blocks tracks without Wikidata before paid operations
+4. `translate` → `translated` ($0.045/track: Gemini Flash 2.5 Lite × 3 languages)
+5. `separate` → `separated` ($0.05/track: Demucs via RunPod, 45s)
+6. `enhance` → `enhanced` ($0.35/track: fal.ai Stable Audio 2.5)
+7. `segment` → `segmented` (free: local hybrid selection)
+8. `clip` / `generate_lines` → `ready` (free: FFmpeg)
+9. `encrypt` (on demand after Unlock lock exists) → emits `SegmentEncrypted`
+
+**Gate Logic** (in `translate-lyrics.ts`):
+- Query checks: `EXISTS (SELECT 1 FROM wikidata_artists WHERE spotify_id = primary_artist_id AND wikidata_id IS NOT NULL AND name IS NOT NULL AND name != wikidata_id)`
+- Blocks tracks without Wikidata BEFORE translation, Demucs, and fal.ai
+- Cost savings at 10K scale (20% illegitimate): $890 + 52.7 hours
+- Example blocked: Terror Jr (no MusicBrainz → no Wikidata → never GRC-20 eligible)
 
 Each processor must:
 - Ensure task row exists.
@@ -87,6 +116,33 @@ Encryption task responsibilities:
 - Generate Lit manifest, normalize ACC JSON, upload ciphertext + manifest to Grove.
 - Emit `SegmentEncrypted` on Lens testnet with manifest URI + Unlock lock metadata.
 - Persist manifest/ciphertext metadata in `karaoke_segments`.
+
+### GRC-20 Metadata Publishing
+
+**Complete Artist Dependency Chain**:
+```
+mint_pkp → create_lens → populate_grc20 → mint_grc20 → deploy_unlock → encrypt
+```
+
+**Why this order?**
+- Lens handles are stored IN GRC-20 artist entities (immutable)
+- Unlock lock addresses are NOT in GRC-20 - they stay in `lens_accounts` only
+- Locks can be deployed after GRC-20 minting without entity updates
+- Encryption requires locks, but GRC-20 minting does not
+
+**Commands**:
+1. Setup space schema: `bun src/tasks/grc20/setup-space.ts` (creates properties/types/relations)
+2. Populate tables: `bun src/tasks/grc20/populate-grc20.ts` (copies enriched data to grc20_* tables)
+3. Mint entities: `bun src/tasks/grc20/mint.ts` (new artists/works)
+4. Update entities:
+   - `bun src/tasks/grc20/update-artist-metadata.ts` (when `needs_update = true`)
+   - `bun src/tasks/grc20/update-work-metadata.ts` (when `needs_update = true`)
+
+**Data Standards**:
+- Release dates: ISO 8601 date-only (YYYY-MM-DD), no time components
+- URLs: Individual properties per platform, no JSON blobs
+- Library IDs: Separate properties for VIAF/BNF/GND/LOC, no aggregated JSON
+- Removed legacy: `artistExternalIds`, `artistWikipediaUrls`, `artistLibraryIds`
 
 ---
 
@@ -115,6 +171,15 @@ To reset a failed task, clear the error via MCP and set `status='pending'`, then
 - `src/tasks/audio/encrypt-segments.ts` – Lit encryption template.
 - `src/tasks/identity/deploy-unlock-locks.ts` – Unlock deployment workflow.
 - `src/services/storage.ts` – Grove/load.network abstraction.
+
+**GRC-20 Metadata Management**:
+- `src/config/grc20-space.ts` – Space/contract config, property IDs, legacy property lists
+- `src/tasks/grc20/setup-space.ts` – Bootstrap space schema (properties/types/relations)
+- `src/tasks/grc20/mint.ts` – Mint new artists and works
+- `src/tasks/grc20/update-artist-metadata.ts` – Update existing artist entities
+- `src/tasks/grc20/update-work-metadata.ts` – Update existing work entities
+- `src/tasks/grc20/utils/artist-values.ts` – Artist property value builder
+- `src/tasks/grc20/utils/work-values.ts` – Work property value builder
 
 Archived pipeline (legacy reference) lives in `../karaoke-pipeline/`—copy patterns, but conform to new helpers and storage rules.
 

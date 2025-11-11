@@ -44,6 +44,7 @@ export interface ArtistPageProps {
   // Handlers
   onBack?: () => void
   onFollow?: () => void
+  onSubscribe?: () => void
   onEditProfile?: () => void
 
   className?: string
@@ -69,6 +70,7 @@ export function ArtistPage({
   songs = [],
   onBack,
   onFollow,
+  onSubscribe,
   onEditProfile,
   className,
 }: ArtistPageProps) {
@@ -110,7 +112,7 @@ export function ArtistPage({
                   followers={followers}
                 />
 
-                {/* Action Button - Follow or Edit profile */}
+                {/* Action Buttons - Follow/Subscribe or Edit profile */}
                 {isOwnProfile ? (
                   onEditProfile && (
                     <Button
@@ -123,22 +125,34 @@ export function ArtistPage({
                     </Button>
                   )
                 ) : (
-                  onFollow && (
-                    <Button
-                      size="lg"
-                      variant={isFollowing ? 'outline' : 'default'}
-                      onClick={onFollow}
-                      disabled={isFollowLoading}
-                      className="mt-4 min-w-[200px]"
-                    >
-                      {isFollowLoading ? (
-                        <>
-                          <Spinner size="sm" />
-                          <span>{isFollowing ? 'Unfollowing...' : 'Following...'}</span>
-                        </>
-                      ) : isFollowing ? 'Following' : 'Follow'}
-                    </Button>
-                  )
+                  <div className="flex gap-3 mt-4">
+                    {onFollow && (
+                      <Button
+                        size="lg"
+                        variant={isFollowing ? 'outline' : 'default'}
+                        onClick={onFollow}
+                        disabled={isFollowLoading}
+                        className="min-w-[120px]"
+                      >
+                        {isFollowLoading ? (
+                          <>
+                            <Spinner size="sm" />
+                            <span>{isFollowing ? 'Unfollowing...' : 'Following...'}</span>
+                          </>
+                        ) : isFollowing ? 'Following' : 'Follow'}
+                      </Button>
+                    )}
+                    {onSubscribe && (
+                      <Button
+                        size="lg"
+                        variant="outline"
+                        onClick={onSubscribe}
+                        className="min-w-[120px]"
+                      >
+                        Subscribe
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

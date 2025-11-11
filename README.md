@@ -25,9 +25,9 @@ videos   pipeline    Lines    Complete  Events     Index   Assets  Frontend
 - **Network**: Geo Testnet, Space ID: `78e6adba-6d19-49e8-8b12-9d1e72ecfd25`
 
 ### Layer 2: Smart Contracts (Event-Only Storage)
-- **Purpose**: Karaoke segments, translations, performances, line-level FSRS
+- **Purpose**: Karaoke clips, translations, performances, line-level FSRS
 - **Network**: Lens Testnet (Chain ID: 37111)
-- **Deployed**: PerformanceGrader (line-level), SongEvents, SegmentEvents, AccountEvents, TranslationEvents
+- **Deployed**: ExerciseEvents (line-level), SongEvents, ClipEvents, AccountEvents, TranslationEvents
 
 ### Layer 3: The Graph Subgraph (Query Layer)
 - **Purpose**: Index contract events for GraphQL queries
@@ -60,11 +60,11 @@ videos   pipeline    Lines    Complete  Events     Index   Assets  Frontend
 ### 🔧 Smart Contracts (Lens Testnet - 37111)
 ```typescript
 const CONTRACTS = {
-  PerformanceGrader: "0xdd231de1016F5BBe56cEB3B617Aa38A5B454610D", // Line-level FSRS
-  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6", 
-  SegmentEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274",
+  ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832", // FSRS exercise grading
+  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
+  ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
   AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x..." // NEW: Deployed
+  TranslationEvents: "0x5A49E23A5C3a034906eE0274c266A08805770C70"
 }
 ```
 

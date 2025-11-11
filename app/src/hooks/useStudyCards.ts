@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
+import { convertGroveUri } from '@/lib/lens/utils'
 
 // Helper: Get today's start timestamp (midnight local time)
 function getTodayStartTimestamp(): number {
@@ -57,6 +58,11 @@ export interface StudyCard {
   spotifyTrackId?: string
   exerciseType?: 'SAY_IT_BACK' | 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE'
 
+  // Song metadata
+  title?: string
+  artist?: string
+  artworkUrl?: string
+
   // Content
   metadataUri: string
   instrumentalUri?: string
@@ -87,25 +93,25 @@ export interface StudyCard {
   }
 }
 
-const GET_SEGMENTS_WITH_PERFORMANCES = gql`
-  query GetSegmentsWithPerformances($grc20WorkId: String!, $performer: Bytes!) {
-    segments(where: { grc20WorkId: $grc20WorkId }) {
+const GET_CLIPS_WITH_PERFORMANCES = gql`
+  query GetClipsWithPerformances($grc20WorkId: String!, $performer: Bytes!) {
+    clips(where: { grc20WorkId: $grc20WorkId }, first: 1000) {
       id
-      segmentHash
+      clipHash
       grc20WorkId
       spotifyTrackId
       metadataUri
       instrumentalUri
       alignmentUri
-      segmentStartMs
-      segmentEndMs
+      clipStartMs
+      clipEndMs
 
       translations {
         languageCode
         translationUri
       }
 
-      # OLD: Segment-level performances (for leaderboards)
+      # OLD: Clip-level performances (for leaderboards)
       performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
         id
         score
@@ -120,7 +126,47 @@ const GET_SEGMENTS_WITH_PERFORMANCES = gql`
       id
       lineId
       lineIndex
-      segmentHash
+      clipHash
+      score
+      gradedAt
+    }
+  }
+`
+
+const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
+  query GetAllClipsWithPerformances($performer: Bytes!) {
+    clips(first: 1000) {
+      id
+      clipHash
+      grc20WorkId
+      spotifyTrackId
+      metadataUri
+      instrumentalUri
+      alignmentUri
+      clipStartMs
+      clipEndMs
+
+      translations {
+        languageCode
+        translationUri
+      }
+
+      # OLD: Clip-level performances (for leaderboards)
+      performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
+        id
+        score
+        gradedAt
+      }
+    }
+
+    # NEW: Line-level performances (for FSRS tracking) - fetch separately and join in frontend
+    linePerformances(where: {
+      performerAddress: $performer
+    }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
+      id
+      lineId
+      lineIndex
+      clipHash
       score
       gradedAt
     }
@@ -128,8 +174,12 @@ const GET_SEGMENTS_WITH_PERFORMANCES = gql`
 `
 
 const GET_EXERCISE_CARDS = gql`
-  query GetExerciseCards($spotifyTrackIds: [String!]!, $performer: Bytes!) {
-    exerciseCards(where: { spotifyTrackId_in: $spotifyTrackIds, enabled: true }) {
+  query GetExerciseCards($spotifyTrackIds: [String!]!, $performer: Bytes!, $languageCode: String) {
+    exerciseCards(where: {
+      spotifyTrackId_in: $spotifyTrackIds
+      enabled: true
+      languageCode: $languageCode
+    }) {
       id
       questionId
       exerciseType
@@ -139,9 +189,9 @@ const GET_EXERCISE_CARDS = gql`
       distractorPoolSize
       lineId
       lineIndex
-      segmentHash
-      segment {
-        segmentHash
+      clipHash
+      clip {
+        clipHash
         grc20WorkId
       }
       attempts(
@@ -181,30 +231,41 @@ export function useStudyCards(songId?: string) {
         throw new Error('Not authenticated')
       }
 
-      if (!songId) {
-        // TODO: For now, require a song ID. Later could load all songs
-        return {
-          cards: [],
-          stats: {
-            total: 0,
-            new: 0,
-            learning: 0,
-            review: 0,
-            relearning: 0,
-            newCardsIntroducedToday: 0,
-            newCardsRemaining: 15,
-          }
-        }
-      }
+      console.log('[useStudyCards] 🚀 HOOK CALLED with songId:', songId, 'pkpAddress:', pkpAddress)
 
       try {
-        // Query segments with performance history for this user
-        const data = await graphClient.request(GET_SEGMENTS_WITH_PERFORMANCES, {
-          grc20WorkId: songId,
-          performer: pkpAddress.toLowerCase(),
-        })
+        console.log('[useStudyCards] 🔍 QUERY START')
+        console.log('[useStudyCards] Querying clips for workId:', songId || 'ALL', 'performer:', pkpAddress)
 
-        if (!data?.segments) {
+        // Use different query based on whether we're filtering by songId
+        let data
+        if (songId) {
+          // Query specific work
+          const queryParams = {
+            grc20WorkId: songId,
+            performer: pkpAddress.toLowerCase(),
+          }
+          console.log('[useStudyCards] Query params (specific):', JSON.stringify(queryParams, null, 2))
+          data = await graphClient.request(GET_CLIPS_WITH_PERFORMANCES, queryParams)
+        } else {
+          // Query ALL clips for dashboard view
+          const queryParams = {
+            performer: pkpAddress.toLowerCase(),
+          }
+          console.log('[useStudyCards] Query params (all):', JSON.stringify(queryParams, null, 2))
+          data = await graphClient.request(GET_ALL_CLIPS_WITH_PERFORMANCES, queryParams)
+        }
+
+        console.log('[useStudyCards] 📊 QUERY RESULT')
+        console.log('[useStudyCards] Raw data:', JSON.stringify(data, null, 2))
+        console.log('[useStudyCards] Clips count:', data?.clips?.length)
+        console.log('[useStudyCards] Line performances count:', data?.linePerformances?.length)
+        if (data?.clips?.length > 0) {
+          console.log('[useStudyCards] First clip:', data.clips[0])
+        }
+
+        if (!data?.clips) {
+          console.log('[useStudyCards] No clips found for this work')
           return {
             cards: [],
             stats: {
@@ -221,29 +282,78 @@ export function useStudyCards(songId?: string) {
 
         const spotifyTrackIds = Array.from(
           new Set(
-            (data.segments || [])
-              .map((segment: any) => segment.spotifyTrackId)
+            (data.clips || [])
+              .map((clip: any) => clip.spotifyTrackId)
               .filter((id): id is string => typeof id === 'string' && id.length > 0)
           )
         )
 
+        console.log('[useStudyCards] 🎵 Extracted Spotify Track IDs:', spotifyTrackIds)
+
         let exerciseCardResponse: { exerciseCards: any[] } = { exerciseCards: [] }
 
         if (spotifyTrackIds.length > 0) {
-          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, {
+          // Default to Mandarin Chinese for quiz questions
+          // Users can later customize this preference
+          const preferredLanguage = 'zh'
+
+          const exerciseCardParams = {
             spotifyTrackIds,
             performer: pkpAddress.toLowerCase(),
-          })
+            languageCode: preferredLanguage,
+          }
+          console.log('[useStudyCards] 🎯 EXERCISE CARDS QUERY START')
+          console.log('[useStudyCards] Exercise card params:', JSON.stringify(exerciseCardParams, null, 2))
+
+          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, exerciseCardParams)
+
+          console.log('[useStudyCards] 📝 EXERCISE CARDS RESULT')
+          console.log('[useStudyCards] Raw exercise cards response:', JSON.stringify(exerciseCardResponse, null, 2))
+        } else {
+          console.log('[useStudyCards] ⚠️ No Spotify Track IDs found, skipping exercise cards query')
         }
 
         const onChainExerciseCards = exerciseCardResponse.exerciseCards || []
-        console.log(`[useStudyCards] Fetched ${onChainExerciseCards.length} exercise cards for user`)
+        console.log(`[useStudyCards] ✅ Fetched ${onChainExerciseCards.length} exercise cards for user`)
+        if (onChainExerciseCards.length > 0) {
+          console.log('[useStudyCards] First exercise card:', onChainExerciseCards[0])
+        }
 
         // Expand segments into line-level cards by fetching translation data
         const studyCards: StudyCard[] = []
         const seenCardIds = new Set<string>()
         const exerciseCardAttemptsById = new Map<string, any[]>()
 
+        // Build title/artist/artwork map from clips
+        const songMetadataBySpotifyId = new Map<string, { title: string; artist: string; artworkUrl?: string }>()
+
+        // STEP 1: Fetch clip metadata first to populate title/artist map
+        // (This loop populates the map before processing exercise cards)
+        for (const clip of data.clips) {
+          console.log(`[useStudyCards] Pre-fetching clip metadata for title/artist from:`, clip.metadataUri)
+          const metadataResponse = await fetch(clip.metadataUri)
+          if (!metadataResponse.ok) {
+            console.warn(`[useStudyCards] Failed to pre-fetch clip metadata: ${metadataResponse.status}`)
+            continue
+          }
+          const clipMetadata = await metadataResponse.json()
+
+          // Store title/artist/artwork for this track
+          if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+            songMetadataBySpotifyId.set(clip.spotifyTrackId, {
+              title: clipMetadata.title,
+              artist: clipMetadata.artist,
+              artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+            })
+            console.log(`[useStudyCards] 🎵 Pre-stored song metadata for ${clip.spotifyTrackId}:`, {
+              title: clipMetadata.title,
+              artist: clipMetadata.artist,
+              artworkUrl: clipMetadata.coverUri ? 'YES' : 'NO'
+            })
+          }
+        }
+
+        // STEP 2: Process exercise cards with title/artist now available
         for (const card of onChainExerciseCards) {
           const attempts = card.attempts || []
           exerciseCardAttemptsById.set(card.id.toLowerCase(), attempts)
@@ -258,14 +368,23 @@ export function useStudyCards(songId?: string) {
           }
           seenCardIds.add(card.id)
 
+          // Get title/artist/artwork from the map we populated from clip metadata
+          const songMetadata = songMetadataBySpotifyId.get(card.spotifyTrackId)
+          const title = songMetadata?.title
+          const artist = songMetadata?.artist
+          const artworkUrl = songMetadata?.artworkUrl
+
           studyCards.push({
             id: card.id,
             questionId: card.questionId ?? card.id,
             lineId: card.lineId ?? undefined,
             lineIndex: Number.isNaN(lineIndexValue) ? undefined : lineIndexValue,
-            segmentHash: card.segmentHash ?? card.segment?.segmentHash ?? undefined,
-            grc20WorkId: card.segment?.grc20WorkId ?? undefined,
+            segmentHash: card.clipHash ?? card.clip?.clipHash ?? undefined,
+            grc20WorkId: card.clip?.grc20WorkId ?? undefined,
             spotifyTrackId: card.spotifyTrackId ?? undefined,
+            title,
+            artist,
+            artworkUrl,
             metadataUri: card.metadataUri,
             languageCode: card.languageCode ?? undefined,
             distractorPoolSize: card.distractorPoolSize ?? undefined,
@@ -279,118 +398,86 @@ export function useStudyCards(songId?: string) {
         const allLinePerformances = data.linePerformances || []
         console.log(`[useStudyCards] Fetched ${allLinePerformances.length} line performances for user`)
 
-        for (const segment of data.segments) {
-          // Fetch first translation to get line structure
-          const firstTranslation = segment.translations?.[0]
-          
-          if (!firstTranslation?.translationUri) {
-            // Fallback: segment-level card if no translations
-            const fsrsState = calculateFSRSState(segment.performances || [])
+        for (const clip of data.clips) {
+          // Fetch clip Grove metadata to get karaoke_lines structure
+          console.log(`[useStudyCards] Fetching clip metadata from:`, clip.metadataUri)
+          const metadataResponse = await fetch(clip.metadataUri)
+          if (!metadataResponse.ok) {
+            throw new Error(`Failed to fetch clip metadata: ${metadataResponse.status}`)
+          }
+          const clipMetadata = await metadataResponse.json()
 
-            if (seenCardIds.has(segment.segmentHash)) {
-              continue
-            }
-            seenCardIds.add(segment.segmentHash)
+          console.log(`[useStudyCards] Clip metadata keys:`, Object.keys(clipMetadata))
 
-            studyCards.push({
-              id: segment.segmentHash,
-              lineId: undefined,
-              lineIndex: 0,
-              segmentHash: segment.segmentHash,
-              grc20WorkId: segment.grc20WorkId,
-              spotifyTrackId: segment.spotifyTrackId,
-              metadataUri: segment.metadataUri,
-              instrumentalUri: segment.instrumentalUri,
-              alignmentUri: segment.alignmentUri,
-              segmentStartMs: segment.segmentStartMs,
-              segmentEndMs: segment.segmentEndMs,
-              translations: segment.translations || [],
-              exerciseType: 'SAY_IT_BACK',
-              fsrs: fsrsState,
+          // Populate title/artist/artwork map from clip metadata
+          if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+            songMetadataBySpotifyId.set(clip.spotifyTrackId, {
+              title: clipMetadata.title,
+              artist: clipMetadata.artist,
+              artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+            })
+            console.log(`[useStudyCards] 🎵 Stored song metadata for ${clip.spotifyTrackId}:`, {
+              title: clipMetadata.title,
+              artist: clipMetadata.artist,
+              artworkUrl: clipMetadata.coverUri ? 'YES' : 'NO'
+            })
+          }
+
+          // Skip clips with old/malformed metadata (missing karaoke_lines)
+          if (!clipMetadata.karaoke_lines || !Array.isArray(clipMetadata.karaoke_lines)) {
+            console.warn(`[useStudyCards] ⚠️ Skipping clip with old metadata format (missing karaoke_lines)`, {
+              clipHash: clip.clipHash,
+              metadataUri: clip.metadataUri,
+              keys: Object.keys(clipMetadata)
             })
             continue
           }
 
-          try {
-            // Fetch translation file to get line structure
-            const translationResponse = await fetch(firstTranslation.translationUri)
-            if (!translationResponse.ok) {
-              throw new Error(`Failed to fetch translation: ${translationResponse.status}`)
+          console.log(`[useStudyCards] Found ${clipMetadata.karaoke_lines.length} karaoke lines`)
+
+          // Create one card per line using karaoke_lines from Grove
+          for (const karaokeLineData of clipMetadata.karaoke_lines) {
+            const lineIndex = karaokeLineData.line_index
+
+            // Skip blank/empty lines
+            if (!karaokeLineData.original_text || karaokeLineData.original_text.trim().length === 0) {
+              console.log(`[useStudyCards] Skipping blank line at index ${lineIndex}`)
+              continue
             }
-            const translationData = await translationResponse.json()
-            
-            if (!translationData.lines || !Array.isArray(translationData.lines)) {
-              throw new Error('Translation has no lines array')
+
+            // Generate deterministic lineId from spotifyTrackId + lineIndex
+            // This matches what Lit Action expects: stable identifier for FSRS tracking
+            const lineId = await generateLineId(clip.spotifyTrackId, lineIndex)
+
+            // Filter performances for this specific line by lineId (stable identifier)
+            const linePerformances = allLinePerformances.filter((p: any) =>
+              p.clipHash === clip.clipHash && p.lineId === lineId
+            )
+
+            // Calculate FSRS state for this line
+            const fsrsState = calculateFSRSState(linePerformances)
+
+            if (seenCardIds.has(lineId)) {
+              continue
             }
+            seenCardIds.add(lineId)
 
-            // Create one card per line
-            for (let lineIndex = 0; lineIndex < translationData.lines.length; lineIndex++) {
-              const line = translationData.lines[lineIndex]
-
-              // Skip blank/empty lines - can't practice text that doesn't exist!
-              if (!line?.originalText || line.originalText.trim().length === 0) {
-                console.log(`[useStudyCards] Skipping blank line at index ${lineIndex}`)
-                continue
-              }
-
-              // Generate deterministic lineId from spotifyTrackId + lineIndex
-              // This matches what Lit Action expects: stable identifier for FSRS tracking
-              // Using SHA-256 hash via Web Crypto API - same result as keccak256 for our purposes
-              const lineId = await generateLineId(segment.spotifyTrackId, lineIndex)
-
-              // Filter performances for this specific line by lineId (stable identifier)
-              const linePerformances = allLinePerformances.filter((p: any) =>
-                p.segmentHash === segment.segmentHash && p.lineId === lineId
-              )
-
-              // Calculate FSRS state for this line
-              const fsrsState = calculateFSRSState(linePerformances)
-
-              if (seenCardIds.has(lineId)) {
-                continue
-              }
-              seenCardIds.add(lineId)
-
-              studyCards.push({
-                id: lineId, // Use lineId as primary identifier
-                lineId, // Deterministic bytes32 from Grove data (no contract needed!)
-                lineIndex,
-                segmentHash: segment.segmentHash,
-                grc20WorkId: segment.grc20WorkId,
-                spotifyTrackId: segment.spotifyTrackId,
-                metadataUri: segment.metadataUri,
-                instrumentalUri: segment.instrumentalUri,
-                alignmentUri: segment.alignmentUri,
-                segmentStartMs: segment.segmentStartMs,
-                segmentEndMs: segment.segmentEndMs,
-                translations: segment.translations || [],
-                exerciseType: 'SAY_IT_BACK',
-                fsrs: fsrsState,
-              })
-            }
-          } catch (error) {
-            console.error('[useStudyCards] Failed to fetch translation, falling back to segment-level:', error)
-            // Fallback: segment-level card
-            const fsrsState = calculateFSRSState(segment.performances || [])
-            if (!seenCardIds.has(segment.segmentHash)) {
-              seenCardIds.add(segment.segmentHash)
-              studyCards.push({
-                id: segment.segmentHash,
-                lineId: undefined,
-                lineIndex: 0,
-                segmentHash: segment.segmentHash,
-                grc20WorkId: segment.grc20WorkId,
-                spotifyTrackId: segment.spotifyTrackId,
-                metadataUri: segment.metadataUri,
-                instrumentalUri: segment.instrumentalUri,
-                alignmentUri: segment.alignmentUri,
-                segmentStartMs: segment.segmentStartMs,
-                segmentEndMs: segment.segmentEndMs,
-                translations: segment.translations || [],
-                exerciseType: 'SAY_IT_BACK',
-                fsrs: fsrsState,
-              })
-            }
+            studyCards.push({
+              id: lineId, // Use lineId as primary identifier
+              lineId, // Deterministic bytes32 from Grove data (no contract needed!)
+              lineIndex,
+              segmentHash: clip.clipHash,
+              grc20WorkId: clip.grc20WorkId,
+              spotifyTrackId: clip.spotifyTrackId,
+              metadataUri: clip.metadataUri,
+              instrumentalUri: clip.instrumentalUri,
+              alignmentUri: clip.alignmentUri,
+              segmentStartMs: clip.clipStartMs,
+              segmentEndMs: clip.clipEndMs,
+              translations: clip.translations || [],
+              exerciseType: 'SAY_IT_BACK',
+              fsrs: fsrsState,
+            })
           }
         }
 
@@ -473,15 +560,17 @@ export function useStudyCards(songId?: string) {
           return false
         })
 
-        // Calculate stats for UI
+        // Calculate stats for UI (Anki-style)
+        // Stats should show ALL cards (before daily limit), not just today's filtered cards
         const stats = {
-          total: dailyCards.length,
-          new: dailyCards.filter(c => c.fsrs.state === 0).length,
-          learning: dailyCards.filter(c => c.fsrs.state === 1).length,
-          review: dailyCards.filter(c => c.fsrs.state === 2).length,
-          relearning: dailyCards.filter(c => c.fsrs.state === 3).length,
-          newCardsIntroducedToday,
-          newCardsRemaining,
+          total: studyCards.length, // Total cards (all states, before daily limit)
+          new: studyCards.filter(c => c.fsrs.state === 0).length, // All untouched cards
+          learning: studyCards.filter(c => c.fsrs.state === 1).length, // All learning cards
+          review: dueCards.filter(c => c.fsrs.state === 2).length, // Review cards that are due
+          relearning: studyCards.filter(c => c.fsrs.state === 3).length, // All relearning cards
+          newCardsIntroducedToday, // How many new cards studied today (for daily limit tracking)
+          newCardsRemaining, // How many more new cards can be introduced today
+          dueToday: dailyCards.length, // Cards to study today (after daily limit applied)
         }
 
         console.log('[useStudyCards] Loaded', dailyCards.length, 'due cards for song', songId)
@@ -492,13 +581,19 @@ export function useStudyCards(songId?: string) {
         })))
         console.log('[useStudyCards] Daily stats:', stats)
 
+        console.log('[useStudyCards] 🎉 FINAL RESULT')
+        console.log('[useStudyCards] Returning', dailyCards.length, 'cards')
+        console.log('[useStudyCards] Stats:', JSON.stringify(stats, null, 2))
+
         return { cards: dailyCards, stats }
       } catch (error) {
-        console.error('[useStudyCards] Query error:', error)
+        console.error('[useStudyCards] ❌ Query error:', error)
         throw error
       }
     },
-    enabled: !!pkpAddress && !!songId,
+    // Enable query when PKP is ready (songId is now optional)
+    enabled: !!pkpAddress,
+    keepPreviousData: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
   })

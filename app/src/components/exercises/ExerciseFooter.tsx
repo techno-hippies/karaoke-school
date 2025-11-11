@@ -29,6 +29,9 @@ export interface ExerciseFooterProps {
         onStopRecording?: () => void
         label?: string
       }
+    | {
+        type: 'hidden'
+      }
 }
 
 export function ExerciseFooter({ show = true, feedback, controls }: ExerciseFooterProps) {
@@ -47,7 +50,7 @@ export function ExerciseFooter({ show = true, feedback, controls }: ExerciseFoot
             disabled={controls.disabled}
             label={controls.label}
           />
-        ) : (
+        ) : controls.type === 'voice' ? (
           <VoiceControls
             isRecording={controls.isRecording}
             isProcessing={controls.isProcessing}
@@ -55,7 +58,7 @@ export function ExerciseFooter({ show = true, feedback, controls }: ExerciseFoot
             onStopRecording={controls.onStopRecording}
             label={controls.label}
           />
-        )}
+        ) : null}
       </div>
     </AnimatedFooter>
   )

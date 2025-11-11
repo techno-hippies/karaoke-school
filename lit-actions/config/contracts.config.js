@@ -14,16 +14,13 @@
 // LENS TESTNET CONTRACTS (PRIMARY)
 // ============================================================
 
-// Performance Grading
-export const PERFORMANCE_GRADER_ADDRESS = '0x788A245B9AAB4E29D0152424b72bcB8Ac7c1E260'; // Deployed ✅
-export const SONG_CATALOG_ADDRESS = '0x88996135809cc745E6d8966e3a7A01389C774910';
-export const SCOREBOARD_CONTRACT_ADDRESS = '0x8301E4bbe0C244870a4BC44ccF0241A908293d36';
+// Exercise Grading
+export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832'; // Deployed ✅
 
 // Events
-export const SEGMENT_EVENTS_ADDRESS = '0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274'; // Deployed ✅
+export const CLIP_EVENTS_ADDRESS = '0x369Cd327c39E2f00b851f06B6e25bb01a5149961'; // Deployed ✅ 2025-11-10
 export const SONG_EVENTS_ADDRESS = '0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6'; // Deployed ✅
 export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E8'; // Deployed ✅
-export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832'; // Deployed ✅
 
 // Network Config
 export const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';

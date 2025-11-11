@@ -44,24 +44,34 @@ TikTok → Pipeline → Database → GRC-20 , Contracts → Subgraph → Grove �
 
 ```typescript
 const CONTRACTS = {
-  PerformanceGrader: "0xdd231de1016F5BBe56cEB3B617Aa38A5B454610D", // Line-level FSRS
-  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6", 
-  SegmentEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274",
+  ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832", // FSRS grading
+  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
+  ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
   AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x..." // Deployed
+  TranslationEvents: "0x5A49E23A5C3a034906eE0274c266A08805770C70"
 }
 ```
 
 ### Line-Level FSRS Events
 ```solidity
-// PerformanceGrader.sol
-event LinePerformanceGraded(
-    uint256 performanceId,
-    bytes32 lineId,           // UUID from karaoke_lines
+// ExerciseEvents.sol
+event SayItBackAttemptGraded(
+    uint256 attemptId,
+    bytes32 lineId,
     bytes32 segmentHash,
     uint16 lineIndex,
-    address performer,
+    address learner,
     uint16 score,
+    uint8 rating,
+    string metadataUri
+);
+
+event MultipleChoiceAttemptGraded(
+    uint256 attemptId,
+    bytes32 questionId,
+    address learner,
+    uint16 score,
+    uint8 rating,
     string metadataUri
 );
 ```
@@ -98,7 +108,7 @@ VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/subgraph-0/
 // Use call_mcp_tool with run_sql or run_sql_transaction
 call_mcp_tool("run_sql", {
   params: {
-    projectId: "frosty-smoke-70266868",
+    projectId: "flat-mode-57592166",
     databaseName: "neondb",
     sql: "SELECT * FROM song_pipeline_status LIMIT 10"
   }
@@ -141,7 +151,7 @@ lyrics_translations: lines JSONB (line-level with word timing)
 ```
 
 ### Connection (Neon PostgreSQL)
-- **Project**: `frosty-smoke-70266868` (KS1 - EU)
+- **Project**: `flat-mode-57592166` (karaoke-pipeline-v2 - US East)
 - **Connection**: PostgreSQL via `neondatabase/serverless`
 
 ## 🎯 Integration Patterns
@@ -168,7 +178,7 @@ const GET_LINE_CARDS = gql`
 
 ### Blockchain Integration
 ```typescript
-// Contract interaction with line-level support
+// Contract interaction with ExerciseEvents
 import { createPublicClient, http } from 'viem';
 import { lensTestnet } from './chains';
 
@@ -177,12 +187,12 @@ const client = createPublicClient({
   transport: http(process.env.RPC_URL)
 });
 
-// Line-level grading (NEW)
+// Say It Back grading (PKP signed)
 await client.writeContract({
-  address: CONTRACTS.PerformanceGrader,
-  abi: PERFORMANCE_GRADER_ABI,
-  functionName: 'gradeLinePerformance',
-  args: [performanceId, lineId, segmentHash, lineIndex, performer, score, metadataUri]
+  address: CONTRACTS.ExerciseEvents,
+  abi: EXERCISE_EVENTS_ABI,
+  functionName: 'gradeSayItBackAttempt',
+  args: [attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri]
 });
 ```
 
@@ -218,7 +228,7 @@ curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
   -H 'Content-Type: application/json' \
   -d '{"query": "{ lineCards(first: 5) { id lineId lineIndex } }"}'
 
-# 4. Test single practice (emits LinePerformanceGraded event)
+# 4. Test single practice (emits SayItBackAttemptGraded event)
 ```
 
 ## 📋 Verification Checklist
@@ -231,7 +241,7 @@ curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
 
 ### ✅ Line-Level FSRS
 - [ ] `karaoke_lines` table populated (2,766 lines)
-- [ ] PerformanceGrader contract with `gradeLinePerformance()`
+- [ ] ExerciseEvents contract with `gradeSayItBackAttempt()`
 - [ ] Subgraph indexing LineCard entities
 - [ ] App using lineIndex for progression
 
@@ -239,14 +249,14 @@ curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
 - [ ] TikTok → Pipeline → Database
 - [ ] Database → Grove → Contracts
 - [ ] Contracts → Subgraph → App
-- [ ] User practice → LinePerformanceGraded event
+- [ ] User practice → SayItBackAttemptGraded event
 
 ## 🎯 Priority Development
 
 ### Immediate (Line-Level FSRS)
 1. **Deploy Subgraph** - Local → The Graph Studio
 2. **Update useStudyCards** - Query lineCards instead of segments
-3. **Test Lit Actions** - Call gradeLinePerformance()
+3. **Test Lit Actions** - Call `gradeSayItBackAttempt()` / `gradeMultipleChoiceAttempt()`
 4. **Verify Flow** - 15+ cards per song
 
 ### This Week

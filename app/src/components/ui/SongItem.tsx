@@ -19,6 +19,8 @@ export interface SongItemProps {
   onClick?: () => void
   /** Optional rank number to show on the left */
   rank?: number
+  /** Optional due count badge (red) to show on the right */
+  badge?: number
   /** Highlight this item (e.g. for current user) */
   isHighlighted?: boolean
   /** Optional className for additional styling */
@@ -38,9 +40,11 @@ export function SongItem({
   onPlayClick,
   onClick,
   rank,
+  badge,
   isHighlighted = false,
   className,
 }: SongItemProps) {
+
   return (
     <Item variant="default" asChild className={cn("gap-3 px-4 py-3", className)}>
       <button
@@ -103,6 +107,15 @@ export function SongItem({
           <ItemTitle className="w-full truncate text-left">{title}</ItemTitle>
           <ItemDescription className="w-full truncate text-left line-clamp-1">{artist}</ItemDescription>
         </ItemContent>
+
+        {/* Due Badge (red) */}
+        {badge !== undefined && (
+          <div className="flex items-center justify-center flex-shrink-0 pr-2">
+            <span className="text-lg font-bold text-red-500">
+              {badge}
+            </span>
+          </div>
+        )}
       </button>
     </Item>
   )

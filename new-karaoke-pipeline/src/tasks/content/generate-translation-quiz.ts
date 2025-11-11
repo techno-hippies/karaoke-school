@@ -73,6 +73,22 @@ const MAX_LINES_PER_TRACK = 10;
 const AI_DELAY_MS = 500;
 const TRANSLATION_CHOICE_WORD_LIMIT = 12;
 
+const EXPLANATION_TRANSLATION_RESPONSE_FORMAT = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'translation_quiz_explanation_localization',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['translated_explanation'],
+      properties: {
+        translated_explanation: { type: 'string' },
+      },
+    },
+  },
+};
+
 
 function buildTranslationMap(lines: any): Map<number, string> {
   const map = new Map<number, string>();
@@ -133,7 +149,7 @@ Requirements:
 - Each distractor must be linguisticly plausible but meaningfully incorrect.
 - Keep each distractor under ${TRANSLATION_CHOICE_WORD_LIMIT} words.
 - Avoid repeating the canonical translation or trivial variants.
-- Optionally include a short explanation for why the distractor might seem tempting.
+- Provide a concise explanation (1-2 sentences max) that explains why the canonical translation is correct. Focus only on the correct answer, not the distractors.
 - Return JSON that matches the provided schema.
 
 Return only JSON, no additional commentary.`;
@@ -263,6 +279,54 @@ interface DistractorResult {
   explanation: string;
 }
 
+async function translateExplanationForLanguage(
+  openRouter: OpenRouterService,
+  languageCode: (typeof SUPPORTED_TRIVIA_LOCALES)[number],
+  explanation: string
+): Promise<string> {
+  const sanitized = sanitizeCandidate(explanation);
+  if (!sanitized) {
+    throw new Error('Explanation text is empty');
+  }
+
+  if (languageCode === 'en') {
+    return sanitized;
+  }
+
+  const languageName = LANGUAGE_NAMES[languageCode] ?? 'target language';
+
+  const response = await openRouter.chat(
+    [
+      {
+        role: 'system',
+        content: `You translate concise language-learning explanations into ${languageName}. Preserve meaning, keep it conversational, and never add commentary. Return JSON matching the schema.`,
+      },
+      {
+        role: 'user',
+        content: `Translate the following explanation into ${languageName}. Maintain tone, keep it to 1-2 sentences, and avoid English translations in parentheses.
+
+Explanation:
+"""${sanitized}"""`,
+      },
+    ],
+    EXPLANATION_TRANSLATION_RESPONSE_FORMAT
+  );
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('Explanation translation returned empty response');
+  }
+
+  const parsed = JSON.parse(content);
+  const translated = sanitizeCandidate(String(parsed.translated_explanation ?? ''));
+
+  if (!translated) {
+    throw new Error('Explanation translation produced empty text');
+  }
+
+  return translated;
+}
+
 async function requestDistractors(
   openRouter: OpenRouterService,
   languageCode: (typeof SUPPORTED_TRIVIA_LOCALES)[number],
@@ -296,7 +360,13 @@ async function requestDistractors(
 
   const parsed = JSON.parse(content);
   const { texts: distractors, reasons } = validateDistractors(parsed.distractors, correctAnswer);
-  const explanation = sanitizeCandidate(String(parsed.explanation ?? ''));
+  let explanation = sanitizeCandidate(String(parsed.explanation ?? ''));
+
+  // Validate explanation focuses on correct answer, not distractors
+  const explanationLower = explanation.toLowerCase();
+  if (explanationLower.includes('distractor') || explanationLower.includes('incorrect') || explanationLower.includes('wrong answer')) {
+    throw new Error('Explanation must focus on why the correct answer is right, not on distractors');
+  }
 
   return { distractors, reasons, explanation };
 }
@@ -340,6 +410,8 @@ async function generateDistractorsWithRetries(
         extraGuidance = 'Provide unique distractors with clearly distinct vocabulary.';
       } else if (message.includes('matches correct answer')) {
         extraGuidance = 'Avoid repeating the canonical translation; each distractor must change meaning.';
+      } else if (message.includes('distractor') && message.includes('explanation')) {
+        extraGuidance = 'The explanation field must only explain why the correct translation is appropriate. Do not mention distractors, incorrect answers, or wrong choices. Focus solely on the canonical translation.';
       } else {
         extraGuidance = 'Double-check the JSON structure and constraints before responding again.';
       }
@@ -420,6 +492,12 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
             track.normalized_lyrics
           );
 
+          const localizedExplanation = await translateExplanationForLanguage(
+            openRouter,
+            languageCode,
+            explanation
+          );
+
           questionEntries.push({
             spotifyTrackId: track.spotify_track_id,
             lineId: line.line_id,
@@ -429,10 +507,11 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
             prompt: line.original_text,
             correctAnswer,
             distractors,
-            explanation,
+            explanation: localizedExplanation,
             metadata: {
               distractor_reasons: reasons,
               segment_hash: segmentHashHex,
+              explanation_english: explanation,
             },
           });
 

@@ -1,6 +1,11 @@
 # Lit Actions Documentation
 
-**AI-powered performance grading for karaoke learning**
+**AI-powered exercise grading for karaoke learning (ExerciseEvents-based)**
+
+> **Important:** The active Lit Action is `study/exercise-grader-v1.js`, which
+> submits attempts to the `ExerciseEvents` contract. The legacy
+> `karaoke-grader-v6-performance-grader.js` files now live under
+> `archived/performance-grader/` and are kept for historical reference only.
 
 ## 🚀 Quick Start
 

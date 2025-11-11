@@ -5,7 +5,9 @@ import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { BookOpen, Play, ArrowUpRight } from '@phosphor-icons/react'
+import { SongItem } from '@/components/ui/SongItem'
+import { ItemGroup } from '@/components/ui/item'
+import { Play, ArrowUpRight, BookOpen } from '@phosphor-icons/react'
 
 /**
  * Study Dashboard (ClassPage)
@@ -31,13 +33,31 @@ export function ClassPage() {
   const dueCards = data?.cards || []
   const studyStats = data?.stats
 
-  // Calculate statistics from due cards
+  // Simple 3-box model
   const stats = {
-    new: studyStats?.new || 0,
-    learning: studyStats?.learning || 0,
-    review: studyStats?.review || 0,
-    due: dueCards.length,
+    new: studyStats?.new || 0, // Never touched (green = seed/plant)
+    learning: (studyStats?.learning || 0) + (studyStats?.review || 0), // In progress (blue = water)
+    due: studyStats?.dueToday || 0, // Ready to study now (red = urgency)
   }
+
+  // Group cards by song for display
+  const cardsBySong = dueCards.reduce((acc, card) => {
+    const key = card.grc20WorkId || 'unknown'
+    if (!acc[key]) {
+      acc[key] = {
+        grc20WorkId: key,
+        spotifyTrackId: card.spotifyTrackId,
+        title: card.title || 'Unknown Song',
+        artist: card.artist || 'Unknown Artist',
+        artworkUrl: card.artworkUrl,
+        cards: []
+      }
+    }
+    acc[key].cards.push(card)
+    return acc
+  }, {} as Record<string, { grc20WorkId: string; spotifyTrackId?: string; title: string; artist: string; artworkUrl?: string; cards: typeof dueCards }>)
+
+  const songsList = Object.values(cardsBySong).sort((a, b) => b.cards.length - a.cards.length)
 
   // Auth check
   if (!isPKPReady) {
@@ -59,22 +79,13 @@ export function ClassPage() {
   }
 
   const hasCards = dueCards.length > 0
-  const progressPercent = hasCards ? Math.min(100, Math.round((5 / 20) * 100)) : 0
+  // const progressPercent = hasCards ? Math.min(100, Math.round((5 / 20) * 100)) : 0
 
   return (
     <div className="min-h-screen bg-background pt-6 pb-20 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-bold flex items-center gap-3">
-            <BookOpen size={32} weight="duotone" className="text-primary" />
-            Study
-          </h1>
-          <p className="text-muted-foreground">Learn lyrics through spaced repetition</p>
-        </div>
-
-        {/* Daily Goal Progress */}
-        <Card className="p-6 space-y-4">
+        {/* Daily Goal Progress - Commented out for future implementation */}
+        {/* <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <ArrowUpRight size={20} className="text-green-500" />
@@ -86,15 +97,14 @@ export function ClassPage() {
           <p className="text-xs text-muted-foreground">
             {hasCards ? 'Complete all due cards to maintain your streak' : 'No cards due today. Great job!'}
           </p>
-        </Card>
+        </Card> */}
 
-        {/* Statistics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Statistics Grid - 3 Box Model */}
+        <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'New', count: stats.new, color: 'text-blue-500' },
-            { label: 'Learning', count: stats.learning, color: 'text-yellow-500' },
-            { label: 'Review', count: stats.review, color: 'text-purple-500' },
-            { label: 'Due Now', count: stats.due, color: 'text-red-500' },
+            { label: 'New', count: stats.new, color: 'text-green-500', tooltip: 'Never studied 🌱' },
+            { label: 'Learning', count: stats.learning, color: 'text-blue-500', tooltip: 'In progress 💧' },
+            { label: 'Due', count: stats.due, color: 'text-red-500', tooltip: 'Study now ⚡' },
           ].map((stat) => (
             <Card key={stat.label} className="p-4 text-center space-y-2">
               <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
@@ -124,36 +134,24 @@ export function ClassPage() {
           </Card>
         )}
 
-        {/* Card Queue Preview */}
-        {hasCards && dueCards.length > 0 && (
+        {/* Songs Due */}
+        {hasCards && songsList.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase">Next Cards ({dueCards.length})</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {dueCards.slice(0, 5).map((card, idx) => (
-                <Card
-                  key={card.id}
-                  className="p-3 sm:p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">Line {card.lineIndex + 1}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {['New', 'Learning', 'Review', 'Relearning'][card.fsrs.state]} • Due now
-                    </p>
-                  </div>
-                </Card>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase">Songs ({songsList.length})</h3>
+            <ItemGroup className="gap-2">
+              {songsList.map((song) => (
+                <SongItem
+                  key={song.grc20WorkId}
+                  title={song.title}
+                  artist={song.artist}
+                  artworkUrl={song.artworkUrl}
+                  badge={song.cards.length}
+                  onClick={() => navigate(`/song/${song.grc20WorkId}/study`)}
+                />
               ))}
-            </div>
+            </ItemGroup>
           </div>
         )}
-
-        {/* Footer Help Text */}
-        <div className="text-center text-xs text-muted-foreground space-y-2 pt-4 border-t">
-          <p>📍 Studying: {songId ? 'This song' : 'All songs'}</p>
-          <p>🎯 Limit: 15 new + all due/review cards per day</p>
-        </div>
       </div>
     </div>
   )

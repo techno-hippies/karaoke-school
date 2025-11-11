@@ -1,41 +1,41 @@
 """
-A processed segment of a song (karaoke audio with translations)
-References GRC-20 work entity for music metadata (decoupled design)
+A processed clip of a song (40-80s karaoke clip with translations)
+References GRC-20 work entity for music metadata
 """
-type Segment @entity(immutable: false) {
-  id: ID! # segmentHash
-  segmentHash: Bytes!
+type Clip @entity(immutable: false) {
+  id: ID! # clipHash
+  clipHash: Bytes!
 
-  # GRC-20 Reference (Public Music Metadata Layer)
-  grc20WorkId: String! # GRC-20 musical work entity UUID (primary reference)
+  # GRC-20 reference
+  grc20WorkId: String!
 
-  # App-specific data
-  spotifyTrackId: String! # Spotify track ID for audio matching
-  segmentStartMs: Int! # Start time in milliseconds
-  segmentEndMs: Int! # End time in milliseconds
+  # Clip timing and metadata
+  spotifyTrackId: String!
+  clipStartMs: Int!
+  clipEndMs: Int!
   metadataUri: String!
   registeredBy: Bytes!
   registeredAt: BigInt!
 
   # Artist linking (from Grove metadata)
-  artistLensHandle: String # Lens handle for artist profile linking
+  artistLensHandle: String
 
-  # Set after processing
-  instrumentalUri: String # Grove URI for instrumental (primary audio)
-  alignmentUri: String # Grove URI for alignment metadata (ElevenLabs word timing)
+  # Populated after processing
+  instrumentalUri: String
+  alignmentUri: String
   processedAt: BigInt
-  translationCount: Int! # Number of translations available
-  encryptedFullUri: String # Encrypted full-length audio URI
-  encryptedManifestUri: String # Lit manifest / ACC URI
-  unlockLockAddress: Bytes # Unlock Protocol lock gating access
-  unlockChainId: Int # Chain ID for the lock
+  translationCount: Int!
+  encryptedFullUri: String
+  encryptedManifestUri: String
+  unlockLockAddress: Bytes
+  unlockChainId: Int
 
   # Relations
-  performances: [Performance!]! @derivedFrom(field: "segment")
-  translations: [Translation!]! @derivedFrom(field: "segment")
-  exerciseCards: [ExerciseCard!]! @derivedFrom(field: "segment")
+  performances: [Performance!]! @derivedFrom(field: "clip")
+  translations: [Translation!]! @derivedFrom(field: "clip")
+  exerciseCards: [ExerciseCard!]! @derivedFrom(field: "clip")
 
-  # Computed
+  # Computed flags
   performanceCount: Int!
   averageScore: BigDecimal!
   hasInstrumental: Boolean!
@@ -44,100 +44,94 @@ type Segment @entity(immutable: false) {
 }
 
 """
-A multi-language translation for a segment
+A multi-language translation for a clip
 """
 type Translation @entity(immutable: false) {
-  id: ID! # segmentHash + languageCode
-  segment: Segment!
-  segmentHash: Bytes!
-  languageCode: String! # ISO 639-1 code (es, zh, ja, ko, etc.)
-  translationUri: String! # Grove URI for translation JSON (line-level + word timing)
-  translationSource: String! # AI model used (e.g., "gemini-flash-2.5")
-  confidenceScore: Int! # 0-10000 (model confidence × 10000)
-  validated: Boolean! # Human-verified translation
+  id: ID! # clipHash + languageCode
+  clip: Clip!
+  clipHash: Bytes!
+  languageCode: String!
+  translationUri: String!
+  translationSource: String!
+  confidenceScore: Int!
+  validated: Boolean!
   addedBy: Bytes!
   addedAt: BigInt!
   updatedAt: BigInt
-  enabled: Boolean! # Whether translation is available
+  enabled: Boolean!
 
   # Computed
-  confidenceLevel: String! # HIGH, MEDIUM, LOW based on confidenceScore
+  confidenceLevel: String!
 }
 
 """
-A graded performance of a segment (DEPRECATED - use LinePerformance)
+A graded performance of a clip (legacy aggregate)
 """
 type Performance @entity(immutable: true) {
-  id: ID! # performanceId
+  id: ID!
   performanceId: BigInt!
-  segment: Segment!
+  clip: Clip!
   performer: Account!
   performerAddress: Bytes!
-  score: Int! # 0-10000 (basis points)
-  metadataUri: String! # Grove URI for full performance metadata
+  score: Int!
+  metadataUri: String!
   gradedAt: BigInt!
 
   # Denormalized for queries
-  segmentHash: Bytes!
+  clipHash: Bytes!
 }
 
 """
-A karaoke line (minimal tracking for FSRS)
-Created dynamically when first performance is graded
-Line content (text, timing) comes from Grove segment metadata
+A karaoke line tracked for spaced repetition
 """
 type LineCard @entity(immutable: false) {
-  id: ID! # lineId (UUID as hex)
-  lineId: Bytes! # Stable UUID from karaoke_lines table
-  segment: Segment!
-  segmentHash: Bytes!
-  lineIndex: Int! # Position within segment (for ordering)
+  id: ID!
+  lineId: Bytes!
+  clip: Clip!
+  clipHash: Bytes!
+  lineIndex: Int!
 
-  # Relations
   performances: [LinePerformance!]! @derivedFrom(field: "line")
   exerciseCards: [ExerciseCard!]! @derivedFrom(field: "line")
 
-  # Aggregate stats (computed from performances)
   performanceCount: Int!
   averageScore: BigDecimal!
 }
 
 """
-A graded performance of a single LINE (for FSRS tracking)
+A graded performance of a single line
 """
 type LinePerformance @entity(immutable: true) {
-  id: ID! # performanceId
+  id: ID!
   performanceId: BigInt!
   line: LineCard!
   lineId: Bytes!
-  segment: Segment!
-  segmentHash: Bytes!
+  clip: Clip!
+  clipHash: Bytes!
   lineIndex: Int!
   performer: Account!
   performerAddress: Bytes!
-  score: Int! # 0-10000 (basis points)
+  score: Int!
   metadataUri: String!
   gradedAt: BigInt!
 }
 
 """
-Lens account with performance history
+Lens account with performance and exercise history
 """
 type Account @entity(immutable: false) {
-  id: ID! # lensAccountAddress
+  id: ID!
   lensAccountAddress: Bytes!
   pkpAddress: Bytes!
   username: String!
   metadataUri: String!
   createdAt: BigInt!
   updatedAt: BigInt!
-  verified: Boolean! # Account verification status
+  verified: Boolean!
 
-  # Relations
   performances: [Performance!]! @derivedFrom(field: "performer")
   exerciseAttempts: [ExerciseAttempt!]! @derivedFrom(field: "performer")
 
-  # Stats
   performanceCount: Int!
   totalScore: BigInt!
   averageScore: BigDecimal!
@@ -148,8 +142,8 @@ type Account @entity(immutable: false) {
 Global statistics
 """
 type GlobalStats @entity(immutable: false) {
-  id: ID! # "global"
-  totalSegments: Int!
+  id: ID!
+  totalClips: Int!
   totalPerformances: Int!
   totalAccounts: Int!
   totalTranslations: Int!
@@ -159,18 +153,8 @@ type GlobalStats @entity(immutable: false) {
 }
 
 """
-Leaderboard entry for segment performances
+Leaderboard entry for clip performances
 """
-type SegmentLeaderboard @entity(immutable: false) {
-  id: ID! # segmentHash
-  segment: Segment!
-  totalPerformers: Int!
-  averageScore: BigDecimal!
-  highestScore: Int!
-  lowestScore: Int!
-  createdAt: BigInt!
-  updatedAt: BigInt!
-}
 
 enum ExerciseType {
   SAY_IT_BACK
@@ -194,8 +178,8 @@ type ExerciseCard @entity(immutable: false) {
   registeredBy: Bytes!
 
   # Optional relations (translation-specific)
-  segment: Segment
-  segmentHash: Bytes
+  clip: Clip
+  clipHash: Bytes
   line: LineCard
   lineId: Bytes
   lineIndex: Int

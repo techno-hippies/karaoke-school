@@ -5,19 +5,19 @@ import { convertGroveUri } from '@/lib/lens/utils'
 import type { SongMetadata } from './useGroveSongMetadata'
 
 /**
- * Segment from The Graph subgraph
+ * Clip from The Graph subgraph
  * Primary interface for karaoke data (references GRC-20 for music metadata)
  */
-export interface Segment {
+export interface Clip {
   id: string
-  segmentHash: string
+  clipHash: string
   grc20WorkId: string // References GRC-20 public music metadata layer
   spotifyTrackId: string
   metadataUri: string
   instrumentalUri?: string
   alignmentUri?: string
-  segmentStartMs: number
-  segmentEndMs: number
+  clipStartMs: number
+  clipEndMs: number
   translationCount: number
   performanceCount: number
   averageScore: number
@@ -39,41 +39,41 @@ export interface Segment {
 }
 
 /**
- * Collection of segments for a GRC-20 work
+ * Collection of clips for a GRC-20 work
  */
-export interface GRC20WorkSegments {
+export interface GRC20WorkClips {
   grc20WorkId: string
   spotifyTrackId: string // Primary identifier
-  segments: Segment[]
+  clips: Clip[]
 }
 
 /**
- * Enriched segment data with Grove metadata
+ * Enriched clip data with Grove metadata
  */
-export interface EnrichedSegment extends Segment {
+export interface EnrichedClip extends Clip {
   metadata?: SongMetadata
 }
 
 /**
- * Query segments by GRC-20 work ID
+ * Query clips by GRC-20 work ID
  * This is the primary interface - no Song entity involved
  */
-const GRC20_SEGMENTS_QUERY = gql`
-  query GetSegmentsByGRC20Work($grc20WorkId: String!) {
-    segments(
+const GRC20_CLIPS_QUERY = gql`
+  query GetClipsByGRC20Work($grc20WorkId: String!) {
+    clips(
       where: { grc20WorkId: $grc20WorkId }
-      orderBy: segmentStartMs
+      orderBy: clipStartMs
       orderDirection: asc
     ) {
       id
-      segmentHash
+      clipHash
       grc20WorkId
       spotifyTrackId
       metadataUri
       instrumentalUri
       alignmentUri
-      segmentStartMs
-      segmentEndMs
+      clipStartMs
+      clipEndMs
       translationCount
       performanceCount
       averageScore
@@ -97,35 +97,35 @@ const GRC20_SEGMENTS_QUERY = gql`
 `
 
 /**
- * Fetch segments for a GRC-20 work ID (primary approach)
+ * Fetch clips for a GRC-20 work ID (primary approach)
  *
  * @param grc20WorkId - The GRC-20 work UUID
- * @returns Segments grouped by grc20WorkId
+ * @returns Clips grouped by grc20WorkId
  */
-export function useSegmentsByGRC20Work(grc20WorkId?: string) {
+export function useClipsByGRC20Work(grc20WorkId?: string) {
   return useQuery({
-    queryKey: ['segments-grc20', grc20WorkId],
+    queryKey: ['clips-grc20', grc20WorkId],
     queryFn: async () => {
       if (!grc20WorkId) {
         throw new Error('GRC-20 work ID is required')
       }
 
-      const data = await graphClient.request<{ segments: Segment[] }>(
-        GRC20_SEGMENTS_QUERY,
+      const data = await graphClient.request<{ clips: Clip[] }>(
+        GRC20_CLIPS_QUERY,
         { grc20WorkId }
       )
 
-      if (!data.segments || data.segments.length === 0) {
-        throw new Error('No segments found for this work')
+      if (!data.clips || data.clips.length === 0) {
+        throw new Error('No clips found for this work')
       }
 
-      // Return as GRC20WorkSegments structure
-      const firstSegment = data.segments[0]
+      // Return as GRC20WorkClips structure
+      const firstClip = data.clips[0]
       return {
         grc20WorkId,
-        spotifyTrackId: firstSegment.spotifyTrackId,
-        segments: data.segments,
-      } as GRC20WorkSegments
+        spotifyTrackId: firstClip.spotifyTrackId,
+        clips: data.clips,
+      } as GRC20WorkClips
     },
     enabled: !!grc20WorkId,
     staleTime: 30000, // 30 seconds
@@ -134,13 +134,13 @@ export function useSegmentsByGRC20Work(grc20WorkId?: string) {
 }
 
 /**
- * Fetch a single segment with its metadata enriched
+ * Fetch a single clip with its metadata enriched
  *
- * @param segmentHash - The segment hash
- * @returns Segment enriched with Grove metadata
+ * @param clipHash - The clip hash
+ * @returns Clip enriched with Grove metadata
  */
-export function useSegmentWithMetadata() {
-  // Placeholder - would query single segment and fetch Grove metadata
+export function useClipWithMetadata() {
+  // Placeholder - would query single clip and fetch Grove metadata
   // Not fully implemented yet
   return {
     data: undefined,
@@ -150,26 +150,26 @@ export function useSegmentWithMetadata() {
 }
 
 /**
- * Fetch GRC-20 work segments with Grove metadata enriched
+ * Fetch GRC-20 work clips with Grove metadata enriched
  *
  * @param grc20WorkId - The GRC-20 work UUID
- * @returns Segments enriched with metadata
+ * @returns Clips enriched with metadata
  */
-export function useGRC20WorkSegmentsWithMetadata(grc20WorkId?: string) {
-  // First, fetch segments from The Graph
-  const { data: workData, isLoading: isLoadingSegments, error: segmentsError } =
-    useSegmentsByGRC20Work(grc20WorkId)
+export function useGRC20WorkClipsWithMetadata(grc20WorkId?: string) {
+  // First, fetch clips from The Graph
+  const { data: workData, isLoading: isLoadingClips, error: clipsError } =
+    useClipsByGRC20Work(grc20WorkId)
 
-  // Then, fetch metadata from Grove for first segment (example)
-  const firstSegment = workData?.segments[0]
+  // Then, fetch metadata from Grove for first clip (example)
+  const firstClip = workData?.clips[0]
   const { data: metadata, isLoading: isLoadingMetadata } = useQuery({
-    queryKey: ['segment-metadata', firstSegment?.metadataUri],
+    queryKey: ['clip-metadata', firstClip?.metadataUri],
     queryFn: async () => {
-      if (!firstSegment?.metadataUri) {
+      if (!firstClip?.metadataUri) {
         throw new Error('Metadata URI is required')
       }
 
-      const httpUrl = convertGroveUri(firstSegment.metadataUri)
+      const httpUrl = convertGroveUri(firstClip.metadataUri)
       console.log('[useSongV2] Fetching Grove metadata from:', httpUrl)
       const response = await fetch(httpUrl)
       if (!response.ok) {
@@ -182,22 +182,22 @@ export function useGRC20WorkSegmentsWithMetadata(grc20WorkId?: string) {
       console.log('[useSongV2] 🚨 coverUri value:', rawData.coverUri)
       return rawData as Promise<SongMetadata>
     },
-    enabled: !!firstSegment?.metadataUri,
+    enabled: !!firstClip?.metadataUri,
     staleTime: 300000, // 5 minutes (immutable)
   })
 
-  // Enhance first segment with metadata
-  const enrichedSegments = workData?.segments.map((seg, idx) => ({
-    ...seg,
+  // Enhance first clip with metadata
+  const enrichedClips = workData?.clips.map((clip, idx) => ({
+    ...clip,
     metadata: idx === 0 ? metadata : undefined,
-  } as EnrichedSegment)) ?? []
+  } as EnrichedClip)) ?? []
 
   return {
     data: workData ? {
       ...workData,
-      segments: enrichedSegments,
+      clips: enrichedClips,
     } : undefined,
-    isLoading: isLoadingSegments || isLoadingMetadata,
-    error: segmentsError,
+    isLoading: isLoadingClips || isLoadingMetadata,
+    error: clipsError,
   }
 }

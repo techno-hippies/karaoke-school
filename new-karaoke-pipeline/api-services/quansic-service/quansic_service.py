@@ -132,11 +132,10 @@ class QuansicService:
                 page.page.goto('https://explorer.quansic.com/app-login', wait_until='domcontentloaded', timeout=60000)
                 logger.info(f"Page loaded, current URL: {page.url}")
 
-                # Wait for page to stabilize
-                sleep_time = random.uniform(2, 5)
-                logger.info(f"Sleeping for {sleep_time:.2f}s...")
-                time.sleep(sleep_time)
-                logger.info(f"Sleep complete, proceeding to form fill...")
+                # Wait for Angular to render the form
+                logger.info(f"Waiting for email input to appear...")
+                page.page.wait_for_selector('input[name="email"]', state='visible', timeout=30000)
+                logger.info(f"Email input is visible, proceeding to form fill...")
 
                 # Find and fill login form
                 logger.info(f"Checking page content...")
@@ -184,7 +183,7 @@ class QuansicService:
 
                 # Take screenshot after filling
                 try:
-                    page.screenshot(path='/tmp/quansic-after-fill.png')
+                    page.screenshot(path='/tmp/quansic-after-fill.png', full_page=True)
                     logger.debug("Screenshot saved: /tmp/quansic-after-fill.png")
                 except:
                     pass
@@ -205,12 +204,13 @@ class QuansicService:
                         if page.isVisible(button_selector):
                             logger.info(f"✅ Found login button with selector: {button_selector}")
                             try:
-                                page.page.click(button_selector)
+                                page.page.click(button_selector, timeout=10000)
                                 logger.info(f"✅ Clicked login button with selector: {button_selector}")
                                 button_clicked = True
                                 break
-                            except Exception as click_error:
-                                logger.debug(f"Click failed for {button_selector}: {click_error}")
+                            except Exception as e:
+                                click_error = e
+                                logger.error(f"❌ Click failed for {button_selector}: {e}")
                                 continue
                     except Exception as e:
                         logger.debug(f"isVisible check failed for {button_selector}: {e}")
@@ -225,7 +225,7 @@ class QuansicService:
                 # Take screenshot after click
                 try:
                     time.sleep(2)
-                    page.screenshot(path='/tmp/quansic-after-click.png')
+                    page.screenshot(path='/tmp/quansic-after-click.png', full_page=True)
                     logger.debug("Screenshot saved: /tmp/quansic-after-click.png")
                 except:
                     pass

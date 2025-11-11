@@ -149,6 +149,176 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
 VALUES
+  ('artist', 'artist_type', jsonb_build_object('order', ARRAY['musicbrainz','wikidata','spotify']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'country', jsonb_build_object('order', ARRAY['musicbrainz','wikidata','spotify']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'genres', jsonb_build_object('order', ARRAY['musicbrainz','spotify','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'tiktok_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata','genius']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'youtube_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata','genius']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'soundcloud_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'wikipedia_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'wikipedia_urls', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'facebook_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'deezer_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'apple_music_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'library_ids', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'external_ids', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'lens_handle', jsonb_build_object('order', ARRAY['lens','quansic','spotify']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'aliases', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'bandcamp_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'songkick_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'setlistfm_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'lastfm_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'pitchfork_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'songfacts_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'musixmatch_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'rateyourmusic_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'discogs_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'allmusic_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'imdb_url', jsonb_build_object('order', ARRAY['musicbrainz','wikidata']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'weibo_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'vk_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'subreddit_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'carnegie_hall_url', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'viaf_id', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'bnf_id', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'gnd_id', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
+  ('artist', 'loc_id', jsonb_build_object('order', ARRAY['wikidata','musicbrainz']), NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO field_resolution_rules (entity_type, field_name, priority, consensus)
+VALUES
   ('work', 'title', jsonb_build_object('order', ARRAY['quansic','musicbrainz_work','spotify','genius']), NULL)
 ON CONFLICT DO NOTHING;
 

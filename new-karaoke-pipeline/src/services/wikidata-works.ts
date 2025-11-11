@@ -4,6 +4,7 @@
  */
 
 import { getWikidataEntity, type WikidataEntity } from './wikidata';
+import { normalizeISWC } from '../utils/iswc';
 
 export interface WikidataWork {
   wikidataId: string;
@@ -123,7 +124,12 @@ export async function parseWikidataWork(entity: WikidataEntity): Promise<Wikidat
 
   // Extract ISWC
   const iswc = extractClaimValues(claims, 'P6722');
-  if (iswc.length > 0) result.iswc = iswc[0];
+  if (iswc.length > 0) {
+    const normalized = normalizeISWC(iswc[0]);
+    if (normalized) {
+      result.iswc = normalized;
+    }
+  }
 
   // Extract language (returns entity ID like Q1860 for English)
   const languageIds = extractClaimValues(claims, 'P407');
@@ -219,8 +225,9 @@ export async function getWikidataWork(wikidataId: string): Promise<WikidataWork 
   if (!work.iswc && work.identifiers?.musicbrainz_work) {
     const mbid = work.identifiers.musicbrainz_work;
     const iswc = await fetchMusicBrainzISWC(mbid);
-    if (iswc) {
-      work.iswc = iswc;
+    const normalized = normalizeISWC(iswc);
+    if (normalized) {
+      work.iswc = normalized;
     }
   }
 

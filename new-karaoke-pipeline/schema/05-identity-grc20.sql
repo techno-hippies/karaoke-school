@@ -216,11 +216,43 @@ CREATE TABLE IF NOT EXISTS grc20_artists (
   wikidata_url TEXT,
   instagram_url TEXT,
   twitter_url TEXT,
+  tiktok_url TEXT,
+  youtube_url TEXT,
+  soundcloud_url TEXT,
+  bandcamp_url TEXT,
+  songkick_url TEXT,
+  setlistfm_url TEXT,
+  lastfm_url TEXT,
+  pitchfork_url TEXT,
+  songfacts_url TEXT,
+  musixmatch_url TEXT,
+  rateyourmusic_url TEXT,
+  discogs_url TEXT,
+  allmusic_url TEXT,
+  imdb_url TEXT,
+  wikipedia_url TEXT,
+  wikipedia_urls JSONB,
+  facebook_url TEXT,
+  deezer_url TEXT,
+  apple_music_url TEXT,
+  weibo_url TEXT,
+  vk_url TEXT,
+  subreddit_url TEXT,
+  carnegie_hall_url TEXT,
   official_website TEXT,
+  lens_handle TEXT,
 
   -- Image URLs
   image_url TEXT,
-  image_source TEXT,                     -- 'spotify' | 'genius' | 'fal'
+
+  -- Extended Metadata
+  viaf_id TEXT,
+  bnf_id TEXT,
+  gnd_id TEXT,
+  loc_id TEXT,
+  library_ids JSONB,                    -- Additional library/external identifiers
+  external_ids JSONB,                  -- Raw identifier map from sources (Wikidata etc.)
+  aliases JSONB,                        -- Localized aliases { lang: [names] }
 
   -- Minting State
   grc20_entity_id UUID UNIQUE,           -- Set after minting to GRC-20
@@ -293,9 +325,6 @@ CREATE TABLE IF NOT EXISTS grc20_works (
   -- Musical Info
   genres TEXT,                           -- Comma-separated: "pop, rock, electronic"
   explicit_content BOOLEAN DEFAULT FALSE,
-
-  -- Popularity Metrics (for selection)
-  spotify_popularity INTEGER,            -- 0-100
 
   -- URLs (essential only)
   spotify_url TEXT,

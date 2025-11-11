@@ -273,6 +273,7 @@ CREATE TABLE IF NOT EXISTS wikidata_artists (
 
   -- International library identifiers (40+)
   identifiers JSONB,                -- {lcn, bnf, dnb, sudoc, etc.}
+  wikipedia_sitelinks JSONB,        -- { en: 'https://en.wikipedia.org/...', ... }
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

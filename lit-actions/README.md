@@ -1,6 +1,10 @@
 # Lit Actions v2 - Organized Structure
 
-This folder contains the **2 lit actions** and supporting systems for the Karaoke School project, reorganized from the messy `lit-actions` folder.
+This folder contains the **active ExerciseEvents lit action** plus archived material from the legacy PerformanceGrader flow.
+
+> **Heads up:** `study/exercise-grader-v1.js` is the production scorer that targets
+> `ExerciseEvents`. The previous PerformanceGrader-based scripts now live in
+> `archived/performance-grader/` and are kept only for historical reference.
 
 ## 📁 Directory Structure
 

@@ -62,6 +62,36 @@ async function getMusicBrainzFromCache(isrc: string): Promise<MusicBrainzResult 
 }
 
 /**
+ * Helper: Get authoritative Spotify artist ID from our track data
+ * Matches by artist name (case-insensitive)
+ */
+async function getAuthoritativeSpotifyId(
+  mbArtistName: string,
+  spotifyTrackId: string
+): Promise<string | null> {
+  try {
+    const result = await query<{ artists: Array<{ id: string; name: string }> }>(`
+      SELECT artists FROM tracks WHERE spotify_track_id = $1
+    `, [spotifyTrackId]);
+
+    if (!result[0]?.artists) return null;
+
+    // Match by name (case-insensitive, normalized)
+    const normalize = (name: string) => name.toLowerCase().trim();
+    const mbNameNorm = normalize(mbArtistName);
+
+    const match = result[0].artists.find(a =>
+      normalize(a.name) === mbNameNorm
+    );
+
+    return match?.id || null;
+  } catch (error) {
+    console.warn(`      ⚠️ Failed to get authoritative Spotify ID for ${mbArtistName}`);
+    return null;
+  }
+}
+
+/**
  * Fetch MusicBrainz data via API
  */
 async function fetchMusicBrainzData(
@@ -95,10 +125,13 @@ async function fetchMusicBrainzData(
     // Store first 3 performers with full data lookup (rate limit friendly)
     for (const credit of artistCredit.slice(0, 3)) {
       try {
+        // Get authoritative Spotify ID from our track data (single source of truth)
+        const authSpotifyId = await getAuthoritativeSpotifyId(credit.artist.name, spotifyTrackId);
+
         // Do full artist lookup to get ISNIs, IPIs, and member relationships
         const fullArtist = await lookupArtist(credit.artist.id);
         if (fullArtist) {
-          const artistSQL = upsertMBArtistSQL(fullArtist);
+          const artistSQL = upsertMBArtistSQL(fullArtist, authSpotifyId || undefined);
           await query(artistSQL);
 
           // Log if we found ISNIs/members
@@ -107,7 +140,7 @@ async function fetchMusicBrainzData(
           }
         } else {
           // Fallback to minimal data if full lookup fails
-          const artistSQL = upsertMBArtistSQL(credit.artist as MBArtist);
+          const artistSQL = upsertMBArtistSQL(credit.artist as MBArtist, authSpotifyId || undefined);
           await query(artistSQL);
         }
       } catch (error: any) {
@@ -144,10 +177,13 @@ async function fetchMusicBrainzData(
 
       for (const artist of artists.slice(0, 3)) {
         try {
+          // Get authoritative Spotify ID from our track data (single source of truth)
+          const authSpotifyId = await getAuthoritativeSpotifyId(artist.name, spotifyTrackId);
+
           // Do full artist lookup to get ISNIs, IPIs, and member relationships
           const fullArtist = await lookupArtist(artist.id);
           if (fullArtist) {
-            const artistSQL = upsertMBArtistSQL(fullArtist);
+            const artistSQL = upsertMBArtistSQL(fullArtist, authSpotifyId || undefined);
             await query(artistSQL);
 
             // Log if we found ISNIs
@@ -156,7 +192,7 @@ async function fetchMusicBrainzData(
             }
           } else {
             // Fallback to minimal data if full lookup fails
-            const artistSQL = upsertMBArtistSQL(artist);
+            const artistSQL = upsertMBArtistSQL(artist, authSpotifyId || undefined);
             await query(artistSQL);
           }
         } catch (error: any) {

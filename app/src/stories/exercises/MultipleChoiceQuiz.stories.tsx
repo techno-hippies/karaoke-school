@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MultipleChoiceQuiz, type MultipleChoiceOption } from '@/components/exercises/MultipleChoiceQuiz'
 
@@ -90,4 +91,40 @@ export const LongAnswers: Story = {
     ],
     onAnswer: (id, isCorrect) => console.log('Selected:', id, 'Correct:', isCorrect),
   },
+}
+
+const LoadingStateTemplate = () => {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [answered, setAnswered] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const handleAnswer = (id: string, isCorrect: boolean) => {
+    setProcessing(true)
+    setSelectedId(id)
+    setMessage(null)
+
+    setTimeout(() => {
+      setProcessing(false)
+      setAnswered(true)
+      setMessage(isCorrect ? 'Correct!' : 'Incorrect — Paris is the capital city.')
+    }, 1200)
+  }
+
+  return (
+    <MultipleChoiceQuiz
+      question="What is the capital of France?"
+      options={sampleOptions}
+      onAnswer={handleAnswer}
+      isProcessing={processing}
+      hasAnswered={answered}
+      selectedAnswerId={selectedId}
+      explanation={message ?? undefined}
+      exerciseType="TRIVIA_QUIZ"
+    />
+  )
+}
+
+export const LoadingState: Story = {
+  render: () => <LoadingStateTemplate />,
 }

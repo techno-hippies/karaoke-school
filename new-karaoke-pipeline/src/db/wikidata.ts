@@ -28,6 +28,7 @@ export function upsertWikidataArtistSQL(
     // Aliases and identifiers as JSONB (labels stored in identifiers if needed)
     aliases: artist.aliases || null,
     identifiers: artist.identifiers || null,
+    wikipedia_sitelinks: artist.wikipediaSitelinks || null,
   };
 
   return buildUpsert('wikidata_artists', data, 'wikidata_id', [
@@ -38,6 +39,7 @@ export function upsertWikidataArtistSQL(
     'musicbrainz_id',
     'aliases',
     'identifiers',
+    'wikipedia_sitelinks',
   ]) + ' RETURNING wikidata_id, name, isni, viaf, musicbrainz_id';
 }
 

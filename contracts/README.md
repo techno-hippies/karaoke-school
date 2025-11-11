@@ -38,15 +38,22 @@ forge script script/DeployEvents.s.sol:DeployEvents \
 
 > **Chain ID**: 37111 | **RPC**: https://rpc.testnet.lens.xyz
 
-- **PerformanceGrader**: `0x788A245B9AAB4E29D0152424b72bcB8Ac7c1E260` ✅
-  - PKP-verified grading (~48k gas)
-  - Trusted PKP: `0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23`
+- **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` ✅
+  - PKP-gated grading for “Say It Back” + multiple choice attempts
+  - Emits `SayItBackAttemptGraded` / `MultipleChoiceAttemptGraded`
+  - Trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
+
+> Looking for the old `PerformanceGrader` flow? The Solidity sources, tests,
+> and scripts now live in `contracts/archived/performance-grader/` for
+> historical reference only.
+
+- **ClipEvents**: `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274` ✅
+  - Clip registration, processing, and song encryption events
+  - Emits `ClipRegistered`, `ClipProcessed`, `SongEncrypted`, `ClipToggled`
+  - Replaces legacy SegmentEvents with clip-focused terminology (~30k gas)
 
 - **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
   - Song registration events (~28k gas)
-
-- **SegmentEvents**: `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274` ✅
-  - Segment processing events (~30k gas)
 
 - **TranslationEvents**: `0x5A49E23A5C3a034906eE0274c266A08805770C70` ✅
   - Translation tracking events (~25k gas)

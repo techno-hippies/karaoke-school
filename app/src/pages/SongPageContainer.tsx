@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
-import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
+import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
@@ -12,24 +12,24 @@ import type { VideoPost } from '@/components/video/VideoGrid'
  * Routes:
  * - /song/grc20/:workId (GRC-20 work UUID)
  *
- * All queries are segment-based, grouped by grc20WorkId
+ * All queries are clip-based, grouped by grc20WorkId
  */
 export function SongPageContainer() {
   const { workId } = useParams<{ workId?: string }>()
   const navigate = useNavigate()
 
-  // Fetch segments for this GRC-20 work
+  // Fetch clips for this GRC-20 work
   const {
     data: workData,
-    isLoading: isLoadingSegments,
-    error: segmentsError,
-  } = useGRC20WorkSegmentsWithMetadata(workId)
+    isLoading: isLoadingClips,
+    error: clipsError,
+  } = useGRC20WorkClipsWithMetadata(workId)
 
   // Fetch creator videos by GRC-20 work ID
   const { data: lensVideos, isLoading: isLoadingVideos } = useSongVideos(workId)
 
   // Loading state
-  if (isLoadingSegments) {
+  if (isLoadingClips) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -38,7 +38,7 @@ export function SongPageContainer() {
   }
 
   // Error states
-  if (segmentsError || !workData) {
+  if (clipsError || !workData) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">
@@ -59,12 +59,12 @@ export function SongPageContainer() {
     )
   }
 
-  // Extract metadata from first segment
-  const firstSegment = workData.segments[0]
-  const metadata = firstSegment?.metadata
+  // Extract metadata from first clip
+  const firstClip = workData.clips[0]
+  const metadata = firstClip?.metadata
 
-  console.log('[SongPageContainer] workData.segments:', workData.segments?.length || 0)
-  console.log('[SongPageContainer] firstSegment:', firstSegment)
+  console.log('[SongPageContainer] workData.clips:', workData.clips?.length || 0)
+  console.log('[SongPageContainer] firstClip:', firstClip)
   console.log('[SongPageContainer] metadata:', metadata)
   console.log('[SongPageContainer] metadata keys:', metadata ? Object.keys(metadata) : 'N/A')
   console.log('[SongPageContainer] coverUri in metadata?', metadata?.coverUri ? 'YES' : 'NO')
@@ -89,10 +89,10 @@ export function SongPageContainer() {
 
   // Build external links
   const songLinks: Array<{ label: string; url: string }> = []
-  if (firstSegment?.spotifyTrackId) {
+  if (firstClip?.spotifyTrackId) {
     songLinks.push({
       label: 'Spotify',
-      url: `https://open.spotify.com/track/${firstSegment.spotifyTrackId}`,
+      url: `https://open.spotify.com/track/${firstClip.spotifyTrackId}`,
     })
   }
 

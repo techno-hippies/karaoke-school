@@ -3,19 +3,28 @@
  * Clean abstraction over Neon PostgreSQL
  */
 
-import { neon, neonConfig } from '@neondatabase/serverless';
+import { neon } from '@neondatabase/serverless';
 
-// Enable connection pooling
-neonConfig.fetchConnectionCache = true;
+let databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
-const DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-
-if (!DATABASE_URL) {
+if (!databaseUrl) {
   throw new Error('DATABASE_URL or NEON_DATABASE_URL environment variable required');
 }
 
+if (!/[?&]sslmode=/i.test(databaseUrl)) {
+  databaseUrl += databaseUrl.includes('?') ? '&sslmode=require' : '?sslmode=require';
+}
+
+if (/channel_binding=require/i.test(databaseUrl)) {
+  databaseUrl = databaseUrl.replace(/channel_binding=require/gi, 'channel_binding=prefer');
+}
+
+if (!/[?&]channel_binding=/i.test(databaseUrl)) {
+  databaseUrl += databaseUrl.includes('?') ? '&channel_binding=prefer' : '?channel_binding=prefer';
+}
+
 // Create SQL query function
-export const sql = neon(DATABASE_URL);
+export const sql = neon(databaseUrl);
 
 /**
  * Simple query wrapper with type safety

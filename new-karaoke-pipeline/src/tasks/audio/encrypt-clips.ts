@@ -1,18 +1,12 @@
 #!/usr/bin/env bun
 /**
- * Encrypt Karaoke Segments with Lit Protocol
+ * Encrypt Karaoke Clips with Lit Protocol
  *
- * Encrypts full-length karaoke segments and gates them with Unlock Protocol NFT keys.
- * Users must own a subscription key from the artist's Unlock lock to decrypt.
- *
- * Prerequisites:
- * - karaoke_segments has fal_enhanced_grove_url (audio to encrypt)
- * - lens_accounts has subscription_lock_address (Unlock lock)
- * - @lit-protocol/access-control-conditions installed
- * - @lit-protocol/lit-client installed
+ * Encrypts full-length karaoke songs and links them to the short-form clip via
+ * Unlock Protocol subscription locks. Emits SongEncrypted events on ClipEvents.
  *
  * Usage:
- *   bun src/tasks/audio/encrypt-segments.ts --limit=10
+ *   bun src/tasks/audio/encrypt-clips.ts --limit=10
  *   bun task:encrypt --limit=5
  */
 
@@ -22,14 +16,14 @@ import { query } from '../../db/connection';
 import { createAccBuilder } from '@lit-protocol/access-control-conditions';
 import { uploadToGrove } from '../../services/storage';
 import { ethers } from 'ethers';
-import SegmentEventsArtifact from '../../../../contracts/out/SegmentEvents.sol/SegmentEvents.json' assert { type: 'json' };
-import { SEGMENT_EVENTS_ADDRESS, LENS_TESTNET_RPC } from '../../../../lit-actions/config/contracts.config.js';
+import ClipEventsArtifact from '../../../../contracts/out/ClipEvents.sol/ClipEvents.json' assert { type: 'json' };
+import { CLIP_EVENTS_ADDRESS, LENS_TESTNET_RPC } from '../../../../lit-actions/config/contracts.config.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface SegmentToEncrypt {
+interface ClipToEncrypt {
   spotify_track_id: string;
   fal_enhanced_grove_url: string;
   clip_start_ms: number | null;
@@ -41,8 +35,8 @@ interface SegmentToEncrypt {
   subscription_lock_chain: string;
 }
 
-interface SegmentEncryptedEventPayload {
-  segmentHash: string;
+interface SongEncryptedEventPayload {
+  clipHash: string;
   spotifyTrackId: string;
   encryptedFullUri: string;
   encryptedManifestUri: string;
@@ -71,7 +65,7 @@ function resolveUnlockChainId(chain: string): number {
   return chainId;
 }
 
-let segmentEventsContract: ethers.Contract | null = null;
+let clipEventsContract: ethers.Contract | null = null;
 
 function getFormattedPrivateKey(): `0x${string}` {
   const rawKey = process.env.PRIVATE_KEY?.trim();
@@ -82,29 +76,29 @@ function getFormattedPrivateKey(): `0x${string}` {
   return (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
 }
 
-function getSegmentEventsContract(): ethers.Contract {
-  if (segmentEventsContract) {
-    return segmentEventsContract;
+function getClipEventsContract(): ethers.Contract {
+  if (clipEventsContract) {
+    return clipEventsContract;
   }
 
   const provider = new ethers.JsonRpcProvider(LENS_TESTNET_RPC);
   const wallet = new ethers.Wallet(getFormattedPrivateKey(), provider);
 
-  segmentEventsContract = new ethers.Contract(
-    SEGMENT_EVENTS_ADDRESS,
-    SegmentEventsArtifact.abi,
+  clipEventsContract = new ethers.Contract(
+    CLIP_EVENTS_ADDRESS,
+    ClipEventsArtifact.abi,
     wallet
   );
 
-  return segmentEventsContract;
+  return clipEventsContract;
 }
 
-async function emitSegmentEncryptedEvent(payload: SegmentEncryptedEventPayload): Promise<void> {
-  const contract = getSegmentEventsContract();
+async function emitSongEncryptedEvent(payload: SongEncryptedEventPayload): Promise<void> {
+  const contract = getClipEventsContract();
 
-  console.log('   ⛓️  Emitting SegmentEncrypted event...');
-  const tx = await contract.emitSegmentEncrypted(
-    payload.segmentHash,
+  console.log('   ⛓️  Emitting SongEncrypted event...');
+  const tx = await contract.emitSongEncrypted(
+    payload.clipHash,
     payload.spotifyTrackId,
     payload.encryptedFullUri,
     payload.encryptedManifestUri,
@@ -118,7 +112,7 @@ async function emitSegmentEncryptedEvent(payload: SegmentEncryptedEventPayload):
   console.log(`   ✅ Confirmed in block ${receipt.blockNumber}`);
 }
 
-function generateSegmentHash(spotifyTrackId: string, clipStartMs: number): string {
+function generateClipHash(spotifyTrackId: string, clipStartMs: number): string {
   return ethers.solidityPackedKeccak256(
     ['string', 'uint32'],
     [spotifyTrackId, clipStartMs]
@@ -138,14 +132,14 @@ function normalizeAccs(accs: any): any {
 // ============================================================================
 
 /**
- * Find segments that need encryption
+ * Find clips that need encryption
  *
  * Criteria:
  * - Has enhanced audio (fal_enhanced_grove_url)
  * - Not yet encrypted (encrypted_full_cid IS NULL)
  * - Artist has Unlock lock deployed
  */
-async function findSegmentsToEncrypt(limit: number): Promise<SegmentToEncrypt[]> {
+async function findClipsToEncrypt(limit: number): Promise<ClipToEncrypt[]> {
   const sql = `
     SELECT
       ks.spotify_track_id,
@@ -168,7 +162,7 @@ async function findSegmentsToEncrypt(limit: number): Promise<SegmentToEncrypt[]>
     LIMIT $1
   `;
 
-  return await query<SegmentToEncrypt>(sql, [limit]);
+  return await query<ClipToEncrypt>(sql, [limit]);
 }
 
 /**
@@ -293,37 +287,37 @@ async function saveEncryptedData(
 }
 
 /**
- * Process a single segment: download, encrypt, upload, save
+ * Process a single clip: download, encrypt, upload, save
  */
-async function processSegment(
-  segment: SegmentToEncrypt,
+async function processClip(
+  clip: ClipToEncrypt,
   litClient: any
 ): Promise<void> {
-  console.log(`\n🎵 Processing: ${segment.artist_name} - ${segment.spotify_track_id}`);
-  console.log(`   Lock: ${segment.subscription_lock_address} (${segment.subscription_lock_chain})`);
+  console.log(`\n🎵 Processing clip: ${clip.artist_name} - ${clip.spotify_track_id}`);
+  console.log(`   Lock: ${clip.subscription_lock_address} (${clip.subscription_lock_chain})`);
 
   try {
-    if (segment.clip_start_ms == null) {
-      throw new Error('Segment is missing clip_start_ms; cannot derive segment hash');
+    if (clip.clip_start_ms == null) {
+      throw new Error('Clip is missing clip_start_ms; cannot derive clip hash');
     }
 
-    const unlockLockAddress = ethers.getAddress(segment.subscription_lock_address);
-    const unlockChainId = resolveUnlockChainId(segment.subscription_lock_chain);
-    const segmentHash = generateSegmentHash(segment.spotify_track_id, segment.clip_start_ms);
+    const unlockLockAddress = ethers.getAddress(clip.subscription_lock_address);
+    const unlockChainId = resolveUnlockChainId(clip.subscription_lock_chain);
+    const clipHash = generateClipHash(clip.spotify_track_id, clip.clip_start_ms);
 
-    console.log(`   Segment hash: ${segmentHash}`);
-    if (segment.clip_end_ms != null) {
-      const clipDuration = (segment.clip_end_ms - segment.clip_start_ms) / 1000;
-      console.log(`   Clip window: ${(segment.clip_start_ms / 1000).toFixed(1)}s → ${(segment.clip_end_ms / 1000).toFixed(1)}s (${clipDuration.toFixed(1)}s)`);
+    console.log(`   Clip hash: ${clipHash}`);
+    if (clip.clip_end_ms != null) {
+      const clipDuration = (clip.clip_end_ms - clip.clip_start_ms) / 1000;
+      console.log(`   Clip window: ${(clip.clip_start_ms / 1000).toFixed(1)}s → ${(clip.clip_end_ms / 1000).toFixed(1)}s (${clipDuration.toFixed(1)}s)`);
     }
 
     // 1. Download audio from Grove
-    const audioBuffer = await downloadFromGrove(segment.fal_enhanced_grove_url);
+    const audioBuffer = await downloadFromGrove(clip.fal_enhanced_grove_url);
 
     // 2. Build Access Control Conditions
     const accs = buildAccessControlConditions(
-      segment.subscription_lock_address,
-      segment.subscription_lock_chain
+      clip.subscription_lock_address,
+      clip.subscription_lock_chain
     );
 
     // 3. Encrypt audio with Lit Protocol
@@ -331,7 +325,7 @@ async function processSegment(
       litClient,
       audioBuffer,
       accs,
-      segment.subscription_lock_chain
+      clip.subscription_lock_chain
     );
 
     const normalizedAccs = normalizeAccs(accs);
@@ -342,7 +336,7 @@ async function processSegment(
     const encryptedUpload = await uploadToGrove(
       encryptedBuffer,
       'application/json',
-      `encrypted-${segment.spotify_track_id}.json`
+      `encrypted-${clip.spotify_track_id}.json`
     );
 
     console.log(`   ✓ Encrypted data uploaded: ${encryptedUpload.cid}`);
@@ -352,16 +346,16 @@ async function processSegment(
     const manifest = {
       version: 1,
       generatedAt: new Date().toISOString(),
-      spotifyTrackId: segment.spotify_track_id,
-      segmentHash,
-      clipStartMs: segment.clip_start_ms,
-      clipEndMs: segment.clip_end_ms,
+      spotifyTrackId: clip.spotify_track_id,
+      clipHash,
+      clipStartMs: clip.clip_start_ms,
+      clipEndMs: clip.clip_end_ms,
       source: {
-        falEnhancedGroveUrl: segment.fal_enhanced_grove_url,
+        falEnhancedGroveUrl: clip.fal_enhanced_grove_url,
       },
       unlock: {
         lockAddress: unlockLockAddress,
-        chain: segment.subscription_lock_chain,
+        chain: clip.subscription_lock_chain,
         chainId: unlockChainId,
       },
       lit: {
@@ -381,15 +375,15 @@ async function processSegment(
     const manifestUpload = await uploadToGrove(
       manifestBuffer,
       'application/json',
-      `encrypted-manifest-${segment.spotify_track_id}.json`
+      `encrypted-manifest-${clip.spotify_track_id}.json`
     );
 
     console.log(`   ✓ Manifest uploaded: ${manifestUpload.cid}`);
 
-    // 6. Emit SegmentEncrypted event
-    await emitSegmentEncryptedEvent({
-      segmentHash,
-      spotifyTrackId: segment.spotify_track_id,
+    // 6. Emit SongEncrypted event
+    await emitSongEncryptedEvent({
+      clipHash,
+      spotifyTrackId: clip.spotify_track_id,
       encryptedFullUri: encryptedUpload.url,
       encryptedManifestUri: manifestUpload.url,
       unlockLockAddress,
@@ -416,24 +410,24 @@ async function processSegment(
       dataToEncryptHash: encrypted.dataToEncryptHash,
       unlock: {
         lockAddress: unlockLockAddress,
-        chain: segment.subscription_lock_chain,
+        chain: clip.subscription_lock_chain,
         chainId: unlockChainId,
       },
-      lensAccountRowId: segment.lens_account_id,
+      lensAccountRowId: clip.lens_account_id,
     };
 
     await saveEncryptedData(
-      segment.spotify_track_id,
+      clip.spotify_track_id,
       encryptedUpload.cid,
       encryptedUpload.url,
-      segment.lens_account_id,
+      clip.lens_account_id,
       encryptionRecord
     );
 
-    console.log(`   ✅ Segment encrypted successfully!`);
+    console.log(`   ✅ Clip encryption complete!`);
 
   } catch (error: any) {
-    console.error(`   ❌ Failed to encrypt segment:`, error.message);
+    console.error(`   ❌ Failed to encrypt clip:`, error.message);
     throw error;
   }
 }
@@ -442,7 +436,7 @@ async function processSegment(
  * Main execution
  */
 async function main() {
-  console.log('🔐 Lit Protocol Segment Encryption Task\n');
+  console.log('🔐 Lit Protocol Clip Encryption Task\n');
 
   // Parse CLI arguments
   const { values } = parseArgs({
@@ -458,30 +452,30 @@ async function main() {
   console.log(`   Batch size: ${limit}`);
   console.log();
 
-  // 1. Find segments to encrypt
-  console.log('🔍 Finding segments to encrypt...');
-  const segments = await findSegmentsToEncrypt(limit);
+  // 1. Find clips to encrypt
+  console.log('🔍 Finding clips to encrypt...');
+  const clips = await findClipsToEncrypt(limit);
 
-  if (segments.length === 0) {
-    console.log('✓ No segments need encryption');
+  if (clips.length === 0) {
+    console.log('✓ No clips need encryption');
     return;
   }
 
-  console.log(`✓ Found ${segments.length} segment(s) to encrypt\n`);
+  console.log(`✓ Found ${clips.length} clip(s) to encrypt\n`);
 
   // 2. Initialize Lit Protocol
   const litClient = await initLitClient();
 
-  // 3. Process each segment
+  // 3. Process each clip
   let successCount = 0;
   let errorCount = 0;
 
-  for (const segment of segments) {
+  for (const clip of clips) {
     try {
-      await processSegment(segment, litClient);
+      await processClip(clip, litClient);
       successCount++;
     } catch (error: any) {
-      console.error(`Failed to process ${segment.spotify_track_id}:`, error.message);
+      console.error(`Failed to process ${clip.spotify_track_id}:`, error.message);
       errorCount++;
     }
   }
@@ -492,7 +486,7 @@ async function main() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`✅ Success: ${successCount}`);
   console.log(`❌ Errors:  ${errorCount}`);
-  console.log(`📦 Total:   ${segments.length}`);
+  console.log(`📦 Total:   ${clips.length}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

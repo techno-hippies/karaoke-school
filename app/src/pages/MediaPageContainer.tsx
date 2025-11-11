@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useGRC20WorkSegmentsWithMetadata } from '@/hooks/useSongV2'
+import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { Spinner } from '@/components/ui/spinner'
@@ -50,32 +50,32 @@ export function MediaPageContainer() {
     lastRenderTimeRef.current = now
   }
 
-  // Fetch segments for this GRC-20 work with metadata
-  const { data: workData, isLoading: isLoadingWork } = useGRC20WorkSegmentsWithMetadata(workId)
+  // Fetch clips for this GRC-20 work with metadata
+  const { data: workData, isLoading: isLoadingWork } = useGRC20WorkClipsWithMetadata(workId)
 
   console.log('[MediaPageContainer] Work data:', workData)
 
-  // Get first segment from work
-  const firstSegment = workData?.segments?.[0]
+  // Get first clip from work
+  const firstClip = workData?.clips?.[0]
 
-  console.log('[MediaPageContainer] First segment:', firstSegment)
+  console.log('[MediaPageContainer] First clip:', firstClip)
 
-  // Fetch segment metadata (includes lyrics and alignment)
-  const { data: segmentMetadata, isLoading: isLoadingSegment } = useSegmentMetadata(
-    firstSegment?.metadataUri
+  // Fetch clip metadata (includes lyrics and alignment)
+  const { data: clipMetadata, isLoading: isLoadingClip } = useSegmentMetadata(
+    firstClip?.metadataUri
   )
 
-  console.log('[MediaPageContainer] Segment metadata:', segmentMetadata)
-  console.log('[MediaPageContainer] Segment metadata keys:', segmentMetadata ? Object.keys(segmentMetadata) : 'N/A')
-  console.log('[MediaPageContainer] Has coverUri?', segmentMetadata?.coverUri ? 'YES' : 'NO')
-  console.log('[MediaPageContainer] Full coverUri value:', segmentMetadata?.coverUri)
-  console.log('[MediaPageContainer] Segment metadata type:', typeof segmentMetadata)
-  if (segmentMetadata) {
+  console.log('[MediaPageContainer] Clip metadata:', clipMetadata)
+  console.log('[MediaPageContainer] Clip metadata keys:', clipMetadata ? Object.keys(clipMetadata) : 'N/A')
+  console.log('[MediaPageContainer] Has coverUri?', clipMetadata?.coverUri ? 'YES' : 'NO')
+  console.log('[MediaPageContainer] Full coverUri value:', clipMetadata?.coverUri)
+  console.log('[MediaPageContainer] Clip metadata type:', typeof clipMetadata)
+  if (clipMetadata) {
     console.log('[MediaPageContainer] Checking nested structure:')
-    console.log('  - coverUri:', segmentMetadata.coverUri)
-    console.log('  - title:', segmentMetadata.title)
-    console.log('  - artist:', segmentMetadata.artist)
-    console.log('  - assets:', segmentMetadata.assets)
+    console.log('  - coverUri:', clipMetadata.coverUri)
+    console.log('  - title:', clipMetadata.title)
+    console.log('  - artist:', clipMetadata.artist)
+    console.log('  - assets:', clipMetadata.assets)
   }
 
   // Timing synchronization function - calculates which line/word should be active
@@ -130,15 +130,15 @@ export function MediaPageContainer() {
 
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
-    if (!segmentMetadata) {
-      console.log('[MediaPageContainer] No segment metadata')
+    if (!clipMetadata) {
+      console.log('[MediaPageContainer] No clip metadata')
       return
     }
 
     // Load alignment if it exists in metadata
-    if (segmentMetadata.assets?.alignment) {
-      console.log('[MediaPageContainer] Loading alignment from:', segmentMetadata.assets.alignment)
-      fetch(segmentMetadata.assets.alignment)
+    if (clipMetadata.assets?.alignment) {
+      console.log('[MediaPageContainer] Loading alignment from:', clipMetadata.assets.alignment)
+      fetch(clipMetadata.assets.alignment)
         .then((r) => r.json())
         .then((data) => {
           console.log('[MediaPageContainer] ✅ Alignment loaded:', data)
@@ -148,15 +148,15 @@ export function MediaPageContainer() {
     }
 
     // Load translations from NEW format (separate Grove files)
-    if (!segmentMetadata?.translations || segmentMetadata.translations.length === 0) {
+    if (!clipMetadata?.translations || clipMetadata.translations.length === 0) {
       console.log('[MediaPageContainer] No translations in NEW format')
       return
     }
 
-    console.log('[MediaPageContainer] Loading translations from NEW format:', segmentMetadata.translations)
+    console.log('[MediaPageContainer] Loading translations from NEW format:', clipMetadata.translations)
 
     Promise.all<[string, any] | null>(
-      segmentMetadata.translations.map(async (t: any) => {
+      clipMetadata.translations.map(async (t: any) => {
         try {
           const url = convertGroveUri(t.grove_url)
           console.log(`[MediaPageContainer] Fetching ${t.language_code} from ${url}`)
@@ -211,10 +211,10 @@ export function MediaPageContainer() {
         console.log('[MediaPageContainer] First line timing:', lyricsLines[0])
       }
     })
-  }, [segmentMetadata])
+  }, [clipMetadata])
 
   // Loading state
-  if (isLoadingWork || isLoadingSegment) {
+  if (isLoadingWork || isLoadingClip) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -223,16 +223,16 @@ export function MediaPageContainer() {
   }
 
   // Error states
-  if (!workData || !firstSegment || !segmentMetadata) {
+  if (!workData || !firstClip || !clipMetadata) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
         <p className="text-muted-foreground">
           {!workData
             ? 'Work not found'
-            : !firstSegment
-              ? 'No segments available for this work'
-              : 'Segment metadata not available'}
+            : !firstClip
+              ? 'No clips available for this work'
+              : 'Clip metadata not available'}
         </p>
         <button onClick={() => navigate(-1)} className="text-primary hover:underline">
           Go back
@@ -243,14 +243,14 @@ export function MediaPageContainer() {
 
   // NEW FORMAT: Use clip audio from metadata.assets.instrumental
   // OLD FORMAT: Use contract event's instrumentalUri
-  const audioUrl = segmentMetadata?.assets?.instrumental
-    ? convertGroveUri(segmentMetadata.assets.instrumental)
-    : firstSegment.instrumentalUri
-      ? convertGroveUri(firstSegment.instrumentalUri)
+  const audioUrl = clipMetadata?.assets?.instrumental
+    ? convertGroveUri(clipMetadata.assets.instrumental)
+    : firstClip.instrumentalUri
+      ? convertGroveUri(firstClip.instrumentalUri)
       : undefined
 
   console.log('[MediaPageContainer] Audio URL source:', {
-    hasMetadataAssets: !!segmentMetadata?.assets?.instrumental,
+    hasMetadataAssets: !!clipMetadata?.assets?.instrumental,
     audioUrl: audioUrl?.substring(0, 50) + '...',
   })
 
@@ -267,32 +267,32 @@ export function MediaPageContainer() {
   }
 
   // Extract metadata from Grove
-  const title = segmentMetadata?.title || 'Untitled'
-  const artist = segmentMetadata?.artist || 'Unknown Artist'
+  const title = clipMetadata?.title || 'Untitled'
+  const artist = clipMetadata?.artist || 'Unknown Artist'
 
   // NEW FORMAT: Use tiktok_clip_duration_ms
   // OLD FORMAT: Use cropped_duration_ms
-  const croppedDurationMs = segmentMetadata?.timing?.tiktok_clip_duration_ms ||
-    segmentMetadata?.timing?.cropped_duration_ms ||
+  const croppedDurationMs = clipMetadata?.timing?.tiktok_clip_duration_ms ||
+    clipMetadata?.timing?.cropped_duration_ms ||
     50000
 
   // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
-  // coverUri is set during pipeline emission in emit-segment-events.ts
+  // coverUri is set during pipeline emission in emit-clip-events.ts
   // NOTE: Don't pass artworkUrl to MediaPage to avoid background image on play page
   console.log('[MediaPageContainer] Processing artwork (disabled for play page):')
-  console.log('  - coverUri exists?:', !!segmentMetadata?.coverUri)
-  console.log('  - coverUri value:', segmentMetadata?.coverUri)
+  console.log('  - coverUri exists?:', !!clipMetadata?.coverUri)
+  console.log('  - coverUri value:', clipMetadata?.coverUri)
   const artworkUrl = undefined // Don't show artwork background on play page
   console.log('  - artworkUrl disabled for play page:', artworkUrl)
 
   console.log('[MediaPageContainer] Clip duration:', {
-    tiktokClipMs: segmentMetadata?.timing?.tiktok_clip_duration_ms,
-    croppedDurationMs: segmentMetadata?.timing?.cropped_duration_ms,
+    tiktokClipMs: clipMetadata?.timing?.tiktok_clip_duration_ms,
+    croppedDurationMs: clipMetadata?.timing?.cropped_duration_ms,
     final: croppedDurationMs,
   })
 
   console.log('[MediaPageContainer] Artwork:', {
-    hasCoverUri: !!segmentMetadata?.coverUri,
+    hasCoverUri: !!clipMetadata?.coverUri,
     artworkUrlExists: !!artworkUrl,
     artworkUrl: artworkUrl?.substring(0, 50) + '...',
   })
@@ -301,13 +301,13 @@ export function MediaPageContainer() {
   // NEW format: use built original lyrics from translations
   // OLD format: use inline lyrics
   const originalLyrics = {
-    lines: originalLyricsLines.length > 0 ? originalLyricsLines : segmentMetadata.lyrics.original.lines,
+    lines: originalLyricsLines.length > 0 ? originalLyricsLines : clipMetadata.lyrics.original.lines,
   }
 
   // Get available translation languages from EITHER format
-  // OLD: segmentMetadata.lyrics.translations (inline)
+  // OLD: clipMetadata.lyrics.translations (inline)
   // NEW: loadedTranslations (fetched separately)
-  const inlineTranslations = segmentMetadata.lyrics.translations || {}
+  const inlineTranslations = clipMetadata.lyrics.translations || {}
   const allTranslations = { ...inlineTranslations, ...loadedTranslations }
   const availableLanguages = Object.keys(allTranslations)
 
@@ -381,8 +381,8 @@ export function MediaPageContainer() {
       showTranslations={availableLanguages.length > 0}
       onBack={() => navigate(-1)}
       onArtistClick={
-        segmentMetadata?.artistLensHandle
-          ? () => navigate(`/u/${segmentMetadata.artistLensHandle}`)
+        clipMetadata?.artistLensHandle
+          ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
           : undefined
       }
       debugInfo={debugInfo}

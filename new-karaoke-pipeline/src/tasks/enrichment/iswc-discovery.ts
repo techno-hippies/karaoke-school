@@ -22,6 +22,7 @@ import { query } from '../../db/connection';
 // Import services
 import { searchBMI } from '../../services/bmi';
 import { searchMLC } from '../../services/mlc';
+import { normalizeISWC } from '../../utils/iswc';
 
 interface ISWCResult {
   iswc: string;
@@ -68,7 +69,8 @@ async function callQuansicAPI(isrc: string, trackId: string): Promise<ISWCResult
     const data = result.data;
 
     // Extract ISWC from recording data
-    const iswc = data?.iswc || data?.work?.iswc;
+    const rawIswc = data?.iswc || data?.work?.iswc;
+    const iswc = normalizeISWC(rawIswc);
     if (iswc) {
       // Cache in quansic_recordings table
       await query(`
@@ -115,6 +117,9 @@ async function callQuansicAPI(isrc: string, trackId: string): Promise<ISWCResult
       }
 
       return { iswc, source: 'quansic_api' };
+    }
+    if (rawIswc) {
+      console.log(`   ⚠️ Quansic returned ISWC in unexpected format: ${rawIswc}`);
     }
 
     return null;
@@ -183,15 +188,16 @@ async function tryMLCFallback(isrc: string, title: string, artists: string): Pro
       console.log(`      🔍 Searching MLC: "${title}" by ${writerName}`);
       const result = await searchMLC(isrc, title, writerName);
 
-      if (result?.iswc) {
+      const normalizedIswc = normalizeISWC(result?.iswc);
+      if (normalizedIswc) {
         await query(`
           INSERT INTO mlc_works (isrc, iswc, work_title, writers)
           VALUES ($1, $2, $3, $4)
           ON CONFLICT (isrc)
           DO UPDATE SET iswc = $2, work_title = $3, writers = $4
-        `, [isrc, result.iswc, result.title, JSON.stringify(result.writers || [])]);
+        `, [isrc, normalizedIswc, result.title, JSON.stringify(result.writers || [])]);
 
-        return { iswc: result.iswc, source: 'mlc_fallback' };
+        return { iswc: normalizedIswc, source: 'mlc_fallback' };
       }
     }
 
@@ -214,7 +220,9 @@ async function tryBMIFallback(isrc: string, title: string, artists: string): Pro
   try {
     const result = await searchBMI(title, artists);
 
-    if (result?.iswc && result.match_confidence > 0.7) {
+    const normalizedIswc = normalizeISWC(result?.iswc);
+
+    if (normalizedIswc && result?.match_confidence > 0.7) {
       // Cache result
       await query(`
         INSERT INTO bmi_works (isrc, work_id, iswc, title, artists, match_confidence, match_method)
@@ -224,14 +232,14 @@ async function tryBMIFallback(isrc: string, title: string, artists: string): Pro
       `, [
         isrc,
         result.work_id,
-        result.iswc,
+        normalizedIswc,
         title,
         [artists],
         result.match_confidence,
         'fuzzy'
       ]);
 
-      return { iswc: result.iswc, source: 'bmi_fallback' };
+      return { iswc: normalizedIswc, source: 'bmi_fallback' };
     }
 
     return null;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 
 export interface MultipleChoiceOption {
   id: string
@@ -22,6 +23,8 @@ export interface MultipleChoiceQuizProps {
   selectedAnswerId?: string | null
   /** Optional explanation to show after answering */
   explanation?: string
+  /** Exercise type to determine prompt text */
+  exerciseType?: 'TRANSLATION_QUIZ' | 'TRIVIA_QUIZ'
 }
 
 export const MultipleChoiceQuiz = ({
@@ -29,32 +32,49 @@ export const MultipleChoiceQuiz = ({
   options,
   onAnswer,
   isProcessing = false,
-  hasAnswered = false,
-  selectedAnswerId = null,
+  hasAnswered,
+  selectedAnswerId,
   explanation,
+  exerciseType = 'TRIVIA_QUIZ',
 }: MultipleChoiceQuizProps) => {
-  // Use props if provided (controlled), otherwise use internal state (uncontrolled)
-  const [selectedId, setSelectedId] = useState<string | null>(selectedAnswerId)
-  const [answered, setAnswered] = useState(hasAnswered)
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(selectedAnswerId ?? null)
+  const [internalAnswered, setInternalAnswered] = useState<boolean>(!!hasAnswered)
+
+  const isSelectedControlled = typeof selectedAnswerId !== 'undefined'
+  const isAnsweredControlled = typeof hasAnswered !== 'undefined'
+
+  const resolvedSelectedId = isSelectedControlled ? (selectedAnswerId ?? null) : internalSelectedId
+  const resolvedAnswered = isAnsweredControlled ? !!hasAnswered : internalAnswered
 
   // Sync with props when they change (controlled mode)
   useEffect(() => {
-    setSelectedId(selectedAnswerId)
-    setAnswered(hasAnswered)
-  }, [selectedAnswerId, hasAnswered])
+    if (isSelectedControlled) {
+      setInternalSelectedId(selectedAnswerId ?? null)
+    }
+  }, [selectedAnswerId, isSelectedControlled])
+
+  useEffect(() => {
+    if (isAnsweredControlled) {
+      setInternalAnswered(!!hasAnswered)
+    }
+  }, [hasAnswered, isAnsweredControlled])
 
   const handleOptionClick = (option: MultipleChoiceOption) => {
-    if (answered || isProcessing) return
+    if (resolvedAnswered || isProcessing) return
 
-    setSelectedId(option.id)
-    setAnswered(true)
+    if (!isSelectedControlled) {
+      setInternalSelectedId(option.id)
+    }
+    if (!isAnsweredControlled) {
+      setInternalAnswered(true)
+    }
     onAnswer?.(option.id, option.isCorrect)
   }
 
   const getOptionStyles = (option: MultipleChoiceOption) => {
     const baseStyles = "w-full flex items-center gap-3 p-4 rounded-lg transition-all cursor-pointer min-h-[60px]"
 
-    if (!answered) {
+    if (!resolvedAnswered) {
       // Not answered yet - normal hover states (matches button outline variant)
       return cn(
         baseStyles,
@@ -63,7 +83,7 @@ export const MultipleChoiceQuiz = ({
     }
 
     // After answering - show feedback
-    const isSelected = selectedId === option.id
+    const isSelected = resolvedSelectedId === option.id
     const isCorrectAnswer = option.isCorrect
 
     if (isSelected && isCorrectAnswer) {
@@ -97,12 +117,24 @@ export const MultipleChoiceQuiz = ({
     )
   }
 
+  // Determine prompt text based on exercise type
+  const getPromptText = () => {
+    switch (exerciseType) {
+      case 'TRANSLATION_QUIZ':
+        return 'Translate:'
+      case 'TRIVIA_QUIZ':
+        return 'Answer the trivia:'
+      default:
+        return 'Question:'
+    }
+  }
+
   return (
     <div className="w-full space-y-6">
       {/* Question */}
       <div className="text-left space-y-3">
         <div className="text-muted-foreground text-base font-medium">
-          Question:
+          {getPromptText()}
         </div>
         <div className="text-base sm:text-lg md:text-xl font-medium text-foreground leading-relaxed break-words">
           {question}
@@ -111,22 +143,30 @@ export const MultipleChoiceQuiz = ({
 
       {/* Options */}
       <div className="space-y-3">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => handleOptionClick(option)}
-            disabled={answered || isProcessing}
-            className={getOptionStyles(option)}
-          >
-            <span className="flex-1 text-left font-medium text-base leading-relaxed">
-              {option.text}
-            </span>
-          </button>
-        ))}
+        {options.map((option) => {
+          const isSelected = resolvedSelectedId === option.id
+          const showSpinner = isProcessing && isSelected
+
+          return (
+            <button
+              key={option.id}
+              onClick={() => handleOptionClick(option)}
+              disabled={resolvedAnswered || isProcessing}
+              className={getOptionStyles(option)}
+            >
+              <span className="flex-1 text-left font-medium text-base leading-relaxed">
+                {option.text}
+              </span>
+              {showSpinner && (
+                <Spinner size="sm" className="ml-2" />
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Explanation (shown after answering if provided) */}
-      {answered && explanation && (
+      {resolvedAnswered && !isProcessing && explanation && (
         <div className="p-4 bg-secondary/20 rounded-lg">
           <div className="text-muted-foreground text-base font-medium mb-1">Explanation:</div>
           <div className="text-foreground text-base">{explanation}</div>

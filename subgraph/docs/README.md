@@ -131,7 +131,7 @@ type Translation @entity {
 ### Line-Level FSRS Handler
 ```typescript
 // src/mappings.ts
-import { LinePerformanceGraded } from '../generated/PerformanceGrader/PerformanceGrader';
+import { SayItBackAttemptGraded, MultipleChoiceAttemptGraded } from '../generated/ExerciseEvents/ExerciseEvents';
 
 export function handleLinePerformanceGraded(event: LinePerformanceGraded): void {
   const performanceId = event.params.performanceId.toString();

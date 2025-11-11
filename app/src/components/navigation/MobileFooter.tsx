@@ -40,10 +40,10 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
           className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             activeTab === 'study' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
-          aria-label="Class"
+          aria-label="Study"
         >
           <Exam className="w-6 h-6" weight={activeTab === 'study' ? 'fill' : 'regular'} />
-          <span className="text-xs mt-1">Class</span>
+          <span className="text-xs mt-1">Study</span>
         </button>
 
         <button

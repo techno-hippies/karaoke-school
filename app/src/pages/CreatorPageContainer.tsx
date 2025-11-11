@@ -3,6 +3,7 @@
  * Fetches and displays a creator's Lens profile with videos, songs, and stats
  */
 
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
@@ -12,15 +13,19 @@ import { useArtistSongsByLensHandle } from '@/hooks/useArtistSongsByLensHandle'
 import { useFollow } from '@/hooks/useFollow'
 import { useFollowers } from '@/hooks/useFollowers'
 import { useFollowing } from '@/hooks/useFollowing'
+import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { Spinner } from '@/components/ui/spinner'
+import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
 import {
   convertGroveUri,
   parseVideoMetadata,
 } from '@/lib/lens/utils'
+import type { Address } from 'viem'
 
 export function CreatorPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
+  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
 
   // Fetch account and posts from Lens (using global lens/* namespace)
   const {
@@ -54,6 +59,36 @@ export function CreatorPageContainer() {
     accountAddress: account?.address,
     enabled: !!account,
   })
+
+  // Unlock Protocol subscription
+  const {
+    subscribe,
+    status: subscriptionStatus,
+    statusMessage: subscriptionStatusMessage,
+    errorMessage: subscriptionErrorMessage,
+    reset: resetSubscription,
+  } = useUnlockSubscription(account?.address as Address | undefined)
+
+  // Handle subscription flow
+  const handleSubscribe = () => {
+    setIsSubscriptionDialogOpen(true)
+  }
+
+  const handleSubscriptionConfirm = async () => {
+    await subscribe()
+  }
+
+  const handleSubscriptionRetry = async () => {
+    resetSubscription()
+    await subscribe()
+  }
+
+  const handleSubscriptionDialogClose = (open: boolean) => {
+    setIsSubscriptionDialogOpen(open)
+    if (!open && subscriptionStatus === 'complete') {
+      resetSubscription()
+    }
+  }
 
   // Loading state
   if (isLoadingAccount || isLoadingSongs) {
@@ -189,22 +224,36 @@ export function CreatorPageContainer() {
   }
 
   return (
-    <ArtistPage
-      username={lenshandle || ''}
-      displayName={displayName}
-      avatarUrl={avatarUrl}
-      isVerified={verified}
-      isOwnProfile={false} // TODO: Check if current user matches creator
-      following={followingCount}
-      followers={followersCount}
-      isFollowing={isFollowing}
-      isFollowLoading={isFollowLoading}
-      videos={videos}
-      onVideoClick={handleVideoClick}
-      isLoadingVideos={isLoadingPosts}
-      songs={songs}
-      onBack={() => navigate(-1)}
-      onFollow={handleFollow}
-    />
+    <>
+      <ArtistPage
+        username={lenshandle || ''}
+        displayName={displayName}
+        avatarUrl={avatarUrl}
+        isVerified={verified}
+        isOwnProfile={false} // TODO: Check if current user matches creator
+        following={followingCount}
+        followers={followersCount}
+        isFollowing={isFollowing}
+        isFollowLoading={isFollowLoading}
+        videos={videos}
+        onVideoClick={handleVideoClick}
+        isLoadingVideos={isLoadingPosts}
+        songs={songs}
+        onBack={() => navigate(-1)}
+        onFollow={handleFollow}
+        onSubscribe={handleSubscribe}
+      />
+
+      <SubscriptionDialog
+        open={isSubscriptionDialogOpen}
+        onOpenChange={handleSubscriptionDialogClose}
+        displayName={displayName}
+        currentStep={subscriptionStatus}
+        statusMessage={subscriptionStatusMessage}
+        errorMessage={subscriptionErrorMessage}
+        onSubscribe={handleSubscriptionConfirm}
+        onRetry={handleSubscriptionRetry}
+      />
+    </>
   )
 }

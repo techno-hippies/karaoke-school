@@ -1,10 +1,10 @@
 import { BigInt, BigDecimal } from "@graphprotocol/graph-ts";
 import {
-  SegmentRegistered,
-  SegmentProcessed,
-  SegmentToggled,
-  SegmentEncrypted,
-} from "../generated/SegmentEvents/SegmentEvents";
+  ClipRegistered,
+  ClipProcessed,
+  ClipToggled,
+  SongEncrypted,
+} from "../generated/ClipEvents/ClipEvents";
 import {
   TranslationAdded,
   TranslationUpdated,
@@ -28,7 +28,7 @@ import {
   AccountVerified,
 } from "../generated/AccountEvents/AccountEvents";
 import {
-  Segment,
+  Clip,
   Performance,
   Account,
   Translation,
@@ -44,7 +44,7 @@ function loadOrCreateGlobalStats(): GlobalStats {
   let stats = GlobalStats.load("global");
   if (stats == null) {
     stats = new GlobalStats("global");
-    stats.totalSegments = 0;
+    stats.totalClips = 0;
     stats.totalPerformances = 0;
     stats.totalAccounts = 0;
     stats.totalTranslations = 0;
@@ -62,11 +62,11 @@ function getConfidenceLevel(score: i32): string {
   return "LOW";
 }
 
-// Helper to check if segment has instrumental/alignments
-function updateSegmentProcessingStatus(segment: Segment): void {
-  segment.hasInstrumental = segment.instrumentalUri != null && segment.instrumentalUri != "";
-  segment.hasAlignments = segment.alignmentUri != null && segment.alignmentUri != "";
-  segment.hasEncryptedFull = segment.encryptedFullUri != null && segment.encryptedFullUri != "";
+// Helper to check if clip has instrumental/alignments
+function updateClipProcessingStatus(clip: Clip): void {
+  clip.hasInstrumental = clip.instrumentalUri != null && clip.instrumentalUri != "";
+  clip.hasAlignments = clip.alignmentUri != null && clip.alignmentUri != "";
+  clip.hasEncryptedFull = clip.encryptedFullUri != null && clip.encryptedFullUri != "";
 }
 
 function updateExerciseCardAverages(card: ExerciseCard, newScore: i32): void {
@@ -81,92 +81,90 @@ function updateExerciseCardAverages(card: ExerciseCard, newScore: i32): void {
   card.averageScore = newTotal.div(BigDecimal.fromString(newCount.toString()));
 }
 
-// ============ Segment Event Handlers ============
+// ============ Clip Event Handlers ============
 
-export function handleSegmentRegistered(event: SegmentRegistered): void {
-  let segmentId = event.params.segmentHash.toHexString();
-  let segment = new Segment(segmentId);
-  segment.segmentHash = event.params.segmentHash;
-  
-  // Use grc20WorkId as primary reference (public metadata layer)
-  segment.grc20WorkId = event.params.grc20WorkId.toString(); // Public GRC-20 reference
-  segment.spotifyTrackId = event.params.spotifyTrackId;
-  segment.segmentStartMs = event.params.segmentStartMs.toI32();
-  segment.segmentEndMs = event.params.segmentEndMs.toI32();
-  segment.metadataUri = event.params.metadataUri;
-  segment.registeredBy = event.params.registeredBy;
-  segment.registeredAt = event.params.timestamp;
-  segment.instrumentalUri = null;
-  segment.alignmentUri = null;
-  segment.processedAt = null;
-  segment.translationCount = 0;
-  segment.encryptedFullUri = null;
-  segment.encryptedManifestUri = null;
-  segment.unlockLockAddress = null;
-  segment.unlockChainId = 0;
-  segment.performanceCount = 0;
-  segment.averageScore = BigDecimal.zero();
-  segment.hasInstrumental = false;
-  segment.hasAlignments = false;
-  segment.hasEncryptedFull = false;
-  segment.save();
+export function handleClipRegistered(event: ClipRegistered): void {
+  let clipId = event.params.clipHash.toHexString();
+  let clip = new Clip(clipId);
+  clip.clipHash = event.params.clipHash;
+  clip.grc20WorkId = event.params.grc20WorkId;
+  clip.spotifyTrackId = event.params.spotifyTrackId;
+  clip.clipStartMs = event.params.clipStartMs.toI32();
+  clip.clipEndMs = event.params.clipEndMs.toI32();
+  clip.metadataUri = event.params.metadataUri;
+  clip.registeredBy = event.params.registeredBy;
+  clip.registeredAt = event.params.timestamp;
+  clip.artistLensHandle = null;
+  clip.instrumentalUri = null;
+  clip.alignmentUri = null;
+  clip.processedAt = null;
+  clip.translationCount = 0;
+  clip.encryptedFullUri = null;
+  clip.encryptedManifestUri = null;
+  clip.unlockLockAddress = null;
+  clip.unlockChainId = 0;
+  clip.performanceCount = 0;
+  clip.averageScore = BigDecimal.zero();
+  clip.hasInstrumental = false;
+  clip.hasAlignments = false;
+  clip.hasEncryptedFull = false;
+  clip.save();
 
   let stats = loadOrCreateGlobalStats();
-  stats.totalSegments = stats.totalSegments + 1;
+  stats.totalClips = stats.totalClips + 1;
   stats.save();
 }
 
-export function handleSegmentProcessed(event: SegmentProcessed): void {
-  let segmentId = event.params.segmentHash.toHexString();
-  let segment = Segment.load(segmentId);
+export function handleClipProcessed(event: ClipProcessed): void {
+  let clipId = event.params.clipHash.toHexString();
+  let clip = Clip.load(clipId);
 
-  if (segment != null) {
-    segment.instrumentalUri = event.params.instrumentalUri;
-    segment.alignmentUri = event.params.alignmentUri;
-    segment.translationCount = event.params.translationCount;
-    segment.metadataUri = event.params.metadataUri;
-    segment.processedAt = event.params.timestamp;
-    
-    updateSegmentProcessingStatus(segment);
-    segment.save();
+  if (clip != null) {
+    clip.instrumentalUri = event.params.instrumentalUri;
+    clip.alignmentUri = event.params.alignmentUri;
+    clip.translationCount = event.params.translationCount;
+    clip.metadataUri = event.params.metadataUri;
+    clip.processedAt = event.params.timestamp;
+
+    updateClipProcessingStatus(clip);
+    clip.save();
   }
 }
 
-export function handleSegmentToggled(event: SegmentToggled): void {
-  let segmentId = event.params.segmentHash.toHexString();
-  let segment = Segment.load(segmentId);
-  
-  if (segment != null) {
-    // Could add enabled field to Segment entity if needed
-    // For now, just log the toggle event
-    segment.save();
+export function handleClipToggled(event: ClipToggled): void {
+  let clipId = event.params.clipHash.toHexString();
+  let clip = Clip.load(clipId);
+
+  if (clip != null) {
+    clip.save();
   }
 }
 
-export function handleSegmentEncrypted(event: SegmentEncrypted): void {
-  let segmentId = event.params.segmentHash.toHexString();
-  let segment = Segment.load(segmentId);
+export function handleSongEncrypted(event: SongEncrypted): void {
+  let clipId = event.params.clipHash.toHexString();
+  let clip = Clip.load(clipId);
 
-  if (segment != null) {
-    segment.encryptedFullUri = event.params.encryptedFullUri;
-    segment.encryptedManifestUri = event.params.encryptedManifestUri;
-    segment.unlockLockAddress = event.params.unlockLockAddress;
-    segment.unlockChainId = event.params.unlockChainId.toI32();
-    segment.metadataUri = event.params.metadataUri;
+  if (clip != null) {
+    clip.encryptedFullUri = event.params.encryptedFullUri;
+    clip.encryptedManifestUri = event.params.encryptedManifestUri;
+    clip.unlockLockAddress = event.params.unlockLockAddress;
+    clip.unlockChainId = event.params.unlockChainId.toI32();
+    clip.metadataUri = event.params.metadataUri;
 
-    updateSegmentProcessingStatus(segment);
-    segment.save();
+    updateClipProcessingStatus(clip);
+    clip.save();
   }
 }
 
 // ============ Translation Event Handlers ============
 
 export function handleTranslationAdded(event: TranslationAdded): void {
-  let translationId = event.params.segmentHash.toHexString() + "-" + event.params.languageCode.toString();
+  let clipHashHex = event.params.segmentHash.toHexString();
+  let translationId = clipHashHex + "-" + event.params.languageCode.toString();
   let translation = new Translation(translationId);
-  
-  translation.segment = event.params.segmentHash.toHexString();
-  translation.segmentHash = event.params.segmentHash;
+
+  translation.clip = clipHashHex;
+  translation.clipHash = event.params.segmentHash;
   translation.languageCode = event.params.languageCode.toString();
   translation.translationUri = event.params.translationUri;
   translation.translationSource = event.params.translationSource;
@@ -179,11 +177,11 @@ export function handleTranslationAdded(event: TranslationAdded): void {
   translation.confidenceLevel = getConfidenceLevel(event.params.confidenceScore);
   translation.save();
 
-  // Update segment translation count
-  let segment = Segment.load(event.params.segmentHash.toHexString());
-  if (segment != null) {
-    segment.translationCount = segment.translationCount + 1;
-    segment.save();
+  // Update clip translation count
+  let clip = Clip.load(clipHashHex);
+  if (clip != null) {
+    clip.translationCount = clip.translationCount + 1;
+    clip.save();
   }
 
   let stats = loadOrCreateGlobalStats();
@@ -230,21 +228,22 @@ export function handlePerformanceGraded(event: PerformanceGraded): void {
   let performanceId = event.params.performanceId.toString();
   let performance = new Performance(performanceId);
   performance.performanceId = event.params.performanceId;
-  performance.segment = event.params.segmentHash.toHexString();
+  let clipId = event.params.segmentHash.toHexString();
+  performance.clip = clipId;
   performance.performer = event.params.performer.toHexString();
   performance.performerAddress = event.params.performer;
   performance.score = event.params.score;
   performance.metadataUri = event.params.metadataUri;
   performance.gradedAt = event.params.timestamp;
 
-  // Load segment to update stats
-  let segment = Segment.load(event.params.segmentHash.toHexString());
-  if (segment != null) {
-    performance.segmentHash = segment.segmentHash;
+  // Load clip to update stats
+  let clip = Clip.load(clipId);
+  if (clip != null) {
+    performance.clipHash = clip.clipHash;
 
-    // Update segment stats
-    let oldAvg = segment.averageScore;
-    let oldCount = segment.performanceCount;
+    // Update clip stats
+    let oldAvg = clip.averageScore;
+    let oldCount = clip.performanceCount;
     let newCount = oldCount + 1;
 
     // Calculate new average: (oldAvg * oldCount + newScore) / newCount
@@ -253,12 +252,12 @@ export function handlePerformanceGraded(event: PerformanceGraded): void {
     let newTotal = totalScore.plus(newScore);
     let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
 
-    segment.performanceCount = newCount;
-    segment.averageScore = newAvg;
-    segment.save();
+    clip.performanceCount = newCount;
+    clip.averageScore = newAvg;
+    clip.save();
   } else {
-    // Fallback if segment not found
-    performance.segmentHash = event.params.segmentHash;
+    // Fallback if clip not found
+    performance.clipHash = event.params.segmentHash;
   }
 
   performance.save();
@@ -299,16 +298,20 @@ export function handleLinePerformanceGraded(event: LinePerformanceGraded): void 
   // 1. Load or create LineCard
   let lineCardId = event.params.lineId.toHexString();
   let lineCard = LineCard.load(lineCardId);
+  let clipId = event.params.segmentHash.toHexString();
   
   if (lineCard == null) {
     lineCard = new LineCard(lineCardId);
     lineCard.lineId = event.params.lineId;
-    lineCard.segmentHash = event.params.segmentHash;
+    lineCard.clipHash = event.params.segmentHash;
     lineCard.lineIndex = event.params.lineIndex;
-    lineCard.segment = event.params.segmentHash.toHexString();
+    lineCard.clip = clipId;
     lineCard.performanceCount = 0;
     lineCard.averageScore = BigDecimal.zero();
   }
+
+  lineCard.clip = clipId;
+  lineCard.clipHash = event.params.segmentHash;
 
   // 2. Create LinePerformance
   let performanceId = event.params.performanceId.toString();
@@ -316,8 +319,8 @@ export function handleLinePerformanceGraded(event: LinePerformanceGraded): void 
   linePerformance.performanceId = event.params.performanceId;
   linePerformance.line = lineCard.id;
   linePerformance.lineId = event.params.lineId;
-  linePerformance.segment = event.params.segmentHash.toHexString();
-  linePerformance.segmentHash = event.params.segmentHash;
+  linePerformance.clip = clipId;
+  linePerformance.clipHash = event.params.segmentHash;
   linePerformance.lineIndex = event.params.lineIndex;
   linePerformance.performer = event.params.performer.toHexString();
   linePerformance.performerAddress = event.params.performer;
@@ -380,26 +383,25 @@ export function handleTranslationQuestionRegistered(event: TranslationQuestionRe
   card.enabled = true;
   card.createdAt = event.params.timestamp;
   card.registeredBy = event.params.registeredBy;
-  card.segmentHash = event.params.segmentHash;
+  card.clipHash = event.params.segmentHash;
   card.lineId = event.params.lineId;
   card.lineIndex = event.params.lineIndex;
-
-  let segmentId = event.params.segmentHash.toHexString();
+  let clipId = event.params.segmentHash.toHexString();
   let lineId = event.params.lineId.toHexString();
 
   let lineCard = LineCard.load(lineId);
   if (lineCard == null) {
     lineCard = new LineCard(lineId);
     lineCard.lineId = event.params.lineId;
-    lineCard.segmentHash = event.params.segmentHash;
+    lineCard.clipHash = event.params.segmentHash;
     lineCard.lineIndex = event.params.lineIndex;
-    lineCard.segment = segmentId;
+    lineCard.clip = clipId;
     lineCard.performanceCount = 0;
     lineCard.averageScore = BigDecimal.zero();
     lineCard.save();
   }
 
-  card.segment = segmentId;
+  card.clip = clipId;
   card.line = lineId;
 
   card.attemptCount = 0;
@@ -424,7 +426,7 @@ export function handleTriviaQuestionRegistered(event: TriviaQuestionRegistered):
   card.createdAt = event.params.timestamp;
   card.registeredBy = event.params.registeredBy;
 
-  // Trivia questions are song-level; leave segment/line fields null
+  // Trivia questions are song-level; leave clip/line fields null
   card.attemptCount = 0;
   card.averageScore = BigDecimal.zero();
   card.save();
@@ -443,16 +445,16 @@ export function handleSayItBackAttemptGraded(event: SayItBackAttemptGraded): voi
     card.questionId = event.params.lineId;
     card.exerciseType = "SAY_IT_BACK";
 
-    let segmentId = event.params.segmentHash.toHexString();
-    card.segment = segmentId;
-    card.segmentHash = event.params.segmentHash;
+    let clipId = event.params.segmentHash.toHexString();
+    card.clip = clipId;
+    card.clipHash = event.params.segmentHash;
     card.line = cardId;
     card.lineId = event.params.lineId;
     card.lineIndex = event.params.lineIndex;
 
-    let segment = Segment.load(segmentId);
-    if (segment != null) {
-      card.spotifyTrackId = segment.spotifyTrackId;
+    let clip = Clip.load(clipId);
+    if (clip != null) {
+      card.spotifyTrackId = clip.spotifyTrackId;
     } else {
       card.spotifyTrackId = "";
     }
@@ -487,6 +489,78 @@ export function handleSayItBackAttemptGraded(event: SayItBackAttemptGraded): voi
   let stats = loadOrCreateGlobalStats();
   stats.totalExerciseAttempts = stats.totalExerciseAttempts + 1;
   stats.save();
+
+  // Mirror the event into LinePerformance so FSRS can track attempts without PerformanceGrader
+  let lineCardId = event.params.lineId.toHexString();
+  let clipId = event.params.segmentHash.toHexString();
+  let lineCard = LineCard.load(lineCardId);
+
+  if (lineCard == null) {
+    lineCard = new LineCard(lineCardId);
+    lineCard.lineId = event.params.lineId;
+    lineCard.clipHash = event.params.segmentHash;
+    lineCard.lineIndex = event.params.lineIndex;
+    lineCard.clip = clipId;
+    lineCard.performanceCount = 0;
+    lineCard.averageScore = BigDecimal.zero();
+  } else {
+    lineCard.clip = clipId;
+    lineCard.clipHash = event.params.segmentHash;
+    lineCard.lineIndex = event.params.lineIndex;
+  }
+
+  let linePerformanceId = event.params.attemptId.toString();
+  let linePerformance = LinePerformance.load(linePerformanceId);
+  let isNewPerformance = false;
+  if (linePerformance == null) {
+    linePerformance = new LinePerformance(linePerformanceId);
+    isNewPerformance = true;
+  }
+  linePerformance.performanceId = event.params.attemptId;
+  linePerformance.line = lineCard.id;
+  linePerformance.lineId = event.params.lineId;
+  linePerformance.clip = clipId;
+  linePerformance.clipHash = event.params.segmentHash;
+  linePerformance.lineIndex = event.params.lineIndex;
+  linePerformance.performer = accountId;
+  linePerformance.performerAddress = event.params.learner;
+  linePerformance.score = event.params.score;
+  linePerformance.metadataUri = event.params.metadataUri;
+  linePerformance.gradedAt = event.params.timestamp;
+  linePerformance.save();
+
+  if (isNewPerformance) {
+    let previousAvg = lineCard.averageScore;
+    let previousCount = lineCard.performanceCount;
+    let updatedCount = previousCount + 1;
+    let updatedTotal = previousAvg
+      .times(BigDecimal.fromString(previousCount.toString()))
+      .plus(BigDecimal.fromString(event.params.score.toString()));
+    lineCard.performanceCount = updatedCount;
+    lineCard.averageScore = updatedTotal.div(BigDecimal.fromString(updatedCount.toString()));
+  }
+  lineCard.save();
+
+  let account = Account.load(accountId);
+  if (account != null) {
+    account.updatedAt = event.params.timestamp;
+    if (isNewPerformance) {
+      account.performanceCount = account.performanceCount + 1;
+      account.totalScore = account.totalScore.plus(BigInt.fromI32(event.params.score));
+      account.averageScore = account.totalScore
+        .toBigDecimal()
+        .div(BigDecimal.fromString(account.performanceCount.toString()));
+      if (event.params.score > account.bestScore) {
+        account.bestScore = event.params.score;
+      }
+    }
+    account.save();
+  }
+
+  if (isNewPerformance) {
+    stats.totalPerformances = stats.totalPerformances + 1;
+    stats.save();
+  }
 }
 
 export function handleMultipleChoiceAttemptGraded(event: MultipleChoiceAttemptGraded): void {
@@ -583,4 +657,3 @@ export function handleAccountVerified(event: AccountVerified): void {
     account.save();
   }
 }
-

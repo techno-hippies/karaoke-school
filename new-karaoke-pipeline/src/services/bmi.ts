@@ -3,6 +3,8 @@
  * Fallback for ISWC discovery when Quansic doesn't have the work
  */
 
+import { normalizeISWC } from '../utils/iswc';
+
 const BMI_SERVICE_URL = 'https://u0s81gq1qla2p06rod2p6s47nk.ingress.h6i-dedicated.eu-se-1.digitalfrontier.so';
 
 export interface BMIWriter {
@@ -54,9 +56,12 @@ export async function searchBMI(
 
     const result = await response.json();
     if (result.success && result.data) {
-      const iswc = result.data.iswc;
-      console.log(`     ✅ Found in BMI: ${result.data.title}${iswc ? ` (ISWC: ${iswc})` : ''}`);
-      return result.data;
+      const normalizedIswc = normalizeISWC(result.data.iswc);
+      console.log(`     ✅ Found in BMI: ${result.data.title}${normalizedIswc ? ` (ISWC: ${normalizedIswc})` : ''}`);
+      return {
+        ...result.data,
+        iswc: normalizedIswc,
+      };
     }
 
     return null;

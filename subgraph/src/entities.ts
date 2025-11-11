@@ -1,5 +1,5 @@
 export {
-  Segment,
+  Clip,
   Performance,
   Account,
   Translation,

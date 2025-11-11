@@ -8,6 +8,8 @@
  * 3. Check each work's recordings for matching ISRC
  */
 
+import { normalizeISWC } from '../utils/iswc';
+
 export interface MLCWriter {
   firstName: string;
   lastName: string;
@@ -122,7 +124,7 @@ function convertMLCWork(work: MLCWork, isrc: string): MLCWorkData {
   return {
     isrc,
     mlc_song_code: work.songCode,
-    iswc: work.iswc || null,
+    iswc: normalizeISWC(work.iswc) || null,
     title: work.title,
     writers: work.writers.map((w: MLCWriter) => ({
       name: `${w.firstName || ''} ${w.lastName || ''}`.trim() || 'Unknown',

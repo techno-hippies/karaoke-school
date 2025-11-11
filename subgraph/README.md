@@ -63,78 +63,72 @@ bun run create-local
 bun run deploy-local
 ```
 
-## Deployed Contracts
+## Deployed Contracts (Lens Testnet)
 
-- **SongEvents:** `0x912fA332604d7cA38a87446f2f7c0927EFB5dD3d`
-- **SegmentEvents:** `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
-- **PerformanceGrader:** `0x14d17Fe89Ae9ED52243A03A1729F7a2413EAc2a0`
+- **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`
+- **ClipEvents:** `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
+- **SongEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6`
 - **AccountEvents:** `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
+
+> Legacy `PerformanceGrader` data sources remain in the manifest for historical
+> analytics but are considered read-only. All new grading events come from
+> `ExerciseEvents`.
 
 ## Queries
 
 Example queries once deployed:
 
-### Get songs by artist
+### Fetch clip details
 
 ```graphql
-query GetArtistSongs($geniusArtistId: BigInt!) {
-  songs(where: { geniusArtistId: $geniusArtistId }) {
-    id
-    geniusId
+query GetClip($clipHash: ID!) {
+  clip(id: $clipHash) {
+    clipHash
+    spotifyTrackId
+    clipStartMs
+    clipEndMs
     metadataUri
-    registeredAt
-    segmentCount
-    performanceCount
-    segments {
+    translationCount
+    performances(orderBy: gradedAt, orderDirection: desc, first: 5) {
       id
-      tiktokUrl
+      performerAddress
+      score
       metadataUri
-      performanceCount
-      averageScore
+      gradedAt
+    }
+    translations {
+      languageCode
+      translationUri
+      confidenceScore
+      validated
     }
   }
 }
 ```
 
-### Get trending songs (by performance count)
+### Get learner performance history
 
 ```graphql
-query TrendingSongs($limit: Int!) {
-  songs(
-    first: $limit
-    orderBy: performanceCount
-    orderDirection: desc
-  ) {
-    id
-    geniusId
-    metadataUri
-    performanceCount
-    segmentCount
-  }
-}
-```
-
-### Get user performances
-
-```graphql
-query GetUserPerformances($address: Bytes!) {
-  account(id: $address) {
-    address
-    lensHandle
+query GetLearnerHistory($account: ID!) {
+  account(id: $account) {
+    lensAccountAddress
     performanceCount
     averageScore
-    performances(orderBy: gradedAt, orderDirection: desc) {
+    performances(orderBy: gradedAt, orderDirection: desc, first: 10) {
       id
-      score
-      metadataUri
-      gradedAt
-      segment {
-        tiktokUrl
-        song {
-          geniusId
-          metadataUri
-        }
+      clip {
+        clipHash
+        spotifyTrackId
       }
+      score
+      gradedAt
+    }
+    exerciseAttempts(orderBy: gradedAt, orderDirection: desc, first: 10) {
+      id
+      questionId
+      score
+      rating
+      gradedAt
     }
   }
 }
@@ -145,10 +139,10 @@ query GetUserPerformances($address: Bytes!) {
 ```graphql
 query GlobalStats {
   globalStats(id: "global") {
-    totalSongs
-    totalSegments
+    totalClips
+    totalTranslations
     totalPerformances
-    totalAccounts
+    totalExerciseCards
   }
 }
 ```

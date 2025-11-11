@@ -63,7 +63,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <Exam className="w-7 h-7 flex-shrink-0" />
-            <span>Class</span>
+            <span>Study</span>
           </Button>
 
           <Button

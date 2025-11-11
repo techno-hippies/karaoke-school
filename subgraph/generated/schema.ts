@@ -12,7 +12,7 @@ import {
   Int8,
 } from "@graphprotocol/graph-ts";
 
-export class Segment extends Entity {
+export class Clip extends Entity {
   constructor(id: string) {
     super();
     this.set("id", Value.fromString(id));
@@ -20,22 +20,22 @@ export class Segment extends Entity {
 
   save(): void {
     let id = this.get("id");
-    assert(id != null, "Cannot save Segment entity without an ID");
+    assert(id != null, "Cannot save Clip entity without an ID");
     if (id) {
       assert(
         id.kind == ValueKind.STRING,
-        `Entities of type Segment must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+        `Entities of type Clip must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
       );
-      store.set("Segment", id.toString(), this);
+      store.set("Clip", id.toString(), this);
     }
   }
 
-  static loadInBlock(id: string): Segment | null {
-    return changetype<Segment | null>(store.get_in_block("Segment", id));
+  static loadInBlock(id: string): Clip | null {
+    return changetype<Clip | null>(store.get_in_block("Clip", id));
   }
 
-  static load(id: string): Segment | null {
-    return changetype<Segment | null>(store.get("Segment", id));
+  static load(id: string): Clip | null {
+    return changetype<Clip | null>(store.get("Clip", id));
   }
 
   get id(): string {
@@ -51,8 +51,8 @@ export class Segment extends Entity {
     this.set("id", Value.fromString(value));
   }
 
-  get segmentHash(): Bytes {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -60,8 +60,8 @@ export class Segment extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes) {
-    this.set("segmentHash", Value.fromBytes(value));
+  set clipHash(value: Bytes) {
+    this.set("clipHash", Value.fromBytes(value));
   }
 
   get grc20WorkId(): string {
@@ -90,8 +90,8 @@ export class Segment extends Entity {
     this.set("spotifyTrackId", Value.fromString(value));
   }
 
-  get segmentStartMs(): i32 {
-    let value = this.get("segmentStartMs");
+  get clipStartMs(): i32 {
+    let value = this.get("clipStartMs");
     if (!value || value.kind == ValueKind.NULL) {
       return 0;
     } else {
@@ -99,12 +99,12 @@ export class Segment extends Entity {
     }
   }
 
-  set segmentStartMs(value: i32) {
-    this.set("segmentStartMs", Value.fromI32(value));
+  set clipStartMs(value: i32) {
+    this.set("clipStartMs", Value.fromI32(value));
   }
 
-  get segmentEndMs(): i32 {
-    let value = this.get("segmentEndMs");
+  get clipEndMs(): i32 {
+    let value = this.get("clipEndMs");
     if (!value || value.kind == ValueKind.NULL) {
       return 0;
     } else {
@@ -112,8 +112,8 @@ export class Segment extends Entity {
     }
   }
 
-  set segmentEndMs(value: i32) {
-    this.set("segmentEndMs", Value.fromI32(value));
+  set clipEndMs(value: i32) {
+    this.set("clipEndMs", Value.fromI32(value));
   }
 
   get metadataUri(): string {
@@ -302,7 +302,7 @@ export class Segment extends Entity {
 
   get performances(): PerformanceLoader {
     return new PerformanceLoader(
-      "Segment",
+      "Clip",
       this.get("id")!.toString(),
       "performances",
     );
@@ -310,7 +310,7 @@ export class Segment extends Entity {
 
   get translations(): TranslationLoader {
     return new TranslationLoader(
-      "Segment",
+      "Clip",
       this.get("id")!.toString(),
       "translations",
     );
@@ -318,7 +318,7 @@ export class Segment extends Entity {
 
   get exerciseCards(): ExerciseCardLoader {
     return new ExerciseCardLoader(
-      "Segment",
+      "Clip",
       this.get("id")!.toString(),
       "exerciseCards",
     );
@@ -431,8 +431,8 @@ export class Translation extends Entity {
     this.set("id", Value.fromString(value));
   }
 
-  get segment(): string {
-    let value = this.get("segment");
+  get clip(): string {
+    let value = this.get("clip");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -440,12 +440,12 @@ export class Translation extends Entity {
     }
   }
 
-  set segment(value: string) {
-    this.set("segment", Value.fromString(value));
+  set clip(value: string) {
+    this.set("clip", Value.fromString(value));
   }
 
-  get segmentHash(): Bytes {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -453,8 +453,8 @@ export class Translation extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes) {
-    this.set("segmentHash", Value.fromBytes(value));
+  set clipHash(value: Bytes) {
+    this.set("clipHash", Value.fromBytes(value));
   }
 
   get languageCode(): string {
@@ -646,8 +646,8 @@ export class Performance extends Entity {
     this.set("performanceId", Value.fromBigInt(value));
   }
 
-  get segment(): string {
-    let value = this.get("segment");
+  get clip(): string {
+    let value = this.get("clip");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -655,8 +655,8 @@ export class Performance extends Entity {
     }
   }
 
-  set segment(value: string) {
-    this.set("segment", Value.fromString(value));
+  set clip(value: string) {
+    this.set("clip", Value.fromString(value));
   }
 
   get performer(): string {
@@ -724,8 +724,8 @@ export class Performance extends Entity {
     this.set("gradedAt", Value.fromBigInt(value));
   }
 
-  get segmentHash(): Bytes {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -733,8 +733,8 @@ export class Performance extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes) {
-    this.set("segmentHash", Value.fromBytes(value));
+  set clipHash(value: Bytes) {
+    this.set("clipHash", Value.fromBytes(value));
   }
 }
 
@@ -790,8 +790,8 @@ export class LineCard extends Entity {
     this.set("lineId", Value.fromBytes(value));
   }
 
-  get segment(): string {
-    let value = this.get("segment");
+  get clip(): string {
+    let value = this.get("clip");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -799,12 +799,12 @@ export class LineCard extends Entity {
     }
   }
 
-  set segment(value: string) {
-    this.set("segment", Value.fromString(value));
+  set clip(value: string) {
+    this.set("clip", Value.fromString(value));
   }
 
-  get segmentHash(): Bytes {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -812,8 +812,8 @@ export class LineCard extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes) {
-    this.set("segmentHash", Value.fromBytes(value));
+  set clipHash(value: Bytes) {
+    this.set("clipHash", Value.fromBytes(value));
   }
 
   get lineIndex(): i32 {
@@ -952,8 +952,8 @@ export class LinePerformance extends Entity {
     this.set("lineId", Value.fromBytes(value));
   }
 
-  get segment(): string {
-    let value = this.get("segment");
+  get clip(): string {
+    let value = this.get("clip");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -961,12 +961,12 @@ export class LinePerformance extends Entity {
     }
   }
 
-  set segment(value: string) {
-    this.set("segment", Value.fromString(value));
+  set clip(value: string) {
+    this.set("clip", Value.fromString(value));
   }
 
-  get segmentHash(): Bytes {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       throw new Error("Cannot return null for a required field.");
     } else {
@@ -974,8 +974,8 @@ export class LinePerformance extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes) {
-    this.set("segmentHash", Value.fromBytes(value));
+  set clipHash(value: Bytes) {
+    this.set("clipHash", Value.fromBytes(value));
   }
 
   get lineIndex(): i32 {
@@ -1297,8 +1297,8 @@ export class GlobalStats extends Entity {
     this.set("id", Value.fromString(value));
   }
 
-  get totalSegments(): i32 {
-    let value = this.get("totalSegments");
+  get totalClips(): i32 {
+    let value = this.get("totalClips");
     if (!value || value.kind == ValueKind.NULL) {
       return 0;
     } else {
@@ -1306,8 +1306,8 @@ export class GlobalStats extends Entity {
     }
   }
 
-  set totalSegments(value: i32) {
-    this.set("totalSegments", Value.fromI32(value));
+  set totalClips(value: i32) {
+    this.set("totalClips", Value.fromI32(value));
   }
 
   get totalPerformances(): i32 {
@@ -1386,141 +1386,6 @@ export class GlobalStats extends Entity {
 
   set totalExerciseAttempts(value: i32) {
     this.set("totalExerciseAttempts", Value.fromI32(value));
-  }
-}
-
-export class SegmentLeaderboard extends Entity {
-  constructor(id: string) {
-    super();
-    this.set("id", Value.fromString(id));
-  }
-
-  save(): void {
-    let id = this.get("id");
-    assert(id != null, "Cannot save SegmentLeaderboard entity without an ID");
-    if (id) {
-      assert(
-        id.kind == ValueKind.STRING,
-        `Entities of type SegmentLeaderboard must have an ID of type String but the id '${id.displayData()}' is of type ${id.displayKind()}`,
-      );
-      store.set("SegmentLeaderboard", id.toString(), this);
-    }
-  }
-
-  static loadInBlock(id: string): SegmentLeaderboard | null {
-    return changetype<SegmentLeaderboard | null>(
-      store.get_in_block("SegmentLeaderboard", id),
-    );
-  }
-
-  static load(id: string): SegmentLeaderboard | null {
-    return changetype<SegmentLeaderboard | null>(
-      store.get("SegmentLeaderboard", id),
-    );
-  }
-
-  get id(): string {
-    let value = this.get("id");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set id(value: string) {
-    this.set("id", Value.fromString(value));
-  }
-
-  get segment(): string {
-    let value = this.get("segment");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set segment(value: string) {
-    this.set("segment", Value.fromString(value));
-  }
-
-  get totalPerformers(): i32 {
-    let value = this.get("totalPerformers");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set totalPerformers(value: i32) {
-    this.set("totalPerformers", Value.fromI32(value));
-  }
-
-  get averageScore(): BigDecimal {
-    let value = this.get("averageScore");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigDecimal();
-    }
-  }
-
-  set averageScore(value: BigDecimal) {
-    this.set("averageScore", Value.fromBigDecimal(value));
-  }
-
-  get highestScore(): i32 {
-    let value = this.get("highestScore");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set highestScore(value: i32) {
-    this.set("highestScore", Value.fromI32(value));
-  }
-
-  get lowestScore(): i32 {
-    let value = this.get("lowestScore");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set lowestScore(value: i32) {
-    this.set("lowestScore", Value.fromI32(value));
-  }
-
-  get createdAt(): BigInt {
-    let value = this.get("createdAt");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set createdAt(value: BigInt) {
-    this.set("createdAt", Value.fromBigInt(value));
-  }
-
-  get updatedAt(): BigInt {
-    let value = this.get("updatedAt");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toBigInt();
-    }
-  }
-
-  set updatedAt(value: BigInt) {
-    this.set("updatedAt", Value.fromBigInt(value));
   }
 }
 
@@ -1682,8 +1547,8 @@ export class ExerciseCard extends Entity {
     this.set("registeredBy", Value.fromBytes(value));
   }
 
-  get segment(): string | null {
-    let value = this.get("segment");
+  get clip(): string | null {
+    let value = this.get("clip");
     if (!value || value.kind == ValueKind.NULL) {
       return null;
     } else {
@@ -1691,16 +1556,16 @@ export class ExerciseCard extends Entity {
     }
   }
 
-  set segment(value: string | null) {
+  set clip(value: string | null) {
     if (!value) {
-      this.unset("segment");
+      this.unset("clip");
     } else {
-      this.set("segment", Value.fromString(<string>value));
+      this.set("clip", Value.fromString(<string>value));
     }
   }
 
-  get segmentHash(): Bytes | null {
-    let value = this.get("segmentHash");
+  get clipHash(): Bytes | null {
+    let value = this.get("clipHash");
     if (!value || value.kind == ValueKind.NULL) {
       return null;
     } else {
@@ -1708,11 +1573,11 @@ export class ExerciseCard extends Entity {
     }
   }
 
-  set segmentHash(value: Bytes | null) {
+  set clipHash(value: Bytes | null) {
     if (!value) {
-      this.unset("segmentHash");
+      this.unset("clipHash");
     } else {
-      this.set("segmentHash", Value.fromBytes(<Bytes>value));
+      this.set("clipHash", Value.fromBytes(<Bytes>value));
     }
   }
 

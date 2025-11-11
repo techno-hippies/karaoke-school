@@ -90,7 +90,8 @@ forge test --zksync  # Switches to EraVM context during test
 **Event Contracts**:
 - `src/events/SegmentEvents.sol` - Karaoke segment registration/processing
 - `src/events/TranslationEvents.sol` - Multi-language translation tracking
-- `src/events/PerformanceGrader.sol` - User performance scoring
+- `src/events/ExerciseEvents.sol` - FSRS exercise registration & grading (active)
+- `archived/performance-grader/` - Legacy PerformanceGrader sources (reference only)
 
 **Deployment Scripts**:
 - `script/DeployEvents.s.sol` - Multi-contract deployment
@@ -100,10 +101,13 @@ forge test --zksync  # Switches to EraVM context during test
 
 > **Chain ID**: 37111 | **RPC**: https://rpc.testnet.lens.xyz
 
-- **PerformanceGrader**: `0x788A245B9AAB4E29D0152424b72bcB8Ac7c1E260` ✅
-  - PKP-verified grading (~48k gas)
-  - Trusted PKP: `0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23`
-  - Event: `PerformanceGraded(uint256,bytes32,address,uint16,string,uint64)`
+- **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` ✅
+  - PKP-gated grading (~30k gas)
+  - Trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
+  - Events: `SayItBackAttemptGraded`, `MultipleChoiceAttemptGraded`
+
+> The previous `PerformanceGrader` contract has been moved to
+> `contracts/archived/performance-grader/` for historical reference.
 
 - **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
   - Song registration events (~28k gas)
@@ -119,23 +123,23 @@ forge test --zksync  # Switches to EraVM context during test
 
 ## Contract Overview
 
-### PerformanceGrader.sol
-**Purpose**: PKP-verified performance grading with anti-cheat protection
+### ExerciseEvents.sol
+**Purpose**: Unified FSRS exercise registry + grading with PKP enforcement
 
-**Key Function**:
+**Key Functions**:
 ```solidity
-function gradePerformance(
-    uint256 performanceId,
-    bytes32 segmentHash,
-    address performer,
-    uint16 score,             // 0-10000 (percentage basis points)
-    string calldata metadataUri
-) external onlyTrustedPKP
+function emitTranslationQuestionRegistered(...) external;
+function emitTriviaQuestionRegistered(...) external;
+function gradeSayItBackAttempt(...) external onlyTrustedPKP;
+function gradeMultipleChoiceAttempt(...) external onlyTrustedPKP;
 ```
 
-**Event**: `PerformanceGraded(uint256 indexed performanceId, bytes32 indexed segmentHash, address indexed performer, uint16 score, string metadataUri, uint64 timestamp)`
+**Events**:
+- `SayItBackAttemptGraded(uint256,bytes32,bytes32,uint16,address,uint16,uint8,string,uint64)`
+- `MultipleChoiceAttemptGraded(uint256,bytes32,address,uint16,uint8,string,uint64)`
+- `TranslationQuestionRegistered`, `TriviaQuestionRegistered`, `QuestionToggled`
 
-**Usage**: Lit Actions sign with PKP → submit scores → immutable leaderboard events
+**Usage**: The Exercise Grader Lit Action emits grading events that feed FSRS scheduling and learner history via the subgraph.
 
 ### SongEvents.sol
 **Purpose**: Track karaoke songs from registration to processing
@@ -196,19 +200,18 @@ contract DeployEvents is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
-        // Deploy to ZKSync Sepolia
+        address trustedPKP = vm.envAddress("TRUSTED_PKP_ADDRESS");
+
         vm.startBroadcast(deployerPrivateKey);
-        
-        // Deploy event contracts
+
         SegmentEvents segmentEvents = new SegmentEvents();
         TranslationEvents translationEvents = new TranslationEvents();
-        PerformanceGrader performanceGrader = new PerformanceGrader();
-        
+        ExerciseEvents exerciseEvents = new ExerciseEvents(trustedPKP);
+
         console.log("SegmentEvents:", address(segmentEvents));
         console.log("TranslationEvents:", address(translationEvents));
-        console.log("PerformanceGrader:", address(performanceGrader));
-        
+        console.log("ExerciseEvents:", address(exerciseEvents));
+
         vm.stopBroadcast();
     }
 }
@@ -227,7 +230,7 @@ forge script script/DeployEvents.s.sol \
 # ZKSync-specific verification (with --zksync flag)
 forge verify-contract --zksync 0x... SegmentEvents --chain zksync-sepolia
 forge verify-contract --zksync 0x... TranslationEvents --chain zksync-sepolia
-forge verify-contract --zksync 0x... PerformanceGrader --chain zksync-sepolia
+forge verify-contract --zksync 0x... ExerciseEvents --chain zksync-sepolia
 
 # Cast calls with ZKSync (requires --zksync flag)
 cast call --zksync --private-key $PRIVATE_KEY 0xContractAddress \
@@ -371,7 +374,7 @@ forge coverage
 SegmentRegistered: ~35k gas
 SegmentProcessed: ~42k gas
 TranslationAdded: ~25k gas
-PerformanceGraded: ~30k gas
+SayItBackAttemptGraded: ~30k gas
 ```
 
 **Storage Alternatives**:

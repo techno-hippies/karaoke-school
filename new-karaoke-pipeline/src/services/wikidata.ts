@@ -55,6 +55,7 @@ export interface WikidataArtist {
 
   // All other identifiers as JSONB
   identifiers?: Record<string, any>;
+  wikipediaSitelinks?: Record<string, string>;
 }
 
 /**
@@ -298,12 +299,9 @@ Return only the valid name variants. When in doubt, keep it.`;
  * Adapted for simplified schema: only viaf, isni, musicbrainz_id as columns
  */
 export async function parseWikidataArtist(entity: WikidataEntity): Promise<WikidataArtist> {
-  // Extract name (prefer English label)
-  const name = entity.labels?.en?.value || entity.id;
-
   const result: WikidataArtist = {
     wikidataId: entity.id,
-    name,
+    name: entity.labels?.en?.value || entity.id,
   };
 
   // Extract labels - names in different languages/scripts
@@ -320,6 +318,29 @@ export async function parseWikidataArtist(entity: WikidataEntity): Promise<Wikid
     result.aliases = {};
     for (const [lang, aliasArray] of Object.entries(entity.aliases)) {
       result.aliases[lang] = aliasArray.map(a => a.value);
+    }
+  }
+
+  if (entity.sitelinks) {
+    result.wikipediaSitelinks = {};
+    for (const [key, site] of Object.entries(entity.sitelinks)) {
+      if (!site || typeof site !== 'object' || !('title' in site)) continue;
+      const title = (site as any).title as string;
+
+      if (key === 'commonswiki') {
+        result.wikipediaSitelinks.commons = `https://commons.wikimedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        continue;
+      }
+
+      if (key.endsWith('wiki')) {
+        const lang = key.replace(/wiki$/, '');
+        const normalizedLang = lang.replace(/_/g, '-');
+        result.wikipediaSitelinks[normalizedLang] = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+      }
+    }
+
+    if (Object.keys(result.wikipediaSitelinks).length === 0) {
+      delete result.wikipediaSitelinks;
     }
   }
 
@@ -361,8 +382,12 @@ export async function parseWikidataArtist(entity: WikidataEntity): Promise<Wikid
 /**
  * Convenience function: fetch and parse in one call
  */
-export async function getWikidataArtist(wikidataId: string): Promise<WikidataArtist | null> {
+export async function getWikidataArtist(wikidataId: string, fallbackName?: string): Promise<WikidataArtist | null> {
   const entity = await getWikidataEntity(wikidataId);
   if (!entity) return null;
-  return await parseWikidataArtist(entity);
+  const artist = await parseWikidataArtist(entity);
+  if ((!artist.name || artist.name === artist.wikidataId) && fallbackName) {
+    artist.name = fallbackName;
+  }
+  return artist;
 }

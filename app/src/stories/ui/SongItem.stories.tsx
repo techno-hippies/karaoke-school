@@ -124,6 +124,49 @@ export const LongTitles: Story = {
 }
 
 /**
+ * Song with due count badge (red)
+ */
+export const WithDueBadge: Story = {
+  args: {
+    title: 'Never Gonna Give You Up',
+    artist: 'Rick Astley',
+    artworkUrl: 'https://placebear.com/408/408',
+    badge: 12,
+    onClick: () => console.log('Song clicked'),
+  },
+}
+
+/**
+ * List with due badges
+ */
+export const DueBadgeList: Story = {
+  render: () => (
+    <ItemGroup className="gap-2">
+      <SongItem
+        title="Never Gonna Give You Up"
+        artist="Rick Astley"
+        artworkUrl="https://placebear.com/409/409"
+        badge={12}
+        onClick={() => console.log('Song 1 clicked')}
+      />
+      <SongItem
+        title="Blinding Lights"
+        artist="The Weeknd"
+        badge={5}
+        onClick={() => console.log('Song 2 clicked')}
+      />
+      <SongItem
+        title="Shape of You"
+        artist="Ed Sheeran"
+        artworkUrl="https://placebear.com/410/410"
+        badge={3}
+        onClick={() => console.log('Song 3 clicked')}
+      />
+    </ItemGroup>
+  ),
+}
+
+/**
  * List of songs - mixed states (playing, paused, no button, gradient fallback)
  */
 export const SongList: Story = {

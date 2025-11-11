@@ -31,6 +31,8 @@ interface TrackForTranslation {
   spotify_track_id: string;
   title: string;
   artists: string;
+  primary_artist_id: string;
+  primary_artist_name: string;
   normalized_lyrics: string;
   words: ElevenLabsWord[];
   language: string | null;
@@ -51,11 +53,14 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
 
   try {
     // Find tracks at 'aligned' stage with lyrics and word alignments
+    // GRC-20 Legitimacy Gate: Only process tracks with valid Wikidata metadata
     const tracks = await query<TrackForTranslation>(
       `SELECT
         t.spotify_track_id,
         t.title,
         t.artists,
+        t.primary_artist_id,
+        t.primary_artist_name,
         sl.normalized_lyrics,
         sl.language,
         ewa.words
@@ -65,6 +70,14 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
       WHERE t.stage = $1
         AND sl.normalized_lyrics IS NOT NULL
         AND ewa.words IS NOT NULL
+        -- GRC-20 Legitimacy Gate: Only process tracks with valid Wikidata
+        AND EXISTS (
+          SELECT 1 FROM wikidata_artists wa
+          WHERE wa.spotify_id = t.primary_artist_id
+            AND wa.wikidata_id IS NOT NULL
+            AND wa.name IS NOT NULL
+            AND wa.name != wa.wikidata_id
+        )
       ORDER BY t.updated_at ASC
       LIMIT $2`,
       [TrackStage.Aligned, limit]
@@ -72,6 +85,36 @@ async function translateLyrics(limit: number = 20, targetLanguages: LanguageCode
 
     if (tracks.length === 0) {
       console.log('✓ No tracks need translation (all caught up!)');
+
+      // Check if tracks were blocked by GRC-20 legitimacy gate
+      const blocked = await query<{ spotify_track_id: string; primary_artist_name: string }>(
+        `SELECT t.spotify_track_id, t.primary_artist_name
+         FROM tracks t
+         JOIN song_lyrics sl ON t.spotify_track_id = sl.spotify_track_id
+         JOIN elevenlabs_word_alignments ewa ON t.spotify_track_id = ewa.spotify_track_id
+         WHERE t.stage = $1
+           AND sl.normalized_lyrics IS NOT NULL
+           AND ewa.words IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM wikidata_artists wa
+             WHERE wa.spotify_id = t.primary_artist_id
+               AND wa.wikidata_id IS NOT NULL
+               AND wa.name IS NOT NULL
+               AND wa.name != wa.wikidata_id
+           )
+         LIMIT 10`,
+        [TrackStage.Aligned]
+      );
+
+      if (blocked.length > 0) {
+        console.log('\n⚠️  Tracks blocked by GRC-20 legitimacy gate (no Wikidata):');
+        blocked.forEach(t => {
+          console.log(`   - ${t.primary_artist_name} (${t.spotify_track_id})`);
+        });
+        console.log('   💰 Cost savings: These tracks will not incur translation/processing costs');
+        console.log(`   📊 Blocked count: ${blocked.length}${blocked.length === 10 ? '+' : ''}\n`);
+      }
+
       return;
     }
 

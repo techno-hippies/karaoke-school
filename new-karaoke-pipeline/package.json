@@ -16,13 +16,15 @@
     "task:translation-quiz": "bun src/tasks/content/generate-translation-quiz.ts",
     "task:trivia": "bun src/tasks/content/generate-trivia.ts",
     "task:trivia-translate": "bun src/tasks/content/translate-trivia.ts",
+    "task:emit-clips": "bun src/tasks/content/emit-clip-events.ts",
     "task:deploy-locks": "bun src/tasks/identity/deploy-unlock-locks.ts",
-    "task:encrypt": "bun src/tasks/audio/encrypt-segments.ts",
+    "task:encrypt": "bun src/tasks/audio/encrypt-clips.ts",
     "task:populate-source-facts": "bun src/tasks/grc20/populate-source-facts.ts",
     "task:populate-grc20": "bun src/tasks/grc20/populate-grc20.ts"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.36.0",
+    "@graphprotocol/grc-20": "^0.25.5",
     "@lens-chain/sdk": "^1.0.3",
     "@lens-chain/storage-client": "^1.0.6",
     "@lens-protocol/client": "^0.0.0-canary-20250430134539",

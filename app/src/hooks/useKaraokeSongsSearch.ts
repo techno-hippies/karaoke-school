@@ -35,8 +35,8 @@ export interface SearchOptions {
 }
 
 /**
- * GraphQL query to get karaoke songs with segments
- * This queries segments and groups them by grc20WorkId (local schema)
+ * GraphQL query to get karaoke songs with clips
+ * This queries clips and groups them by grc20WorkId (local schema)
  */
 const GET_KARAOKE_SONGS_QUERY = gql`
   query GetKaraokeSongs(
@@ -44,7 +44,7 @@ const GET_KARAOKE_SONGS_QUERY = gql`
     $first: Int
     $skip: Int
   ) {
-    segments(
+    clips(
       where: {
         hasInstrumental: $hasInstrumental
         processedAt_not: null
@@ -55,7 +55,7 @@ const GET_KARAOKE_SONGS_QUERY = gql`
       skip: $skip
     ) {
       id
-      segmentHash
+      clipHash
       grc20WorkId
       spotifyTrackId
       hasInstrumental
@@ -82,7 +82,7 @@ const SEARCH_KARAOKE_SONGS_QUERY = gql`
     $first: Int
     $skip: Int
   ) {
-    segments(
+    clips(
       where: {
         hasInstrumental: $hasInstrumental
         processedAt_not: null
@@ -94,7 +94,7 @@ const SEARCH_KARAOKE_SONGS_QUERY = gql`
       skip: $skip
     ) {
       id
-      segmentHash
+      clipHash
       grc20WorkId
       spotifyTrackId
       hasInstrumental
@@ -120,12 +120,12 @@ async function getKaraokeSongs(options: SearchOptions = {}): Promise<KaraokeSong
     skip = 0
   } = options
 
-  const data = await graphClient.request<{ segments: any[] }>(
+  const data = await graphClient.request<{ clips: any[] }>(
     GET_KARAOKE_SONGS_QUERY,
     { hasInstrumental, first, skip }
   )
 
-  const songs = groupSegmentsByWork(data.segments)
+  const songs = groupClipsByWork(data.clips)
 
   // For trending/default view: Show recent songs even with incomplete metadata
   return filterSongsByQuality(songs, false)
@@ -144,12 +144,12 @@ async function searchKaraokeSongs(
     skip = 0
   } = options
 
-  const data = await graphClient.request<{ segments: any[] }>(
+  const data = await graphClient.request<{ clips: any[] }>(
     SEARCH_KARAOKE_SONGS_QUERY,
     { searchTerm, hasInstrumental, first, skip }
   )
 
-  const songs = groupSegmentsByWork(data.segments)
+  const songs = groupClipsByWork(data.clips)
 
   // For search: Be more strict to filter out poor quality results
   return filterSongsByQuality(songs, true)
@@ -189,44 +189,44 @@ function filterSongsByQuality(songs: KaraokeSong[], isSearch: boolean = false): 
 }
 
 /**
- * Group segments by GRC-20 work ID to create song entities (local schema)
- * This is the key transformation from segments to songs
+ * Group clips by GRC-20 work ID to create song entities (local schema)
+ * This is the key transformation from clips to songs
  */
-function groupSegmentsByWork(segments: any[]): KaraokeSong[] {
-  const grouped = segments.reduce((acc, segment) => {
-    const workId = segment.grc20WorkId
+function groupClipsByWork(clips: any[]): KaraokeSong[] {
+  const grouped = clips.reduce((acc, clip) => {
+    const workId = clip.grc20WorkId
 
     if (!acc[workId]) {
       acc[workId] = {
         grc20WorkId: workId,
-        spotifyTrackId: segment.spotifyTrackId,
-        segments: [],
+        spotifyTrackId: clip.spotifyTrackId,
+        clips: [],
         hasInstrumental: false,
         hasAlignments: false,
         translationCount: 0,
         performanceCount: 0,
         totalSegments: 0,
-        firstSegmentAt: segment.registeredAt,
-        lastUpdatedAt: segment.processedAt,
-        metadataUri: segment.metadataUri
+        firstSegmentAt: clip.registeredAt,
+        lastUpdatedAt: clip.processedAt,
+        metadataUri: clip.metadataUri
       }
     }
 
     const song = acc[workId]
-    song.segments.push(segment)
+    song.clips.push(clip)
     song.totalSegments += 1
 
     // Update availability flags
-    if (segment.hasInstrumental) song.hasInstrumental = true
-    if (segment.hasAlignments) song.hasAlignments = true
+    if (clip.hasInstrumental) song.hasInstrumental = true
+    if (clip.hasAlignments) song.hasAlignments = true
 
     // Aggregate counts
-    song.translationCount = Math.max(song.translationCount, segment.translationCount)
-    song.performanceCount += segment.performanceCount
+    song.translationCount = Math.max(song.translationCount, clip.translationCount)
+    song.performanceCount += clip.performanceCount
 
     // Track latest update
-    if (segment.processedAt && segment.processedAt > song.lastUpdatedAt) {
-      song.lastUpdatedAt = segment.processedAt
+    if (clip.processedAt && clip.processedAt > song.lastUpdatedAt) {
+      song.lastUpdatedAt = clip.processedAt
     }
 
     return acc
