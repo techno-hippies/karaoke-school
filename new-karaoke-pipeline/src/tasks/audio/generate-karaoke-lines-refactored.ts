@@ -52,7 +52,10 @@ export class GenerateKaraokeLinesTask {
   /**
    * Select tracks with translations but no karaoke_lines yet
    */
-  async selectTracks(limit: number): Promise<TrackWithTranslation[]> {
+  async selectTracks(limit: number, trackId?: string): Promise<TrackWithTranslation[]> {
+    const trackIdFilter = trackId ? `AND lt.spotify_track_id = $2` : '';
+    const params = trackId ? [limit, trackId] : [limit];
+
     return query<TrackWithTranslation>(
       `SELECT DISTINCT ON (lt.spotify_track_id)
         lt.spotify_track_id,
@@ -60,9 +63,10 @@ export class GenerateKaraokeLinesTask {
       FROM lyrics_translations lt
       LEFT JOIN karaoke_lines kl ON lt.spotify_track_id = kl.spotify_track_id
       WHERE kl.spotify_track_id IS NULL
+        ${trackIdFilter}
       ORDER BY lt.spotify_track_id, lt.language_code
       LIMIT $1`,
-      [limit]
+      params
     );
   }
 
@@ -128,11 +132,12 @@ export class GenerateKaraokeLinesTask {
   /**
    * Main execution method
    */
-  async run(options: { limit?: number } = {}): Promise<void> {
+  async run(options: { limit?: number; trackId?: string } = {}): Promise<void> {
     const limit = options.limit || 50;
+    const trackId = options.trackId;
     console.log(`\n📝 Generating karaoke_lines (limit: ${limit})\n`);
 
-    const tracks = await this.selectTracks(limit);
+    const tracks = await this.selectTracks(limit, trackId);
 
     if (tracks.length === 0) {
       console.log('✓ All tracks already have karaoke_lines\n');
