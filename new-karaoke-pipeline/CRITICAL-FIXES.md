@@ -209,12 +209,28 @@ WHERE clip_start_ms IS NOT NULL;
 
 Before replacing originals with refactored versions:
 
-- [ ] Add `buildAudioTasksFilter(this.taskType)` to all `selectTracks()` queries
+- [x] Add `buildAudioTasksFilter(this.taskType)` to all `selectTracks()` queries (commit 327af86)
 - [ ] Test retry logic with exhausted tasks
 - [ ] Verify clip creation runs on 'enhanced' tracks
 - [ ] Confirm all clips are 40-100 seconds
 - [ ] Run full pipeline end-to-end on staging
 - [ ] Monitor API rate limits (ElevenLabs, fal.ai, RunPod)
+
+## Integration Status
+
+**All 6 refactored tasks now include retry logic** (commit 327af86):
+1. ✅ `align-lyrics-refactored.ts`
+2. ✅ `separate-audio-refactored.ts`
+3. ✅ `enhance-audio-refactored.ts`
+4. ✅ `select-segments-refactored.ts`
+5. ✅ `clip-segments-refactored.ts`
+6. ✅ `translate-lyrics.ts`
+
+Each task now:
+- Imports `buildAudioTasksFilter` from `base-task.ts`
+- Calls `const retryFilter = buildAudioTasksFilter(this.taskType)` in `selectTracks()`
+- Appends `${retryFilter}` to SQL WHERE clause
+- Documents retry logic with comment
 
 ---
 
