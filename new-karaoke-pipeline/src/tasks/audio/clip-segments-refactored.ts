@@ -62,6 +62,7 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
 
   /**
    * Select tracks with enhanced audio and clip boundaries
+   * NOTE: Tracks are at 'enhanced' stage after enhancement completes, not 'segmented'
    */
   async selectTracks(limit: number): Promise<TrackForClipping[]> {
     return query<TrackForClipping>(
@@ -81,7 +82,7 @@ export class ClipSegmentsTask extends BaseTask<TrackForClipping, ClipResult> {
         AND ks.clip_grove_url IS NULL
       ORDER BY t.created_at DESC
       LIMIT $2`,
-      [TrackStage.Segmented, limit]
+      [TrackStage.Enhanced, limit]
     );
   }
 

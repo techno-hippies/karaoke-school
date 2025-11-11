@@ -71,8 +71,8 @@ interface ProcessedChunk {
  * 2s overlap to enable smooth crossfade merging.
  */
 function calculateChunks(durationMs: number): Chunk[] {
-  const CHUNK_SIZE_MS = CONFIG.audio.segment.maxDurationMs; // 190000ms
-  const OVERLAP_MS = 2000; // 2s overlap for crossfade
+  const CHUNK_SIZE_MS = CONFIG.audio.falChunking.maxDurationMs; // 190000ms
+  const OVERLAP_MS = CONFIG.audio.falChunking.overlapMs; // 2s overlap for crossfade
 
   if (durationMs <= CHUNK_SIZE_MS) {
     return [{

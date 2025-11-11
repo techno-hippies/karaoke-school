@@ -94,10 +94,16 @@ export const AUDIO_CONFIG = {
     timeout: 120000, // 2 minutes
   },
 
-  /** Segment selection */
+  /** Segment selection (viral clip bounds - 40-100s for TikTok/FSRS) */
   segment: {
-    maxDurationMs: 190000, // 3min 10s (190 seconds)
-    minDurationMs: 30000, // 30 seconds
+    maxDurationMs: 100000, // 100 seconds (product requirement)
+    minDurationMs: 40000, // 40 seconds (product requirement)
+  },
+
+  /** fal.ai chunking (separate from clip selection) */
+  falChunking: {
+    maxDurationMs: 190000, // 3min 10s (190 seconds - fal.ai hard limit)
+    overlapMs: 2000, // 2 seconds overlap for crossfade
   },
 } as const;
 

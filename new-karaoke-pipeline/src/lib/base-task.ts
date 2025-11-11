@@ -71,12 +71,41 @@ export interface RunOptions {
 }
 
 /**
+ * Helper: Build WHERE clause to filter by audio_tasks status/retry logic
+ * This ensures we respect exponential backoff and max attempts
+ */
+export function buildAudioTasksFilter(taskType: string): string {
+  return `
+    AND (
+      -- No task record yet (pending)
+      NOT EXISTS (
+        SELECT 1 FROM audio_tasks
+        WHERE spotify_track_id = t.spotify_track_id
+          AND task_type = '${taskType}'
+      )
+      -- Or task is pending/failed and ready for retry
+      OR EXISTS (
+        SELECT 1 FROM audio_tasks
+        WHERE spotify_track_id = t.spotify_track_id
+          AND task_type = '${taskType}'
+          AND status IN ('pending', 'failed')
+          AND attempts < max_attempts
+          AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+      )
+    )
+  `;
+}
+
+/**
  * Abstract base class for all audio processing tasks
  *
  * Subclasses must implement:
  * - taskType: The AudioTaskType enum value
  * - selectTracks(): Query to get pending tracks
  * - processTrack(): Core business logic
+ *
+ * IMPORTANT: selectTracks() queries should use buildAudioTasksFilter(taskType)
+ * to ensure proper retry logic and prevent reprocessing exhausted tasks
  */
 export abstract class BaseTask<TInput extends BaseTrackInput, TResult extends TaskResult> {
   /**
