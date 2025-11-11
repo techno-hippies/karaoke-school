@@ -83,7 +83,12 @@ event MultipleChoiceAttemptGraded(
 # Core services
 cd karaoke-pipeline && ./supervisor.sh &      # 8787
 cd app && bun run dev &                       # 5173
-cd subgraph && npm run dev &                  # 8000
+
+# Subgraph (GND - requires PostgreSQL 16 in PATH)
+cd subgraph && bun run build
+PATH="/usr/lib/postgresql/16/bin:$PATH" gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz > gnd.log 2>&1 &
+# GND auto-deploys from ./build and serves on port 8000
+# Monitor: tail -f gnd.log
 ```
 
 ### Environment Variables

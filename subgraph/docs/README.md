@@ -260,21 +260,30 @@ dataSources:
 ## 🚀 Deployment
 
 ### Local Development
+
+**IMPORTANT**: GND requires PostgreSQL's `initdb` in PATH. Add PostgreSQL 16 binaries before starting:
+
 ```bash
-# Start local graph node
-gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz &
+# Start local graph node (PostgreSQL 16 must be in PATH for initdb)
+PATH="/usr/lib/postgresql/16/bin:$PATH" gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz > gnd.log 2>&1 &
 
-# Create subgraph
+# GND automatically deploys from ./build directory
+# Check logs: tail -f gnd.log
+
+# If subgraph not auto-deployed, manually create and deploy:
 graph create subgraph-0 --node http://localhost:8020
-
-# Deploy
 graph deploy subgraph-0 \
   --node http://localhost:8020 \
-  --ipfs http://localhost:5001
+  --version-label v1.0.0
 
-# Access
+# Access GraphQL endpoint
 open http://localhost:8000/subgraphs/name/subgraph-0
+
+# Stop GND
+pkill gnd
 ```
+
+**Note**: GND watches `./build/subgraph.yaml` and auto-deploys on changes. Run `npm run build` before starting GND.
 
 ### The Graph Studio
 ```bash

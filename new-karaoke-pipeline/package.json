@@ -20,7 +20,8 @@
     "task:deploy-locks": "bun src/tasks/identity/deploy-unlock-locks.ts",
     "task:encrypt": "bun src/tasks/audio/encrypt-clips.ts",
     "task:populate-source-facts": "bun src/tasks/grc20/populate-source-facts.ts",
-    "task:populate-grc20": "bun src/tasks/grc20/populate-grc20.ts"
+    "task:populate-grc20": "bun src/tasks/grc20/populate-grc20.ts",
+    "task:publish-tiktok": "bun src/tasks/content/publish-tiktok-to-lens.ts"
   },
   "dependencies": {
     "@ardrive/turbo-sdk": "^1.36.0",

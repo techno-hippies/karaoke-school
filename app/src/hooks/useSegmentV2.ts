@@ -77,11 +77,8 @@ export interface SegmentMetadata {
  * Handles BOTH old format (inline lyrics) and new format (separate translation files)
  */
 function transformSegmentMetadata(groveData: any): SegmentMetadata {
-  console.log('[transformSegmentMetadata] Input Grove data:', groveData)
-
   // Handle OLD format: lyrics.languages.{en,vi,zh}
   if (groveData.lyrics?.languages) {
-    console.log('[transformSegmentMetadata] Detected OLD format with inline lyrics')
     const languages = groveData.lyrics.languages || {}
     const languageKeys = Object.keys(languages)
 
@@ -103,18 +100,9 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
 
   // Handle NEW format: timing.tiktok_clip_*, assets.instrumental, translations[]
   if (groveData.timing?.tiktok_clip_duration_ms && groveData.translations) {
-    console.log('[transformSegmentMetadata] Detected NEW format with separate translation files')
-    console.log('[transformSegmentMetadata] Title:', groveData.title, 'Artist:', groveData.artist)
-    console.log('[transformSegmentMetadata] Clip timing:', groveData.timing.tiktok_clip_start_ms, '-', groveData.timing.tiktok_clip_end_ms)
-    console.log('[transformSegmentMetadata] Instrumental URL:', groveData.assets.instrumental)
-    console.log('[transformSegmentMetadata] Translations:', groveData.translations)
-    console.log('[transformSegmentMetadata] Full groveData keys:', Object.keys(groveData))
-    console.log('[transformSegmentMetadata] ⚠️  coverUri in data?', groveData.coverUri ? 'YES' : 'NO')
-    console.log('[transformSegmentMetadata] ⚠️  coverUri value:', groveData.coverUri)
-
     // For NEW format, return as-is (app will fetch translations separately)
     // Map clip timing to expected format
-    const transformed = {
+    return {
       version: 'v2',
       type: 'karaoke-segment',
       geniusId: 0,
@@ -132,13 +120,9 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
       // Store original data for access
       ...groveData,
     }
-
-    console.log('[transformSegmentMetadata] ⚠️  Final coverUri:', transformed.coverUri)
-    console.log('[transformSegmentMetadata] ⚠️  Final transformed keys:', Object.keys(transformed))
-    return transformed
   }
 
-  console.warn('[transformSegmentMetadata] Unknown metadata format, returning as-is:', groveData)
+  console.warn('[useSegmentV2] Unknown metadata format, returning as-is')
 
   // Fallback for unknown format
   return {
@@ -164,9 +148,7 @@ export function useSegmentMetadata(metadataUri?: string) {
         throw new Error('Metadata URI is required')
       }
 
-      console.log('[useSegmentMetadata] Fetching metadata from:', metadataUri)
       const httpUrl = convertGroveUri(metadataUri)
-      console.log('[useSegmentMetadata] Converted to HTTP URL:', httpUrl)
       const response = await fetch(httpUrl)
 
       if (!response.ok) {
@@ -174,10 +156,7 @@ export function useSegmentMetadata(metadataUri?: string) {
       }
 
       const groveData = await response.json()
-      console.log('[useSegmentMetadata] ⚠️  Raw Grove data:', groveData)
-      console.log('[useSegmentMetadata] ⚠️  Keys in Grove data:', Object.keys(groveData))
       const transformed = transformSegmentMetadata(groveData)
-      console.log('[useSegmentMetadata] ⚠️  Transformed data:', transformed)
       return transformed
     },
     enabled: !!metadataUri,

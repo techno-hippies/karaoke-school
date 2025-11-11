@@ -32,14 +32,36 @@ bun run auth
 bun run deploy
 ```
 
-## Local Development (Optional)
+## Local Development with GND (Recommended)
 
-To run a local Graph Node for development:
+**Use GND (Graph Node Dev) for local development - simpler than Docker.**
 
-### Prerequisites
-- Docker and Docker Compose
+### Quick Start
 
-### Steps
+```bash
+# Build the subgraph first
+bun run build
+
+# Start GND (requires PostgreSQL 16 binaries in PATH)
+PATH="/usr/lib/postgresql/16/bin:$PATH" gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz > gnd.log 2>&1 &
+
+# GND automatically deploys from ./build directory
+# Check progress: tail -f gnd.log
+
+# Access GraphQL endpoint
+# http://localhost:8000/subgraphs/name/subgraph-0
+
+# Stop GND when done
+pkill gnd
+```
+
+### Why PATH is needed
+
+GND requires PostgreSQL's `initdb` command to initialize its embedded database. On Ubuntu/Debian systems, PostgreSQL binaries are in `/usr/lib/postgresql/16/bin/` and not in the default PATH.
+
+### Alternative: Docker (Not Recommended)
+
+If you prefer Docker:
 
 1. Clone graph-node:
 ```bash

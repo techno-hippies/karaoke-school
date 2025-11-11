@@ -231,41 +231,24 @@ export function useStudyCards(songId?: string) {
         throw new Error('Not authenticated')
       }
 
-      console.log('[useStudyCards] 🚀 HOOK CALLED with songId:', songId, 'pkpAddress:', pkpAddress)
-
       try {
-        console.log('[useStudyCards] 🔍 QUERY START')
-        console.log('[useStudyCards] Querying clips for workId:', songId || 'ALL', 'performer:', pkpAddress)
 
         // Use different query based on whether we're filtering by songId
         let data
         if (songId) {
           // Query specific work
-          const queryParams = {
+          data = await graphClient.request(GET_CLIPS_WITH_PERFORMANCES, {
             grc20WorkId: songId,
             performer: pkpAddress.toLowerCase(),
-          }
-          console.log('[useStudyCards] Query params (specific):', JSON.stringify(queryParams, null, 2))
-          data = await graphClient.request(GET_CLIPS_WITH_PERFORMANCES, queryParams)
+          })
         } else {
           // Query ALL clips for dashboard view
-          const queryParams = {
+          data = await graphClient.request(GET_ALL_CLIPS_WITH_PERFORMANCES, {
             performer: pkpAddress.toLowerCase(),
-          }
-          console.log('[useStudyCards] Query params (all):', JSON.stringify(queryParams, null, 2))
-          data = await graphClient.request(GET_ALL_CLIPS_WITH_PERFORMANCES, queryParams)
-        }
-
-        console.log('[useStudyCards] 📊 QUERY RESULT')
-        console.log('[useStudyCards] Raw data:', JSON.stringify(data, null, 2))
-        console.log('[useStudyCards] Clips count:', data?.clips?.length)
-        console.log('[useStudyCards] Line performances count:', data?.linePerformances?.length)
-        if (data?.clips?.length > 0) {
-          console.log('[useStudyCards] First clip:', data.clips[0])
+          })
         }
 
         if (!data?.clips) {
-          console.log('[useStudyCards] No clips found for this work')
           return {
             cards: [],
             stats: {
@@ -288,8 +271,6 @@ export function useStudyCards(songId?: string) {
           )
         )
 
-        console.log('[useStudyCards] 🎵 Extracted Spotify Track IDs:', spotifyTrackIds)
-
         let exerciseCardResponse: { exerciseCards: any[] } = { exerciseCards: [] }
 
         if (spotifyTrackIds.length > 0) {
@@ -297,27 +278,14 @@ export function useStudyCards(songId?: string) {
           // Users can later customize this preference
           const preferredLanguage = 'zh'
 
-          const exerciseCardParams = {
+          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, {
             spotifyTrackIds,
             performer: pkpAddress.toLowerCase(),
             languageCode: preferredLanguage,
-          }
-          console.log('[useStudyCards] 🎯 EXERCISE CARDS QUERY START')
-          console.log('[useStudyCards] Exercise card params:', JSON.stringify(exerciseCardParams, null, 2))
-
-          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, exerciseCardParams)
-
-          console.log('[useStudyCards] 📝 EXERCISE CARDS RESULT')
-          console.log('[useStudyCards] Raw exercise cards response:', JSON.stringify(exerciseCardResponse, null, 2))
-        } else {
-          console.log('[useStudyCards] ⚠️ No Spotify Track IDs found, skipping exercise cards query')
+          })
         }
 
         const onChainExerciseCards = exerciseCardResponse.exerciseCards || []
-        console.log(`[useStudyCards] ✅ Fetched ${onChainExerciseCards.length} exercise cards for user`)
-        if (onChainExerciseCards.length > 0) {
-          console.log('[useStudyCards] First exercise card:', onChainExerciseCards[0])
-        }
 
         // Expand segments into line-level cards by fetching translation data
         const studyCards: StudyCard[] = []
@@ -328,14 +296,10 @@ export function useStudyCards(songId?: string) {
         const songMetadataBySpotifyId = new Map<string, { title: string; artist: string; artworkUrl?: string }>()
 
         // STEP 1: Fetch clip metadata first to populate title/artist map
-        // (This loop populates the map before processing exercise cards)
         for (const clip of data.clips) {
-          console.log(`[useStudyCards] Pre-fetching clip metadata for title/artist from:`, clip.metadataUri)
           const metadataResponse = await fetch(clip.metadataUri)
-          if (!metadataResponse.ok) {
-            console.warn(`[useStudyCards] Failed to pre-fetch clip metadata: ${metadataResponse.status}`)
-            continue
-          }
+          if (!metadataResponse.ok) continue
+
           const clipMetadata = await metadataResponse.json()
 
           // Store title/artist/artwork for this track
@@ -344,11 +308,6 @@ export function useStudyCards(songId?: string) {
               title: clipMetadata.title,
               artist: clipMetadata.artist,
               artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
-            })
-            console.log(`[useStudyCards] 🎵 Pre-stored song metadata for ${clip.spotifyTrackId}:`, {
-              title: clipMetadata.title,
-              artist: clipMetadata.artist,
-              artworkUrl: clipMetadata.coverUri ? 'YES' : 'NO'
             })
           }
         }
@@ -396,44 +355,19 @@ export function useStudyCards(songId?: string) {
 
         // Get all line performances for this user (from GraphQL query)
         const allLinePerformances = data.linePerformances || []
-        console.log(`[useStudyCards] Fetched ${allLinePerformances.length} line performances for user`)
 
         for (const clip of data.clips) {
           // Fetch clip Grove metadata to get karaoke_lines structure
-          console.log(`[useStudyCards] Fetching clip metadata from:`, clip.metadataUri)
           const metadataResponse = await fetch(clip.metadataUri)
           if (!metadataResponse.ok) {
             throw new Error(`Failed to fetch clip metadata: ${metadataResponse.status}`)
           }
           const clipMetadata = await metadataResponse.json()
 
-          console.log(`[useStudyCards] Clip metadata keys:`, Object.keys(clipMetadata))
-
-          // Populate title/artist/artwork map from clip metadata
-          if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
-            songMetadataBySpotifyId.set(clip.spotifyTrackId, {
-              title: clipMetadata.title,
-              artist: clipMetadata.artist,
-              artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
-            })
-            console.log(`[useStudyCards] 🎵 Stored song metadata for ${clip.spotifyTrackId}:`, {
-              title: clipMetadata.title,
-              artist: clipMetadata.artist,
-              artworkUrl: clipMetadata.coverUri ? 'YES' : 'NO'
-            })
-          }
-
           // Skip clips with old/malformed metadata (missing karaoke_lines)
           if (!clipMetadata.karaoke_lines || !Array.isArray(clipMetadata.karaoke_lines)) {
-            console.warn(`[useStudyCards] ⚠️ Skipping clip with old metadata format (missing karaoke_lines)`, {
-              clipHash: clip.clipHash,
-              metadataUri: clip.metadataUri,
-              keys: Object.keys(clipMetadata)
-            })
             continue
           }
-
-          console.log(`[useStudyCards] Found ${clipMetadata.karaoke_lines.length} karaoke lines`)
 
           // Create one card per line using karaoke_lines from Grove
           for (const karaokeLineData of clipMetadata.karaoke_lines) {
@@ -441,7 +375,6 @@ export function useStudyCards(songId?: string) {
 
             // Skip blank/empty lines
             if (!karaokeLineData.original_text || karaokeLineData.original_text.trim().length === 0) {
-              console.log(`[useStudyCards] Skipping blank line at index ${lineIndex}`)
               continue
             }
 
@@ -528,8 +461,6 @@ export function useStudyCards(songId?: string) {
           })
         })
 
-        console.log(`[useStudyCards] Tracking ${firstAttemptByCard.size} cards with attempt history`)
-
         // Count how many cards had their first attempt today
         let newCardsIntroducedToday = 0
         firstAttemptByCard.forEach(firstTime => {
@@ -539,9 +470,6 @@ export function useStudyCards(songId?: string) {
         })
 
         const newCardsRemaining = Math.max(0, 15 - newCardsIntroducedToday)
-
-        console.log(`[useStudyCards] New cards introduced today: ${newCardsIntroducedToday}/15`)
-        console.log(`[useStudyCards] New cards remaining: ${newCardsRemaining}`)
 
         // Apply daily limit: remaining new + unlimited review/learning
         let newCount = 0
@@ -573,17 +501,7 @@ export function useStudyCards(songId?: string) {
           dueToday: dailyCards.length, // Cards to study today (after daily limit applied)
         }
 
-        console.log('[useStudyCards] Loaded', dailyCards.length, 'due cards for song', songId)
-        console.log('[useStudyCards] Card states:', dailyCards.map(c => ({
-          id: c.id.slice(0, 8),
-          state: ['New', 'Learning', 'Review', 'Relearning'][c.fsrs.state],
-          due: new Date(c.fsrs.due * 1000),
-        })))
-        console.log('[useStudyCards] Daily stats:', stats)
-
-        console.log('[useStudyCards] 🎉 FINAL RESULT')
-        console.log('[useStudyCards] Returning', dailyCards.length, 'cards')
-        console.log('[useStudyCards] Stats:', JSON.stringify(stats, null, 2))
+        console.log('[useStudyCards] ✓ Loaded', dailyCards.length, 'cards for study session')
 
         return { cards: dailyCards, stats }
       } catch (error) {

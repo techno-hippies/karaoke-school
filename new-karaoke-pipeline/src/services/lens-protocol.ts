@@ -39,6 +39,38 @@ export interface LensAccountResult {
 }
 
 /**
+ * Post creation parameters
+ */
+export interface CreatePostParams {
+  /** Account address that should create the post */
+  accountAddress: Address;
+
+  /** Post content (text) */
+  content: string;
+
+  /** Optional video/audio attachment URI */
+  videoUri?: string;
+
+  /** Optional tags for discoverability */
+  tags?: string[];
+
+  /** Optional app ID to associate post with custom feed */
+  appId?: string;
+
+  /** Optional content warning */
+  contentWarning?: string;
+}
+
+/**
+ * Post creation result
+ */
+export interface PostCreationResult {
+  postId: string;                  // Lens post ID
+  metadataUri: string;             // Grove URI to post metadata
+  transactionHash: Hex;            // Post creation transaction
+}
+
+/**
  * Account creation parameters
  */
 export interface CreateAccountParams {
@@ -420,8 +452,126 @@ export function createLensService() {
     };
   }
 
+  /**
+   * Create a post on Lens Protocol
+   *
+   * Process:
+   * 1. Build post metadata (text content + optional video attachment)
+   * 2. Upload metadata to Grove (immutable IPFS storage)
+   * 3. Login to Lens Protocol as account owner
+   * 4. Create post with metadata URI
+   * 5. Wait for transaction confirmation and indexing
+   * 6. Return post details for database storage
+   *
+   * @param params - Post creation parameters (account, content, video, tags)
+   * @returns Post creation result with transaction hash
+   */
+  async function createPost(
+    params: CreatePostParams
+  ): Promise<PostCreationResult> {
+    const { accountAddress, content, videoUri, tags = [], appId, contentWarning } = params;
+
+    // Initialize required clients
+    const client = await initLensClient();
+    const walletClient = await createLensWalletClient();
+    const storage = await initStorageClient();
+    const chainsConfig = await initChains();
+
+    // Import Lens SDK functions
+    const { evmAddress } = await import('@lens-protocol/client');
+    const { signMessageWith, handleOperationWith } = await import('@lens-protocol/client/viem');
+    const { post: createPostAction } = await import('@lens-protocol/client/actions');
+    const { immutable } = await import('@lens-chain/storage-client');
+    const { textOnly, video: videoMetadata } = await import('@lens-protocol/metadata');
+
+    // Build post metadata
+    console.log('   📝 Building post metadata...');
+    const metadata = videoUri
+      ? videoMetadata({
+          content,
+          video: { item: videoUri },
+          tags,
+          contentWarning: contentWarning || undefined,
+        })
+      : textOnly({
+          content,
+          tags,
+          contentWarning: contentWarning || undefined,
+        });
+
+    // Upload metadata to Grove
+    console.log('   📤 Uploading post metadata to Grove...');
+    const uploadResult = await storage.uploadAsJson(metadata, {
+      name: `post-${Date.now()}.json`,
+      acl: immutable(chainsConfig.testnet.id),
+    });
+
+    console.log(`   ✓ Metadata URI: ${uploadResult.uri}`);
+
+    // Login to Lens
+    console.log('   🔐 Authenticating with Lens Protocol...');
+    const authenticated = await client.login({
+      accountOwner: {
+        app: evmAddress(LENS_APP_ADDRESS),
+        account: evmAddress(accountAddress),
+        owner: evmAddress(walletClient.account.address),
+      },
+      signMessage: signMessageWith(walletClient),
+    });
+
+    if (authenticated.isErr()) {
+      throw new Error(`Lens login failed: ${authenticated.error.message}`);
+    }
+
+    const sessionClient = authenticated.value;
+
+    // Create post
+    console.log('   ⏳ Creating Lens post...');
+    const postParams: any = {
+      contentUri: uploadResult.uri,
+    };
+
+    // Add app ID if specified (for custom feeds)
+    if (appId) {
+      postParams.appId = evmAddress(appId);
+    }
+
+    const operationResult = await createPostAction(sessionClient, postParams)
+      .andThen(handleOperationWith(walletClient));
+
+    if (operationResult.isErr()) {
+      throw new Error(`Post creation failed: ${operationResult.error.message}`);
+    }
+
+    const txHash = operationResult.value;
+    console.log(`   📡 Transaction: ${txHash}`);
+
+    // Wait for transaction confirmation
+    const waitResult = await sessionClient.waitForTransaction(txHash);
+
+    if (waitResult.isErr()) {
+      const message = waitResult.error.message || 'Unknown waitForTransaction error';
+      if (!message.includes('Timeout waiting for transaction')) {
+        throw new Error(`Post creation failed: ${message}`);
+      }
+      console.warn(`   ⚠️  ${message} — post may still be indexing`);
+    }
+
+    console.log('   ✓ Post created successfully');
+
+    // Return post details
+    // Note: Post ID is typically derived from transaction hash
+    // We'll use txHash as postId for now (Lens indexer will assign final ID)
+    return {
+      postId: txHash,
+      metadataUri: uploadResult.uri,
+      transactionHash: txHash as Hex,
+    };
+  }
+
   return {
     createAccount,
+    createPost,
     sanitizeHandle,
     findAvailableHandle,
     isHandleAvailable,
