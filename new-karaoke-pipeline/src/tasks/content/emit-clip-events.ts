@@ -24,6 +24,8 @@ interface ClipCandidate {
   artist_lens_handle: string | null;
   cover_url: string | null;
   cover_thumbnail_url: string | null;
+  encrypted_full_url: string | null;
+  encryption_accs: any | null;
   has_hash?: boolean;
 }
 
@@ -82,6 +84,8 @@ async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
        ga.lens_handle AS artist_lens_handle,
        gw.image_url AS cover_url,
        gw.image_thumbnail_url AS cover_thumbnail_url,
+       ks.encrypted_full_url,
+       ks.encryption_accs,
        COALESCE(line_state.has_hash, FALSE) AS has_hash
      FROM tracks t
      JOIN karaoke_segments ks ON ks.spotify_track_id = t.spotify_track_id
@@ -95,6 +99,8 @@ async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
      WHERE ks.clip_start_ms IS NOT NULL
        AND ks.clip_end_ms IS NOT NULL
        AND ks.fal_enhanced_grove_url IS NOT NULL
+       AND ks.encrypted_full_url IS NOT NULL
+       AND ks.encryption_accs IS NOT NULL
        AND gw.grc20_entity_id IS NOT NULL
      ORDER BY COALESCE(line_state.has_hash, FALSE) ASC, t.updated_at ASC
      LIMIT $1` ,
@@ -161,6 +167,56 @@ function bytesToHex(value: any): string | null {
   return null;
 }
 
+/**
+ * Validates that a clip has all required data for emission
+ * Ensures encryption is complete before emitting to blockchain
+ */
+function validateEmissionReadiness(clip: ClipCandidate): { ready: boolean; reason?: string } {
+  // Validate clip timing (check for null/undefined, not falsy - 0 is valid)
+  if (clip.clip_start_ms === null || clip.clip_start_ms === undefined ||
+      clip.clip_end_ms === null || clip.clip_end_ms === undefined) {
+    return { ready: false, reason: 'Missing clip timing' };
+  }
+
+  // Validate instrumental audio
+  if (!clip.fal_enhanced_grove_url) {
+    return { ready: false, reason: 'Missing enhanced instrumental audio' };
+  }
+
+  // Validate GRC-20 integration
+  if (!clip.grc20_entity_id) {
+    return { ready: false, reason: 'Missing GRC-20 entity ID' };
+  }
+
+  // CRITICAL: Validate encryption completion
+  if (!clip.encrypted_full_url) {
+    return { ready: false, reason: 'Missing encrypted full track URL' };
+  }
+
+  if (!clip.encryption_accs) {
+    return { ready: false, reason: 'Missing encryption access conditions' };
+  }
+
+  // Validate encryption_accs structure
+  try {
+    const accs = typeof clip.encryption_accs === 'string'
+      ? JSON.parse(clip.encryption_accs)
+      : clip.encryption_accs;
+
+    if (!accs.unlock?.lockAddress) {
+      return { ready: false, reason: 'Missing Unlock lock address in encryption_accs' };
+    }
+
+    if (!accs.unlock?.chainId) {
+      return { ready: false, reason: 'Missing Unlock chain ID in encryption_accs' };
+    }
+  } catch (error) {
+    return { ready: false, reason: 'Invalid encryption_accs JSON structure' };
+  }
+
+  return { ready: true };
+}
+
 async function uploadAlignment(
   spotifyTrackId: string,
   alignment: AlignmentRow
@@ -214,6 +270,11 @@ async function uploadClipMetadata(
     ? clip.artist_lens_handle.slice(1)
     : clip.artist_lens_handle;
 
+  // Parse encryption_accs to extract lock address and chain ID
+  const encryptionAccs = typeof clip.encryption_accs === 'string'
+    ? JSON.parse(clip.encryption_accs)
+    : clip.encryption_accs;
+
   const payload = {
     version: '2.0.0',
     type: 'karaoke-clip',
@@ -237,6 +298,12 @@ async function uploadClipMetadata(
       instrumental: clip.clip_grove_url ?? clip.fal_enhanced_grove_url,
       full_instrumental: clip.fal_enhanced_grove_url,
       alignment: alignmentUri,
+    },
+    // Encryption data - required for subscription access
+    encryption: {
+      encryptedFullUri: clip.encrypted_full_url,
+      unlockLockAddress: encryptionAccs.unlock?.lockAddress,
+      unlockChainId: encryptionAccs.unlock?.chainId,
     },
     translations: translations.map((entry) => ({
       language_code: entry.languageCode,
@@ -281,6 +348,11 @@ async function emitClipEvents(
   const endMs = clip.clip_end_ms;
   const instrumentalUri = clip.clip_grove_url ?? clip.fal_enhanced_grove_url ?? '';
 
+  // Parse encryption_accs to extract lock data
+  const encryptionAccs = typeof clip.encryption_accs === 'string'
+    ? JSON.parse(clip.encryption_accs)
+    : clip.encryption_accs;
+
   if (!dryRun) {
     const tx1 = await contract.emitClipRegistered(
       clipHash,
@@ -304,8 +376,23 @@ async function emitClipEvents(
     console.log(`    ⏳ ClipProcessed submitted: ${tx2.hash}`);
     const receipt2 = await tx2.wait();
     console.log(`    ✅ ClipProcessed confirmed: ${receipt2?.hash ?? tx2.hash}`);
+
+    // CRITICAL: Emit SongEncrypted event so subgraph indexes encryption metadata
+    const encryptedManifestUri = encryptionAccs.manifest?.url ?? '';
+    const tx3 = await contract.emitSongEncrypted(
+      clipHash,
+      clip.spotify_track_id,
+      clip.encrypted_full_url,
+      encryptedManifestUri,
+      encryptionAccs.unlock?.lockAddress,
+      encryptionAccs.unlock?.chainId,
+      metadataUri
+    );
+    console.log(`    ⏳ SongEncrypted submitted: ${tx3.hash}`);
+    const receipt3 = await tx3.wait();
+    console.log(`    ✅ SongEncrypted confirmed: ${receipt3?.hash ?? tx3.hash}`);
   } else {
-    console.log('    [dry-run] Would emit ClipRegistered and ClipProcessed events');
+    console.log('    [dry-run] Would emit ClipRegistered, ClipProcessed, and SongEncrypted events');
   }
 }
 
@@ -315,6 +402,13 @@ async function processClip(
   dryRun: boolean
 ): Promise<void> {
   console.log(`\n🎵 ${clip.title} (${clip.spotify_track_id})`);
+
+  // CRITICAL: Pre-flight validation - ensures encryption is complete
+  const validation = validateEmissionReadiness(clip);
+  if (!validation.ready) {
+    console.warn(`   ⚠️  Not ready for emission: ${validation.reason}`);
+    return;
+  }
 
   const alignment = await fetchAlignment(clip.spotify_track_id);
   if (!alignment) {
@@ -344,6 +438,13 @@ async function processClip(
       return;
     }
   }
+
+  // Log encryption metadata confirmation
+  const encryptionAccs = typeof clip.encryption_accs === 'string'
+    ? JSON.parse(clip.encryption_accs)
+    : clip.encryption_accs;
+  console.log(`   🔒 Unlock lock: ${encryptionAccs.unlock?.lockAddress} (chain ${encryptionAccs.unlock?.chainId})`);
+  console.log(`   🔐 Encrypted full track: ${clip.encrypted_full_url?.substring(0, 50)}...`);
 
   const alignmentUri = dryRun ? 'https://api.grove.storage/dry-run-alignment' : await uploadAlignment(clip.spotify_track_id, alignment);
   console.log(`   📼 Alignment URI: ${alignmentUri}`);

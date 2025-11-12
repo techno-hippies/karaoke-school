@@ -36,12 +36,13 @@ export function useCreatorSubscriptionLock(spotifyTrackIds?: string[]) {
                   spotifyTrackId_in: $spotifyTrackIds
                   unlockLockAddress_not: null
                 }
-                orderBy: createdAt
+                orderBy: registeredAt
                 orderDirection: desc
               ) {
                 id
                 unlockLockAddress
                 unlockChainId
+                encryptedFullUri
               }
             }
           `,

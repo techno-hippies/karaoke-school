@@ -240,6 +240,13 @@ export function AccountPageContainer() {
   // Only show subscribe button if creator has songs AND a valid lock address
   const hasSubscription = !!subscriptionLockData?.unlockLockAddress && songs.length > 0
 
+  console.log('[CreatorPage] 🔒 Subscription check:', {
+    songsCount: songs.length,
+    spotifyTrackIds,
+    subscriptionLockData,
+    hasSubscription,
+  })
+
   return (
     <>
       <AccountPage
