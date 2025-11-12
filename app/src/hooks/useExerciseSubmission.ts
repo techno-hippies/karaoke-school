@@ -41,8 +41,13 @@ export function useExerciseSubmission() {
       .then(result => {
         if (result?.txHash) {
           console.log('[useExerciseSubmission] ✅ Blockchain submission successful:', result.txHash)
-          // Invalidate study cards to reflect new FSRS state
-          queryClient.invalidateQueries(['study-cards'])
+          // Delay invalidation to allow subgraph to index the new performance
+          // Without this delay, the query refetches before subgraph indexes,
+          // causing the completed card to reappear with old FSRS state
+          setTimeout(() => {
+            console.log('[useExerciseSubmission] Invalidating study cards query (subgraph should have indexed)')
+            queryClient.invalidateQueries(['study-cards'])
+          }, 3000) // 3 second delay for subgraph indexing
         } else {
           console.warn('[useExerciseSubmission] ⚠️ No transaction hash returned')
         }
@@ -98,8 +103,11 @@ export function useExerciseSubmission() {
       .then(result => {
         if (result?.txHash) {
           console.log('[useExerciseSubmission] ✅ Background blockchain update complete:', result.txHash)
-          // Invalidate study cards to reflect new FSRS state
-          queryClient.invalidateQueries(['study-cards'])
+          // Delay invalidation to allow subgraph to index the new performance
+          setTimeout(() => {
+            console.log('[useExerciseSubmission] Invalidating study cards query (subgraph should have indexed)')
+            queryClient.invalidateQueries(['study-cards'])
+          }, 3000) // 3 second delay for subgraph indexing
         } else {
           console.warn('[useExerciseSubmission] ⚠️ Blockchain update returned no txHash')
         }
