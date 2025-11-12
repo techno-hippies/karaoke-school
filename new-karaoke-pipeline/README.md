@@ -177,10 +177,12 @@ cat spotify_ids.txt | bun src/tasks/ingestion/add-track-from-spotify.ts --batch
 4. Spawns enrichment task fan-out (ISWC, Genius, Wikidata, etc.)
 5. Logs submission metadata for audit trail
 
-**Schema Changes** (2025-11-12):
-- `tiktok_video_id` is now nullable (supports manual tracks)
+**Schema Changes** (Migration 017, 2025-11-12):
+- `tiktok_video_id` is now nullable: TikTok tracks have a value, manual Spotify tracks have NULL
 - New `source_type` column: `'tiktok'` (TikTok-discovered) or `'manual_spotify'` (manual submission)
-- Partial unique index protects TikTok uniqueness: `idx_tracks_tiktok_not_null`
+- New `metadata` JSONB column: stores audit trail (submission timestamp, notes, etc.)
+- Partial unique index `idx_tracks_tiktok_not_null` protects TikTok uniqueness while allowing multiple NULLs
+- Additional indexes: `idx_tracks_source_type`, `idx_tracks_manual_stage` for efficient queries
 
 **Query to monitor manual tracks**:
 ```sql

@@ -145,13 +145,18 @@ bun -e "import { query } from './src/db/neon'; ..."
 #### Track Ingestion & Sources
 ```sql
 -- Core tracks table (supports TikTok discovery + manual Spotify submission)
+-- Migration 017 (2025-11-12) added nullable tiktok_video_id, source_type, metadata
 tracks:
-  spotify_track_id (PK)
-  tiktok_video_id (nullable, unique where not null - supports manual Spotify tracks)
-  source_type ('tiktok' | 'manual_spotify') -- Track origin
-  stage (pending → enriched → audio_ready → aligned → ... → ready)
+  spotify_track_id (TEXT, PK)
+  tiktok_video_id (TEXT, nullable) -- TikTok tracks: non-NULL, Manual tracks: NULL
+  source_type (TEXT NOT NULL) -- 'tiktok' | 'manual_spotify'
+  title, artists JSONB, album_name, release_date, duration_ms, isrc
   primary_artist_id, primary_artist_name -- For enrichment & legitimacy gating
-  metadata JSONB -- Audit trail (manual_submission details)
+  stage (pending → enriched → audio_ready → aligned → ... → ready)
+  metadata (JSONB, nullable) -- Audit trail (manual submission details, timestamps)
+  has_iswc, has_lyrics, has_audio (BOOLEAN flags)
+  error_message, error_at (TIMESTAMPTZ, for failure tracking)
+  created_at, updated_at (TIMESTAMPTZ)
 ```
 
 #### Audio Processing
@@ -176,11 +181,13 @@ elevenlabs_word_alignments: words JSONB (word-level timing)
 lyrics_translations: lines JSONB (line-level with word timing)
 ```
 
-#### Schema Changes (2025-11-12)
-- **Manual Spotify Ingestion**: Added `source_type` column to distinguish TikTok-discovered vs. manually submitted tracks
-- **Nullable tiktok_video_id**: Manual Spotify tracks have `tiktok_video_id = NULL`
-- **Partial Unique Index**: `idx_tracks_tiktok_not_null` protects TikTok uniqueness while allowing multiple NULL values
-- **Polymorphic audio_tasks**: Reuses existing design to support both Spotify track tasks and TikTok video tasks
+#### Schema Changes (Migration 017, 2025-11-12)
+- **Manual Spotify Ingestion**: Added `source_type` column (`'tiktok'` | `'manual_spotify'`) to distinguish origins
+- **Nullable tiktok_video_id**: TikTok tracks have non-NULL values, manual Spotify tracks have `NULL`
+- **Metadata JSONB Column**: Stores audit trail (submission timestamp, user notes, etc.)
+- **Partial Unique Index**: `idx_tracks_tiktok_not_null` protects TikTok uniqueness while allowing multiple NULLs
+- **Query Indexes**: `idx_tracks_source_type`, `idx_tracks_manual_stage` for efficient manual track filtering
+- **Polymorphic audio_tasks**: Reuses existing `subject_type` design (no code changes to audio processors)
 
 ### Connection (Neon PostgreSQL)
 - **Project**: `flat-mode-57592166` (karaoke-pipeline-v2 - US East)

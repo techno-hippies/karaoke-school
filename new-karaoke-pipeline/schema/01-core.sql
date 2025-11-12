@@ -51,7 +51,11 @@ CREATE INDEX idx_tiktok_videos_creator ON tiktok_videos(creator_username);
 
 CREATE TABLE IF NOT EXISTS tracks (
   spotify_track_id TEXT PRIMARY KEY,
-  tiktok_video_id TEXT UNIQUE NOT NULL REFERENCES tiktok_videos(video_id) ON DELETE CASCADE,
+  -- tiktok_video_id is nullable to support manual Spotify tracks
+  -- TikTok tracks: tiktok_video_id IS NOT NULL
+  -- Manual Spotify tracks: tiktok_video_id IS NULL
+  -- Uniqueness protected by partial index idx_tracks_tiktok_not_null
+  tiktok_video_id TEXT UNIQUE,
 
   -- Core metadata (from Spotify)
   title TEXT NOT NULL,
@@ -65,9 +69,12 @@ CREATE TABLE IF NOT EXISTS tracks (
   primary_artist_id TEXT,
   primary_artist_name TEXT,
 
+  -- Track source: 'tiktok' (discovered) or 'manual_spotify' (manually submitted)
+  source_type TEXT NOT NULL DEFAULT 'tiktok' CHECK (source_type IN ('tiktok', 'manual_spotify')),
+
   -- Linear stage progression (NO AMBIGUITY)
   stage TEXT NOT NULL DEFAULT 'pending' CHECK (stage IN (
-    'pending',          -- Just discovered from TikTok
+    'pending',          -- Just discovered from TikTok or manually submitted
     'enriched',         -- All enrichment attempts complete (may be partial)
     'lyrics_acquired',  -- Has synced lyrics
     'audio_ready',      -- Audio downloaded to Grove
@@ -89,6 +96,10 @@ CREATE TABLE IF NOT EXISTS tracks (
   error_message TEXT,
   error_at TIMESTAMPTZ,
 
+  -- Audit trail and metadata
+  -- For manual tracks: stores submission details (timestamp, notes, etc.)
+  metadata JSONB,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -96,6 +107,13 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE INDEX idx_tracks_stage ON tracks(stage) WHERE stage NOT IN ('ready', 'failed');
 CREATE INDEX idx_tracks_isrc ON tracks(isrc) WHERE isrc IS NOT NULL;
 CREATE INDEX idx_tracks_primary_artist ON tracks(primary_artist_id) WHERE primary_artist_id IS NOT NULL;
+-- Partial unique index for TikTok tracks (allows manual Spotify tracks with NULL tiktok_video_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_tiktok_not_null ON tracks(tiktok_video_id) WHERE tiktok_video_id IS NOT NULL;
+-- Indexes for manual Spotify track queries
+CREATE INDEX IF NOT EXISTS idx_tracks_source_type ON tracks(source_type) WHERE source_type = 'manual_spotify';
+CREATE INDEX IF NOT EXISTS idx_tracks_manual_stage ON tracks(stage) WHERE source_type = 'manual_spotify' AND stage NOT IN ('ready', 'failed');
+-- GIN index for metadata JSONB queries
+CREATE INDEX IF NOT EXISTS idx_tracks_metadata_gin ON tracks USING GIN (metadata);
 
 -- ============================================================================
 -- Monitoring Views
