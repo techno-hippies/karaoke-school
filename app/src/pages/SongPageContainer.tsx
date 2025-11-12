@@ -69,6 +69,9 @@ export function SongPageContainer() {
   console.log('[SongPageContainer] metadata keys:', metadata ? Object.keys(metadata) : 'N/A')
   console.log('[SongPageContainer] coverUri in metadata?', metadata?.coverUri ? 'YES' : 'NO')
   console.log('[SongPageContainer] coverUri value:', metadata?.coverUri)
+  console.log('[SongPageContainer] 🚨 artistLensHandle in metadata?', metadata?.artistLensHandle ? 'YES' : 'NO')
+  console.log('[SongPageContainer] 🚨 artistLensHandle value:', metadata?.artistLensHandle)
+  console.log('[SongPageContainer] 🚨 artistAccount value:', metadata?.artistAccount)
 
   // Transform Lens videos to VideoPost format (VideoGrid only needs id, thumbnailUrl, username)
   const videos: VideoPost[] = lensVideos?.map(video => ({

@@ -3,19 +3,29 @@
  * Simplified for new pipeline architecture
  */
 
-import { buildUpsert, sqlValue } from './connection';
+import { buildUpsert } from './connection';
 import type { TikTokUserProfile, TikTokVideo } from '../types';
+
+interface UpsertCreatorOptions {
+  avatarSourceUrl: string | null;
+  avatarUploadedAt: Date | null;
+}
 
 /**
  * Convert TikTokUserProfile to database creator record
  */
-export function upsertCreatorSQL(profile: TikTokUserProfile): string {
+export function upsertCreatorSQL(
+  profile: TikTokUserProfile,
+  options: UpsertCreatorOptions
+): string {
   const data = {
     username: profile.username,
     display_name: profile.nickname || profile.username,
     follower_count: profile.stats?.followerCount || 0,
     total_videos: profile.stats?.videoCount || 0,
     avatar_url: profile.avatar || null,
+    avatar_source_url: options.avatarSourceUrl,
+    avatar_uploaded_at: options.avatarUploadedAt,
   };
 
   return buildUpsert('tiktok_creators', data, 'username', [
@@ -23,6 +33,8 @@ export function upsertCreatorSQL(profile: TikTokUserProfile): string {
     'follower_count',
     'total_videos',
     'avatar_url',
+    'avatar_source_url',
+    'avatar_uploaded_at',
     'updated_at'
   ]) + ' RETURNING username';
 }

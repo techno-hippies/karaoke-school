@@ -149,7 +149,6 @@ export function handleSongEncrypted(event: SongEncrypted): void {
     clip.encryptedManifestUri = event.params.encryptedManifestUri;
     clip.unlockLockAddress = event.params.unlockLockAddress;
     clip.unlockChainId = event.params.unlockChainId.toI32();
-    clip.metadataUri = event.params.metadataUri;
 
     updateClipProcessingStatus(clip);
     clip.save();

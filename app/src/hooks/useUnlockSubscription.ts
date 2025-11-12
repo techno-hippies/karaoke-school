@@ -25,8 +25,9 @@ const UNLOCK_ABI = [
   },
 ] as const
 
-// TODO: Replace with actual Unlock Protocol lock address for your subscription
-const UNLOCK_LOCK_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+// Unlock lock address is passed per creator (fetched from Neon lens_accounts table)
+// If not provided, subscription is disabled
+const DEFAULT_LOCK_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 // Subscription price: 0.006 ETH
 const SUBSCRIPTION_PRICE = parseEther('0.006')
@@ -43,7 +44,8 @@ export interface UseUnlockSubscriptionResult {
 }
 
 export function useUnlockSubscription(
-  recipientAddress?: Address
+  recipientAddress?: Address,
+  lockAddress?: Address
 ): UseUnlockSubscriptionResult {
   const [status, setStatus] = useState<SubscriptionStatus>('idle')
   const [statusMessage, setStatusMessage] = useState('')
@@ -52,6 +54,9 @@ export function useUnlockSubscription(
 
   const publicClient = usePublicClient({ chainId: baseSepolia.id })
   const { data: walletClient } = useWalletClient({ chainId: baseSepolia.id })
+
+  // Use provided lock address or default
+  const resolvedLockAddress = lockAddress || DEFAULT_LOCK_ADDRESS
 
   const subscribe = async () => {
     if (!walletClient || !publicClient) {
@@ -63,6 +68,12 @@ export function useUnlockSubscription(
     if (!recipientAddress) {
       setStatus('error')
       setErrorMessage('No recipient address provided')
+      return
+    }
+
+    if (resolvedLockAddress === DEFAULT_LOCK_ADDRESS) {
+      setStatus('error')
+      setErrorMessage('Subscription not available for this creator')
       return
     }
 
@@ -78,7 +89,7 @@ export function useUnlockSubscription(
 
       // Call Unlock Protocol purchase function
       const hash = await walletClient.writeContract({
-        address: UNLOCK_LOCK_ADDRESS,
+        address: resolvedLockAddress,
         abi: UNLOCK_ABI,
         functionName: 'purchase',
         args: [

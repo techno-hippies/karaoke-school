@@ -439,6 +439,7 @@ export async function processSimpleSegmentSelection(limit: number = 10): Promise
         await failTask(
           track.spotify_track_id,
           'segment',
+          'track',
           error.message,
           { stack: error.stack }
         );

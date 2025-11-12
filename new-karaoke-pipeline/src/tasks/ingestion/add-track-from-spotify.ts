@@ -32,18 +32,38 @@ import "../../env";
 import { query } from "../../db/connection";
 import { createEnrichmentTask } from "../../db/queries";
 import { getTrack } from "../../services/spotify";
+import type { SpotifyTrackInfo } from "../../services/spotify";
 import { ensureAudioTask } from "../../db/audio-tasks";
 import { AudioTaskType } from "../../db/task-stages";
 import { upsertSpotifyTrackSQL, upsertSpotifyArtistSQL } from "../../db/spotify";
 import { readFileSync, existsSync } from "fs";
-import { createReadStream } from "fs";
 import { createInterface } from "readline";
+import { ManualSpotifyTrackSchema } from "../../schemas/manual-track";
 
 interface ManualTrackSubmission {
   spotify_id: string;
   submitted_via: "cli" | "api";
   submitted_at: string;
   user_notes?: string;
+}
+
+type AddTrackOutcome = "created" | "refreshed" | "skipped" | "failed";
+
+function extractAlbumName(album: SpotifyTrackInfo["album"], fallbackTitle: string): string {
+  if (typeof album === "string") {
+    return album;
+  }
+  return album?.name ?? fallbackTitle;
+}
+
+function extractAlbumImage(
+  album: SpotifyTrackInfo["album"],
+  fallbackImage: string | null
+): string | null {
+  if (typeof album === "object" && album) {
+    return album.image_url ?? fallbackImage;
+  }
+  return fallbackImage;
 }
 
 /**
@@ -87,21 +107,47 @@ async function trackExists(spotifyId: string): Promise<boolean> {
 async function insertManualTrack(
   spotifyId: string,
   trackData: Awaited<ReturnType<typeof validateSpotifyTrack>>,
-  userNotes?: string
-): Promise<boolean> {
+  userNotes: string | undefined,
+  options: { alreadyExists: boolean }
+): Promise<AddTrackOutcome> {
   try {
-    if (!trackData) return false;
+    if (!trackData) return "failed";
 
     const artists = Array.isArray(trackData.artists)
       ? trackData.artists
       : JSON.parse(trackData.artists as any);
+
+    const albumName = extractAlbumName(trackData.album, trackData.title);
+    const albumImage = extractAlbumImage(trackData.album, trackData.image_url);
+
+    const manualValidation = ManualSpotifyTrackSchema.safeParse({
+      spotify_track_id: spotifyId,
+      title: trackData.title,
+      album: albumName,
+      image_url: albumImage,
+      artists,
+    });
+
+    if (!manualValidation.success) {
+      console.error("   ❌ Spotify response is missing required metadata for ingestion:");
+      for (const issue of manualValidation.error.issues) {
+        console.error(`      • ${issue.path.join(".") || "field"}: ${issue.message}`);
+      }
+      console.error("      Cannot continue until the album art requirement is satisfied.");
+      return "failed";
+    }
+
+    const albumMetadata = {
+      name: albumName,
+      image_url: albumImage,
+    };
 
     // Upsert Spotify track cache (so downstream joins work)
     const trackUpsertSQL = upsertSpotifyTrackSQL({
       spotify_track_id: spotifyId,
       title: trackData.title,
       artists: artists,
-      album: trackData.album,
+      album: albumMetadata,
       isrc: trackData.isrc,
       duration_ms: trackData.duration_ms,
       release_date: trackData.release_date,
@@ -127,6 +173,11 @@ async function insertManualTrack(
 
     console.log(`   ✅ Spotify cache updated (track + ${artists.length} artist(s))`);
 
+    if (options.alreadyExists) {
+      console.log("   ♻️  Track already existed – refreshed Spotify metadata only.");
+      return "refreshed";
+    }
+
     // Insert track into pipeline
     await query(
       `INSERT INTO tracks (
@@ -149,7 +200,7 @@ async function insertManualTrack(
         null, // tiktok_video_id is NULL for manual tracks
         trackData.title,
         JSON.stringify(artists),
-        trackData.album,
+        albumName,
         trackData.release_date || null,
         trackData.duration_ms,
         trackData.isrc || null,
@@ -200,23 +251,27 @@ async function insertManualTrack(
       [JSON.stringify(submission), spotifyId]
     );
 
-    return true;
+    return "created";
   } catch (error) {
     console.error(`   ❌ Insert error: ${error instanceof Error ? error.message : String(error)}`);
-    return false;
+    return "failed";
   }
 }
 
 /**
  * Process single Spotify track
  */
-async function addTrack(spotifyId: string, userNotes?: string): Promise<boolean> {
+async function addTrack(
+  spotifyId: string,
+  userNotes: string | undefined,
+  options: { refreshExisting: boolean }
+): Promise<AddTrackOutcome> {
   console.log(`\n🎵 Processing: ${spotifyId}`);
 
-  // Check if already exists
-  if (await trackExists(spotifyId)) {
-    console.log(`   ⏭️  Already in database`);
-    return true;
+  const alreadyExists = await trackExists(spotifyId);
+  if (alreadyExists && !options.refreshExisting) {
+    console.log(`   ⏭️  Already in database (use --refresh to update Spotify metadata)`);
+    return "skipped";
   }
 
   // Validate with Spotify API
@@ -225,15 +280,15 @@ async function addTrack(spotifyId: string, userNotes?: string): Promise<boolean>
 
   if (!trackData) {
     console.log(`   ❌ Not found on Spotify or invalid`);
-    return false;
+    return "failed";
   }
 
   console.log(`   📊 Found: "${trackData.title}" by ${trackData.artists[0]?.name}`);
   console.log(`      ISRC: ${trackData.isrc || "N/A"}`);
   console.log(`      Duration: ${Math.round(trackData.duration_ms / 1000)}s`);
 
-  // Insert and queue
-  return insertManualTrack(spotifyId, trackData, userNotes);
+  // Insert / refresh
+  return insertManualTrack(spotifyId, trackData, userNotes, { alreadyExists });
 }
 
 /**
@@ -246,6 +301,7 @@ async function main() {
 
   let spotifyIds: string[] = [];
   let userNotes: string | undefined;
+  let refreshExisting = false;
 
   // Parse arguments
   for (let i = 0; i < args.length; i++) {
@@ -303,6 +359,8 @@ async function main() {
     } else if (args[i] === "--notes" && args[i + 1]) {
       userNotes = args[i + 1];
       i++;
+    } else if (args[i] === "--refresh") {
+      refreshExisting = true;
     }
   }
 
@@ -312,26 +370,34 @@ async function main() {
     console.log("  bun src/tasks/ingestion/add-track-from-spotify.ts --spotifyId=<ID>");
     console.log("  bun src/tasks/ingestion/add-track-from-spotify.ts --file=ids.txt");
     console.log("  cat ids.txt | bun src/tasks/ingestion/add-track-from-spotify.ts --batch");
+    console.log("  bun src/tasks/ingestion/add-track-from-spotify.ts --refresh --spotifyId=<ID>");
     process.exit(1);
   }
 
   // Process tracks
   let created = 0;
+  let refreshed = 0;
   let failed = 0;
   let skipped = 0;
 
   for (const id of spotifyIds) {
     try {
-      const success = await addTrack(id, userNotes);
-      if (success) {
-        const exists = await trackExists(id);
-        if (exists) {
+      const outcome = await addTrack(id, userNotes, { refreshExisting });
+
+      switch (outcome) {
+        case "created":
           created++;
-        } else {
+          break;
+        case "refreshed":
+          refreshed++;
+          break;
+        case "skipped":
           skipped++;
-        }
-      } else {
-        failed++;
+          break;
+        case "failed":
+        default:
+          failed++;
+          break;
       }
     } catch (error) {
       console.error(`   ❌ Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
@@ -345,16 +411,22 @@ async function main() {
   // Summary
   console.log("\n📊 Summary:");
   console.log(`   ✅ Created: ${created}`);
+  if (refreshExisting) {
+    console.log(`   ♻️  Refreshed: ${refreshed}`);
+  }
   console.log(`   ⏭️  Skipped (already exists): ${skipped}`);
   console.log(`   ❌ Failed: ${failed}`);
   console.log("");
 
   // Show next steps
-  if (created > 0) {
+  if (created > 0 || refreshed > 0) {
     console.log("🚀 Next Steps:");
     console.log(`   1. Monitor enrichment tasks: bun src/tasks/enrichment/processor.ts --limit=10`);
     console.log(`   2. Start audio download worker: bun src/tasks/audio/download-audio.ts --limit=5`);
     console.log(`   3. Track progress: SELECT source_type, stage, COUNT(*) FROM tracks GROUP BY source_type, stage`);
+    if (refreshed > 0) {
+      console.log(`   4. Re-run GRC-20 sync: bun src/tasks/grc20/populate-source-facts.ts && bun src/tasks/grc20/populate-grc20.ts`);
+    }
     console.log("");
   }
 

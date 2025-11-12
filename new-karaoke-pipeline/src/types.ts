@@ -8,7 +8,7 @@ export interface TikTokUserProfile {
   userId: string;
   nickname: string;
   bio: string;
-  avatar: string;
+  avatar: string | null;
   stats: {
     followerCount: number;
     followingCount: number;

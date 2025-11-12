@@ -169,6 +169,7 @@ To reset a failed task, clear the error via MCP and set `status='pending'`, then
   - `tiktok_videos.tt2dsp` stores the raw `tt_to_dsp_song_infos` JSONB payload.
   - `spotify_track_id` only persists when the 22-character pattern matches, and `spotify_track_id_source` must be `tiktok_metadata`.
   - Empty objects (`{}`) mean TikTok responded without DSP matches; use MCP queries to distinguish null vs empty.
+  - Creator avatars are cached to Grove during scraping. `tiktok_creators.avatar_url` stores `grove://CID`, while `avatar_source_url` keeps the original TikTok CDN reference for refreshes. Never ship TikTok CDN URLs to the app or Lens metadata—always convert Grove URIs to HTTPS via the gateway helpers when needed.
 - Debug helpers in `src/scripts/`:
   - `debug-tiktok-video.ts <video_id> [@creator]` — dumps the latest scraped payload, including `music.original` and each DSP mapping.
   - `test-music-original-hypothesis.ts` — batches creators and reuses scraper sessions to inspect whether `music.original = true` should nullify Spotify IDs.

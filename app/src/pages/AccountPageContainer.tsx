@@ -1,15 +1,17 @@
 /**
- * Creator Profile Page Container
- * Fetches and displays a creator's Lens profile with videos, songs, and stats
+ * Account Page Container
+ * Fetches and displays any account's Lens profile (students, creators, artists)
+ * with videos, songs (if artist), and stats
  */
 
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
+import { AccountPage, type ArtistSong } from '@/components/profile/AccountPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
 import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
 import { useArtistSongsByLensHandle } from '@/hooks/useArtistSongsByLensHandle'
+import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useFollow } from '@/hooks/useFollow'
 import { useFollowers } from '@/hooks/useFollowers'
 import { useFollowing } from '@/hooks/useFollowing'
@@ -23,7 +25,7 @@ import {
 } from '@/lib/lens/utils'
 import type { Address } from 'viem'
 
-export function CreatorPageContainer() {
+export function AccountPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
   const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
@@ -46,6 +48,15 @@ export function CreatorPageContainer() {
     isLoading: isLoadingSongs,
   } = useArtistSongsByLensHandle(lenshandle)
 
+  // Extract Spotify track IDs from artist songs
+  const spotifyTrackIds = artistSongs?.map(song => song.spotifyTrackId).filter(Boolean) as string[] | undefined
+
+  // Fetch subscription lock address for creator from subgraph
+  const {
+    data: subscriptionLockData,
+    isLoading: isLoadingLock,
+  } = useCreatorSubscriptionLock(spotifyTrackIds)
+
   // Fetch follow state and follower counts
   const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({
     targetAccountAddress: account?.address || '',
@@ -61,14 +72,14 @@ export function CreatorPageContainer() {
     enabled: !!account,
   })
 
-  // Unlock Protocol subscription
+  // Unlock Protocol subscription - uses lock address from subgraph
   const {
     subscribe,
     status: subscriptionStatus,
     statusMessage: subscriptionStatusMessage,
     errorMessage: subscriptionErrorMessage,
     reset: resetSubscription,
-  } = useUnlockSubscription(account?.address as Address | undefined)
+  } = useUnlockSubscription(account?.address as Address | undefined, subscriptionLockData?.unlockLockAddress)
 
   // Handle subscription flow
   const handleSubscribe = () => {
@@ -92,7 +103,7 @@ export function CreatorPageContainer() {
   }
 
   // Loading state
-  if (isLoadingAccount || isLoadingSongs) {
+  if (isLoadingAccount || isLoadingSongs || isLoadingLock) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -226,9 +237,12 @@ export function CreatorPageContainer() {
     console.error('[CreatorPage] Posts fetch error:', postsError)
   }
 
+  // Only show subscribe button if creator has songs AND a valid lock address
+  const hasSubscription = !!subscriptionLockData?.unlockLockAddress && songs.length > 0
+
   return (
     <>
-      <ArtistPage
+      <AccountPage
         username={lenshandle || ''}
         displayName={displayName}
         avatarUrl={avatarUrl}
@@ -244,7 +258,7 @@ export function CreatorPageContainer() {
         songs={songs}
         onBack={() => navigate(-1)}
         onFollow={handleFollow}
-        onSubscribe={handleSubscribe}
+        onSubscribe={hasSubscription ? handleSubscribe : undefined}
       />
 
       <SubscriptionDialog

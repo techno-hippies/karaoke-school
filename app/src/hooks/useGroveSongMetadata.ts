@@ -10,6 +10,7 @@ export interface SongMetadata {
   geniusId: number
   title: string
   artist: string
+  artistLensHandle?: string // Lens handle for artist (e.g., "pitbull-ks1")
   duration: number
   coverUri: string
   registeredBy: string

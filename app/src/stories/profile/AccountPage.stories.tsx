@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ArtistPage, type ArtistSong } from '@/components/profile/ArtistPage'
+import { AccountPage, type ArtistSong } from '@/components/profile/AccountPage'
+import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
 const meta = {
-  title: 'Profile/ArtistPage',
-  component: ArtistPage,
+  title: 'Profile/AccountPage',
+  component: AccountPage,
   parameters: {
     layout: 'fullscreen',
     backgrounds: {
@@ -12,10 +14,64 @@ const meta = {
     },
   },
   tags: ['autodocs'],
-} satisfies Meta<typeof ArtistPage>
+} satisfies Meta<typeof AccountPage>
 
 export default meta
 type Story = StoryObj<typeof meta>
+
+/**
+ * Wrapper component to demonstrate subscription dialog interaction
+ */
+function AccountPageWithSubscription(args: any) {
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
+  const [subscriptionStep, setSubscriptionStep] = useState<'idle' | 'approving' | 'purchasing' | 'complete' | 'error'>('idle')
+
+  const handleSubscribeClick = () => {
+    setIsSubscriptionOpen(true)
+    setSubscriptionStep('idle')
+  }
+
+  const handleSubscribeConfirm = () => {
+    setSubscriptionStep('approving')
+    // Simulate workflow: approving → purchasing → complete
+    setTimeout(() => setSubscriptionStep('purchasing'), 1500)
+    setTimeout(() => setSubscriptionStep('complete'), 3000)
+  }
+
+  const handleSubscriptionDialogClose = (open: boolean) => {
+    setIsSubscriptionOpen(open)
+    if (!open && subscriptionStep === 'complete') {
+      setSubscriptionStep('idle')
+    }
+  }
+
+  const handleRetry = () => {
+    setSubscriptionStep('idle')
+  }
+
+  return (
+    <>
+      <AccountPage
+        {...args}
+        onSubscribe={handleSubscribeClick}
+      />
+      <SubscriptionDialog
+        open={isSubscriptionOpen}
+        onOpenChange={handleSubscriptionDialogClose}
+        displayName={args.displayName}
+        currentStep={subscriptionStep}
+        statusMessage={
+          subscriptionStep === 'approving' ? 'Approve transaction in your wallet...' :
+          subscriptionStep === 'purchasing' ? 'Processing subscription...' :
+          ''
+        }
+        errorMessage=""
+        onSubscribe={handleSubscribeConfirm}
+        onRetry={handleRetry}
+      />
+    </>
+  )
+}
 
 // Sample videos
 const sampleVideos: VideoPost[] = [
@@ -91,17 +147,18 @@ const sampleSongs: ArtistSong[] = [
 ]
 
 /**
- * Artist page with all content
+ * Creator page with all content - includes Subscribe button with working dialog
  */
 export const Default: Story = {
+  render: (args) => <AccountPageWithSubscription {...args} />,
   args: {
     username: 'scarlettx',
     displayName: 'Scarlett X',
     avatarUrl: 'https://placebear.com/300/300',
     isVerified: true,
     isOwnProfile: false,
-    following: 0,
-    followers: 0,
+    following: 145,
+    followers: 8920,
     isFollowing: false,
     videos: sampleVideos,
     songs: sampleSongs,
@@ -236,6 +293,52 @@ export const Unverified: Story = {
     isFollowing: false,
     videos: sampleVideos.slice(0, 4),
     songs: sampleSongs.slice(0, 3),
+    onBack: () => console.log('Back clicked'),
+    onFollow: () => console.log('Follow clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
+  },
+}
+
+/**
+ * Verified artist with paid subscription (Unlock Protocol)
+ * Click Subscribe button to see SubscriptionDialog workflow
+ */
+export const WithSubscription: Story = {
+  render: (args) => <AccountPageWithSubscription {...args} />,
+  args: {
+    username: 'grammy_winner',
+    displayName: 'Grammy Winner',
+    avatarUrl: 'https://placebear.com/310/310',
+    isVerified: true,
+    isOwnProfile: false,
+    following: 15234,
+    followers: 892341,
+    isFollowing: false,
+    videos: sampleVideos,
+    songs: sampleSongs,
+    onBack: () => console.log('Back clicked'),
+    onFollow: () => console.log('Follow clicked'),
+    onVideoClick: (video) => console.log('Video clicked:', video),
+  },
+}
+
+/**
+ * Account without songs (e.g., TikTok creator or student)
+ * No Songs tab, just Dances
+ */
+export const NoSongs: Story = {
+  render: (args) => <AccountPageWithSubscription {...args} />,
+  args: {
+    username: 'tiktok_creator',
+    displayName: 'TikTok Creator',
+    avatarUrl: 'https://placebear.com/311/311',
+    isVerified: false,
+    isOwnProfile: false,
+    following: 1234,
+    followers: 45678,
+    isFollowing: false,
+    videos: sampleVideos,
+    songs: [], // No songs - tab should be conditional
     onBack: () => console.log('Back clicked'),
     onFollow: () => console.log('Follow clicked'),
     onVideoClick: (video) => console.log('Video clicked:', video),

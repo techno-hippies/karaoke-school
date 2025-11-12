@@ -21,6 +21,7 @@ interface ClipCandidate {
   fal_enhanced_grove_url: string | null;
   grc20_entity_id: string;
   artist_name: string;
+  artist_lens_handle: string | null;
   cover_url: string | null;
   cover_thumbnail_url: string | null;
   has_hash?: boolean;
@@ -78,12 +79,14 @@ async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
        ks.fal_enhanced_grove_url,
        gw.grc20_entity_id,
        gw.primary_artist_name AS artist_name,
+       ga.lens_handle AS artist_lens_handle,
        gw.image_url AS cover_url,
        gw.image_thumbnail_url AS cover_thumbnail_url,
        COALESCE(line_state.has_hash, FALSE) AS has_hash
      FROM tracks t
      JOIN karaoke_segments ks ON ks.spotify_track_id = t.spotify_track_id
      JOIN grc20_works gw ON gw.spotify_track_id = t.spotify_track_id
+     LEFT JOIN grc20_artists ga ON ga.id = gw.primary_artist_id
      LEFT JOIN LATERAL (
        SELECT BOOL_OR(segment_hash IS NOT NULL) AS has_hash
          FROM karaoke_lines kl
@@ -206,6 +209,11 @@ async function uploadClipMetadata(
 ): Promise<string> {
   const clipDuration = clip.clip_end_ms - clip.clip_start_ms;
 
+  // Strip @ prefix from lens handle if present
+  const artistLensHandle = clip.artist_lens_handle?.startsWith('@')
+    ? clip.artist_lens_handle.slice(1)
+    : clip.artist_lens_handle;
+
   const payload = {
     version: '2.0.0',
     type: 'karaoke-clip',
@@ -215,6 +223,7 @@ async function uploadClipMetadata(
     spotify_track_id: clip.spotify_track_id,
     title: clip.title,
     artist: clip.artist_name,
+    artistLensHandle: artistLensHandle,
     coverUri: clip.cover_thumbnail_url ?? clip.cover_url,
     timing: {
       full_segment_start_ms: clip.clip_start_ms,

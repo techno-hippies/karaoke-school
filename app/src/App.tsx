@@ -5,7 +5,7 @@ import { LensProvider } from '@lens-protocol/react'
 import { HomePage } from '@/pages/HomePage'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
-import { CreatorPageContainer } from '@/pages/CreatorPageContainer'
+import { AccountPageContainer } from '@/pages/AccountPageContainer'
 import { VideoDetailPage } from '@/pages/VideoDetailPage'
 import { SongPageContainer } from '@/pages/SongPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
@@ -160,7 +160,7 @@ function AppRouter() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/u/:lenshandle" element={<CreatorPageContainer />} />
+          <Route path="/u/:lenshandle" element={<AccountPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
 
           {/* Song routes - GRC-20 work ID based */}
@@ -212,13 +212,13 @@ function AppRouter() {
  * Routes:
  * / - Feed (all artist videos, chronological)
  * /search - Search for songs
- * /u/:lenshandle - Creator/Artist profile (from Lens + Grove metadata)
+ * /u/:lenshandle - Account profile (students, creators, artists - from Lens + Grove metadata)
  * /u/:lenshandle/video/:postId - Video detail (TikTok sidebar)
- * /song/:geniusId - Song overview + creator videos (from SongRegistryV1 + Lens)
- * /song/:geniusId/play - Media player with instrumental and lyrics
- * /song/:geniusId/segment/:segmentId - Study a segment
+ * /song/:workId - Song overview + creator videos (from GRC-20 + Lens)
+ * /song/:workId/play - Media player with instrumental and lyrics
+ * /song/:workId/study - Study session with FSRS
  * /wallet - Wallet balances and address
- * /profile - Current user's profile with Edit Profile button
+ * /profile - Current user's own profile with Edit Profile button
  */
 function App() {
   return (

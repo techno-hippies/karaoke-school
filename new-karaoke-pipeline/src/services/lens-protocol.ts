@@ -586,9 +586,85 @@ export function createLensService() {
     };
   }
 
+  /**
+   * Update account metadata (avatar, bio, etc.)
+   */
+  async function updateAccountMetadata(params: {
+    accountAddress: Address;
+    name: string;
+    bio?: string;
+    pictureUri?: string;
+    pkpAddress: Address;
+  }): Promise<{ metadataUri: string; transactionHash: Hex }> {
+    const { accountAddress, name, bio, pictureUri, pkpAddress } = params;
+
+    console.log(`   📝 Building metadata for ${accountAddress}...`);
+
+    const storage = await initStorageClient();
+    const chainsConfig = await initChains();
+
+    const { setAccountMetadata } = await import('@lens-protocol/client/actions');
+    const { immutable } = await import('@lens-chain/storage-client');
+    const { account: accountMetadata } = await import('@lens-protocol/metadata');
+
+    const metadata = accountMetadata({
+      name,
+      bio: bio || `Karaoke School profile for ${name}`,
+      picture: pictureUri,
+    });
+
+    console.log(`   📤 Uploading metadata to Grove...`);
+    const uploadResult = await storage.uploadAsJson(metadata, {
+      name: `${accountAddress}-account-metadata.json`,
+      acl: immutable(chainsConfig.testnet.id),
+    });
+    console.log(`   ✓ Metadata URI: ${uploadResult.uri}`);
+
+    // Initialize Lens client and wallet
+    const client = await initLensClient();
+    const walletClient = await createLensWalletClient();
+
+    const { evmAddress } = await import('@lens-protocol/client');
+    const { signMessageWith, handleOperationWith } = await import('@lens-protocol/client/viem');
+
+    console.log('   🔐 Authenticating with Lens Protocol...');
+    const authenticated = await client.login({
+      accountOwner: {
+        account: evmAddress(accountAddress),
+        owner: evmAddress(walletClient.account.address),
+        app: evmAddress(LENS_APP_ADDRESS),
+      },
+      signMessage: signMessageWith(walletClient),
+    });
+
+    if (authenticated.isErr()) {
+      throw new Error(`Lens login failed: ${authenticated.error.message}`);
+    }
+
+    const sessionClient = authenticated.value;
+
+    console.log(`   ⏳ Updating account metadata...`);
+    const operationResult = await setAccountMetadata(sessionClient, {
+      metadataUri: uploadResult.uri,
+    }).andThen(handleOperationWith(walletClient));
+
+    if (operationResult.isErr()) {
+      throw new Error(`Metadata update failed: ${operationResult.error.message}`);
+    }
+
+    const txHash = operationResult.value;
+    console.log(`   📡 Transaction: ${txHash}`);
+
+    return {
+      metadataUri: uploadResult.uri,
+      transactionHash: txHash as Hex,
+    };
+  }
+
   return {
     createAccount,
     createPost,
+    updateAccountMetadata,
     sanitizeHandle,
     findAvailableHandle,
     isHandleAvailable,

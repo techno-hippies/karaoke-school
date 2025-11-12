@@ -17,7 +17,7 @@ export interface ArtistSong {
   onSongClick?: () => void
 }
 
-export interface ArtistPageProps {
+export interface AccountPageProps {
   // Profile data
   username: string
   displayName?: string
@@ -51,10 +51,11 @@ export interface ArtistPageProps {
 }
 
 /**
- * ArtistPage - Artist profile with dances and songs
- * Shows profile avatar (not hero), 2 tabs (Dances, Songs), Follow button above tabs
+ * AccountPage - Universal profile for all account types (students, TikTok creators, artists)
+ * Shows videos (Dances) and conditionally shows Songs tab if data exists
+ * Subscribe button appears if onSubscribe is provided (for artists with Unlock locks)
  */
-export function ArtistPage({
+export function AccountPage({
   username,
   displayName,
   avatarUrl,
@@ -159,24 +160,25 @@ export function ArtistPage({
           </div>
 
           <div className="px-4 space-y-4 pb-8 pt-6">
-            {/* Tabs: Dances | Songs */}
-            <Tabs defaultValue="dances" className="w-full">
-              <TabsList className="w-full grid grid-cols-2 bg-muted/50">
-                <TabsTrigger value="dances">Dances</TabsTrigger>
-                <TabsTrigger value="songs">Songs</TabsTrigger>
-              </TabsList>
+            {/* Conditional tabs based on available data */}
+            {songs.length > 0 ? (
+              // Show both Dances and Songs tabs (artist profile)
+              <Tabs defaultValue="dances" className="w-full">
+                <TabsList className="w-full grid grid-cols-2 bg-muted/50">
+                  <TabsTrigger value="dances">Dances</TabsTrigger>
+                  <TabsTrigger value="songs">Songs</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="dances" className="mt-4">
-                <VideoGrid
-                  videos={videos}
-                  onVideoClick={onVideoClick}
-                  isLoading={isLoadingVideos}
-                  showUsernames={false}
-                />
-              </TabsContent>
+                <TabsContent value="dances" className="mt-4">
+                  <VideoGrid
+                    videos={videos}
+                    onVideoClick={onVideoClick}
+                    isLoading={isLoadingVideos}
+                    showUsernames={false}
+                  />
+                </TabsContent>
 
-              <TabsContent value="songs" className="mt-4">
-                {songs.length > 0 ? (
+                <TabsContent value="songs" className="mt-4">
                   <div className="space-y-1">
                     {songs.map((song, index) => (
                       <SongItem
@@ -189,13 +191,20 @@ export function ArtistPage({
                       />
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No songs yet
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              // Show only Dances tab (student/TikTok creator without published songs)
+              <div>
+                <h3 className="text-sm font-semibold mb-4 text-muted-foreground">Dances</h3>
+                <VideoGrid
+                  videos={videos}
+                  onVideoClick={onVideoClick}
+                  isLoading={isLoadingVideos}
+                  showUsernames={false}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

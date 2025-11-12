@@ -197,7 +197,7 @@ export class TikTokScraper {
       userId: userIdMatch ? userIdMatch[1] : '',
       nickname: nicknameMatch ? nicknameMatch[1] : username,
       bio: bioMatch ? bioMatch[1] : '',
-      avatar: avatarMatch ? avatarMatch[1] : '',
+      avatar: avatarMatch ? avatarMatch[1] : null,
       stats,
     };
   }

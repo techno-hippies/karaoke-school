@@ -38,18 +38,41 @@ function normalizeISRC(isrc: string | null): string | null {
 /**
  * Generate SQL to upsert a Spotify track
  */
+type AlbumMetadata = {
+  name: string;
+  image_url: string | null;
+};
+
+function buildAlbumMetadata(track: SpotifyTrackInfo): AlbumMetadata {
+  const defaultName = typeof track.album === "string" ? track.album : track.album?.name;
+  const name = defaultName && defaultName.length > 0 ? defaultName : track.title;
+
+  if (track.album && typeof track.album === "object" && "image_url" in track.album) {
+    return {
+      name,
+      image_url: track.album.image_url ?? track.image_url ?? null,
+    };
+  }
+
+  return {
+    name,
+    image_url: track.image_url ?? null,
+  };
+}
+
 export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
+  const albumMetadata = buildAlbumMetadata(track);
+
   const data = {
     spotify_track_id: track.spotify_track_id,
     title: track.title,
     artists: track.artists,
-    album: track.album,
-    image_url: track.image_url,
+    album: albumMetadata,
     isrc: normalizeISRC(track.isrc),
     duration_ms: track.duration_ms,
     release_date: normalizeReleaseDate(track.release_date),
     popularity: track.popularity,
-    spotify_url: track.spotify_url,
+    external_urls: { spotify: track.spotify_url },
     preview_url: track.preview_url,
   };
 
@@ -57,12 +80,11 @@ export function upsertSpotifyTrackSQL(track: SpotifyTrackInfo): string {
     'title',
     'artists',
     'album',
-    'image_url',
     'isrc',
     'duration_ms',
     'release_date',
     'popularity',
-    'spotify_url',
+    'external_urls',
     'preview_url',
     'updated_at'
   ]) + ' RETURNING spotify_track_id, isrc';

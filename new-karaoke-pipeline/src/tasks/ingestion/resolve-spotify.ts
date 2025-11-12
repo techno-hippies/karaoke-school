@@ -103,6 +103,12 @@ async function resolveSpotifyTracks(limit: number = 50) {
         console.log(`   🌐 API fetch`);
 
         // Store in cache
+        const albumName =
+          (typeof trackInfo.album === 'string' ? trackInfo.album : trackInfo.album?.name) ?? trackInfo.title;
+        const albumImage = typeof trackInfo.album === 'object'
+          ? trackInfo.album.image_url ?? trackInfo.image_url
+          : trackInfo.image_url;
+
         await query(`
           INSERT INTO spotify_tracks (
             spotify_track_id,
@@ -121,7 +127,7 @@ async function resolveSpotifyTracks(limit: number = 50) {
           trackInfo.spotify_track_id,
           trackInfo.title,
           JSON.stringify(trackInfo.artists),
-          JSON.stringify({ name: trackInfo.album, image_url: trackInfo.image_url }),
+          JSON.stringify({ name: albumName, image_url: albumImage }),
           trackInfo.isrc || null,
           trackInfo.duration_ms,
           trackInfo.release_date,
@@ -134,7 +140,7 @@ async function resolveSpotifyTracks(limit: number = 50) {
           spotify_track_id: trackInfo.spotify_track_id,
           title: trackInfo.title,
           artists: trackInfo.artists,
-          album: { name: trackInfo.album },
+          album: trackInfo.album,
           isrc: trackInfo.isrc,
           duration_ms: trackInfo.duration_ms,
           release_date: trackInfo.release_date

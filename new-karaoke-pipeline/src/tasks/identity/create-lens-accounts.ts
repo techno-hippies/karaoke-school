@@ -30,6 +30,7 @@
 import { parseArgs } from 'util';
 import { query } from '../../db/connection';
 import { createLensService, sanitizeHandle } from '../../services/lens-protocol';
+import { groveUriToHttps } from '../../utils/grove';
 
 type AccountType = 'artist' | 'tiktok_creator' | 'both';
 
@@ -116,7 +117,7 @@ async function main() {
             handle: handle,  // Use the pre-sanitized handle (may be -ks2)
             name: artist.name,
             bio: `Official Karaoke School profile for ${artist.name}`,
-            pictureUri: artist.image_url || undefined,
+            pictureUri: groveUriToHttps(artist.image_url) || undefined,
             attributes,
             pkpAddress: artist.pkp_address,
           });
@@ -213,7 +214,7 @@ async function main() {
             handle: creator.username,
             name: creator.display_name || creator.username,
             bio: `TikTok creator @${creator.username} on Karaoke School`,
-            pictureUri: creator.avatar_url || undefined,
+            pictureUri: groveUriToHttps(creator.avatar_url) || undefined,
             attributes,
             pkpAddress: creator.pkp_address,
           });

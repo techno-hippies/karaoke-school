@@ -25,11 +25,16 @@ function getClient(): SpotifyApi {
   return spotifyClient;
 }
 
+export interface SpotifyAlbumInfo {
+  name: string;
+  image_url: string | null;
+}
+
 export interface SpotifyTrackInfo {
   spotify_track_id: string;
   title: string;
   artists: Array<{ name: string; id: string }>;
-  album: string;
+  album: SpotifyAlbumInfo | string;
   image_url: string | null;
   isrc: string | null;
   duration_ms: number;
@@ -77,7 +82,10 @@ export async function getTrack(trackId: string): Promise<SpotifyTrackInfo | null
       spotify_track_id: track.id,
       title: track.name,
       artists: track.artists.map(a => ({ name: a.name, id: a.id })),
-      album: track.album.name,
+      album: {
+        name: track.album.name,
+        image_url: track.album.images[0]?.url || null,
+      },
       image_url: track.album.images[0]?.url || null,
       isrc: track.external_ids?.isrc || null,
       duration_ms: track.duration_ms,
@@ -182,7 +190,10 @@ export async function getTracks(trackIds: string[]): Promise<(SpotifyTrackInfo |
         spotify_track_id: track.id,
         title: track.name,
         artists: track.artists.map(a => ({ name: a.name, id: a.id })),
-        album: track.album.name,
+        album: {
+          name: track.album.name,
+          image_url: track.album.images[0]?.url || null,
+        },
         image_url: track.album.images[0]?.url || null,
         isrc: track.external_ids?.isrc || null,
         duration_ms: track.duration_ms,

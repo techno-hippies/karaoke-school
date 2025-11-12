@@ -14,6 +14,7 @@ import {
   convertTikTokVideo
 } from '../../db/tiktok';
 import { query } from '../../db/connection';
+import { ensureCreatorAvatarCached } from '../../lib/avatar-cache';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -56,9 +57,45 @@ async function main() {
   console.log(`✅ Videos: ${videos.length} captured`);
   console.log('');
 
+  // Step 1.5: Cache avatar to Grove so downstream services never reference TikTok CDN
+  console.log('🖼️  Ensuring creator avatar is cached in Grove...');
+  const [existingCreator] = await query<{
+    avatar_url: string | null;
+    avatar_source_url: string | null;
+    avatar_uploaded_at: string | null;
+  }>(`SELECT avatar_url, avatar_source_url, avatar_uploaded_at FROM tiktok_creators WHERE username = $1 LIMIT 1`, [username]);
+
+  const avatarResult = await ensureCreatorAvatarCached({
+    username,
+    sourceUrl: profile.avatar,
+    existingAvatarUrl: existingCreator?.avatar_url || null,
+    existingSourceUrl: existingCreator?.avatar_source_url || null,
+    existingUploadedAt: existingCreator?.avatar_uploaded_at || null,
+  });
+
+  if (avatarResult.avatarUrl) {
+    profile.avatar = avatarResult.avatarUrl;
+  } else if (existingCreator?.avatar_url) {
+    profile.avatar = existingCreator.avatar_url;
+  } else {
+    profile.avatar = null;
+  }
+
+  if (avatarResult.uploaded) {
+    console.log(`   ✓ Uploaded new avatar → ${avatarResult.avatarUrl}`);
+  } else if (avatarResult.avatarUrl) {
+    console.log('   ✓ Reusing cached Grove avatar');
+  } else {
+    console.log('   ⚠️  Creator has no avatar; will continue without one');
+  }
+  console.log('');
+
   // Step 2: Store creator in DB
   console.log('💾 Storing creator in database...');
-  const creatorSQL = upsertCreatorSQL(profile);
+  const creatorSQL = upsertCreatorSQL(profile, {
+    avatarSourceUrl: avatarResult.avatarSourceUrl,
+    avatarUploadedAt: avatarResult.avatarUploadedAt,
+  });
 
   try {
     await query(creatorSQL);
