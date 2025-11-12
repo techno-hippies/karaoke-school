@@ -19,17 +19,44 @@ import { Spinner } from '@/components/ui/spinner'
  */
 export function StudySessionPage() {
   const { workId } = useParams<{ workId: string }>()
-  const { isPKPReady } = useAuth()
+  const { isPKPReady, isAuthenticating } = useAuth()
   const navigate = useNavigate()
 
   // Main orchestration hook handles all state and logic
   const session = useStudySession(workId)
 
-  // Auth check
+  // Auth check: Distinguish between loading and not logged in
   if (!isPKPReady) {
+    // Still loading PKP
+    if (isAuthenticating) {
+      return (
+        <div className="flex items-center justify-center h-screen">
+          <Spinner size="lg" />
+        </div>
+      )
+    }
+
+    // Not logged in - show clear message
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Spinner size="lg" />
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Sign in to study</h1>
+        <p className="text-muted-foreground text-center max-w-md">
+          You need to be signed in to track your progress and practice exercises.
+        </p>
+        <div className="flex gap-3 mt-2">
+          <button
+            onClick={() => navigate('/auth/login')}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => navigate(-1)}
+            className="px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     )
   }
