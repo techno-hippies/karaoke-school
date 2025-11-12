@@ -13,7 +13,9 @@ import {
 
 export interface AudioTask {
   id: number;
-  spotify_track_id: string;
+  subject_type: 'track' | 'tiktok_video';
+  subject_id: string;
+  spotify_track_id: string | null;  // Nullable for TikTok videos
   task_type: AudioTaskType;
   status: TaskStatus;
   grove_cid: string | null;
@@ -29,38 +31,46 @@ export interface AudioTask {
 }
 
 /**
- * Create or get audio task record
+ * Create or get audio task record (polymorphic)
+ * @param subjectId Subject ID (spotify_track_id or video_id)
+ * @param taskType Task type to ensure
+ * @param subjectType Subject type ('track' or 'tiktok_video'), defaults to 'track' for backward compatibility
  */
 export async function ensureAudioTask(
-  spotifyTrackId: string,
-  taskType: AudioTaskType
+  subjectId: string,
+  taskType: AudioTaskType,
+  subjectType: 'track' | 'tiktok_video' = 'track'
 ): Promise<AudioTask> {
   const existing = await query<AudioTask>(
     `SELECT * FROM audio_tasks
-     WHERE spotify_track_id = $1 AND task_type = $2`,
-    [spotifyTrackId, taskType]
+     WHERE subject_type = $1 AND subject_id = $2 AND task_type = $3`,
+    [subjectType, subjectId, taskType]
   );
 
   if (existing.length > 0) {
     return existing[0];
   }
 
+  // For track subjects, set spotify_track_id for backward compatibility
+  const spotifyTrackId = subjectType === 'track' ? subjectId : null;
+
   const created = await query<AudioTask>(
-    `INSERT INTO audio_tasks (spotify_track_id, task_type, status)
-     VALUES ($1, $2, 'pending')
+    `INSERT INTO audio_tasks (subject_type, subject_id, spotify_track_id, task_type, status)
+     VALUES ($1, $2, $3, $4, 'pending')
      RETURNING *`,
-    [spotifyTrackId, taskType]
+    [subjectType, subjectId, spotifyTrackId, taskType]
   );
 
   return created[0];
 }
 
 /**
- * Mark task as running
+ * Mark task as running (polymorphic)
  */
 export async function startTask(
-  spotifyTrackId: string,
-  taskType: AudioTaskType
+  subjectId: string,
+  taskType: AudioTaskType,
+  subjectType: 'track' | 'tiktok_video' = 'track'
 ): Promise<void> {
   await query(
     `UPDATE audio_tasks
@@ -68,17 +78,18 @@ export async function startTask(
          attempts = attempts + 1,
          last_attempt_at = NOW(),
          updated_at = NOW()
-     WHERE spotify_track_id = $1 AND task_type = $2`,
-    [spotifyTrackId, taskType]
+     WHERE subject_type = $1 AND subject_id = $2 AND task_type = $3`,
+    [subjectType, subjectId, taskType]
   );
 }
 
 /**
- * Mark task as completed with optional results
+ * Mark task as completed with optional results (polymorphic)
  */
 export async function completeTask(
-  spotifyTrackId: string,
+  subjectId: string,
   taskType: AudioTaskType,
+  subjectType: 'track' | 'tiktok_video' = 'track',
   result?: {
     grove_cid?: string;
     grove_url?: string;
@@ -89,15 +100,16 @@ export async function completeTask(
   await query(
     `UPDATE audio_tasks
      SET status = 'completed',
-         grove_cid = COALESCE($3, grove_cid),
-         grove_url = COALESCE($4, grove_url),
-         metadata = COALESCE($5::jsonb, metadata),
-         processing_duration_ms = COALESCE($6, processing_duration_ms),
+         grove_cid = COALESCE($4, grove_cid),
+         grove_url = COALESCE($5, grove_url),
+         metadata = COALESCE($6::jsonb, metadata),
+         processing_duration_ms = COALESCE($7, processing_duration_ms),
          completed_at = NOW(),
          updated_at = NOW()
-     WHERE spotify_track_id = $1 AND task_type = $2`,
+     WHERE subject_type = $1 AND subject_id = $2 AND task_type = $3`,
     [
-      spotifyTrackId,
+      subjectType,
+      subjectId,
       taskType,
       result?.grove_cid || null,
       result?.grove_url || null,
@@ -108,15 +120,16 @@ export async function completeTask(
 }
 
 /**
- * Mark task as failed with error details
+ * Mark task as failed with error details (polymorphic)
  */
 export async function failTask(
-  spotifyTrackId: string,
+  subjectId: string,
   taskType: AudioTaskType,
+  subjectType: 'track' | 'tiktok_video' = 'track',
   error: string,
   errorDetails?: any
 ): Promise<void> {
-  const task = await ensureAudioTask(spotifyTrackId, taskType);
+  const task = await ensureAudioTask(subjectId, taskType, subjectType);
 
   // Calculate next retry time (exponential backoff: 5min, 15min, 30min)
   const retryDelays = [5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000];
@@ -127,13 +140,14 @@ export async function failTask(
   await query(
     `UPDATE audio_tasks
      SET status = 'failed',
-         error_message = $3,
-         error_details = $4::jsonb,
-         next_retry_at = $5,
+         error_message = $4,
+         error_details = $5::jsonb,
+         next_retry_at = $6,
          updated_at = NOW()
-     WHERE spotify_track_id = $1 AND task_type = $2`,
+     WHERE subject_type = $1 AND subject_id = $2 AND task_type = $3`,
     [
-      spotifyTrackId,
+      subjectType,
+      subjectId,
       taskType,
       error,
       errorDetails ? JSON.stringify(errorDetails) : null,

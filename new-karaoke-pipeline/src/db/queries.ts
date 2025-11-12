@@ -11,7 +11,7 @@ import { query } from './connection';
 
 export interface Track {
   spotify_track_id: string;
-  tiktok_video_id: string;
+  tiktok_video_id: string | null;  // NULL for manual Spotify tracks, non-NULL for TikTok-sourced
   title: string;
   artists: Array<{ id: string; name: string }>;
   primary_artist_id: string | null;
@@ -21,6 +21,7 @@ export interface Track {
   has_iswc: boolean;
   has_lyrics: boolean;
   has_audio: boolean;
+  source_type?: 'tiktok' | 'manual_spotify';  // Track origin (TikTok discovery vs. manual submission)
 }
 
 /**

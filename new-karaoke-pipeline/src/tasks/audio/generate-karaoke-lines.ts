@@ -133,7 +133,17 @@ export async function generateKaraokeLines(limit: number = 50): Promise<void> {
 
 // CLI execution
 if (import.meta.main) {
-  const limit = parseInt(process.argv[2] || '50');
+  const args = process.argv.slice(2);
+  let limit = 50;
+
+  for (const arg of args) {
+    if (arg.startsWith('--limit=')) {
+      limit = parseInt(arg.split('=')[1]);
+    } else if (!arg.startsWith('--')) {
+      limit = parseInt(arg);
+    }
+  }
+
   generateKaraokeLines(limit)
     .then(() => process.exit(0))
     .catch((error) => {

@@ -8,7 +8,7 @@
 export interface FalEnhancementOptions {
   audioUrl: string;           // Input audio URL (Grove or public)
   prompt?: string;            // Description (default: 'instrumental')
-  strength?: number;          // Enhancement strength 0-1 (default: 0.35)
+  strength?: number;          // Enhancement strength 0-1 (default: 0.4)
 }
 
 export interface FalEnhancementResult {
@@ -52,7 +52,7 @@ export class FalService {
     console.log(`[fal.ai] Starting enhancement...`);
     console.log(`[fal.ai]   Audio: ${options.audioUrl.slice(0, 60)}...`);
     console.log(`[fal.ai]   Prompt: ${options.prompt || 'instrumental'}`);
-    console.log(`[fal.ai]   Strength: ${options.strength || 0.35}`);
+    console.log(`[fal.ai]   Strength: ${options.strength || 0.4}`);
 
     // Step 1: Submit request
     const submitResponse = await fetch(this.baseUrl, {
@@ -64,7 +64,7 @@ export class FalService {
       body: JSON.stringify({
         prompt: options.prompt || 'instrumental',
         audio_url: options.audioUrl,
-        strength: options.strength || 0.35,
+        strength: options.strength || 0.4,
       }),
     });
 

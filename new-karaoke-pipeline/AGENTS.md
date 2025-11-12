@@ -161,6 +161,19 @@ call_mcp_tool("run_sql", { params: { sql: "SELECT spotify_track_id FROM karaoke_
 
 To reset a failed task, clear the error via MCP and set `status='pending'`, then rerun the processor.
 
+### TikTok Scraper Expectations
+
+- Command: `DISPLAY=:0 TIKTOK_HEADLESS=false bun src/tasks/ingestion/scrape-tiktok.ts @creator_username [limit]`
+- Always run visible when solving CAPTCHA; keep the browser open and rotate creators to amortize manual solves.
+- Data contract:
+  - `tiktok_videos.tt2dsp` stores the raw `tt_to_dsp_song_infos` JSONB payload.
+  - `spotify_track_id` only persists when the 22-character pattern matches, and `spotify_track_id_source` must be `tiktok_metadata`.
+  - Empty objects (`{}`) mean TikTok responded without DSP matches; use MCP queries to distinguish null vs empty.
+- Debug helpers in `src/scripts/`:
+  - `debug-tiktok-video.ts <video_id> [@creator]` — dumps the latest scraped payload, including `music.original` and each DSP mapping.
+  - `test-music-original-hypothesis.ts` — batches creators and reuses scraper sessions to inspect whether `music.original = true` should nullify Spotify IDs.
+- Clean working tree: delete temporary captures such as `captured-tiktok-responses.json` once you have the insights you need (they regenerate easily).
+
 ---
 
 ## 📁 Key Files
@@ -191,6 +204,123 @@ Archived pipeline (legacy reference) lives in `../karaoke-pipeline/`—copy patt
 - Document new commands/state transitions in both README and here.
 - Confirm database schema via MCP before relying on column names.
 - Coordinate Lit/Unlock changes with identity tables—FKs must stay consistent.
+
+---
+
+## 🔁 Refactoring Status & Expectations
+- All stage-driven audio tasks now extend `BaseTask`; keep new processors consistent with the existing pattern (`selectTracks`, `processTrack`, optional hooks).
+- `buildAudioTasksFilter(this.taskType)` **must** be appended to every refactored task’s `SELECT` to honor `audio_tasks` retries/backoff.
+- Every CLI wrapper supports `--trackId=<spotify_track_id>`; pass it through to `task.run({ trackId })` in new scripts.
+- `schema/06-audio-tasks-trigger.sql` auto-creates pending rows when `tracks.stage` advances. When adding new stages or tasks, update the trigger & backfill accordingly.
+
+### Operational Checks
+- After stage updates, run:
+  ```sql
+  SELECT stage, COUNT(*) FROM tracks GROUP BY stage;
+  SELECT task_type, COUNT(*) FROM audio_tasks WHERE status = 'pending' GROUP BY task_type;
+  ```
+  Counts should align (e.g., every `audio_ready` track implies a pending `align` task).
+- Enforce clip duration spec (40–100 seconds) whenever manipulating `karaoke_segments`.
+- Rate-limited services (ElevenLabs, fal.ai, OpenRouter) should use BaseTask hooks for pacing/logging.
+
+### Testing Checklist Before Shipping Changes
+1. Exercise the happy path with `--limit=1` and inspect `audio_tasks` + `tracks` rows.
+2. Simulate exhausted retries by setting `attempts = max_attempts` and confirm the task is skipped.
+3. If a change touches stage logic, validate the backlog trigger still inserts pending rows.
+4. Run any new CLI with both batch mode and `--trackId=<id>` to ensure overrides work.
+
+---
+
+## 🎬 TikTok Pipeline (Language Learning)
+
+**Mission**: Enable language learning by publishing TikTok videos to Lens Protocol with multi-language translations.
+
+### Pipeline Flow
+```
+Scrape TikTok → Upload Grove → Transcribe (Cartesia STT) → Translate (zh/vi/id) → Post to Lens
+```
+
+### Key Design Decisions
+
+**Translation Direction**:
+- **FROM English TO learner languages** (zh/vi/id), NOT the reverse
+- Purpose: Chinese/Vietnamese/Indonesian learners need English content translated to their native language
+- Model: `google/gemini-2.5-flash-lite-preview-09-2025` via OpenRouter
+- Cost: ~$0.001 per translation × 3 languages = $0.003/video
+
+**Multi-Language Storage**:
+- `tiktok_translations` table with composite primary key `(video_id, language_code)`
+- Pattern: Mirrors `lyrics_translations` for consistency
+- Idempotent: Re-running translate task only processes missing languages
+- Migration 015 applied: Old single-language columns dropped from `tiktok_transcripts`
+
+**Cartesia STT Integration**:
+- Endpoint: `POST /stt` (not `/stt/transcribe`)
+- FormData fields: `file`, `model`, `timestamp_granularities[]` (array, not singular)
+- Response: Flat `words[]` array with `{word, start, end}` objects
+- Config: `CARTESIA_CONFIG.baseUrl` = `'https://api.cartesia.ai'` (no `/stt` suffix)
+
+**Lens Publishing**:
+- Preferred language: Chinese (`zh`) - largest learner demographic globally
+- Query: JOINs `tiktok_translations` filtering by `language_code = 'zh'`
+- Post content: translated text + original description + TikTok attribution
+- **CRITICAL SQL Fix**: All queries use table alias `t` (not `v`) to match `buildAudioTasksFilter()` expectations
+
+### Task Files
+
+| Task | File | Purpose |
+|------|------|---------|
+| Upload | `src/tasks/tiktok/upload-grove.ts` | Upload video/thumbnail to Grove |
+| Transcribe | `src/tasks/tiktok/transcribe.ts` | Cartesia STT with word-level timestamps |
+| Translate | `src/tasks/tiktok/translate.ts` | Translate to ALL target languages (zh/vi/id) |
+| Post | `src/tasks/tiktok/post-lens.ts` | Publish to Lens with preferred language |
+
+### Common Pitfalls
+
+1. **SQL Alias Mismatch**: `buildAudioTasksFilter()` hardcodes alias `t` in line 105/112. All queries MUST use `FROM tiktok_videos t`, NOT `FROM tiktok_videos v`.
+
+2. **Translation Direction**: Always translate FROM source language TO target languages. Never assume English is the target.
+
+3. **Cartesia API**: Use correct endpoint (`/stt`), FormData field names (`model`, not `model_id`), and timestamp field (`timestamp_granularities[]`, not singular).
+
+4. **Multi-Language Iteration**: Task must loop over ALL target languages, not just return first match. Check `existing_languages` array and only translate missing ones.
+
+### Database Queries (MCP Only)
+
+```sql
+-- Check translations for a video (all 3 languages)
+SELECT language_code, translated_text
+FROM tiktok_translations
+WHERE video_id = '7565931111373622550'
+ORDER BY language_code;
+
+-- Find videos missing translations
+SELECT v.video_id, v.creator_username,
+  ARRAY_AGG(DISTINCT tr.language_code) as existing_languages
+FROM tiktok_videos v
+LEFT JOIN tiktok_translations tr ON tr.video_id = v.video_id
+WHERE v.video_id IN (SELECT video_id FROM tiktok_transcripts)
+GROUP BY v.video_id, v.creator_username
+HAVING COUNT(DISTINCT tr.language_code) FILTER (WHERE tr.language_code IN ('zh', 'vi', 'id')) < 3;
+
+-- Verify Lens posts
+SELECT tiktok_video_id, target_language, translated_text, lens_post_id
+FROM lens_posts
+WHERE tiktok_video_id = '7565931111373622550';
+```
+
+### End-to-End Test Results (2025-01-11)
+
+**Video**: `7565931111373622550` (@gioscottii)
+**Transcript**: "What is it?" (en)
+
+**Translations**:
+- zh: "那是什么？" ✅
+- vi: "Nó là gì?" ✅
+- id: "Apa itu?" ✅
+
+**Lens Post**: `0x328dfb161198f3235cf48675faf55393b24b07e2946f5f60be6646e51be92b5e` ✅
+**Published Language**: Chinese (zh) - preferred demographic
 
 ---
 

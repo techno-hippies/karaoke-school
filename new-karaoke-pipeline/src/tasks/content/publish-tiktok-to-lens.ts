@@ -18,6 +18,8 @@
  * Usage:
  *   bun src/tasks/content/publish-tiktok-to-lens.ts --limit=10
  *   bun src/tasks/content/publish-tiktok-to-lens.ts --videoId=<tiktok_video_id>
+ *
+ * Note: Bun automatically loads .env file from project root
  */
 
 import { query } from '../../db/connection';
@@ -33,10 +35,15 @@ import type { Address, Hex } from 'viem';
 interface TikTokVideoForPublish {
   tiktok_video_id: string;
   video_url: string;
+  grove_video_url: string | null;
+  grove_thumbnail_url: string | null;
+  creator_username: string;
+  creator_lens_account_address: Address | null;
+  creator_lens_handle: string | null;
   spotify_artist_id: string;
   spotify_track_id: string;
-  lens_account_address: Address | null;
-  lens_handle: string | null;
+  artist_name: string;
+  track_title: string;
 }
 
 /**
@@ -60,9 +67,26 @@ interface LensPostRecord {
  * Orchestrates the complete workflow from TikTok video to published Lens post
  */
 export class PublishTikTokToLensTask {
-  private cartesiaService = createCartesiaService();
-  private lyricsTranslator = new LyricsTranslator();
-  private lensService = createLensService();
+  private cartesiaService?: ReturnType<typeof createCartesiaService>;
+  private lyricsTranslator?: LyricsTranslator;
+  private lensService?: ReturnType<typeof createLensService>;
+
+  /**
+   * Lazy initialization of services (called on first use)
+   * This ensures .env is loaded before services are created
+   */
+  private ensureServices(): void {
+    if (!this.cartesiaService) {
+      const openRouterKey = process.env.OPENROUTER_API_KEY;
+      if (!openRouterKey) {
+        throw new Error('OPENROUTER_API_KEY environment variable required');
+      }
+
+      this.cartesiaService = createCartesiaService();
+      this.lyricsTranslator = new LyricsTranslator(openRouterKey);
+      this.lensService = createLensService();
+    }
+  }
 
   /**
    * Select TikTok videos ready for publishing
@@ -73,22 +97,28 @@ export class PublishTikTokToLensTask {
    * - Not already published to Lens
    */
   async selectVideos(limit: number, videoId?: string): Promise<TikTokVideoForPublish[]> {
-    const videoIdFilter = videoId ? `AND tv.tiktok_video_id = $2` : '';
+    const videoIdFilter = videoId ? `AND tv.video_id = $2` : '';
     const params = videoId ? [limit, videoId] : [limit];
 
     return query<TikTokVideoForPublish>(
       `SELECT
-        tv.tiktok_video_id,
+        tv.video_id as tiktok_video_id,
         tv.video_url,
-        tv.spotify_artist_id,
+        tv.grove_video_url,
+        tv.grove_thumbnail_url,
+        tv.creator_username,
+        creator_la.lens_account_address as creator_lens_account_address,
+        creator_la.lens_handle as creator_lens_handle,
+        t.primary_artist_id as spotify_artist_id,
         tv.spotify_track_id,
-        la.lens_account_address,
-        la.lens_handle
+        t.primary_artist_name as artist_name,
+        t.title as track_title
       FROM tiktok_videos tv
-      JOIN lens_accounts la ON tv.spotify_artist_id = la.spotify_artist_id
-      LEFT JOIN lens_posts lp ON tv.tiktok_video_id = lp.tiktok_video_id
-      WHERE tv.video_url IS NOT NULL
-        AND la.lens_account_address IS NOT NULL
+      JOIN tracks t ON tv.spotify_track_id = t.spotify_track_id
+      JOIN lens_accounts creator_la ON tv.creator_username = creator_la.tiktok_handle
+      LEFT JOIN lens_posts lp ON tv.video_id = lp.tiktok_video_id
+      WHERE tv.grove_video_url IS NOT NULL
+        AND creator_la.lens_account_address IS NOT NULL
         AND lp.lens_post_id IS NULL
         ${videoIdFilter}
       ORDER BY tv.created_at DESC
@@ -98,86 +128,66 @@ export class PublishTikTokToLensTask {
   }
 
   /**
-   * Process a single TikTok video: STT → translate → post
+   * Process a single TikTok video: post to Lens (simplified version without transcription)
+   *
+   * Note: Full workflow (STT → translate → post) requires video download infrastructure.
+   * For now, we post the TikTok link directly with basic metadata.
    */
   async processVideo(video: TikTokVideoForPublish): Promise<LensPostRecord> {
-    const { tiktok_video_id, video_url, lens_account_address, lens_handle } = video;
+    this.ensureServices();
 
-    if (!lens_account_address) {
-      throw new Error('Missing Lens account address');
+    const {
+      tiktok_video_id,
+      grove_video_url,
+      grove_thumbnail_url,
+      creator_username,
+      creator_lens_account_address,
+      creator_lens_handle,
+      artist_name,
+      track_title,
+      spotify_track_id
+    } = video;
+
+    if (!creator_lens_account_address) {
+      throw new Error(`Missing Lens account for creator @${creator_username}`);
+    }
+
+    if (!grove_video_url) {
+      throw new Error('Missing Grove video URL - video must be uploaded to Grove first');
     }
 
     console.log(`\n📹 Processing: ${tiktok_video_id}`);
-    console.log(`   Artist: @${lens_handle}`);
-    console.log(`   Video: ${video_url}`);
+    console.log(`   Creator: @${creator_lens_handle}`);
+    console.log(`   Song: ${artist_name} - "${track_title}"`);
+    console.log(`   Video: ${grove_video_url}`);
+    console.log(`   Thumbnail: ${grove_thumbnail_url || 'none'}`);
 
-    // Step 1: Transcribe audio with Cartesia STT
-    console.log('\n   🎤 Step 1: Transcribing audio...');
-    const transcription = await this.cartesiaService.transcribe(video_url, {
-      wordTimestamps: true,
-    });
+    // Create post content from creator's perspective
+    console.log('\n   📤 Publishing to Lens...');
 
-    console.log(`   ✓ Transcribed: ${transcription.wordCount} words, ${transcription.duration.toFixed(1)}s`);
-    console.log(`   Language: ${transcription.language}`);
+    const postContent = `🎤 Singing "${track_title}" by ${artist_name}
 
-    // Step 2: Translate transcript to target language
-    // Use first target language from config (typically 'zh' for Chinese)
-    const targetLanguage = TRANSLATION_CONFIG.defaultLanguages[0];
-    console.log(`\n   🌐 Step 2: Translating to ${targetLanguage}...`);
+#KaraokeSchool #${artist_name.replace(/\s+/g, '')} #Cover #TikTok`;
 
-    // Convert transcription to line format for translator
-    const lines = transcription.segments.map((seg, idx) => ({
-      lineIndex: idx,
-      originalText: seg.text,
-      start: seg.start,
-      end: seg.end,
-      words: seg.words.map(w => ({
-        text: w.word,
-        start: w.start,
-        end: w.end,
-      })),
-    }));
-
-    const translation = await this.lyricsTranslator.translateLyrics(
-      lines,
-      'en', // Source language (from STT detection)
-      targetLanguage
-    );
-
-    const translatedText = translation.lines
-      .map(line => line.translatedText)
-      .join('\n');
-
-    console.log(`   ✓ Translated: ${translation.lines.length} lines`);
-
-    // Step 3: Create Lens post with video + bilingual caption
-    console.log('\n   📤 Step 3: Publishing to Lens...');
-
-    const postContent = this.buildPostContent(
-      transcription.text,
-      translatedText,
-      targetLanguage
-    );
-
-    const postResult = await this.lensService.createPost({
-      accountAddress: lens_account_address,
+    const postResult = await this.lensService!.createPost({
+      accountAddress: creator_lens_account_address,
       content: postContent,
-      videoUri: video_url,
-      tags: ['karaoke', 'music', 'tiktok'],
-      appId: LENS_CONFIG.feedAddress, // Associate with custom karaoke feed
+      videoUri: grove_video_url,
+      coverImageUri: grove_thumbnail_url || undefined,
+      tags: ['karaoke', 'cover', 'music', 'tiktok'],
     });
 
     console.log(`   ✓ Post created: ${postResult.postId}`);
     console.log(`   Transaction: ${postResult.transactionHash}`);
 
-    // Step 4: Save to database
+    // Save to database (without transcription/translation for now)
     const record: LensPostRecord = {
       tiktok_video_id,
       lens_post_id: postResult.postId,
-      lens_account_address,
-      transcript_text: transcription.text,
-      translated_text: translatedText,
-      target_language: targetLanguage,
+      lens_account_address: creator_lens_account_address,
+      transcript_text: '', // TODO: Add transcription when video download is available
+      translated_text: '',
+      target_language: 'en',
       post_metadata_uri: postResult.metadataUri,
       transaction_hash: postResult.transactionHash,
       published_at: new Date(),
@@ -263,13 +273,40 @@ ${translatedText}
 
     console.log(`\n📱 Publishing TikTok videos to Lens (limit: ${limit})\n`);
 
+    // Guard: Check for creators without PKP/Lens accounts
+    const creatorsWithoutAccounts = await query<{ username: string; video_count: number }>(`
+      SELECT tv.creator_username as username, COUNT(*) as video_count
+      FROM tiktok_videos tv
+      WHERE tv.grove_video_url IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM lens_accounts la
+          WHERE la.tiktok_handle = tv.creator_username
+            AND la.account_type = 'tiktok_creator'
+        )
+        ${videoId ? 'AND tv.video_id = $1' : ''}
+      GROUP BY tv.creator_username
+      ORDER BY video_count DESC`,
+      videoId ? [videoId] : []
+    );
+
+    if (creatorsWithoutAccounts.length > 0) {
+      console.log('⚠️  GUARD: Found creators without PKP/Lens accounts:\n');
+      for (const creator of creatorsWithoutAccounts) {
+        console.log(`   @${creator.username} (${creator.video_count} videos)`);
+      }
+      console.log('\n💡 Run identity pipeline first:');
+      console.log('   bun src/tasks/identity/mint-pkps.ts --type=creator');
+      console.log('   bun src/tasks/identity/create-lens-accounts.ts --type=tiktok_creator\n');
+      throw new Error(`Cannot publish: ${creatorsWithoutAccounts.length} creator(s) need PKP/Lens accounts`);
+    }
+
     const videos = await this.selectVideos(limit, videoId);
 
     if (videos.length === 0) {
       console.log('✓ No videos ready for publishing\n');
       console.log('Possible reasons:');
       console.log('  - All videos already published');
-      console.log('  - No Lens accounts created for artists');
+      console.log('  - No creators with videos and Lens accounts');
       console.log('  - No TikTok videos ingested\n');
       return;
     }

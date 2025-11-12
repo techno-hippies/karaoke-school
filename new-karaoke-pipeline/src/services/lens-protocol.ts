@@ -51,8 +51,18 @@ export interface CreatePostParams {
   /** Optional video/audio attachment URI */
   videoUri?: string;
 
+  /** Optional cover/thumbnail image URI */
+  coverImageUri?: string;
+
   /** Optional tags for discoverability */
   tags?: string[];
+
+  /** Optional metadata attributes (song info, IDs, etc.) */
+  attributes?: Array<{
+    type: 'Boolean' | 'Date' | 'Number' | 'String' | 'JSON';
+    key: string;
+    value: string;
+  }>;
 
   /** Optional app ID to associate post with custom feed */
   appId?: string;
@@ -95,28 +105,39 @@ export interface CreateAccountParams {
  * - No consecutive hyphens
  * - No leading/trailing hyphens
  * - Max 30 characters
- * - Appends "-ks1" suffix (Karaoke School v1)
+ * - Appends "-ks1" suffix by default (Karaoke School v1)
+ * - If suffix already present, doesn't double-append
  *
  * Examples:
  * - "Ariana Grande" → "ariana-grande-ks1"
  * - "21 Savage!!!" → "21-savage-ks1"
  * - "---Bad-Name---" → "bad-name-ks1"
  * - "★★★" → "artist-{hash}-ks1" (symbols-only fallback)
+ * - "luis-fonsi-ks2" → "luis-fonsi-ks2" (already has suffix)
  */
-export function sanitizeHandle(name: string): string {
+export function sanitizeHandle(name: string, suffix: string = '-ks1'): string {
+  // Check if name already has a -ksN suffix
+  const hasSuffix = /-ks\d+$/.test(name.toLowerCase());
+
+  const maxLength = hasSuffix ? 30 : (30 - suffix.length);
   const sanitized = name
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')  // Replace non-alphanumeric with dashes
     .replace(/-+/g, '-')          // Collapse multiple dashes
     .replace(/^-|-$/g, '')        // Remove leading/trailing dashes
-    .substring(0, 26);             // Leave room for "-ks1" suffix (30 char max)
+    .substring(0, maxLength);
 
   // Fallback for empty string (all symbols/special chars)
   if (!sanitized || sanitized.length === 0) {
-    return `artist-${Date.now().toString(36)}-ks1`;
+    return `artist-${Date.now().toString(36)}${suffix}`;
   }
 
-  return `${sanitized}-ks1`;
+  // If already has suffix, return as-is
+  if (hasSuffix) {
+    return sanitized;
+  }
+
+  return `${sanitized}${suffix}`;
 }
 
 /**
@@ -342,22 +363,12 @@ export function createLensService() {
       console.log(`   ⚠️  Using alternate handle: ${handle} (requested: ${sanitized})`);
     }
 
+    // REMOVED: Buggy "reuse" logic that created fake lens://metadata/{uuid} URIs
+    // The Lens API sometimes returns stale/partial data with invalid metadata.id values
+    // Always create accounts fresh to ensure real on-chain transactions
     if (owned && existingAccount) {
-      console.log(`   ✓ Reusing existing Lens account @${handle}`);
-
-      const metadataUri =
-        existingAccount.metadataUri ||
-        existingAccount.metadata?.uri ||
-        (existingAccount.metadata?.id ? `lens://metadata/${existingAccount.metadata.id}` : '');
-      const existingTxHash = (existingAccount.transactionHash || existingAccount.creationTransactionHash || existingAccount.txHash || '0x0') as Hex;
-
-      return {
-        lensHandle: handle,
-        lensAccountAddress: existingAccount.address as Address,
-        lensAccountId: existingAccount.address as Hex,
-        metadataUri,
-        transactionHash: existingTxHash,
-      };
+      console.log(`   ⚠️  Handle @${handle} appears to exist in Lens API, but creating fresh account to ensure on-chain validity`);
+      // Fall through to real account creation below
     }
 
     // Initialize all clients required for account creation
@@ -469,7 +480,7 @@ export function createLensService() {
   async function createPost(
     params: CreatePostParams
   ): Promise<PostCreationResult> {
-    const { accountAddress, content, videoUri, tags = [], appId, contentWarning } = params;
+    const { accountAddress, content, videoUri, coverImageUri, tags = [], attributes, appId, contentWarning } = params;
 
     // Initialize required clients
     const client = await initLensClient();
@@ -482,20 +493,26 @@ export function createLensService() {
     const { signMessageWith, handleOperationWith } = await import('@lens-protocol/client/viem');
     const { post: createPostAction } = await import('@lens-protocol/client/actions');
     const { immutable } = await import('@lens-chain/storage-client');
-    const { textOnly, video: videoMetadata } = await import('@lens-protocol/metadata');
+    const { textOnly, video: videoMetadata, shortVideo, MediaVideoMimeType } = await import('@lens-protocol/metadata');
 
     // Build post metadata
     console.log('   📝 Building post metadata...');
     const metadata = videoUri
-      ? videoMetadata({
+      ? shortVideo({
           content,
-          video: { item: videoUri },
+          video: {
+            item: videoUri,
+            type: MediaVideoMimeType.MP4,
+            cover: coverImageUri,
+          },
           tags,
+          attributes,
           contentWarning: contentWarning || undefined,
         })
       : textOnly({
           content,
           tags,
+          attributes,
           contentWarning: contentWarning || undefined,
         });
 
@@ -512,9 +529,9 @@ export function createLensService() {
     console.log('   🔐 Authenticating with Lens Protocol...');
     const authenticated = await client.login({
       accountOwner: {
-        app: evmAddress(LENS_APP_ADDRESS),
         account: evmAddress(accountAddress),
         owner: evmAddress(walletClient.account.address),
+        app: evmAddress(appId || LENS_APP_ADDRESS),
       },
       signMessage: signMessageWith(walletClient),
     });

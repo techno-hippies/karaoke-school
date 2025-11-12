@@ -118,6 +118,80 @@ bun db:status
    bun task:spotify-artists --limit=25
    ```
 
+### TikTok Scraper (tt2dsp-aware)
+
+Use the consolidated scraper to capture creator metadata, raw `tt2dsp` payloads, and canonical Spotify IDs in a single Playwright session.
+
+```bash
+DISPLAY=:0 TIKTOK_HEADLESS=false bun src/tasks/ingestion/scrape-tiktok.ts @creator_username [maxVideos]
+```
+
+- CAPTCHA solving: run with `TIKTOK_HEADLESS=false` so you can complete any challenges once per session.
+- Storage: `tiktok_videos` now includes a `tt2dsp` JSONB column plus `spotify_track_id_source = 'tiktok_metadata'` for every Spotify match extracted from `tt_to_dsp_song_infos`.
+- Validation query (MCP only):
+  ```sql
+  SELECT video_id,
+         spotify_track_id,
+         spotify_track_id_source,
+         CASE WHEN tt2dsp IS NULL THEN 'missing'
+              WHEN tt2dsp::text = '{}' THEN 'empty'
+              ELSE 'present'
+         END AS tt2dsp_status
+  FROM tiktok_videos
+  WHERE creator_username = 'idazeile'
+  ORDER BY created_at DESC
+  LIMIT 10;
+  ```
+- Debugging helpers:
+  - `bun src/scripts/debug-tiktok-video.ts <video_id> [@creator]` – re-scrapes a creator and dumps normalized video data (including `tt2dsp` + `music.original`).
+  - `bun src/scripts/test-music-original-hypothesis.ts` – batch-checks the `music.original` flag for recently scraped videos while reusing scraper sessions per creator.
+
+When scraping multiple creators back-to-back, keep the Playwright window open and cycle through usernames to amortize CAPTCHA solves. Queue support for batching creators can be added later, but always prefer one long-lived browser session over repeated launches.
+
+### Manual Spotify Ingestion (No TikTok Required)
+
+Add songs directly from Spotify without needing TikTok discovery. Useful for:
+- Songs you want to teach that don't have TikTok videos
+- Testing specific track processing
+- Batch imports of curated content
+
+**Single Track**:
+```bash
+bun src/tasks/ingestion/add-track-from-spotify.ts --spotifyId=3n3Ppam7vgaVa1iaRUc9Lp
+```
+
+**Batch from File** (newline-separated Spotify IDs, `#` comments supported):
+```bash
+bun src/tasks/ingestion/add-track-from-spotify.ts --file=spotify_ids.txt
+```
+
+**Batch from stdin**:
+```bash
+cat spotify_ids.txt | bun src/tasks/ingestion/add-track-from-spotify.ts --batch
+```
+
+**How it works**:
+1. Validates track exists on Spotify API
+2. Inserts into `tracks` table with `source_type='manual_spotify'` and `tiktok_video_id=NULL`
+3. Seeds initial `download` audio task (so download worker picks it up immediately)
+4. Spawns enrichment task fan-out (ISWC, Genius, Wikidata, etc.)
+5. Logs submission metadata for audit trail
+
+**Schema Changes** (2025-11-12):
+- `tiktok_video_id` is now nullable (supports manual tracks)
+- New `source_type` column: `'tiktok'` (TikTok-discovered) or `'manual_spotify'` (manual submission)
+- Partial unique index protects TikTok uniqueness: `idx_tracks_tiktok_not_null`
+
+**Query to monitor manual tracks**:
+```sql
+SELECT source_type, stage, COUNT(*)
+FROM tracks
+GROUP BY source_type, stage
+ORDER BY source_type, stage;
+```
+
+**Note**: Manual tracks follow the same enrichment → audio processing pipeline as TikTok tracks. No code changes needed downstream; the polymorphic `audio_tasks` design handles both sources seamlessly.
+
 ### Audio Processing (sequential per track)
 
 **Dual-Format Output**:
@@ -130,7 +204,8 @@ bun db:status
 |-------|---------|-------|
 | download | `src/tasks/audio/download-audio.ts` | Fills `song_audio` + sets `tracks.stage = audio_ready`. |
 | align | `src/tasks/audio/align-lyrics.ts` | ElevenLabs timings. |
-| translate | `src/tasks/audio/translate-lyrics.ts` | Gemini, multi-language. |
+| **normalize** | `src/tasks/lyrics/discover-lyrics-enhanced.ts` | **AI lyrics cleaning (Gemini Flash 2.5 Lite) - populates `normalized_lyrics` required by translate step.** |
+| translate | `src/tasks/audio/translate-lyrics.ts` | Gemini, multi-language. **Requires `normalized_lyrics` from normalize step.** |
 | separate | `src/tasks/audio/separate-audio.ts` | Demucs via RunPod. |
 | segment | `src/tasks/audio/select-segments.ts` | Chooses 40–60s clip, populates `karaoke_segments`. |
 | enhance | `src/tasks/audio/enhance-audio.ts` | fal.ai chunk merge, writes enhanced Grove URL. |
@@ -378,3 +453,109 @@ try {
 ---
 
 **Built for resilient karaoke processing with verifiable access control.**
+
+---
+
+## Current Pipeline Status (2025-01-11)
+- **Tracks**: 20 total — 15 `ready`, 5 `pending`
+- **Identity**: 15/15 PKPs, Lens handles, and Unlock locks deployed
+- **GRC-20**: 15 artists + 15 works minted on Grove
+- **Clips**: 15/15 created with 40–100s duration; encrypted full tracks available for all ready songs
+- **Events**: `ClipRegistered`, `ClipProcessed`, and `SegmentEncrypted` emitted for ready tracks; `SongEncrypted` gated by Unlock deployment
+
+## Audio Task Refactoring Snapshot
+All stage-driven audio processors now share `BaseTask` with centralized config and strict metadata types.
+
+- **7/7 core tasks migrated** (`align`, `translate`, `separate`, `select-segments`, `enhance`, `clip`, `generate-karaoke-lines`)
+- **373 lines** of lifecycle boilerplate removed (~19% reduction)
+- **100%** retry logic coverage via `buildAudioTasksFilter()`
+- **Config** references replace magic numbers (e.g., 40–100s clip bounds, fal.ai chunk sizes)
+
+### Task Status
+| Task | Stage | Status | Notes |
+|------|-------|--------|-------|
+| `align-lyrics` | audio_ready → aligned | ✅ refactored | ElevenLabs, rate-limited hook |
+| `translate-lyrics` | aligned → translated | ✅ **deployed** | Gemini Flash 2.5 Lite, Wikidata gate |
+| `separate-audio` | translated → separated | ✅ refactored | Demucs via RunPod |
+| `select-segments` | separated → segmented | ✅ refactored | Hybrid deterministic/AI with strict clip config |
+| `enhance-audio` | segmented → enhanced | ✅ refactored | fal.ai Stable Audio 2.5 with chunk merge |
+| `clip-segments` | enhanced → ready | ✅ refactored | FFmpeg clip + Grove upload |
+| `generate-karaoke-lines` | n/a | ✅ refactored | Line-level FSRS data with working `--trackId` |
+| `download-audio` | trigger | ⏭️ legacy | Delegates to download service; BaseTask not required |
+| `encrypt-clips` | on-demand | ⏭️ deferred | Requires dedicated encryption workflow |
+
+## Critical Fixes & Safeguards
+- **Retry logic**: all refactored tasks append `buildAudioTasksFilter(this.taskType)` so `status`, `attempts < max_attempts`, and `next_retry_at` gates are respected.
+- **Stage correctness**: `clip-segments` now queries `TrackStage.Enhanced`, matching `updateTrackStage()` progression.
+- **Clip duration spec**: config split between `segment` (40–100s clips) and `falChunking` (190s fal.ai limit); selectors enforce spec ranges.
+- **Metadata accuracy**: `select-segments` records `metadata.method` as either `deterministic` or `ai` for downstream analytics.
+- **CLI overrides**: every refactored task parses `--trackId=<spotify_track_id>` and forwards it through `task.run({ trackId })`.
+- **Backlog visibility**: `schema/06-audio-tasks-trigger.sql` installs `populate_audio_tasks()` so pending rows exist as soon as `tracks.stage` advances, restoring monitoring dashboards and manual reset tooling.
+
+### Verify Backlog Trigger
+```sql
+-- Track count by stage
+SELECT stage, COUNT(*) FROM tracks GROUP BY stage;
+-- Pending tasks per processor
+SELECT task_type, COUNT(*) FROM audio_tasks WHERE status = 'pending' GROUP BY task_type;
+```
+Values should stay aligned (e.g., tracks at `audio_ready` imply pending `align` tasks).
+
+## Testing & Deployment Checklist
+- [ ] Exhausted retry path: set `attempts = max_attempts` for a task, confirm it is skipped.
+- [ ] Stage walk-through: process one track end-to-end and watch `tracks.stage` progress.
+- [ ] Clip QA: ensure every `karaoke_segments` entry produces 40–100s clips.
+- [ ] `--trackId` spot check: run each task with a specific ID and confirm only that track processes.
+- [ ] Backlog trigger smoke test: update a track’s stage and confirm a pending `audio_tasks` row appears automatically.
+- [ ] Production rollout: swap each `*-refactored.ts` into place after staging validation (keep originals suffixed `-old.ts` for one week).
+
+## TikTok Pipeline (Language Learning)
+
+Complete TikTok→Lens publishing workflow for language learning content.
+
+**Architecture**:
+- **STT**: Cartesia Ink-Whisper transcription with word-level timestamps
+- **Translation**: Gemini Flash 2.5 Lite translating FROM English TO learner languages (zh/vi/id)
+- **Storage**: Multi-language schema with composite key `(video_id, language_code)`
+- **Publishing**: Lens Protocol posts with preferred language (Chinese - largest demographic)
+
+**Pipeline Tasks**:
+```bash
+# 1. Scrape TikTok videos
+DISPLAY=:0 TIKTOK_HEADLESS=false bun src/tasks/ingestion/scrape-tiktok.ts @creator_username 10
+
+# 2. Upload to Grove
+bun src/tasks/tiktok/upload-grove.ts --limit=10
+
+# 3. Transcribe with Cartesia STT
+bun src/tasks/tiktok/transcribe.ts --limit=10
+
+# 4. Translate to zh/vi/id
+bun src/tasks/tiktok/translate.ts --limit=10
+
+# 5. Post to Lens Protocol
+bun src/tasks/tiktok/post-lens.ts --limit=10
+```
+
+**Database Schema**:
+- `tiktok_videos` - Video metadata, Grove URLs
+- `tiktok_transcripts` - Cartesia STT output (transcript text + language)
+- `tiktok_translations` - Multi-language translations with composite key `(video_id, language_code)`
+- `lens_posts` - Published Lens posts with translation metadata
+
+**Translation Strategy**:
+- Direction: FROM English TO learner languages (zh/vi/id) for language learning
+- Model: `google/gemini-2.5-flash-lite-preview-09-2025` via OpenRouter
+- Rate limiting: 1s delay between languages
+- Idempotent: Skips already-translated languages on re-run
+
+**Post-Lens Selection**:
+- Preferred language: Chinese (`zh`) - largest learner demographic globally
+- Selects from `tiktok_translations` table filtering by `language_code = 'zh'`
+- Posts include translated caption + original description + attribution
+
+## Future Work
+1. **encrypt-clips.ts** – introduce a Lit-specific base class or targeted refactor once Unlock/Lit flows stabilize.
+2. **download-audio.ts** – document trigger semantics and retry expectations for the external service.
+3. **Content pipeline** – apply BaseTask to `generate-translation-quiz`, `translate-trivia`, `emit-clip-events`, etc.
+4. **Enrichment pipeline** – design `BaseEnrichmentTask` for the 7 processors currently using `enrichment_tasks`.

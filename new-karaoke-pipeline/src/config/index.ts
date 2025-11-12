@@ -19,7 +19,7 @@ export const TRANSLATION_CONFIG = {
   defaultLanguages: ['zh', 'vi', 'id'] as const,
 
   /** OpenRouter model for translation */
-  model: 'google/gemini-flash-2.5-lite' as const,
+  model: 'google/gemini-2.5-flash-lite-preview-09-2025' as const,
 
   /** Maximum retries for translation API calls */
   maxRetries: 3,
@@ -182,7 +182,7 @@ export const STORAGE_CONFIG = {
  */
 export const CARTESIA_CONFIG = {
   /** API base URL */
-  baseUrl: 'https://api.cartesia.ai/stt' as const,
+  baseUrl: 'https://api.cartesia.ai' as const,
 
   /** Model to use */
   model: 'ink-whisper' as const,

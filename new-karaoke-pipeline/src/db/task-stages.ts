@@ -13,8 +13,10 @@
 
 /**
  * Individual processing tasks tracked in audio_tasks table
+ * Supports both track-level and TikTok video-level tasks via polymorphic subject_type
  */
 export enum AudioTaskType {
+  // Track-level tasks (subject_type='track')
   Download = 'download',      // Download from Spotify/YouTube
   Align = 'align',            // ElevenLabs word-level alignment
   Translate = 'translate',    // Gemini Flash 2.5 Lite via OpenRouter
@@ -24,6 +26,12 @@ export enum AudioTaskType {
   Segment = 'segment',        // Viral clip selection (hybrid: deterministic + AI)
   Enhance = 'enhance',        // Fal.ai audio enhancement
   Clip = 'clip',              // FFmpeg final clip creation
+
+  // TikTok video tasks (subject_type='tiktok_video')
+  UploadTikTokGrove = 'upload_tiktok_grove',       // Upload TikTok video to Grove (yt-dlp)
+  TranscribeTikTok = 'transcribe_tiktok',          // STT transcription (Cartesia)
+  TranslateTikTok = 'translate_tiktok',            // Translation (Gemini)
+  PostTikTokLens = 'post_tiktok_lens',             // Publish to Lens Protocol
 }
 
 /**
@@ -34,6 +42,7 @@ export enum TaskStatus {
   Running = 'running',        // Currently processing
   Completed = 'completed',    // Successfully finished
   Failed = 'failed',          // Error occurred (retry if attempts < max_attempts)
+  Skipped = 'skipped',        // Task not applicable to this subject (e.g., track-only task for TikTok video)
 }
 
 // ============================================================================

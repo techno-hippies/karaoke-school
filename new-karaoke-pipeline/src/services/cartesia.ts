@@ -125,20 +125,20 @@ export class CartesiaService {
     const mimeType = this.getMimeType(extension);
 
     formData.append('file', new Blob([audioBuffer], { type: mimeType }), `audio.${extension}`);
-    formData.append('model_id', model);
+    formData.append('model', model);
 
     if (language) {
       formData.append('language', language);
     }
 
     if (wordTimestamps) {
-      formData.append('timestamp_granularity', CARTESIA_CONFIG.timestampGranularity);
+      formData.append('timestamp_granularities[]', 'word');
     }
 
     const startTime = Date.now();
 
     // Call Cartesia STT API
-    const response = await fetch(`${this.baseUrl}/transcribe`, {
+    const response = await fetch(`${this.baseUrl}/stt`, {
       method: 'POST',
       headers: {
         'Cartesia-Version': version,
@@ -170,45 +170,34 @@ export class CartesiaService {
     apiResponse: any,
     durationMs: number
   ): CartesiaTranscriptionResult {
-    // Cartesia API response structure (based on Whisper format):
+    // Cartesia API response structure:
     // {
     //   text: "Full transcript...",
-    //   segments: [
-    //     {
-    //       text: "Segment text",
-    //       start: 0.0,
-    //       end: 2.5,
-    //       words: [{ word: "Hello", start: 0.0, end: 0.5 }, ...]
-    //     }
-    //   ],
-    //   language: "en"
+    //   language: "en",
+    //   duration: 15.5,
+    //   words: [{ word: "Hello", start: 0.0, end: 0.5 }, ...]
     // }
 
-    const segments: CartesiaSegment[] = (apiResponse.segments || []).map((seg: any) => ({
-      text: seg.text,
-      start: seg.start,
-      end: seg.end,
-      words: (seg.words || []).map((w: any) => ({
-        word: w.word || w.text,
-        start: w.start,
-        end: w.end,
-      })),
+    const words: CartesiaWord[] = (apiResponse.words || []).map((w: any) => ({
+      word: w.word,
+      start: w.start,
+      end: w.end,
     }));
 
-    // Calculate total word count
-    const wordCount = segments.reduce((sum, seg) => sum + seg.words.length, 0);
-
-    // Estimate duration from last segment
-    const duration = segments.length > 0
-      ? segments[segments.length - 1].end
-      : 0;
+    // Create a single segment with all words for backward compatibility
+    const segments: CartesiaSegment[] = words.length > 0 ? [{
+      text: apiResponse.text || '',
+      start: words[0]?.start || 0,
+      end: words[words.length - 1]?.end || 0,
+      words,
+    }] : [];
 
     return {
       text: apiResponse.text || '',
       segments,
       language: apiResponse.language || 'unknown',
-      duration,
-      wordCount,
+      duration: apiResponse.duration || 0,
+      wordCount: words.length,
     };
   }
 

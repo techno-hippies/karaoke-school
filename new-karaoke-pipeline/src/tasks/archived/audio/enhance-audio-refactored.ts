@@ -238,7 +238,7 @@ export class EnhanceAudioTask extends BaseTask<TrackForEnhancement, EnhancementR
     const falResult = await this.falService.enhanceInstrumental({
       audioUrl: chunkGrove.url,
       prompt: 'instrumental',
-      strength: 0.35
+      strength: 0.4
     });
 
     console.log(`  [Chunk ${chunk.index}] ✓ Enhanced (fal request: ${falResult.requestId})`);

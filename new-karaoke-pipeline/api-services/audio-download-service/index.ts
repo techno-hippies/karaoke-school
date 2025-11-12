@@ -78,7 +78,8 @@ async function getSoulseekClient(): Promise<any> {
     return persistentSoulseekClient;
   }
 
-  return new Promise((resolve, reject) => {
+  // Wrap connection with 60s timeout to prevent infinite hangs
+  const connectionPromise = new Promise((resolve, reject) => {
     slsk.connect(
       {
         user: SOULSEEK_ACCOUNT!,
@@ -96,6 +97,14 @@ async function getSoulseekClient(): Promise<any> {
       }
     );
   });
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('Soulseek connection timeout after 60s'));
+    }, 60000);
+  });
+
+  return Promise.race([connectionPromise, timeoutPromise]);
 }
 
 // Helper: Process download queue
@@ -111,9 +120,17 @@ async function processDownloadQueue() {
     if (!job) break;
 
     try {
-      const result = await job.fn();
+      // Add 5-minute timeout per job to prevent queue blocking
+      const jobTimeout = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Job ${job.id} timed out after 5 minutes`));
+        }, 300000); // 5 minutes
+      });
+
+      const result = await Promise.race([job.fn(), jobTimeout]);
       job.resolve(result);
     } catch (error) {
+      console.error(`Queue job ${job.id} failed:`, error);
       job.reject(error);
     }
   }

@@ -38,18 +38,22 @@ async function main() {
 
   const scraper = new TikTokScraper();
 
-  // Step 1: Fetch profile
-  console.log('⏳ Fetching profile...');
-  const profile = await scraper.getUserProfile(username);
+  // Step 1: Scrape profile + videos in ONE browser session
+  console.log(`⏳ Scraping @${username} (max ${maxVideos === Infinity ? 'all' : maxVideos} videos)...`);
+  console.log('');
+
+  const { profile, videos } = await scraper.scrapeUser(username, maxVideos);
 
   if (!profile) {
     console.error('❌ Failed to fetch profile');
     process.exit(1);
   }
 
-  console.log(`✅ Profile fetched: ${profile.nickname} (@${profile.username})`);
+  console.log('');
+  console.log(`✅ Profile: ${profile.nickname} (@${profile.username})`);
   console.log(`   - Followers: ${profile.stats.followerCount.toLocaleString()}`);
   console.log(`   - Videos: ${profile.stats.videoCount.toLocaleString()}`);
+  console.log(`✅ Videos: ${videos.length} captured`);
   console.log('');
 
   // Step 2: Store creator in DB
@@ -63,13 +67,6 @@ async function main() {
     console.error('❌ Failed to store creator:', error);
     process.exit(1);
   }
-  console.log('');
-
-  // Step 3: Fetch videos
-  console.log(`⏳ Fetching videos (max: ${maxVideos})...`);
-  const videos = await scraper.getUserVideos(profile.secUid, maxVideos);
-
-  console.log(`✅ Fetched ${videos.length} videos`);
   console.log('');
 
   // Step 4: Process and store videos

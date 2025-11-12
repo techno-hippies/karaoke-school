@@ -141,7 +141,28 @@ bun -e "import { query } from './src/db/neon'; ..."
 - `describe_branch` - Get database tree view
 
 ### Key Tables
+
+#### Track Ingestion & Sources
 ```sql
+-- Core tracks table (supports TikTok discovery + manual Spotify submission)
+tracks:
+  spotify_track_id (PK)
+  tiktok_video_id (nullable, unique where not null - supports manual Spotify tracks)
+  source_type ('tiktok' | 'manual_spotify') -- Track origin
+  stage (pending → enriched → audio_ready → aligned → ... → ready)
+  primary_artist_id, primary_artist_name -- For enrichment & legitimacy gating
+  metadata JSONB -- Audit trail (manual_submission details)
+```
+
+#### Audio Processing
+```sql
+-- Polymorphic task queue (tracks + TikTok videos)
+audio_tasks:
+  subject_type ('track' | 'tiktok_video') -- Discriminator for polymorphic design
+  subject_id (spotify_track_id for tracks, video_id for TikTok videos)
+  task_type (download, align, translate, separate, segment, enhance, clip, etc.)
+  status (pending, running, completed, failed, skipped)
+
 -- Segments with Grove URLs
 karaoke_segments: spotify_track_id, fal_segment_grove_url, alignment_data
 
@@ -154,6 +175,12 @@ elevenlabs_word_alignments: words JSONB (word-level timing)
 -- Translations
 lyrics_translations: lines JSONB (line-level with word timing)
 ```
+
+#### Schema Changes (2025-11-12)
+- **Manual Spotify Ingestion**: Added `source_type` column to distinguish TikTok-discovered vs. manually submitted tracks
+- **Nullable tiktok_video_id**: Manual Spotify tracks have `tiktok_video_id = NULL`
+- **Partial Unique Index**: `idx_tracks_tiktok_not_null` protects TikTok uniqueness while allowing multiple NULL values
+- **Polymorphic audio_tasks**: Reuses existing design to support both Spotify track tasks and TikTok video tasks
 
 ### Connection (Neon PostgreSQL)
 - **Project**: `flat-mode-57592166` (karaoke-pipeline-v2 - US East)
@@ -250,8 +277,26 @@ curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
 - [ ] Subgraph indexing LineCard entities
 - [ ] App using lineIndex for progression
 
+### ✅ Manual Spotify Ingestion (2025-11-12)
+- [ ] `source_type` column exists on tracks table (`'tiktok'` or `'manual_spotify'`)
+- [ ] `tiktok_video_id` is nullable for manual tracks
+- [ ] Partial unique index `idx_tracks_tiktok_not_null` protects TikTok uniqueness
+- [ ] CLI can add single tracks: `bun src/tasks/ingestion/add-track-from-spotify.ts --spotifyId=<ID>`
+- [ ] Download tasks auto-seeded and picked up by audio worker
+- [ ] Enrichment tasks spawn correctly for manual tracks
+- [ ] Manual tracks flow through audio pipeline (download → align → translate → …)
+
+**Monitoring Query**:
+```sql
+SELECT source_type, stage, COUNT(*)
+FROM tracks
+GROUP BY source_type, stage
+ORDER BY source_type, stage;
+```
+
 ### ✅ End-to-End Flow
 - [ ] TikTok → Pipeline → Database
+- [ ] Manual Spotify → Pipeline → Database (new)
 - [ ] Database → Grove → Contracts
 - [ ] Contracts → Subgraph → App
 - [ ] User practice → SayItBackAttemptGraded event
