@@ -29,7 +29,7 @@ export enum AudioTaskType {
 
   // TikTok video tasks (subject_type='tiktok_video')
   UploadTikTokGrove = 'upload_tiktok_grove',       // Upload TikTok video to Grove (yt-dlp)
-  TranscribeTikTok = 'transcribe_tiktok',          // STT transcription (Cartesia)
+  TranscribeTikTok = 'transcribe_tiktok',          // STT transcription (Voxtral hybrid)
   TranslateTikTok = 'translate_tiktok',            // Translation (Gemini)
   PostTikTokLens = 'post_tiktok_lens',             // Publish to Lens Protocol
 }

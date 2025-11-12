@@ -178,20 +178,16 @@ export const STORAGE_CONFIG = {
 } as const;
 
 /**
- * Cartesia STT configuration (for TikTok video transcription)
+ * Voxtral (Mistral AI) STT configuration
+ * Best for multilingual content (especially Spanish/English code-switching)
+ * Cost: $0.18/hour = $0.00005/second
  */
-export const CARTESIA_CONFIG = {
+export const VOXTRAL_CONFIG = {
   /** API base URL */
-  baseUrl: 'https://api.cartesia.ai' as const,
+  baseUrl: 'https://api.mistral.ai/v1' as const,
 
   /** Model to use */
-  model: 'ink-whisper' as const,
-
-  /** API version */
-  version: '2025-04-16' as const,
-
-  /** Request word-level timestamps */
-  timestampGranularity: 'word' as const,
+  model: 'voxtral-mini-latest' as const,
 } as const;
 
 /**
@@ -207,7 +203,7 @@ export const CONFIG = {
   grc20: GRC20_CONFIG,
   limits: PIPELINE_LIMITS,
   storage: STORAGE_CONFIG,
-  cartesia: CARTESIA_CONFIG,
+  voxtral: VOXTRAL_CONFIG,
 } as const;
 
 /**

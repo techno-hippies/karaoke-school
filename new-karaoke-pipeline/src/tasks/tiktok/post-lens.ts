@@ -34,7 +34,7 @@ interface TikTokVideoInput extends BaseSubjectInput {
   grove_video_url: string;
   grove_thumbnail_url: string | null;
   transcript_text: string;
-  transcript_segments: any; // Cartesia segments JSONB
+  transcript_segments: any; // Hybrid STT segments JSONB
   transcript_language: string;
   translated_text: string | null;
   translation_target_language: string | null;
@@ -209,12 +209,13 @@ export class PostTikTokLensTask extends BaseTask<TikTokVideoInput, PostResult> {
         languages: {}
       };
 
-      // Add original language segments (use transcript_language as key)
-      transcriptions.languages[video.transcript_language] = {
+      // Always store original segments under 'en' key for app compatibility
+      // The lyrics are matched from full song lyrics (English or original language)
+      transcriptions.languages['en'] = {
         segments: video.transcript_segments
       };
 
-      // Add translated segments if available
+      // Add translated segments if available (zh, vi, id)
       if (video.translated_text && video.translation_target_language) {
         // Create a single segment for the full translation
         // (We don't have word-level timing for translations yet)

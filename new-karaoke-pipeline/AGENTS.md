@@ -237,7 +237,7 @@ Archived pipeline (legacy reference) lives in `../karaoke-pipeline/`—copy patt
 
 ### Pipeline Flow
 ```
-Scrape TikTok → Upload Grove → Transcribe (Cartesia STT) → Translate (zh/vi/id) → Post to Lens
+Scrape TikTok → Upload Grove → Transcribe (Voxtral hybrid STT) → Translate (zh/vi/id) → Post to Lens
 ```
 
 ### Key Design Decisions
@@ -254,11 +254,11 @@ Scrape TikTok → Upload Grove → Transcribe (Cartesia STT) → Translate (zh/v
 - Idempotent: Re-running translate task only processes missing languages
 - Migration 015 applied: Old single-language columns dropped from `tiktok_transcripts`
 
-**Cartesia STT Integration**:
-- Endpoint: `POST /stt` (not `/stt/transcribe`)
-- FormData fields: `file`, `model`, `timestamp_granularities[]` (array, not singular)
-- Response: Flat `words[]` array with `{word, start, end}` objects
-- Config: `CARTESIA_CONFIG.baseUrl` = `'https://api.cartesia.ai'` (no `/stt` suffix)
+**Hybrid Voxtral STT Integration**:
+- Voxtral STT provides multilingual transcripts
+- Gemini Flash matches the clip text to full-song lyrics
+- FA lookup reuses ElevenLabs timings for perfect segments
+- Resulting segments stored in `tiktok_transcripts.transcript_segments`
 
 **Lens Publishing**:
 - Preferred language: Chinese (`zh`) - largest learner demographic globally
@@ -271,7 +271,7 @@ Scrape TikTok → Upload Grove → Transcribe (Cartesia STT) → Translate (zh/v
 | Task | File | Purpose |
 |------|------|---------|
 | Upload | `src/tasks/tiktok/upload-grove.ts` | Upload video/thumbnail to Grove |
-| Transcribe | `src/tasks/tiktok/transcribe.ts` | Cartesia STT with word-level timestamps |
+| Transcribe | `src/tasks/tiktok/transcribe.ts` | Voxtral STT + lyrics matcher + FA timing |
 | Translate | `src/tasks/tiktok/translate.ts` | Translate to ALL target languages (zh/vi/id) |
 | Post | `src/tasks/tiktok/post-lens.ts` | Publish to Lens with preferred language |
 
@@ -281,7 +281,7 @@ Scrape TikTok → Upload Grove → Transcribe (Cartesia STT) → Translate (zh/v
 
 2. **Translation Direction**: Always translate FROM source language TO target languages. Never assume English is the target.
 
-3. **Cartesia API**: Use correct endpoint (`/stt`), FormData field names (`model`, not `model_id`), and timestamp field (`timestamp_granularities[]`, not singular).
+3. **Transcription Pipeline**: Ensure Voxtral + lyrics matcher output segments before posting (segments drive karaoke overlay).
 
 4. **Multi-Language Iteration**: Task must loop over ALL target languages, not just return first match. Check `existing_languages` array and only translate missing ones.
 

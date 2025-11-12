@@ -49,6 +49,31 @@ export function convertGroveUri(uri: string | null | undefined): string {
 }
 
 /**
+ * Extract URI from Lens ImageSet
+ * Prefers optimized version, falls back to raw
+ */
+export function extractImageSetUri(imageSet: any): string | null {
+  if (!imageSet) return null
+
+  // Handle direct URI strings (backwards compatibility)
+  if (typeof imageSet === 'string') {
+    return imageSet
+  }
+
+  // Extract from Lens ImageSet structure
+  return imageSet.optimized?.uri ?? imageSet.raw?.uri ?? null
+}
+
+/**
+ * Convert Lens ImageSet to HTTPS URL
+ * Combines ImageSet extraction with URI conversion
+ */
+export function convertLensImage(imageSet: any): string {
+  const uri = extractImageSetUri(imageSet)
+  return convertGroveUri(uri)
+}
+
+/**
  * Parse video metadata attributes into typed object
  */
 export interface VideoMetadata {

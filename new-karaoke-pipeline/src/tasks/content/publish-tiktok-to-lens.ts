@@ -4,13 +4,12 @@
  *
  * End-to-end workflow:
  * 1. Select TikTok videos without Lens posts
- * 2. Transcribe audio (Cartesia STT)
+ * 2. (Optional) Transcribe audio via hybrid Voxtral pipeline
  * 3. Translate transcript (Gemini Flash 2.5)
  * 4. Create Lens post with video + translated content
  * 5. Track post in database
  *
  * Prerequisites:
- * - CARTESIA_API_KEY environment variable
  * - PRIVATE_KEY environment variable (Lens wallet)
  * - TikTok videos ingested in database
  * - Lens accounts created for artists
@@ -23,7 +22,6 @@
  */
 
 import { query } from '../../db/connection';
-import { createCartesiaService } from '../../services/cartesia';
 import { LyricsTranslator } from '../../services/lyrics-translator';
 import { createLensService } from '../../services/lens-protocol';
 import { LENS_CONFIG, TRANSLATION_CONFIG } from '../../config';
@@ -67,7 +65,6 @@ interface LensPostRecord {
  * Orchestrates the complete workflow from TikTok video to published Lens post
  */
 export class PublishTikTokToLensTask {
-  private cartesiaService?: ReturnType<typeof createCartesiaService>;
   private lyricsTranslator?: LyricsTranslator;
   private lensService?: ReturnType<typeof createLensService>;
 
@@ -76,13 +73,12 @@ export class PublishTikTokToLensTask {
    * This ensures .env is loaded before services are created
    */
   private ensureServices(): void {
-    if (!this.cartesiaService) {
+    if (!this.lyricsTranslator || !this.lensService) {
       const openRouterKey = process.env.OPENROUTER_API_KEY;
       if (!openRouterKey) {
         throw new Error('OPENROUTER_API_KEY environment variable required');
       }
 
-      this.cartesiaService = createCartesiaService();
       this.lyricsTranslator = new LyricsTranslator(openRouterKey);
       this.lensService = createLensService();
     }

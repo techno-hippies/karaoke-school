@@ -34,6 +34,7 @@ import { createEnrichmentTask } from "../../db/queries";
 import { getTrack } from "../../services/spotify";
 import { ensureAudioTask } from "../../db/audio-tasks";
 import { AudioTaskType } from "../../db/task-stages";
+import { upsertSpotifyTrackSQL, upsertSpotifyArtistSQL } from "../../db/spotify";
 import { readFileSync, existsSync } from "fs";
 import { createReadStream } from "fs";
 import { createInterface } from "readline";
@@ -95,7 +96,38 @@ async function insertManualTrack(
       ? trackData.artists
       : JSON.parse(trackData.artists as any);
 
-    // Insert track
+    // Upsert Spotify track cache (so downstream joins work)
+    const trackUpsertSQL = upsertSpotifyTrackSQL({
+      spotify_track_id: spotifyId,
+      title: trackData.title,
+      artists: artists,
+      album: trackData.album,
+      isrc: trackData.isrc,
+      duration_ms: trackData.duration_ms,
+      release_date: trackData.release_date,
+      popularity: undefined,
+      preview_url: undefined,
+      external_urls: undefined,
+    });
+    await query(trackUpsertSQL);
+
+    // Upsert Spotify artists cache
+    for (const artist of artists) {
+      const artistUpsertSQL = upsertSpotifyArtistSQL({
+        spotify_artist_id: artist.id,
+        name: artist.name,
+        genres: [],
+        popularity: 0,
+        followers: 0,
+        image_url: undefined,
+        external_urls: undefined,
+      });
+      await query(artistUpsertSQL);
+    }
+
+    console.log(`   ✅ Spotify cache updated (track + ${artists.length} artist(s))`);
+
+    // Insert track into pipeline
     await query(
       `INSERT INTO tracks (
         spotify_track_id,

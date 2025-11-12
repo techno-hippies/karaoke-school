@@ -3,7 +3,7 @@
  *
  * Updates the task_type CHECK constraint to include the 4 new TikTok task types:
  * - upload_tiktok_grove: Upload TikTok video to Grove IPFS
- * - transcribe_tiktok: Transcribe TikTok video using Cartesia STT
+ * - transcribe_tiktok: Transcribe TikTok video using hybrid Voxtral STT
  * - translate_tiktok: Translate TikTok transcript using Gemini
  * - post_tiktok_lens: Publish TikTok video to Lens Protocol
  *

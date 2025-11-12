@@ -18,6 +18,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
 import {
   convertGroveUri,
+  convertLensImage,
   parseVideoMetadata,
 } from '@/lib/lens/utils'
 import type { Address } from 'viem'
@@ -133,12 +134,14 @@ export function CreatorPageContainer() {
   // Parse account metadata
   console.log('[CreatorPage] DEBUG - Lens account.metadata:', account.metadata)
   console.log('[CreatorPage] DEBUG - Lens account.metadata.name:', account.metadata?.name)
+  console.log('[CreatorPage] DEBUG - Lens account.metadata.picture:', account.metadata?.picture)
   console.log('[CreatorPage] DEBUG - Lens handle (URL param):', lenshandle)
   const displayName = account.metadata?.name || lenshandle || 'Unknown Creator'
   console.log('[CreatorPage] DEBUG - Final displayName:', displayName)
   const avatarUrl = account.metadata?.picture
-    ? convertGroveUri(account.metadata.picture)
+    ? convertLensImage(account.metadata.picture)
     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.address}`
+  console.log('[CreatorPage] DEBUG - Final avatarUrl:', avatarUrl)
 
   // TODO: Check verification status from Lens or custom attributes
   const verified = false

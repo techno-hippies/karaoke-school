@@ -15,12 +15,14 @@ export function upsertCreatorSQL(profile: TikTokUserProfile): string {
     display_name: profile.nickname || profile.username,
     follower_count: profile.stats?.followerCount || 0,
     total_videos: profile.stats?.videoCount || 0,
+    avatar_url: profile.avatar || null,
   };
 
   return buildUpsert('tiktok_creators', data, 'username', [
     'display_name',
     'follower_count',
     'total_videos',
+    'avatar_url',
     'updated_at'
   ]) + ' RETURNING username';
 }

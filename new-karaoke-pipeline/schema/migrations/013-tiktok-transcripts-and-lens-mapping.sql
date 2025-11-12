@@ -10,7 +10,7 @@
 CREATE TABLE IF NOT EXISTS tiktok_transcripts (
   video_id TEXT PRIMARY KEY REFERENCES tiktok_videos(video_id) ON DELETE CASCADE,
 
-  -- Cartesia STT outputs
+  -- STT outputs
   transcript_text TEXT NOT NULL,
   transcript_language TEXT NOT NULL,
   transcript_duration_s NUMERIC,
@@ -33,8 +33,8 @@ CREATE INDEX IF NOT EXISTS idx_tiktok_transcripts_translation_status
   ON tiktok_transcripts(video_id)
   WHERE translated_text IS NOT NULL;
 
-COMMENT ON TABLE tiktok_transcripts IS 'Speech-to-text and translation outputs for TikTok videos (Cartesia STT → Gemini translation)';
-COMMENT ON COLUMN tiktok_transcripts.transcript_text IS 'Original transcript from Cartesia Ink-Whisper STT';
+COMMENT ON TABLE tiktok_transcripts IS 'Speech-to-text and translation outputs for TikTok videos (hybrid Voxtral STT → Gemini translation)';
+COMMENT ON COLUMN tiktok_transcripts.transcript_text IS 'Original transcript from Voxtral STT (lyrics-matched)';
 COMMENT ON COLUMN tiktok_transcripts.transcript_language IS 'Detected language code (e.g., ''en'', ''es'', ''zh'')';
 COMMENT ON COLUMN tiktok_transcripts.translated_text IS 'Translated caption from Gemini Flash 2.5 Lite';
 COMMENT ON COLUMN tiktok_transcripts.translation_target_language IS 'Target language for translation (e.g., ''zh'', ''vi'', ''id'')';

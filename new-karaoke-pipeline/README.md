@@ -516,7 +516,7 @@ Values should stay aligned (e.g., tracks at `audio_ready` imply pending `align` 
 Complete TikTok→Lens publishing workflow for language learning content.
 
 **Architecture**:
-- **STT**: Cartesia Ink-Whisper transcription with word-level timestamps
+- **STT**: Hybrid Voxtral STT + lyrics matcher + FA lookup (perfect timing segments)
 - **Translation**: Gemini Flash 2.5 Lite translating FROM English TO learner languages (zh/vi/id)
 - **Storage**: Multi-language schema with composite key `(video_id, language_code)`
 - **Publishing**: Lens Protocol posts with preferred language (Chinese - largest demographic)
@@ -529,7 +529,7 @@ DISPLAY=:0 TIKTOK_HEADLESS=false bun src/tasks/ingestion/scrape-tiktok.ts @creat
 # 2. Upload to Grove
 bun src/tasks/tiktok/upload-grove.ts --limit=10
 
-# 3. Transcribe with Cartesia STT
+# 3. Transcribe with Voxtral hybrid STT
 bun src/tasks/tiktok/transcribe.ts --limit=10
 
 # 4. Translate to zh/vi/id
@@ -541,7 +541,7 @@ bun src/tasks/tiktok/post-lens.ts --limit=10
 
 **Database Schema**:
 - `tiktok_videos` - Video metadata, Grove URLs
-- `tiktok_transcripts` - Cartesia STT output (transcript text + language)
+- `tiktok_transcripts` - Voxtral STT output with FA-aligned segments (text + language + timings)
 - `tiktok_translations` - Multi-language translations with composite key `(video_id, language_code)`
 - `lens_posts` - Published Lens posts with translation metadata
 

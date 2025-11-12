@@ -43,7 +43,7 @@ COMMENT ON TABLE lens_posts IS 'TikTok videos published to Lens Protocol with tr
 COMMENT ON COLUMN lens_posts.tiktok_video_id IS 'TikTok video ID (primary key, references tiktok_videos)';
 COMMENT ON COLUMN lens_posts.lens_post_id IS 'Lens Protocol post ID (initially txHash, then assigned by indexer)';
 COMMENT ON COLUMN lens_posts.lens_account_address IS 'Lens account that created the post';
-COMMENT ON COLUMN lens_posts.transcript_text IS 'Original transcript from Cartesia STT';
+COMMENT ON COLUMN lens_posts.transcript_text IS 'Original transcript from Voxtral STT pipeline';
 COMMENT ON COLUMN lens_posts.translated_text IS 'Translated caption from Gemini Flash 2.5';
 COMMENT ON COLUMN lens_posts.target_language IS 'Target language code (zh, vi, id, etc.)';
 COMMENT ON COLUMN lens_posts.post_metadata_uri IS 'Grove URI to Lens post metadata JSON';

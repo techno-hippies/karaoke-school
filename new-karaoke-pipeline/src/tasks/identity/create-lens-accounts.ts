@@ -162,6 +162,7 @@ async function main() {
       username: string;
       display_name: string | null;
       follower_count: number | null;
+      avatar_url: string | null;
       pkp_address: string;
       pkp_token_id: string;
     }>(`
@@ -169,6 +170,7 @@ async function main() {
         tc.username,
         tc.display_name,
         tc.follower_count,
+        tc.avatar_url,
         pkp.pkp_address,
         pkp.pkp_token_id
       FROM tiktok_creators tc
@@ -211,6 +213,7 @@ async function main() {
             handle: creator.username,
             name: creator.display_name || creator.username,
             bio: `TikTok creator @${creator.username} on Karaoke School`,
+            pictureUri: creator.avatar_url || undefined,
             attributes,
             pkpAddress: creator.pkp_address,
           });
