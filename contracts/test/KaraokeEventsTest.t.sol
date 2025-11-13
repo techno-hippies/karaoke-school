@@ -2,10 +2,11 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../src/events/ClipEvents.sol";
+import "../src/events/KaraokeEvents.sol";
 
-contract ClipEventsTest is Test {
-    ClipEvents private clipEvents;
+contract KaraokeEventsTest is Test {
+    KaraokeEvents private karaokeEvents;
+    address private trustedPKP = address(0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7);
 
     bytes32 private constant CLIP_HASH = keccak256("clip-hash");
     string private constant WORK_ID = "grc20-work-id";
@@ -47,7 +48,7 @@ contract ClipEventsTest is Test {
     event ClipToggled(bytes32 indexed clipHash, bool enabled, uint64 timestamp);
 
     function setUp() public {
-        clipEvents = new ClipEvents();
+        karaokeEvents = new KaraokeEvents(trustedPKP);
     }
 
     function testEmitClipRegistered() public {
@@ -64,7 +65,7 @@ contract ClipEventsTest is Test {
             uint64(block.timestamp)
         );
 
-        clipEvents.emitClipRegistered(
+        karaokeEvents.emitClipRegistered(
             CLIP_HASH,
             WORK_ID,
             TRACK_ID,
@@ -86,7 +87,7 @@ contract ClipEventsTest is Test {
             uint64(block.timestamp)
         );
 
-        clipEvents.emitClipProcessed(
+        karaokeEvents.emitClipProcessed(
             CLIP_HASH,
             "grove://instrumental",
             "grove://alignment",
@@ -109,7 +110,7 @@ contract ClipEventsTest is Test {
             uint64(block.timestamp)
         );
 
-        clipEvents.emitSongEncrypted(
+        karaokeEvents.emitSongEncrypted(
             CLIP_HASH,
             TRACK_ID,
             "grove://full-encrypted",
@@ -125,12 +126,12 @@ contract ClipEventsTest is Test {
         vm.expectEmit();
         emit ClipToggled(CLIP_HASH, true, uint64(block.timestamp));
 
-        clipEvents.emitClipToggled(CLIP_HASH, true);
+        karaokeEvents.emitClipToggled(CLIP_HASH, true);
     }
 
     function testGetClipHash() public {
         bytes32 expected = keccak256(abi.encodePacked(TRACK_ID, CLIP_START_MS));
-        bytes32 actual = clipEvents.getClipHash(TRACK_ID, CLIP_START_MS);
+        bytes32 actual = karaokeEvents.getClipHash(TRACK_ID, CLIP_START_MS);
 
         assertEq(actual, expected);
     }

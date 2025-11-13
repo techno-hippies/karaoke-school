@@ -26,6 +26,7 @@ export enum AudioTaskType {
   Segment = 'segment',        // Viral clip selection (hybrid: deterministic + AI)
   Enhance = 'enhance',        // Fal.ai audio enhancement
   Clip = 'clip',              // FFmpeg final clip creation
+  GenerateClipLines = 'generate_clip_lines', // Materialize clip-specific lyrics
 
   // TikTok video tasks (subject_type='tiktok_video')
   UploadTikTokGrove = 'upload_tiktok_grove',       // Upload TikTok video to Grove (yt-dlp)
@@ -118,7 +119,8 @@ export const STAGE_REQUIREMENTS: Record<TrackStage, AudioTaskType[]> = {
   [TrackStage.Separated]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate],
   [TrackStage.Segmented]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment],
   [TrackStage.Enhanced]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance],
-  [TrackStage.Ready]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance, AudioTaskType.Clip],
+  // ✅ Clip lines generated after clip creation (requires segment + align for timing)
+  [TrackStage.Ready]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance, AudioTaskType.Clip, AudioTaskType.GenerateClipLines],
 
   // Identity & GRC-20 (no audio task requirements)
   [TrackStage.PkpMinted]: [],

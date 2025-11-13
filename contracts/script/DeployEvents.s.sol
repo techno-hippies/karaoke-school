@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {SongEvents} from "../src/events/SongEvents.sol";
-import {ClipEvents} from "../src/events/ClipEvents.sol";
+import {KaraokeEvents} from "../src/events/KaraokeEvents.sol";
 import {TranslationEvents} from "../src/events/TranslationEvents.sol";
 import {LineEvents} from "../src/events/LineEvents.sol";
 import {ExerciseEvents} from "../src/events/ExerciseEvents.sol";
@@ -53,10 +53,11 @@ contract DeployEvents is Script {
         console.log("  SongEvents deployed at:", address(songEvents));
         console.log("");
 
-        // Deploy ClipEvents (no constructor params)
-        console.log("Deploying ClipEvents...");
-        ClipEvents clipEvents = new ClipEvents();
-        console.log("  ClipEvents deployed at:", address(clipEvents));
+        // Deploy KaraokeEvents (with trusted PKP for performance grading)
+        console.log("Deploying KaraokeEvents...");
+        console.log("  Trusted PKP:", trustedPKP);
+        KaraokeEvents karaokeEvents = new KaraokeEvents(trustedPKP);
+        console.log("  KaraokeEvents deployed at:", address(karaokeEvents));
         console.log("");
 
         // Deploy TranslationEvents (no constructor params)
@@ -90,14 +91,14 @@ contract DeployEvents is Script {
         console.log("Deployment Summary");
         console.log("=================================");
         console.log("SongEvents:          ", address(songEvents));
-        console.log("ClipEvents:          ", address(clipEvents));
+        console.log("KaraokeEvents:       ", address(karaokeEvents));
         console.log("TranslationEvents:   ", address(translationEvents));
         console.log("LineEvents:          ", address(lineEvents));
         console.log("ExerciseEvents:      ", address(exerciseEvents));
         console.log("AccountEvents:       ", address(accountEvents));
         console.log("");
         console.log("Next steps:");
-        console.log("1. Update karaoke-pipeline scripts to use ClipEvents");
+        console.log("1. Update karaoke-pipeline scripts to use KaraokeEvents");
         console.log("2. Update subgraph/subgraph.yaml with contract addresses");
         console.log("3. Deploy subgraph to The Graph");
         console.log("4. Update frontend to query subgraph");
