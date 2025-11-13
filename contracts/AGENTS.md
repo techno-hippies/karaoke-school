@@ -2,11 +2,17 @@
 
 ## Core Commands
 
-• **Compile**: `forge build` (ZKSync foundry with dual compilation)
-• **Test**: `forge test` (EVM → EraVM context switching)
-• **Deploy**: `forge script script/DeployEvents.s.sol --zk --broadcast --rpc-url https://sepolia.era.zksync.dev`
-• **Cast Call**: `cast call --zksync --private-key <KEY> <address> "number()" --rpc-url https://sepolia.era.zksync.dev --trace`
-• **Verify**: `forge verify-contract --zksync <address> SegmentEvents --chain zksync-sepolia`
+• **Compile**: `forge build --via-ir --force` (REQUIRED: --via-ir avoids "stack too deep" errors)
+• **Test**: `forge test --via-ir`
+• **Deploy**: `PRIVATE_KEY=0x... TRUSTED_PKP_ADDRESS=0x... npx tsx deploy-<contract-name>.ts` (ethers.js pattern)
+• **Cast Call**: `cast call <address> "functionName()" --rpc-url https://rpc.testnet.lens.xyz`
+• **Verify**: `forge verify-contract <address> ContractName --chain lens-testnet`
+
+**CRITICAL DEPLOYMENT NOTES:**
+- Always use `forge build --via-ir --force` (NOT just `forge build`)
+- Always use explicit env vars with npx (NOT `source .env` - subprocess doesn't inherit)
+- Ethers deployment scripts auto-save ABIs to `../subgraph/abis/` for The Graph indexing
+- See `DEPLOYMENT.md` for full troubleshooting guide
 
 ## Contract Architecture
 

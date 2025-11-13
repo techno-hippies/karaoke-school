@@ -82,7 +82,7 @@ export function useAccountPosts(accountAddress?: string) {
         posts.map(async (post) => {
           try {
             // Fetch metadata from Grove
-            const metadataUrl = convertGroveUri(post.metadata)
+            const metadataUrl = convertGroveUri(post.metadata as any)
             const response = await fetch(metadataUrl)
 
             if (!response.ok) {

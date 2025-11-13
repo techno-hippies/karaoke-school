@@ -128,6 +128,7 @@ interface NetworkBalance {
     usdValue: string
     currencyIcon: string
     chainIcon: string
+    network: string
   }>
   error?: string
 }
@@ -242,7 +243,6 @@ export function usePKPBalances(): UsePKPBalancesReturn {
                     balance: formattedBalance,
                     usdValue,
                     currencyIcon: getTokenIcon(tokenSymbol),
-        // @ts-expect-error - Network field type mismatch
                     chainIcon: getNetworkOverlayIcon(config.name),
                     network: config.name,  // Add network field for consistency
                   })
@@ -319,7 +319,6 @@ export function usePKPBalances(): UsePKPBalancesReturn {
 
         // Add token balances
         for (const token of result.tokens) {
-          // @ts-expect-error - Network field type mismatch
           console.log('[DEBUG] Adding token:', token)
         }
         allBalances.push(...result.tokens)

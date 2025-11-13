@@ -205,13 +205,20 @@ export function MediaPageContainer() {
       return
     }
 
+    // Choose translation URLs based on subscription status
+    // Non-subscribed: Use clip_grove_url (40-60s clip only)
+    // Subscribed: Use grove_url (full song)
+    console.log('[MediaPageContainer] Loading translations - hasSubscription:', hasSubscription)
     Promise.all<[string, any] | null>(
     // @ts-expect-error - Promise.all type inference
       clipMetadata.translations.map(async (t: any) => {
         try {
-          const url = convertGroveUri(t.grove_url)
+          const translationUrl = hasSubscription ? t.grove_url : (t.clip_grove_url || t.grove_url)
+          console.log(`[MediaPageContainer] Loading ${t.language_code} from:`, translationUrl, '(subscription:', hasSubscription, ')')
+          const url = convertGroveUri(translationUrl)
           const response = await fetch(url)
           const data = await response.json()
+          console.log(`[MediaPageContainer] Loaded ${t.language_code} with ${data.lines?.length || 0} lines`)
           return [t.language_code, data]
         } catch (e) {
           console.error(`[MediaPageContainer] Failed to load ${t.language_code}:`, e)
@@ -255,7 +262,7 @@ export function MediaPageContainer() {
         setLoadedTranslations(translations)
       }
     })
-  }, [clipMetadata])
+  }, [clipMetadata, hasSubscription])
 
   // Loading state
   if (isLoadingWork || isLoadingClip) {
@@ -470,10 +477,8 @@ export function MediaPageContainer() {
         showTranslations={availableLanguages.length > 0}
         onBack={() => navigate(-1)}
         onArtistClick={
-        // @ts-expect-error - artistLensHandle temporarily removed from type
-          clipMetadata?.artistLensHandle
-            ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
-        // @ts-expect-error - artistLensHandle temporarily removed from type
+          (clipMetadata as any)?.artistLensHandle
+            ? () => navigate(`/u/${(clipMetadata as any).artistLensHandle}`)
             : undefined
         }
         onUnlockClick={hasSubscription ? undefined : handleUnlockClick}

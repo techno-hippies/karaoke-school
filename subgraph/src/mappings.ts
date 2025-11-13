@@ -4,7 +4,8 @@ import {
   ClipProcessed,
   ClipToggled,
   SongEncrypted,
-} from "../generated/ClipEvents/ClipEvents";
+  KaraokePerformanceGraded,
+} from "../generated/KaraokeEvents/KaraokeEvents";
 import {
   TranslationAdded,
   TranslationUpdated,
@@ -655,4 +656,64 @@ export function handleAccountVerified(event: AccountVerified): void {
     account.updatedAt = event.params.timestamp;
     account.save();
   }
+}
+
+export function handleKaraokePerformanceGraded(event: KaraokePerformanceGraded): void {
+  let performanceId = event.params.performanceId.toString();
+  let performance = new Performance(performanceId);
+  performance.performanceId = event.params.performanceId;
+  let clipId = event.params.clipHash.toHexString();
+  performance.clip = clipId;
+  performance.performer = event.params.performer.toHexString();
+  performance.performerAddress = event.params.performer;
+  performance.score = event.params.similarityScore;
+  performance.metadataUri = event.params.metadataUri;
+  performance.gradedAt = event.params.timestamp;
+
+  // Load clip to update stats
+  let clip = Clip.load(clipId);
+  if (clip != null) {
+    performance.clipHash = clip.clipHash;
+
+    // Update clip stats
+    let oldAvg = clip.averageScore;
+    let oldCount = clip.performanceCount;
+    let newCount = oldCount + 1;
+
+    // Calculate new average
+    let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
+    let newScore = BigDecimal.fromString(event.params.similarityScore.toString());
+    let newTotal = totalScore.plus(newScore);
+    let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
+
+    clip.performanceCount = newCount;
+    clip.averageScore = newAvg;
+    clip.save();
+  }
+
+  // Update account stats
+  let accountId = event.params.performer.toHexString();
+  let account = Account.load(accountId);
+
+  if (account != null) {
+    let oldAvg = account.averageScore;
+    let oldCount = account.performanceCount;
+    let newCount = oldCount + 1;
+
+    let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
+    let newScore = BigDecimal.fromString(event.params.similarityScore.toString());
+    let newTotal = totalScore.plus(newScore);
+    let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
+
+    account.performanceCount = newCount;
+    account.averageScore = newAvg;
+    account.save();
+  }
+
+  performance.save();
+
+  // Update global stats
+  let stats = loadOrCreateGlobalStats();
+  stats.totalPerformances = stats.totalPerformances + 1;
+  stats.save();
 }

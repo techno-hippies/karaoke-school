@@ -47,7 +47,6 @@ const GET_KARAOKE_SONGS_QUERY = gql`
     clips(
       where: {
         hasInstrumental: $hasInstrumental
-        processedAt_not: null
       }
       orderBy: registeredAt
       orderDirection: desc
@@ -173,17 +172,17 @@ function filterSongsByQuality(songs: KaraokeSong[], isSearch: boolean = false): 
     if (song.title.startsWith('Work ') || song.title.startsWith('work ')) {
       return false
     }
-    
+
     // Filter out songs with unknown artist
     if (song.artist === 'Unknown Artist' || song.artist === 'unknown artist') {
       return false
     }
-    
+
     // Filter out songs without Grove metadata (still using fallback titles)
-    if (!song.metadataUri) {
+    if (!(song as any).metadataUri) {
       return false
     }
-    
+
     return true
   })
 }
@@ -244,14 +243,12 @@ function groupClipsByWork(clips: any[]): KaraokeSong[] {
  * Fetch Grove metadata for a song (same pattern as useSongV2.ts)
  */
 async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
-      // @ts-expect-error - metadataUri temporarily removed from type
-  if (!song.metadataUri) {
+  if (!(song as any).metadataUri) {
     return song
   }
 
-          // @ts-expect-error - metadataUri temporarily removed from type
   try {
-    const httpUrl = convertGroveUri(song.metadataUri)
+    const httpUrl = convertGroveUri((song as any).metadataUri)
     console.log('[useKaraokeSongsSearch] Fetching Grove metadata from:', httpUrl)
 
     const response = await fetch(httpUrl)

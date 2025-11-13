@@ -4,10 +4,12 @@ import '../../env';
 
 import { ethers } from 'ethers';
 import {
-  CLIP_EVENTS_ADDRESS,
   LENS_TESTNET_RPC,
 } from '../../../../lit-actions/config/contracts.config.js';
-import ClipEventsArtifact from '../../../../contracts/out/ClipEvents.sol/ClipEvents.json' assert { type: 'json' };
+import KaraokeEventsArtifact from '../../../../contracts/out/KaraokeEvents.sol/KaraokeEvents.json' assert { type: 'json' };
+
+// KaraokeEvents contract address (replaces ClipEvents)
+const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409';
 
 import { query } from '../../db/connection';
 import { GroveService } from '../../services/grove';
@@ -64,7 +66,7 @@ function getPrivateKey(): `0x${string}` {
 
 function requireAddress(address?: string): string {
   if (!address || address === ethers.ZeroAddress) {
-    throw new Error('CLIP_EVENTS_ADDRESS not configured');
+    throw new Error('KARAOKE_EVENTS_ADDRESS not configured');
   }
 
   return ethers.getAddress(address);
@@ -149,6 +151,18 @@ async function fetchLines(spotifyTrackId: string): Promise<KaraokeLineRow[]> {
        FROM karaoke_lines
       WHERE spotify_track_id = $1
       ORDER BY line_index ASC`,
+    [spotifyTrackId]
+  );
+}
+
+async function fetchClipLines(spotifyTrackId: string): Promise<KaraokeLineRow[]> {
+  return query<KaraokeLineRow>(
+    `SELECT line_id, clip_line_index as line_index, original_text,
+            clip_relative_start_ms as start_ms, clip_relative_end_ms as end_ms,
+            duration_ms, segment_hash
+       FROM clip_lines
+      WHERE spotify_track_id = $1
+      ORDER BY clip_line_index ASC`,
     [spotifyTrackId]
   );
 }
@@ -251,9 +265,12 @@ async function uploadAlignment(
 
 async function uploadTranslation(
   spotifyTrackId: string,
-  translation: TranslationRow
-): Promise<{ languageCode: string; groveUrl: string }> {
-  const payload = {
+  translation: TranslationRow,
+  clipStartMs: number,
+  clipEndMs: number
+): Promise<{ languageCode: string; groveUrl: string; clipGroveUrl: string }> {
+  // Full song translation
+  const fullPayload = {
     spotify_track_id: spotifyTrackId,
     language_code: translation.language_code,
     translator: translation.translator,
@@ -262,22 +279,65 @@ async function uploadTranslation(
     generated_at: new Date().toISOString(),
   } satisfies Record<string, unknown>;
 
-  const buffer = Buffer.from(JSON.stringify(payload, null, 2));
-  const result = await grove.uploadFile(
-    buffer,
+  const fullBuffer = Buffer.from(JSON.stringify(fullPayload, null, 2));
+  const fullResult = await grove.uploadFile(
+    fullBuffer,
     `${spotifyTrackId}-${translation.language_code}-translation.json`,
     'application/json'
   );
 
-  return { languageCode: translation.language_code, groveUrl: result.url };
+  // Clip-only translation (filter lines within clip time window AND offset to clip start)
+  const clipStartSec = clipStartMs / 1000;
+  const clipEndSec = clipEndMs / 1000;
+  const clipLines = Array.isArray(translation.lines)
+    ? translation.lines
+        .filter((line: any) => {
+          // Include line if it overlaps with clip window
+          return line.start < clipEndSec && line.end > clipStartSec;
+        })
+        .map((line: any) => ({
+          ...line,
+          // Offset timing to be relative to clip start (0-based)
+          start: Math.max(0, line.start - clipStartSec),
+          end: line.end - clipStartSec,
+          words: line.words?.map((word: any) => ({
+            ...word,
+            start: Math.max(0, word.start - clipStartSec),
+            end: word.end - clipStartSec,
+          })),
+        }))
+    : [];
+
+  const clipPayload = {
+    spotify_track_id: spotifyTrackId,
+    language_code: translation.language_code,
+    translator: translation.translator,
+    quality_score: translation.quality_score,
+    lines: clipLines,
+    generated_at: new Date().toISOString(),
+  } satisfies Record<string, unknown>;
+
+  const clipBuffer = Buffer.from(JSON.stringify(clipPayload, null, 2));
+  const clipResult = await grove.uploadFile(
+    clipBuffer,
+    `${spotifyTrackId}-${translation.language_code}-clip-translation.json`,
+    'application/json'
+  );
+
+  return {
+    languageCode: translation.language_code,
+    groveUrl: fullResult.url,
+    clipGroveUrl: clipResult.url
+  };
 }
 
 async function uploadClipMetadata(
   clip: ClipCandidate,
   clipHash: string,
   alignmentUri: string,
-  translations: Array<{ languageCode: string; groveUrl: string }>,
-  lines: KaraokeLineRow[]
+  translations: Array<{ languageCode: string; groveUrl: string; clipGroveUrl: string }>,
+  lines: KaraokeLineRow[],
+  clipLines: KaraokeLineRow[]
 ): Promise<string> {
   const clipDuration = clip.clip_end_ms - clip.clip_start_ms;
 
@@ -324,8 +384,17 @@ async function uploadClipMetadata(
     translations: translations.map((entry) => ({
       language_code: entry.languageCode,
       grove_url: entry.groveUrl,
+      clip_grove_url: entry.clipGroveUrl,
     })),
     karaoke_lines: lines.map((line) => ({
+      line_id: line.line_id,
+      line_index: line.line_index,
+      original_text: line.original_text,
+      start_ms: line.start_ms,
+      end_ms: line.end_ms,
+      duration_ms: line.duration_ms,
+    })),
+    clip_lines: clipLines.map((line) => ({
       line_id: line.line_id,
       line_index: line.line_index,
       original_text: line.original_text,
@@ -444,6 +513,12 @@ async function processClip(
     return;
   }
 
+  const clipLines = await fetchClipLines(clip.spotify_track_id);
+  if (clipLines.length === 0) {
+    console.warn('   ⚠️  No clip lines found, skipping');
+    return;
+  }
+
   const clipHash = toHexClipHash(clip.spotify_track_id, clip.clip_start_ms);
   console.log(`   🔑 Clip hash: ${clipHash}`);
 
@@ -465,18 +540,18 @@ async function processClip(
   const alignmentUri = dryRun ? 'https://api.grove.storage/dry-run-alignment' : await uploadAlignment(clip.spotify_track_id, alignment);
   console.log(`   📼 Alignment URI: ${alignmentUri}`);
 
-  const translationUploads: Array<{ languageCode: string; groveUrl: string }> = [];
+  const translationUploads: Array<{ languageCode: string; groveUrl: string; clipGroveUrl: string }> = [];
   for (const translation of translations) {
     const uploadResult = dryRun
-      ? { languageCode: translation.language_code, groveUrl: `https://api.grove.storage/dry-run-${translation.language_code}` }
-      : await uploadTranslation(clip.spotify_track_id, translation);
-    console.log(`   🌐 Translation ${translation.language_code}: ${uploadResult.groveUrl}`);
+      ? { languageCode: translation.language_code, groveUrl: `https://api.grove.storage/dry-run-${translation.language_code}`, clipGroveUrl: `https://api.grove.storage/dry-run-${translation.language_code}-clip` }
+      : await uploadTranslation(clip.spotify_track_id, translation, clip.clip_start_ms, clip.clip_end_ms);
+    console.log(`   🌐 Translation ${translation.language_code}: ${uploadResult.groveUrl} (clip: ${uploadResult.clipGroveUrl})`);
     translationUploads.push(uploadResult);
   }
 
   const metadataUri = dryRun
     ? 'https://api.grove.storage/dry-run-clip-metadata'
-    : await uploadClipMetadata(clip, clipHash, alignmentUri, translationUploads, lines);
+    : await uploadClipMetadata(clip, clipHash, alignmentUri, translationUploads, lines, clipLines);
 
   console.log(`   🗃️  Metadata URI: ${metadataUri}`);
 
@@ -513,16 +588,16 @@ async function main(): Promise<void> {
 
   console.log(`Found ${clips.length} clip(s) to process${dryRun ? ' [dry run]' : ''}.`);
 
-  const address = requireAddress(CLIP_EVENTS_ADDRESS);
+  const address = requireAddress(KARAOKE_EVENTS_ADDRESS);
 
   const contract = (() => {
     if (dryRun) {
-      return new ethers.Contract(address, ClipEventsArtifact.abi);
+      return new ethers.Contract(address, KaraokeEventsArtifact.abi);
     }
 
     const provider = new ethers.JsonRpcProvider(LENS_TESTNET_RPC);
     const wallet = new ethers.Wallet(getPrivateKey(), provider);
-    return new ethers.Contract(address, ClipEventsArtifact.abi, wallet);
+    return new ethers.Contract(address, KaraokeEventsArtifact.abi, wallet);
   })();
 
   for (const clip of clips) {

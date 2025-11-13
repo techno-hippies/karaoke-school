@@ -34,7 +34,7 @@ export function useExerciseSubmission() {
 
     // Optimistic: Show immediate feedback based on transcript
     // TODO: Add proper similarity scoring here (could use simple Levenshtein distance)
-    const transcript = params.audioDataBase64 ? 'Processing...' : ''
+    const transcript = ('audioDataBase64' in params && params.audioDataBase64) ? 'Processing...' : ''
 
     // Background: Submit to blockchain and get actual grading
     const resultPromise = grade(params)

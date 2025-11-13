@@ -18,14 +18,7 @@ function transformKaraokeSongToSong(karaokeSong: any): Song {
     artist: karaokeSong.artist,
     artworkUrl: karaokeSong.artworkUrl || '',
     isProcessed: karaokeSong.hasInstrumental,
-      // @ts-expect-error - spotifyTrackId temporarily removed from type
-    spotifyTrackId: karaokeSong.spotifyTrackId,
-    totalSegments: karaokeSong.totalSegments,
-    hasInstrumental: karaokeSong.hasInstrumental,
-    hasAlignments: karaokeSong.hasAlignments,
-    translationCount: karaokeSong.translationCount,
-    performanceCount: karaokeSong.performanceCount,
-  }
+  } as Song
 }
 
 // Client-side fuzzy search function
@@ -55,7 +48,6 @@ export function SearchPage() {
   })
 
   // Transform all songs
-    // @ts-expect-error - KaraokeSong type compatibility
   const allSongs = useMemo(() =>
     karaokeSongs?.map(transformKaraokeSongToSong) || [],
     [karaokeSongs]

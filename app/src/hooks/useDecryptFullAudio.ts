@@ -79,6 +79,7 @@ export function useDecryptFullAudio(
         })
 
         const balance = await publicClient.readContract({
+          authorizationList: undefined as any,
           address: lockAddress,
           abi: [
             {
@@ -130,10 +131,10 @@ export function useDecryptFullAudio(
         // Build access control conditions (reconstructed from unlock parameters)
         const accessControlConditions = [
           {
-            conditionType: 'evmBasic',
+            conditionType: 'evmBasic' as const,
             contractAddress: lockAddress.toLowerCase(),
             standardContractType: 'ERC721',
-            chain: 'baseSepolia',
+            chain: 'baseSepolia' as const,
             method: 'balanceOf',
             parameters: [':userAddress'],
             returnValueTest: {
@@ -147,9 +148,8 @@ export function useDecryptFullAudio(
 
         // Decrypt with Lit Protocol (pass encrypted data object directly)
         const decryptedData = await litClient.decrypt({
-      // @ts-expect-error - Lit Protocol chain type version mismatch
           data: encryptedData,
-          unifiedAccessControlConditions: accessControlConditions,
+          unifiedAccessControlConditions: accessControlConditions as any,
           authContext: pkpAuthContext,
           chain: 'baseSepolia',
         })

@@ -223,7 +223,6 @@ export function useUnlockSubscription(
           [resolvedRecipient], // _keyManagers (who can manage the key)
           ['0x' as `0x${string}`], // _data (additional data, none needed)
         ],
-      // @ts-expect-error - viem version mismatch
       })
 
       // Build transaction for Base Sepolia
@@ -233,19 +232,19 @@ export function useUnlockSubscription(
         data,
         value: keyPrice,
         gas: request.gas,
-      })
+        chain: undefined as any,
+        kzg: undefined as any
+      } as any)
 
       console.log('[useUnlockSubscription] 🔐 Signing transaction with PKP...')
       console.log('[useUnlockSubscription] 🔐 Transaction request:', txRequest)
 
       // Sign transaction using the account's signTransaction method (PKP custom implementation)
       const account = resolvedWalletClient.account
-    // @ts-expect-error - viem version mismatch
       if (!account || typeof account.signTransaction !== 'function') {
         throw new Error('PKP account does not have signTransaction method')
       }
 
-    // @ts-expect-error - viem serialization type
       const signedTx = await account.signTransaction({
         ...txRequest,
         chainId: baseSepolia.id,
@@ -280,9 +279,32 @@ export function useUnlockSubscription(
       console.error('[useUnlockSubscription] 🔐 Error stack:', error instanceof Error ? error.stack : 'No stack')
       setStatus('error')
       setStatusMessage('')
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Transaction failed. Please try again.'
-      )
+
+      // Parse error message to provide user-friendly feedback
+      let userMessage = 'Transaction failed. Please try again.'
+
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase()
+
+        // Check for insufficient balance
+        if (errorMsg.includes('exceeds the balance') || errorMsg.includes('insufficient funds')) {
+          userMessage = 'Insufficient balance. Please add more ETH to your wallet on Base Sepolia to complete this transaction.'
+        }
+        // Check for user rejection
+        else if (errorMsg.includes('user rejected') || errorMsg.includes('user denied')) {
+          userMessage = 'Transaction cancelled.'
+        }
+        // Check for network issues
+        else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
+          userMessage = 'Network error. Please check your connection and try again.'
+        }
+        // Check for already subscribed
+        else if (errorMsg.includes('already') || errorMsg.includes('duplicate')) {
+          userMessage = 'You may already be subscribed. Please refresh the page.'
+        }
+      }
+
+      setErrorMessage(userMessage)
     }
   }
 
