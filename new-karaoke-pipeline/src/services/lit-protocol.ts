@@ -63,6 +63,7 @@ export interface PKPMintResult {
  */
 export function createLitService() {
   let litClient: any = null;
+  let litAuthContext: any = null; // Store auth context for executeJs()
 
   /**
    * Initialize Lit Protocol client (lazy initialization)
@@ -72,69 +73,53 @@ export function createLitService() {
 
     // Dynamic import to avoid loading Lit SDK unless needed
     const { createLitClient } = await import('@lit-protocol/lit-client');
-    const { nagaTest } = await import('@lit-protocol/networks');
-    const { createSiweMessage } = await import('@lit-protocol/auth-helpers');
-    const { generateSessionKeyPair } = await import('@lit-protocol/crypto');
-    const { randomBytes } = await import('crypto');
+    const { nagaDev } = await import('@lit-protocol/networks');
+    const { createAuthManager, storagePlugins } = await import('@lit-protocol/auth');
+    const { privateKeyToAccount } = await import('viem/accounts');
 
-    // Get controller wallet for signing session auth messages
-    const controllerWallet = createLitWalletClient();
+    // Get controller wallet (viem account for Auth Manager)
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('PRIVATE_KEY environment variable not set');
+    }
+    const formattedKey = (privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`) as `0x${string}`;
+    const account = privateKeyToAccount(formattedKey);
 
-    // Generate session key pair for Lit Protocol
-    const sessionKeyPair = generateSessionKeyPair();
+    console.log('   🔐 Creating Auth Manager for EOA...');
 
-    // Create ethers-style signer for SIWE message signing
-    const ethersSigner = {
-      signMessage: async (message: string) => {
-        return await controllerWallet.signMessage({ message });
-      },
-      getAddress: async () => controllerWallet.account.address,
-    };
-
-    // Create authContext with callback for Lit Protocol session management
-    const authNeededCallback = async () => {
-      console.log('   🔐 Lit Protocol session auth requested...');
-
-      // Generate nonce for SIWE message (alphanumeric only, at least 8 chars)
-      const nonce = randomBytes(16).toString('hex');
-
-      // Create proper SIWE message with expiration
-      const ONE_WEEK_FROM_NOW = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
-      const siweMessage = await createSiweMessage({
-        walletAddress: controllerWallet.account.address,
-        nonce,
-        expiration: ONE_WEEK_FROM_NOW,
-        uri: 'https://localhost',  // Valid RFC 3986 URI
-        domain: 'localhost',
-        statement: 'Lit Protocol Session',
-      });
-
-      // Sign the SIWE message
-      const signature = await ethersSigner.signMessage(siweMessage);
-
-      // Return auth signature in expected format
-      const authSig = {
-        sig: signature,
-        derivedVia: 'web3.eth.personal.sign',
-        signedMessage: siweMessage,
-        address: controllerWallet.account.address,
-      };
-
-      console.log('   ✓ Lit session auth signature generated');
-      return authSig;
-    };
-
-    litClient = await createLitClient({
-      network: nagaTest,
-      authContext: {
-        authNeededCallback,
-        sessionKeyPair,
-        authConfig: {
-          capabilityAuthSigs: [],
-          resources: [],
-        },
-      },
+    // Create Auth Manager with node storage
+    const authManager = createAuthManager({
+      storage: storagePlugins.localStorageNode({
+        appName: 'karaoke-pipeline',
+        networkName: 'naga-dev',
+        storagePath: './.lit-auth-storage',
+      }),
     });
+
+    // Create Lit client first (required by createEoaAuthContext)
+    console.log('   🌐 Creating Lit client...');
+    litClient = await createLitClient({
+      network: nagaDev,
+    });
+
+    console.log('   🔑 Creating EOA auth context with resources...');
+
+    // Create EOA auth context with lit-action-execution resource
+    litAuthContext = await authManager.createEoaAuthContext({
+      config: { account },
+      authConfig: {
+        statement: 'Lit Protocol Session for Karaoke Pipeline',
+        domain: 'localhost',
+        resources: [
+          ['lit-action-execution', '*'],
+          ['pkp-signing', '*'],
+        ],
+        expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(), // 7 days
+      },
+      litClient,
+    });
+
+    console.log('   ✓ Auth context created with Auth Manager');
 
     return litClient;
   }
@@ -222,104 +207,168 @@ export function createLitService() {
   /**
    * Create a viem WalletClient backed by a PKP
    *
-   * Uses Lit Protocol's official getPkpViemAccount API to create a wallet
-   * where all signing operations are performed by the PKP via Lit Protocol.
+   * APP-INSPIRED APPROACH: Uses executeJs() + custom LocalAccount pattern
+   * instead of getPkpViemAccount() to avoid ReCap validation issues.
+   *
+   * This matches the working browser implementation but adapted for server-side.
    *
    * @param pkpPublicKey - The PKP's public key (from pkp_accounts.pkp_public_key)
-   * @param pkpTokenId - The PKP's token ID (from pkp_accounts.pkp_token_id)
+   * @param pkpAddress - The PKP's address (from pkp_accounts.pkp_address) - MUST match minted PKP!
    * @param targetChain - The chain to use (e.g., Lens testnet)
-   * @returns viem WalletClient that signs with the PKP
+   * @returns viem WalletClient that signs with the PKP via executeJs()
    */
   async function createPKPWalletClient(
     pkpPublicKey: string,
-    pkpTokenId: string,
+    pkpAddress: Address,
     targetChain: any
   ): Promise<any> {
     const client = await initLitClient();
     const controllerWallet = createLitWalletClient();
 
-    // Import required utilities
-    const { createSiweMessage, createSiweMessageWithResources, generateAuthSig } = await import('@lit-protocol/auth-helpers');
-    const { LitPKPResource } = await import('@lit-protocol/auth-helpers');
-    const { generateSessionKeyPair } = await import('@lit-protocol/crypto');
-    const { randomBytes } = await import('crypto');
+    console.log('   🔑 Creating PKP wallet with executeJs() pattern...');
 
-    console.log('   🔑 Generating PKP session capabilities...');
+    // Import viem utilities
+    const { serializeTransaction, keccak256, hashTypedData } = await import('viem');
 
-    // Generate session key pair for this PKP wallet
-    const sessionKeyPair = generateSessionKeyPair();
+    console.log(`   ✓ PKP Address: ${pkpAddress}`);
 
-    // Create PKP resource for this specific token ID (not wildcard)
-    // Convert decimal token ID to 32-byte hex string (64 characters)
-    const tokenIdHex = BigInt(pkpTokenId).toString(16).padStart(64, '0');
-    const pkpResource = new LitPKPResource(tokenIdHex);
+    // Create custom LocalAccount that uses executeJs() for signing
+    const pkpAccount = {
+      address: pkpAddress as Address,
+      publicKey: `0x${pkpPublicKey}` as Hex,
+      type: 'local' as const,
+      source: 'custom' as const,
 
-    // Create ethers-style signer for capability signatures
-    const ethersSigner = {
-      signMessage: async (message: string) => {
-        return await controllerWallet.signMessage({ message });
-      },
-      getAddress: async () => controllerWallet.account.address,
-    };
+      // Sign message using PKP via Lit Protocol
+      async signMessage({ message }: { message: any }) {
+        console.log('   📝 Signing message with PKP via executeJs()...');
 
-    // Generate session capability signature that authorizes this PKP for signing
-    const sessionCapabilitySig = await generateAuthSig({
-      signer: ethersSigner,
-      toSign: await createSiweMessageWithResources({
-        walletAddress: controllerWallet.account.address,
-        nonce: randomBytes(16).toString('hex'),
-        expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-        uri: 'https://localhost/pkp',
-        domain: 'localhost',
-        statement: 'PKP Session Capability',
-        resources: [
-          {
-            resource: pkpResource,
-            ability: 'pkp-signing',  // LitAbility.PKPSigning
+        const litActionCode = `(async () => {
+          const sigShare = await Lit.Actions.ethPersonalSignMessageEcdsa({
+            message: jsParams.message,
+            publicKey: jsParams.publicKey,
+            sigName: "sig",
+          });
+        })();`;
+
+        const result = await client.executeJs({
+          code: litActionCode,
+          authContext: litAuthContext,
+          jsParams: {
+            message: typeof message === 'string' ? message : message.raw,
+            publicKey: pkpPublicKey,
           },
-        ],
-      }),
-      address: controllerWallet.account.address,
-    });
+        });
 
-    console.log('   ✓ PKP session capability signature generated');
-    console.log('   📋 Session capability SIWE message:', sessionCapabilitySig.signedMessage.substring(0, 200) + '...');
-    console.log('   📋 PKP Resource string:', pkpResource.toString());
+        if (result.signatures && result.signatures.sig) {
+          const sig = result.signatures.sig;
+          if (sig.signature && sig.recoveryId !== undefined) {
+            const v = (sig.recoveryId + 27).toString(16).padStart(2, '0');
+            const signature = `${sig.signature}${v}` as Hex;
+            console.log('   ✓ Message signed');
+            return signature;
+          }
+        }
 
-    // Create authContext for PKP operations with capability signatures
-    // authNeededCallback should return the same session capability signature
-    const authNeededCallback = async () => {
-      console.log('   🔐 PKP auth callback triggered - returning session capability');
-      return sessionCapabilitySig;
-    };
+        throw new Error('No signature returned from Lit Action');
+      },
 
-    const authContext = {
-      authNeededCallback,
-      sessionKeyPair,
-      authConfig: {
-        capabilityAuthSigs: [sessionCapabilitySig],
-        resources: [{
-          resource: pkpResource,
-          ability: 'pkp-signing',
-        }],
+      // Sign transaction using PKP
+      async signTransaction(transaction: any) {
+        console.log('   📝 Signing transaction with PKP via executeJs()...');
+
+        const serializedTx = serializeTransaction(transaction);
+        const txHash = keccak256(serializedTx);
+
+        const litActionCode = `(async () => {
+          const sigShare = await Lit.Actions.signEcdsa({
+            toSign: jsParams.toSign,
+            publicKey: jsParams.publicKey,
+            sigName: "sig",
+          });
+        })();`;
+
+        const result = await client.executeJs({
+          code: litActionCode,
+          authContext: litAuthContext,
+          jsParams: {
+            toSign: Array.from(Buffer.from(txHash.slice(2), 'hex')),
+            publicKey: pkpPublicKey,
+          },
+        });
+
+        if (result.signatures && result.signatures.sig) {
+          const sig = result.signatures.sig;
+          if (sig.signature && sig.recoveryId !== undefined) {
+            const sigHex = sig.signature.startsWith('0x') ? sig.signature.slice(2) : sig.signature;
+            const r = `0x${sigHex.slice(0, 64)}` as Hex;
+            const s = `0x${sigHex.slice(64, 128)}` as Hex;
+
+            const isEIP1559 = transaction.type === 'eip1559';
+            const yParity = sig.recoveryId;
+            const v = isEIP1559 ? BigInt(yParity) : BigInt(yParity + 27);
+
+            const signedTx: any = {
+              ...transaction,
+              r,
+              s,
+              ...(isEIP1559 ? { yParity } : { v }),
+            };
+
+            console.log('   ✓ Transaction signed');
+            return serializeTransaction(signedTx);
+          }
+        }
+
+        throw new Error('No signature returned from Lit Action');
+      },
+
+      // Sign typed data (EIP-712)
+      async signTypedData(typedData: any) {
+        console.log('   📝 Signing typed data with PKP via executeJs()...');
+
+        const hash = hashTypedData(typedData);
+
+        const litActionCode = `(async () => {
+          const sigShare = await Lit.Actions.signEcdsa({
+            toSign: jsParams.toSign,
+            publicKey: jsParams.publicKey,
+            sigName: "sig",
+          });
+        })();`;
+
+        const result = await client.executeJs({
+          code: litActionCode,
+          authContext: litAuthContext,
+          jsParams: {
+            toSign: Array.from(Buffer.from(hash.slice(2), 'hex')),
+            publicKey: pkpPublicKey,
+          },
+        });
+
+        if (result.signatures && result.signatures.sig) {
+          const sig = result.signatures.sig;
+          if (sig.signature && sig.recoveryId !== undefined) {
+            const v = (sig.recoveryId + 27).toString(16).padStart(2, '0');
+            console.log('   ✓ Typed data signed');
+            return `${sig.signature}${v}` as Hex;
+          }
+        }
+
+        throw new Error('No signature returned from Lit Action');
       },
     };
 
-    // Use the official Lit Protocol API to get PKP viem account
-    console.log('   📝 Creating PKP viem account via litClient.getPkpViemAccount...');
-    const pkpAccount = await client.getPkpViemAccount({
-      pkpPublicKey,
-      authContext,
-      chainConfig: targetChain,
-    });
-    console.log('   ✓ PKP viem account created');
-
-    // Create wallet client with PKP account
-    return createWalletClient({
-      account: pkpAccount,
+    // Create wallet client with custom PKP account
+    const walletClient = createWalletClient({
+      account: pkpAccount as any,
       chain: targetChain,
       transport: http(targetChain.rpcUrls.default.http[0]),
     });
+
+    console.log('   ✓ PKP wallet client created with executeJs() pattern');
+
+    return walletClient;
   }
 
   return {

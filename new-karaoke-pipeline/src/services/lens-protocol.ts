@@ -433,7 +433,7 @@ export function createLensService() {
     const chainsConfig = await initChains();
 
     const { evmAddress } = await import('@lens-protocol/client');
-    const { signMessageWith, handleOperationWith } = await import('@lens-protocol/client/viem');
+    const { signMessageWith } = await import('@lens-protocol/client/viem');
     const { createAccountWithUsername, fetchAccount } = await import('@lens-protocol/client/actions');
     const { immutable } = await import('@lens-chain/storage-client');
     const { account: accountMetadata } = await import('@lens-protocol/metadata');
@@ -492,20 +492,68 @@ export function createLensService() {
     const sessionClient = authenticated.value;
 
     console.log(`   ⏳ Creating Lens account ${LENS_NAMESPACE_NAME}/${handle}...`);
+
+    // Don't use handleOperationWith() - it bypasses the PKP wallet
+    // Instead, manually handle sponsorship like the app does
     const operationResult = await createAccountWithUsername(sessionClient, {
       username: {
         localName: handle,
         namespace: LENS_NAMESPACE_ADDRESS,
       },
       metadataUri: uploadResult.uri,
-    }).andThen(handleOperationWith(walletClient));
+    });
 
     if (operationResult.isErr()) {
       throw new Error(`Account creation failed: ${operationResult.error.message}`);
     }
 
-    const txHash = operationResult.value;
-    console.log(`   📡 Transaction: ${txHash}`);
+    const sponsorshipData = operationResult.value;
+    let txHash: Hex;
+
+    // Handle different sponsorship responses
+    if (typeof sponsorshipData === 'string') {
+      // Direct hash response (fully sponsored)
+      txHash = sponsorshipData as Hex;
+      console.log(`   📡 Transaction: ${txHash}`);
+    } else if ((sponsorshipData as any).hash) {
+      // Hash property
+      txHash = (sponsorshipData as any).hash as Hex;
+      console.log(`   📡 Transaction: ${txHash}`);
+    } else if ((sponsorshipData as any).typedData) {
+      // Sponsored with typedData - sign and broadcast via Lens API
+      console.log(`   🔏 Sponsorship requires PKP signature...`);
+      const typedData = (sponsorshipData as any).typedData;
+
+      const signature = await walletClient.signTypedData({
+        account: walletClient.account,
+        domain: {
+          ...typedData.domain,
+          chainId: BigInt(typedData.domain.chainId),
+          verifyingContract: typedData.domain.verifyingContract as `0x${string}`,
+        },
+        types: typedData.types,
+        primaryType: Object.keys(typedData.types).find((k: string) => k !== 'EIP712Domain') || 'CreateAccountWithUsername',
+        message: typedData.value,
+      });
+
+      console.log(`   ✓ PKP signed typedData`);
+      console.log(`   📡 Broadcasting via Lens API...`);
+
+      // Broadcast via SessionClient
+      const broadcastResult = await (sessionClient as any).executeTypedData({
+        id: (sponsorshipData as any).id,
+        signature,
+      });
+
+      if (broadcastResult.isErr()) {
+        throw new Error(`Broadcast failed: ${broadcastResult.error?.message}`);
+      }
+
+      txHash = broadcastResult.value as Hex;
+      console.log(`   📡 Transaction: ${txHash}`);
+    } else {
+      throw new Error(`Unexpected sponsorship response: ${JSON.stringify(sponsorshipData)}`);
+    }
 
     const waitResult = await sessionClient.waitForTransaction(txHash);
 
@@ -749,6 +797,7 @@ export function createLensService() {
     createPost,
     updateAccountMetadata,
     sanitizeHandle,
+    getClient: initLensClient,
     findAvailableHandle,
     isHandleAvailable,
   };

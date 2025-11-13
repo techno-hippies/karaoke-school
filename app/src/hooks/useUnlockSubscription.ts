@@ -11,17 +11,18 @@ import { parseEther, type Address, type Hash, type WalletClient, type PublicClie
 import { baseSepolia } from 'viem/chains'
 import { usePublicClient, useWalletClient } from 'wagmi'
 
-// Unlock Protocol Public Lock ABI (simplified - only purchase function)
+// Unlock Protocol Public Lock ABI (v13 - array-based purchase)
 const UNLOCK_ABI = [
   {
     inputs: [
-      { internalType: 'uint256', name: '_value', type: 'uint256' },
-      { internalType: 'address', name: '_recipient', type: 'address' },
-      { internalType: 'address', name: '_referrer', type: 'address' },
-      { internalType: 'bytes', name: '_data', type: 'bytes' },
+      { type: 'uint256[]', name: '_values' },
+      { type: 'address[]', name: '_recipients' },
+      { type: 'address[]', name: '_referrers' },
+      { type: 'address[]', name: '_keyManagers' },
+      { type: 'bytes[]', name: '_data' },
     ],
     name: 'purchase',
-    outputs: [],
+    outputs: [{ type: 'uint256[]' }],
     stateMutability: 'payable',
     type: 'function',
   },
@@ -73,11 +74,13 @@ export function useUnlockSubscription(
   const resolvedLockAddress = lockAddress || DEFAULT_LOCK_ADDRESS
 
   const subscribe = async () => {
-    console.log('[useUnlockSubscription] subscribe() called')
-    console.log('[useUnlockSubscription] resolvedWalletClient:', resolvedWalletClient)
-    console.log('[useUnlockSubscription] publicClient:', publicClient)
-    console.log('[useUnlockSubscription] resolvedRecipient:', resolvedRecipient)
-    console.log('[useUnlockSubscription] resolvedLockAddress:', resolvedLockAddress)
+    console.log('[useUnlockSubscription] 🔐 subscribe() called')
+    console.log('[useUnlockSubscription] 🔐 resolvedWalletClient:', resolvedWalletClient)
+    console.log('[useUnlockSubscription] 🔐 publicClient:', publicClient)
+    console.log('[useUnlockSubscription] 🔐 resolvedRecipient:', resolvedRecipient)
+    console.log('[useUnlockSubscription] 🔐 resolvedLockAddress:', resolvedLockAddress)
+    console.log('[useUnlockSubscription] 🔐 Lock address type check:', typeof resolvedLockAddress)
+    console.log('[useUnlockSubscription] 🔐 Lock address length:', resolvedLockAddress?.length)
 
     if (!resolvedWalletClient || !publicClient) {
       console.error('[useUnlockSubscription] Wallet or public client not available')
@@ -125,39 +128,127 @@ export function useUnlockSubscription(
       setErrorMessage('')
       console.log('[useUnlockSubscription] Status: approving')
 
-      // Step 2: Purchasing
-      setStatus('purchasing')
-      setStatusMessage('Processing subscription...')
-      console.log('[useUnlockSubscription] Status: purchasing')
+      // Step 2: First check the lock's key price
+      console.log('[useUnlockSubscription] 🔐 Checking lock contract details...')
+      console.log('[useUnlockSubscription] 🔐 Lock contract address:', resolvedLockAddress)
+      console.log('[useUnlockSubscription] 🔐 Is default address?', resolvedLockAddress === DEFAULT_LOCK_ADDRESS)
 
-      // Call Unlock Protocol purchase function
-      console.log('[useUnlockSubscription] Calling writeContract with params:', {
+      // Get the actual key price from the contract
+      const keyPrice = await publicClient.readContract({
         address: resolvedLockAddress,
-        functionName: 'purchase',
-        args: [
-          SUBSCRIPTION_PRICE.toString(),
-          resolvedRecipient,
-          '0x0000000000000000000000000000000000000000',
-          '0x'
-        ],
-        value: SUBSCRIPTION_PRICE.toString(),
-        chain: baseSepolia.id
+        abi: [
+          {
+            inputs: [],
+            name: 'keyPrice',
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'keyPrice',
       })
+      console.log('[useUnlockSubscription] 🔐 Lock keyPrice (wei):', keyPrice.toString())
+      console.log('[useUnlockSubscription] 🔐 Lock keyPrice (ETH):', Number(keyPrice) / 1e18)
 
-      const hash = await resolvedWalletClient.writeContract({
+      // Check max keys per address
+      const maxKeys = await publicClient.readContract({
+        address: resolvedLockAddress,
+        abi: [
+          {
+            inputs: [],
+            name: 'maxKeysPerAddress',
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'maxKeysPerAddress',
+      })
+      console.log('[useUnlockSubscription] 🔐 maxKeysPerAddress:', maxKeys.toString())
+
+      // Check current balance of keys
+      const keyBalance = await publicClient.readContract({
+        address: resolvedLockAddress,
+        abi: [
+          {
+            inputs: [{ name: '_owner', type: 'address' }],
+            name: 'balanceOf',
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+            type: 'function',
+          },
+        ] as const,
+        functionName: 'balanceOf',
+        args: [resolvedRecipient],
+      })
+      console.log('[useUnlockSubscription] 🔐 Current key balance:', keyBalance.toString())
+
+      // Step 3: Simulate the contract call on Base Sepolia to get gas estimate
+      console.log('[useUnlockSubscription] 🔐 Simulating contract on Base Sepolia...')
+
+      const { request } = await publicClient.simulateContract({
         address: resolvedLockAddress,
         abi: UNLOCK_ABI,
         functionName: 'purchase',
         args: [
-          SUBSCRIPTION_PRICE, // price
-          resolvedRecipient, // recipient (buyer)
-          '0x0000000000000000000000000000000000000000' as Address, // no referrer
-          '0x' as `0x${string}`, // no extra data
+          [keyPrice], // _values (array of prices)
+          [resolvedRecipient], // _recipients (who receives the key)
+          [resolvedRecipient], // _referrers (referral address)
+          [resolvedRecipient], // _keyManagers (who can manage the key)
+          ['0x' as `0x${string}`], // _data (additional data, none needed)
         ],
-        value: SUBSCRIPTION_PRICE,
-        chain: baseSepolia,
-        account: resolvedWalletClient.account,
+        value: keyPrice,
+        account: resolvedRecipient,
       })
+
+      console.log('[useUnlockSubscription] Simulation successful, gas:', request.gas)
+
+      // Step 4: Purchasing
+      setStatus('purchasing')
+      setStatusMessage('Processing subscription...')
+      console.log('[useUnlockSubscription] Status: purchasing')
+
+      // Encode the purchase call
+      const { encodeFunctionData } = await import('viem')
+      const data = encodeFunctionData({
+        abi: UNLOCK_ABI,
+        functionName: 'purchase',
+        args: [
+          [keyPrice], // _values (array of prices)
+          [resolvedRecipient], // _recipients (who receives the key)
+          [resolvedRecipient], // _referrers (referral address)
+          [resolvedRecipient], // _keyManagers (who can manage the key)
+          ['0x' as `0x${string}`], // _data (additional data, none needed)
+        ],
+      })
+
+      // Build transaction for Base Sepolia
+      const txRequest = await publicClient.prepareTransactionRequest({
+        account: resolvedRecipient,
+        to: resolvedLockAddress,
+        data,
+        value: keyPrice,
+        gas: request.gas,
+      })
+
+      console.log('[useUnlockSubscription] 🔐 Signing transaction with PKP...')
+      console.log('[useUnlockSubscription] 🔐 Transaction request:', txRequest)
+
+      // Sign transaction using the account's signTransaction method (PKP custom implementation)
+      const account = resolvedWalletClient.account
+      if (!account || typeof account.signTransaction !== 'function') {
+        throw new Error('PKP account does not have signTransaction method')
+      }
+
+      const signedTx = await account.signTransaction({
+        ...txRequest,
+        chainId: baseSepolia.id,
+      })
+
+      console.log('[useUnlockSubscription] 🔐 Sending signed transaction to Base Sepolia...')
+
+      // Send raw transaction to Base Sepolia
+      const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx })
 
       console.log('[useUnlockSubscription] Transaction hash:', hash)
       setTxHash(hash)
@@ -177,10 +268,10 @@ export function useUnlockSubscription(
         throw new Error('Transaction failed')
       }
     } catch (error) {
-      console.error('[useUnlockSubscription] Error details:', error)
-      console.error('[useUnlockSubscription] Error type:', typeof error)
-      console.error('[useUnlockSubscription] Error message:', error instanceof Error ? error.message : 'Unknown error')
-      console.error('[useUnlockSubscription] Error stack:', error instanceof Error ? error.stack : 'No stack')
+      console.error('[useUnlockSubscription] 🔐 Error details:', error)
+      console.error('[useUnlockSubscription] 🔐 Error type:', typeof error)
+      console.error('[useUnlockSubscription] 🔐 Error message:', error instanceof Error ? error.message : 'Unknown error')
+      console.error('[useUnlockSubscription] 🔐 Error stack:', error instanceof Error ? error.stack : 'No stack')
       setStatus('error')
       setStatusMessage('')
       setErrorMessage(

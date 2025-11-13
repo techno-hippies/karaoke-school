@@ -9,6 +9,7 @@ import { getPreferredLanguage } from '@/lib/language'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
 import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
+import { useDecryptFullAudio } from '@/hooks/useDecryptFullAudio'
 import { useAuth } from '@/contexts/AuthContext'
 
 // Debug logging configuration
@@ -63,6 +64,15 @@ export function MediaPageContainer() {
 
   const spotifyTrackIds = firstClip?.spotifyTrackId ? [firstClip.spotifyTrackId] : undefined
 
+  console.log('[MediaPageContainer] 🔐 First clip data:', {
+    spotifyTrackId: firstClip?.spotifyTrackId,
+    hasEncryptedFullUri: !!firstClip?.encryptedFullUri,
+    hasUnlockLockAddress: !!firstClip?.unlockLockAddress,
+    hasUnlockChainId: !!firstClip?.unlockChainId,
+    encryptedFullUri: firstClip?.encryptedFullUri,
+    unlockLockAddress: firstClip?.unlockLockAddress,
+    unlockChainId: firstClip?.unlockChainId,
+  })
   console.log('[MediaPageContainer] 🔐 Subscription setup - spotifyTrackIds:', spotifyTrackIds)
   console.log('[MediaPageContainer] 🔐 PKP Address:', pkpAddress)
   console.log('[MediaPageContainer] 🔐 PKP Wallet Client:', pkpWalletClient ? 'Available' : 'Not available')
@@ -94,6 +104,35 @@ export function MediaPageContainer() {
   const { data: clipMetadata, isLoading: isLoadingClip } = useSegmentMetadata(
     firstClip?.metadataUri
   )
+
+  // Fetch encryption data from subgraph for full audio decryption
+  const encryptedFullUri = firstClip?.encryptedFullUri
+  const unlockLockAddress = firstClip?.unlockLockAddress
+  const unlockChainId = firstClip?.unlockChainId
+
+  console.log('[MediaPageContainer] 🔐 Encrypted full URI:', encryptedFullUri)
+  console.log('[MediaPageContainer] 🔐 Unlock lock address:', unlockLockAddress)
+  console.log('[MediaPageContainer] 🔐 Unlock chain ID:', unlockChainId)
+
+  // Decrypt full audio if user has subscription
+  const {
+    decryptedAudioUrl,
+    isDecrypting,
+    hasSubscription,
+    error: decryptError,
+  } = useDecryptFullAudio(
+    firstClip?.spotifyTrackId,
+    encryptedFullUri,
+    unlockLockAddress,
+    unlockChainId
+  )
+
+  console.log('[MediaPageContainer] 🔐 Decryption status:', {
+    isDecrypting,
+    hasSubscription,
+    hasDecryptedAudio: !!decryptedAudioUrl,
+    error: decryptError,
+  })
 
   // Timing synchronization function - calculates which line/word should be active
   const calculateActiveLineAndWord = useCallback((currentTime: number, lyrics: any[]) => {
@@ -245,13 +284,23 @@ export function MediaPageContainer() {
     )
   }
 
-  // NEW FORMAT: Use clip audio from metadata.assets.instrumental
-  // OLD FORMAT: Use contract event's instrumentalUri
-  const audioUrl = clipMetadata?.assets?.instrumental
+  // Audio URL priority:
+  // 1. Decrypted full audio (if user has subscription)
+  // 2. NEW FORMAT: Clip audio from metadata.assets.instrumental
+  // 3. OLD FORMAT: Contract event's instrumentalUri
+  const clipAudioUrl = clipMetadata?.assets?.instrumental
     ? convertGroveUri(clipMetadata.assets.instrumental)
     : firstClip.instrumentalUri
       ? convertGroveUri(firstClip.instrumentalUri)
       : undefined
+
+  const audioUrl = decryptedAudioUrl || clipAudioUrl
+
+  console.log('[MediaPageContainer] 🔐 Audio URL selection:', {
+    hasDecrypted: !!decryptedAudioUrl,
+    clipUrl: clipAudioUrl,
+    finalUrl: audioUrl,
+  })
 
   // Audio URL configured
 
@@ -424,7 +473,7 @@ export function MediaPageContainer() {
             ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
             : undefined
         }
-        onUnlockClick={handleUnlockClick}
+        onUnlockClick={hasSubscription ? undefined : handleUnlockClick}
         debugInfo={debugInfo}
       />
 

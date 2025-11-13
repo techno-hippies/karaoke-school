@@ -23,6 +23,9 @@ export interface Clip {
   averageScore: number
   registeredAt: string
   processedAt?: string
+  encryptedFullUri?: string
+  unlockLockAddress?: string
+  unlockChainId?: number
   performances: Array<{
     id: string
     score: number
@@ -79,6 +82,9 @@ const GRC20_CLIPS_QUERY = gql`
       averageScore
       registeredAt
       processedAt
+      encryptedFullUri
+      unlockLockAddress
+      unlockChainId
       performances(first: 5, orderBy: gradedAt, orderDirection: desc) {
         id
         score

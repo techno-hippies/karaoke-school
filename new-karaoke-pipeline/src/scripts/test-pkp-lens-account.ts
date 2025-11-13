@@ -71,7 +71,7 @@ async function main() {
   const { chains } = await import('@lens-chain/sdk/viem');
   const pkpWalletClient = await litService.createPKPWalletClient(
     pkp.pkp_public_key,
-    pkp.pkp_token_id,
+    pkp.pkp_address as `0x${string}`,
     chains.testnet
   );
 

@@ -77,7 +77,7 @@ export function SubscriptionDialog({
               <div className="flex flex-col items-center gap-3 p-6 rounded-lg bg-muted/30 border border-border">
                 <div className="text-center">
                   <div className="flex items-baseline gap-2 justify-center">
-                    <span className="text-4xl font-bold">0.006 ETH</span>
+                    <span className="text-4xl font-bold">0.0006 ETH</span>
                     <span className="text-sm text-muted-foreground">/mo</span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">
