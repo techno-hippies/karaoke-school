@@ -511,7 +511,7 @@ export function useStudyCards(songId?: string) {
     },
     // Enable query when PKP is ready (songId is now optional)
     enabled: !!pkpAddress,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
   })

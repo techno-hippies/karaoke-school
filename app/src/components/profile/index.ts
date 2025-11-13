@@ -1,5 +1,5 @@
 // Profile components
-export { ArtistPage } from './ArtistPage'
+export { AccountPage } from './AccountPage'
 export { ProfileAvatar } from './ProfileAvatar'
 export { ProfileInfo } from './ProfileInfo'
 export { ProfilePage } from './ProfilePage'

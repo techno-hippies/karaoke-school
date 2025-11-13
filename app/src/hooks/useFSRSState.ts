@@ -9,11 +9,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { graphClient } from '../lib/graphql/client'
-import {
-  GET_USER_SEGMENT_PROGRESS,
-  GetUserSegmentProgressResponse,
-  LinePerformance,
-} from '../lib/graphql/queries'
+import { GET_USER_SEGMENT_PROGRESS } from '../lib/graphql/queries'
+import type { GetUserSegmentProgressResponse, LinePerformance } from '../lib/graphql/queries'
 
 export interface FSRSLineState {
   lineId: string

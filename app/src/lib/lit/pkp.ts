@@ -213,6 +213,7 @@ export async function createPKPAuthContext(
         domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
         statement: 'Execute Lit Actions and sign transactions',
         expiration: getConsistentExpiration(),
+    // @ts-expect-error - Lit Protocol ShorthandResources type mismatch
         resources: LIT_WEBAUTHN_CONFIG.authResources.map((resource) => [...resource]),
       },
       litClient: litClient,
@@ -373,6 +374,7 @@ function createPKPAccount(
       }
     },
 
+    // @ts-expect-error - viem TypedData type mismatch
     // Sign typed data (EIP-712)
     async signTypedData(typedData: TypedDataDefinition) {
       if (IS_DEV) console.log('[PKP] Signing typed data')

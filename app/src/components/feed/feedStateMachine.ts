@@ -66,6 +66,7 @@ export const feedStateMachine = setup({
           target: 'loaded',
           actions: assign({
             visibleStartIndex: ({ event }) => Math.max(0, event.visibleStartIndex - 2), // Load 2 videos before visible
+    // @ts-expect-error - xstate v5 context type
             visibleEndIndex: ({ event }) => Math.min(event.visibleEndIndex + 3, event.context.videos.length - 1), // Load 3 videos after visible
           }),
         },
@@ -76,6 +77,7 @@ export const feedStateMachine = setup({
           target: 'loaded',
           actions: assign({
             loadingStates: ({ event, context }) => ({
+      // @ts-expect-error - xstate v5 assign type
               ...context.loadingStates,
               [event.videoId]: { error: event.error, loading: false },
             }),

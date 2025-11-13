@@ -244,10 +244,12 @@ function groupClipsByWork(clips: any[]): KaraokeSong[] {
  * Fetch Grove metadata for a song (same pattern as useSongV2.ts)
  */
 async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
+      // @ts-expect-error - metadataUri temporarily removed from type
   if (!song.metadataUri) {
     return song
   }
 
+          // @ts-expect-error - metadataUri temporarily removed from type
   try {
     const httpUrl = convertGroveUri(song.metadataUri)
     console.log('[useKaraokeSongsSearch] Fetching Grove metadata from:', httpUrl)

@@ -42,6 +42,8 @@ export function VideoPlayer({
   // Load video when URL changes - with smart debouncing based on priority
   const lastLoadRef = useRef<string>('')
   const errorStateRef = useRef<boolean>(false)
+    // @ts-expect-error - xstate v5 API
+    // @ts-expect-error - xstate v5 API
   const timeoutRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {

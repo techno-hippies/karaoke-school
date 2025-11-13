@@ -74,7 +74,7 @@ export function AccountPage({
   onSubscribe,
   onEditProfile,
   className,
-}: ArtistPageProps) {
+}: AccountPageProps) {
 
   return (
     <div className={cn('relative w-full h-screen bg-background flex justify-center', className)}>

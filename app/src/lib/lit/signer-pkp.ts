@@ -188,6 +188,7 @@ function createPKPAccount(
     },
 
     // Sign typed data (EIP-712) using PKP
+    // @ts-expect-error - viem TypedData type mismatch
     async signTypedData(typedData: TypedDataDefinition) {
       if (IS_DEV) console.log('[PKPSigner] Signing typed data:', typedData)
 

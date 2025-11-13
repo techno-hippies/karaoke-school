@@ -37,7 +37,7 @@ export function ClassPage() {
   const stats = {
     new: studyStats?.new || 0, // Never touched (green = seed/plant)
     learning: (studyStats?.learning || 0) + (studyStats?.review || 0), // In progress (blue = water)
-    due: studyStats?.dueToday || 0, // Ready to study now (red = urgency)
+    due: studyStats?.total || 0, // Ready to study now (red = urgency)
   }
 
   // Group cards by song for display

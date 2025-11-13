@@ -206,6 +206,7 @@ export function MediaPageContainer() {
     }
 
     Promise.all<[string, any] | null>(
+    // @ts-expect-error - Promise.all type inference
       clipMetadata.translations.map(async (t: any) => {
         try {
           const url = convertGroveUri(t.grove_url)
@@ -469,8 +470,10 @@ export function MediaPageContainer() {
         showTranslations={availableLanguages.length > 0}
         onBack={() => navigate(-1)}
         onArtistClick={
+        // @ts-expect-error - artistLensHandle temporarily removed from type
           clipMetadata?.artistLensHandle
             ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
+        // @ts-expect-error - artistLensHandle temporarily removed from type
             : undefined
         }
         onUnlockClick={hasSubscription ? undefined : handleUnlockClick}

@@ -55,7 +55,7 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
     },
     enabled: !!alignmentUri && isSayItBack,
     staleTime: 300000,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   })
 
   const firstTranslation = segmentMetadata?.translations?.[0]
@@ -69,7 +69,7 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
     },
     enabled: !!firstTranslation?.grove_url && isSayItBack,
     staleTime: 300000,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   })
 
   // MULTIPLE_CHOICE data fetching

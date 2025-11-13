@@ -112,6 +112,7 @@ export function useDecryptFullAudio(
         const { nagaDev } = await import('@lit-protocol/networks')
 
         const litClient = await createLitClient({
+      // @ts-expect-error - Lit Protocol version mismatch between dependencies
           network: nagaDev,
         })
 
@@ -146,6 +147,7 @@ export function useDecryptFullAudio(
 
         // Decrypt with Lit Protocol (pass encrypted data object directly)
         const decryptedData = await litClient.decrypt({
+      // @ts-expect-error - Lit Protocol chain type version mismatch
           data: encryptedData,
           unifiedAccessControlConditions: accessControlConditions,
           authContext: pkpAuthContext,

@@ -44,7 +44,7 @@ export function useExerciseSubmission() {
           // Invalidate study cards to reflect new FSRS state
           // Note: currentCard is pinned in useStudySession, so UI won't jump
           // even if query refetches before subgraph indexes
-          queryClient.invalidateQueries(['study-cards'])
+          queryClient.invalidateQueries({ queryKey: ['study-cards'] })
         } else {
           console.warn('[useExerciseSubmission] ⚠️ No transaction hash returned')
         }
@@ -102,7 +102,7 @@ export function useExerciseSubmission() {
           console.log('[useExerciseSubmission] ✅ Background blockchain update complete:', result.txHash)
           // Invalidate study cards to reflect new FSRS state
           // Note: currentCard is pinned in useStudySession, so UI won't jump
-          queryClient.invalidateQueries(['study-cards'])
+          queryClient.invalidateQueries({ queryKey: ['study-cards'] })
         } else {
           console.warn('[useExerciseSubmission] ⚠️ Blockchain update returned no txHash')
         }

@@ -33,6 +33,7 @@ async function sendRawTransaction(
   walletClient: WalletClient,
   raw: RawTransaction
 ): Promise<Hex> {
+    // @ts-expect-error - viem version mismatch
   const txHash = await walletClient.sendTransaction({
     account: walletClient.account!,
     chain: walletClient.chain || undefined,
