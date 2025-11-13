@@ -23,28 +23,25 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // Lit Protocol chunks
+          // Lit Protocol chunks - large and independent
           if (id.includes('@lit-protocol')) {
             return 'lit-core';
           }
 
-          // Lens Protocol chunks
+          // Lens Protocol chunks - large and independent
           if (id.includes('@lens-protocol')) {
             return 'lens-core';
           }
 
-          // Web3/EVM chunks (exclude wagmi to avoid React context issues)
-          if (id.includes('viem') && !id.includes('wagmi')) {
-            return 'web3-core';
-          }
-
-          // UI components
+          // UI components - independent
           if (id.includes('@radix-ui') || id.includes('@phosphor-icons')) {
             return 'ui-libs';
           }
+
+          // Let Vite handle viem/wagmi/React Router automatically to avoid circular deps
         },
       },
     },
-    chunkSizeWarningLimit: 1000, // Increase limit to 1MB since we've chunked things
+    chunkSizeWarningLimit: 2000, // Increase limit since we're chunking less
   },
 })
