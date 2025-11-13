@@ -27,6 +27,11 @@ import { privateKeyToAccount } from 'viem/accounts';
 // Lens app address (required for account creation on testnet)
 const LENS_APP_ADDRESS = '0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0';
 
+// Karaoke School custom namespace (kschool2)
+// Using custom namespace provides branding: kschool2/artist-name instead of lens/artist-name
+const LENS_NAMESPACE_ADDRESS = '0xa304467aD0C296C2bb11079Bc2748223568D463e' as Address;
+const LENS_NAMESPACE_NAME = 'kschool2';
+
 /**
  * Lens account creation result
  */
@@ -256,7 +261,10 @@ export function createLensService() {
 
     // Try to fetch account - if it exists, handle is taken
     const accountResult = await fetchAccount(sessionClient, {
-      username: { localName: handle },
+      username: {
+        localName: handle,
+        namespace: LENS_NAMESPACE_ADDRESS,
+      },
     });
 
     if (accountResult.isErr() || !accountResult.value) {
@@ -383,11 +391,20 @@ export function createLensService() {
     const { immutable } = await import('@lens-chain/storage-client');
     const { account: accountMetadata } = await import('@lens-protocol/metadata');
 
+    // Lens metadata requires at least 1 attribute, so always include pkpAddress
+    const metadataAttributes = attributes.length > 0 ? attributes : [
+      {
+        type: 'String',
+        key: 'pkpAddress',
+        value: pkpAddress,
+      },
+    ];
+
     const metadata = accountMetadata({
       name,
       bio: bio || `Official Karaoke School profile for ${name}`,
       picture: pictureUri,
-      attributes,
+      attributes: metadataAttributes,
     });
 
     console.log('   📤 Uploading metadata to Grove...');
@@ -413,9 +430,12 @@ export function createLensService() {
 
     const sessionClient = authenticated.value;
 
-    console.log(`   ⏳ Creating Lens account @${handle}...`);
+    console.log(`   ⏳ Creating Lens account ${LENS_NAMESPACE_NAME}/${handle}...`);
     const operationResult = await createAccountWithUsername(sessionClient, {
-      username: { localName: handle },
+      username: {
+        localName: handle,
+        namespace: LENS_NAMESPACE_ADDRESS,
+      },
       metadataUri: uploadResult.uri,
     }).andThen(handleOperationWith(walletClient));
 
@@ -424,6 +444,8 @@ export function createLensService() {
     }
 
     const txHash = operationResult.value;
+    console.log(`   📡 Transaction: ${txHash}`);
+
     const waitResult = await sessionClient.waitForTransaction(txHash);
 
     if (waitResult.isErr()) {
@@ -432,7 +454,7 @@ export function createLensService() {
         throw new Error(`Account creation failed: ${message}`);
       }
 
-      console.warn(`   ⚠️  ${message} — continuing to poll for indexing`);
+      console.log(`   ⏳ Transaction sent, waiting for indexing...`);
     }
 
     const maxAttempts = 12;
