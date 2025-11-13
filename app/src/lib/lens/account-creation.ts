@@ -256,38 +256,17 @@ export async function createAccountInCustomNamespace(
     throw new Error('Unexpected response from createUsername mutation')
   }
 
-  // Fetch final account with username
-  console.log('[Account Creation] Fetching final account state...')
-
-  // Wait for username to be indexed by polling the account address
-  let finalAccount: Account | null = null
-  const maxRetries = 10
-  for (let i = 0; i < maxRetries; i++) {
-    console.log(`[Account Creation] Retry ${i + 1}/${maxRetries}: Fetching account by address...`)
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    const accountResult = await fetchAccount(sessionClient, { address: account.address })
-
-    if (accountResult.isOk()) {
-      finalAccount = accountResult.value
-      if (finalAccount?.username?.localName === username) {
-        console.log('[Account Creation] ✓ Username indexed:', finalAccount.username.localName)
-        break
-      } else {
-        console.log('[Account Creation] Account found but username not yet indexed')
-      }
-    }
-  }
-
-  if (!finalAccount) {
-    throw new Error(`Failed to fetch account after ${maxRetries} retries`)
-  }
+  // Username transaction succeeded - indexing will happen in background
+  console.log('[Account Creation] ✓ Username transaction confirmed on-chain')
+  console.log('[Account Creation] Username will be indexed by Lens API shortly (30-60s)')
 
   console.log('[Account Creation] ===== Account creation complete =====')
-  console.log('[Account Creation] Address:', finalAccount.address)
-  console.log('[Account Creation] Username:', finalAccount.username?.localName || 'none')
+  console.log('[Account Creation] Address:', account.address)
+  console.log('[Account Creation] Owner:', account.owner)
+  console.log('[Account Creation] Username: (indexing in progress)')
 
-  return finalAccount
+  // Return account immediately - username will appear once indexed
+  return account
 }
 
 /**
