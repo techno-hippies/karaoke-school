@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchPageView, type Song } from '@/components/search/SearchPageView'
 import { useKaraokeSongsSearchWithMetadata } from '@/hooks/useKaraokeSongsSearch'
@@ -28,27 +28,46 @@ function transformKaraokeSongToSong(karaokeSong: { grc20WorkId: string; title: s
   }
 }
 
+// Client-side fuzzy search function
+function searchSongs(songs: Song[], query: string): Song[] {
+  if (!query.trim()) return []
+
+  const searchLower = query.toLowerCase().trim()
+
+  return songs.filter(song => {
+    const titleMatch = song.title.toLowerCase().includes(searchLower)
+    const artistMatch = song.artist.toLowerCase().includes(searchLower)
+    return titleMatch || artistMatch
+  })
+}
+
 export function SearchPage() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Use the new hook to fetch real karaoke songs with segments
-  const { 
-    data: karaokeSongs, 
+  // Fetch ALL songs with metadata upfront (client-side filtering)
+  const {
+    data: karaokeSongs,
     isLoading
-  } = useKaraokeSongsSearchWithMetadata(searchTerm, {
+  } = useKaraokeSongsSearchWithMetadata('', {
     hasInstrumental: true,  // Only show songs with instrumentals
-    first: 20,             // Limit to 20 results
+    first: 5,               // Limit initial display
   })
 
-  // Transform to Song format for SearchPageView
-  const trendingSongs = !searchTerm.trim() && !isLoading
-    ? karaokeSongs?.map(transformKaraokeSongToSong) || []
-    : []
+  // Transform all songs
+  const allSongs = useMemo(() =>
+    karaokeSongs?.map(transformKaraokeSongToSong) || [],
+    [karaokeSongs]
+  )
 
-  const searchResults = searchTerm.trim() && !isLoading
-    ? karaokeSongs?.map(transformKaraokeSongToSong) || []
-    : []
+  // Client-side search filtering
+  const searchResults = useMemo(() =>
+    searchTerm.trim() ? searchSongs(allSongs, searchTerm) : [],
+    [allSongs, searchTerm]
+  )
+
+  // Show all songs when no search term
+  const trendingSongs = !searchTerm.trim() ? allSongs : []
 
   const handleSearch = async (query: string) => {
     setSearchTerm(query)

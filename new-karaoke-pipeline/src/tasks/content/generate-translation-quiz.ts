@@ -223,23 +223,33 @@ function validateDistractors(
 }
 
 async function fetchTracks(limit: number): Promise<TrackRow[]> {
+  // ✅ RETROACTIVE PROCESSING: Query by pending tasks, not by stage
+  // This allows processing tracks at ANY stage (including 'ready') as long as they have:
+  // 1. Translations in target languages
+  // 2. A pending translation_quiz task
+  // 3. No existing questions
   return query(
     `SELECT t.spotify_track_id, t.title, sl.normalized_lyrics
      FROM tracks t
      JOIN song_lyrics sl ON sl.spotify_track_id = t.spotify_track_id
-     WHERE t.stage = $1
-       AND EXISTS (
+     WHERE EXISTS (
          SELECT 1 FROM lyrics_translations lt
          WHERE lt.spotify_track_id = t.spotify_track_id
-           AND lt.language_code = ANY($2)
+           AND lt.language_code = ANY($1)
+       )
+       AND EXISTS (
+         SELECT 1 FROM audio_tasks at
+         WHERE at.spotify_track_id = t.spotify_track_id
+           AND at.task_type = 'translation_quiz'
+           AND at.status = 'pending'
        )
        AND NOT EXISTS (
          SELECT 1 FROM song_translation_questions q
          WHERE q.spotify_track_id = t.spotify_track_id
        )
      ORDER BY t.updated_at ASC
-     LIMIT $3`,
-    [TrackStage.Translated, SUPPORTED_TRIVIA_LOCALES, limit]
+     LIMIT $2`,
+    [SUPPORTED_TRIVIA_LOCALES, limit]
   );
 }
 
@@ -585,7 +595,7 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
         await pause(AI_DELAY_MS);
       }
 
-      await completeTask(track.spotify_track_id, AudioTaskType.TranslationQuiz, {
+      await completeTask(track.spotify_track_id, AudioTaskType.TranslationQuiz, 'track', {
         metadata: {
           question_count: questionEntries.length,
           languages: Array.from(new Set(questionEntries.map(entry => entry.languageCode))),
@@ -601,7 +611,7 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
       const message = error instanceof Error ? error.message : String(error);
       console.error(`   ✗ Failed to generate translation quiz for ${trackLabel}: ${message}`);
 
-      await failTask(track.spotify_track_id, AudioTaskType.TranslationQuiz, message, {
+      await failTask(track.spotify_track_id, AudioTaskType.TranslationQuiz, 'track', message, {
         track: track.spotify_track_id,
       });
     }

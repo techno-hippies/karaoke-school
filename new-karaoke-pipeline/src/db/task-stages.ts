@@ -114,10 +114,11 @@ export const STAGE_REQUIREMENTS: Record<TrackStage, AudioTaskType[]> = {
     AudioTaskType.TranslationQuiz,
     AudioTaskType.Trivia,
   ],
-  [TrackStage.Separated]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate],
-  [TrackStage.Segmented]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate, AudioTaskType.Segment],
-  [TrackStage.Enhanced]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance],
-  [TrackStage.Ready]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance, AudioTaskType.Clip],
+  // ✅ QUESTIONS NOW GATE AUDIO PIPELINE - must complete TranslationQuiz + Trivia before Separate
+  [TrackStage.Separated]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate],
+  [TrackStage.Segmented]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment],
+  [TrackStage.Enhanced]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance],
+  [TrackStage.Ready]: [AudioTaskType.Download, AudioTaskType.Align, AudioTaskType.Translate, AudioTaskType.TranslationQuiz, AudioTaskType.Trivia, AudioTaskType.Separate, AudioTaskType.Segment, AudioTaskType.Enhance, AudioTaskType.Clip],
 
   // Identity & GRC-20 (no audio task requirements)
   [TrackStage.PkpMinted]: [],

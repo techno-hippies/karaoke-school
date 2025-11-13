@@ -161,8 +161,130 @@ export function createLitService() {
     return `${chronicleChain.blockExplorers.default.url}/tx/${hash}`;
   }
 
+  /**
+   * Create a viem WalletClient backed by a PKP
+   *
+   * This creates a wallet where all signing operations (signMessage, signTypedData, etc.)
+   * are performed by the PKP via Lit Actions, not by exposing a private key.
+   *
+   * @param pkpPublicKey - The PKP's public key (from pkp_accounts.pkp_public_key)
+   * @param targetChain - The chain to use (e.g., Lens testnet)
+   * @returns viem WalletClient that signs with the PKP
+   */
+  async function createPKPWalletClient(
+    pkpPublicKey: string,
+    targetChain: any
+  ): Promise<any> {
+    // Import utilities from viem
+    const viem = await import('viem');
+    const { publicKeyToAddress } = await import('viem/utils');
+
+    const client = await initLitClient();
+    const controllerWallet = createLitWalletClient();
+
+    // Derive PKP address from public key
+    const pkpAddress = publicKeyToAddress(`0x${pkpPublicKey}`) as Address;
+
+    // Create custom account object that delegates signing to Lit
+    const pkpAccount = {
+      address: pkpAddress,
+      type: 'custom' as const,
+
+      // Sign message via Lit Actions
+      async signMessage({ message }: { message: any }) {
+        const toSignHex = typeof message === 'string'
+          ? viem.hashMessage(message)
+          : viem.hashMessage({ raw: message.raw });
+        const toSign = viem.hexToBytes(toSignHex);
+
+        const litActionCode = `
+          (async () => {
+            const { toSign, publicKey } = Lit.Actions.getJsParams();
+
+            const sigShare = await Lit.Actions.signEcdsa({
+              toSign,
+              publicKey,
+              sigName: "sig",
+            });
+          })();
+        `;
+
+        // Generate auth signature for Lit Protocol
+        const { generateAuthSig } = await import('@lit-protocol/auth-helpers');
+
+        const authSig = await generateAuthSig({
+          signer: controllerWallet,
+          toSign: `Lit Protocol PKP Auth: ${Date.now()}`,
+          address: controllerWallet.account.address,
+        });
+
+        const results = await client.executeJs({
+          code: litActionCode,
+          jsParams: {
+            toSign: Array.from(toSign),
+            publicKey: pkpPublicKey,
+          },
+          authSig,
+        });
+
+        const sig = results.signatures.sig;
+        return viem.joinSignature({ r: `0x${sig.r}`, s: `0x${sig.s}`, v: sig.recid });
+      },
+
+      // Sign typed data via Lit Actions
+      async signTypedData(typedData: any) {
+        const hash = viem.hashTypedData(typedData);
+
+        const litActionCode = `
+          (async () => {
+            const { toSign, publicKey } = Lit.Actions.getJsParams();
+
+            const sigShare = await Lit.Actions.signEcdsa({
+              toSign,
+              publicKey,
+              sigName: "sig",
+            });
+          })();
+        `;
+
+        // Generate auth signature for Lit Protocol
+        const { generateAuthSig } = await import('@lit-protocol/auth-helpers');
+
+        const authSig = await generateAuthSig({
+          signer: controllerWallet,
+          toSign: `Lit Protocol PKP Auth: ${Date.now()}`,
+          address: controllerWallet.account.address,
+        });
+
+        const results = await client.executeJs({
+          code: litActionCode,
+          jsParams: {
+            toSign: Array.from(viem.hexToBytes(hash)),
+            publicKey: pkpPublicKey,
+          },
+          authSig,
+        });
+
+        const sig = results.signatures.sig;
+        return viem.joinSignature({ r: `0x${sig.r}`, s: `0x${sig.s}`, v: sig.recid });
+      },
+
+      // Sign transaction via Lit Actions
+      async signTransaction(tx: any) {
+        throw new Error('PKP transaction signing not yet implemented - use signTypedData for EIP-712');
+      },
+    };
+
+    return createWalletClient({
+      account: pkpAccount,
+      chain: targetChain,
+      transport: http(targetChain.rpcUrls.default.http[0]),
+    });
+  }
+
   return {
     mintPKP,
+    createPKPWalletClient,
     getChainConfig,
     getExplorerUrl,
   };

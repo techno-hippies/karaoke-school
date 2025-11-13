@@ -102,6 +102,22 @@ async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
        AND ks.encrypted_full_url IS NOT NULL
        AND ks.encryption_accs IS NOT NULL
        AND gw.grc20_entity_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM song_translation_questions q
+         WHERE q.spotify_track_id = t.spotify_track_id
+       )
+       AND (
+         -- Trivia required only if track has Genius referents
+         EXISTS (
+           SELECT 1 FROM song_trivia_questions tq
+           WHERE tq.spotify_track_id = t.spotify_track_id
+         )
+         OR NOT EXISTS (
+           SELECT 1 FROM genius_songs gs
+           JOIN genius_song_referents gr ON gr.genius_song_id = gs.genius_song_id
+           WHERE gs.spotify_track_id = t.spotify_track_id
+         )
+       )
      ORDER BY COALESCE(line_state.has_hash, FALSE) ASC, t.updated_at ASC
      LIMIT $1` ,
     [limit]

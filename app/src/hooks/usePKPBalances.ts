@@ -30,7 +30,7 @@ const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     tokens: {
       // Default tokens (always show, even with 0 balance)
       USDC: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
-      USDT: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 },
+      USDT: { address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', decimals: 6 },  // Bridged USDT on Base
       // Additional tokens (only show if balance > 0)
       WBTC: { address: '0xCBa20e4bB3D7D8a9f49B6b806c2D9aa870596be5', decimals: 8, additional: true },
       DAI: { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', decimals: 18, additional: true }
@@ -284,16 +284,19 @@ export function usePKPBalances(): UsePKPBalancesReturn {
           nativeBalance: result.nativeBalance,
           tokenCount: result.tokens.length
         })
-        
+
         // Always show native token balance (for app's supported networks)
         if (parseFloat(result.nativeBalance) >= 0) {
-          const networkConfig = NETWORK_CONFIGS[result.network.toLowerCase() as NetworkKey]
+          // Find network config by matching the name field
+          const networkConfig = Object.values(NETWORK_CONFIGS).find(
+            config => config.name === result.network
+          )
           console.log('[DEBUG] Network config lookup:', {
-            networkKey: result.network.toLowerCase(),
+            network: result.network,
             found: !!networkConfig,
-            config: networkConfig
+            nativeToken: networkConfig?.nativeToken
           })
-          
+
           allBalances.push({
             symbol: networkConfig?.nativeToken || 'ETH',
             name: networkConfig?.nativeToken || 'Ether',
@@ -303,7 +306,7 @@ export function usePKPBalances(): UsePKPBalancesReturn {
             currencyIcon: getNativeTokenIcon(result.network),
             chainIcon: getNetworkOverlayIcon(result.network),
           })
-          
+
           console.log('[DEBUG] Added native token:', {
             symbol: networkConfig?.nativeToken,
             network: result.network,
@@ -416,7 +419,7 @@ function getNativeTokenIcon(network: string): string {
     Polygon: 'polygon-logo.png',
     Arbitrum: 'arbitrum-logo.png',
     Optimism: 'ethereum-logo.png',  // ETH on Optimism
-    'Binance Smart Chain': 'bnb-logo.png',  // BNB on BSC
+    'Binance Smart Chain': 'bsc-logo.png',  // BNB on BSC
   }
 
   return iconMap[network] || 'ethereum-logo.png'

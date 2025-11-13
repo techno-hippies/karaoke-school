@@ -28,6 +28,7 @@ import { LyricsTranslator, type ElevenLabsWord } from '../../services/lyrics-tra
 import { TrackStage, AudioTaskType } from '../../db/task-stages';
 import { upsertTranslation, getExistingTranslations, countTranslations } from '../../db/audio-queries';
 import { BaseTask, type BaseTrackInput, type TaskResult, buildAudioTasksFilter } from '../../lib/base-task';
+import { ensureAudioTask } from '../../db/audio-tasks';
 import { CONFIG } from '../../config';
 import type { TranslateMetadata } from '../../types/task-metadata';
 
@@ -187,6 +188,12 @@ export class TranslateLyricsTask extends BaseTask<TrackForTranslation, Translati
     const totalTranslations = await countTranslations(track.spotify_track_id);
 
     console.log(`   ✓ Total translations: ${totalTranslations}`);
+
+    // ✅ AUTO-SEED QUESTION GENERATION TASKS
+    // This ensures questions are queued immediately after translation completes
+    await ensureAudioTask(track.spotify_track_id, AudioTaskType.TranslationQuiz);
+    await ensureAudioTask(track.spotify_track_id, AudioTaskType.Trivia);
+    console.log(`   ✓ Seeded question generation tasks (translation_quiz, trivia)`);
 
     return {
       metadata: {

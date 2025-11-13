@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { SongItem } from '@/components/ui/SongItem'
 import { ItemGroup } from '@/components/ui/item'
-import { Play, ArrowUpRight, BookOpen } from '@phosphor-icons/react'
+import { ArrowUpRight, BookOpen } from '@phosphor-icons/react'
 
 /**
  * Study Dashboard (ClassPage)
@@ -120,8 +120,7 @@ export function ClassPage() {
             onClick={() => navigate(`/study/session${songId ? `?song=${songId}` : ''}`)}
             className="w-full h-12 text-base"
           >
-            <Play size={20} weight="fill" />
-            Start Study Session
+            Study
           </Button>
         ) : (
           <Card className="p-8 text-center space-y-4 bg-muted">

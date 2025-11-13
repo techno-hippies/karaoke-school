@@ -99,6 +99,7 @@ export interface CreateAccountParams {
     value: string;
   }>;
   pkpAddress: Address;             // PKP owner that should control the account
+  walletClient?: any;              // Optional PKP wallet client (if not provided, uses EOA)
 }
 
 /**
@@ -157,18 +158,48 @@ export function createLensService() {
   let chains: any = null;
 
   /**
+   * Create Lens SDK client with auth context for a specific wallet
+   *
+   * The August 2025 SDK requires authContext with authNeededCallback.
+   * This callback is invoked whenever the SDK needs a signature.
+   *
+   * @param walletClient - viem WalletClient (EOA or PKP) to use for signing
+   */
+  async function createAuthenticatedLensClient(walletClient: any) {
+    const { PublicClient } = await import('@lens-protocol/client');
+    const { staging } = await import('@lens-protocol/env');
+    const { signMessageWith } = await import('@lens-protocol/client/viem');
+
+    // Create signer for this specific wallet
+    const walletSigner = signMessageWith(walletClient);
+
+    return PublicClient.create({
+      environment: staging,
+      origin: 'http://localhost:3000',
+      authContext: {
+        authNeededCallback: async (challenge: any) => {
+          // SDK invokes this when it needs a signature
+          console.log('   🔐 Auth challenge received, signing with wallet...');
+          return walletSigner(challenge);
+        },
+      },
+    });
+  }
+
+  /**
    * Initialize Lens SDK client (lazy initialization)
+   * For operations that don't need auth (like checking handle availability)
    */
   async function initLensClient() {
     if (lensClient) return lensClient;
 
-    // Dynamic import to avoid loading Lens SDK unless needed
     const { PublicClient } = await import('@lens-protocol/client');
     const { staging } = await import('@lens-protocol/env');
 
+    // Create client without auth context for read-only operations
     lensClient = PublicClient.create({
       environment: staging,
-      origin: 'http://localhost:3000', // Required for non-browser environments
+      origin: 'http://localhost:3000',
     });
 
     return lensClient;
@@ -362,7 +393,7 @@ export function createLensService() {
   async function createAccount(
     params: CreateAccountParams
   ): Promise<LensAccountResult> {
-    const { handle: requestedHandle, name, bio, pictureUri, attributes = [], pkpAddress } = params;
+    const { handle: requestedHandle, name, bio, pictureUri, attributes = [], pkpAddress, walletClient: providedWallet } = params;
 
     const sanitized = sanitizeHandle(requestedHandle);
     const { handle, owned, account: existingAccount } = await findAvailableHandle(sanitized, pkpAddress);
@@ -379,9 +410,17 @@ export function createLensService() {
       // Fall through to real account creation below
     }
 
-    // Initialize all clients required for account creation
-    const client = await initLensClient();
-    const walletClient = await createLensWalletClient();
+    // Initialize wallet client first (PKP or EOA)
+    const walletClient = providedWallet || await createLensWalletClient();
+
+    if (providedWallet) {
+      console.log(`   🔐 Using PKP wallet: ${providedWallet.account.address}`);
+    } else {
+      console.log(`   🔐 Using EOA wallet: ${walletClient.account.address}`);
+    }
+
+    // Create authenticated Lens client with this wallet's authContext
+    const client = await createAuthenticatedLensClient(walletClient);
     const storage = await initStorageClient();
     const chainsConfig = await initChains();
 
@@ -416,10 +455,11 @@ export function createLensService() {
     console.log(`   ✓ Metadata URI: ${uploadResult.uri}`);
 
     console.log('   🔐 Authenticating with Lens Protocol...');
+    console.log(`   📍 Login wallet address: ${walletClient.account.address}`);
     const authenticated = await client.login({
       onboardingUser: {
         app: evmAddress(LENS_APP_ADDRESS),
-        wallet: evmAddress(walletClient.account.address),
+        wallet: evmAddress(walletClient.account.address),  // This must be the PKP address!
       },
       signMessage: signMessageWith(walletClient),
     });

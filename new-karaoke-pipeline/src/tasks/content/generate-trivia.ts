@@ -237,6 +237,11 @@ function buildResponseFormat(expectedQuestions: number) {
 }
 
 async function fetchTracks(limit: number): Promise<TrackRow[]> {
+  // ✅ RETROACTIVE PROCESSING: Query by pending tasks, not by stage
+  // This allows processing tracks at ANY stage (including 'ready') as long as they have:
+  // 1. Genius annotations (referents)
+  // 2. A pending trivia task
+  // 3. No existing trivia questions
   return query(
     `SELECT
         t.spotify_track_id,
@@ -247,18 +252,23 @@ async function fetchTracks(limit: number): Promise<TrackRow[]> {
       FROM tracks t
       JOIN song_lyrics sl ON sl.spotify_track_id = t.spotify_track_id
       JOIN genius_songs gs ON gs.spotify_track_id = t.spotify_track_id
-      WHERE t.stage = $1
-        AND EXISTS (
+      WHERE EXISTS (
           SELECT 1 FROM genius_song_referents gr
           WHERE gr.genius_song_id = gs.genius_song_id
+        )
+        AND EXISTS (
+          SELECT 1 FROM audio_tasks at
+          WHERE at.spotify_track_id = t.spotify_track_id
+            AND at.task_type = 'trivia'
+            AND at.status = 'pending'
         )
         AND NOT EXISTS (
           SELECT 1 FROM song_trivia_questions stq
           WHERE stq.spotify_track_id = t.spotify_track_id
         )
       ORDER BY t.updated_at ASC
-      LIMIT $2`,
-    [TrackStage.TranslationQuizReady, limit]
+      LIMIT $1`,
+    [limit]
   );
 }
 
@@ -424,7 +434,7 @@ async function generateTrivia(limit = 10) {
         await pause(ONCHAIN_DELAY_MS);
       }
 
-      await completeTask(track.spotify_track_id, AudioTaskType.Trivia, {
+      await completeTask(track.spotify_track_id, AudioTaskType.Trivia, 'track', {
         metadata: {
           question_count: triviaInputs.length,
           referent_count: referents.length,
@@ -442,7 +452,7 @@ async function generateTrivia(limit = 10) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`   ✗ Failed to generate trivia for ${trackLabel}: ${message}`);
 
-      await failTask(track.spotify_track_id, AudioTaskType.Trivia, message, {
+      await failTask(track.spotify_track_id, AudioTaskType.Trivia, 'track', message, {
         track: track.spotify_track_id,
       });
     }

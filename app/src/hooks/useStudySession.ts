@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStudyCards, type StudyCard } from './useStudyCards'
 import { useExerciseData } from './useExerciseData'
@@ -68,12 +68,43 @@ export function useStudySession(songId?: string): StudySessionState {
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string }>()
   const [selectedAnswer, setSelectedAnswer] = useState<string | number>()
 
+  // Pin active card to prevent reactive changes during exercise
+  const [pinnedCard, setPinnedCard] = useState<StudyCard | undefined>()
+  const [pinnedCardIndex, setPinnedCardIndex] = useState(0)
+
   // Data hooks
   const studyCardsQuery = useStudyCards(songId)
   const dueCards = studyCardsQuery.data?.cards || []
   const stats = studyCardsQuery.data?.stats
-  const currentCard = dueCards[currentCardIndex]
+
+  // Get live card at current index
+  const liveCard = dueCards[currentCardIndex]
+
+  // Use pinned card if available, otherwise fall back to live card
+  const currentCard = pinnedCard ?? liveCard
   const nextCard = dueCards[currentCardIndex + 1]
+
+  // Pin the card when the active index changes (user navigates)
+  // Ignore reactive changes to dueCards while the user is on the same index
+  useEffect(() => {
+    const nextCard = dueCards[currentCardIndex]
+
+    if (!nextCard) {
+      if (pinnedCard) {
+        console.warn('[useStudySession] ⚠️ No card found at index, keeping previous pin')
+      }
+      return
+    }
+
+    const indexChanged = currentCardIndex !== pinnedCardIndex
+    const needsInitialPin = !pinnedCard
+
+    if (needsInitialPin || indexChanged) {
+      console.log('[useStudySession] 📌 Pinning card:', nextCard.id, 'lineIndex:', nextCard.lineIndex)
+      setPinnedCard(nextCard)
+      setPinnedCardIndex(currentCardIndex)
+    }
+  }, [currentCardIndex, dueCards, pinnedCard, pinnedCardIndex])
 
   // Prefetch next card in background
   usePrefetchExercise(nextCard)
