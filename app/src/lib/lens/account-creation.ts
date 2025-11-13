@@ -1,11 +1,11 @@
 /**
- * Lens Account Creation - Global Namespace
- * Implements 2-step flow for creating accounts in the global lens/* namespace
+ * Lens Account Creation - Custom Namespace (kschool2/*)
+ * Implements 3-step flow for creating accounts in the kschool2 custom namespace
  *
  * Flow:
  * 1. Create account (no username)
  * 2. Switch to account owner role
- * 3. Create username in global lens/* namespace
+ * 3. Create username in kschool2 custom namespace
  */
 
 import type { SessionClient, Account } from '@lens-protocol/client'
@@ -24,6 +24,7 @@ import {
   type RawTransaction,
 } from './mutations'
 import { switchToAccountOwner } from './auth'
+import { LENS_CUSTOM_NAMESPACE } from './config'
 
 /**
  * Send raw transaction using wallet client
@@ -159,8 +160,9 @@ export async function createAccountInCustomNamespace(
   console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
   console.log('[Account Creation] SessionClient urql client updated with new account context')
 
-  // ============ STEP 3: Create Username in Global Namespace ============
-  console.log('[Account Creation] Step 3/3: Creating username in global lens/* namespace...')
+  // ============ STEP 3: Create Username in Custom Namespace ============
+  console.log('[Account Creation] Step 3/3: Creating username in kschool2 custom namespace...')
+  console.log('[Account Creation] Namespace address:', LENS_CUSTOM_NAMESPACE)
 
   const createUsernameResult = await executeMutationWithSession<{ createUsername: CreateUsernameResponse }>(
     CREATE_USERNAME_MUTATION,
@@ -168,7 +170,7 @@ export async function createAccountInCustomNamespace(
       request: {
         username: {
           localName: username,
-          // namespace omitted = global lens/* namespace
+          namespace: LENS_CUSTOM_NAMESPACE,
         },
       },
     }

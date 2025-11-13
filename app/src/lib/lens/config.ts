@@ -12,10 +12,9 @@ import type { EvmAddress } from '@lens-protocol/client'
 export const LENS_APP_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_APP_ADDRESS ||
   '0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0') as EvmAddress
 
-// Using global lens/* namespace (custom namespace disabled for now)
-// Custom Namespace (kschool2/*) - commented out until sponsorship issues resolved
-// export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||
-//   '0xa304467aD0C296C2bb11079Bc2748223568D463e') as EvmAddress
+// Custom Namespace (kschool2/*) - now enabled with PKP-signed gasless transactions
+export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||
+  '0xa304467aD0C296C2bb11079Bc2748223568D463e') as EvmAddress
 
 /**
  * Check if Lens is configured
