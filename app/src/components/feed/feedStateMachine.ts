@@ -8,7 +8,7 @@ export interface FeedContext {
   totalCount: number;                // Total available videos
   hasMore: boolean;                  // Whether more videos can be loaded
   error: string | null;              // Current error state
-  loadingStates: Record<string, boolean>; // Loading state per video ID
+  loadingStates: Record<string, boolean | { error: string; loading: boolean }>; // Loading state per video ID
 }
 
 export type FeedEvent =
@@ -66,8 +66,7 @@ export const feedStateMachine = setup({
           target: 'loaded',
           actions: assign({
             visibleStartIndex: ({ event }) => Math.max(0, event.visibleStartIndex - 2), // Load 2 videos before visible
-    // @ts-expect-error - xstate v5 context type
-            visibleEndIndex: ({ event }) => Math.min(event.visibleEndIndex + 3, event.context.videos.length - 1), // Load 3 videos after visible
+            visibleEndIndex: ({ event, context }) => Math.min(event.visibleEndIndex + 3, context.videos.length - 1), // Load 3 videos after visible
           }),
         },
         LOAD_MORE: {
@@ -77,7 +76,6 @@ export const feedStateMachine = setup({
           target: 'loaded',
           actions: assign({
             loadingStates: ({ event, context }) => ({
-      // @ts-expect-error - xstate v5 assign type
               ...context.loadingStates,
               [event.videoId]: { error: event.error, loading: false },
             }),
@@ -86,20 +84,37 @@ export const feedStateMachine = setup({
       },
     },
     loadingMore: {
-      invoke: {
-        src: 'loadMoreVideos',
-        onDone: {
+      // TODO: Implement loadMoreVideos actor in setup() or pass as implementation
+      // invoke: {
+      //   src: 'loadMoreVideos',
+      //   onDone: {
+      //     target: 'loaded',
+      //     actions: assign({
+      //       videos: ({ event, context }) => [...context.videos, ...event.data.videos],
+      //       hasMore: ({ event }) => event.data.hasMore,
+      //       error: null,
+      //     }),
+      //   },
+      //   onError: {
+      //     target: 'error',
+      //     actions: assign({
+      //       error: ({ event }) => event.data.message || event.data,
+      //     }),
+      //   },
+      // },
+      on: {
+        LOAD_MORE_SUCCESS: {
           target: 'loaded',
           actions: assign({
-            videos: ({ event, context }) => [...context.videos, ...event.data.videos],
-            hasMore: ({ event }) => event.data.hasMore,
+            videos: ({ event, context }) => [...context.videos, ...event.videos],
+            hasMore: ({ event }) => event.hasMore,
             error: null,
           }),
         },
-        onError: {
+        LOAD_MORE_ERROR: {
           target: 'error',
           actions: assign({
-            error: ({ event }) => event.data.message || event.data,
+            error: ({ event }) => event.error,
           }),
         },
       },
@@ -118,25 +133,4 @@ export const feedStateMachine = setup({
       },
     },
   },
-}, {
-  services: {
-    loadMoreVideos: async () => {
-      // This would call your actual data fetching function
-      // Return new videos and hasMore flag
-      const response = await fetchMoreVideos();
-      return {
-        videos: response.items,
-        hasMore: response.hasMore,
-      };
-    },
-  },
 });
-
-async function fetchMoreVideos() {
-  // Your actual API call logic here
-  // This is a placeholder
-  return {
-    items: [],
-    hasMore: false,
-  };
-}
