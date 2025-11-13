@@ -18,17 +18,18 @@ import { useFollowing } from '@/hooks/useFollowing'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { Spinner } from '@/components/ui/spinner'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   convertGroveUri,
   convertLensImage,
   parseVideoMetadata,
 } from '@/lib/lens/utils'
-import type { Address } from 'viem'
 
 export function AccountPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
   const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
+  const { pkpAddress, pkpWalletClient } = useAuth()
 
   // Fetch account and posts from Lens (using global lens/* namespace)
   const {
@@ -79,18 +80,37 @@ export function AccountPageContainer() {
     statusMessage: subscriptionStatusMessage,
     errorMessage: subscriptionErrorMessage,
     reset: resetSubscription,
-  } = useUnlockSubscription(account?.address as Address | undefined, subscriptionLockData?.unlockLockAddress)
+  } = useUnlockSubscription(
+    pkpAddress ?? undefined,
+    subscriptionLockData?.unlockLockAddress,
+    { walletClient: pkpWalletClient }
+  )
+
+  const isSubscriptionProcessing =
+    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
 
   // Handle subscription flow
   const handleSubscribe = () => {
+    if (!pkpAddress || !pkpWalletClient) {
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
     setIsSubscriptionDialogOpen(true)
   }
 
   const handleSubscriptionConfirm = async () => {
+    if (!pkpAddress || !pkpWalletClient) {
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
     await subscribe()
   }
 
   const handleSubscriptionRetry = async () => {
+    if (!pkpAddress || !pkpWalletClient) {
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
     resetSubscription()
     await subscribe()
   }
@@ -273,6 +293,7 @@ export function AccountPageContainer() {
         onOpenChange={handleSubscriptionDialogClose}
         displayName={displayName}
         currentStep={subscriptionStatus}
+        isProcessing={isSubscriptionProcessing}
         statusMessage={subscriptionStatusMessage}
         errorMessage={subscriptionErrorMessage}
         onSubscribe={handleSubscriptionConfirm}

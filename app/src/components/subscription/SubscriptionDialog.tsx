@@ -60,12 +60,12 @@ export function SubscriptionDialog({
       <DialogContent>
         <DialogHeader className="text-left">
           <DialogTitle className="text-2xl">
-            Subscribe
+            Subscribe to {displayName}
           </DialogTitle>
           <p className="text-base text-muted-foreground">
             {isComplete
               ? 'You are now subscribed!'
-              : `Karaoke to full-length songs by ${displayName}.`}
+              : 'Karaoke to full-length songs and exclusive features.'}
           </p>
         </DialogHeader>
 

@@ -6,10 +6,14 @@ import { MediaPage } from '@/components/media/MediaPage'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
+import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
+import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
+import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
+import { useAuth } from '@/contexts/AuthContext'
 
 // Debug logging configuration
-const DEBUG_TIMING = true
-const DEBUG_RERENDERS = true
+const DEBUG_TIMING = false
+const DEBUG_RERENDERS = false
 
 /**
  * Media Page Container - Karaoke player
@@ -21,62 +25,75 @@ const DEBUG_RERENDERS = true
  * Handles both OLD format (inline lyrics) and NEW format (separate translation files)
  */
 export function MediaPageContainer() {
-  console.log('🎭 [MediaPageContainer] COMPONENT RENDERING - Check this first!')
   const { workId } = useParams<{ workId: string }>()
-  console.log('🎭 [MediaPageContainer] workId from params:', workId)
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
-  
+  const { pkpAddress, pkpWalletClient } = useAuth()
+
+  // Subscription dialog state
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
+
   // Performance tracking
   const renderCountRef = useRef(0)
   const lastRenderTimeRef = useRef(Date.now())
   const componentStartTimeRef = useRef(Date.now())
-  
+
   // Timing synchronization tracking
   const lastActiveLineRef = useRef<number | null>(null)
   const lastActiveWordRef = useRef<{ lineIndex: number; wordIndex: number } | null>(null)
   const timingLogsRef = useRef<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>([])
-  
+
   // Increment render counter and log performance
   renderCountRef.current++
   const currentRender = renderCountRef.current
-  
+
   if (DEBUG_RERENDERS) {
     const now = Date.now()
     const timeSinceLastRender = now - lastRenderTimeRef.current
     const timeSinceStart = now - componentStartTimeRef.current
-    console.log(`🎭 [MediaPageContainer] RENDER #${currentRender} - ${timeSinceStart}ms since start, ${timeSinceLastRender}ms since last render`)
     lastRenderTimeRef.current = now
   }
 
   // Fetch clips for this GRC-20 work with metadata
   const { data: workData, isLoading: isLoadingWork } = useGRC20WorkClipsWithMetadata(workId)
 
-  console.log('[MediaPageContainer] Work data:', workData)
-
   // Get first clip from work
   const firstClip = workData?.clips?.[0]
 
-  console.log('[MediaPageContainer] First clip:', firstClip)
+  const spotifyTrackIds = firstClip?.spotifyTrackId ? [firstClip.spotifyTrackId] : undefined
+
+  console.log('[MediaPageContainer] 🔐 Subscription setup - spotifyTrackIds:', spotifyTrackIds)
+  console.log('[MediaPageContainer] 🔐 PKP Address:', pkpAddress)
+  console.log('[MediaPageContainer] 🔐 PKP Wallet Client:', pkpWalletClient ? 'Available' : 'Not available')
+  console.log('[MediaPageContainer] 🔐 PKP Wallet Client chain:', pkpWalletClient?.chain)
+  console.log('[MediaPageContainer] 🔐 PKP Wallet Client account:', pkpWalletClient?.account)
+
+  const { data: subscriptionLockData } = useCreatorSubscriptionLock(spotifyTrackIds)
+
+  console.log('[MediaPageContainer] 🔐 Subscription lock data:', subscriptionLockData)
+
+  const {
+    subscribe,
+    status: subscriptionStatus,
+    statusMessage: subscriptionStatusMessage,
+    errorMessage: subscriptionErrorMessage,
+    reset: resetSubscription,
+  } = useUnlockSubscription(
+    pkpAddress ?? undefined,
+    subscriptionLockData?.unlockLockAddress,
+    { walletClient: pkpWalletClient }
+  )
+
+  console.log('[MediaPageContainer] 🔐 Subscription status:', subscriptionStatus)
+
+  const isSubscriptionProcessing =
+    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
 
   // Fetch clip metadata (includes lyrics and alignment)
   const { data: clipMetadata, isLoading: isLoadingClip } = useSegmentMetadata(
     firstClip?.metadataUri
   )
-
-  console.log('[MediaPageContainer] Clip metadata:', clipMetadata)
-  console.log('[MediaPageContainer] Clip metadata keys:', clipMetadata ? Object.keys(clipMetadata) : 'N/A')
-  console.log('[MediaPageContainer] Has coverUri?', clipMetadata?.coverUri ? 'YES' : 'NO')
-  console.log('[MediaPageContainer] Full coverUri value:', clipMetadata?.coverUri)
-  console.log('[MediaPageContainer] Clip metadata type:', typeof clipMetadata)
-  if (clipMetadata) {
-    console.log('[MediaPageContainer] Checking nested structure:')
-    console.log('  - coverUri:', clipMetadata.coverUri)
-    console.log('  - title:', clipMetadata.title)
-    console.log('  - artist:', clipMetadata.artist)
-    console.log('  - assets:', clipMetadata.assets)
-  }
 
   // Timing synchronization function - calculates which line/word should be active
   const calculateActiveLineAndWord = useCallback((currentTime: number, lyrics: any[]) => {
@@ -131,17 +148,14 @@ export function MediaPageContainer() {
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
     if (!clipMetadata) {
-      console.log('[MediaPageContainer] No clip metadata')
       return
     }
 
     // Load alignment if it exists in metadata
     if (clipMetadata.assets?.alignment) {
-      console.log('[MediaPageContainer] Loading alignment from:', clipMetadata.assets.alignment)
       fetch(clipMetadata.assets.alignment)
         .then((r) => r.json())
         .then((data) => {
-          console.log('[MediaPageContainer] ✅ Alignment loaded:', data)
           // TODO: Update original lyrics from alignment if needed
         })
         .catch((e) => console.error('[MediaPageContainer] Failed to load alignment:', e))
@@ -149,17 +163,13 @@ export function MediaPageContainer() {
 
     // Load translations from NEW format (separate Grove files)
     if (!clipMetadata?.translations || clipMetadata.translations.length === 0) {
-      console.log('[MediaPageContainer] No translations in NEW format')
       return
     }
-
-    console.log('[MediaPageContainer] Loading translations from NEW format:', clipMetadata.translations)
 
     Promise.all<[string, any] | null>(
       clipMetadata.translations.map(async (t: any) => {
         try {
           const url = convertGroveUri(t.grove_url)
-          console.log(`[MediaPageContainer] Fetching ${t.language_code} from ${url}`)
           const response = await fetch(url)
           const data = await response.json()
           return [t.language_code, data]
@@ -173,19 +183,15 @@ export function MediaPageContainer() {
       results.forEach((result) => {
         if (result) {
           translations[result[0]] = result[1]
-          console.log(`[MediaPageContainer] ✅ Loaded ${result[0]}:`, result[1])
         }
       })
       setLoadedTranslations(translations)
-      console.log('[MediaPageContainer] All translations loaded:', translations)
 
       // Build original lyrics from first available translation
       // NOTE: Data is already pre-filtered to clip window and offset by SQL query
       // No filtering or offsetting needed here - just use the data directly
       const firstTranslation = Object.values(translations)[0]
       if (firstTranslation?.lines && Array.isArray(firstTranslation.lines)) {
-        console.log('[MediaPageContainer] Building original lyrics from pre-filtered translation')
-
         // Transform lines to include calculated timing fields (start, end, startTime, endTime)
         const lyricsLines = firstTranslation.lines.map((line: any) => {
           return {
@@ -207,8 +213,6 @@ export function MediaPageContainer() {
 
         setOriginalLyricsLines(lyricsLines)
         setLoadedTranslations(translations)
-        console.log('[MediaPageContainer] Original lyrics built:', lyricsLines.length, 'lines')
-        console.log('[MediaPageContainer] First line timing:', lyricsLines[0])
       }
     })
   }, [clipMetadata])
@@ -249,10 +253,7 @@ export function MediaPageContainer() {
       ? convertGroveUri(firstClip.instrumentalUri)
       : undefined
 
-  console.log('[MediaPageContainer] Audio URL source:', {
-    hasMetadataAssets: !!clipMetadata?.assets?.instrumental,
-    audioUrl: audioUrl?.substring(0, 50) + '...',
-  })
+  // Audio URL configured
 
   if (!audioUrl) {
     return (
@@ -279,23 +280,7 @@ export function MediaPageContainer() {
   // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
   // coverUri is set during pipeline emission in emit-clip-events.ts
   // NOTE: Don't pass artworkUrl to MediaPage to avoid background image on play page
-  console.log('[MediaPageContainer] Processing artwork (disabled for play page):')
-  console.log('  - coverUri exists?:', !!clipMetadata?.coverUri)
-  console.log('  - coverUri value:', clipMetadata?.coverUri)
   const artworkUrl = undefined // Don't show artwork background on play page
-  console.log('  - artworkUrl disabled for play page:', artworkUrl)
-
-  console.log('[MediaPageContainer] Clip duration:', {
-    tiktokClipMs: clipMetadata?.timing?.tiktok_clip_duration_ms,
-    croppedDurationMs: clipMetadata?.timing?.cropped_duration_ms,
-    final: croppedDurationMs,
-  })
-
-  console.log('[MediaPageContainer] Artwork:', {
-    hasCoverUri: !!clipMetadata?.coverUri,
-    artworkUrlExists: !!artworkUrl,
-    artworkUrl: artworkUrl?.substring(0, 50) + '...',
-  })
 
   // Transform V2 lyrics format to LyricLine[] format
   // NEW format: use built original lyrics from translations
@@ -311,14 +296,8 @@ export function MediaPageContainer() {
   const allTranslations = { ...inlineTranslations, ...loadedTranslations }
   const availableLanguages = Object.keys(allTranslations)
 
-  console.log('[MediaPageContainer] Available languages:', availableLanguages)
-  console.log('[MediaPageContainer] Inline translations:', Object.keys(inlineTranslations))
-  console.log('[MediaPageContainer] Loaded translations:', Object.keys(loadedTranslations))
-
   // Determine preferred language based on browser settings
   const preferredLanguage = getPreferredLanguage(availableLanguages)
-
-  console.log('[MediaPageContainer] Preferred language:', preferredLanguage)
 
   const lyrics = originalLyrics.lines.map((line: any, index: number) => {
     // Build translations object from BOTH formats
@@ -370,22 +349,96 @@ export function MediaPageContainer() {
     return builtLine
   })
 
+  const handleUnlockClick = () => {
+    console.log('[MediaPageContainer] 🔐 handleUnlockClick called')
+    console.log('[MediaPageContainer] 🔐 subscriptionLockData:', subscriptionLockData)
+    console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
+    console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
+
+    if (!subscriptionLockData?.unlockLockAddress) {
+      console.warn('[MediaPageContainer] 🔐 No lock address available')
+      alert('Subscription not available for this song yet.')
+      return
+    }
+
+    if (!pkpAddress || !pkpWalletClient) {
+      console.warn('[MediaPageContainer] 🔐 No PKP wallet available')
+      alert('Please sign in to subscribe and unlock this song.')
+      return
+    }
+
+    console.log('[MediaPageContainer] 🔐 Opening subscription dialog')
+    setShowSubscriptionDialog(true)
+  }
+
+  const handleSubscriptionConfirm = async () => {
+    console.log('[MediaPageContainer] 🔐 handleSubscriptionConfirm called')
+    console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
+    console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
+
+    if (!pkpAddress || !pkpWalletClient) {
+      console.error('[MediaPageContainer] 🔐 No PKP wallet available for subscription')
+      alert('Please sign in to subscribe and unlock this song.')
+      return
+    }
+
+    console.log('[MediaPageContainer] 🔐 Calling subscribe()')
+    await subscribe()
+  }
+
+  const handleSubscriptionRetry = async () => {
+    console.log('[MediaPageContainer] 🔐 handleSubscriptionRetry called')
+    if (!pkpAddress || !pkpWalletClient) {
+      console.error('[MediaPageContainer] 🔐 No PKP wallet available for retry')
+      alert('Please sign in to subscribe and unlock this song.')
+      return
+    }
+    console.log('[MediaPageContainer] 🔐 Resetting subscription and retrying')
+    resetSubscription()
+    await subscribe()
+  }
+
+  const handleSubscriptionDialogClose = (open: boolean) => {
+    console.log('[MediaPageContainer] 🔐 handleSubscriptionDialogClose called, open:', open)
+    console.log('[MediaPageContainer] 🔐 Current subscription status:', subscriptionStatus)
+    setShowSubscriptionDialog(open)
+    if (!open && subscriptionStatus === 'complete') {
+      console.log('[MediaPageContainer] 🔐 Resetting subscription after completion')
+      resetSubscription()
+    }
+  }
+
   return (
-    <MediaPage
-      title={title}
-      artist={artist}
-      audioUrl={audioUrl}
-      lyrics={lyrics}
-      artworkUrl={artworkUrl}
-      selectedLanguage={preferredLanguage}
-      showTranslations={availableLanguages.length > 0}
-      onBack={() => navigate(-1)}
-      onArtistClick={
-        clipMetadata?.artistLensHandle
-          ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
-          : undefined
-      }
-      debugInfo={debugInfo}
-    />
+    <>
+      <MediaPage
+        title={title}
+        artist={artist}
+        audioUrl={audioUrl}
+        lyrics={lyrics}
+        artworkUrl={artworkUrl}
+        selectedLanguage={preferredLanguage}
+        showTranslations={availableLanguages.length > 0}
+        onBack={() => navigate(-1)}
+        onArtistClick={
+          clipMetadata?.artistLensHandle
+            ? () => navigate(`/u/${clipMetadata.artistLensHandle}`)
+            : undefined
+        }
+        onUnlockClick={handleUnlockClick}
+        debugInfo={debugInfo}
+      />
+
+      <SubscriptionDialog
+        open={showSubscriptionDialog}
+        onOpenChange={handleSubscriptionDialogClose}
+        displayName={artist}
+        currentStep={subscriptionStatus}
+        isProcessing={isSubscriptionProcessing}
+        statusMessage={subscriptionStatusMessage}
+        errorMessage={subscriptionErrorMessage}
+        onSubscribe={handleSubscriptionConfirm}
+        onRetry={handleSubscriptionRetry}
+      />
+    </>
   )
 }

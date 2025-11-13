@@ -73,9 +73,67 @@ export function createLitService() {
     // Dynamic import to avoid loading Lit SDK unless needed
     const { createLitClient } = await import('@lit-protocol/lit-client');
     const { nagaTest } = await import('@lit-protocol/networks');
+    const { createSiweMessage } = await import('@lit-protocol/auth-helpers');
+    const { generateSessionKeyPair } = await import('@lit-protocol/crypto');
+    const { randomBytes } = await import('crypto');
+
+    // Get controller wallet for signing session auth messages
+    const controllerWallet = createLitWalletClient();
+
+    // Generate session key pair for Lit Protocol
+    const sessionKeyPair = generateSessionKeyPair();
+
+    // Create ethers-style signer for SIWE message signing
+    const ethersSigner = {
+      signMessage: async (message: string) => {
+        return await controllerWallet.signMessage({ message });
+      },
+      getAddress: async () => controllerWallet.account.address,
+    };
+
+    // Create authContext with callback for Lit Protocol session management
+    const authNeededCallback = async () => {
+      console.log('   🔐 Lit Protocol session auth requested...');
+
+      // Generate nonce for SIWE message (alphanumeric only, at least 8 chars)
+      const nonce = randomBytes(16).toString('hex');
+
+      // Create proper SIWE message with expiration
+      const ONE_WEEK_FROM_NOW = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+      const siweMessage = await createSiweMessage({
+        walletAddress: controllerWallet.account.address,
+        nonce,
+        expiration: ONE_WEEK_FROM_NOW,
+        uri: 'https://localhost',  // Valid RFC 3986 URI
+        domain: 'localhost',
+        statement: 'Lit Protocol Session',
+      });
+
+      // Sign the SIWE message
+      const signature = await ethersSigner.signMessage(siweMessage);
+
+      // Return auth signature in expected format
+      const authSig = {
+        sig: signature,
+        derivedVia: 'web3.eth.personal.sign',
+        signedMessage: siweMessage,
+        address: controllerWallet.account.address,
+      };
+
+      console.log('   ✓ Lit session auth signature generated');
+      return authSig;
+    };
 
     litClient = await createLitClient({
       network: nagaTest,
+      authContext: {
+        authNeededCallback,
+        sessionKeyPair,
+        authConfig: {
+          capabilityAuthSigs: [],
+          resources: [],
+        },
+      },
     });
 
     return litClient;
@@ -164,117 +222,99 @@ export function createLitService() {
   /**
    * Create a viem WalletClient backed by a PKP
    *
-   * This creates a wallet where all signing operations (signMessage, signTypedData, etc.)
-   * are performed by the PKP via Lit Actions, not by exposing a private key.
+   * Uses Lit Protocol's official getPkpViemAccount API to create a wallet
+   * where all signing operations are performed by the PKP via Lit Protocol.
    *
    * @param pkpPublicKey - The PKP's public key (from pkp_accounts.pkp_public_key)
+   * @param pkpTokenId - The PKP's token ID (from pkp_accounts.pkp_token_id)
    * @param targetChain - The chain to use (e.g., Lens testnet)
    * @returns viem WalletClient that signs with the PKP
    */
   async function createPKPWalletClient(
     pkpPublicKey: string,
+    pkpTokenId: string,
     targetChain: any
   ): Promise<any> {
-    // Import utilities from viem
-    const viem = await import('viem');
-    const { publicKeyToAddress } = await import('viem/utils');
-
     const client = await initLitClient();
     const controllerWallet = createLitWalletClient();
 
-    // Derive PKP address from public key
-    const pkpAddress = publicKeyToAddress(`0x${pkpPublicKey}`) as Address;
+    // Import required utilities
+    const { createSiweMessage, createSiweMessageWithResources, generateAuthSig } = await import('@lit-protocol/auth-helpers');
+    const { LitPKPResource } = await import('@lit-protocol/auth-helpers');
+    const { generateSessionKeyPair } = await import('@lit-protocol/crypto');
+    const { randomBytes } = await import('crypto');
 
-    // Create custom account object that delegates signing to Lit
-    const pkpAccount = {
-      address: pkpAddress,
-      type: 'custom' as const,
+    console.log('   🔑 Generating PKP session capabilities...');
 
-      // Sign message via Lit Actions
-      async signMessage({ message }: { message: any }) {
-        const toSignHex = typeof message === 'string'
-          ? viem.hashMessage(message)
-          : viem.hashMessage({ raw: message.raw });
-        const toSign = viem.hexToBytes(toSignHex);
+    // Generate session key pair for this PKP wallet
+    const sessionKeyPair = generateSessionKeyPair();
 
-        const litActionCode = `
-          (async () => {
-            const { toSign, publicKey } = Lit.Actions.getJsParams();
+    // Create PKP resource for this specific token ID (not wildcard)
+    // Convert decimal token ID to 32-byte hex string (64 characters)
+    const tokenIdHex = BigInt(pkpTokenId).toString(16).padStart(64, '0');
+    const pkpResource = new LitPKPResource(tokenIdHex);
 
-            const sigShare = await Lit.Actions.signEcdsa({
-              toSign,
-              publicKey,
-              sigName: "sig",
-            });
-          })();
-        `;
-
-        // Generate auth signature for Lit Protocol
-        const { generateAuthSig } = await import('@lit-protocol/auth-helpers');
-
-        const authSig = await generateAuthSig({
-          signer: controllerWallet,
-          toSign: `Lit Protocol PKP Auth: ${Date.now()}`,
-          address: controllerWallet.account.address,
-        });
-
-        const results = await client.executeJs({
-          code: litActionCode,
-          jsParams: {
-            toSign: Array.from(toSign),
-            publicKey: pkpPublicKey,
-          },
-          authSig,
-        });
-
-        const sig = results.signatures.sig;
-        return viem.joinSignature({ r: `0x${sig.r}`, s: `0x${sig.s}`, v: sig.recid });
+    // Create ethers-style signer for capability signatures
+    const ethersSigner = {
+      signMessage: async (message: string) => {
+        return await controllerWallet.signMessage({ message });
       },
+      getAddress: async () => controllerWallet.account.address,
+    };
 
-      // Sign typed data via Lit Actions
-      async signTypedData(typedData: any) {
-        const hash = viem.hashTypedData(typedData);
-
-        const litActionCode = `
-          (async () => {
-            const { toSign, publicKey } = Lit.Actions.getJsParams();
-
-            const sigShare = await Lit.Actions.signEcdsa({
-              toSign,
-              publicKey,
-              sigName: "sig",
-            });
-          })();
-        `;
-
-        // Generate auth signature for Lit Protocol
-        const { generateAuthSig } = await import('@lit-protocol/auth-helpers');
-
-        const authSig = await generateAuthSig({
-          signer: controllerWallet,
-          toSign: `Lit Protocol PKP Auth: ${Date.now()}`,
-          address: controllerWallet.account.address,
-        });
-
-        const results = await client.executeJs({
-          code: litActionCode,
-          jsParams: {
-            toSign: Array.from(viem.hexToBytes(hash)),
-            publicKey: pkpPublicKey,
+    // Generate session capability signature that authorizes this PKP for signing
+    const sessionCapabilitySig = await generateAuthSig({
+      signer: ethersSigner,
+      toSign: await createSiweMessageWithResources({
+        walletAddress: controllerWallet.account.address,
+        nonce: randomBytes(16).toString('hex'),
+        expiration: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+        uri: 'https://localhost/pkp',
+        domain: 'localhost',
+        statement: 'PKP Session Capability',
+        resources: [
+          {
+            resource: pkpResource,
+            ability: 'pkp-signing',  // LitAbility.PKPSigning
           },
-          authSig,
-        });
+        ],
+      }),
+      address: controllerWallet.account.address,
+    });
 
-        const sig = results.signatures.sig;
-        return viem.joinSignature({ r: `0x${sig.r}`, s: `0x${sig.s}`, v: sig.recid });
-      },
+    console.log('   ✓ PKP session capability signature generated');
+    console.log('   📋 Session capability SIWE message:', sessionCapabilitySig.signedMessage.substring(0, 200) + '...');
+    console.log('   📋 PKP Resource string:', pkpResource.toString());
 
-      // Sign transaction via Lit Actions
-      async signTransaction(tx: any) {
-        throw new Error('PKP transaction signing not yet implemented - use signTypedData for EIP-712');
+    // Create authContext for PKP operations with capability signatures
+    // authNeededCallback should return the same session capability signature
+    const authNeededCallback = async () => {
+      console.log('   🔐 PKP auth callback triggered - returning session capability');
+      return sessionCapabilitySig;
+    };
+
+    const authContext = {
+      authNeededCallback,
+      sessionKeyPair,
+      authConfig: {
+        capabilityAuthSigs: [sessionCapabilitySig],
+        resources: [{
+          resource: pkpResource,
+          ability: 'pkp-signing',
+        }],
       },
     };
 
+    // Use the official Lit Protocol API to get PKP viem account
+    console.log('   📝 Creating PKP viem account via litClient.getPkpViemAccount...');
+    const pkpAccount = await client.getPkpViemAccount({
+      pkpPublicKey,
+      authContext,
+      chainConfig: targetChain,
+    });
+    console.log('   ✓ PKP viem account created');
+
+    // Create wallet client with PKP account
     return createWalletClient({
       account: pkpAccount,
       chain: targetChain,

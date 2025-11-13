@@ -22,7 +22,7 @@ async function main() {
   // 1. Fetch a real PKP from database
   console.log('📊 Fetching PKP from database...');
   const pkpRows = await query(
-    `SELECT pkp_address, pkp_public_key, spotify_artist_id
+    `SELECT pkp_address, pkp_public_key, pkp_token_id, spotify_artist_id
      FROM pkp_accounts
      WHERE account_type = 'artist'
        AND spotify_artist_id IS NOT NULL
@@ -71,6 +71,7 @@ async function main() {
   const { chains } = await import('@lens-chain/sdk/viem');
   const pkpWalletClient = await litService.createPKPWalletClient(
     pkp.pkp_public_key,
+    pkp.pkp_token_id,
     chains.testnet
   );
 

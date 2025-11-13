@@ -3,6 +3,8 @@ import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
 import { AudioButton } from '@/components/media/AudioButton'
 import { AudioScrobbleBar } from '@/components/audio/AudioScrobbleBar'
 import { BackButton } from '@/components/ui/back-button'
+import { Button } from '@/components/ui/button'
+import { LockKey } from '@phosphor-icons/react'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +21,7 @@ export interface MediaPageProps {
   showTranslations?: boolean
   onBack?: () => void
   onArtistClick?: () => void
+  onUnlockClick?: () => void
   className?: string
   debugInfo?: {
     renderCount: number
@@ -44,6 +47,7 @@ export function MediaPage({
   showTranslations = true,
   onBack,
   onArtistClick,
+  onUnlockClick,
   className,
   debugInfo,
 }: MediaPageProps) {
@@ -136,7 +140,16 @@ export function MediaPage({
               ) : artist}
             </h1>
           </div>
-          <div className="w-8" />
+          {onUnlockClick && (
+            <Button
+              onClick={onUnlockClick}
+              variant="destructive"
+              size="sm"
+            >
+              <LockKey className="w-5 h-5" weight="fill" />
+              Unlock
+            </Button>
+          )}
         </div>
       </div>
 

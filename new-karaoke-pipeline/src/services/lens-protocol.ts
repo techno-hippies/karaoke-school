@@ -173,17 +173,25 @@ export function createLensService() {
     // Create signer for this specific wallet
     const walletSigner = signMessageWith(walletClient);
 
-    return PublicClient.create({
+    const authNeededCallback = async (challenge: any) => {
+      // SDK invokes this when it needs a signature
+      console.log('   🔐 Auth challenge received, signing with wallet...');
+      if (!challenge?.message) {
+        throw new Error('Lens auth challenge missing message payload');
+      }
+      return walletSigner({ message: challenge.message });
+    };
+
+    console.log('   🏗️  Creating PublicClient with authContext...');
+    const lensClient = PublicClient.create({
       environment: staging,
       origin: 'http://localhost:3000',
       authContext: {
-        authNeededCallback: async (challenge: any) => {
-          // SDK invokes this when it needs a signature
-          console.log('   🔐 Auth challenge received, signing with wallet...');
-          return walletSigner(challenge);
-        },
+        authNeededCallback,
       },
     });
+    console.log('   ✓ PublicClient created with authContext');
+    return lensClient;
   }
 
   /**
@@ -461,11 +469,24 @@ export function createLensService() {
         app: evmAddress(LENS_APP_ADDRESS),
         wallet: evmAddress(walletClient.account.address),  // This must be the PKP address!
       },
-      signMessage: signMessageWith(walletClient),
+      // Call PKP wallet's signMessage directly, bypassing signMessageWith helper
+      signMessage: async (message: string) => {
+        console.log('   🔐 Signing authentication message with PKP wallet...');
+        console.log('   📝 Message to sign:', message.substring(0, 100) + '...');
+        try {
+          const signature = await walletClient.signMessage({ message });
+          console.log('   ✓ Signature generated:', signature);
+          return signature;
+        } catch (error) {
+          console.error('   ❌ PKP signing error:', error);
+          throw error;
+        }
+      },
     });
 
     if (authenticated.isErr()) {
-      throw new Error(`Lens login failed: ${authenticated.error.message}`);
+      console.error('   ❌ Lens authentication error:', authenticated.error);
+      throw new Error(`Lens login failed: ${JSON.stringify(authenticated.error, null, 2)}`);
     }
 
     const sessionClient = authenticated.value;

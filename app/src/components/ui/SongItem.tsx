@@ -71,14 +71,22 @@ export function SongItem({
             {artworkUrl ? (
               <img
                 src={artworkUrl}
-                alt={`${title} artwork`}
-                className="w-full h-full object-cover rounded-full"
+                alt=""
+                className="w-full h-full object-cover rounded-full bg-gradient-to-br from-pink-400 to-purple-600"
+                onError={(e) => {
+                  // Hide broken images by replacing with gradient
+                  e.currentTarget.style.display = 'none'
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                  if (fallback) fallback.style.display = 'flex'
+                }}
               />
-            ) : (
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
-                <MusicNote size={24} weight="duotone" className="text-foreground/80" />
-              </div>
-            )}
+            ) : null}
+            <div
+              className="w-full h-full rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center"
+              style={{ display: artworkUrl ? 'none' : 'flex' }}
+            >
+              <MusicNote size={24} weight="duotone" className="text-foreground/80" />
+            </div>
 
             {/* Play/Pause Button Overlay */}
             {showPlayButton && onPlayClick && (
