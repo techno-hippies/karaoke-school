@@ -8,6 +8,24 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Node-style globals for browser, run BEFORE Vite entry -->
+    <script>
+      // global – some libs expect this to exist
+      window.global = window.globalThis || window;
+
+      // Minimal process shim; expand if you need more fields later
+      window.process = window.process || {
+        env: {
+          NODE_ENV: 'production',
+        },
+      };
+
+      // Buffer shim for Lit Protocol and other Node-style libs
+      window.Buffer = window.Buffer || [];
+    </script>
+
+    <!-- Vite entry MUST come after the polyfill -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

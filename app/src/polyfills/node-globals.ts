@@ -1,17 +1,16 @@
 // src/polyfills/node-globals.ts
-import process from 'process'
-import { Buffer } from 'buffer'
-
-// Make Node-style globals available in the browser.
-// Guard so we don't overwrite anything if it already exists.
+// Safety net for non-HTML entries (Storybook, tests, etc.)
+// Main index.html has inline script that runs first
 if (typeof window !== 'undefined') {
   const w = window as any
 
+  w.global = w.globalThis || w.global || w
+
   if (!w.process) {
-    w.process = process
+    w.process = { env: { NODE_ENV: 'production' } }
   }
 
   if (!w.Buffer) {
-    w.Buffer = Buffer
+    w.Buffer = []
   }
 }

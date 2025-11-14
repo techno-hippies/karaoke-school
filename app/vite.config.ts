@@ -22,9 +22,9 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'global': 'globalThis',
-      // Runtime process global comes from polyfills/node-globals.ts
+      // Runtime process global comes from index.html inline script
       // This replaces process.env.* at build time
-      'process.env': JSON.stringify(env),
+      'process.env': env,
     },
   build: {
     rollupOptions: {
