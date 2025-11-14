@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { StudyCard } from './useStudyCards'
+import { fetchQuizMetadata } from './useQuizMetadata'
 
 /**
  * Hook for prefetching exercise data in the background
@@ -60,14 +61,10 @@ export function usePrefetchExercise(card?: StudyCard) {
       card.exerciseType === 'TRANSLATION_MULTIPLE_CHOICE' ||
       card.exerciseType === 'TRIVIA_MULTIPLE_CHOICE'
     ) {
-      // Prefetch quiz metadata
+      // Prefetch quiz metadata using the same transformer as the live query
       queryClient.prefetchQuery({
         queryKey: ['quiz-metadata', card.metadataUri],
-        queryFn: async () => {
-          const response = await fetch(card.metadataUri)
-          if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
-          return response.json()
-        },
+        queryFn: async () => fetchQuizMetadata(card.metadataUri ?? ''),
         staleTime: 300000, // 5 minutes
       })
     }

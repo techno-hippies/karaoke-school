@@ -1,12 +1,13 @@
 import { WalletPageView } from '@/components/wallet/WalletPageView'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePKPBalances } from '@/hooks/usePKPBalances'
+import { Button } from '@/components/ui/button'
 
 /**
  * WalletPage - Container component for wallet page
  * Handles wallet data fetching and state management
  */
-export function WalletPage() {
+export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const { pkpAddress, lensAccount, isPKPReady } = useAuth()
   const { balances, error } = usePKPBalances()
 
@@ -49,11 +50,12 @@ export function WalletPage() {
   // Show loading state when PKP is not ready
   if (!isPKPReady) {
     return (
-      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-4">Connecting to your PKP Wallet</h2>
-          <p className="text-muted-foreground">Please sign in to view your balances.</p>
-        </div>
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h2 className="text-2xl font-bold text-center">Sign Up</h2>
+        <p className="text-muted-foreground text-center">Karaoke to your favorite songs for free!</p>
+        <Button onClick={onConnectWallet}>
+          Sign Up
+        </Button>
       </div>
     )
   }

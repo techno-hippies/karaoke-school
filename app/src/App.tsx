@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LensProvider } from '@lens-protocol/react'
@@ -166,10 +166,10 @@ function AppRouter() {
           {/* Song routes - GRC-20 work ID based */}
           <Route path="/song/:workId" element={<SongPageContainer />} />
           <Route path="/song/:workId/play" element={<MediaPageContainer />} />
-          <Route path="/song/:workId/study" element={<StudySessionPage />} />
+          <Route path="/song/:workId/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
           {/* Study routes - Global study dashboard */}
-          <Route path="/study" element={<ClassPage />} />
+          <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
           {/* Legacy routes (redirect for backwards compatibility) */}
           <Route path="/karaoke/:workId" element={<Navigate to={`/song/:workId`} replace />} />
@@ -177,7 +177,7 @@ function AppRouter() {
           <Route path="/song/grc20/:workId" element={<Navigate to={`/song/:workId`} replace />} />
           <Route path="/song/grc20/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
 
-          <Route path="/wallet" element={<WalletPage />} />
+          <Route path="/wallet" element={<WalletPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/profile" element={<ProfilePageContainer />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -224,13 +224,13 @@ function App() {
   return (
     <LensProvider client={lensClient}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <HashRouter>
           <AuthProvider>
             <VideoPlaybackProvider>
               <AppRouter />
             </VideoPlaybackProvider>
           </AuthProvider>
-        </BrowserRouter>
+        </HashRouter>
       </QueryClientProvider>
     </LensProvider>
   )

@@ -296,19 +296,47 @@ export function useStudyCards(songId?: string) {
         const songMetadataBySpotifyId = new Map<string, { title: string; artist: string; artworkUrl?: string }>()
 
         // STEP 1: Fetch clip metadata first to populate title/artist map
+        const clipMetadataCache = new Map<string, any>()
+        const metadataFailures: Array<{ metadataUri: string; error: string }> = []
+
         for (const clip of data.clips) {
-          const metadataResponse = await fetch(clip.metadataUri)
-          if (!metadataResponse.ok) continue
+          if (!clip.metadataUri) continue
 
-          const clipMetadata = await metadataResponse.json()
+          try {
+            const metadataResponse = await fetch(clip.metadataUri)
+            if (!metadataResponse.ok) {
+              console.warn('[useStudyCards] ⚠️ Failed to fetch clip metadata', {
+                metadataUri: clip.metadataUri,
+                status: metadataResponse.status,
+              })
+              metadataFailures.push({
+                metadataUri: clip.metadataUri,
+                error: `HTTP ${metadataResponse.status}`,
+              })
+              continue
+            }
 
-          // Store title/artist/artwork for this track
-          if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
-            songMetadataBySpotifyId.set(clip.spotifyTrackId, {
-              title: clipMetadata.title,
-              artist: clipMetadata.artist,
-              artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+            const clipMetadata = await metadataResponse.json()
+            clipMetadataCache.set(clip.metadataUri, clipMetadata)
+
+            // Store title/artist/artwork for this track
+            if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+              songMetadataBySpotifyId.set(clip.spotifyTrackId, {
+                title: clipMetadata.title,
+                artist: clipMetadata.artist,
+                artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+              })
+            }
+          } catch (error) {
+            console.warn('[useStudyCards] ⚠️ Error fetching clip metadata', {
+              metadataUri: clip.metadataUri,
+              error,
             })
+            metadataFailures.push({
+              metadataUri: clip.metadataUri,
+              error: error instanceof Error ? error.message : String(error),
+            })
+            continue
           }
         }
 
@@ -357,12 +385,19 @@ export function useStudyCards(songId?: string) {
         const allLinePerformances = data.linePerformances || []
 
         for (const clip of data.clips) {
-          // Fetch clip Grove metadata to get karaoke_lines structure
-          const metadataResponse = await fetch(clip.metadataUri)
-          if (!metadataResponse.ok) {
-            throw new Error(`Failed to fetch clip metadata: ${metadataResponse.status}`)
+          const clipMetadata = clipMetadataCache.get(clip.metadataUri)
+          if (!clipMetadata) {
+            console.warn('[useStudyCards] ⚠️ Missing cached metadata for clip', {
+              metadataUri: clip.metadataUri,
+              spotifyTrackId: clip.spotifyTrackId,
+            })
+            metadataFailures.push({
+              metadataUri: clip.metadataUri,
+              error: 'Metadata missing from cache',
+            })
+
+            continue
           }
-          const clipMetadata = await metadataResponse.json()
 
           // Skip clips with old/malformed metadata (missing karaoke_lines)
           if (!clipMetadata.karaoke_lines || !Array.isArray(clipMetadata.karaoke_lines)) {
@@ -502,6 +537,9 @@ export function useStudyCards(songId?: string) {
         }
 
         console.log('[useStudyCards] ✓ Loaded', dailyCards.length, 'cards for study session')
+        if (metadataFailures.length > 0) {
+          console.warn('[useStudyCards] ⚠️ Metadata fetch issues:', metadataFailures)
+        }
 
         return { cards: dailyCards, stats }
       } catch (error) {

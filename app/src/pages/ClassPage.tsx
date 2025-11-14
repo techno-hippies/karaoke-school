@@ -20,7 +20,7 @@ import { ArrowUpRight, BookOpen } from '@phosphor-icons/react'
  * - Start study session button
  * - Progress toward daily goal
  */
-export function ClassPage() {
+export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isPKPReady } = useAuth()
@@ -59,13 +59,43 @@ export function ClassPage() {
 
   const songsList = Object.values(cardsBySong).sort((a, b) => b.cards.length - a.cards.length)
 
-  // Auth check
+  // Auth check - show preview of study page with zero stats
   if (!isPKPReady) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-2xl font-bold">Connect Wallet to Study</h1>
-        <p className="text-muted-foreground">You need to create a passkey to track your learning progress.</p>
-        <Button onClick={() => navigate('/')}>Go Home</Button>
+      <div className="min-h-screen bg-background pt-6 pb-20 px-4">
+        <div className="max-w-2xl mx-auto space-y-8">
+          {/* Statistics Grid - 3 Box Model (Preview with zeros) */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'New', count: 0, color: 'text-green-500', tooltip: 'Never studied 🌱' },
+              { label: 'Learning', count: 0, color: 'text-blue-500', tooltip: 'In progress 💧' },
+              { label: 'Due', count: 0, color: 'text-red-500', tooltip: 'Study now ⚡' },
+            ].map((stat) => (
+              <Card key={stat.label} className="p-4 text-center space-y-2">
+                <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Disabled Study Button */}
+          <Button
+            size="lg"
+            disabled
+            className="w-full h-12 text-base"
+          >
+            Study
+          </Button>
+
+          {/* Sign Up Call-to-Action */}
+          <Card className="p-8 text-center space-y-4 bg-muted">
+            <h2 className="text-2xl font-bold">Sign Up</h2>
+            <p className="text-muted-foreground">Karaoke to your favorite songs for free!</p>
+            <Button onClick={onConnectWallet || (() => navigate('/'))}>
+              Sign Up
+            </Button>
+          </Card>
+        </div>
       </div>
     )
   }

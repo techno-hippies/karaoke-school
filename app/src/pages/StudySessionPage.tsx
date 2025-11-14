@@ -7,6 +7,7 @@ import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
 import { ExerciseFooter } from '@/components/exercises/ExerciseFooter'
 import { ExerciseSkeleton } from '@/components/study/ExerciseSkeleton'
 import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@/components/ui/button'
 
 /**
  * Study Session Page - Refactored with persistent layout
@@ -17,7 +18,7 @@ import { Spinner } from '@/components/ui/spinner'
  * - Prefetched exercise data (zero wait time)
  * - Optimistic UI updates (instant feedback)
  */
-export function StudySessionPage() {
+export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const { workId } = useParams<{ workId: string }>()
   const { isPKPReady, isAuthenticating } = useAuth()
   const navigate = useNavigate()
@@ -39,24 +40,16 @@ export function StudySessionPage() {
     // Not logged in - show clear message
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Sign in to study</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">Sign Up</h1>
         <p className="text-muted-foreground text-center max-w-md">
-          You need to be signed in to track your progress and practice exercises.
+          Karaoke to your favorite songs for free!
         </p>
-        <div className="flex gap-3 mt-2">
-          <button
-            onClick={() => navigate('/auth/login')}
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => navigate(-1)}
-            className="px-6 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-          >
-            Go Back
-          </button>
-        </div>
+        <button
+          onClick={onConnectWallet || (() => navigate(-1))}
+          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          Sign Up
+        </button>
       </div>
     )
   }
@@ -119,6 +112,20 @@ export function StudySessionPage() {
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
           {session.isLoadingExercise ? (
             <ExerciseSkeleton type={session.currentCard?.exerciseType as any} />
+          ) : session.exerciseData.type === 'ERROR' ? (
+            <div className="space-y-4 text-center">
+              <p className="text-destructive font-medium">
+                Failed to load this exercise: {session.exerciseData.message}
+              </p>
+              <div className="flex justify-center gap-3">
+                <Button variant="outline" onClick={session.handleNext}>
+                  Skip
+                </Button>
+                <Button onClick={() => window.location.reload()}>
+                  Reload page
+                </Button>
+              </div>
+            </div>
           ) : session.exerciseData.type === 'SAY_IT_BACK' ? (
             <SayItBackExercise
               expectedText={session.exerciseData.exerciseText}
