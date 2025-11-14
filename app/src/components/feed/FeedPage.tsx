@@ -28,7 +28,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
   const isAuthenticated = !!lensSession
 
   return (
-    <div className="relative h-screen w-full bg-background">
+    <div className="relative h-vh-screen md:h-screen w-full bg-background">
       {/* Tab Navigation - fixed at top */}
       <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pt-safe pointer-events-none">
         <div className="flex gap-8 pt-4 pb-2 pointer-events-auto">
@@ -97,7 +97,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
             // Show error state
             if (error) {
               return (
-                <div className="h-screen w-full flex items-center justify-center bg-background">
+                <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
                   <div className="text-white text-center px-8">
                     <div className="text-xl font-semibold mb-2">⚠️ {error}</div>
                     <div className="text-neutral-400 mt-2">
@@ -118,7 +118,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
             // Show empty state
             if (videos.length === 0 && !isLoading) {
               return (
-                <div className="h-screen w-full flex items-center justify-center bg-background">
+                <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
                   <div className="text-white text-center px-8">
                     <div className="text-xl font-semibold mb-2">No posts yet</div>
                     <div className="text-neutral-400">

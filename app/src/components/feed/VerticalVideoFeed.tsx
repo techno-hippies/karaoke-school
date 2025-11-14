@@ -161,7 +161,7 @@ function VerticalVideoFeedComponent({
 
   if (videos.length === 0 && !isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-background">
+      <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
         <div className="text-white text-lg">No videos available</div>
       </div>
     )
@@ -170,7 +170,7 @@ function VerticalVideoFeedComponent({
   return (
     <div
       ref={containerRef}
-      className="h-screen w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+      className="h-vh-screen md:h-screen w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
       {videos.map((video, index) => {
@@ -183,7 +183,7 @@ function VerticalVideoFeedComponent({
         const finalLikeState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
 
         return (
-          <div key={video.id} className="h-screen w-full snap-start snap-always">
+          <div key={video.id} className="h-vh-screen md:h-screen w-full snap-start snap-always">
             <VideoPost
               {...video}
               isFollowing={finalFollowState}

@@ -85,9 +85,20 @@ function VideoPostComponent({
     onShareClick?.()
   }
 
+  const safeAreaBottom = 'var(--safe-area-bottom)'
+  const gradientBottomOffset = hasMobileFooter
+    ? `calc(${safeAreaBottom} + 4rem)`
+    : safeAreaBottom
+  const gradientPaddingBottom = hasMobileFooter
+    ? `calc(${safeAreaBottom} + 1.5rem)`
+    : `calc(${safeAreaBottom} + 1rem)`
+  const actionsBottomOffset = hasMobileFooter
+    ? `calc(${safeAreaBottom} + 5rem)`
+    : `calc(${safeAreaBottom} + 1rem)`
+
   return (
     <div className={cn(
-      'relative h-screen w-full bg-background snap-start flex items-center justify-center',
+      'relative h-vh-screen md:h-screen w-full bg-background snap-start flex items-center justify-center',
       className
     )}>
       {/* Video Container - mobile: full screen, desktop: 9:16 centered */}
@@ -130,10 +141,12 @@ function VideoPostComponent({
       </div>
 
       {/* Mobile: Bottom gradient + Video Info */}
-      <div className={cn(
-        "md:hidden absolute left-0 right-0 p-6 pb-4 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-30",
-        hasMobileFooter ? "bottom-16" : "bottom-0"
-      )}>
+      <div
+        className={cn(
+          'md:hidden absolute left-0 right-0 p-6 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-30'
+        )}
+        style={{ bottom: gradientBottomOffset, paddingBottom: gradientPaddingBottom }}
+      >
         <VideoInfo
           username={username}
           musicTitle={musicTitle}
@@ -145,10 +158,10 @@ function VideoPostComponent({
       </div>
 
       {/* Mobile: Actions overlay on right side */}
-      <div className={cn(
-        "md:hidden absolute right-4 z-20",
-        hasMobileFooter ? "bottom-20" : "bottom-4"
-      )}>
+      <div
+        className="md:hidden absolute right-4 z-20"
+        style={{ bottom: actionsBottomOffset }}
+      >
         <VideoActions
           userAvatar={userAvatar || ''}
           username={username}

@@ -40,6 +40,8 @@
 
 /* Karaoke Theme - Dark with Neon Blue Primary */
 :root {
+  --vh: 1vh; /* fallback so layout works before JS runs */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --background: oklch(0.1821 0.0125 285.0965);
   --foreground: oklch(0.9843 0.0017 247.8393);
   --card: oklch(0.2221 0.0178 284.8591);
@@ -155,5 +157,17 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari and Opera */
+  }
+  .vh-screen {
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+  .h-vh-screen {
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-area-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }

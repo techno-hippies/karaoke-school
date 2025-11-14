@@ -6,7 +6,7 @@
  */
 export function FeedLoadingSkeleton() {
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-background">
+    <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
       {/* Mobile: blank screen for instant feel */}
       <div className="md:hidden" />
 

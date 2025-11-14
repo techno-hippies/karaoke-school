@@ -21,8 +21,30 @@
         },
       };
 
-      // Buffer shim for Lit Protocol and other Node-style libs
-      window.Buffer = window.Buffer || [];
+      // Buffer is handled by polyfills/node-globals.ts import
+      // (Real Buffer class from 'buffer' package, not an empty array)
+    </script>
+
+    <!-- Dynamic viewport height fix for mobile browsers -->
+    <script>
+      (() => {
+        // Prevent double-initialisation in dev/hmr reloads
+        if (window.__vhInitialized) return;
+        window.__vhInitialized = true;
+
+        const docEl = document.documentElement;
+        const updateViewportHeight = () => {
+          const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+          const vh = viewportHeight * 0.01;
+          docEl.style.setProperty('--vh', `${vh}px`);
+        };
+
+        updateViewportHeight();
+
+        window.addEventListener('resize', updateViewportHeight);
+        window.addEventListener('orientationchange', updateViewportHeight);
+        window.visualViewport?.addEventListener('resize', updateViewportHeight);
+      })();
     </script>
 
     <!-- Vite entry MUST come after the polyfill -->

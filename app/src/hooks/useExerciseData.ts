@@ -26,7 +26,18 @@ export interface MultipleChoiceData {
   isLoading: boolean
 }
 
-export type ExerciseData = SayItBackData | MultipleChoiceData | { type: 'LOADING' }
+export interface LoadingExerciseData {
+  type: 'LOADING'
+  isLoading: true
+}
+
+export interface ErrorExerciseData {
+  type: 'ERROR'
+  message: string
+  isLoading: false
+}
+
+export type ExerciseData = SayItBackData | MultipleChoiceData | LoadingExerciseData | ErrorExerciseData
 
 /**
  * Hook for fetching type-specific exercise data
@@ -73,13 +84,15 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
   })
 
   // MULTIPLE_CHOICE data fetching
-  const { data: quizMetadata, isLoading: isLoadingQuiz } = useQuizMetadata(
-    !isSayItBack ? card?.metadataUri : undefined
-  )
+  const {
+    data: quizMetadata,
+    isLoading: isLoadingQuiz,
+    error: quizError,
+  } = useQuizMetadata(!isSayItBack ? card?.metadataUri : undefined)
 
   // Return loading state if no card
   if (!card) {
-    return { type: 'LOADING' }
+    return { type: 'LOADING', isLoading: true }
   }
 
   // SAY_IT_BACK exercise
@@ -102,7 +115,7 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
       exerciseText = lineWords.map((w: any) => w.text || w.word).join(' ')
     }
 
-    return {
+    const response: SayItBackData = {
       type: 'SAY_IT_BACK',
       exerciseText,
       instrumentalUri: segmentMetadata?.assets?.instrumental || '',
@@ -111,16 +124,21 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
       translationData,
       isLoading,
     }
+
+    return response
   }
 
   // MULTIPLE_CHOICE exercise
   const isLoading = isLoadingQuiz
 
   if (!quizMetadata?.question || !quizMetadata?.options) {
-    return { type: 'LOADING' }
+    if (quizError instanceof Error) {
+      return { type: 'ERROR', message: quizError.message, isLoading: false }
+    }
+    return { type: 'LOADING', isLoading: true }
   }
 
-  return {
+  const response: MultipleChoiceData = {
     type: 'MULTIPLE_CHOICE',
     question: quizMetadata.question,
     options: quizMetadata.options.map(opt => ({
@@ -132,4 +150,6 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
     exerciseType: card.exerciseType as 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE',
     isLoading,
   }
+
+  return response
 }
