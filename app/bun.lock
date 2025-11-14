@@ -30,6 +30,7 @@
         "clsx": "^2.1.1",
         "graphql": "^16.11.0",
         "graphql-request": "^7.3.1",
+        "process": "^0.11.10",
         "react": "^19.1.1",
         "react-dom": "^19.1.1",
         "react-router-dom": "^7.9.3",
@@ -54,6 +55,7 @@
         "@types/react": "^19.1.10",
         "@types/react-dom": "^19.1.7",
         "@vitejs/plugin-react": "^5.0.0",
+        "@welldone-software/why-did-you-render": "10.0.1",
         "autoprefixer": "^10.4.21",
         "eslint": "^9.33.0",
         "eslint-plugin-react-hooks": "^5.2.0",
@@ -68,6 +70,10 @@
         "vite": "^7.1.2",
       },
     },
+  },
+  "overrides": {
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
   },
   "packages": {
     "@0no-co/graphql.web": ["@0no-co/graphql.web@1.2.0", "", { "peerDependencies": { "graphql": "^14.0.0 || ^15.0.0 || ^16.0.0" } }, ""],
@@ -751,6 +757,8 @@
     "@walletconnect/window-getters": ["@walletconnect/window-getters@1.0.1", "", { "dependencies": { "tslib": "1.14.1" } }, ""],
 
     "@walletconnect/window-metadata": ["@walletconnect/window-metadata@1.0.1", "", { "dependencies": { "@walletconnect/window-getters": "^1.0.1", "tslib": "1.14.1" } }, ""],
+
+    "@welldone-software/why-did-you-render": ["@welldone-software/why-did-you-render@10.0.1", "", { "dependencies": { "lodash": "^4" }, "peerDependencies": { "react": "^19" } }, "sha512-tMgGkt30iVYeLMUKExNmtm019QgyjLtA7lwB0QAizYNEuihlCG2eoAWBBaz/bDeI7LeqAJ9msC6hY3vX+JB97g=="],
 
     "@xstate/react": ["@xstate/react@6.0.0", "", { "dependencies": { "use-isomorphic-layout-effect": "^1.1.2", "use-sync-external-store": "^1.2.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "xstate": "^5.20.0" } }, ""],
 
@@ -1489,6 +1497,8 @@
     "prettier": ["prettier@2.8.8", "", { "bin": "bin-prettier.js" }, ""],
 
     "pretty-format": ["pretty-format@30.2.0", "", { "dependencies": { "@jest/schemas": "30.0.5", "ansi-styles": "^5.2.0", "react-is": "^18.3.1" } }, "sha512-9uBdv/B4EefsuAL+pWqueZyZS2Ba+LxfFeQ9DN14HU4bN8bhaxKdkpjpB6fs9+pSjIBu+FXQHImEg8j/Lw0+vA=="],
+
+    "process": ["process@0.11.10", "", {}, "sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A=="],
 
     "process-nextick-args": ["process-nextick-args@2.0.1", "", {}, ""],
 

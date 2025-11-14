@@ -1,25 +1,31 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      buffer: 'buffer',
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  return {
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+        buffer: 'buffer',
+        process: 'process/browser',
+      },
+      conditions: ['import', 'module', 'browser', 'default'],
     },
-    conditions: ['import', 'module', 'browser', 'default'],
-  },
-  optimizeDeps: {
-    include: ['@lens-chain/sdk/viem', 'buffer'],
-  },
-  define: {
-    'global': 'globalThis',
-    'process.env': '{}',
-  },
+    optimizeDeps: {
+      include: ['@lens-chain/sdk/viem', 'buffer', 'process'],
+    },
+    define: {
+      'global': 'globalThis',
+      // Runtime process global comes from polyfills/node-globals.ts
+      // This replaces process.env.* at build time
+      'process.env': JSON.stringify(env),
+    },
   build: {
     rollupOptions: {
       output: {
@@ -45,4 +51,5 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 2000, // Increase limit since we're chunking less
   },
+}
 })
