@@ -21,6 +21,8 @@ import { parseArgs } from 'util';
 import { ElevenLabsService } from '../../services/elevenlabs';
 import { TrackStage } from '../../db/task-stages';
 
+const MUSIC_NOTE_REGEX = /[\u266A-\u266F\u{1F3B5}\u{1F3B6}♪♫♩♬]+/gu;
+
 interface AlignmentTask {
   id: number;
   spotify_track_id: string;
@@ -31,6 +33,7 @@ interface TrackData {
   grove_url: string;
   plain_lyrics: string | null;
   synced_lyrics: string | null;
+  normalized_lyrics: string | null;
   title: string;
   artists: any;
 }
@@ -50,6 +53,18 @@ function extractPlainFromLRC(lrc: string): string {
     .join('\n');
 }
 
+// Normalize lyrics before sending to ElevenLabs. This strips musical note
+// markers and other decorative glyphs so alignment stays lyric-only.
+function sanitizeLyrics(text: string): string {
+  return text
+    .normalize('NFKC')
+    .split('\n')
+    .map(line => line.replace(MUSIC_NOTE_REGEX, '').trim())
+    .filter(line => line.length > 0)
+    .join('\n')
+    .trim();
+}
+
 async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsService): Promise<void> {
   const startTime = Date.now();
 
@@ -59,6 +74,7 @@ async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsS
       sa.grove_url,
       sl.plain_lyrics,
       sl.synced_lyrics,
+      sl.normalized_lyrics,
       st.title,
       st.artists
     FROM song_audio sa
@@ -74,13 +90,22 @@ async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsS
 
   const track = trackResult[0] as TrackData;
 
-  // Get plain lyrics (prefer plain_lyrics, fallback to extracting from synced)
-  let plainLyrics = track.plain_lyrics;
-  if (!plainLyrics && track.synced_lyrics) {
-    plainLyrics = extractPlainFromLRC(track.synced_lyrics);
+  // Prefer normalized lyrics for deterministic alignment, fall back to the
+  // original plain text when normalization is unavailable.
+  let lyricsForAlignment = track.normalized_lyrics?.trim();
+
+  if (!lyricsForAlignment || lyricsForAlignment.length === 0) {
+    let plainLyrics = track.plain_lyrics;
+    if (!plainLyrics && track.synced_lyrics) {
+      plainLyrics = extractPlainFromLRC(track.synced_lyrics);
+    }
+
+    lyricsForAlignment = plainLyrics?.trim() ?? '';
   }
 
-  if (!plainLyrics || plainLyrics.trim().length === 0) {
+  lyricsForAlignment = sanitizeLyrics(lyricsForAlignment);
+
+  if (!lyricsForAlignment || lyricsForAlignment.length === 0) {
     throw new Error('No lyrics available for alignment');
   }
 
@@ -94,7 +119,7 @@ async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsS
 
   console.log(`\n📍 ${track.title} - ${artistsStr}`);
   console.log(`   Audio: ${track.grove_url}`);
-  console.log(`   Lyrics: ${plainLyrics.length} chars`);
+  console.log(`   Lyrics: ${lyricsForAlignment.length} chars (normalized)`);
 
   // Update task: mark as running
   await runQuery(
@@ -107,7 +132,7 @@ async function processAlignmentTask(task: AlignmentTask, elevenlabs: ElevenLabsS
   );
 
   // Call ElevenLabs forced alignment
-  const alignment = await elevenlabs.forcedAlignment(track.grove_url, plainLyrics);
+  const alignment = await elevenlabs.forcedAlignment(track.grove_url, lyricsForAlignment);
 
   // Store in elevenlabs_word_alignments
   await runQuery(

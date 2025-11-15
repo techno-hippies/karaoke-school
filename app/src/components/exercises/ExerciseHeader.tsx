@@ -1,3 +1,4 @@
+import React from 'react'
 import { X } from '@phosphor-icons/react'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
@@ -30,54 +31,41 @@ export function ExerciseHeader({
   showCloseButton = true,
   stats,
 }: ExerciseHeaderProps) {
+  // Log stats to console instead of displaying in UI
+  React.useEffect(() => {
+    if (stats) {
+      console.log('[ExerciseHeader]', {
+        today: `${stats.newToday}/15 new`,
+        review: `${stats.reviewCount} review`,
+        learning: stats.learningCount > 0 ? `${stats.learningCount} learning` : undefined,
+        card: `${stats.currentCard}/${stats.totalCards}`,
+        progress: `${progress}%`
+      })
+    }
+  }, [stats, progress])
+
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 w-full',
+        'flex items-center gap-3 w-full',
         className
       )}
     >
-      {/* Top row: Close button and stats */}
-      <div className="flex items-center gap-4">
-        {showCloseButton && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground shrink-0"
-            aria-label="Close"
-          >
-            <X size={24} weight="bold" />
-          </Button>
-        )}
-
-        {/* Daily stats */}
-        {stats && (
-          <div className="flex-1 flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-medium">
-              Today: {stats.newToday}/15 new
-            </span>
-            <span>•</span>
-            <span>
-              {stats.reviewCount} review
-            </span>
-            {stats.learningCount > 0 && (
-              <>
-                <span>•</span>
-                <span>
-                  {stats.learningCount} learning
-                </span>
-              </>
-            )}
-            <span className="ml-auto">
-              Card {stats.currentCard}/{stats.totalCards}
-            </span>
-          </div>
-        )}
-      </div>
+      {/* Close button */}
+      {showCloseButton && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground shrink-0"
+          aria-label="Close"
+        >
+          <X size={24} weight="bold" />
+        </Button>
+      )}
 
       {/* Progress bar */}
-      <div className="w-full">
+      <div className="flex-1">
         <Progress value={progress} />
       </div>
     </div>

@@ -236,7 +236,37 @@ function buildResponseFormat(expectedQuestions: number) {
   };
 }
 
-async function fetchTracks(limit: number): Promise<TrackRow[]> {
+async function fetchTracks(limit: number, trackId?: string): Promise<TrackRow[]> {
+  if (trackId) {
+    return query(
+      `SELECT
+          t.spotify_track_id,
+          t.title,
+          t.artists,
+          sl.normalized_lyrics,
+          gs.genius_song_id
+        FROM tracks t
+        JOIN song_lyrics sl ON sl.spotify_track_id = t.spotify_track_id
+        JOIN genius_songs gs ON gs.spotify_track_id = t.spotify_track_id
+        WHERE t.spotify_track_id = $1
+          AND EXISTS (
+            SELECT 1 FROM genius_song_referents gr
+            WHERE gr.genius_song_id = gs.genius_song_id
+          )
+          AND EXISTS (
+            SELECT 1 FROM audio_tasks at
+            WHERE at.spotify_track_id = t.spotify_track_id
+              AND at.task_type = 'trivia'
+              AND at.status = 'pending'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM song_trivia_questions stq
+            WHERE stq.spotify_track_id = t.spotify_track_id
+          )`,
+      [trackId]
+    );
+  }
+
   // ✅ RETROACTIVE PROCESSING: Query by pending tasks, not by stage
   // This allows processing tracks at ANY stage (including 'ready') as long as they have:
   // 1. Genius annotations (referents)
@@ -297,8 +327,11 @@ async function pause(ms: number) {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function generateTrivia(limit = 10) {
+async function generateTrivia(limit = 10, trackId?: string) {
   console.log(`\n🧠 Trivia Generation (limit: ${limit})`);
+  if (trackId) {
+    console.log(`   → Target track: ${trackId}`);
+  }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -307,7 +340,7 @@ async function generateTrivia(limit = 10) {
   }
 
   const openRouter = new OpenRouterService(apiKey);
-  const tracks = await fetchTracks(limit);
+  const tracks = await fetchTracks(limit, trackId);
 
   if (tracks.length === 0) {
     console.log('✓ No translated tracks require trivia generation.');
@@ -460,10 +493,13 @@ async function generateTrivia(limit = 10) {
 }
 
 if (import.meta.main) {
-  const limitArg = process.argv.find((arg) => arg.startsWith('--limit='));
+  const args = process.argv.slice(2);
+  const limitArg = args.find((arg) => arg.startsWith('--limit='));
+  const trackArg = args.find((arg) => arg.startsWith('--trackId='));
   const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 10;
+  const trackId = trackArg ? trackArg.split('=')[1] : undefined;
 
-  generateTrivia(Number.isNaN(limit) ? 10 : limit).catch((error) => {
+  generateTrivia(Number.isNaN(limit) ? 10 : limit, trackId).catch((error) => {
     console.error('Fatal error running trivia generation:', error);
     process.exit(1);
   });

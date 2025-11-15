@@ -546,6 +546,14 @@ function useRealtimePerformances(lineId: string) {
 }
 ```
 
+## 🎯 Clip vs Full-Song Lyric Access
+
+- Contract events store `metadataUri` / `alignmentUri` pointing to Grove JSON that already contains
+  both clip-only and full-song lyric payloads (`clip_grove_url` vs `grove_url`).
+- The React MediaPage and any Lit Actions should mirror that flow: query this subgraph to get the
+  URIs, fetch the JSON from Grove, and choose the clip slice or full slice based on access level—no
+  additional schema changes or DB queries required.
+
 ## 📚 Additional Documentation
 
 - **[Story Protocol Integration](./story-protocol.md)** - IP Asset creation

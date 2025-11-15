@@ -76,23 +76,25 @@ export function KaraokeOverlay({
   const highlightedWords = useMemo(() => {
     if (!currentLine) return []
 
-    // Check if this is English text by looking for ASCII characters
-    const isEnglish = /^[\u0020-\u007F\s]*$/.test(currentLine.text)
+    // Treat word-level timing as available when we have at least one word with valid timing data.
+    const timedWords =
+      currentLine.words?.filter(
+        (word) =>
+          word.text.trim() !== '' &&
+          typeof word.start === 'number' &&
+          typeof word.end === 'number'
+      ) ?? []
 
-    // Only use word-level highlighting for English text
-    // For other languages, show the full line (translation has no word timings)
-    if (!isEnglish || !currentLine.words || currentLine.words.length === 0) {
-      // Show whole line
+    if (timedWords.length === 0) {
+      // Fallback: highlight the entire line as a single block
       return [{ text: currentLine.text, isSung: true }]
     }
 
-    // English with word-level timing
-    const words = currentLine.words.map(word => ({
+    // Use precise word timing regardless of language/script.
+    return timedWords.map((word) => ({
       ...word,
       isSung: currentTime >= word.start && currentTime < word.end
     }))
-
-    return words
   }, [currentLine, currentTime])
 
   // Don't render if no lyrics or no current line (AFTER all hooks)

@@ -72,7 +72,59 @@ function requireAddress(address?: string): string {
   return ethers.getAddress(address);
 }
 
-async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
+async function fetchClipCandidates(limit: number, trackId?: string): Promise<ClipCandidate[]> {
+  if (trackId) {
+    return query(
+      `SELECT
+         t.spotify_track_id,
+         COALESCE(gw.title, t.title) AS title,
+         ks.clip_start_ms,
+         ks.clip_end_ms,
+         ks.clip_grove_url,
+         ks.fal_enhanced_grove_url,
+         gw.grc20_entity_id,
+         gw.primary_artist_name AS artist_name,
+         ga.lens_handle AS artist_lens_handle,
+         gw.image_url AS cover_url,
+         gw.image_thumbnail_url AS cover_thumbnail_url,
+         ks.encrypted_full_url,
+         ks.encryption_accs,
+         COALESCE(line_state.has_hash, FALSE) AS has_hash
+       FROM tracks t
+       JOIN karaoke_segments ks ON ks.spotify_track_id = t.spotify_track_id
+       JOIN grc20_works gw ON gw.spotify_track_id = t.spotify_track_id
+       LEFT JOIN grc20_artists ga ON ga.id = gw.primary_artist_id
+       LEFT JOIN LATERAL (
+         SELECT BOOL_OR(segment_hash IS NOT NULL) AS has_hash
+           FROM karaoke_lines kl
+          WHERE kl.spotify_track_id = t.spotify_track_id
+       ) AS line_state ON TRUE
+       WHERE t.spotify_track_id = $1
+         AND ks.clip_start_ms IS NOT NULL
+         AND ks.clip_end_ms IS NOT NULL
+         AND ks.fal_enhanced_grove_url IS NOT NULL
+         AND ks.encrypted_full_url IS NOT NULL
+         AND ks.encryption_accs IS NOT NULL
+         AND gw.grc20_entity_id IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM song_translation_questions q
+           WHERE q.spotify_track_id = t.spotify_track_id
+         )
+         AND (
+           EXISTS (
+             SELECT 1 FROM song_trivia_questions tq
+             WHERE tq.spotify_track_id = t.spotify_track_id
+           )
+           OR NOT EXISTS (
+             SELECT 1 FROM genius_songs gs
+             JOIN genius_song_referents gr ON gr.genius_song_id = gs.genius_song_id
+             WHERE gs.spotify_track_id = t.spotify_track_id
+           )
+         )`,
+      [trackId]
+    );
+  }
+
   return query(
     `SELECT
        t.spotify_track_id,
@@ -109,7 +161,6 @@ async function fetchClipCandidates(limit: number): Promise<ClipCandidate[]> {
          WHERE q.spotify_track_id = t.spotify_track_id
        )
        AND (
-         -- Trivia required only if track has Genius referents
          EXISTS (
            SELECT 1 FROM song_trivia_questions tq
            WHERE tq.spotify_track_id = t.spotify_track_id
@@ -574,12 +625,14 @@ async function processClip(
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const limitArg = args.find(arg => arg.startsWith('--limit='));
+  const trackArg = args.find(arg => arg.startsWith('--trackId='));
   const dryRun = args.includes('--dry-run');
   const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 5;
+  const trackId = trackArg ? trackArg.split('=')[1] : undefined;
 
   const normalizedLimit = Number.isNaN(limit) ? 5 : Math.max(1, limit);
 
-  const clips = await fetchClipCandidates(normalizedLimit);
+  const clips = await fetchClipCandidates(normalizedLimit, trackId);
 
   if (clips.length === 0) {
     console.log('No clip candidates found.');

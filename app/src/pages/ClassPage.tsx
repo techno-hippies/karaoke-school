@@ -1,13 +1,49 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudyCards } from '@/hooks/useStudyCards'
-import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { SongItem } from '@/components/ui/SongItem'
 import { ItemGroup } from '@/components/ui/item'
-import { ArrowUpRight, BookOpen } from '@phosphor-icons/react'
+import { Skeleton } from '@/components/ui/skeleton'
+
+function ClassPageLoadingSkeleton() {
+  return (
+    <div className="min-h-screen bg-background pt-6 pb-20 px-4">
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div className="grid grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Card key={`stat-skeleton-${index}`} className="p-4 text-center space-y-3">
+              <Skeleton className="mx-auto h-10 w-16" />
+              <Skeleton className="mx-auto h-4 w-24" />
+            </Card>
+          ))}
+        </div>
+
+        <Skeleton className="h-12 w-full rounded-lg" />
+
+        <div className="space-y-3">
+          <Skeleton className="h-5 w-32" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={`song-skeleton-${index}`}
+                className="flex items-center justify-between rounded-xl bg-muted p-4"
+              >
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-36" />
+                </div>
+                <Skeleton className="h-6 w-6 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * Study Dashboard (ClassPage)
@@ -23,21 +59,41 @@ import { ArrowUpRight, BookOpen } from '@phosphor-icons/react'
 export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isPKPReady } = useAuth()
+  const { isPKPReady, isAuthenticating } = useAuth()
 
   const songId = searchParams.get('song') // Optional: filter to specific song
 
   // Load study cards for this song
   const studyCardsQuery = useStudyCards(songId || undefined)
-  const { data, isLoading } = studyCardsQuery
-  const dueCards = data?.cards || []
+  const { data, isLoading, isInitialLoading } = studyCardsQuery
+  const [hasHydratedData, setHasHydratedData] = useState(false)
+  const dueCards = useMemo(() => data?.cards ?? [], [data?.cards])
   const studyStats = data?.stats
 
   // Simple 3-box model
-  const stats = {
-    new: studyStats?.new || 0, // Never touched (green = seed/plant)
-    learning: (studyStats?.learning || 0) + (studyStats?.review || 0), // In progress (blue = water)
-    due: studyStats?.total || 0, // Ready to study now (red = urgency)
+  const stats = useMemo(() => {
+    const newCount = studyStats?.new || 0
+    const learningCount = (studyStats?.learning || 0) + (studyStats?.review || 0)
+    const dueToday = studyStats?.dueToday ?? studyStats?.total ?? 0
+    const totalCount = studyStats?.total || 0
+
+    return {
+      new: newCount, // Never touched (green = seed/plant)
+      learning: learningCount, // In progress (blue = water)
+      dueToday, // Ready to study now (after daily limits)
+      total: totalCount, // Total cards outstanding (before limits)
+    }
+  }, [studyStats])
+
+  const hasCards = dueCards.length > 0
+  const studyButtonLabel = songId ? 'Study Song' : 'Study All Due Cards'
+
+  const handleStudyClick = () => {
+    if (songId) {
+      navigate(`/song/${songId}/study`)
+    } else {
+      navigate('/study/session')
+    }
   }
 
   // Group cards by song for display
@@ -59,6 +115,74 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
 
   const songsList = Object.values(cardsBySong).sort((a, b) => b.cards.length - a.cards.length)
 
+  const dueCardsSample = useMemo(() => dueCards.slice(0, 3).map((card) => ({
+    lineId: card.lineId,
+    grc20WorkId: card.grc20WorkId,
+    stage: card.stage,
+  })), [dueCards])
+
+  useEffect(() => {
+    if (!data || isInitialLoading) return
+
+    const rawStats = {
+      new: studyStats?.new ?? 0,
+      learning: studyStats?.learning ?? 0,
+      review: studyStats?.review ?? 0,
+      total: studyStats?.total ?? 0,
+    }
+
+    const mismatch = stats.dueToday > 0 && dueCards.length === 0
+
+    console.info('[ClassPage] Study stats snapshot', {
+      rawStats,
+      computedStats: stats,
+      dueCardsCount: dueCards.length,
+      hasCards,
+      sampleCards: dueCardsSample,
+    })
+
+    if (mismatch) {
+      console.warn('[ClassPage] Stats show due cards but queue is empty', {
+        rawStats,
+        computedStats: stats,
+        dueCardsCount: dueCards.length,
+      })
+    }
+  }, [
+    data,
+    studyStats,
+    stats,
+    stats.new,
+    stats.learning,
+    stats.dueToday,
+    stats.total,
+    dueCards.length,
+    hasCards,
+    dueCardsSample,
+    isInitialLoading,
+  ])
+
+  useEffect(() => setHasHydratedData(false), [songId])
+
+  useEffect(() => {
+    if (!isPKPReady) {
+      setHasHydratedData(false)
+    }
+  }, [isPKPReady])
+
+  useEffect(() => {
+    if (!isInitialLoading && data) {
+      setHasHydratedData(true)
+    }
+  }, [isInitialLoading, data])
+
+  const showLoadingSkeleton =
+    !hasHydratedData && (isInitialLoading || isLoading || isAuthenticating)
+
+  if (showLoadingSkeleton) {
+    return <ClassPageLoadingSkeleton />
+  }
+
   // Auth check - show preview of study page with zero stats
   if (!isPKPReady) {
     return (
@@ -69,7 +193,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
             {[
               { label: 'New', count: 0, color: 'text-green-500', tooltip: 'Never studied 🌱' },
               { label: 'Learning', count: 0, color: 'text-blue-500', tooltip: 'In progress 💧' },
-              { label: 'Due', count: 0, color: 'text-red-500', tooltip: 'Study now ⚡' },
+              { label: 'Due Today', count: 0, color: 'text-red-500', tooltip: 'Study now ⚡' },
             ].map((stat) => (
               <Card key={stat.label} className="p-4 text-center space-y-2">
                 <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
@@ -100,15 +224,6 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  const hasCards = dueCards.length > 0
   // const progressPercent = hasCards ? Math.min(100, Math.round((5 / 20) * 100)) : 0
 
   return (
@@ -134,7 +249,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
           {[
             { label: 'New', count: stats.new, color: 'text-green-500', tooltip: 'Never studied 🌱' },
             { label: 'Learning', count: stats.learning, color: 'text-blue-500', tooltip: 'In progress 💧' },
-            { label: 'Due', count: stats.due, color: 'text-red-500', tooltip: 'Study now ⚡' },
+            { label: 'Due Today', count: stats.dueToday, color: 'text-red-500', tooltip: 'Study now ⚡' },
           ].map((stat) => (
             <Card key={stat.label} className="p-4 text-center space-y-2">
               <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
@@ -147,10 +262,10 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
         {hasCards ? (
           <Button
             size="lg"
-            onClick={() => navigate(`/study/session${songId ? `?song=${songId}` : ''}`)}
+            onClick={handleStudyClick}
             className="w-full h-12 text-base"
           >
-            Study
+            {studyButtonLabel}
           </Button>
         ) : (
           <Card className="p-8 text-center space-y-4 bg-muted">

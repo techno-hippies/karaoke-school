@@ -113,6 +113,39 @@ export function useAudioRecorder() {
     }
   }, [])
 
+  const cancelRecording = useCallback(() => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder) return
+
+    try {
+      recorder.ondataavailable = null
+      recorder.onerror = null
+      recorder.onstop = null
+    } catch (err) {
+      console.warn('[useAudioRecorder] Failed to clear recorder handlers', err)
+    }
+
+    try {
+      recorder.stream.getTracks().forEach((track) => track.stop())
+    } catch (err) {
+      console.warn('[useAudioRecorder] Failed to stop stream tracks', err)
+    }
+
+    try {
+      recorder.stop()
+    } catch (err) {
+      console.warn('[useAudioRecorder] Failed to stop recorder', err)
+    }
+
+    mediaRecorderRef.current = null
+    chunksRef.current = []
+    setIsRecording(false)
+    setAudioBlob(null)
+    setGroveUri(null)
+    setError(null)
+    setIsUploading(false)
+  }, [])
+
   return {
     isRecording,
     isUploading,
@@ -121,6 +154,7 @@ export function useAudioRecorder() {
     error,
     startRecording,
     stopRecording,
+    cancelRecording,
   }
 }
 

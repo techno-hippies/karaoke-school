@@ -1,11 +1,10 @@
 # Lit Actions Documentation
 
-**AI-powered exercise grading for karaoke learning (ExerciseEvents-based)**
+**AI-powered exercise grading for karaoke learning (ExerciseEvents + KaraokeEvents)**
 
-> **Important:** The active Lit Action is `study/exercise-grader-v1.js`, which
-> submits attempts to the `ExerciseEvents` contract. The legacy
-> `karaoke-grader-v6-performance-grader.js` files now live under
-> `archived/performance-grader/` and are kept for historical reference only.
+> **Important:** `study/exercise-grader-v1.js` is the active line-level scorer targeting
+> `ExerciseEvents`. Karaoke performance aggregation is handled separately (new
+> `karaoke/karaoke-grader-v1.js`) using Grove lyric JSON discovered via the subgraph.
 
 ## 🚀 Quick Start
 
@@ -16,131 +15,58 @@ npm run build
 npm run test
 ```
 
-**Network**: Base Sepolia
-**PKP**: 0x9456aec64179FE39a1d0a681de7613d5955E75D3
+**Network**: Lens Testnet / Chronicle Yellowstone
+**PKP**: 0x9456aec64179FE39a1d0a681de7613d5955E75D3 (legacy) — see `config/contracts.config.js` for
+the current trusted PKP per contract.
 
 ## 📁 Lit Actions Structure
 
 ```
 lit-actions/
-├── src/karaoke/
-│   ├── karaoke-grader-v6-performance-grader.js  # Main grading logic
-│   ├── keys/                                    # API keys
-│   └── fsrs/                                   # Spaced repetition algorithm
-├── systems/
-│   ├── grading-system.js                       # Grading orchestration
-│   └── audio-processor.js                      # Audio processing
 ├── study/
-│   └── fsrs-scheduler.js                       # FSRS scheduling
-└── tests/
-    ├── test-karaoke-grader-v6.mjs             # Unit tests
-    └── test-direct-grading.mjs                # Integration tests
+│   └── exercise-grader-v1.js                  # Active line-level Exercises (Say-It-Back, MCQ)
+├── karaoke/
+│   └── karaoke-grader-v1.js                   # New aggregate karaoke scorer (KaraokeEvents)
+├── systems/fsrs/                              # Shared FSRS utilities
+├── scripts/                                   # Upload/deploy helpers
+└── archived/performance-grader/               # Legacy PerformanceGrader flow (reference only)
 ```
 
-## 🎯 Karaoke Grader v6
+## 🎯 Active Lit Actions
 
-### Purpose
-Grade user performances using AI (Voxstral) with line-level FSRS support
-
-### Key Features
-- **Voxstral AI Integration**: Pronunciation and timing analysis
-- **Line-Level Grading**: Support for individual lyric lines
-- **FSRS Scheduling**: Spaced repetition based on performance
-- **Anti-Cheat**: Trusted PKP-only grading
-
-### Performance Grader Contract
-**Address**: `0xdd231de1016F5BBe56cEB3B617Aa38A5B454610D`
-**Network**: Lens Testnet (37111)
-
-### Line-Level Grading Function
-```solidity
-function gradeLinePerformance(
-    uint256 performanceId,
-    bytes32 lineId,           // UUID from karaoke_lines
-    bytes32 segmentHash,
-    uint16 lineIndex,         // Position within segment
-    address performer,
-    uint16 score,             // 0-10000 (75.43% = 7543)
-    string metadataUri        // Grove recording URI
-) external onlyTrustedPKP whenNotPaused
-```
+- **study/exercise-grader-v1.js** – Handles SAY_IT_BACK, TRANSLATION_QUIZ, and TRIVIA_QUIZ by
+  transcribing user audio, computing scores, and submitting to `ExerciseEvents`.
+- **karaoke/karaoke-grader-v1.js** – Aggregates clip/full-song karaoke performances using the same
+  lyric sources as the frontend (`clip_grove_url` vs `grove_url`) and submits to `KaraokeEvents`.
+  Line-level feedback still flows through the exercise grader; this action only emits the final
+  `KaraokePerformanceGraded` event with the aggregated score/grade.
 
 ## 🤖 AI Grading Process
 
-### Voxstral Integration
+### Voxstral Integration (Exercise Grader)
 ```javascript
-// src/karaoke/karaoke-grader-v6-performance-grader.js
-async function gradeWithVoxstral(userAudio, referenceAudio, exerciseText, lineId) {
-  // 1. Preprocess audio
-  const processedAudio = await preprocessAudio(userAudio);
-  
-  // 2. Get reference timing from alignment
-  const alignment = await fetchReferenceAlignment(referenceAudio);
-  const lineTiming = alignment.lines.find(line => line.lineId === lineId);
-  
-  // 3. Grade with Voxstral AI
-  const voxstralResult = await voxstral.grade({
-    audio: processedAudio,
-    reference: referenceAudio,
-    targetText: exerciseText,
-    expectedTiming: lineTiming,
-    language: 'en-US'
+// study/exercise-grader-v1.js
+async function transcribeWithVoxtral(audioDataBase64, voxtralApiKey) {
+  const transcriptionResponse = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${voxtralApiKey}` },
+    body: buildMultipartBody(audioDataBase64)
   });
-  
-  // 4. Calculate composite score
-  const timingScore = calculateTimingScore(voxstralResult.timing);
-  const pronunciationScore = calculatePronunciationScore(voxstralResult.pronunciation);
-  const pitchScore = calculatePitchScore(voxstralResult.pitch);
-  
-  const compositeScore = (timingScore * 0.4 + pronunciationScore * 0.4 + pitchScore * 0.2);
-  
-  return {
-    score: Math.round(compositeScore * 10000), // Convert to 0-10000 scale
-    breakdown: {
-      timing: timingScore,
-      pronunciation: pronunciationScore,
-      pitch: pitchScore
-    },
-    feedback: voxstralResult.feedback
-  };
+  const data = await transcriptionResponse.json();
+  return data.text || '';
 }
 ```
 
-### Line-Level Analysis
+### Clip vs Full-Song Lyric Sources
 ```javascript
-// Analyze specific lyric line
-async function analyzeLinePerformance(audioBlob, lineData) {
-  const audioBuffer = await audioBlob.arrayBuffer();
-  
-  // 1. Extract line segment from full audio
-  const lineAudio = extractAudioSegment(
-    audioBuffer,
-    lineData.startMs / 1000,  // Convert to seconds
-    lineData.endMs / 1000
-  );
-  
-  // 2. Get reference timing for this specific line
-  const referenceSegment = await fetchReferenceSegment(
-    lineData.segmentHash,
-    lineData.lineIndex
-  );
-  
-  // 3. Grade the line
-  const gradingResult = await gradeWithVoxstral(
-    lineAudio,
-    referenceSegment.instrumentalUri,
-    lineData.originalText,
-    lineData.lineId
-  );
-  
-  return {
-    lineId: lineData.lineId,
-    lineIndex: lineData.lineIndex,
-    score: gradingResult.score,
-    feedback: gradingResult.feedback,
-    performanceData: gradingResult.breakdown
-  };
-}
+// MediaPage + karaoke grader both follow this flow
+const clip = await graphqlQuery(SUBGRAPH_URL, { clipHash });
+const metadata = await fetchJSON(clip.metadataUri);
+const alignment = await fetchJSON(metadata.assets.alignment);
+
+// Free users: use metadata.translations[i].clip_grove_url
+// Subscribers: use metadata.translations[i].grove_url
+const lyricsJson = await fetchJSON(convertGroveUri(hasSubscription ? translation.grove_url : translation.clip_grove_url));
 ```
 
 ## 📊 FSRS Integration
@@ -310,17 +236,19 @@ describe('Direct Grading Tests', () => {
 
 ### Manual Testing
 ```javascript
-// Test with real audio
-const testAudio = await fetchAudioRecording();
-const testLine = await fetchLineData('uuid-here');
+const jsParams = {
+  exerciseType: 'SAY_IT_BACK',
+  audioDataBase64,
+  expectedText,
+  lineId,
+  lineIndex,
+  segmentHash,
+  voxtralEncryptedKey,
+  userAddress
+};
 
-const result = await gradeLinePerformance(testAudio, testLine);
-
-console.log('Grading Result:', {
-  score: result.score,
-  feedback: result.feedback,
-  breakdown: result.performanceData
-});
+const result = await litClient.executeJs({ ipfsId: CID, jsParams });
+console.log('Exercise Grader Result:', JSON.parse(result.response));
 ```
 
 ## 📊 Performance Metrics
@@ -379,35 +307,21 @@ function trackGradingResult(result) {
 
 ## 📱 Frontend Integration
 
-### React Hook
+### React Hook Pattern
 ```javascript
-// app/src/hooks/useLitActionGrader.js
-import { gradeLinePerformance } from '@karaoke/lit-actions';
-
-export function useLitActionGrader() {
-  const gradePerformance = async (audioBlob, lineData) => {
-    try {
-      // Convert audio to base64
-      const audioBase64 = await blobToBase64(audioBlob);
-      
-      // Grade via Lit Action
-      const result = await gradeLinePerformance({
-        audioDataBase64: audioBase64,
-        lineId: lineData.lineId,
-        lineIndex: lineData.lineIndex,
-        exerciseText: lineData.originalText,
-        segmentHash: lineData.segmentHash,
-        referenceAudio: lineData.segment.instrumentalUri
-      });
-      
-      return result;
-    } catch (error) {
-      console.error('Grading failed:', error);
-      throw new Error('Failed to grade performance');
-    }
-  };
-  
-  return { gradePerformance };
+// app/src/hooks/useSayItBack.ts
+export function useSayItBack() {
+  async function gradeAttempt(audioDataBase64, line) {
+    return await executeExerciseGrader({
+      exerciseType: 'SAY_IT_BACK',
+      audioDataBase64,
+      expectedText: line.originalText,
+      lineId: line.lineId,
+      lineIndex: line.lineIndex,
+      segmentHash: line.clipHash
+    });
+  }
+  return { gradeAttempt };
 }
 ```
 
@@ -448,7 +362,10 @@ function StudySession() {
       <KaraokePlayer
         audio={currentCard.segment.instrumentalUri}
         words={currentCard.alignment.words}
-        onRecordingComplete={handlePracticeComplete}
+        onRecordingComplete={async (recording) => {
+          const result = await gradeAttempt(recording, currentCard);
+          moveToNextCard(result.score);
+        }}
       />
     </div>
   );

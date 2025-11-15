@@ -1,6 +1,7 @@
 import { Copy } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
+import { Skeleton } from '@/components/ui/skeleton'
 import { UsernameUpgradeSection } from './UsernameUpgradeSection'
 
 // Icon component that renders currency logo with chain indicator
@@ -73,6 +74,29 @@ function TokenIcon({
   )
 }
 
+// Skeleton component for loading token items
+function TokenSkeleton() {
+  return (
+    <Item variant="muted">
+      {/* Token Icon Skeleton */}
+      <ItemMedia>
+        <Skeleton className="w-12 h-12 md:w-14 md:h-14 rounded-full" />
+      </ItemMedia>
+
+      {/* Token Info Skeleton */}
+      <ItemContent>
+        <Skeleton className="h-5 w-16 mb-1" />
+      </ItemContent>
+
+      {/* Balance Skeleton */}
+      <ItemContent className="items-end">
+        <Skeleton className="h-5 w-24 mb-1" />
+        <Skeleton className="h-4 w-16" />
+      </ItemContent>
+    </Item>
+  )
+}
+
 export interface TokenBalance {
   symbol: string
   name: string
@@ -82,6 +106,7 @@ export interface TokenBalance {
   usdValue?: string
   currencyIcon?: string // Currency logo filename
   chainIcon?: string // Chain indicator filename
+  isLoading?: boolean // New: indicates skeleton state
 }
 
 export interface WalletPageViewProps {
@@ -91,6 +116,7 @@ export interface WalletPageViewProps {
   onCopyAddress: () => void
   onCheckUsernameAvailability?: (username: string) => Promise<boolean>
   onPurchaseUsername?: (username: string) => Promise<boolean>
+  isLoading?: boolean // New: global loading state
 }
 
 export function WalletPageView({
@@ -100,6 +126,7 @@ export function WalletPageView({
   onCopyAddress,
   onCheckUsernameAvailability,
   onPurchaseUsername,
+  isLoading = false,
 }: WalletPageViewProps) {
   // Group tokens by network
   const tokensByNetwork = tokens.reduce((acc, token) => {
@@ -111,7 +138,7 @@ export function WalletPageView({
   }, {} as Record<string, TokenBalance[]>)
 
   // Order networks logically
-  const networkOrder = ['Base', 'Binance Smart Chain', 'Ethereum', 'Polygon']
+  const networkOrder = ['Base', 'Binance Smart Chain', 'Ethereum', 'Polygon', 'Arbitrum', 'Optimism']
   const sortedNetworks = Object.keys(tokensByNetwork).sort((a, b) => {
     const aIndex = networkOrder.indexOf(a)
     const bIndex = networkOrder.indexOf(b)
@@ -167,39 +194,46 @@ export function WalletPageView({
               
               {/* Tokens for this network */}
               <div className="space-y-2">
-                {tokensByNetwork[network].map((token, index) => (
-                  <Item
-                    key={`${token.symbol}-${token.network}-${index}`}
-                    variant="muted"
-                  >
-                    {/* Token Icon */}
-                    <ItemMedia>
-                      <TokenIcon 
-                        currencyIcon={token.currencyIcon} 
-                        chainIcon={token.chainIcon} 
-                      />
-                    </ItemMedia>
+                {tokensByNetwork[network].map((token, index) => {
+                  // Show skeleton if token is still loading
+                  if (token.isLoading) {
+                    return <TokenSkeleton key={`${token.symbol}-${token.network}-${index}-skeleton`} />
+                  }
 
-                    {/* Token Info */}
-                    <ItemContent>
-                      <ItemTitle>
-                        {token.symbol}
-                      </ItemTitle>
-                    </ItemContent>
+                  return (
+                    <Item
+                      key={`${token.symbol}-${token.network}-${index}`}
+                      variant="muted"
+                    >
+                      {/* Token Icon */}
+                      <ItemMedia>
+                        <TokenIcon
+                          currencyIcon={token.currencyIcon}
+                          chainIcon={token.chainIcon}
+                        />
+                      </ItemMedia>
 
-                    {/* Balance */}
-                    <ItemContent className="items-end">
-                      <ItemTitle>
-                        {token.balance}
-                      </ItemTitle>
-                      {token.usdValue && (
-                        <ItemDescription>
-                          ${token.usdValue}
-                        </ItemDescription>
-                      )}
-                    </ItemContent>
-                  </Item>
-                ))}
+                      {/* Token Info */}
+                      <ItemContent>
+                        <ItemTitle>
+                          {token.symbol}
+                        </ItemTitle>
+                      </ItemContent>
+
+                      {/* Balance */}
+                      <ItemContent className="items-end">
+                        <ItemTitle>
+                          {token.balance}
+                        </ItemTitle>
+                        {token.usdValue && (
+                          <ItemDescription>
+                            ${token.usdValue}
+                          </ItemDescription>
+                        )}
+                      </ItemContent>
+                    </Item>
+                  )
+                })}
               </div>
             </div>
           ))}

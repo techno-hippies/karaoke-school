@@ -4,7 +4,7 @@
  * Mint PKP for Karaoke Scoreboard
  *
  * This script:
- * 1. Connects to Lit Protocol (nagaDev network)
+ * 1. Connects to Lit Protocol (configurable network)
  * 2. Uses your EOA to mint a PKP
  * 3. Adds signing permissions to the PKP
  * 4. Saves PKP credentials to .env file
@@ -14,11 +14,19 @@
  * - Chronicle Yellowstone testnet tokens (for PKP minting gas)
  *
  * Usage:
- *   bun run mint-pkp
+ *   bun run scripts/mint-pkp.ts [network]
+ *
+ * Network options:
+ *   nagaDev (default) - Naga development network
+ *   nagaTest         - Naga test network
+ *
+ * Examples:
+ *   bun run scripts/mint-pkp.ts
+ *   bun run scripts/mint-pkp.ts nagaTest
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
-import { nagaDev } from '@lit-protocol/networks';
+import { nagaDev, nagaTest } from '@lit-protocol/networks';
 import { createWalletClient, http, type Account, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { writeFile, mkdir } from 'fs/promises';
@@ -50,7 +58,23 @@ async function main() {
   console.log('🔐 Lit Protocol PKP Minting Script');
   console.log('===================================\n');
 
-  // 1. Check for private key
+  // 1. Parse network argument
+  const networkArg = process.argv[2] || 'nagaDev';
+  const networkMap: Record<string, any> = {
+    nagaDev,
+    nagaTest,
+  };
+
+  const network = networkMap[networkArg];
+  if (!network) {
+    console.error(`❌ Invalid network: ${networkArg}`);
+    console.log('\nValid options: nagaDev, nagaTest');
+    process.exit(1);
+  }
+
+  console.log(`📡 Network: ${networkArg}\n`);
+
+  // 2. Check for private key
   let privateKey = process.env.PRIVATE_KEY;
   if (!privateKey) {
     console.error('❌ PRIVATE_KEY not found in .env file');
@@ -64,7 +88,7 @@ async function main() {
     privateKey = '0x' + privateKey;
   }
 
-  // 2. Create account from private key
+  // 3. Create account from private key
   console.log('📝 Creating account from private key...');
   const account = privateKeyToAccount(privateKey as `0x${string}`);
   console.log('✅ Account address:', account.address);
@@ -81,9 +105,9 @@ async function main() {
   console.log('   Get tokens from: https://chronicle-yellowstone-faucet.getlit.dev/');
 
   // 4. Connect to Lit Protocol
-  console.log('\n🔌 Connecting to Lit Protocol (nagaDev network)...');
+  console.log(`\n🔌 Connecting to Lit Protocol (${networkArg} network)...`);
   const litClient = await createLitClient({
-    network: nagaDev
+    network
   });
   console.log('✅ Connected to Lit Network');
 
@@ -147,7 +171,7 @@ async function main() {
     publicKey: mintedPkp.data.publicKey,
     ethAddress: mintedPkp.data.ethAddress,
     owner: account.address,
-    network: 'nagaDev',
+    network: networkArg,
     mintedAt: new Date().toISOString(),
     permittedActions: [
       {

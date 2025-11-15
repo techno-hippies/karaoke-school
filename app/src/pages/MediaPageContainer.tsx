@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
+import { KaraokePracticeSession, type RecordingSubmission, type PracticeResult } from '@/components/karaoke/KaraokePracticeSession'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
@@ -16,16 +17,18 @@ import { useAuth } from '@/contexts/AuthContext'
 const DEBUG_TIMING = false
 const DEBUG_RERENDERS = false
 
+interface MediaPageContainerProps {
+  variant?: 'media' | 'practice'
+}
+
 /**
- * Media Page Container - Karaoke player
+ * Media Page Container - Karaoke player or practice session
  *
  * Routes:
- * - /song/grc20/:workId/play (primary)
- *
- * Loads first segment from a GRC-20 work and plays karaoke
- * Handles both OLD format (inline lyrics) and NEW format (separate translation files)
+ * - /song/:workId/play (MediaPage)
+ * - /song/:workId/karaoke (Practice)
  */
-export function MediaPageContainer() {
+export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProps = {}) {
   const { workId } = useParams<{ workId: string }>()
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
@@ -51,8 +54,6 @@ export function MediaPageContainer() {
 
   if (DEBUG_RERENDERS) {
     const now = Date.now()
-    const timeSinceLastRender = now - lastRenderTimeRef.current
-    const timeSinceStart = now - componentStartTimeRef.current
     lastRenderTimeRef.current = now
   }
 
@@ -194,7 +195,7 @@ export function MediaPageContainer() {
     if (clipMetadata.assets?.alignment) {
       fetch(clipMetadata.assets.alignment)
         .then((r) => r.json())
-        .then((data) => {
+        .then(() => {
           // TODO: Update original lyrics from alignment if needed
         })
         .catch((e) => console.error('[MediaPageContainer] Failed to load alignment:', e))
@@ -264,6 +265,19 @@ export function MediaPageContainer() {
     })
   }, [clipMetadata, hasSubscription])
 
+  const handlePracticeSubmit = useCallback(async (submission: RecordingSubmission): Promise<PracticeResult> => {
+    console.log('[MediaPageContainer] 🎙️ Practice submission placeholder', {
+      groveUri: submission.groveUri,
+      duration: submission.duration,
+      blobSize: submission.blob.size,
+    })
+
+    return {
+      grade: 'B',
+      feedback: 'Demo scoring placeholder. Connect Lit Actions for live grading.',
+    }
+  }, [])
+
   // Loading state
   if (isLoadingWork || isLoadingClip) {
     return (
@@ -327,12 +341,6 @@ export function MediaPageContainer() {
   // Extract metadata from Grove
   const title = clipMetadata?.title || 'Untitled'
   const artist = clipMetadata?.artist || 'Unknown Artist'
-
-  // NEW FORMAT: Use tiktok_clip_duration_ms
-  // OLD FORMAT: Use cropped_duration_ms
-  const croppedDurationMs = clipMetadata?.timing?.tiktok_clip_duration_ms ||
-    clipMetadata?.timing?.cropped_duration_ms ||
-    50000
 
   // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
   // coverUri is set during pipeline emission in emit-clip-events.ts
@@ -465,25 +473,43 @@ export function MediaPageContainer() {
     }
   }
 
+
+  const pageContent = variant === 'practice'
+    ? (
+        <KaraokePracticeSession
+          title={title}
+          artist={artist}
+          audioUrl={audioUrl}
+          lyrics={lyrics}
+          isSubscriber={hasSubscription}
+          onClose={() => navigate(-1)}
+          onSubmitRecording={handlePracticeSubmit}
+          onSubscribe={hasSubscription ? undefined : handleUnlockClick}
+        />
+      )
+    : (
+        <MediaPage
+          title={title}
+          artist={artist}
+          audioUrl={audioUrl}
+          lyrics={lyrics}
+          artworkUrl={artworkUrl}
+          selectedLanguage={preferredLanguage}
+          showTranslations={availableLanguages.length > 0}
+          onBack={() => navigate(-1)}
+          onArtistClick={
+            (clipMetadata as any)?.artistLensHandle
+              ? () => navigate(`/u/${(clipMetadata as any).artistLensHandle}`)
+              : undefined
+          }
+          onUnlockClick={hasSubscription ? undefined : handleUnlockClick}
+          debugInfo={debugInfo}
+        />
+      )
+
   return (
     <>
-      <MediaPage
-        title={title}
-        artist={artist}
-        audioUrl={audioUrl}
-        lyrics={lyrics}
-        artworkUrl={artworkUrl}
-        selectedLanguage={preferredLanguage}
-        showTranslations={availableLanguages.length > 0}
-        onBack={() => navigate(-1)}
-        onArtistClick={
-          (clipMetadata as any)?.artistLensHandle
-            ? () => navigate(`/u/${(clipMetadata as any).artistLensHandle}`)
-            : undefined
-        }
-        onUnlockClick={hasSubscription ? undefined : handleUnlockClick}
-        debugInfo={debugInfo}
-      />
+      {pageContent}
 
       <SubscriptionDialog
         open={showSubscriptionDialog}

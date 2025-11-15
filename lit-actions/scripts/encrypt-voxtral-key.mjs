@@ -4,14 +4,19 @@
  * Encrypt Voxtral API key for a specific Lit Action IPFS CID
  *
  * Usage:
- *   node scripts/encrypt-voxtral-key.mjs <IPFS_CID> <VOXTRAL_API_KEY>
+ *   node scripts/encrypt-voxtral-key.mjs <IPFS_CID> <VOXTRAL_API_KEY> [network]
  *
- * Example:
- *   node scripts/encrypt-voxtral-key.mjs QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn jbyqgl0xJjL3udvLt9dAP7yAQmq0ob0H
+ * Network options (optional, defaults to nagaDev):
+ *   nagaDev  - Naga development network
+ *   nagaTest - Naga test network
+ *
+ * Examples:
+ *   node scripts/encrypt-voxtral-key.mjs QmRzS... jbyqgl0x...
+ *   node scripts/encrypt-voxtral-key.mjs QmRzS... jbyqgl0x... nagaTest
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
-import { nagaDev } from '@lit-protocol/networks';
+import { nagaDev, nagaTest } from '@lit-protocol/networks';
 import { writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -23,20 +28,30 @@ async function encryptVoxtralKey() {
   const args = process.argv.slice(2);
 
   if (args.length < 2) {
-    console.error('Usage: node scripts/encrypt-voxtral-key.mjs <IPFS_CID> <VOXTRAL_API_KEY>');
-    console.error('Example: node scripts/encrypt-voxtral-key.mjs QmRzSyBYnzbUrjJUwD52ERxT9oEovm41yxAt6u8RZpYXZn jbyqgl0x...');
+    console.error('Usage: node scripts/encrypt-voxtral-key.mjs <IPFS_CID> <VOXTRAL_API_KEY> [network]');
+    console.error('Example: node scripts/encrypt-voxtral-key.mjs QmRzS... jbyqgl0x... nagaTest');
     process.exit(1);
   }
 
-  const [ipfsCid, voxtralApiKey] = args;
+  const [ipfsCid, voxtralApiKey, networkArg = 'nagaDev'] = args;
+
+  const networkMap = { nagaDev, nagaTest };
+  const network = networkMap[networkArg];
+
+  if (!network) {
+    console.error(`❌ Invalid network: ${networkArg}`);
+    console.error('Valid options: nagaDev, nagaTest');
+    process.exit(1);
+  }
 
   console.log('🔐 Encrypting Voxtral API key for CID:', ipfsCid);
   console.log('🔑 API key length:', voxtralApiKey.length);
+  console.log('📡 Network:', networkArg);
 
   try {
     // Initialize Lit client (using new SDK pattern)
     console.log('⚡ Connecting to Lit network...');
-    const litClient = await createLitClient({ network: nagaDev });
+    const litClient = await createLitClient({ network });
     console.log('✅ Connected to Lit network');
 
     // Define access control: only this specific Lit Action can decrypt

@@ -16,6 +16,12 @@ export interface QuizMetadata {
   type: 'TRANSLATION_QUIZ' | 'TRIVIA_QUIZ'
 }
 
+/**
+ * Fetch quiz metadata from Grove/IPFS
+ *
+ * @param metadataUri Grove or HTTPS URI pointing directly to the quiz JSON
+ * @returns Quiz metadata with question, options, and answer mapping
+ */
 export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetadata> {
   if (!metadataUri) {
     throw new Error('No metadata URI provided')
@@ -60,7 +66,7 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
       hasPrompt,
       hasCorrectAnswer,
       hasDistractors,
-      data
+      data,
     })
     throw new Error('Invalid quiz metadata: missing prompt, correctAnswer, or distractorPool')
   }
@@ -81,7 +87,7 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
 
   const allOptions = [
     data.correctAnswer,
-    ...selectedDistractors
+    ...selectedDistractors,
   ]
 
   // Shuffle options so correct answer isn't always first
@@ -100,22 +106,25 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
     explanation: data.explanation,
     type: data.exerciseType === 'translation_multiple_choice'
       ? 'TRANSLATION_QUIZ'
-      : 'TRIVIA_QUIZ'
+      : 'TRIVIA_QUIZ',
   }
 
   console.log('[useQuizMetadata] Transformed quiz:', {
     original: { prompt: data.prompt, correctAnswer: data.correctAnswer },
-    transformed: { question: transformed.question, correctAnswerIndex }
+    transformed: { question: transformed.question, correctAnswerIndex },
   })
 
   return transformed
 }
 
 /**
- * Fetch quiz question data from Grove
+ * Fetch quiz question data from Grove with language preference support
  *
- * @param metadataUri Grove URI pointing to quiz JSON
- * @returns Quiz metadata with question, options, and correct answer
+ * Respects user's language preference and falls back to Mandarin (Chinese) if unavailable.
+ * This is the recommended hook to use instead of calling fetchQuizMetadata directly.
+ *
+ * @param metadataUri Grove URI pointing to quiz JSON (without language suffix)
+ * @returns Quiz metadata with question, options, correct answer, and explanation in appropriate language
  */
 export function useQuizMetadata(metadataUri?: string) {
   return useQuery<QuizMetadata, Error>({

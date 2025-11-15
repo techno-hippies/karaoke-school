@@ -71,30 +71,15 @@ This will:
 - Save credentials to `output/pkp-credentials.json`
 - Update `.env` with `PKP_ADDRESS`
 
-## 📋 Lit Actions
+## 📋 Active Lit Actions
 
-### 1. `study/sat-it-back-v1.js` - Main Karaoke Grader
+- `study/exercise-grader-v1.js` (current production scorer): handles Say-It-Back and multiple-choice
+  exercises targeting `ExerciseEvents` on Lens testnet.
+- `karaoke/karaoke-grader-v1.js` (to be implemented) will submit aggregate karaoke performances to
+  `KaraokeEvents`. It will mirror the frontend flow by querying the subgraph for clip metadata and
+  fetching lyric JSON from Grove (`clip_grove_url` for free users, `grove_url` for subscribers).
 
-**Purpose**: PerformanceGrader v6 integration for karaoke learning
-- Transcribes user audio via Voxstral STT
-- Calculates pronunciation scores
-- Submits scores to PerformanceGrader contract
-- Emits PerformanceGraded events for leaderboard
-
-**Network**: Lens Testnet (Chain ID: 37111)
-**Contract**: 0xab92c2708d44fab58c3c12aaa574700e80033b7d
-**PKP**: 0xfC834ea9b0780C6d171A5F6d489Ef6f1Ae66EC30
-
-### 2. `study/study-scorer-v1.js` - FSRS Study Scorer
-
-**Purpose**: Spaced repetition learning with FSRS-4.5
-- Transcribes user audio via Voxstral STT
-- Calculates pronunciation scores (Levenshtein distance)
-- Runs FSRS-4.5 algorithm for spaced repetition
-- Writes card states to FSRSTrackerV1 contract
-
-**Network**: Base Sepolia (legacy) / Lens Testnet
-**Features**: Full FSRS implementation with pronunciation scoring
+Legacy PerformanceGrader-based scripts remain under `archived/performance-grader/` for reference.
 
 ## 🔧 Utility Scripts
 

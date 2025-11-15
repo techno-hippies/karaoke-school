@@ -16,6 +16,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthDialog } from '@/components/layout/AuthDialog'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { validateUsernameFormat } from '@/lib/lens/account-creation'
 import { lensClient } from '@/lib/lens/client'
@@ -166,9 +167,11 @@ function AppRouter() {
           {/* Song routes - GRC-20 work ID based */}
           <Route path="/song/:workId" element={<SongPageContainer />} />
           <Route path="/song/:workId/play" element={<MediaPageContainer />} />
+          <Route path="/song/:workId/karaoke" element={<MediaPageContainer variant="practice" />} />
           <Route path="/song/:workId/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
           {/* Study routes - Global study dashboard */}
+          <Route path="/study/session" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
           {/* Legacy routes (redirect for backwards compatibility) */}
@@ -216,6 +219,7 @@ function AppRouter() {
  * /u/:lenshandle/video/:postId - Video detail (TikTok sidebar)
  * /song/:workId - Song overview + creator videos (from GRC-20 + Lens)
  * /song/:workId/play - Media player with instrumental and lyrics
+ * /song/:workId/karaoke - Practice session with sticky footer + recording
  * /song/:workId/study - Study session with FSRS
  * /wallet - Wallet balances and address
  * /profile - Current user's own profile with Edit Profile button
@@ -226,9 +230,11 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <HashRouter>
           <AuthProvider>
-            <VideoPlaybackProvider>
-              <AppRouter />
-            </VideoPlaybackProvider>
+            <LanguagePreferenceProvider>
+              <VideoPlaybackProvider>
+                <AppRouter />
+              </VideoPlaybackProvider>
+            </LanguagePreferenceProvider>
           </AuthProvider>
         </HashRouter>
       </QueryClientProvider>

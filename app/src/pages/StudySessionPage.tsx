@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudySession } from '@/hooks/useStudySession'
@@ -8,6 +9,10 @@ import { ExerciseFooter } from '@/components/exercises/ExerciseFooter'
 import { ExerciseSkeleton } from '@/components/study/ExerciseSkeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
+import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
+import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 
 /**
  * Study Session Page - Refactored with persistent layout
@@ -19,12 +24,89 @@ import { Button } from '@/components/ui/button'
  * - Optimistic UI updates (instant feedback)
  */
 export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
-  const { workId } = useParams<{ workId: string }>()
-  const { isPKPReady, isAuthenticating } = useAuth()
+  const { workId } = useParams<{ workId?: string }>()
+  const { isPKPReady, isAuthenticating, pkpAddress, pkpWalletClient } = useAuth()
   const navigate = useNavigate()
+  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
+  const isGlobalSession = !workId
+  const returnPath = workId ? `/song/${workId}` : '/study'
 
   // Main orchestration hook handles all state and logic
-  const session = useStudySession(workId)
+  const session = useStudySession(workId, { exitPath: returnPath })
+
+  const activeSpotifyTrackIds = useMemo(() => {
+    if (session.currentCard?.spotifyTrackId) {
+      return [session.currentCard.spotifyTrackId]
+    }
+    return session.spotifyTrackIds
+  }, [session.currentCard?.spotifyTrackId, session.spotifyTrackIds])
+
+  const spotifyTrackIds = activeSpotifyTrackIds.length > 0 ? activeSpotifyTrackIds : undefined
+  const { data: subscriptionLockData } = useCreatorSubscriptionLock(spotifyTrackIds)
+  const {
+    subscribe,
+    status: subscriptionStatus,
+    statusMessage: subscriptionStatusMessage,
+    errorMessage: subscriptionErrorMessage,
+    reset: resetSubscription,
+  } = useUnlockSubscription(
+    pkpAddress ?? undefined,
+    subscriptionLockData?.unlockLockAddress,
+    { walletClient: pkpWalletClient }
+  )
+
+  const isSubscriptionProcessing =
+    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
+
+  const handleSubscriptionClick = () => {
+    if (!subscriptionLockData?.unlockLockAddress) {
+      alert('Subscription is not available for this song yet.')
+      return
+    }
+
+    if (!pkpAddress || !pkpWalletClient) {
+      onConnectWallet?.()
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
+
+    setIsSubscriptionDialogOpen(true)
+  }
+
+  const handleSubscriptionConfirm = async () => {
+    if (!pkpAddress || !pkpWalletClient) {
+      onConnectWallet?.()
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
+
+    await subscribe()
+  }
+
+  const handleSubscriptionRetry = async () => {
+    if (!pkpAddress || !pkpWalletClient) {
+      onConnectWallet?.()
+      alert('Please sign in to subscribe to this creator.')
+      return
+    }
+
+    resetSubscription()
+    await subscribe()
+  }
+
+  const handleSubscriptionDialogClose = (open: boolean) => {
+    setIsSubscriptionDialogOpen(open)
+    if (!open && subscriptionStatus === 'complete') {
+      resetSubscription()
+    }
+  }
+
+  const cardsCompleted = session.initialTotalCards > 0 ? session.initialTotalCards : session.totalCards
+  const completionTitle = session.songTitle
+    ? `You finished ${session.songTitle}`
+    : isGlobalSession
+    ? 'You finished all due cards'
+    : 'You finished your session'
 
   // Auth check: Distinguish between loading and not logged in
   if (!isPKPReady) {
@@ -45,7 +127,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
           Karaoke to your favorite songs for free!
         </p>
         <button
-          onClick={onConnectWallet || (() => navigate(-1))}
+          onClick={onConnectWallet || (() => navigate(returnPath))}
           className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           Sign Up
@@ -68,7 +150,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-2xl font-bold">No Cards to Study</h1>
-        <button onClick={() => navigate(-1)} className="text-primary hover:underline">
+        <button onClick={() => navigate(returnPath)} className="text-primary hover:underline">
           Go Back
         </button>
       </div>
@@ -78,26 +160,75 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
   // Session complete
   if (session.currentCardIndex >= session.totalCards) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-2xl font-bold">✓ Study Session Complete!</h1>
-        <p className="text-lg text-muted-foreground">
-          You've completed {session.totalCards} cards
-        </p>
-        <button
-          onClick={() => navigate('/study')}
-          className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-        >
-          Return to Study
-        </button>
-      </div>
+      <>
+        <div className="flex flex-col h-screen bg-background">
+          <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 text-center gap-8">
+            <div className="space-y-3 max-w-xl">
+              <h1 className="text-sm uppercase tracking-wide text-muted-foreground">
+                Complete!
+              </h1>
+              <p className="text-3xl font-bold">{completionTitle}</p>
+              <p className="text-base text-muted-foreground">
+                Come back tomorrow to increase your daily study streak for rewards.
+              </p>
+            </div>
+
+            <Card className="w-full max-w-sm border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-2">
+              <p className="text-base text-muted-foreground">Cards completed</p>
+              <p className="text-6xl font-semibold tracking-tight">{cardsCompleted}</p>
+            </Card>
+
+            {session.artistName && (
+              <Card className="w-full max-w-xl border border-primary/30 bg-primary/5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center p-6 text-left sm:text-left">
+                  <div className="flex-1">
+                    <p className="text-xs uppercase tracking-wide text-primary font-semibold">
+                      Support the artist
+                    </p>
+                    <h2 className="text-2xl font-semibold mt-1">
+                      Subscribe to {session.artistName}
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Unlock full songs, premium exercises, and translations released weekly.
+                    </p>
+                  </div>
+                  <Button size="lg" className="w-full sm:w-auto" onClick={handleSubscriptionClick}>
+                    Subscribe
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          <div className="border-t border-border bg-background/95 backdrop-blur-sm">
+            <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
+              <Button size="lg" className="w-full" onClick={() => navigate(returnPath)}>
+                Complete
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <SubscriptionDialog
+          open={isSubscriptionDialogOpen}
+          onOpenChange={handleSubscriptionDialogClose}
+          displayName={session.artistName || 'this artist'}
+          currentStep={subscriptionStatus}
+          isProcessing={isSubscriptionProcessing}
+          statusMessage={subscriptionStatusMessage}
+          errorMessage={subscriptionErrorMessage}
+          onSubscribe={handleSubscriptionConfirm}
+          onRetry={handleSubscriptionRetry}
+        />
+      </>
     )
   }
 
   // Main study session layout - PERSISTENT (never unmounts)
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen">
       {/* Header - PERSISTENT */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border flex-shrink-0">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-3">
           <ExerciseHeader
             progress={session.progress}
@@ -108,7 +239,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
       </div>
 
       {/* Exercise Content - TRANSITIONS SMOOTHLY */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
           {session.isLoadingExercise ? (
             <ExerciseSkeleton type={session.currentCard?.exerciseType as any} />
@@ -149,7 +280,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
       </div>
 
       {/* Footer - PERSISTENT */}
-      <div className="border-t border-border bg-background">
+      <div className="border-t border-border bg-background flex-shrink-0">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4">
           <ExerciseFooter
             feedback={session.feedback}

@@ -1,4 +1,4 @@
-import { AccountFragment, AccountMetadataFragment } from "./accounts";
+import { AccountFragment } from "./accounts";
 import { PostMetadataFragment } from "./posts";
 
 export const fragments = [

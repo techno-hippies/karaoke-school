@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
+import { useLanguagePreference } from '@/hooks/useLanguagePreference'
 
 // Helper: Get today's start timestamp (midnight local time)
 function getTodayStartTimestamp(): number {
@@ -223,9 +224,10 @@ export interface StudyCardsResult {
 
 export function useStudyCards(songId?: string) {
   const { pkpAddress } = useAuth()
+  const { languageFallbackOrder } = useLanguagePreference()
 
   return useQuery({
-    queryKey: ['study-cards', songId, pkpAddress],
+    queryKey: ['study-cards', songId, pkpAddress, languageFallbackOrder.join(',')],
     queryFn: async (): Promise<StudyCardsResult> => {
       if (!pkpAddress) {
         throw new Error('Not authenticated')
@@ -259,6 +261,7 @@ export function useStudyCards(songId?: string) {
               relearning: 0,
               newCardsIntroducedToday: 0,
               newCardsRemaining: 15,
+              dueToday: 0,
             }
           }
         }
@@ -274,15 +277,41 @@ export function useStudyCards(songId?: string) {
         let exerciseCardResponse: { exerciseCards: any[] } = { exerciseCards: [] }
 
         if (spotifyTrackIds.length > 0) {
-          // Default to Mandarin Chinese for quiz questions
-          // Users can later customize this preference
-          const preferredLanguage = 'zh'
+          let selectedExerciseLanguage: string | null = null
+          let lastError: unknown = null
+          let hadSuccessfulRequest = false
 
-          exerciseCardResponse = await graphClient.request(GET_EXERCISE_CARDS, {
-            spotifyTrackIds,
-            performer: pkpAddress.toLowerCase(),
-            languageCode: preferredLanguage,
-          })
+          for (const languageCode of languageFallbackOrder) {
+            try {
+              const response = await graphClient.request(GET_EXERCISE_CARDS, {
+                spotifyTrackIds,
+                performer: pkpAddress.toLowerCase(),
+                languageCode,
+              })
+
+              hadSuccessfulRequest = true
+              exerciseCardResponse = response
+
+              if (response.exerciseCards?.length) {
+                selectedExerciseLanguage = languageCode
+                console.log('[useStudyCards] ✅ Loaded exercise cards for language:', languageCode)
+                break
+              }
+
+              console.log('[useStudyCards] ⚠️ No exercise cards for language, trying next fallback:', languageCode)
+            } catch (error) {
+              lastError = error
+              console.warn('[useStudyCards] ⚠️ Failed to load exercise cards for language:', languageCode, error)
+            }
+          }
+
+          if (!hadSuccessfulRequest && lastError) {
+            throw lastError instanceof Error ? lastError : new Error(String(lastError))
+          }
+
+          if (!selectedExerciseLanguage) {
+            console.warn('[useStudyCards] ⚠️ Exercise cards unavailable for preferred languages:', languageFallbackOrder)
+          }
         }
 
         const onChainExerciseCards = exerciseCardResponse.exerciseCards || []

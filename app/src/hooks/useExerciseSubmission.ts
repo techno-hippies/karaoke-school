@@ -27,14 +27,9 @@ export function useExerciseSubmission() {
   const queryClient = useQueryClient()
 
   const submitSayItBack = useCallback(async (
-    params: GradingParams,
-    expectedText: string
+    params: GradingParams
   ): Promise<SubmissionResult> => {
     console.log('[useExerciseSubmission] SAY_IT_BACK submission starting...')
-
-    // Optimistic: Show immediate feedback based on transcript
-    // TODO: Add proper similarity scoring here (could use simple Levenshtein distance)
-    const transcript = ('audioDataBase64' in params && params.audioDataBase64) ? 'Processing...' : ''
 
     // Background: Submit to blockchain and get actual grading
     const resultPromise = grade(params)

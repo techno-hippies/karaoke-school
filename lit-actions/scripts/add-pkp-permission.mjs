@@ -4,11 +4,19 @@
  * Add permitted action to PKP
  *
  * Usage:
- *   bun run scripts/add-pkp-permission.mjs <IPFS_CID>
+ *   bun run scripts/add-pkp-permission.mjs <IPFS_CID> [network]
+ *
+ * Network options (optional, defaults to nagaDev):
+ *   nagaDev  - Naga development network
+ *   nagaTest - Naga test network
+ *
+ * Examples:
+ *   bun run scripts/add-pkp-permission.mjs QmRzS...
+ *   bun run scripts/add-pkp-permission.mjs QmRzS... nagaTest
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
-import { nagaDev } from '@lit-protocol/networks';
+import { nagaDev, nagaTest } from '@lit-protocol/networks';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFile, writeFile } from 'fs/promises';
@@ -36,15 +44,27 @@ const chronicleYellowstone = {
 
 async function main() {
   const ipfsId = process.argv[2];
+  const networkArg = process.argv[3] || 'nagaDev';
 
   if (!ipfsId) {
-    console.error('❌ Usage: bun run scripts/add-pkp-permission.mjs <IPFS_CID>');
+    console.error('❌ Usage: bun run scripts/add-pkp-permission.mjs <IPFS_CID> [network]');
+    console.error('Example: bun run scripts/add-pkp-permission.mjs QmRzS... nagaTest');
+    process.exit(1);
+  }
+
+  const networkMap = { nagaDev, nagaTest };
+  const network = networkMap[networkArg];
+
+  if (!network) {
+    console.error(`❌ Invalid network: ${networkArg}`);
+    console.error('Valid options: nagaDev, nagaTest');
     process.exit(1);
   }
 
   console.log('🔐 Adding Lit Action Permission to PKP');
   console.log('=====================================\n');
   console.log('IPFS CID:', ipfsId);
+  console.log('📡 Network:', networkArg);
 
   // Load PKP credentials
   const PKP_CREDS_PATH = join(__dirname, '../output/pkp-credentials.json');
@@ -74,8 +94,8 @@ async function main() {
   });
 
   // Connect to Lit Protocol
-  console.log('\n🔌 Connecting to Lit Protocol (nagaDev)...');
-  const litClient = await createLitClient({ network: nagaDev });
+  console.log(`\n🔌 Connecting to Lit Protocol (${networkArg})...`);
+  const litClient = await createLitClient({ network });
   console.log('✅ Connected');
 
   // Get PKP Permissions Manager

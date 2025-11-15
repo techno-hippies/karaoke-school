@@ -120,6 +120,7 @@ query GetClip($clipHash: ID!) {
     clipStartMs
     clipEndMs
     metadataUri
+    alignmentUri
     translationCount
     performances(orderBy: gradedAt, orderDirection: desc, first: 5) {
       id
@@ -136,6 +137,20 @@ query GetClip($clipHash: ID!) {
   }
 }
 ```
+
+## Clip vs Full-Song Lyrics (Grove Integration)
+
+- `Clip.metadataUri` points to a Grove JSON document produced by the pipeline. That document
+  contains the assets block the frontend uses today (`assets.alignment`, `translations[].grove_url`,
+  `translations[].clip_grove_url`, etc.).
+- `Clip.alignmentUri` is a convenience pointer that already resolves to the full-song alignment
+  JSON with word-level timestamps.
+- Free-tier experiences use the clip-only slices by reading the `clip_grove_url` entries in the
+  metadata; paying users fetch the full `grove_url`. No schema changes are required: clients simply
+  query the subgraph to discover the Grove URLs and fetch the pre-sliced data directly from Grove.
+
+This is exactly how the existing `MediaPage` in the React app works, so any Lit Action or backend
+service can mirror the same flow once this subgraph is deployed to a public Graph endpoint.
 
 ### Get learner performance history
 

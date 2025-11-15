@@ -87,7 +87,7 @@ export function SongPageContainer() {
   const artworkUrl = metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined
   console.log('[SongPageContainer] Final artworkUrl:', artworkUrl)
   const songIdentifier = `grc20/${workId}`
-  const playRoute = `/song/${workId}/play`
+  const karaokeRoute = `/song/${workId}/karaoke`
   const studyRoute = `/song/${workId}/study`
 
   // Build external links
@@ -110,7 +110,7 @@ export function SongPageContainer() {
       songLinks={songLinks}
       lyricsLinks={[]}
       onBack={() => navigate(-1)}
-      onPlay={() => navigate(playRoute)}
+      onPlay={() => navigate(karaokeRoute)}
       onArtistClick={
         metadata?.artistLensHandle
           ? () => navigate(`/u/${metadata.artistLensHandle}`)
@@ -130,7 +130,7 @@ export function SongPageContainer() {
         navigate(studyRoute)
       }}
       onKaraoke={() => {
-        navigate(playRoute)
+        navigate(karaokeRoute)
       }}
     />
   )

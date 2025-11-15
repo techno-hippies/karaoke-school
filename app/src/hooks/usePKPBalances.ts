@@ -99,8 +99,6 @@ const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   },
 } as const
 
-type NetworkKey = keyof typeof NETWORK_CONFIGS
-
 interface TokenConfig {
   address: string
   decimals: number
@@ -161,178 +159,211 @@ export function usePKPBalances(): UsePKPBalancesReturn {
     try {
       console.log('[usePKPBalances] Fetching balances for:', pkpAddress)
 
-      const networkPromises = Object.entries(NETWORK_CONFIGS).map(
-        async ([, config]): Promise<NetworkBalance> => {
-          try {
-            console.log(`[usePKPBalances] Querying ${config.name}...`)
+      // Initialize skeleton tokens for all networks upfront
+      const initialSkeletonTokens: TokenBalance[] = []
+      Object.entries(NETWORK_CONFIGS).forEach(([, config]) => {
+        // Add native token skeleton
+        initialSkeletonTokens.push({
+          symbol: config.nativeToken,
+          name: config.nativeToken,
+          balance: '0',
+          network: config.name,
+          usdValue: '0',
+          currencyIcon: getNativeTokenIcon(config.name),
+          chainIcon: getNetworkOverlayIcon(config.name),
+          isLoading: true,
+        })
 
-            // Create public client for this network
-            const publicClient = createPublicClient({
-              chain: {
-                id: config.chainId,
-                name: config.name,
-                nativeCurrency: { name: config.nativeToken, symbol: config.nativeToken, decimals: 18 },
-                rpcUrls: { default: { http: [config.rpcUrl] } },
-              } as const,
-              transport: http(),
+        // Add default token skeletons (not marked as additional)
+        Object.entries(config.tokens)
+          .filter(([, tokenConfig]) => !tokenConfig.additional)
+          .forEach(([tokenSymbol]) => {
+            initialSkeletonTokens.push({
+              symbol: tokenSymbol,
+              name: tokenSymbol,
+              balance: '0',
+              network: config.name,
+              usdValue: '0',
+              currencyIcon: getTokenIcon(tokenSymbol),
+              chainIcon: getNetworkOverlayIcon(config.name),
+              isLoading: true,
             })
+          })
+      })
 
-            // Fetch native token balance using eth_getBalance RPC
-            const nativeBalanceHex = await publicClient.request({
-              method: 'eth_getBalance',
-              params: [pkpAddress, 'latest'],
-            })
+      // Show skeletons immediately
+      setBalances(initialSkeletonTokens)
 
-      // @ts-expect-error - BigInt formatting
-            const nativeBalance = BigInt(nativeBalanceHex)
+      // Fetch networks sequentially to avoid flooding RPC endpoints
+      const networkResults: NetworkBalance[] = []
 
-            const nativeBalanceFormatted = formatBalance(nativeBalance, 18)
-            const nativeUsdValue = await estimateUsdValue(nativeBalanceFormatted, config.nativeToken)
+      for (const [, config] of Object.entries(NETWORK_CONFIGS)) {
+        try {
+          console.log(`[usePKPBalances] Querying ${config.name}...`)
 
-            console.log(`[usePKPBalances] ${config.name} native:`, nativeBalanceFormatted, config.nativeToken)
+          // Create public client for this network
+          const publicClient = createPublicClient({
+            chain: {
+              id: config.chainId,
+              name: config.name,
+              nativeCurrency: { name: config.nativeToken, symbol: config.nativeToken, decimals: 18 },
+              rpcUrls: { default: { http: [config.rpcUrl] } },
+            } as const,
+            transport: http(),
+          })
 
-            // Fetch ERC-20 token balances using raw eth_call
-            const tokenBalances: NetworkBalance['tokens'] = []
-            
-            for (const [tokenSymbol, tokenConfig] of Object.entries(config.tokens)) {
-              const tokenAddress = tokenConfig.address
-              const decimals = tokenConfig.decimals
-              
-              // Hardcode balanceOf selector to avoid imports
-              const balanceOfSelector = '0x70a08231' // keccak256('balanceOf(address)')
-              const paddedAddress = pkpAddress.slice(2).padStart(64, '0') // 0x + 32 bytes
-              const data = balanceOfSelector + paddedAddress
-              
-              try {
-                const tokenBalanceHex = await publicClient.request({
-                  method: 'eth_call',
-                  params: [{
-                    to: tokenAddress,
-                    data: data
-                  }, 'latest']
-                })
-                
-                // Handle various response formats and errors
-                let tokenBalance: bigint
-                if (!tokenBalanceHex || tokenBalanceHex === '0x') {
-                  tokenBalance = 0n
-                } else if (typeof tokenBalanceHex === 'string' && tokenBalanceHex.startsWith('0x')) {
-                  try {
-                    tokenBalance = BigInt(tokenBalanceHex)
-                  } catch (parseError) {
-                    console.warn(`[usePKPBalances] Failed to parse ${tokenSymbol} balance on ${config.name}:`, parseError)
-                    continue
-                  }
-                } else {
-                  console.warn(`[usePKPBalances] Unexpected response format for ${tokenSymbol} on ${config.name}:`, tokenBalanceHex)
+          // Fetch native token balance using eth_getBalance RPC
+          const nativeBalanceHex = await publicClient.request({
+            method: 'eth_getBalance',
+            params: [pkpAddress, 'latest'],
+          })
+
+          // @ts-expect-error - BigInt formatting
+          const nativeBalance = BigInt(nativeBalanceHex)
+
+          const nativeBalanceFormatted = formatBalance(nativeBalance, 18)
+          const nativeUsdValue = await estimateUsdValue(nativeBalanceFormatted, config.nativeToken)
+
+          console.log(`[usePKPBalances] ${config.name} native:`, nativeBalanceFormatted, config.nativeToken)
+
+          // Fetch ERC-20 token balances using raw eth_call
+          const tokenBalances: NetworkBalance['tokens'] = []
+
+          for (const [tokenSymbol, tokenConfig] of Object.entries(config.tokens)) {
+            const tokenAddress = tokenConfig.address
+            const decimals = tokenConfig.decimals
+
+            // Hardcode balanceOf selector to avoid imports
+            const balanceOfSelector = '0x70a08231' // keccak256('balanceOf(address)')
+            const paddedAddress = pkpAddress.slice(2).padStart(64, '0') // 0x + 32 bytes
+            const data = balanceOfSelector + paddedAddress
+
+            try {
+              const tokenBalanceHex = await publicClient.request({
+                method: 'eth_call',
+                params: [{
+                  to: tokenAddress,
+                  data: data
+                }, 'latest']
+              })
+
+              // Handle various response formats and errors
+              let tokenBalance: bigint
+              if (!tokenBalanceHex || tokenBalanceHex === '0x') {
+                tokenBalance = 0n
+              } else if (typeof tokenBalanceHex === 'string' && tokenBalanceHex.startsWith('0x')) {
+                try {
+                  tokenBalance = BigInt(tokenBalanceHex)
+                } catch (parseError) {
+                  console.warn(`[usePKPBalances] Failed to parse ${tokenSymbol} balance on ${config.name}:`, parseError)
                   continue
                 }
-                
-                // Check if we should show this token:
-                // - Default tokens: always show (even with 0 balance)
-                // - Additional tokens: only show if balance > 0
-                const shouldShow = !tokenConfig.additional || tokenBalance > 0n
-                
-                if (shouldShow) {
-                  const formattedBalance = formatBalance(tokenBalance, decimals)
-                  const usdValue = await estimateUsdValue(formattedBalance, tokenSymbol)
-                  
-                  tokenBalances.push({
-                    symbol: tokenSymbol,
-                    name: tokenSymbol,
-                    balance: formattedBalance,
-                    usdValue,
-                    currencyIcon: getTokenIcon(tokenSymbol),
-                    chainIcon: getNetworkOverlayIcon(config.name),
-                    network: config.name,  // Add network field for consistency
-                  })
-                  
-                  console.log(`[usePKPBalances] ${config.name} ${tokenSymbol}:`, formattedBalance)
-                } else {
-                  console.log(`[usePKPBalances] ${config.name} ${tokenSymbol}: hidden (additional token with 0 balance)`)
-                }
-              } catch (tokenError) {
-                console.warn(`[usePKPBalances] Failed to fetch ${tokenSymbol} on ${config.name}:`, tokenError)
+              } else {
+                console.warn(`[usePKPBalances] Unexpected response format for ${tokenSymbol} on ${config.name}:`, tokenBalanceHex)
+                continue
+              }
+
+              // Check if we should show this token:
+              // - Default tokens: always show (even with 0 balance)
+              // - Additional tokens: only show if balance > 0
+              const shouldShow = !tokenConfig.additional || tokenBalance > 0n
+
+              if (shouldShow) {
+                const formattedBalance = formatBalance(tokenBalance, decimals)
+                const usdValue = await estimateUsdValue(formattedBalance, tokenSymbol)
+
+                tokenBalances.push({
+                  symbol: tokenSymbol,
+                  name: tokenSymbol,
+                  balance: formattedBalance,
+                  usdValue,
+                  currencyIcon: getTokenIcon(tokenSymbol),
+                  chainIcon: getNetworkOverlayIcon(config.name),
+                  network: config.name,  // Add network field for consistency
+                })
+
+                console.log(`[usePKPBalances] ${config.name} ${tokenSymbol}:`, formattedBalance)
+              } else {
+                console.log(`[usePKPBalances] ${config.name} ${tokenSymbol}: hidden (additional token with 0 balance)`)
+              }
+            } catch (tokenError) {
+              console.warn(`[usePKPBalances] Failed to fetch ${tokenSymbol} on ${config.name}:`, tokenError)
+            }
+          }
+
+          const networkResult: NetworkBalance = {
+            network: config.name,
+            nativeBalance: nativeBalanceFormatted,
+            nativeUsdValue,
+            tokens: tokenBalances,
+          }
+
+          networkResults.push(networkResult)
+
+          // Update UI progressively after each network completes
+          setBalances(prev => {
+            const updated = [...prev]
+
+            // Update native token for this network
+            const nativeIndex = updated.findIndex(
+              t => t.network === config.name && t.symbol === config.nativeToken
+            )
+            if (nativeIndex !== -1) {
+              updated[nativeIndex] = {
+                ...updated[nativeIndex],
+                balance: nativeBalanceFormatted,
+                usdValue: nativeUsdValue,
+                isLoading: false,
               }
             }
 
-            return {
-              network: config.name,
-              nativeBalance: nativeBalanceFormatted,
-              nativeUsdValue,
-              tokens: tokenBalances,
+            // Update ERC-20 tokens for this network
+            for (const token of tokenBalances) {
+              const tokenIndex = updated.findIndex(
+                t => t.network === config.name && t.symbol === token.symbol
+              )
+              if (tokenIndex !== -1) {
+                updated[tokenIndex] = {
+                  ...token,
+                  isLoading: false,
+                }
+              } else if (!updated.find(t => t.network === config.name && t.symbol === token.symbol)) {
+                // Add additional tokens (like WBTC, DAI) that have non-zero balances
+                updated.push({
+                  ...token,
+                  isLoading: false,
+                })
+              }
             }
-          } catch (networkError) {
-            console.error(`[usePKPBalances] Failed to fetch ${config.name} balances:`, networkError)
-            return {
-              network: config.name,
-              nativeBalance: '0',
-              nativeUsdValue: '0',
-              tokens: [],
-              error: networkError instanceof Error ? networkError.message : 'Unknown error',
-            }
-          }
-        }
-      )
 
-      const networkResults = await Promise.all(networkPromises)
+            return updated
+          })
 
-      // Combine all balances into the format expected by WalletPageView
-      const allBalances: TokenBalance[] = []
+          // Small delay to avoid overwhelming RPC endpoints
+          await new Promise(resolve => setTimeout(resolve, 200))
+        } catch (networkError) {
+          console.error(`[usePKPBalances] Failed to fetch ${config.name} balances:`, networkError)
 
-      for (const result of networkResults) {
-        console.log('[DEBUG] Processing network result:', {
-          network: result.network,
-          nativeBalance: result.nativeBalance,
-          tokenCount: result.tokens.length
-        })
-
-        // Always show native token balance (for app's supported networks)
-        if (parseFloat(result.nativeBalance) >= 0) {
-          // Find network config by matching the name field
-          const networkConfig = Object.values(NETWORK_CONFIGS).find(
-            config => config.name === result.network
+          // Mark this network's tokens as errored (no longer loading)
+          setBalances(prev =>
+            prev.map(token =>
+              token.network === config.name
+                ? { ...token, isLoading: false }
+                : token
+            )
           )
-          console.log('[DEBUG] Network config lookup:', {
-            network: result.network,
-            found: !!networkConfig,
-            nativeToken: networkConfig?.nativeToken
-          })
 
-          allBalances.push({
-            symbol: networkConfig?.nativeToken || 'ETH',
-            name: networkConfig?.nativeToken || 'Ether',
-            balance: result.nativeBalance,
-            network: result.network,
-            usdValue: result.nativeUsdValue,
-            currencyIcon: getNativeTokenIcon(result.network),
-            chainIcon: getNetworkOverlayIcon(result.network),
-          })
-
-          console.log('[DEBUG] Added native token:', {
-            symbol: networkConfig?.nativeToken,
-            network: result.network,
-            currencyIcon: getNativeTokenIcon(result.network),
-            chainIcon: getNetworkOverlayIcon(result.network)
+          networkResults.push({
+            network: config.name,
+            nativeBalance: '0',
+            nativeUsdValue: '0',
+            tokens: [],
+            error: networkError instanceof Error ? networkError.message : 'Unknown error',
           })
         }
-
-        // Add token balances
-        for (const token of result.tokens) {
-          console.log('[DEBUG] Adding token:', token)
-        }
-        allBalances.push(...result.tokens)
       }
 
-      setBalances(allBalances)
-      console.log('[usePKPBalances] Total balances:', allBalances.length, 'assets')
-      console.log('[usePKPBalances] Balance objects:', allBalances.map(b => ({
-        symbol: b.symbol,
-        network: b.network,
-        currencyIcon: b.currencyIcon,
-        chainIcon: b.chainIcon,
-        balance: b.balance
-      })))
+      console.log('[usePKPBalances] All networks fetched successfully')
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to fetch balances')
       setError(error)

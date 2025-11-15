@@ -177,14 +177,16 @@ export function useDecryptFullAudio(
     }
 
     checkAndDecrypt()
+  }, [spotifyTrackId, encryptedFullUrl, unlockLockAddress, unlockChainId, pkpAuthContext, pkpInfo])
 
-    // Cleanup blob URL on unmount
+  // Cleanup blob URL on unmount
+  useEffect(() => {
     return () => {
       if (decryptedAudioUrl) {
         URL.revokeObjectURL(decryptedAudioUrl)
       }
     }
-  }, [spotifyTrackId, encryptedFullUrl, unlockLockAddress, unlockChainId, pkpAuthContext, pkpInfo])
+  }, [decryptedAudioUrl])
 
   return {
     isDecrypting,

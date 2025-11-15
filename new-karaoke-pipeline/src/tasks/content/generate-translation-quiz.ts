@@ -222,12 +222,34 @@ function validateDistractors(
   return { texts, reasons };
 }
 
-async function fetchTracks(limit: number): Promise<TrackRow[]> {
+async function fetchTracks(limit: number, trackId?: string): Promise<TrackRow[]> {
   // ✅ RETROACTIVE PROCESSING: Query by pending tasks, not by stage
-  // This allows processing tracks at ANY stage (including 'ready') as long as they have:
-  // 1. Translations in target languages
-  // 2. A pending translation_quiz task
-  // 3. No existing questions
+  // Supports targeted processing via --trackId for surgical re-runs.
+  if (trackId) {
+    return query(
+      `SELECT t.spotify_track_id, t.title, sl.normalized_lyrics
+         FROM tracks t
+         JOIN song_lyrics sl ON sl.spotify_track_id = t.spotify_track_id
+        WHERE t.spotify_track_id = $1
+          AND EXISTS (
+            SELECT 1 FROM lyrics_translations lt
+            WHERE lt.spotify_track_id = t.spotify_track_id
+              AND lt.language_code = ANY($2)
+          )
+          AND EXISTS (
+            SELECT 1 FROM audio_tasks at
+            WHERE at.spotify_track_id = t.spotify_track_id
+              AND at.task_type = 'translation_quiz'
+              AND at.status = 'pending'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM song_translation_questions q
+            WHERE q.spotify_track_id = t.spotify_track_id
+          )`,
+      [trackId, SUPPORTED_TRIVIA_LOCALES]
+    );
+  }
+
   return query(
     `SELECT t.spotify_track_id, t.title, sl.normalized_lyrics
      FROM tracks t
@@ -433,8 +455,11 @@ async function generateDistractorsWithRetries(
   throw lastError ?? new Error('Distractor generation failed');
 }
 
-async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK) {
+async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK, trackId?: string) {
   console.log(`\n🈯 Translation Quiz Generation (limit: ${limit}, max lines: ${maxLines})`);
+  if (trackId) {
+    console.log(`   → Target track: ${trackId}`);
+  }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -443,7 +468,7 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
   }
 
   const openRouter = new OpenRouterService(apiKey);
-  const tracks = await fetchTracks(limit);
+  const tracks = await fetchTracks(limit, trackId);
 
   if (tracks.length === 0) {
     console.log('✓ No translated tracks require translation quizzes.');
@@ -619,14 +644,18 @@ async function generateTranslationQuiz(limit = 5, maxLines = MAX_LINES_PER_TRACK
 }
 
 if (import.meta.main) {
-  const limitArg = process.argv.find((arg) => arg.startsWith('--limit='));
-  const maxLinesArg = process.argv.find((arg) => arg.startsWith('--max-lines='));
+  const args = process.argv.slice(2);
+  const limitArg = args.find((arg) => arg.startsWith('--limit='));
+  const maxLinesArg = args.find((arg) => arg.startsWith('--max-lines='));
+  const trackArg = args.find((arg) => arg.startsWith('--trackId='));
   const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 5;
   const maxLines = maxLinesArg ? parseInt(maxLinesArg.split('=')[1], 10) : MAX_LINES_PER_TRACK;
+  const trackId = trackArg ? trackArg.split('=')[1] : undefined;
 
   generateTranslationQuiz(
     Number.isNaN(limit) ? 5 : limit,
-    Number.isNaN(maxLines) ? MAX_LINES_PER_TRACK : maxLines
+    Number.isNaN(maxLines) ? MAX_LINES_PER_TRACK : maxLines,
+    trackId
   ).catch((error) => {
     console.error('Fatal error during translation quiz generation:', error);
     process.exit(1);

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStudyCards, type StudyCard } from './useStudyCards'
 import { useExerciseData } from './useExerciseData'
@@ -6,6 +6,8 @@ import { usePrefetchExercise } from './usePrefetchExercise'
 import { useExerciseSubmission } from './useExerciseSubmission'
 import { useAudioRecorder } from './useAudioRecorder'
 import type { GradingParams } from './useLitActionGrader'
+
+const EMPTY_CARDS: StudyCard[] = []
 
 export interface StudySessionState {
   // Loading states
@@ -17,6 +19,7 @@ export interface StudySessionState {
   currentCard?: StudyCard
   currentCardIndex: number
   totalCards: number
+  initialTotalCards: number
   progress: number
 
   // Exercise state
@@ -40,6 +43,11 @@ export interface StudySessionState {
     learningCount: number
   }
 
+  // Song metadata for completion CTAs
+  songTitle?: string
+  artistName?: string
+  spotifyTrackIds: string[]
+
   // Handlers
   handleStartRecording: () => Promise<void>
   handleStopRecording: () => Promise<void>
@@ -58,8 +66,14 @@ export interface StudySessionState {
  * - Manage recording state
  * - Calculate progress and stats
  */
-export function useStudySession(songId?: string): StudySessionState {
+export function useStudySession(
+  songId?: string,
+  options?: {
+    exitPath?: string
+  }
+): StudySessionState {
   const navigate = useNavigate()
+  const exitPath = options?.exitPath ?? '/study'
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -67,6 +81,7 @@ export function useStudySession(songId?: string): StudySessionState {
   const [score, setScore] = useState<number>()
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; message: string }>()
   const [selectedAnswer, setSelectedAnswer] = useState<string | number>()
+  const [initialTotalCards, setInitialTotalCards] = useState(0)
 
   // Pin active card to prevent reactive changes during exercise
   const [pinnedCard, setPinnedCard] = useState<StudyCard | undefined>()
@@ -74,7 +89,7 @@ export function useStudySession(songId?: string): StudySessionState {
 
   // Data hooks
   const studyCardsQuery = useStudyCards(songId)
-  const dueCards = studyCardsQuery.data?.cards || []
+  const dueCards = studyCardsQuery.data?.cards ?? EMPTY_CARDS
   const stats = studyCardsQuery.data?.stats
 
   // Get live card at current index
@@ -83,6 +98,26 @@ export function useStudySession(songId?: string): StudySessionState {
   // Use pinned card if available, otherwise fall back to live card
   const currentCard = pinnedCard ?? liveCard
   const nextCard = dueCards[currentCardIndex + 1]
+  const primaryCard = currentCard ?? dueCards[0]
+  const displayCard = currentCard ?? primaryCard
+
+  const spotifyTrackIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const card of dueCards) {
+      if (card.spotifyTrackId) {
+        ids.add(card.spotifyTrackId)
+      }
+    }
+    return Array.from(ids)
+  }, [dueCards])
+
+  const songTitle = displayCard?.title
+  const artistName = displayCard?.artist
+
+  useEffect(() => {
+    if (dueCards.length === 0) return
+    setInitialTotalCards(prev => (prev === 0 ? dueCards.length : Math.max(prev, dueCards.length)))
+  }, [dueCards.length])
 
   // Pin the card when the active index changes (user navigates)
   // Ignore reactive changes to dueCards while the user is on the same index
@@ -243,15 +278,6 @@ export function useStudySession(songId?: string): StudySessionState {
       const nextIndex = prev + 1
       console.log(`[useStudySession] Card index: ${prev} → ${nextIndex} (of ${dueCards.length})`)
 
-      if (nextIndex >= dueCards.length) {
-        console.log('[useStudySession] ✓ Study session complete!')
-        setTimeout(() => {
-          if (confirm('Study session complete! Return to study page?')) {
-            navigate('/study')
-          }
-        }, 500)
-      }
-
       return nextIndex
     })
     // Clear state for next card
@@ -259,13 +285,13 @@ export function useStudySession(songId?: string): StudySessionState {
     setScore(undefined)
     setFeedback(undefined)
     setSelectedAnswer(undefined)
-  }, [dueCards.length, navigate])
+  }, [dueCards.length])
 
   const handleClose = useCallback(() => {
     if (confirm('Exit study session? Progress will be saved.')) {
-      navigate('/study')
+      navigate(exitPath)
     }
-  }, [navigate])
+  }, [exitPath, navigate])
 
   // Calculate progress
   const progress = dueCards.length > 0 ? Math.round((currentCardIndex / dueCards.length) * 100) : 0
@@ -274,6 +300,7 @@ export function useStudySession(songId?: string): StudySessionState {
   const headerStats = stats ? {
     currentCard: currentCardIndex + 1,
     totalCards: dueCards.length,
+    initialTotalCards: initialTotalCards || dueCards.length,
     newToday: stats.newCardsIntroducedToday,
     newRemaining: stats.newCardsRemaining,
     reviewCount: stats.review + stats.relearning,
@@ -287,6 +314,7 @@ export function useStudySession(songId?: string): StudySessionState {
     currentCard,
     currentCardIndex,
     totalCards: dueCards.length,
+    initialTotalCards,
     progress,
     exerciseData,
     isRecording,
@@ -295,6 +323,9 @@ export function useStudySession(songId?: string): StudySessionState {
     feedback,
     selectedAnswer,
     stats: headerStats,
+    songTitle,
+    artistName,
+    spotifyTrackIds,
     handleStartRecording,
     handleStopRecording,
     handleAnswerSubmit,
