@@ -219,6 +219,7 @@ export interface StudyCardsResult {
     relearning: number
     newCardsIntroducedToday: number
     newCardsRemaining: number
+    dueToday: number
   }
 }
 

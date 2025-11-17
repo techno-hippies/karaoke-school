@@ -118,7 +118,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
   const dueCardsSample = useMemo(() => dueCards.slice(0, 3).map((card) => ({
     lineId: card.lineId,
     grc20WorkId: card.grc20WorkId,
-    stage: card.stage,
+    state: card.fsrs.state,
   })), [dueCards])
 
   useEffect(() => {

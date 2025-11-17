@@ -200,7 +200,7 @@ export function useStudySession(
         metadataUri: recordingData.groveUri,
       }
 
-      const result = await submitSayItBack(gradingParams, exerciseData.exerciseText)
+      const result = await submitSayItBack(gradingParams)
 
       setTranscript(result.transcript)
       setScore(result.score)

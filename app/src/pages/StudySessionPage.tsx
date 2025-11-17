@@ -242,7 +242,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
           {session.isLoadingExercise ? (
-            <ExerciseSkeleton type={session.currentCard?.exerciseType as any} />
+            <ExerciseSkeleton />
           ) : session.exerciseData.type === 'ERROR' ? (
             <div className="space-y-4 text-center">
               <p className="text-destructive font-medium">
