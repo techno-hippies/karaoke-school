@@ -284,17 +284,17 @@ export function handleTranslationAdded(event: TranslationAdded): void {
 **Studio Deployment**:
 ```bash
 # Deploy to Graph Studio
-graph deploy --studio karaoke-school-v1
+graph deploy --studio kschool-alpha-1
 
 # With authentication
 graph deploy --studio \
   --access-token $GRAPH_ACCESS_TOKEN \
-  karaoke-school-v1
+  kschool-alpha-1
 
 # Deploy specific version
 graph deploy --studio \
-  --version v0.0.1 \
-  karaoke-school-v1
+  --version v0.0.2 \
+  kschool-alpha-1
 ```
 
 **Hosted Service** (legacy):

@@ -8,11 +8,17 @@ const KARAOKE_EVENTS_ADDRESS = "0x51aA6987130AA7E4654218859E075D8e790f4409";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
 const PKP_PUBLIC_KEY =
-  "0x04d44ae02465fdb3feeb2644080afd2323c880e38b858fcb5f8e5551d8e640f58dfb0b056f1bee9c05e08b654c97a439c6e980321a9be78528da979c4f5de91940";
+  "0x04bc29b899d12c9bbbe0834f34adc73e6dc7dcc2ba79309c9c53249b06327f09abdd20f194979d13e390e8ba235db6ec1523cac332439f9eccafe5c4b8c12e726b";
 
 const DEFAULT_SUBGRAPH_URL =
-  "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.1";
+  "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2";
 const DEFAULT_GEMINI_MODEL = "google/gemini-2.5-flash-lite-preview-09-2025";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_REFERER = "https://karaoke.school";
+const OPENROUTER_APP_TITLE = "Karaoke School Grader";
+const GEMINI_TIMEOUT_MS = 25_000;
+const VOXTRAL_TIMEOUT_MS = 20_000;
+const LENS_RPC_TIMEOUT_MS = 12_000;
 
 const GRADE_BANDS = [
   { min: 9500, label: "Excellent" },
@@ -24,6 +30,7 @@ const GRADE_BANDS = [
 
 const go = async () => {
   const startTime = Date.now();
+  const metrics = {};
 
   try {
     const {
@@ -43,6 +50,8 @@ const go = async () => {
       metadataUri,
       gradeOverride,
       testMode = false,
+      skipTx = false,
+      txDebugStage = null,
     } = jsParams || {};
 
     if (!performanceId) throw new Error("performanceId is required");
@@ -89,6 +98,7 @@ const go = async () => {
       throw new Error("Unable to resolve lyric lines for scoring");
     }
 
+    const transcriptStart = Date.now();
     const transcript = transcriptOverride
       ? transcriptOverride
       : await transcribePerformance({
@@ -96,20 +106,24 @@ const go = async () => {
           voxtralEncryptedKey,
           testMode,
         });
+    metrics.transcriptionMs = Date.now() - transcriptStart;
 
+    const gradingStart = Date.now();
     const { aggregateScoreBp, lineScores } = await gradeWithGemini({
       transcript,
       lyricsLines,
       openRouterEncryptedKey,
       testMode,
     });
+    metrics.geminiMs = Date.now() - gradingStart;
 
     const similarityScore = aggregateScoreBp;
     const qualitativeGrade = gradeOverride || scoreToGrade(similarityScore);
     const finalMetadataUri = metadataUri || clipMetadata?.metadataUri || "";
 
     let txHash = null;
-    if (!testMode) {
+    if (!testMode && !skipTx) {
+      const txStart = Date.now();
       txHash = await submitKaraokeTx({
         performanceId,
         clipHash: clipHashBytes32,
@@ -120,7 +134,9 @@ const go = async () => {
         lineCount: lineScores.length,
         grade: qualitativeGrade,
         metadataUri: finalMetadataUri,
+        txDebugStage,
       });
+      metrics.txMs = Date.now() - txStart;
     }
 
     Lit.Actions.setResponse({
@@ -139,6 +155,7 @@ const go = async () => {
         txHash,
         executionTime: Date.now() - startTime,
         testMode,
+        metrics,
       }),
     });
   } catch (error) {
@@ -148,6 +165,7 @@ const go = async () => {
         version: "karaoke-grader-v1",
         error: error.message,
         executionTime: Date.now() - startTime,
+        metrics,
       }),
     });
   }
@@ -264,17 +282,34 @@ async function transcribePerformance({
     encoder.encode(footer),
   ]);
 
-  const response = await fetch(
-    "https://api.mistral.ai/v1/audio/transcriptions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${voxtralKey}`,
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
-      body,
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VOXTRAL_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(
+      "https://api.mistral.ai/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${voxtralKey}`,
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body,
+        signal: controller.signal,
+      }
+    );
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === "AbortError") {
+      throw new Error("Voxtral transcription timed out");
     }
-  );
+    throw new Error(
+      `Voxtral transcription request failed: ${error?.message || "unknown"}`
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -314,20 +349,37 @@ async function gradeWithGemini({
   }
 
   const apiKey = await decryptGenericKey(openRouterEncryptedKey);
-  const body = {
-    model: DEFAULT_GEMINI_MODEL,
-    response_format: buildStructuredSchema(),
-    messages: buildGeminiMessages({ transcript, lyricsLines }),
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": OPENROUTER_REFERER,
+        "X-Title": OPENROUTER_APP_TITLE,
+      },
+      body: JSON.stringify({
+        model: DEFAULT_GEMINI_MODEL,
+        response_format: buildStructuredSchema(),
+        messages: buildGeminiMessages({ transcript, lyricsLines }),
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === "AbortError") {
+      throw new Error("Gemini scoring request exceeded timeout");
+    }
+    throw new Error(
+      `Gemini scoring request failed: ${error?.message || "unknown error"}`
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -476,12 +528,22 @@ function buildGeminiMessages({ transcript, lyricsLines }) {
   return [
     {
       role: "system",
-      content:
-        "You are a karaoke pronunciation grader. Score each lyric line from 0-10000 based on pronunciation accuracy, timing, and clarity. Return structured JSON using the provided schema.",
+      content: [
+        {
+          type: "text",
+          text:
+            "You are a karaoke pronunciation grader. Score each lyric line from 0-10000 based on pronunciation accuracy, timing, and clarity. Return structured JSON using the provided schema.",
+        },
+      ],
     },
     {
       role: "user",
-      content: `Transcript:\n${transcript}\n\nExpected Lines:\n${expected}`,
+      content: [
+        {
+          type: "text",
+          text: `Transcript:\n${transcript}\n\nExpected Lines:\n${expected}`,
+        },
+      ],
     },
   ];
 }
@@ -510,6 +572,49 @@ function concatUint8Arrays(chunks) {
   return result;
 }
 
+async function jsonRpcRequest(method, params, label) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LENS_RPC_TIMEOUT_MS);
+  const payload = {
+    jsonrpc: "2.0",
+    id: Date.now(),
+    method,
+    params,
+  };
+
+  try {
+    const response = await fetch(LENS_TESTNET_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `${label} HTTP ${response.status}: ${text.slice(0, 200)}`
+      );
+    }
+
+    const json = await response.json();
+    if (json.error) {
+      throw new Error(
+        `${label} RPC error: ${json.error.message || json.error.code}`
+      );
+    }
+
+    return json.result;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${label} timed out after ${LENS_RPC_TIMEOUT_MS}ms`);
+    }
+    throw new Error(`${label} failed: ${error.message}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function scoreToGrade(scoreBp) {
   for (const band of GRADE_BANDS) {
     if (scoreBp >= band.min) {
@@ -529,17 +634,16 @@ async function submitKaraokeTx({
   lineCount,
   grade,
   metadataUri,
+  txDebugStage,
 }) {
-  const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
-
   const abi = [
     "function gradeKaraokePerformance(uint256 performanceId, bytes32 clipHash, string spotifyTrackId, address performer, string performanceType, uint16 similarityScore, uint16 lineCount, string grade, string metadataUri) external",
   ];
 
   const contractAddress = ethers.utils.getAddress(KARAOKE_EVENTS_ADDRESS);
-  const contract = new ethers.Contract(contractAddress, abi, provider);
+  const iface = new ethers.utils.Interface(abi);
 
-  const txData = contract.interface.encodeFunctionData(
+  const txData = iface.encodeFunctionData(
     "gradeKaraokePerformance",
     [
       ethers.BigNumber.from(performanceId),
@@ -554,40 +658,77 @@ async function submitKaraokeTx({
     ]
   );
 
-  return submitZkSyncTransaction(txData, provider);
+  return submitZkSyncTransaction(txData, txDebugStage);
 }
 
-async function submitZkSyncTransaction(txData, provider) {
+async function submitZkSyncTransaction(txData, txDebugStage) {
   const pkpAddress = ethers.utils.getAddress(
     ethers.utils.computeAddress(PKP_PUBLIC_KEY)
   );
   const contractAddress = ethers.utils.getAddress(KARAOKE_EVENTS_ADDRESS);
 
-  try {
-    await provider.call({
-      from: pkpAddress,
-      to: contractAddress,
-      data: txData,
-      gasLimit: ethers.utils.hexlify(2000000),
-      value: "0x0",
-    });
-    console.log("[karaoke-grader] Contract simulation succeeded");
-  } catch (error) {
-    throw new Error(
-      `Contract simulation failed: ${error.reason || error.message}`
-    );
+  await jsonRpcRequest(
+    "eth_call",
+    [
+      {
+        from: pkpAddress,
+        to: contractAddress,
+        data: txData,
+        gas: ethers.utils.hexlify(2000000),
+        value: "0x0",
+      },
+      "latest",
+    ],
+    "Contract simulation"
+  );
+  console.log("[karaoke-grader] Contract simulation succeeded");
+  if (txDebugStage === "simulate") {
+    console.log("[karaoke-grader] txDebugStage simulate -> exiting early");
+    return "tx-debug-simulate";
   }
 
-  const nonce = await provider.getTransactionCount(pkpAddress);
-  const feeData = await provider.getFeeData();
-  const gasPrice =
-    feeData.gasPrice ||
-    feeData.maxFeePerGas ||
-    ethers.BigNumber.from("3705143562");
-  const maxPriorityFeePerGas =
-    feeData.maxPriorityFeePerGas || ethers.BigNumber.from(0);
+  const nonceHex = await jsonRpcRequest(
+    "eth_getTransactionCount",
+    [pkpAddress, "pending"],
+    "Nonce fetch"
+  );
+  const nonce = ethers.BigNumber.from(nonceHex || "0x0");
+
+  const gasPriceHex = await jsonRpcRequest(
+    "eth_gasPrice",
+    [],
+    "Gas price fetch"
+  );
+  let gasPrice = gasPriceHex
+    ? ethers.BigNumber.from(gasPriceHex)
+    : ethers.BigNumber.from("3705143562");
+  if (gasPrice.eq(0)) {
+    gasPrice = ethers.BigNumber.from("3705143562");
+  }
+
+  let maxPriorityFeePerGas = ethers.BigNumber.from(0);
+  try {
+    const priorityHex = await jsonRpcRequest(
+      "eth_maxPriorityFeePerGas",
+      [],
+      "Priority fee fetch"
+    );
+    if (priorityHex) {
+      maxPriorityFeePerGas = ethers.BigNumber.from(priorityHex);
+    }
+  } catch (error) {
+    console.log(
+      "[karaoke-grader] eth_maxPriorityFeePerGas fallback:",
+      error.message
+    );
+  }
   const gasLimit = 500000;
   const gasPerPubdataByteLimit = ethers.BigNumber.from(800);
+
+  if (txDebugStage === "prepare") {
+    console.log("[karaoke-grader] txDebugStage prepare -> exiting early");
+    return "tx-debug-prepare";
+  }
 
   const domainSeparator = buildDomainSeparator();
   const structHash = buildStructHash({
@@ -644,6 +785,11 @@ async function submitZkSyncTransaction(txData, provider) {
   }
   console.log("[karaoke-grader] Signature verified for", pkpAddress);
 
+  if (txDebugStage === "sign") {
+    console.log("[karaoke-grader] txDebugStage sign -> exiting early");
+    return "tx-debug-sign";
+  }
+
   const yParity = v - 27;
 
   // Helper: converts number to minimal big-endian bytes
@@ -678,22 +824,38 @@ async function submitZkSyncTransaction(txData, provider) {
   const serialized = "0x71" + signedRlp.slice(2);
   console.log("[karaoke-grader] Built zkSync type 0x71 transaction");
 
+  // Submit transaction using runOnce (prevents duplicate submissions across nodes)
   const response = await Lit.Actions.runOnce(
     { waitForResponse: true, name: "karaokeTxSender" },
     async () => {
       try {
-        return await provider.send("eth_sendRawTransaction", [serialized]);
+        const txHash = await jsonRpcRequest(
+          "eth_sendRawTransaction",
+          [serialized],
+          "zkSync transaction submission"
+        );
+        return txHash;
       } catch (error) {
-        return `TX_ERROR:${error.message}`;
+        const lower = (error.message || "").toLowerCase();
+        const duplicateError =
+          lower.includes("known transaction") ||
+          lower.includes("already known") ||
+          lower.includes("nonce too low");
+        if (duplicateError) {
+          console.log("[karaoke-grader] Duplicate tx broadcast tolerated");
+          return "duplicate-broadcast";
+        }
+        return `TX_SUBMIT_ERROR: ${error.message}`;
       }
     }
   );
-  console.log("[karaoke-grader] runOnce/eth_sendRawTransaction finished");
 
-  if (response && response.startsWith("TX_ERROR:")) {
-    throw new Error(response.substring("TX_ERROR:".length));
+  // Check if response is an error
+  if (response && response.startsWith("TX_SUBMIT_ERROR:")) {
+    throw new Error(response);
   }
 
+  console.log("[karaoke-grader] Transaction submitted:", response);
   return response;
 }
 

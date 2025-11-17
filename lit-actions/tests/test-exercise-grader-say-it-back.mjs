@@ -10,7 +10,7 @@
  */
 
 import { createLitClient } from '@lit-protocol/lit-client';
-import { nagaDev } from '@lit-protocol/networks';
+import { nagaTest } from '@lit-protocol/networks';
 import { createAuthManager, storagePlugins } from '@lit-protocol/auth';
 import { LitActionResource } from '@lit-protocol/auth-helpers';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -34,8 +34,8 @@ const TEST_SEGMENT_HASH = `0x${Array(64).fill(0).map(() => Math.floor(Math.rando
 const TEST_ATTEMPT_ID = Date.now();
 const TEST_LANGUAGE = "en";
 
-// Lit Action CID (Exercise Grader v1 - deployed 2025-11-09, corrected PKP)
-const LIT_ACTION_CID = 'QmQdYup3hPie5PFoQ3iRR9Wgc4V9vH3cRZ2Ak7afmyXqwB';
+// Lit Action CID (Exercise Grader v1 - nagaTest, uploaded 2025-11-16, updated PKP)
+const LIT_ACTION_CID = 'QmbV3NTurgXwMqkaAD1z8t43iWAPNoBMHW9cMWk1LjTbfB';
 
 async function loadTestAudio() {
   console.log('🎵 Loading test audio...');
@@ -68,7 +68,7 @@ async function main() {
     const authManager = createAuthManager({
       storage: storagePlugins.localStorageNode({
         appName: "exercise-grader-v1-test",
-        networkName: "naga-dev",
+        networkName: "naga-test",
         storagePath: "./lit-auth-storage"
       }),
     });
@@ -76,8 +76,8 @@ async function main() {
 
     // 3. Connect to Lit
     console.log('\n🔌 Connecting to Lit Protocol...');
-    const litClient = await createLitClient({ network: nagaDev });
-    console.log('✅ Connected to Lit Network (nagaDev)');
+    const litClient = await createLitClient({ network: nagaTest });
+    console.log('✅ Connected to Lit Network (nagaTest)');
 
     // 4. Create authentication context
     console.log('\n🔐 Creating authentication context...');
@@ -118,7 +118,7 @@ async function main() {
       voxtralEncryptedKey,  // Pass encrypted key from keys/voxtral_api_key.json
       lineId: '0x64befe066b9b4a39813f96144552a1de00000000000000000000000000000000',  // Real lineId from DB (UUID 64befe06-6b9b-4a39-813f-96144552a1de zero-padded to bytes32)
       lineIndex: 8,  // Corresponding lineIndex from DB
-      testMode: false,  // Use real transcription to verify full flow
+      testMode: true,  // Skip contract submission (test decryption/transcription only)
     };
 
     // 6. Execute Lit Action

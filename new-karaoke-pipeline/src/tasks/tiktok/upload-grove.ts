@@ -21,6 +21,9 @@ import { query } from '../../db/connection';
 
 const AUDIO_DOWNLOAD_SERVICE_URL = process.env.AUDIO_DOWNLOAD_SERVICE_URL || 'http://localhost:3001';
 const CHAIN_ID = 37111; // Lens Testnet
+const NEON_DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+const POLL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const POLL_INTERVAL_MS = 4 * 1000; // 4 seconds
 
 interface TikTokVideoInput extends BaseSubjectInput {
   video_id: string;
@@ -57,6 +60,9 @@ export class UploadTikTokGroveTask extends BaseTask<TikTokVideoInput, UploadResu
           video_id as subject_id
          FROM tiktok_videos t
          WHERE video_id = $1
+           AND music_is_copyrighted = true
+           AND spotify_track_id IS NOT NULL
+           AND tt2dsp IS NOT NULL
            ${filter}
          LIMIT 1`,
         [videoId]
@@ -73,6 +79,9 @@ export class UploadTikTokGroveTask extends BaseTask<TikTokVideoInput, UploadResu
         video_id as subject_id
        FROM tiktok_videos t
        WHERE grove_video_url IS NULL
+         AND music_is_copyrighted = true
+         AND spotify_track_id IS NOT NULL
+         AND tt2dsp IS NOT NULL
          ${filter}
        ORDER BY created_at DESC
        LIMIT $1`,
@@ -86,14 +95,17 @@ export class UploadTikTokGroveTask extends BaseTask<TikTokVideoInput, UploadResu
     console.log(`  📤 Uploading ${video.video_id} to Grove...`);
 
     // Call audio-download-service /download-tiktok-video endpoint
+    const body = {
+      video_id: video.video_id,
+      tiktok_url: video.video_url,
+      chain_id: CHAIN_ID,
+      ...(NEON_DATABASE_URL ? { neon_database_url: NEON_DATABASE_URL } : {})
+    };
+
     const response = await fetch(`${AUDIO_DOWNLOAD_SERVICE_URL}/download-tiktok-video`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        video_id: video.video_id,
-        tiktok_url: video.video_url,
-        chain_id: CHAIN_ID,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -103,39 +115,50 @@ export class UploadTikTokGroveTask extends BaseTask<TikTokVideoInput, UploadResu
 
     const data = await response.json();
 
-    if (!data.success) {
+    if (!['processing', 'already_processing'].includes(data.status)) {
       throw new Error(`Upload failed: ${JSON.stringify(data)}`);
     }
 
-    // Update tiktok_videos table with Grove URLs
-    await query(
-      `UPDATE tiktok_videos
-       SET grove_video_url = $1,
-           grove_video_cid = $2,
-           grove_thumbnail_url = $3,
-           grove_thumbnail_cid = $4,
-           updated_at = NOW()
-       WHERE video_id = $5`,
-      [
-        data.grove_video_url,
-        data.grove_video_cid,
-        data.grove_thumbnail_url || null,
-        data.grove_thumbnail_cid || null,
-        video.video_id,
-      ]
-    );
+    const groveInfo = await this.waitForGroveUpload(video.video_id);
 
-    console.log(`  ✅ Uploaded: ${data.grove_video_cid}`);
+    console.log(`  ✅ Uploaded: ${groveInfo.grove_video_cid}`);
 
     return {
-      grove_cid: data.grove_video_cid,
-      grove_url: data.grove_video_url,
-      grove_thumbnail_cid: data.grove_thumbnail_cid,
-      grove_thumbnail_url: data.grove_thumbnail_url,
+      grove_cid: groveInfo.grove_video_cid,
+      grove_url: groveInfo.grove_video_url,
+      grove_thumbnail_cid: groveInfo.grove_thumbnail_cid || undefined,
+      grove_thumbnail_url: groveInfo.grove_thumbnail_url || undefined,
       metadata: {
-        download_method: data.download_method || 'yt-dlp-tiktok',
+        download_method: 'audio-download-service',
       },
     };
+  }
+
+  private async waitForGroveUpload(videoId: string) {
+    const start = Date.now();
+
+    while (Date.now() - start < POLL_TIMEOUT_MS) {
+      const [row] = await query<{
+        grove_video_cid: string | null;
+        grove_video_url: string | null;
+        grove_thumbnail_cid: string | null;
+        grove_thumbnail_url: string | null;
+      }>(
+        `SELECT grove_video_cid, grove_video_url, grove_thumbnail_cid, grove_thumbnail_url
+         FROM tiktok_videos
+         WHERE video_id = $1`,
+        [videoId]
+      );
+
+      if (row?.grove_video_cid && row.grove_video_url) {
+        return row;
+      }
+
+      process.stdout.write(`  ⏳ Waiting for Grove upload to finish for ${videoId}...\r`);
+      await new Promise(res => setTimeout(res, POLL_INTERVAL_MS));
+    }
+
+    throw new Error(`Timed out waiting for Grove upload for ${videoId}`);
   }
 }
 

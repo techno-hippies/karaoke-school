@@ -1,33 +1,25 @@
-/**
- * Authentication Context
- * Manages PKP (Lit Protocol) + Lens (Social) authentication state
- *
- * Benefits:
- * - Zero signatures for Lit Actions (PKP auth context persists)
- * - Native biometric auth (Face ID, Touch ID, Windows Hello)
- * - No wallet extensions needed
- * - Session persistence across page reloads
- */
+// src/contexts/AuthContext.tsx
 
-import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from 'react'
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
-import {
-  createPKPWalletClient,
-  createPKPAuthContext,
-  getCachedAuthContext,
-  getAuthStatus,
-  clearSession,
-} from '@/lib/lit'
+
 import type { PKPInfo, AuthData, PKPAuthContext } from '@/lib/lit'
-import { registerWithPasskeyFlow, signInWithPasskeyFlow } from '@/lib/auth/flows'
+import { LIT_SESSION_STORAGE_KEY } from '@/lib/lit/constants'
 import { getExistingAccounts, resumeLensSession } from '@/lib/lens/auth'
 
-/**
- * Authentication State
- */
+// ---------------- Types ----------------
+
 interface AuthState {
-  // PKP (Layer 1: Identity + Wallet)
   pkpInfo: PKPInfo | null
   pkpAddress: Address | null
   pkpWalletClient: WalletClient | null
@@ -35,12 +27,10 @@ interface AuthState {
   authData: AuthData | null
   isPKPReady: boolean
 
-  // Lens (Layer 2: Social Identity)
   lensSession: SessionClient | null
   lensAccount: Account | null
   hasLensAccount: boolean
 
-  // Flow state
   isAuthenticating: boolean
   authError: Error | null
   authStep: 'idle' | 'username' | 'webauthn' | 'session' | 'social' | 'complete'
@@ -49,16 +39,11 @@ interface AuthState {
   lensSetupStatus: 'pending' | 'complete' | 'failed'
 }
 
-/**
- * Authentication Actions
- */
 interface AuthActions {
-  // Main auth flows
   register: (username?: string) => Promise<void>
   signIn: () => Promise<void>
   logout: () => void
 
-  // Flow control
   showUsernameInput: () => void
   resetAuthFlow: () => void
 }
@@ -67,11 +52,78 @@ type AuthContextType = AuthState & AuthActions
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// ---------------- Dynamic loaders ----------------
+
+type LitModule = typeof import('@/lib/lit')
+type AuthFlowsModule = typeof import('@/lib/auth/flows')
+
+let litPromise: Promise<LitModule> | null = null
+let authFlowsPromise: Promise<AuthFlowsModule> | null = null
+
+function loadLit(): Promise<LitModule> {
+  if (!litPromise) {
+    litPromise = import('@/lib/lit')
+  }
+  return litPromise
+}
+
+function loadAuthFlows(): Promise<AuthFlowsModule> {
+  if (!authFlowsPromise) {
+    authFlowsPromise = import('@/lib/auth/flows')
+  }
+  return authFlowsPromise
+}
+
+/**
+ * Defensive check for "likely valid" session in localStorage
+ * WITHOUT importing Lit.
+ */
+function hasLikelyValidStoredSession(): boolean {
+  if (typeof window === 'undefined') return false
+
+  try {
+    const raw = window.localStorage.getItem(LIT_SESSION_STORAGE_KEY)
+    if (!raw) return false
+
+    const session = JSON.parse(raw)
+
+    if (!session || typeof session !== 'object') {
+      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
+      return false
+    }
+
+    if (!session.expiresAt || typeof session.expiresAt !== 'number') {
+      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
+      return false
+    }
+
+    if (Date.now() >= session.expiresAt) {
+      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
+      return false
+    }
+
+    if (!session.pkpInfo || typeof session.pkpInfo !== 'object') {
+      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.warn('[Auth] localStorage check failed:', error)
+    try {
+      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
+    } catch {
+      // ignore
+    }
+    return false
+  }
+}
+
 /**
  * Auth Provider
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // PKP Wallet State (inline instead of separate hook)
+  // PKP Wallet State
   const [walletClient, setWalletClient] = useState<WalletClient | null>(null)
   const [authContext, setAuthContext] = useState<PKPAuthContext | null>(null)
   const [pkpInfo, setPkpInfo] = useState<PKPInfo | null>(null)
@@ -88,35 +140,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authStep, setAuthStep] = useState<AuthState['authStep']>('idle')
   const [authMode, setAuthMode] = useState<AuthState['authMode']>(null)
   const [authStatus, setAuthStatus] = useState<string>('')
-  const [lensSetupStatus, setLensSetupStatus] = useState<'pending' | 'complete' | 'failed'>('pending')
+  const [lensSetupStatus, setLensSetupStatus] =
+    useState<'pending' | 'complete' | 'failed'>('pending')
 
-  // Derived state
   const address = walletClient?.account?.address || null
   const isConnected = !!walletClient && !!authContext
 
-  /**
-   * Initialize PKP wallet
-   */
+  // --------- Initialize PKP using Lit (lazy) ---------
+
   const initializePKP = useCallback(async (info: PKPInfo, data: AuthData) => {
     setIsInitializing(true)
 
     try {
       console.log('[Auth] Initializing PKP wallet:', info.ethAddress)
 
-      // Check for cached auth context first
+      const {
+        createPKPWalletClient,
+        createPKPAuthContext,
+        getCachedAuthContext,
+      } = await loadLit()
+
       let context = getCachedAuthContext(info.publicKey)
 
-      // Create new auth context if not cached
       if (!context) {
         console.log('[Auth] Creating PKP auth context...')
         context = await createPKPAuthContext(info, data)
       }
 
-      // Create wallet client
       console.log('[Auth] Creating wallet client...')
       const client = await createPKPWalletClient(info, context)
 
-      // Set state
       setAuthContext(context)
       setWalletClient(client)
       setPkpInfo(info)
@@ -131,9 +184,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  /**
-   * Auto-initialize from stored session on mount
-   */
+  // --------- Auto-initialize from stored session ---------
+
   const hasAutoInitializedRef = useRef(false)
 
   useEffect(() => {
@@ -142,20 +194,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       hasAutoInitializedRef.current = true
 
-      // Check for stored session
+      // Step 1: Cheap check without Lit
+      if (!hasLikelyValidStoredSession()) {
+        console.log('[Auth] No stored session, skipping Lit initialization')
+        return
+      }
+
+      // Step 2: Now load Lit + storage helpers
+      const { getAuthStatus, clearSession } = await loadLit()
       const status = getAuthStatus()
 
       if (status.isAuthenticated && status.pkpInfo && status.authData) {
         console.log('[Auth] Auto-initializing from stored session...')
+
         try {
           await initializePKP(status.pkpInfo, status.authData)
 
-          // Try to restore Lens session
           const lensSession = await resumeLensSession()
           if (lensSession) {
             setSessionClient(lensSession)
 
-            // Try to fetch account
             const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
             if (accounts.length > 0) {
               setAccount(accounts[0].account)
@@ -165,26 +223,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error('[Auth] Auto-initialization failed:', error)
 
-          // Check if this is a stale session error or network error
           if (error instanceof Error) {
             if (error.message.includes('Invalid blockhash')) {
               console.log('[Auth] Clearing stale session data')
               clearSession()
-            } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-              console.log('[Auth] Network error during auto-init, keeping PKP session')
-              // Don't clear session on network errors - just skip Lens initialization
+            } else if (
+              error.message.includes('Failed to fetch') ||
+              error.message.includes('CORS')
+            ) {
+              console.log(
+                '[Auth] Network error during auto-init, keeping PKP session'
+              )
             }
           }
         }
+      } else {
+        // Stored blob looked valid but Lit disagrees → clean it up
+        clearSession()
       }
     }
 
-    autoInitialize()
+    void autoInitialize()
   }, [walletClient, isInitializing, initializePKP])
 
-  /**
-   * Show username input screen
-   */
+  // --------- Flow helpers ---------
+
   const showUsernameInput = useCallback(() => {
     setAuthMode('register')
     setAuthStep('username')
@@ -193,9 +256,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticating(false)
   }, [])
 
-  /**
-   * Reset auth flow
-   */
   const resetAuthFlow = useCallback(() => {
     setAuthMode(null)
     setAuthStep('idle')
@@ -204,16 +264,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticating(false)
   }, [])
 
-  /**
-   * Register with passkey (create new account)
-   */
+  // --------- Register (lazy-load flows + Lit) ---------
+
   const register = useCallback(async (username?: string) => {
     try {
-      // IMPORTANT: Start the async flow immediately before any state updates
-      // to preserve the user gesture for WebAuthn
+      const { registerWithPasskeyFlow } = await loadAuthFlows()
+
       const flowPromise = registerWithPasskeyFlow(username, (status) => {
         setAuthStatus(status)
-        // Update step based on status message
+
         if (status.includes('passkey')) {
           setAuthStep('webauthn')
         } else if (status.includes('session') || status.includes('wallet')) {
@@ -223,16 +282,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      // Now update state (after flow has started)
       setIsAuthenticating(true)
       setAuthError(null)
       setAuthMode('register')
       setAuthStep('webauthn')
 
-      // Wait for result
       const result = await flowPromise
 
-      // Set state from result
       setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
       setPkpInfo(result.pkpInfo)
@@ -241,7 +297,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccount(result.lensAccount)
       setLensSetupStatus(result.lensSetupStatus)
 
-      // Complete
       setAuthStep('complete')
       setAuthMode(null)
       setAuthStatus('')
@@ -257,16 +312,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  /**
-   * Sign in with passkey (existing account)
-   */
+  // --------- Sign in (lazy-load flows + Lit) ---------
+
   const signIn = useCallback(async () => {
     try {
-      // IMPORTANT: Start the async flow immediately before any state updates
-      // to preserve the user gesture for WebAuthn
+      const { signInWithPasskeyFlow } = await loadAuthFlows()
+
       const flowPromise = signInWithPasskeyFlow((status) => {
         setAuthStatus(status)
-        // Update step based on status message
+
         if (status.includes('authenticate') || status.includes('device')) {
           setAuthStep('webauthn')
         } else if (status.includes('wallet') || status.includes('Restoring')) {
@@ -276,16 +330,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })
 
-      // Now update state (after flow has started)
       setIsAuthenticating(true)
       setAuthMode('login')
       setAuthStep('webauthn')
       setAuthError(null)
 
-      // Wait for result
       const result = await flowPromise
 
-      // Set state from result
       setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
       setPkpInfo(result.pkpInfo)
@@ -294,7 +345,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccount(result.lensAccount)
       setLensSetupStatus(result.lensSetupStatus)
 
-      // Complete
       setAuthStep('complete')
       setAuthMode(null)
       setAuthStatus('')
@@ -310,11 +360,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  /**
-   * Logout
-   */
+  // --------- Logout ---------
+
   const logout = useCallback(() => {
-    clearSession()
+    void loadLit()
+      .then(({ clearSession }) => clearSession())
+      .catch((err) =>
+        console.error('[Auth] Failed to clear session via Lit:', err)
+      )
+
     setWalletClient(null)
     setAuthContext(null)
     setPkpInfo(null)
@@ -328,63 +382,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLensSetupStatus('pending')
   }, [])
 
-  const value: AuthContextType = useMemo(() => ({
-    // PKP State
-    pkpInfo,
-    pkpAddress: address,
-    pkpWalletClient: walletClient,
-    pkpAuthContext: authContext,
-    authData,
-    isPKPReady: isConnected,
+  const value: AuthContextType = useMemo(
+    () => ({
+      // PKP
+      pkpInfo,
+      pkpAddress: address,
+      pkpWalletClient: walletClient,
+      pkpAuthContext: authContext,
+      authData,
+      isPKPReady: isConnected,
 
-    // Lens State
-    lensSession: sessionClient,
-    lensAccount: account,
-    hasLensAccount: !!account,
+      // Lens
+      lensSession: sessionClient,
+      lensAccount: account,
+      hasLensAccount: !!account,
 
-    // Flow State
-    isAuthenticating: isAuthenticating || isInitializing,
-    authError,
-    authStep,
-    authMode,
-    authStatus,
-    lensSetupStatus,
+      // Flow state
+      isAuthenticating: isAuthenticating || isInitializing,
+      authError,
+      authStep,
+      authMode,
+      authStatus,
+      lensSetupStatus,
 
-    // Actions
-    register,
-    signIn,
-    logout,
-    showUsernameInput,
-    resetAuthFlow,
-  }), [
-    pkpInfo,
-    address,
-    walletClient,
-    authContext,
-    authData,
-    isConnected,
-    sessionClient,
-    account,
-    isAuthenticating,
-    isInitializing,
-    authError,
-    authStep,
-    authMode,
-    authStatus,
-    lensSetupStatus,
-    register,
-    signIn,
-    logout,
-    showUsernameInput,
-    resetAuthFlow,
-  ])
+      // Actions
+      register,
+      signIn,
+      logout,
+      showUsernameInput,
+      resetAuthFlow,
+    }),
+    [
+      pkpInfo,
+      address,
+      walletClient,
+      authContext,
+      authData,
+      isConnected,
+      sessionClient,
+      account,
+      isAuthenticating,
+      isInitializing,
+      authError,
+      authStep,
+      authMode,
+      authStatus,
+      lensSetupStatus,
+      register,
+      signIn,
+      logout,
+      showUsernameInput,
+      resetAuthFlow,
+    ]
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-/**
- * Hook to access auth context
- */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext)
@@ -393,5 +447,3 @@ export function useAuth() {
   }
   return context
 }
-
-

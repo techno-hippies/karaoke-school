@@ -153,7 +153,7 @@ export function VideoDetail({
         <ShareSheet
           open={shareSheetOpen}
           onOpenChange={setShareSheetOpen}
-          postUrl={typeof window !== 'undefined' ? window.location.href : ''}
+          postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${videoPostProps.username}/video/${videoPostProps.id}` : ''}
           postDescription={videoPostProps.description}
         />
       </div>
@@ -432,7 +432,7 @@ export function VideoDetail({
       <ShareSheet
         open={shareSheetOpen}
         onOpenChange={setShareSheetOpen}
-        postUrl={typeof window !== 'undefined' ? window.location.href : ''}
+        postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${videoPostProps.username}/video/${videoPostProps.id}` : ''}
         postDescription={videoPostProps.description}
       />
     </div>

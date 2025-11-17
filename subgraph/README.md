@@ -2,11 +2,33 @@
 
 The Graph subgraph for Karaoke School V2 on Lens Chain testnet. Indexes contract events and provides GraphQL API for querying karaoke data.
 
-## Prerequisites
+## Deployment
 
+### Production (The Graph Studio)
+
+**Current Deployment:**
+- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
+- **Status**: ✅ Deployed and synced
+- **Network**: Lens Testnet (Chain ID: 37111)
+
+**Deploy New Version:**
+```bash
+# Build and deploy
+graph codegen && graph build
+graph deploy kschool-alpha-1 --node https://api.studio.thegraph.com/deploy/
+
+# Or use npm script
+npm run deploy
+```
+
+### Local Development (GND)
+
+**Prerequisites:**
 - PostgreSQL 16 (binaries in `/usr/lib/postgresql/16/bin/`)
 - Graph Node Dev Mode: `gnd` from Graph CLI
 - Lens Testnet RPC: https://rpc.testnet.lens.xyz
+
+**Local Endpoint**: `http://localhost:8000/subgraphs/name/subgraph-0`
 
 ## Quick Start
 
@@ -89,7 +111,7 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 - **ClipEvents:** `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
 - **SongEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6`
 - **AccountEvents:** `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
-- **TranslationEvents:** `0x5A49E23A5C3a034906eE0274c266A08805770C70`
+- **TranslationEvents:** `0x4aE979A4f115d734670403e644d83d4C695f9c58`
 
 > Legacy `PerformanceGrader` data sources remain for historical analytics but are read-only.
 

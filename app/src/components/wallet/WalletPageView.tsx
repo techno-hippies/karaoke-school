@@ -148,6 +148,37 @@ export function WalletPageView({
     return aIndex - bIndex
   })
 
+  if (isLoading && tokens.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12 space-y-8">
+        <div>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">Wallet Address</h2>
+          <div className="flex items-center gap-3">
+            <Skeleton className="flex-1 h-11 rounded-full" />
+            <Skeleton className="w-11 h-11 rounded-full" />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">Username</h2>
+          <div className="space-y-3">
+            <Skeleton className="h-10 rounded-lg" />
+            <Skeleton className="h-10 rounded-lg" />
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">Balances</h2>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <TokenSkeleton key={`wallet-skeleton-${index}`} />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
       {/* Wallet Address */}

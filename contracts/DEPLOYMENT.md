@@ -230,7 +230,7 @@ Update this list after each deployment:
 - **KaraokeEvents**: `0x51aA6987130AA7E4654218859E075D8e790f4409` (deployed 2025-01-13)
 - **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`
 - **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6`
-- **TranslationEvents**: `0x5A49E23A5C3a034906eE0274c266A08805770C70`
+- **TranslationEvents**: `0x4aE979A4f115d734670403e644d83d4C695f9c58`
 - **AccountEvents**: `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
 
 ---

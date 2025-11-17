@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { convertGroveUri } from '@/lib/lens/utils'
+import { SUBGRAPH_URL } from '@/lib/graphql/client'
 
 export interface ArtistSong {
   grc20WorkId: string
@@ -26,9 +27,7 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
 
       // Query subgraph for all clips
       // Then filter by fetching metadata and checking artistLensHandle
-      const SUBGRAPH_ENDPOINT = 'http://localhost:8000/subgraphs/name/subgraph-0'
-
-      const response = await fetch(SUBGRAPH_ENDPOINT, {
+      const response = await fetch(SUBGRAPH_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

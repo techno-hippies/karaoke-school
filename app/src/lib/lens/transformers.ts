@@ -6,6 +6,13 @@ import type { Post, VideoMetadata } from '@lens-protocol/client'
 import type { VideoPostData } from '@/components/feed/types'
 import { convertGroveUri } from './utils'
 
+const shouldLogTransformers = () => {
+  if (!import.meta.env.DEV) return false
+  if (typeof window === 'undefined') return false
+  const debugNamespaces = window.localStorage?.getItem('debug') || ''
+  return debugNamespaces.split(',').map(ns => ns.trim()).includes('transformer')
+}
+
 /**
  * Transform a Lens Post with VideoMetadata to VideoPostData format
  * Used by feed components to normalize Lens API responses
@@ -41,18 +48,19 @@ export function transformLensPostToVideoData(
       const transcriptionsData = JSON.parse(transcriptionsJson)
       const englishData = transcriptionsData.languages?.en
 
-      // Debug: Log segment count during parsing
-      console.log('[Transformer] Transcriptions data for post:', {
-        postId: post.id,
-        tiktokVideoId,
-        hasEnglish: !!englishData,
-        segmentCount: englishData?.segments?.length || 0,
-        firstSegment: englishData?.segments?.[0] ? {
-          text: englishData.segments[0].text?.substring(0, 50),
-          start: englishData.segments[0].start,
-          end: englishData.segments[0].end
-        } : null
-      })
+      if (shouldLogTransformers()) {
+        console.log('[Transformer] Transcriptions data for post:', {
+          postId: post.id,
+          tiktokVideoId,
+          hasEnglish: !!englishData,
+          segmentCount: englishData?.segments?.length || 0,
+          firstSegment: englishData?.segments?.[0] ? {
+            text: englishData.segments[0].text?.substring(0, 50),
+            start: englishData.segments[0].start,
+            end: englishData.segments[0].end
+          } : null
+        })
+      }
 
       if (englishData?.segments) {
         // Get browser language for translation

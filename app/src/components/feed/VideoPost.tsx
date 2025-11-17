@@ -7,7 +7,7 @@ import { VideoInfo } from './VideoInfo'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
-import type { VideoPostData } from './types'
+import type { KaraokeLine, KaraokeWord, VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
   onLikeClick?: () => void
@@ -32,6 +32,7 @@ export interface VideoPostProps extends VideoPostData {
  * Desktop: centered 9:16 video with actions to the right
  */
 function VideoPostComponent({
+  id,
   videoUrl,
   thumbnailUrl,
   username,
@@ -231,7 +232,7 @@ function VideoPostComponent({
       <ShareSheet
         open={shareSheetOpen}
         onOpenChange={setShareSheetOpen}
-        postUrl={typeof window !== 'undefined' ? window.location.href : ''}
+        postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${username}/video/${id}` : ''}
         postDescription={`${username} got a ${grade || 'grade'} on ${musicTitle || 'karaoke'}`}
         onCopyLink={() => console.log('Link copied')}
         onDownload={() => console.log('Download video')}
@@ -240,5 +241,88 @@ function VideoPostComponent({
   )
 }
 
-// Memoized export to prevent unnecessary re-renders
-export const VideoPost = memo(VideoPostComponent)
+const areWordsEqual = (prevWords?: KaraokeWord[], nextWords?: KaraokeWord[]) => {
+  if (prevWords === nextWords) return true
+  if (!prevWords || !nextWords) return prevWords === nextWords
+  if (prevWords.length !== nextWords.length) return false
+
+  for (let i = 0; i < prevWords.length; i++) {
+    const prevWord = prevWords[i]
+    const nextWord = nextWords[i]
+    if (
+      prevWord.text !== nextWord.text ||
+      prevWord.start !== nextWord.start ||
+      prevWord.end !== nextWord.end ||
+      prevWord.isSung !== nextWord.isSung
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const areKaraokeLinesEqual = (prevLines?: KaraokeLine[], nextLines?: KaraokeLine[]) => {
+  if (prevLines === nextLines) return true
+  if (!prevLines || !nextLines) return prevLines === nextLines
+  if (prevLines.length !== nextLines.length) return false
+
+  for (let i = 0; i < prevLines.length; i++) {
+    const prevLine = prevLines[i]
+    const nextLine = nextLines[i]
+    if (
+      prevLine.text !== nextLine.text ||
+      prevLine.translation !== nextLine.translation ||
+      prevLine.start !== nextLine.start ||
+      prevLine.end !== nextLine.end
+    ) {
+      return false
+    }
+
+    if (!areWordsEqual(prevLine.words, nextLine.words)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const areVideoPostPropsEqual = (prev: VideoPostProps, next: VideoPostProps) => {
+  if (prev === next) return true
+
+  return (
+    prev.id === next.id &&
+    prev.videoUrl === next.videoUrl &&
+    prev.thumbnailUrl === next.thumbnailUrl &&
+    prev.username === next.username &&
+    prev.userHandle === next.userHandle &&
+    prev.userAvatar === next.userAvatar &&
+    prev.authorAddress === next.authorAddress &&
+    prev.grade === next.grade &&
+    prev.description === next.description &&
+    prev.musicTitle === next.musicTitle &&
+    prev.musicAuthor === next.musicAuthor &&
+    prev.musicImageUrl === next.musicImageUrl &&
+    prev.geniusId === next.geniusId &&
+    prev.spotifyTrackId === next.spotifyTrackId &&
+    prev.grc20WorkId === next.grc20WorkId &&
+    prev.tiktokVideoId === next.tiktokVideoId &&
+    prev.createdAt === next.createdAt &&
+    prev.likes === next.likes &&
+    prev.comments === next.comments &&
+    prev.shares === next.shares &&
+    prev.isLiked === next.isLiked &&
+    prev.isFollowing === next.isFollowing &&
+    prev.isFollowLoading === next.isFollowLoading &&
+    prev.canInteract === next.canInteract &&
+    prev.autoplay === next.autoplay &&
+    prev.priorityLoad === next.priorityLoad &&
+    prev.className === next.className &&
+    prev.karaokeClassName === next.karaokeClassName &&
+    prev.hasMobileFooter === next.hasMobileFooter &&
+    areKaraokeLinesEqual(prev.karaokeLines, next.karaokeLines)
+  )
+}
+
+// Memoized export with granular prop comparison to ignore handler identity changes
+export const VideoPost = memo(VideoPostComponent, areVideoPostPropsEqual)

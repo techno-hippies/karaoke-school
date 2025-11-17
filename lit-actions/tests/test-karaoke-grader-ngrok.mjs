@@ -5,12 +5,12 @@
  *
  * Usage (example):
  *   export KARAOKE_GRADER_CID=Qm...
- *   export SUBGRAPH_URL=https://api.studio.thegraph.com/query/.../kschool-alpha-1/v0.0.1
+ *   export SUBGRAPH_URL=https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
  *   bun tests/test-karaoke-grader-ngrok.mjs
  */
 const fs = require('fs');
 const { createLitClient } = require('@lit-protocol/lit-client');
-const { nagaDev, nagaTest } = require('@lit-protocol/networks');
+const { nagaTest } = require('@lit-protocol/networks');
 const { createAuthManager, storagePlugins } = require('@lit-protocol/auth');
 const { LitActionResource } = require('@lit-protocol/auth-helpers');
 const { privateKeyToAccount } = require('viem/accounts');
@@ -53,7 +53,7 @@ async function createAuthContext(litClient) {
   const authManager = createAuthManager({
     storage: storagePlugins.localStorageNode({
       appName: 'karaoke-grader-test',
-      networkName: 'naga-dev',
+      networkName: 'naga-test',
       storagePath: './lit-auth-storage'
     })
   });
@@ -148,7 +148,7 @@ console.log('🎤 Karaoke Grader v1 Test (full-song grader)');
     const audioBase64 = await loadAudioToBase64(AUDIO_PATH);
     const clipMetadata = METADATA_URI ? { metadataUri: METADATA_URI, spotifyTrackId: SPOTIFY_TRACK_ID } : await fetchClipMetadata();
 
-    const litClient = await createLitClient({ network: nagaDev });
+    const litClient = await createLitClient({ network: nagaTest });
     const authContext = await createAuthContext(litClient);
 
     const jsParams = {

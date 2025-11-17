@@ -72,7 +72,7 @@ See `DEPLOYMENT.md` for detailed troubleshooting and common errors.
 - **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
   - Song registration events (~28k gas)
 
-- **TranslationEvents**: `0x5A49E23A5C3a034906eE0274c266A08805770C70` ✅
+- **TranslationEvents**: `0x4aE979A4f115d734670403e644d83d4C695f9c58` ✅
   - Translation tracking events (~25k gas)
   - Deployed 2025-11-03 via ethers.js
 

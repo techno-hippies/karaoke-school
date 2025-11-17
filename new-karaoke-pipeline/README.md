@@ -112,11 +112,33 @@ bun db:status
 
 1. **Resolve Spotify metadata**: `bun src/tasks/ingestion/resolve-spotify.ts --limit=10`
 2. **Enrichment fan-out**: `enrichment_tasks` entries created automatically.
-3. **Processor examples**:
-   ```bash
-   bun task:iswc --limit=25
-   bun task:spotify-artists --limit=25
-   ```
+
+#### ⚠️ ENRICHMENT ORDER - CRITICAL
+
+**MusicBrainz MUST run BEFORE ISWC discovery** for optimal results:
+
+```bash
+# STEP 1: MusicBrainz (provides work/writer data for MLC fallback)
+bun src/tasks/enrichment/musicbrainz.ts --limit=100
+
+# STEP 2: ISWC Discovery (uses MusicBrainz data for MLC searches)
+bun src/tasks/enrichment/iswc-discovery.ts --limit=100
+
+# STEP 3: Other enrichment (parallel, no dependencies)
+bun src/tasks/enrichment/genius-songs.ts --limit=100
+bun src/tasks/enrichment/spotify-artists.ts --limit=100
+```
+
+**Why this order?**
+- **ISWC discovery** has 3 fallback sources: Quansic API → MLC → BMI
+- **MLC fallback** searches by title + writer names
+- **Writer names** come from MusicBrainz work contributors
+- Without MusicBrainz data, MLC fallback is skipped (logs: "No work data in MusicBrainz")
+
+**Services required** (all run locally):
+- Quansic (port 3000) - Primary ISWC source
+- BMI (port 3002) - Fuzzy match fallback
+- MLC - Direct API (public, no service needed)
 
 ### TikTok Scraper (tt2dsp-aware)
 

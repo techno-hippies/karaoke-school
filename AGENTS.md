@@ -10,7 +10,7 @@
 |---------|---------|--------|------|---------|
 | **app/** | React frontend | ✅ Active | 5173 | Local |
 | **karaoke-pipeline/** | Content processing | ✅ Active | 8787 | Local |
-| **subgraph/** | Event indexing | ✅ Local | 8000 | Local |
+| **subgraph/** | Event indexing | ✅ Deployed | - | The Graph Studio |
 | **contracts/** | Smart contracts | ✅ Deployed | - | Lens Testnet |
 | **lit-actions/** | AI scoring | ✅ Active | - | Base Sepolia |
 
@@ -30,10 +30,12 @@ TikTok → Pipeline → Database → GRC-20 , Contracts → Subgraph → Grove �
 - **Process**: `POST /trigger?step={1-12}&limit={count}`
 - **Status**: `GET /status`
 
-### Subgraph GraphQL (Port 8000)
-- **Endpoint**: `http://localhost:8000/subgraphs/name/subgraph-0`
+### Subgraph GraphQL
+- **Production Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
+- **Local Endpoint** (optional): `http://localhost:8000/subgraphs/name/subgraph-0`
 - **Query Format**: POST JSON with GraphQL queries
-- **Entities**: Segment, Translation, LineCard, Performance
+- **Entities**: Clip, Translation, LineCard, Performance, ExerciseCard, Account
+- **Switch to Local**: Set `VITE_SUBGRAPH_MODE=local` in `app/.env.local`
 
 ### App Development (Port 5173)
 - **URL**: `http://localhost:5173`
@@ -48,7 +50,7 @@ const CONTRACTS = {
   SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
   ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
   AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x5A49E23A5C3a034906eE0274c266A08805770C70"
+  TranslationEvents: "0x4aE979A4f115d734670403e644d83d4C695f9c58"
 }
 ```
 
@@ -98,8 +100,10 @@ NEON_DATABASE_URL=postgresql://...
 VITE_LENS_ENVIRONMENT=testnet
 GROVE_API_KEY=...
 
-# Local development
-VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/subgraph-0/
+# Subgraph Mode (optional)
+# Defaults to The Graph Studio (production)
+# Set to "local" to use local GND on port 8000
+VITE_SUBGRAPH_MODE=local  # Optional: Only for local development
 ```
 
 ## 📊 Database Integration
@@ -197,19 +201,21 @@ lyrics_translations: lines JSONB (line-level with word timing)
 
 ### React App
 ```typescript
-// GraphQL client configuration
-import { GraphQLClient } from 'graphql-request';
-const graphClient = new GraphQLClient(import.meta.env.VITE_SUBGRAPH_URL);
+// GraphQL client configuration (auto-configured)
+import { graphClient, SUBGRAPH_URL } from '@/lib/graphql/client';
+// Defaults to The Graph Studio: https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
+// Override with VITE_SUBGRAPH_MODE=local for local GND
 
-// Line-level query (when available)
-const GET_LINE_CARDS = gql`
-  query GetLineCards($grc20WorkId: String!) {
-    lineCards(where: { segment_: { grc20WorkId: $grc20WorkId } }) {
+// Clip-based query
+const GET_CLIPS = gql`
+  query GetClips($hasInstrumental: Boolean!) {
+    clips(where: { hasInstrumental: $hasInstrumental }, first: 10) {
       id
-      lineId
-      lineIndex
-      segmentHash
-      performanceCount
+      clipHash
+      grc20WorkId
+      spotifyTrackId
+      hasInstrumental
+      translationCount
     }
   }
 `;
@@ -254,26 +260,29 @@ await client.writeContract({
 
 ## 🚀 Quick Integration Test
 
-### Test Line-Level FSRS
+### Test Subgraph Integration
 ```bash
-# 1. Start services
+# 1. Start app
 cd app && bun run dev
 
-# 2. Visit study page
-# Navigate to: /song/{grc20WorkId}/study
-
-# 3. Check subgraph entities
-curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
+# 2. Check deployed subgraph (production)
+curl -s -X POST 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2' \
   -H 'Content-Type: application/json' \
-  -d '{"query": "{ lineCards(first: 5) { id lineId lineIndex } }"}'
+  -d '{"query": "{ clips(first: 5, where: { hasInstrumental: true }) { id grc20WorkId } }"}'
 
-# 4. Test single practice (emits SayItBackAttemptGraded event)
+# 3. (Optional) Use local GND for development
+# Set VITE_SUBGRAPH_MODE=local in app/.env.local
+# Then query: http://localhost:8000/subgraphs/name/subgraph-0
+
+# 4. Test search page: http://localhost:5173/#/search
+# 5. Test single practice (emits SayItBackAttemptGraded event)
 ```
 
 ## 📋 Verification Checklist
 
 ### ✅ Always Check
-- [ ] Service ports: 5173 (app), 8787 (pipeline), 8000 (subgraph)
+- [ ] Service ports: 5173 (app), 8787 (pipeline)
+- [ ] Subgraph: The Graph Studio (production) or local GND (dev)
 - [ ] Environment variables configured
 - [ ] Database connection using correct Neon project
 - [ ] Blockchain network: Lens testnet (37111)

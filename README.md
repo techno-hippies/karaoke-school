@@ -31,7 +31,8 @@ videos   pipeline    Lines    Complete  Events     Index   Assets  Frontend
 
 ### Layer 3: The Graph Subgraph (Query Layer)
 - **Purpose**: Index contract events for GraphQL queries
-- **Status**: Local development, needs testnet deployment
+- **Status**: ✅ Deployed to The Graph Studio (v0.0.2)
+- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
 - **Line-Level FSRS**: 2,766 karaoke lines with UUID identifiers
 
 ### Layer 4: Grove/IPFS (Immutable Storage)
@@ -64,15 +65,14 @@ const CONTRACTS = {
   SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
   ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
   AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x5A49E23A5C3a034906eE0274c266A08805770C70"
+  TranslationEvents: "0x4aE979A4f115d734670403e644d83d4C695f9c58"
 }
 ```
 
 ### ⏳ High Priority Tasks
-1. **Deploy Subgraph to Testnet** (1 hour) - Complete line-level FSRS flow
-2. **Enable Line-Level in App** (2 hours) - Update useStudyCards to query lineCards
-3. **Update Lit Actions** (1 hour) - Call gradeLinePerformance() instead of gradePerformance()
-4. **Test End-to-End** (1 hour) - Verify 15+ cards per song
+1. **Story Protocol Integration** - Test single video IP Asset
+2. **PKP Creation** - 51 TikTok creators
+3. **Production Testing** - Verify end-to-end flow with deployed subgraph
 
 ## 🚀 Quick Start
 
@@ -102,7 +102,9 @@ curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
 VITE_LENS_ENVIRONMENT=testnet
 NEON_DATABASE_URL=postgresql://...
 GROVE_API_KEY=...
-VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/subgraph-0/
+# Subgraph Mode (defaults to production)
+# VITE_SUBGRAPH_MODE=local  # Uncomment for local GND development
+# Production: https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
 ```
 
 ## 🎯 Key Database Tables

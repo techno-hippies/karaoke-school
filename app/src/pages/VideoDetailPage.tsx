@@ -4,7 +4,7 @@
  * Mobile: Full-screen VideoPost, Desktop: Split layout with sidebar
  */
 
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePost, useAccount } from '@lens-protocol/react'
 import { VideoDetail } from '@/components/feed/VideoDetail'
@@ -76,24 +76,24 @@ export function VideoDetailPage() {
     }
   }, [videoList, postId])
 
-  // Navigation handlers
-  const handleNavigatePrevious = () => {
+  // Navigation handlers - memoized to prevent unnecessary re-renders
+  const handleNavigatePrevious = useCallback(() => {
     if (currentVideoIndex > 0) {
       const prevVideo = videoList[currentVideoIndex - 1]
       // Preserve query params when navigating
       const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
       navigate(`/u/${lenshandle}/video/${prevVideo.id}${queryString}`)
     }
-  }
+  }, [currentVideoIndex, videoList, fromContext, songId, lenshandle, navigate])
 
-  const handleNavigateNext = () => {
+  const handleNavigateNext = useCallback(() => {
     if (currentVideoIndex < videoList.length - 1) {
       const nextVideo = videoList[currentVideoIndex + 1]
       // Preserve query params when navigating
       const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
       navigate(`/u/${lenshandle}/video/${nextVideo.id}${queryString}`)
     }
-  }
+  }, [currentVideoIndex, videoList, fromContext, songId, lenshandle, navigate])
 
   // Skip loading spinner - show content immediately with thumbnail
   // The VideoPlayer will handle loading state with thumbnail

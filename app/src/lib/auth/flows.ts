@@ -1,20 +1,10 @@
-/**
- * Auth Flow Services
- * Extracted auth flow logic from AuthContext for better separation of concerns
- *
- * Responsibilities:
- * - Registration flow (create account with passkey)
- * - Login flow (sign in with existing passkey)
- * - Lens integration during auth flows
- * - Status callbacks for UI updates
- */
+// src/lib/auth/flows.ts
 
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
 import { account as accountMetadata } from '@lens-protocol/metadata'
 import { StorageClient } from '@lens-chain/storage-client'
-import { registerUser, loginUser } from '@/lib/lit/auth-flow'
-import { createPKPWalletClient, createPKPAuthContext } from '@/lib/lit'
+
 import type { PKPInfo, AuthData } from '@/lib/lit'
 import {
   loginAsOnboardingUser,
@@ -25,6 +15,18 @@ import {
   createAccountInCustomNamespace,
   validateUsernameFormat,
 } from '@/lib/lens/account-creation'
+
+// 🔁 NEW: dynamic loaders for Lit + Lit auth-flow
+type LitModule = typeof import('@/lib/lit')
+type LitAuthFlowModule = typeof import('@/lib/lit/auth-flow')
+
+function loadLit(): Promise<LitModule> {
+  return import('@/lib/lit')
+}
+
+function loadLitAuthFlow(): Promise<LitAuthFlowModule> {
+  return import('@/lib/lit/auth-flow')
+}
 
 export interface AuthFlowResult {
   pkpInfo: PKPInfo
@@ -38,17 +40,8 @@ export interface AuthFlowResult {
 
 export type StatusCallback = (status: string) => void
 
-/**
- * Login to Lens Protocol and auto-create account if needed
- * Uses PKP wallet as signer
- * Returns session client and account (creates one if none exists)
- *
- * IMPORTANT: Auto-creates accounts with optional username:
- * - If account exists: Login as ACCOUNT_OWNER (full social features)
- * - If no account: Login as ONBOARDING_USER, create account with metadata, switch to ACCOUNT_OWNER
- * - If username provided: Use in passkey name and account metadata
- * - If no username: Use anonymous defaults
- */
+// ---------------- connectLensSession stays the same ----------------
+
 async function connectLensSession(
   walletClient: WalletClient,
   address: Address,
@@ -61,8 +54,6 @@ async function connectLensSession(
   statusCallback('Checking for existing Lens account...')
 
   try {
-    // First, check if user has existing accounts
-    // We need to do this BEFORE logging in to determine the correct role
     console.log('[Auth Flow] Step 1: Checking for existing accounts...')
     const existingAccounts = await getExistingAccounts(address)
     console.log('[Auth Flow] Found', existingAccounts.length, 'existing account(s)')
@@ -72,7 +63,6 @@ async function connectLensSession(
     let account: Account
 
     if (hasAccount) {
-      // User has an account - login as ACCOUNT_OWNER for full social features
       console.log('[Auth Flow] Path: EXISTING ACCOUNT - Logging in as ACCOUNT_OWNER')
       statusCallback('Logging in to Lens...')
       account = existingAccounts[0].account
@@ -80,36 +70,28 @@ async function connectLensSession(
 
       session = await loginAsAccountOwner(walletClient, address, account.address)
       console.log('[Auth Flow] ✓ Logged in as ACCOUNT_OWNER:', account.address)
-      // Session client doesn't expose authenticated/type properties directly
-      console.log('[Auth Flow] Session created successfully')
     } else {
-      // User has no account - auto-create one
       console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account', username ? `with username: ${username}` : 'without username')
       statusCallback('Creating your Lens account...')
 
-      // Step 1: Login as ONBOARDING_USER to create account
       console.log('[Auth Flow] Step 2a: Logging in as ONBOARDING_USER...')
       session = await loginAsOnboardingUser(walletClient, address)
       console.log('[Auth Flow] ✓ Logged in as ONBOARDING_USER')
 
-      // Step 2: Create account metadata
       console.log('[Auth Flow] Step 2b: Creating account metadata...')
       statusCallback('Uploading account metadata...')
       const displayName = username || 'Anonymous User'
       const metadata = accountMetadata({
         name: displayName,
         bio: username || 'K-School User',
-        // Use username if provided, otherwise use defaults
       })
       console.log('[Auth Flow] Metadata name:', displayName)
 
-      // Upload to storage
       console.log('[Auth Flow] Step 2c: Uploading metadata to storage...')
       const storageClient = StorageClient.create()
       const uploadResult = await storageClient.uploadAsJson(metadata)
       console.log('[Auth Flow] ✓ Metadata uploaded:', uploadResult.uri)
 
-      // Step 3: Validate username if provided
       if (username) {
         const validationError = validateUsernameFormat(username)
         if (validationError) {
@@ -117,12 +99,10 @@ async function connectLensSession(
         }
       }
 
-      // Step 4: Create account in custom namespace (2-step flow)
       console.log('[Auth Flow] Step 3: Creating account on-chain...')
       statusCallback('Deploying account...')
 
       if (username) {
-        // Create account WITH username in custom namespace (kschool1/*)
         console.log('[Auth Flow] Creating account with username in custom namespace:', username)
         account = await createAccountInCustomNamespace(
           session,
@@ -132,11 +112,8 @@ async function connectLensSession(
         )
         console.log('[Auth Flow] ✓ Account created with username:', account.username?.localName)
       } else {
-        // Create account without username - use a generated handle
-        // This allows sign-in flow to work without requiring username input
         console.log('[Auth Flow] Creating account without username (anonymous)')
 
-        // Generate a unique handle for the anonymous account
         const timestamp = Date.now().toString().slice(-8)
         const anonymousHandle = `user${timestamp}`
 
@@ -167,33 +144,34 @@ async function connectLensSession(
   }
 }
 
-/**
- * Register with passkey (create new account)
- * Flow: WebAuthn → PKP mint → PKP wallet → Lens connection
- *
- * @param username - Optional username for passkey and Lens account
- * @param statusCallback - Callback for status updates
- * @returns Complete auth state including PKP and optional Lens
- */
+// ---------------- Register flow (Lit now dynamic) ----------------
+
 export async function registerWithPasskeyFlow(
   username: string | undefined,
   statusCallback: StatusCallback
 ): Promise<AuthFlowResult> {
   statusCallback('Starting registration...')
 
-  // Step 1: Register with WebAuthn + mint PKP (username used for passkey identifier)
+  // WebAuthn + PKP mint
+  const { registerUser } = await loadLitAuthFlow()
   const result = await registerUser(username, (status) => {
     statusCallback(status)
   })
 
-  // Step 2: Create PKP wallet client
+  // PKP wallet client
   statusCallback('Creating wallet...')
+  const { createPKPAuthContext, createPKPWalletClient } = await loadLit()
   const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
   const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
 
-  // Step 3: Auto-connect Lens and create account if needed
+  // Lens account / session
   statusCallback('Account created! Setting up social features...')
-  const lensResult = await connectLensSession(walletClient, result.pkpInfo.ethAddress, username, statusCallback)
+  const lensResult = await connectLensSession(
+    walletClient,
+    result.pkpInfo.ethAddress,
+    username,
+    statusCallback
+  )
 
   statusCallback('All set!')
 
@@ -208,31 +186,30 @@ export async function registerWithPasskeyFlow(
   }
 }
 
-/**
- * Sign in with passkey (existing account)
- * Flow: WebAuthn authentication → PKP wallet → Lens connection
- *
- * @param statusCallback - Callback for status updates
- * @returns Complete auth state including PKP and optional Lens
- */
+// ---------------- Sign-in flow (Lit now dynamic) ----------------
+
 export async function signInWithPasskeyFlow(
   statusCallback: StatusCallback
 ): Promise<AuthFlowResult> {
   statusCallback('Starting sign in...')
 
-  // Step 1: Authenticate with WebAuthn
+  const { loginUser } = await loadLitAuthFlow()
   const result = await loginUser((status) => {
     statusCallback(status)
   })
 
-  // Step 2: Create PKP wallet client
   statusCallback('Restoring wallet...')
+  const { createPKPAuthContext, createPKPWalletClient } = await loadLit()
   const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
   const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
 
-  // Step 3: Auto-connect Lens and create account if needed
   statusCallback('Welcome back! Setting up social features...')
-  const lensResult = await connectLensSession(walletClient, result.pkpInfo.ethAddress, undefined, statusCallback)
+  const lensResult = await connectLensSession(
+    walletClient,
+    result.pkpInfo.ethAddress,
+    undefined,
+    statusCallback
+  )
 
   statusCallback('All set!')
 
@@ -247,11 +224,8 @@ export async function signInWithPasskeyFlow(
   }
 }
 
-/**
- * Standalone Lens login (for use when PKP is already initialized)
- * Used for just-in-time Lens connection
- * Auto-creates account if none exists
- */
+// ---------------- Standalone Lens login (unchanged) ----------------
+
 export async function loginLensStandalone(
   walletClient: WalletClient,
   address: Address,

@@ -3,18 +3,24 @@
  * Network and auth service settings
  */
 
-import { nagaDev } from '@lit-protocol/networks'
+import { nagaTest } from '@lit-protocol/networks'
+import {
+  LIT_SESSION_STORAGE_KEY,
+  LIT_NETWORK_NAME,
+  LIT_AUTH_SERVICE_URL,
+  LIT_SESSION_EXPIRATION_MS,
+} from './constants'
 
 export const LIT_WEBAUTHN_CONFIG = {
   // Lit Protocol network
-  network: nagaDev,
-  networkName: 'naga-dev',
+  network: nagaTest,
+  networkName: LIT_NETWORK_NAME,
 
   // Lit Auth Service URL
-  authServiceUrl: 'https://naga-dev-auth-service.getlit.dev',
+  authServiceUrl: LIT_AUTH_SERVICE_URL,
 
   // Session expiration (7 days)
-  sessionExpirationMs: 7 * 24 * 60 * 60 * 1000,
+  sessionExpirationMs: LIT_SESSION_EXPIRATION_MS,
 
   // PKP scopes - EXACT MATCH to working demo
   pkpScopes: ['sign-anything'] as const,
@@ -29,7 +35,7 @@ export const LIT_WEBAUTHN_CONFIG = {
   storageKeys: {
     pkpInfo: 'karaoke-school:pkp-info',
     authData: 'karaoke-school:auth-data',
-    session: 'karaoke-school:session',
+    session: LIT_SESSION_STORAGE_KEY,
   },
 } as const
 

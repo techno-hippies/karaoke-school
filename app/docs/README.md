@@ -53,14 +53,20 @@ const GET_LINE_CARDS = gql`
 ## 🔧 Environment Configuration
 
 ```bash
-# Local development
-VITE_SUBGRAPH_URL=http://localhost:8000/subgraphs/name/subgraph-0/
+# Lens Protocol
 VITE_LENS_ENVIRONMENT=testnet
+VITE_LENS_APP_ADDRESS=0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0
+VITE_LENS_CUSTOM_NAMESPACE=0xa304467aD0C296C2bb11079Bc2748223568D463e
 
-# Production
-VITE_SUBGRAPH_URL=https://api.studio.thegraph.com/query/.../karaoke-school-v1
-VITE_LENS_ENVIRONMENT=testnet
+# Subgraph Mode (optional)
+# Defaults to The Graph Studio (production)
+# Set to "local" to use local GND on port 8000
+# VITE_SUBGRAPH_MODE=local
 ```
+
+**Subgraph Endpoints:**
+- **Production** (default): `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
+- **Local GND**: `http://localhost:8000/subgraphs/name/subgraph-0/` (requires `VITE_SUBGRAPH_MODE=local`)
 
 ## 🎵 Karaoke Player Integration
 

@@ -222,8 +222,8 @@ async function tryBMIFallback(isrc: string, title: string, artists: string): Pro
 
     const normalizedIswc = normalizeISWC(result?.iswc);
 
-    if (normalizedIswc && result?.match_confidence > 0.7) {
-      // Cache result
+    if (normalizedIswc) {
+      // Cache result (use bmi_work_id from scraper, default confidence 0.9 for found matches)
       await query(`
         INSERT INTO bmi_works (isrc, work_id, iswc, title, artists, match_confidence, match_method)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -231,12 +231,12 @@ async function tryBMIFallback(isrc: string, title: string, artists: string): Pro
         DO UPDATE SET iswc = $3, match_confidence = $6
       `, [
         isrc,
-        result.work_id,
+        result.bmi_work_id || 'unknown',
         normalizedIswc,
         title,
         [artists],
-        result.match_confidence,
-        'fuzzy'
+        0.9, // BMI scraper found exact match, assign high confidence
+        'scraper'
       ]);
 
       return { iswc: normalizedIswc, source: 'bmi_fallback' };

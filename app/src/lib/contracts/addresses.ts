@@ -112,5 +112,6 @@ export const GROVE_UPLOAD_ENDPOINT = 'https://api.grove.storage'
 
 /**
  * Subgraph endpoint for querying indexed events
+ * Imported from centralized client config (supports local/studio switching)
  */
-export const SUBGRAPH_ENDPOINT = 'http://localhost:8000/subgraphs/name/subgraph-0'
+export { SUBGRAPH_URL as SUBGRAPH_ENDPOINT } from '@/lib/graphql/client'

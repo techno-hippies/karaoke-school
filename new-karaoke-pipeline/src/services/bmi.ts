@@ -5,7 +5,7 @@
 
 import { normalizeISWC } from '../utils/iswc';
 
-const BMI_SERVICE_URL = 'https://u0s81gq1qla2p06rod2p6s47nk.ingress.h6i-dedicated.eu-se-1.digitalfrontier.so';
+const BMI_SERVICE_URL = process.env.BMI_SERVICE_URL || 'http://localhost:3002';
 
 export interface BMIWriter {
   name: string;

@@ -1,13 +1,18 @@
 /**
- * TikTok Scraper v3
- * HTML-first scraper with Playwright fallback for stubborn sessions.
+ * TikTok Scraper v4
+ * Stealth-enabled scraper using playwright-extra with stealth plugin
  */
 
-import { chromium, type Browser, type BrowserContext } from 'playwright';
+import { chromium } from 'playwright-extra';
+import type { Browser, BrowserContext } from 'playwright';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { TikTokUserProfile, TikTokVideo } from '../types';
 import { parseCookieFile, toPlaywrightCookies, type ParsedCookie } from '../utils/cookie-parser';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+
+// Enable stealth plugin
+chromium.use(StealthPlugin());
 
 export class TikTokScraper {
   private baseUrl = 'https://www.tiktok.com';
@@ -40,20 +45,24 @@ export class TikTokScraper {
     let browser: Browser | null = null;
 
     try {
-      console.log(`  🌐 Opening browser (${isHeadless ? 'headless' : 'visible'})...`);
+      console.log(`  🌐 Opening browser with stealth (${isHeadless ? 'headless' : 'visible'})...`);
       browser = await chromium.launch({
         headless: isHeadless,
-        args: ['--disable-blink-features=AutomationControlled']
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-site-isolation-trials'
+        ]
       });
 
-      const context = await browser.newContext({ userAgent: this.buildUserAgent() });
+      const context = await browser.newContext({
+        userAgent: this.buildUserAgent(),
+        viewport: { width: 1920, height: 1080 },
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        permissions: ['geolocation']
+      });
       await this.applyCookieJar(context);
-
-      // Anti-detection
-      await context.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false });
-        window.chrome = { runtime: {} };
-      });
 
       const page = await context.newPage();
       const videos: TikTokVideo[] = [];

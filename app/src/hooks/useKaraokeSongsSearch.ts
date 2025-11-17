@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { gql } from 'graphql-request'
-import { graphClient } from '@/lib/graphql/client'
+import { graphClient, SUBGRAPH_URL } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
 
 /**
@@ -119,12 +119,17 @@ async function getKaraokeSongs(options: SearchOptions = {}): Promise<KaraokeSong
     skip = 0
   } = options
 
+  console.log('[useKaraokeSongsSearch] Fetching trending songs from:', SUBGRAPH_URL, { hasInstrumental, first, skip })
+
   const data = await graphClient.request<{ clips: any[] }>(
     GET_KARAOKE_SONGS_QUERY,
     { hasInstrumental, first, skip }
   )
 
+  console.log('[useKaraokeSongsSearch] Got clips:', data.clips.length)
+
   const songs = groupClipsByWork(data.clips)
+  console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
 
   // For trending/default view: Show recent songs even with incomplete metadata
   return filterSongsByQuality(songs, false)
@@ -143,15 +148,23 @@ async function searchKaraokeSongs(
     skip = 0
   } = options
 
+  console.log('[useKaraokeSongsSearch] Searching from:', SUBGRAPH_URL, { searchTerm, hasInstrumental, first, skip })
+
   const data = await graphClient.request<{ clips: any[] }>(
     SEARCH_KARAOKE_SONGS_QUERY,
     { searchTerm, hasInstrumental, first, skip }
   )
 
+  console.log('[useKaraokeSongsSearch] Search found clips:', data.clips.length)
+
   const songs = groupClipsByWork(data.clips)
+  console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
 
   // For search: Be more strict to filter out poor quality results
-  return filterSongsByQuality(songs, true)
+  const filtered = filterSongsByQuality(songs, true)
+  console.log('[useKaraokeSongsSearch] After quality filter:', filtered.length)
+
+  return filtered
 }
 
 /**

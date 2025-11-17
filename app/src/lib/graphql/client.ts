@@ -10,12 +10,13 @@ import { GraphQLClient } from 'graphql-request'
 const SUBGRAPH_ENDPOINTS = {
   // Local Graph Node Dev Mode (for development) - use 127.0.0.1 for IPv4
   local: 'http://127.0.0.1:8000/subgraphs/name/subgraph-0/',
-  // The Graph Studio endpoint (for production)
-  studio: 'https://api.studio.thegraph.com/query/120915/ksc-1/v0.0.1',
+  // The Graph Studio endpoint (deployed on Lens testnet)
+  studio: 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2',
 }
 
-// Use local endpoint for development, studio for production
-export const SUBGRAPH_URL = import.meta.env.DEV
+// Allow override via env var: VITE_SUBGRAPH_MODE=local to use local GND
+const SUBGRAPH_MODE = import.meta.env.VITE_SUBGRAPH_MODE as 'local' | 'studio' | undefined
+export const SUBGRAPH_URL = SUBGRAPH_MODE === 'local'
   ? SUBGRAPH_ENDPOINTS.local
   : SUBGRAPH_ENDPOINTS.studio
 
@@ -25,4 +26,4 @@ export const graphClient = new GraphQLClient(SUBGRAPH_URL, {
   },
 })
 
-console.log('📊 Subgraph URL:', SUBGRAPH_URL)
+console.log('📊 Subgraph URL:', SUBGRAPH_URL, `(mode: ${SUBGRAPH_MODE || 'studio (default)'})`)

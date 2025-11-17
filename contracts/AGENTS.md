@@ -496,9 +496,9 @@ query GetSpanishSegments {
 # Check contract deployment
 forge verify-contract 0x... SegmentEvents --chain lens-testnet
 
-# Check subgraph logs
-graph deploy --studio karaoke-school-v1
-curl -X POST -d '{"query":"{ _meta { block { number } } }"}' http://localhost:8000/subgraphs/name/karaoke-school
+# Check subgraph deployment
+graph deploy kschool-alpha-1 --node https://api.studio.thegraph.com/deploy/
+curl -X POST -d '{"query":"{ _meta { block { number } } }"}' https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
 
 # Verify event signatures
 cast sig "SegmentRegistered(bytes32,string,string,uint32,uint32,string,address,uint64)"

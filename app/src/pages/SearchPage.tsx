@@ -38,6 +38,8 @@ export function SearchPage() {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
 
+  console.log('[SearchPage] Rendering search page')
+
   // Fetch ALL songs with metadata upfront (client-side filtering)
   const {
     data: karaokeSongs,
@@ -45,6 +47,12 @@ export function SearchPage() {
   } = useKaraokeSongsSearchWithMetadata('', {
     hasInstrumental: true,  // Only show songs with instrumentals
     first: 5,               // Limit initial display
+  })
+
+  console.log('[SearchPage] Search state:', {
+    searchTerm,
+    karaokeSongs: karaokeSongs?.length || 0,
+    isLoading
   })
 
   // Transform all songs

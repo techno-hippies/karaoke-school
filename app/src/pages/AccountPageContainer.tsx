@@ -4,7 +4,7 @@
  * with videos, songs (if artist), and stats
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AccountPage, type ArtistSong } from '@/components/profile/AccountPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
@@ -89,38 +89,60 @@ export function AccountPageContainer() {
   const isSubscriptionProcessing =
     subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
 
-  // Handle subscription flow
-  const handleSubscribe = () => {
+  // Handle subscription flow (memoized)
+  const handleSubscribe = useCallback(() => {
     if (!pkpAddress || !pkpWalletClient) {
       alert('Please sign in to subscribe to this creator.')
       return
     }
     setIsSubscriptionDialogOpen(true)
-  }
+  }, [pkpAddress, pkpWalletClient])
 
-  const handleSubscriptionConfirm = async () => {
+  const handleSubscriptionConfirm = useCallback(async () => {
     if (!pkpAddress || !pkpWalletClient) {
       alert('Please sign in to subscribe to this creator.')
       return
     }
     await subscribe()
-  }
+  }, [pkpAddress, pkpWalletClient, subscribe])
 
-  const handleSubscriptionRetry = async () => {
+  const handleSubscriptionRetry = useCallback(async () => {
     if (!pkpAddress || !pkpWalletClient) {
       alert('Please sign in to subscribe to this creator.')
       return
     }
     resetSubscription()
     await subscribe()
-  }
+  }, [pkpAddress, pkpWalletClient, resetSubscription, subscribe])
 
-  const handleSubscriptionDialogClose = (open: boolean) => {
+  const handleSubscriptionDialogClose = useCallback((open: boolean) => {
     setIsSubscriptionDialogOpen(open)
     if (!open && subscriptionStatus === 'complete') {
       resetSubscription()
     }
-  }
+  }, [subscriptionStatus, resetSubscription])
+
+  // Handle video click - navigate to video detail page (memoized)
+  const handleVideoClick = useCallback((video: VideoPost) => {
+    navigate(`/u/${lenshandle}/video/${video.id}`)
+  }, [navigate, lenshandle])
+
+  // Handle follow/unfollow action (toggle) (memoized)
+  const handleFollow = useCallback(async () => {
+    // Check if user is logged in
+    if (!canFollow && !isFollowing) {
+      // TODO: Show login modal or redirect to login
+      console.log('[CreatorPage] User must log in to follow')
+      alert('Please log in to follow this creator')
+      return
+    }
+
+    try {
+      await handleFollowAction()
+    } catch (error) {
+      console.error('[CreatorPage] Follow action failed:', error)
+    }
+  }, [canFollow, isFollowing, handleFollowAction])
 
   // Loading state
   if (isLoadingAccount || isLoadingSongs || isLoadingLock) {
@@ -229,28 +251,6 @@ export function AccountPageContainer() {
         onSongClick: () => navigate(`/song/${song.grc20WorkId}`),
       }))
     : []
-
-  // Handle video click - navigate to video detail page
-  const handleVideoClick = (video: VideoPost) => {
-    navigate(`/u/${lenshandle}/video/${video.id}`)
-  }
-
-  // Handle follow/unfollow action (toggle)
-  const handleFollow = async () => {
-    // Check if user is logged in
-    if (!canFollow && !isFollowing) {
-      // TODO: Show login modal or redirect to login
-      console.log('[CreatorPage] User must log in to follow')
-      alert('Please log in to follow this creator')
-      return
-    }
-
-    try {
-      await handleFollowAction()
-    } catch (error) {
-      console.error('[CreatorPage] Follow action failed:', error)
-    }
-  }
 
   // Log errors for posts if any
   if (postsError) {

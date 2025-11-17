@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Address } from 'viem'
+import { SUBGRAPH_URL } from '@/lib/graphql/client'
 
 export interface SubscriptionLockData {
   unlockLockAddress?: Address
@@ -21,10 +22,8 @@ export function useCreatorSubscriptionLock(spotifyTrackIds?: string[]) {
         return { unlockLockAddress: undefined, unlockChainId: undefined }
       }
 
-      const SUBGRAPH_ENDPOINT = 'http://localhost:8000/subgraphs/name/subgraph-0'
-
       // Query for the first encrypted clip by any of the creator's tracks
-      const response = await fetch(SUBGRAPH_ENDPOINT, {
+      const response = await fetch(SUBGRAPH_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

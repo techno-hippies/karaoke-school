@@ -2,7 +2,7 @@
  * Lit Protocol Service
  *
  * Purpose: PKP (Programmable Key Pair) minting and management on Chronicle Yellowstone
- * Network: Naga-test (Chronicle Yellowstone testnet, chain ID 175188)
+ * Network: nagaTest (Chronicle Yellowstone testnet, chain ID 175188)
  *
  * PKPs are Ethereum wallets controlled by Lit Actions (decentralized serverless functions).
  * Used as owners for Lens Protocol accounts in the karaoke pipeline.
@@ -23,7 +23,7 @@ import type { Address, Hex } from 'viem';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-// Chronicle Yellowstone chain configuration (Naga-test network)
+// Chronicle Yellowstone chain configuration (nagaTest network)
 const chronicleChain = {
   id: 175188,
   name: 'Chronicle Yellowstone',
@@ -73,7 +73,7 @@ export function createLitService() {
 
     // Dynamic import to avoid loading Lit SDK unless needed
     const { createLitClient } = await import('@lit-protocol/lit-client');
-    const { nagaDev } = await import('@lit-protocol/networks');
+    const { nagaTest } = await import('@lit-protocol/networks');
     const { createAuthManager, storagePlugins } = await import('@lit-protocol/auth');
     const { privateKeyToAccount } = await import('viem/accounts');
 
@@ -91,7 +91,7 @@ export function createLitService() {
     const authManager = createAuthManager({
       storage: storagePlugins.localStorageNode({
         appName: 'karaoke-pipeline',
-        networkName: 'naga-dev',
+        networkName: 'naga-test',
         storagePath: './.lit-auth-storage',
       }),
     });
@@ -99,7 +99,7 @@ export function createLitService() {
     // Create Lit client first (required by createEoaAuthContext)
     console.log('   🌐 Creating Lit client...');
     litClient = await createLitClient({
-      network: nagaDev,
+      network: nagaTest,
     });
 
     console.log('   🔑 Creating EOA auth context with resources...');
@@ -156,7 +156,7 @@ export function createLitService() {
    * Mint a new PKP on Chronicle Yellowstone
    *
    * Process:
-   * 1. Initialize Lit Protocol client (Naga-test network)
+   * 1. Initialize Lit Protocol client (nagaTest network)
    * 2. Create wallet client from PRIVATE_KEY
    * 3. Call mintWithEoa() to create new PKP
    * 4. Return PKP data for database storage

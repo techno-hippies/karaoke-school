@@ -1,5 +1,5 @@
 import { usePosts, evmAddress } from '@lens-protocol/react'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { LENS_APP_ADDRESS } from '@/lib/lens/config'
 import { transformLensPostsToVideoData } from '@/lib/lens/transformers'
 import { batchCheckLikedPosts } from '@/lib/lens/reactions'
@@ -16,20 +16,34 @@ export interface ForYouFeedProps {
  *
  * Features:
  * - Fetches posts with karaoke tag from app
- * - Uses global feed (all creators, not just following)
+ * - ALWAYS uses global feed (all creators, not personalized timeline)
  * - Checks like status for authenticated users
  * - Transforms Lens posts to VideoPostData format
+ *
+ * Note: This feed is not personalized. For personalized content, see FollowingFeed.
  *
  * Uses render props pattern to pass data to presentation components
  */
 export function ForYouFeed({ children }: ForYouFeedProps) {
   const { lensSession, lensAccount } = useAuth()
-  const isAuthenticated = !!lensSession
-  const [likedPostsMap, setLikedPostsMap] = useState<Map<string, boolean>>(new Map())
+  const isAuthenticated = !!lensSession && !!lensAccount?.address
+  const likedPostsMapRef = useRef<Map<string, boolean>>(new Map())
+  const [likedPostsVersion, setLikedPostsVersion] = useState(0)
   const [isCheckingLikes, setIsCheckingLikes] = useState(false)
 
+  const replaceLikedPostsMap = useCallback((nextMap: Map<string, boolean>) => {
+    likedPostsMapRef.current = nextMap
+    setLikedPostsVersion(prev => prev + 1)
+  }, [])
+
+  const clearLikedPostsMap = useCallback(() => {
+    if (likedPostsMapRef.current.size === 0) return
+    likedPostsMapRef.current = new Map()
+    setLikedPostsVersion(prev => prev + 1)
+  }, [])
+
   // Fetch posts using Lens React hook
-  const { data: postsData, loading } = usePosts({
+  const { data: postsData, loading: fallbackLoading } = usePosts({
     filter: {
       apps: [evmAddress(LENS_APP_ADDRESS)],
       feeds: [{ globalFeed: true }], // ✅ Correctly using global feed
@@ -40,13 +54,26 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
   })
 
   // Memoize posts array to stabilize dependency
-  const posts = useMemo(() => {
+  const fallbackPosts = useMemo(() => {
     return (postsData?.items ?? []).filter((post): post is Post => 'metadata' in post)
   }, [postsData?.items])
 
+  // For You feed ALWAYS uses global feed, not personalized timeline
+  // Personalized timeline is only for the "Following" feed
+  const activePosts = fallbackPosts
+  const isActiveLoading = fallbackLoading
+
+  // Debug: Log post counts
+  console.log('[ForYouFeed] Post counts:', {
+    isAuthenticated,
+    fallbackPosts: fallbackPosts.length,
+    activePosts: activePosts.length,
+    isActiveLoading
+  })
+
   // Track post IDs to detect when posts actually change (not just reference)
   const previousPostIds = useRef<Set<string>>(new Set())
-  const currentPostIds = useMemo(() => posts.map(post => post.id), [posts])
+  const currentPostIds = useMemo(() => activePosts.map(post => post.id), [activePosts])
 
   const postsHaveChanged = useMemo(() => {
     const currentPostIdSet = new Set(currentPostIds)
@@ -66,9 +93,9 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
 
   // Batch check liked status when authenticated and posts actually change
   useEffect(() => {
-    if (!isAuthenticated || !lensAccount?.address || !posts.length || !postsHaveChanged) {
-      if (!posts.length) {
-        setLikedPostsMap(new Map())
+    if (!lensAccount?.address || !activePosts.length || !postsHaveChanged || !isAuthenticated) {
+      if (!activePosts.length) {
+        clearLikedPostsMap()
       }
       return
     }
@@ -76,12 +103,12 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     const checkLikedPosts = async () => {
       setIsCheckingLikes(true)
       try {
-        const videoPosts = posts.filter(
+        const videoPosts = activePosts.filter(
           (post): post is Post => post.metadata?.__typename === 'VideoMetadata'
         )
         const likedMap = await batchCheckLikedPosts(lensSession, videoPosts, lensAccount.address)
-        setLikedPostsMap(likedMap)
-        
+        replaceLikedPostsMap(likedMap)
+
         // Update previous post IDs after successful check
         previousPostIds.current = new Set(currentPostIds)
       } catch (error) {
@@ -92,12 +119,17 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
     }
 
     checkLikedPosts()
-  }, [currentPostIds, isAuthenticated, lensAccount?.address, lensSession, posts, postsHaveChanged])
+  }, [activePosts, clearLikedPostsMap, currentPostIds, isAuthenticated, lensAccount?.address, lensSession, postsHaveChanged, replaceLikedPostsMap])
 
   // Transform Lens posts to VideoPostData using shared utility (memoized)
-  const videoPosts = useMemo(() => {
-    return transformLensPostsToVideoData(posts, likedPostsMap, isAuthenticated)
-  }, [posts, likedPostsMap, isAuthenticated])
+  const likedPostsSnapshot = useMemo(() => {
+    void likedPostsVersion
+    return likedPostsMapRef.current
+  }, [likedPostsVersion])
 
-  return <>{children(videoPosts, loading || isCheckingLikes)}</>
+  const videoPosts = useMemo(() => {
+    return transformLensPostsToVideoData(activePosts, likedPostsSnapshot, isAuthenticated)
+  }, [activePosts, likedPostsSnapshot, isAuthenticated])
+
+  return <>{children(videoPosts, isActiveLoading || isCheckingLikes)}</>
 }

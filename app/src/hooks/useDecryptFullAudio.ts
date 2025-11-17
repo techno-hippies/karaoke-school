@@ -110,11 +110,11 @@ export function useDecryptFullAudio(
         console.log('[useDecryptFullAudio] Decrypting full audio with Lit Protocol...')
 
         const { createLitClient } = await import('@lit-protocol/lit-client')
-        const { nagaDev } = await import('@lit-protocol/networks')
+        const { nagaTest } = await import('@lit-protocol/networks')
 
         const litClient = await createLitClient({
       // @ts-expect-error - Lit Protocol version mismatch between dependencies
-          network: nagaDev,
+          network: nagaTest,
         })
 
         // Fetch encrypted data from Grove (stored as JSON with { ciphertext, dataToEncryptHash })
