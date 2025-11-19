@@ -108,7 +108,7 @@ set -a && source .env && set +a
 # Test karaoke grader (skip PKP signing)
 KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
 KARAOKE_SKIP_TX=true \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 
 # Test exercise grader
 bun tests/test-exercise-grader-say-it-back.mjs
@@ -148,7 +148,7 @@ bun scripts/add-pkp-permission.mjs QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # 5. Test
 KARAOKE_GRADER_CID=QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
 KARAOKE_SKIP_TX=true \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 
 ---
@@ -163,7 +163,7 @@ The karaoke grader supports debug stages for incremental testing:
 ```bash
 KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
 KARAOKE_SKIP_TX=true \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 - Tests: Decryption, transcription, AI grading
 - Skips: Contract interaction
@@ -173,7 +173,7 @@ bun tests/test-openrouter-minimal.mjs
 ```bash
 KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
 KARAOKE_TX_STAGE=simulate \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 - Tests: Everything + contract simulation (eth_call)
 - Skips: Transaction preparation, PKP signing, submission
@@ -183,7 +183,7 @@ bun tests/test-openrouter-minimal.mjs
 ```bash
 KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
 KARAOKE_TX_STAGE=prepare \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 - Tests: Everything + nonce/gas fetching + transaction encoding
 - Skips: PKP signing, submission
@@ -193,8 +193,8 @@ bun tests/test-openrouter-minimal.mjs
 
 **Override Transcript** (skip Voxtral API):
 ```bash
-KARAOKE_TRANSCRIPT_OVERRIDE_PATH=tests/transcript-override.txt \
-bun tests/test-openrouter-minimal.mjs
+KARAOKE_TRANSCRIPT_OVERRIDE_PATH=tests/fixtures/transcript-override.txt \
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 
 **Test with Real Audio**:
@@ -203,7 +203,7 @@ bun tests/test-openrouter-minimal.mjs
 KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
 KARAOKE_SKIP_TX=true \
 KARAOKE_AUDIO_PATH=path/to/audio.mp3 \
-bun tests/test-openrouter-minimal.mjs
+bun tests/debug/test-openrouter-minimal.mjs
 ```
 
 ---
@@ -311,10 +311,10 @@ node scripts/quick-encrypt.mjs
 **Fix**: Use workarounds
 ```bash
 # Skip transaction
-KARAOKE_SKIP_TX=true bun tests/test-openrouter-minimal.mjs
+KARAOKE_SKIP_TX=true bun tests/debug/test-openrouter-minimal.mjs
 
 # Or test up to simulation
-KARAOKE_TX_STAGE=simulate bun tests/test-openrouter-minimal.mjs
+KARAOKE_TX_STAGE=simulate bun tests/debug/test-openrouter-minimal.mjs
 ```
 
 ### "Cannot find module"

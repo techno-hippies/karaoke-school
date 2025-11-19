@@ -26,7 +26,7 @@ dotenv.config({ path: join(__dirname, '../.env') });
 
 const LIT_ACTION_CID = 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4'; // process.env.KARAOKE_GRADER_CID
 const SUBGRAPH_URL = process.env.SUBGRAPH_URL;
-const AUDIO_PATH = process.env.KARAOKE_AUDIO_PATH || join(__dirname, 'hey-im-scarlett-how-are-you-doing.wav');
+const AUDIO_PATH = process.env.KARAOKE_AUDIO_PATH || join(__dirname, 'fixtures/hey-im-scarlett-how-are-you-doing.wav');
 const METADATA_URI = process.env.KARAOKE_CLIP_METADATA_URI;
 const CLIP_HASH = process.env.KARAOKE_CLIP_HASH || '0x4b2b4e6423432c962a96a70b0de01166849e888e16255961c30a4229d76544fb';
 const SPOTIFY_TRACK_ID = process.env.KARAOKE_SPOTIFY_TRACK_ID || '4cOdK2wGLETKBW3PvgPWqT';

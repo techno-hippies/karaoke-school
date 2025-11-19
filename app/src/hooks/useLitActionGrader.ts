@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { LIT_ACTION_IPFS_CID, LIT_ACTION_VOXTRAL_KEY } from '@/lib/contracts/addresses'
+import { LIT_ACTION_IPFS_CID, LIT_ACTION_VOXTRAL_KEY, LIT_KARAOKE_GRADER_CID, LIT_KARAOKE_VOXTRAL_KEY, LIT_KARAOKE_OPENROUTER_KEY } from '@/lib/contracts/addresses'
 
 /**
  * Exercise Grader v1 - Unified grading for all exercise types
@@ -9,6 +9,7 @@ import { LIT_ACTION_IPFS_CID, LIT_ACTION_VOXTRAL_KEY } from '@/lib/contracts/add
  * - SAY_IT_BACK: Voice transcription + pronunciation scoring
  * - TRANSLATION_QUIZ: Multiple choice translation questions
  * - TRIVIA_QUIZ: Multiple choice trivia questions
+ * - KARAOKE_PERFORMANCE: Full clip/song grading (NEW)
  */
 
 // Parameter types for each exercise type
@@ -31,12 +32,23 @@ export interface MultipleChoiceGradingParams {
   metadataUri: string
 }
 
-export type GradingParams = SayItBackGradingParams | MultipleChoiceGradingParams
+export interface KaraokePerformanceGradingParams {
+  exerciseType: 'KARAOKE_PERFORMANCE'
+  audioDataBase64: string
+  performanceId: number
+  clipHash: string
+  spotifyTrackId: string
+  metadataUri: string
+  // Optional overrides
+  performanceType?: 'CLIP' | 'FULL_SONG'
+}
+
+export type GradingParams = SayItBackGradingParams | MultipleChoiceGradingParams | KaraokePerformanceGradingParams
 
 export interface GradingResult {
   score: number // 0-100 (percentage)
-  transcript?: string // Only for SAY_IT_BACK
-  rating: 'Easy' | 'Good' | 'Hard' | 'Again' // FSRS rating
+  transcript?: string // Only for SAY_IT_BACK / KARAOKE
+  rating: 'Easy' | 'Good' | 'Hard' | 'Again' | string // FSRS rating or qualitative grade
   performanceId: number // uint256 from Lit Action
   txHash?: string // Transaction hash if submitted to contract
   errorType?: string // Error message if submission failed
@@ -60,7 +72,12 @@ export function useLitActionGrader() {
         const { getLitClient } = await import('@/lib/lit')
         const litClient = await getLitClient()
 
-        console.log('[useLitActionGrader] Executing Lit Action:', LIT_ACTION_IPFS_CID)
+        // Determine Lit Action CID based on exercise type
+        const ipfsId = params.exerciseType === 'KARAOKE_PERFORMANCE' 
+          ? LIT_KARAOKE_GRADER_CID 
+          : LIT_ACTION_IPFS_CID
+
+        console.log('[useLitActionGrader] Executing Lit Action:', ipfsId)
         console.log('[useLitActionGrader] Exercise type:', params.exerciseType)
         console.log('[useLitActionGrader] User address:', pkpInfo.ethAddress)
 
@@ -89,6 +106,31 @@ export function useLitActionGrader() {
             segmentHash: params.segmentHash,
             audioSize: params.audioDataBase64.length,
           })
+        } else if (params.exerciseType === 'KARAOKE_PERFORMANCE') {
+          // Karaoke Grader specific parameters
+          // Matches karaoke-grader-v1.js inputs
+          jsParams.performanceId = params.performanceId
+          jsParams.clipHash = params.clipHash
+          jsParams.spotifyTrackId = params.spotifyTrackId
+          jsParams.performer = pkpInfo.ethAddress
+          jsParams.performanceType = params.performanceType || 'CLIP'
+          jsParams.audioDataBase64 = params.audioDataBase64
+          jsParams.voxtralEncryptedKey = LIT_KARAOKE_VOXTRAL_KEY
+          jsParams.openRouterEncryptedKey = LIT_KARAOKE_OPENROUTER_KEY
+          
+          // NOTE: Karaoke Grader requires nonceOverride for determinism if RPCs are flaky
+          // But we rely on the hardcoded fallback in the Lit Action for now or let's fetch it here?
+          // Fetching here requires viem public client. For simplicity let's rely on the Lit Action's hardcode 
+          // or try to fetch if we can. 
+          // Given we modified the Lit Action to use a hardcoded gas price but nonce is still RPC-dependent inside action if not provided?
+          // Actually, we modified the Lit Action to fallback to RPC if nonceOverride is missing.
+          // Let's trust the Lit Action for now to keep frontend simple.
+
+          console.log('[useLitActionGrader] KARAOKE_PERFORMANCE params:', {
+            performanceId: params.performanceId,
+            clipHash: params.clipHash,
+            audioSize: params.audioDataBase64.length,
+          })
         } else {
           // Multiple choice specific parameters
           jsParams.attemptId = params.attemptId
@@ -104,7 +146,7 @@ export function useLitActionGrader() {
         }
 
         const result = await litClient.executeJs({
-          ipfsId: LIT_ACTION_IPFS_CID,
+          ipfsId: ipfsId,
           authContext: pkpAuthContext,
           jsParams,
         })

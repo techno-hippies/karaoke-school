@@ -39,7 +39,7 @@ const LIT_ACTION_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa';
 
 async function loadTestAudio() {
   console.log('🎵 Loading test audio...');
-  const audioPath = join(__dirname, 'hey-im-scarlett-how-are-you-doing.wav');
+  const audioPath = join(__dirname, 'fixtures/hey-im-scarlett-how-are-you-doing.wav');
   const audioBuffer = await readFile(audioPath);
   const audioDataBase64 = audioBuffer.toString('base64');
   console.log(`✅ Audio loaded: ${Math.round(audioBuffer.length / 1024)} KB (${audioDataBase64.length} base64 chars)`);

@@ -120,6 +120,50 @@ export const LIT_ACTION_VOXTRAL_KEY = {
 }
 
 /**
+ * Encrypted keys for Karaoke Grader
+ * Contains Voxtral + OpenRouter keys
+ * Updated: 2025-11-19
+ */
+export const LIT_KARAOKE_VOXTRAL_KEY = {
+  ciphertext: 'i6Lz63taJ5sBrtFcoHZSW3Y0SZ1eEGE4URwiVjgwgdcWYdvcsRmJ5v19e+cS+LcIiYzLIGnFjh88yGbSfwLOtvI0dnxQVMa1BL52O65+lAwh1QLucfDL8ni5GX0C7ZuKcjDDhUVKoywfNiPSlWp8YJwXAg==',
+  dataToEncryptHash: '47d9b331855237315fee05e18e133a0ebe8d3cef60852a5c2d57a1a64095cbdf',
+  accessControlConditions: [
+    {
+      conditionType: 'evmBasic',
+      contractAddress: '',
+      standardContractType: '',
+      chain: 'ethereum',
+      method: '',
+      parameters: [':currentActionIpfsId'],
+      returnValueTest: {
+        comparator: '=',
+        value: 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4',
+      },
+    },
+  ],
+}
+
+export const LIT_KARAOKE_OPENROUTER_KEY = {
+  ciphertext: 'mZMCGqnBm4Va1113FotbkJaLe14AdH617FA0/nv6eVm/gaZXcPrzr/osx28wtckMsleYzNuLuOFme7AbJFr+A7PY9G3S2pGnGgiekVvR9IFKlxRGW7r1eUq+r7lVafTcTqKFte8Kr4Y2pgZ+MHpJszN38my1NoGDFFREde5dG6WHNEkeSY393KUEynyXC0dG50Deu383xfPoJ+AC',
+  dataToEncryptHash: '4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23',
+  accessControlConditions: [
+    {
+      conditionType: 'evmBasic',
+      contractAddress: '',
+      standardContractType: '',
+      chain: 'ethereum',
+      method: '',
+      parameters: [':currentActionIpfsId'],
+      returnValueTest: {
+        comparator: '=',
+        value: 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4',
+      },
+    },
+  ],
+}
+
+
+/**
  * Grove IPFS endpoints for file upload
  */
 export const GROVE_UPLOAD_ENDPOINT = 'https://api.grove.storage'
