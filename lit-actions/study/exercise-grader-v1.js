@@ -33,7 +33,7 @@ const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';
 
 // PKP Configuration (must match contract's trustedPKP)
-const PKP_PUBLIC_KEY = '0x04bc29b899d12c9bbbe0834f34adc73e6dc7dcc2ba79309c9c53249b06327f09abdd20f194979d13e390e8ba235db6ec1523cac332439f9eccafe5c4b8c12e726b';
+const PKP_PUBLIC_KEY = '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e';
 
 // ============================================================
 // MAIN EXECUTION

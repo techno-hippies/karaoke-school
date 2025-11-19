@@ -35,7 +35,7 @@ const TEST_ATTEMPT_ID = Date.now();
 const TEST_LANGUAGE = "en";
 
 // Lit Action CID (Exercise Grader v1 - nagaTest, uploaded 2025-11-16, updated PKP)
-const LIT_ACTION_CID = 'QmbV3NTurgXwMqkaAD1z8t43iWAPNoBMHW9cMWk1LjTbfB';
+const LIT_ACTION_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa';
 
 async function loadTestAudio() {
   console.log('🎵 Loading test audio...');
@@ -48,7 +48,7 @@ async function loadTestAudio() {
 
 async function loadVoxtralEncryptedKey() {
   console.log('🔐 Loading encrypted Voxtral API key...');
-  const keyPath = join(__dirname, '../keys/voxtral_api_key.json');
+  const keyPath = join(__dirname, '../keys/voxtral_api_key_exercise.json');
   const keyData = JSON.parse(await readFile(keyPath, 'utf-8'));
   console.log(`✅ Encrypted key loaded (CID: ${keyData.cid})`);
   return keyData;
@@ -115,10 +115,10 @@ async function main() {
       metadataUri: `grove://${generateRandomCID()}`,
       expectedText: "Hey I'm Scarlett, how are you doing?",
       language: TEST_LANGUAGE,
-      voxtralEncryptedKey,  // Pass encrypted key from keys/voxtral_api_key.json
+      voxtralEncryptedKey,  // Pass encrypted key from keys/voxtral_api_key_exercise.json
       lineId: '0x64befe066b9b4a39813f96144552a1de00000000000000000000000000000000',  // Real lineId from DB (UUID 64befe06-6b9b-4a39-813f-96144552a1de zero-padded to bytes32)
       lineIndex: 8,  // Corresponding lineIndex from DB
-      testMode: true,  // Skip contract submission (test decryption/transcription only)
+      testMode: false,  // Attempt full flow (decryption + transcription + contract)
     };
 
     // 6. Execute Lit Action

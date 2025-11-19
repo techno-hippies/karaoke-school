@@ -120,11 +120,11 @@ async function processDownloadQueue() {
     if (!job) break;
 
     try {
-      // Add 5-minute timeout per job to prevent queue blocking
+      // Add 20-minute timeout per job to prevent queue blocking
       const jobTimeout = new Promise((_, reject) => {
         setTimeout(() => {
-          reject(new Error(`Job ${job.id} timed out after 5 minutes`));
-        }, 300000); // 5 minutes
+          reject(new Error(`Job ${job.id} timed out after 20 minutes`));
+        }, 1200000); // 20 minutes
       });
 
       const result = await Promise.race([job.fn(), jobTimeout]);

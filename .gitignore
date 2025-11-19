@@ -76,8 +76,9 @@ master-pipeline/data/creators/
 *.swo
 *~
 
-# Lit Actions keys
+# Lit Actions keys and auth storage
 lit-actions/src/stt/keys/
+lit-auth-storage/
 
 # IDE
 .claude/

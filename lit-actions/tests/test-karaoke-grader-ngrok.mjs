@@ -14,6 +14,7 @@ const { nagaTest } = require('@lit-protocol/networks');
 const { createAuthManager, storagePlugins } = require('@lit-protocol/auth');
 const { LitActionResource } = require('@lit-protocol/auth-helpers');
 const { privateKeyToAccount } = require('viem/accounts');
+const { createPublicClient, http, defineChain } = require('viem');
 const dotenv = require('dotenv');
 const { fileURLToPath } = require('url');
 const { dirname, join } = require('path');
@@ -23,7 +24,7 @@ const __dirname = dirname(__filename);
 
 dotenv.config({ path: join(__dirname, '../.env') });
 
-const LIT_ACTION_CID = process.env.KARAOKE_GRADER_CID;
+const LIT_ACTION_CID = 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4'; // process.env.KARAOKE_GRADER_CID
 const SUBGRAPH_URL = process.env.SUBGRAPH_URL;
 const AUDIO_PATH = process.env.KARAOKE_AUDIO_PATH || join(__dirname, 'hey-im-scarlett-how-are-you-doing.wav');
 const METADATA_URI = process.env.KARAOKE_CLIP_METADATA_URI;
@@ -31,6 +32,7 @@ const CLIP_HASH = process.env.KARAOKE_CLIP_HASH || '0x4b2b4e6423432c962a96a70b0d
 const SPOTIFY_TRACK_ID = process.env.KARAOKE_SPOTIFY_TRACK_ID || '4cOdK2wGLETKBW3PvgPWqT';
 const PERFORMER = process.env.KARAOKE_PERFORMER || `0x${'1'.repeat(40)}`;
 const TEST_MODE = process.env.KARAOKE_TEST_MODE !== 'false';
+const SKIP_TX = process.env.KARAOKE_SKIP_TX === 'true';
 const TRANSCRIPT_OVERRIDE_PATH = process.env.KARAOKE_TRANSCRIPT_OVERRIDE_PATH;
 let voxtralEncryptedKeyMemo;
 let openRouterEncryptedKeyMemo;
@@ -111,14 +113,14 @@ async function fetchClipMetadata() {
 
 async function loadVoxtralKey() {
   if (voxtralEncryptedKeyMemo) return voxtralEncryptedKeyMemo;
-  const keyPath = join(__dirname, '../keys/voxtral_api_key.json');
+  const keyPath = join(__dirname, '../keys/voxtral_api_key_karaoke.json');
   voxtralEncryptedKeyMemo = JSON.parse(fs.readFileSync(keyPath, 'utf-8'));
   return voxtralEncryptedKeyMemo;
 }
 
 async function loadOpenRouterKey() {
   if (openRouterEncryptedKeyMemo) return openRouterEncryptedKeyMemo;
-  const keyPath = join(__dirname, '../keys/openrouter_api_key.json');
+  const keyPath = join(__dirname, '../keys/openrouter_api_key_karaoke.json');
   openRouterEncryptedKeyMemo = JSON.parse(fs.readFileSync(keyPath, 'utf-8'));
   return openRouterEncryptedKeyMemo;
 }
@@ -151,6 +153,26 @@ console.log('🎤 Karaoke Grader v1 Test (full-song grader)');
     const litClient = await createLitClient({ network: nagaTest });
     const authContext = await createAuthContext(litClient);
 
+    // Fetch nonce deterministically
+    const LENS_TESTNET = defineChain({
+      id: 37111,
+      name: 'Lens Testnet',
+      network: 'lens-testnet',
+      nativeCurrency: { name: 'GRASS', symbol: 'GRASS', decimals: 18 },
+      rpcUrls: { default: { http: ['https://rpc.testnet.lens.xyz'] } },
+    });
+
+    const publicClient = createPublicClient({
+      chain: LENS_TESTNET,
+      transport: http(),
+    });
+
+    // Hardcoded PKP address to ensure we check the right account
+    // (Should match what is used in Lit Action, which is derived from PKP_PUBLIC_KEY)
+    const pkpAddress = "0x3e89ABa33562d4C45E62A97Aa11443F738983bFf"; 
+    const nonceOverride = await publicClient.getTransactionCount({ address: pkpAddress });
+    console.log(`✅ Client-fetched Nonce: ${nonceOverride}`);
+
     const jsParams = {
       performanceId: Date.now(),
       clipHash: CLIP_HASH,
@@ -164,7 +186,9 @@ console.log('🎤 Karaoke Grader v1 Test (full-song grader)');
       transcriptOverride: loadTranscriptOverride(),
       subgraphUrl: SUBGRAPH_URL,
       testMode: TEST_MODE,
-      gradeOverride: 'Great'
+      skipTx: SKIP_TX,
+      gradeOverride: 'Great',
+      nonceOverride: nonceOverride.toString() // Pass as string/number
     };
 
     console.log('\n🚀 Executing Lit Action...');

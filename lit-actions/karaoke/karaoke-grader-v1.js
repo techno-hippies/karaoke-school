@@ -7,8 +7,7 @@ const ethers = ethersLib;
 const KARAOKE_EVENTS_ADDRESS = "0x51aA6987130AA7E4654218859E075D8e790f4409";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
-const PKP_PUBLIC_KEY =
-  "0x04bc29b899d12c9bbbe0834f34adc73e6dc7dcc2ba79309c9c53249b06327f09abdd20f194979d13e390e8ba235db6ec1523cac332439f9eccafe5c4b8c12e726b";
+const PKP_PUBLIC_KEY = '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e';
 
 const DEFAULT_SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2";
@@ -49,6 +48,7 @@ const go = async () => {
       lyricsOverride,
       metadataUri,
       gradeOverride,
+      nonceOverride, // Allow client to enforce deterministic nonce
       testMode = false,
       skipTx = false,
       txDebugStage = null,
@@ -667,6 +667,21 @@ async function submitZkSyncTransaction(txData, txDebugStage) {
   );
   const contractAddress = ethers.utils.getAddress(KARAOKE_EVENTS_ADDRESS);
 
+  // Use client-provided nonce if available (guarantees determinism)
+  let nonce;
+  if (jsParams.nonceOverride) {
+      nonce = ethers.BigNumber.from(jsParams.nonceOverride);
+      console.log("Using nonceOverride:", nonce.toString());
+  } else {
+      // Fallback to RPC (risky for consensus)
+      const nonceHex = await jsonRpcRequest(
+        "eth_getTransactionCount",
+        [pkpAddress, "pending"],
+        "Nonce fetch"
+      );
+      nonce = ethers.BigNumber.from(nonceHex || "0x0");
+  }
+
   await jsonRpcRequest(
     "eth_call",
     [
@@ -687,24 +702,16 @@ async function submitZkSyncTransaction(txData, txDebugStage) {
     return "tx-debug-simulate";
   }
 
-  const nonceHex = await jsonRpcRequest(
-    "eth_getTransactionCount",
-    [pkpAddress, "pending"],
-    "Nonce fetch"
-  );
-  const nonce = ethers.BigNumber.from(nonceHex || "0x0");
+  // const nonceHex = await jsonRpcRequest(
+  //   "eth_getTransactionCount",
+  //   [pkpAddress, "pending"],
+  //   "Nonce fetch"
+  // );
+  // const nonce = ethers.BigNumber.from(nonceHex || "0x0");
 
-  const gasPriceHex = await jsonRpcRequest(
-    "eth_gasPrice",
-    [],
-    "Gas price fetch"
-  );
-  let gasPrice = gasPriceHex
-    ? ethers.BigNumber.from(gasPriceHex)
-    : ethers.BigNumber.from("3705143562");
-  if (gasPrice.eq(0)) {
-    gasPrice = ethers.BigNumber.from("3705143562");
-  }
+  // Use hardcoded gas price to ensure determinism across nodes
+  // const gasPriceHex = await jsonRpcRequest("eth_gasPrice", [], "Gas price fetch");
+  const gasPrice = ethers.BigNumber.from("3705143562"); 
 
   let maxPriorityFeePerGas = ethers.BigNumber.from(0);
   try {

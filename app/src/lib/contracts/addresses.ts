@@ -25,9 +25,9 @@ export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb78
  * IMPORTANT: Must match the trustedPKP configured on ExerciseEvents.sol
  * Lit Action: exercise-grader-v1.js uses this PKP for signing submissions
  */
-export const EXERCISE_EVENTS_PKP_ADDRESS = '0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7'
+export const EXERCISE_EVENTS_PKP_ADDRESS = '0x3e89ABa33562d4C45E62A97Aa11443F738983bFf'
 export const EXERCISE_EVENTS_PKP_PUBLIC_KEY =
-  '0x04d6fd6ca7dc3c09f62bac1db509e37fa4c06c46b3bb8dbac6bb1efc19a4cd8e39b64ccfd7bf2ccf66ba5fc9df97a02989b1da9dcf71e01e37cd39b7beadc8f1aa'
+  '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e'
 
 // ============ Clip, Translation & Song Events ============
 
@@ -69,14 +69,28 @@ export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E
  * - Emits SayItBackAttemptGraded / MultipleChoiceAttemptGraded via PKP
  * - Encrypted Voxtral API key passed as jsParams (correct workflow)
  *
- * Deployment: 2025-11-05 (v12-final-working-contract)
+ * Deployment: 2025-11-19 (Exercise Grader v1 - Naga Testnet Fix)
  * - Uploaded to IPFS via Pinata
  * - Uses proven working v6 RLP pattern (100% working)
  * - Fixed type handling: lineId as bytes32, lineIndex as uint16, performer as checksummed address
  * - Validates lineId is non-zero before contract submission
  * - Contract: EXERCISE_EVENTS_ADDRESS
  */
-export const LIT_ACTION_IPFS_CID = 'QmdqJZjg4ar4uubsV4Feo8yqJ7WV88iRNmh98rL9KNoZiz'  // Exercise Grader v1 - Chinese Fix (2025-11-10, fixed normalizeText)
+export const LIT_ACTION_IPFS_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa'
+
+/**
+ * Deployed Lit Action for full karaoke grading (Clip/Song)
+ * Implements: karaoke-grader-v1.js
+ * 
+ * Features:
+ * - Transcribes full clip/song audio
+ * - Scores entire performance against lyrics
+ * - Emits KaraokePerformanceGraded event via PKP
+ * 
+ * Deployment: 2025-11-19 (Karaoke Grader v1 - Naga Testnet Fix)
+ * - CID: QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4
+ */
+export const LIT_KARAOKE_GRADER_CID = 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4'
 
 /**
  * Encrypted Voxtral API Key Parameters
@@ -84,10 +98,10 @@ export const LIT_ACTION_IPFS_CID = 'QmdqJZjg4ar4uubsV4Feo8yqJ7WV88iRNmh98rL9KNoZ
  * Can only be decrypted when running that exact Lit Action
  *
  * Frontend passes this object as voxtralEncryptedKey in jsParams
- * Updated: 2025-11-10 for Exercise Grader v1 - Chinese Fix
+ * Updated: 2025-11-19 for Exercise Grader v1 - Naga Testnet Fix
  */
 export const LIT_ACTION_VOXTRAL_KEY = {
-  ciphertext: 'otMQMntWlE3isLcLbFMdzgO9ESk7WN+LVEdc6FIPeG5D8fA68EMQcp9VhosCHvuvmkDWVTSzC6qrfcnAJ6JqlTBOTIVSeZ4VJvZ/xkvvXmchdNWmb7bdc2Ee60JLUroqY4kf+Z3pHzDhb4X/ocHStJHfAg==',
+  ciphertext: 'lcEmH787hBsgNWLzjOw1J7A9fp8+p3pld0W+3MBoU8FZzFmQdnfDuZKbvrriVYwKjp/CqMSRhMxPeuT6Osld0p41AFMocu98fDvDme/tcHoh0Ig+QCoOWCcfWCnCurE92KyiD1dbsDsPbHpHLppXP89GAg==',
   dataToEncryptHash: '47d9b331855237315fee05e18e133a0ebe8d3cef60852a5c2d57a1a64095cbdf',
   accessControlConditions: [
     {
@@ -99,7 +113,7 @@ export const LIT_ACTION_VOXTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmdqJZjg4ar4uubsV4Feo8yqJ7WV88iRNmh98rL9KNoZiz',  // Exercise Grader v1 - Chinese Fix (2025-11-10)
+        value: 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa',
       },
     },
   ],
