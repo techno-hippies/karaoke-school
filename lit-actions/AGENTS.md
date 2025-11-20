@@ -8,8 +8,8 @@
 
 | Component | Type | Status | Network |
 |-----------|------|--------|---------|
-| **karaoke-grader-v1.js** | Aggregate grader | ✅ Active | Lit Protocol (nagaTest) |
-| **exercise-grader-v1.js** | Line-level grader | ✅ Active | Lit Protocol (nagaTest) |
+| **actions/karaoke-grader-v1.js** | Aggregate grader | ✅ Active | Lit Protocol (nagaTest) |
+| **actions/exercise-grader-v1.js** | Line-level grader | ✅ Active | Lit Protocol (nagaTest) |
 | **Voxtral STT** | Speech transcription | ✅ Active | API (encrypted) |
 | **OpenRouter/Gemini** | AI grading | ✅ Active | API (encrypted) |
 | **PKP Signing** | Transaction signing | ⚠️ Degraded | Lit Protocol |
@@ -37,14 +37,16 @@
 **Voxtral STT**
 - **Purpose**: Audio transcription
 - **Encryption**: CID-specific access control
-- **Key File**: `keys/voxtral_api_key.json`
+- **Key Files**:
+  - Exercise: `keys/exercise/voxtral_api_key_exercise.json`
+  - Karaoke: `keys/karaoke/voxtral_api_key_karaoke.json`
 - **Important**: Spelling is VOXTRAL (no S)
 
 **OpenRouter/Gemini**
 - **Purpose**: AI-powered pronunciation grading
 - **Model**: `google/gemini-2.0-flash-exp:free`
 - **Encryption**: CID-specific access control
-- **Key File**: `keys/openrouter_api_key.json`
+- **Key File**: `keys/karaoke/openrouter_api_key_karaoke.json`
 
 ### Smart Contracts (Lens Testnet)
 
@@ -374,7 +376,7 @@ PRIVATE_KEY=your_wallet_private_key
 
 ```bash
 set -a && source .env && set +a
-node scripts/upload-lit-action.mjs karaoke/karaoke-grader-v1.js "Description"
+node scripts/upload-lit-action.mjs actions/karaoke-grader-v1.js "Description"
 # Returns: New CID
 ```
 

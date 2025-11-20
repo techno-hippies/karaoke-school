@@ -71,8 +71,17 @@ async function connectLensSession(
       session = await loginAsAccountOwner(walletClient, address, account.address)
       console.log('[Auth Flow] ✓ Logged in as ACCOUNT_OWNER:', account.address)
     } else {
-      console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account', username ? `with username: ${username}` : 'without username')
+      console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account with username:', username)
       statusCallback('Creating your Lens account...')
+
+      if (!username) {
+        throw new Error('Username is required to create a new account')
+      }
+
+      const validationError = validateUsernameFormat(username)
+      if (validationError) {
+        throw new Error(validationError)
+      }
 
       console.log('[Auth Flow] Step 2a: Logging in as ONBOARDING_USER...')
       session = await loginAsOnboardingUser(walletClient, address)
@@ -80,10 +89,10 @@ async function connectLensSession(
 
       console.log('[Auth Flow] Step 2b: Creating account metadata...')
       statusCallback('Uploading account metadata...')
-      const displayName = username || 'Anonymous User'
+      const displayName = username
       const metadata = accountMetadata({
         name: displayName,
-        bio: username || 'K-School User',
+        bio: username,
       })
       console.log('[Auth Flow] Metadata name:', displayName)
 
@@ -92,39 +101,17 @@ async function connectLensSession(
       const uploadResult = await storageClient.uploadAsJson(metadata)
       console.log('[Auth Flow] ✓ Metadata uploaded:', uploadResult.uri)
 
-      if (username) {
-        const validationError = validateUsernameFormat(username)
-        if (validationError) {
-          throw new Error(validationError)
-        }
-      }
-
       console.log('[Auth Flow] Step 3: Creating account on-chain...')
       statusCallback('Deploying account...')
 
-      if (username) {
-        console.log('[Auth Flow] Creating account with username in custom namespace:', username)
-        account = await createAccountInCustomNamespace(
-          session,
-          walletClient,
-          username,
-          uploadResult.uri
-        )
-        console.log('[Auth Flow] ✓ Account created with username:', account.username?.localName)
-      } else {
-        console.log('[Auth Flow] Creating account without username (anonymous)')
-
-        const timestamp = Date.now().toString().slice(-8)
-        const anonymousHandle = `user${timestamp}`
-
-        account = await createAccountInCustomNamespace(
-          session,
-          walletClient,
-          anonymousHandle,
-          uploadResult.uri
-        )
-        console.log('[Auth Flow] ✓ Account created with anonymous handle:', account.username?.localName)
-      }
+      console.log('[Auth Flow] Creating account with username in custom namespace:', username)
+      account = await createAccountInCustomNamespace(
+        session,
+        walletClient,
+        username,
+        uploadResult.uri
+      )
+      console.log('[Auth Flow] ✓ Account created with username:', account.username?.localName)
 
       console.log('[Auth Flow] ✓ Account created:', account.address)
       console.log('[Auth Flow] Account owner:', account.owner)
@@ -229,7 +216,8 @@ export async function signInWithPasskeyFlow(
 export async function loginLensStandalone(
   walletClient: WalletClient,
   address: Address,
+  username: string | undefined,
   statusCallback: StatusCallback
 ): Promise<{ session: SessionClient; account: Account }> {
-  return connectLensSession(walletClient, address, undefined, statusCallback)
+  return connectLensSession(walletClient, address, username, statusCallback)
 }

@@ -28,19 +28,19 @@ export const Initial: Story = {
     open: true,
     currentStep: 'idle',
     isAuthenticating: false,
-    authMode: null,
     statusMessage: '',
     errorMessage: '',
     usernameAvailability: null,
-    isPKPReady: false,
-    hasSocialAccount: false,
     onOpenChange: () => {},
     onRegister: () => console.log('Show username input'),
     onRegisterWithUsername: () => {},
     onLogin: () => console.log('Start login'),
     onUsernameBack: () => {},
     onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
+    walletConnectors: [],
+    isWalletConnected: false,
+    onConnectWallet: () => {},
+    onWalletDisconnect: () => {},
   },
 }
 
@@ -49,118 +49,10 @@ export const Initial: Story = {
  */
 export const UsernameInput: Story = {
   args: {
-    open: true,
+    ...Initial.args,
     currentStep: 'username',
-    isAuthenticating: false,
-    authMode: 'register',
-    statusMessage: '',
-    errorMessage: '',
-    usernameAvailability: null,
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
     onRegisterWithUsername: (username: string) => console.log('Register with username:', username),
-    onLogin: () => {},
     onUsernameBack: () => console.log('Back from username'),
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
-  },
-}
-
-/**
- * Username Input - Checking availability
- */
-export const UsernameChecking: Story = {
-  args: {
-    open: true,
-    currentStep: 'username',
-    isAuthenticating: false,
-    authMode: 'register',
-    statusMessage: '',
-    errorMessage: '',
-    usernameAvailability: 'available',
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
-  },
-}
-
-/**
- * Username Input - Available
- */
-export const UsernameAvailable: Story = {
-  args: {
-    open: true,
-    currentStep: 'username',
-    isAuthenticating: false,
-    authMode: 'register',
-    statusMessage: '',
-    errorMessage: '',
-    usernameAvailability: 'available',
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
-  },
-}
-
-/**
- * Username Input - Not Available
- */
-export const UsernameUnavailable: Story = {
-  args: {
-    open: true,
-    currentStep: 'username',
-    isAuthenticating: false,
-    authMode: 'register',
-    statusMessage: '',
-    errorMessage: '',
-    usernameAvailability: 'unavailable',
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
-  },
-}
-
-/**
- * Username Input - Loading state (after clicking Continue)
- */
-export const UsernameInputLoading: Story = {
-  args: {
-    open: true,
-    currentStep: 'username',
-    isAuthenticating: true,
-    authMode: 'register',
-    statusMessage: 'Creating your account...',
-    errorMessage: '',
-    usernameAvailability: 'available',
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
   },
 }
 
@@ -169,46 +61,10 @@ export const UsernameInputLoading: Story = {
  */
 export const Authenticating: Story = {
   args: {
-    open: true,
-    currentStep: 'webauthn',
+    ...Initial.args,
+    currentStep: 'webauthn', // Internally mapped to processing
     isAuthenticating: true,
-    authMode: 'register',
     statusMessage: 'Please create a passkey using your device...',
-    errorMessage: '',
-    usernameAvailability: null,
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
-  },
-}
-
-/**
- * Finalizing - after 2nd signature, before completion
- */
-export const Finalizing: Story = {
-  args: {
-    open: true,
-    currentStep: 'social',
-    isAuthenticating: true,
-    authMode: 'register',
-    statusMessage: 'Finalizing...',
-    errorMessage: '',
-    usernameAvailability: null,
-    isPKPReady: true,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
   },
 }
 
@@ -217,45 +73,27 @@ export const Finalizing: Story = {
  */
 export const Complete: Story = {
   args: {
-    open: true,
+    ...Initial.args,
     currentStep: 'complete',
-    isAuthenticating: false,
-    authMode: null,
-    statusMessage: '',
-    errorMessage: '',
-    usernameAvailability: null,
-    isPKPReady: true,
-    hasSocialAccount: true,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
   },
 }
 
-/**
- * Registration Error - WebAuthn passkey error with long URL
- */
-export const RegistrationError: Story = {
+// Stories with wallet state
+export const WalletSelection: Story = {
   args: {
-    open: true,
-    currentStep: 'webauthn',
-    isAuthenticating: false,
-    authMode: 'register',
-    statusMessage: '',
-    errorMessage: 'NotAllowedError: The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.',
-    usernameAvailability: null,
-    isPKPReady: false,
-    hasSocialAccount: false,
-    onOpenChange: () => {},
-    onRegister: () => {},
-    onRegisterWithUsername: () => {},
-    onLogin: () => {},
-    onUsernameBack: () => {},
-    onUsernameChange: (username: string) => console.log('Username changed:', username),
-    onConnectSocial: () => {},
+    ...Initial.args,
+    currentStep: 'idle', // Logic inside component sets view based on internal state, but here we just simulate props.
+    // To test internal state transition to wallet-select, we'd need to click buttons in interaction test.
+    // However, we can't force internal state 'wallet-select' via props in current implementation 
+    // because view state is internal.
+    // BUT, we can simulate the flow if we were using Controlled Component pattern for the View.
+    // Current AuthDialog has internal state `view`. 
+    // Ideally, for Storybook, we should be able to force a view.
   },
 }
+// NOTE: Since `AuthDialog` manages `view` internally, we can't easily force the "Wallet Selection" screen 
+// via props alone without interaction. 
+// The stories above represent states driven by `currentStep` prop which affects `view` via useEffect.
+// But `wallet-select` is a purely internal UI state not mapped to `currentStep` context.
+// Refactoring to lift `view` state or allow override would make it testable, 
+// but for now we rely on interaction testing or manual testing.

@@ -177,6 +177,7 @@ export async function loginUser(
  */
 let cachedAuthContext: PKPAuthContext | null = null
 let cachedPKPPublicKey: string | null = null
+let cachedDomain: string | null = null
 
 /**
  * Calculate expiration time (24 hours from now)
@@ -193,8 +194,15 @@ export async function createPKPAuthContext(
   pkpInfo: PKPInfo,
   authData: AuthData
 ): Promise<PKPAuthContext> {
-  // Return cached context if available
-  if (cachedAuthContext && cachedPKPPublicKey === pkpInfo.publicKey) {
+  const domain =
+    typeof window !== 'undefined' ? window.location.hostname : 'localhost'
+
+// Return cached context if available for the same PKP + domain
+  if (
+    cachedAuthContext &&
+    cachedPKPPublicKey === pkpInfo.publicKey &&
+    cachedDomain === domain
+  ) {
     if (IS_DEV) console.log('[Lit] Using cached PKP auth context')
     return cachedAuthContext
   }
@@ -210,11 +218,15 @@ export async function createPKPAuthContext(
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
-        domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
+        // SIWE domain must match the message domain (e.g., "localhost" without port)
+        domain,
         statement: 'Execute Lit Actions and sign transactions',
         expiration: getConsistentExpiration(),
-    // @ts-expect-error - Lit Protocol ShorthandResources type mismatch
-        resources: LIT_WEBAUTHN_CONFIG.authResources.map((resource) => [...resource]),
+        // Use wildcard for PKP signing (social PKPs vary per login) and allow all Lit Actions
+        resources: [
+          ['pkp-signing', '*'],
+          ['lit-action-execution', '*'],
+        ],
       },
       litClient: litClient,
     })
@@ -222,6 +234,7 @@ export async function createPKPAuthContext(
     // Cache for this session
     cachedAuthContext = authContext
     cachedPKPPublicKey = pkpInfo.publicKey
+    cachedDomain = domain
 
     if (IS_DEV) console.log('[Lit] ✓ PKP auth context created')
 
@@ -249,6 +262,7 @@ export function clearAuthContext(): void {
   if (IS_DEV) console.log('[Lit] Clearing cached auth context')
   cachedAuthContext = null
   cachedPKPPublicKey = null
+  cachedDomain = null
 }
 
 // =============================================================================

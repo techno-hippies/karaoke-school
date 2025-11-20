@@ -29,6 +29,16 @@ export const EXERCISE_EVENTS_PKP_ADDRESS = '0x3e89ABa33562d4C45E62A97Aa11443F738
 export const EXERCISE_EVENTS_PKP_PUBLIC_KEY =
   '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e'
 
+// ============ Karaoke Events ============
+
+/**
+ * KaraokeEvents.sol
+ * Emits KaraokePerformanceGraded events
+ *
+ * Deployed to Lens Testnet
+ */
+export const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409'
+
 // ============ Clip, Translation & Song Events ============
 
 /**
@@ -87,10 +97,10 @@ export const LIT_ACTION_IPFS_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTe
  * - Scores entire performance against lyrics
  * - Emits KaraokePerformanceGraded event via PKP
  * 
- * Deployment: 2025-11-19 (Karaoke Grader v1 - Naga Testnet Fix)
- * - CID: QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4
+ * Deployment: 2025-11-20 (Karaoke Grader v1 - timeout-guarded)
+ * - CID: QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S
  */
-export const LIT_KARAOKE_GRADER_CID = 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4'
+export const LIT_KARAOKE_GRADER_CID = 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S'
 
 /**
  * Encrypted Voxtral API Key Parameters
@@ -101,7 +111,7 @@ export const LIT_KARAOKE_GRADER_CID = 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9
  * Updated: 2025-11-19 for Exercise Grader v1 - Naga Testnet Fix
  */
 export const LIT_ACTION_VOXTRAL_KEY = {
-  ciphertext: 'lcEmH787hBsgNWLzjOw1J7A9fp8+p3pld0W+3MBoU8FZzFmQdnfDuZKbvrriVYwKjp/CqMSRhMxPeuT6Osld0p41AFMocu98fDvDme/tcHoh0Ig+QCoOWCcfWCnCurE92KyiD1dbsDsPbHpHLppXP89GAg==',
+  ciphertext: 'k0BD1OAc6IYdCBPpg1l6q9Rk8y8+x/3ikfTjkBm5/WeVLON1iobtS5jt0VoImjY4TdefHtXeeikVv2JYw/Gqxo5941tDokUjXghf+wnQOmMhULMdO9HBi0/1V5anChwwbQmAyqvTsQA1on6PNdnBM4dyAg==',
   dataToEncryptHash: '47d9b331855237315fee05e18e133a0ebe8d3cef60852a5c2d57a1a64095cbdf',
   accessControlConditions: [
     {
@@ -125,7 +135,7 @@ export const LIT_ACTION_VOXTRAL_KEY = {
  * Updated: 2025-11-19
  */
 export const LIT_KARAOKE_VOXTRAL_KEY = {
-  ciphertext: 'i6Lz63taJ5sBrtFcoHZSW3Y0SZ1eEGE4URwiVjgwgdcWYdvcsRmJ5v19e+cS+LcIiYzLIGnFjh88yGbSfwLOtvI0dnxQVMa1BL52O65+lAwh1QLucfDL8ni5GX0C7ZuKcjDDhUVKoywfNiPSlWp8YJwXAg==',
+  ciphertext: 'pQnV9BP7yYnMLtbKUesOie2Ab5WBDcQlT0En6MIg3mzRuh9jQ2x1jwOD6pFyt65GpLCvqDimkTcLO2ZK6hIENWv5FUcepvhff0O6N2E0nFghk/23mb+Y4JLxzXvExsAckRI8OET5QdkGSFgpGppVqazbAg==',
   dataToEncryptHash: '47d9b331855237315fee05e18e133a0ebe8d3cef60852a5c2d57a1a64095cbdf',
   accessControlConditions: [
     {
@@ -137,14 +147,14 @@ export const LIT_KARAOKE_VOXTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4',
+        value: 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S',
       },
     },
   ],
 }
 
 export const LIT_KARAOKE_OPENROUTER_KEY = {
-  ciphertext: 'mZMCGqnBm4Va1113FotbkJaLe14AdH617FA0/nv6eVm/gaZXcPrzr/osx28wtckMsleYzNuLuOFme7AbJFr+A7PY9G3S2pGnGgiekVvR9IFKlxRGW7r1eUq+r7lVafTcTqKFte8Kr4Y2pgZ+MHpJszN38my1NoGDFFREde5dG6WHNEkeSY393KUEynyXC0dG50Deu383xfPoJ+AC',
+  ciphertext: 'kES6fesvxJNct4+di0so4JlYJA0hzQVZIhvzUdYwKhKXTLNwotHdZDtO7tjD0Bs3uL3D2jHSRi6shZJTWJQXjS1V/RDP5D50lhbK1a4QBO1KCIwkkMuixr2JAV76jJxCVNNcahKIvbndHdaSwJb+fXhCphv3CDgZ+Do5erKshCY8Bwt4GIgiNR0Z6OwJkimOKWrFrFSvMtjQ0twC',
   dataToEncryptHash: '4f9b618d0520edab3fac75626e5aab97cce461632a0a50970de8db842dcc5a23',
   accessControlConditions: [
     {
@@ -156,7 +166,7 @@ export const LIT_KARAOKE_OPENROUTER_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmZpjAKP7ayH21WxT1FQ1w3x6gpx3z1DyBVmXobL9vhVx4',
+        value: 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S',
       },
     },
   ],

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, PaperPlaneTilt } from '@phosphor-icons/react'
+import { X } from '@phosphor-icons/react'
 import { SongItem } from '@/components/ui/SongItem'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -9,7 +9,6 @@ import {
   InputGroupButton,
 } from '@/components/ui/input-group'
 import { Spinner } from '@/components/ui/spinner'
-import { Button } from '@/components/ui/button'
 
 export interface Song {
   id: string
@@ -78,11 +77,6 @@ export function SearchPageView({
   // Display search results if user has searched, otherwise show trending
   const displaySongs = hasSearched ? searchResults : trendingSongs
 
-  const handleRequestSong = () => {
-    // Open XMTP chat in new tab with pre-filled address
-    window.open('https://xmtp.chat/dev/conversations/new-dm/0x25B4048c3B3c58973571db2dbbF87103f7406966', '_blank')
-  }
-
   return (
     <div className='min-h-screen bg-background flex flex-col'>
       {/* Mobile Header */}
@@ -130,16 +124,6 @@ export function SearchPageView({
               )}
             </InputGroupAddon>
           </InputGroup>
-
-          {/* Song Request Button */}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleRequestSong}
-          >
-            <PaperPlaneTilt className="w-4 h-4 mr-2" />
-            Request a Song
-          </Button>
         </div>
 
         {/* Song List */}

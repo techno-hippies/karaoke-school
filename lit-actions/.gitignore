@@ -3,6 +3,10 @@ keys/
 lit-auth-storage/
 lit-auth-storage-dev/
 lit-auth-storage-pkp-test/
+lit-auth-storage*/
+lit-actions/lit-auth-storage*/
+_archive/
+tests/debug-old/
 
 # Build artifacts
 output/

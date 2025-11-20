@@ -1,6 +1,15 @@
 import { useCallback, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { LIT_ACTION_IPFS_CID, LIT_ACTION_VOXTRAL_KEY, LIT_KARAOKE_GRADER_CID, LIT_KARAOKE_VOXTRAL_KEY, LIT_KARAOKE_OPENROUTER_KEY } from '@/lib/contracts/addresses'
+import {
+  LIT_ACTION_IPFS_CID,
+  LIT_ACTION_VOXTRAL_KEY,
+  LIT_KARAOKE_GRADER_CID,
+  LIT_KARAOKE_VOXTRAL_KEY,
+  LIT_KARAOKE_OPENROUTER_KEY,
+  KARAOKE_EVENTS_ADDRESS,
+} from '@/lib/contracts/addresses'
+import { createPublicClient, http, parseAbi } from 'viem'
+import { lensTestnet } from '@/lib/lit/signer-pkp'
 
 /**
  * Exercise Grader v1 - Unified grading for all exercise types
@@ -41,6 +50,7 @@ export interface KaraokePerformanceGradingParams {
   metadataUri: string
   // Optional overrides
   performanceType?: 'CLIP' | 'FULL_SONG'
+  nonceOverride?: number | string // For deterministic signing
 }
 
 export type GradingParams = SayItBackGradingParams | MultipleChoiceGradingParams | KaraokePerformanceGradingParams
@@ -118,18 +128,43 @@ export function useLitActionGrader() {
           jsParams.voxtralEncryptedKey = LIT_KARAOKE_VOXTRAL_KEY
           jsParams.openRouterEncryptedKey = LIT_KARAOKE_OPENROUTER_KEY
           
-          // NOTE: Karaoke Grader requires nonceOverride for determinism if RPCs are flaky
-          // But we rely on the hardcoded fallback in the Lit Action for now or let's fetch it here?
-          // Fetching here requires viem public client. For simplicity let's rely on the Lit Action's hardcode 
-          // or try to fetch if we can. 
-          // Given we modified the Lit Action to use a hardcoded gas price but nonce is still RPC-dependent inside action if not provided?
-          // Actually, we modified the Lit Action to fallback to RPC if nonceOverride is missing.
-          // Let's trust the Lit Action for now to keep frontend simple.
+          if (params.nonceOverride) {
+            jsParams.nonceOverride = params.nonceOverride
+          } else {
+            // Automatically fetch deterministic nonce if not provided
+            try {
+               console.log('[useLitActionGrader] Fetching deterministic nonce...');
+               const publicClient = createPublicClient({
+                   chain: lensTestnet,
+                   transport: http()
+               });
+               
+               // 1. Get Trusted PKP from contract (Source of Truth)
+               const trustedPKP = await publicClient.readContract({
+                   address: KARAOKE_EVENTS_ADDRESS,
+                   abi: parseAbi(['function trustedPKP() external view returns (address)']),
+                   functionName: 'trustedPKP'
+               });
+               
+               // 2. Get pending nonce for that PKP
+               const nonce = await publicClient.getTransactionCount({
+                   address: trustedPKP,
+                   blockTag: 'pending'
+               });
+               
+               console.log(`[useLitActionGrader] Resolved PKP: ${trustedPKP}, Nonce: ${nonce}`);
+               jsParams.nonceOverride = Number(nonce);
+            } catch (err) {
+                console.warn('[useLitActionGrader] Failed to fetch deterministic nonce:', err);
+                // Fallback to Lit Action internal handling
+            }
+          }
 
           console.log('[useLitActionGrader] KARAOKE_PERFORMANCE params:', {
             performanceId: params.performanceId,
             clipHash: params.clipHash,
             audioSize: params.audioDataBase64.length,
+            nonceOverride: jsParams.nonceOverride
           })
         } else {
           // Multiple choice specific parameters
@@ -145,15 +180,21 @@ export function useLitActionGrader() {
           })
         }
 
-        const result = await litClient.executeJs({
-          ipfsId: ipfsId,
-          authContext: pkpAuthContext,
-          jsParams,
-        })
+        const result = await withTimeout(
+          litClient.executeJs({
+            ipfsId: ipfsId,
+            authContext: pkpAuthContext,
+            jsParams,
+          }),
+          30_000,
+          'Lit Action execution timed out'
+        )
 
         if (!result.response) {
           throw new Error('No response from Lit Action')
         }
+
+        console.log('[useLitActionGrader] Raw Lit response:', result.response)
 
         const response = typeof result.response === 'string'
           ? JSON.parse(result.response)
@@ -163,16 +204,27 @@ export function useLitActionGrader() {
           console.error('[useLitActionGrader] Lit Action returned error:', {
             errorType: response.errorType,
             error: response.error,
+            logs: result.logs, // Log any console.log output from inside the Lit Action
             fullResponse: response
           })
           throw new Error(response.errorType || response.error || 'Grading failed')
         }
 
-        // Use rating from response, or convert score to rating as fallback
-        const rating = response.rating || scoreToRating(response.score)
+        // Karaoke grader returns similarityScore (basis points) + grade label.
+        // Exercise grader returns score (0-100) + rating.
+        const normalizedScore = normalizeScore(response)
+        const rating =
+          response.rating ||
+          response.grade ||
+          scoreToRating(typeof normalizedScore === 'number' ? normalizedScore : 0)
+        const performanceId =
+          typeof response.performanceId === 'string'
+            ? Number(response.performanceId)
+            : response.performanceId || response.attemptId || Date.now()
 
+        // Use rating from response, or convert score to rating as fallback
         console.log('[useLitActionGrader] Grading result:', {
-          score: response.score,
+          score: normalizedScore,
           rating,
           txHash: response.txHash,
           errorType: response.errorType,
@@ -189,10 +241,10 @@ export function useLitActionGrader() {
         }
 
         const gradingResult: GradingResult = {
-          score: response.score,
+          score: normalizedScore ?? 0,
           transcript: response.transcript,
           rating,
-          performanceId: response.performanceId || response.attemptId || Date.now(),
+          performanceId: typeof performanceId === 'number' && !Number.isNaN(performanceId) ? performanceId : Date.now(),
           txHash: response.txHash,
           errorType: response.errorType,
         }
@@ -227,4 +279,52 @@ function scoreToRating(score: number): 'Easy' | 'Good' | 'Hard' | 'Again' {
   if (score >= 75) return 'Good'
   if (score >= 60) return 'Hard'
   return 'Again'
+}
+
+/**
+ * Normalize Lit Action score outputs between exercise + karaoke graders.
+ * - exercise-grader: score (0-100)
+ * - karaoke-grader: similarityScore / aggregateScoreBp (0-10000 basis points)
+ */
+function normalizeScore(response: any): number | undefined {
+  if (typeof response?.score === 'number') {
+    return response.score
+  }
+
+  const bpScore =
+    typeof response?.similarityScore === 'number'
+      ? response.similarityScore
+      : typeof response?.aggregateScoreBp === 'number'
+        ? response.aggregateScoreBp
+        : undefined
+
+  if (typeof bpScore === 'number') {
+    return Math.round(bpScore / 100) // Convert basis points to 0-100 percentage
+  }
+
+  return undefined
+}
+
+function withTimeout<T>(value: Promise<T> | T, ms: number, message: string): Promise<T> {
+  // If value is already resolved (non-promise), wrap in a resolved promise.
+  const valuePromise = value instanceof Promise ? value : Promise.resolve(value)
+
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(message))
+    }, ms)
+  })
+
+  return Promise.race([
+    valuePromise.then((result) => {
+      if (timer) clearTimeout(timer)
+      return result
+    }).catch((err) => {
+      if (timer) clearTimeout(timer)
+      throw err
+    }),
+    timeoutPromise,
+  ])
 }

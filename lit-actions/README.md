@@ -8,9 +8,8 @@
 
 ```
 lit-actions/
-├── karaoke/
-│   └── karaoke-grader-v1.js       # Aggregate performance grader
-├── study/
+├── actions/
+│   ├── karaoke-grader-v1.js       # Aggregate performance grader
 │   └── exercise-grader-v1.js      # Line-level exercise grader
 ├── scripts/
 │   ├── upload-lit-action.mjs      # Upload to IPFS via Pinata
@@ -19,9 +18,9 @@ lit-actions/
 │   ├── quick-encrypt.mjs          # Batch encrypt both keys
 │   └── add-pkp-permission.mjs     # Add PKP permissions
 ├── keys/                          # Encrypted API keys (git ignored)
-│   ├── voxtral_api_key.json
-│   └── openrouter_api_key.json
-├── tests/                         # Test scripts
+│   ├── exercise/voxtral_api_key_exercise.json
+│   └── karaoke/{voxtral_api_key_karaoke.json,openrouter_api_key_karaoke.json}
+├── tests/                         # Test scripts (grouped per action)
 ├── AGENTS.md                      # Service integration guide
 └── README.md                      # This file
 ```
@@ -132,7 +131,7 @@ bun tests/test-exercise-grader-say-it-back.mjs
 
 ```bash
 # 1. Upload Lit Action
-node scripts/upload-lit-action.mjs karaoke/karaoke-grader-v1.js "Description"
+node scripts/upload-lit-action.mjs actions/karaoke-grader-v1.js "Description"
 # Returns: QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # 2. Update CID in scripts/quick-encrypt.mjs

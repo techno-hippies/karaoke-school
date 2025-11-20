@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
-import { KaraokePracticeSession, type RecordingSubmission, type PracticeResult } from '@/components/karaoke/KaraokePracticeSession'
+import { KaraokePracticeSession, type RecordingSubmission, type PracticeResult, type PracticeGrade } from '@/components/karaoke/KaraokePracticeSession'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
@@ -12,10 +12,40 @@ import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { useDecryptFullAudio } from '@/hooks/useDecryptFullAudio'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLitActionGrader } from '@/hooks/useLitActionGrader'
+import { EXERCISE_EVENTS_PKP_ADDRESS } from '@/lib/contracts/addresses'
 
 // Debug logging configuration
 const DEBUG_TIMING = false
 const DEBUG_RERENDERS = false
+
+const ratingToGradeMap: Record<string, PracticeGrade> = {
+  excellent: 'A',
+  easy: 'A',
+  great: 'B',
+  good: 'B',
+  ok: 'C',
+  hard: 'C',
+  'needs work': 'F',
+  again: 'F',
+}
+
+function normalizePracticeGrade({ rating, score }: { rating?: string; score?: number }): PracticeGrade {
+  const normalizedRating = rating?.trim().toLowerCase()
+  if (normalizedRating && ratingToGradeMap[normalizedRating]) {
+    return ratingToGradeMap[normalizedRating]
+  }
+
+  if (typeof score === 'number') {
+    if (score >= 90) return 'A'
+    if (score >= 80) return 'B'
+    if (score >= 70) return 'C'
+    if (score >= 60) return 'D'
+    return 'F'
+  }
+
+  return 'B'
+}
 
 interface MediaPageContainerProps {
   variant?: 'media' | 'practice'
@@ -34,6 +64,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
   const { pkpAddress, pkpWalletClient } = useAuth()
+  const { grade, isGrading } = useLitActionGrader()
 
   // Subscription dialog state
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
@@ -191,6 +222,22 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       return
     }
 
+    // NEW: Prioritize karaoke_lines (all 86 lines) over translations (often partial)
+    if (clipMetadata.karaoke_lines && Array.isArray(clipMetadata.karaoke_lines) && clipMetadata.karaoke_lines.length > 0) {
+        console.log(`[MediaPageContainer] Using ${clipMetadata.karaoke_lines.length} karaoke lines from metadata`)
+        
+        const lyricsLines = clipMetadata.karaoke_lines.map((line: any) => ({
+            start: Number(line.start_ms) / 1000,
+            end: Number(line.end_ms) / 1000,
+            startTime: Number(line.start_ms),
+            endTime: Number(line.end_ms),
+            originalText: line.text || line.original_text || '',
+            words: [], // Words not strictly needed for display if missing
+        }))
+        
+        setOriginalLyricsLines(lyricsLines)
+    }
+
     // Load alignment if it exists in metadata
     if (clipMetadata.assets?.alignment) {
       fetch(clipMetadata.assets.alignment)
@@ -239,7 +286,8 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       // NOTE: Data is already pre-filtered to clip window and offset by SQL query
       // No filtering or offsetting needed here - just use the data directly
       const firstTranslation = Object.values(translations)[0]
-      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines)) {
+      // Only override originalLyricsLines if we didn't already populate it from karaoke_lines
+      if (firstTranslation?.lines && Array.isArray(firstTranslation.lines) && originalLyricsLines.length === 0) {
         // Transform lines to include calculated timing fields (start, end, startTime, endTime)
         const lyricsLines = firstTranslation.lines.map((line: any) => {
           return {
@@ -260,26 +308,89 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
         })
 
         setOriginalLyricsLines(lyricsLines)
-        setLoadedTranslations(translations)
       }
+      
+      // Always update translations map
+      setLoadedTranslations(translations)
     })
-  }, [clipMetadata, hasSubscription])
+  }, [clipMetadata, hasSubscription]) // Removed originalLyricsLines from dep array to avoid loops
 
   const handlePracticeSubmit = useCallback(async (submission: RecordingSubmission): Promise<PracticeResult> => {
-    console.log('[MediaPageContainer] 🎙️ Practice submission placeholder', {
-      groveUri: submission.groveUri,
+    if (!clipMetadata || !firstClip) {
+      return { grade: 'B', feedback: 'Metadata not ready' }
+    }
+
+    console.log('[MediaPageContainer] 🎙️ Submitting practice for grading...', {
       duration: submission.duration,
-      blobSize: submission.blob.size,
+      size: submission.blob.size
     })
 
-    return {
-      grade: 'B',
-      feedback: 'Demo scoring placeholder. Connect Lit Actions for live grading.',
-    }
-  }, [])
+    // Convert Blob to Base64
+    const reader = new FileReader()
+    const base64Promise = new Promise<string>((resolve, reject) => {
+      reader.onloadend = () => {
+        const base64String = reader.result as string
+        // Remove data URL prefix (e.g., "data:audio/webm;base64,")
+        const base64Data = base64String.split(',')[1]
+        resolve(base64Data)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(submission.blob)
+    })
 
-  // Loading state
-  if (isLoadingWork || isLoadingClip) {
+    try {
+      console.log('[MediaPageContainer] Converting audio to Base64...')
+      const audioDataBase64 = await base64Promise
+      console.log(`[MediaPageContainer] Audio converted: ${audioDataBase64.length} chars. Calling grade()...`)
+      
+      // Call Lit Action
+      const result = await grade({
+        exerciseType: 'KARAOKE_PERFORMANCE',
+        audioDataBase64,
+        performanceId: Date.now(),
+        clipHash: firstClip.clipHash || '0x00', // Fallback if missing, though unlikely
+        spotifyTrackId: firstClip.spotifyTrackId,
+        metadataUri: firstClip.metadataUri,
+        performanceType: 'CLIP', // Or 'FULL_SONG' if we detect full duration?
+      })
+
+      console.log('[MediaPageContainer] Grade result:', result)
+
+      if (!result) {
+        throw new Error('Grading returned null')
+      }
+
+      // Normalize score (karaoke grader returns basis points, exercise returns percentage)
+      const percentScore =
+        typeof result.score === 'number'
+          ? result.score > 100 ? Math.round(result.score / 100) : Math.round(result.score)
+          : undefined
+
+      const practiceGrade = normalizePracticeGrade({
+        rating: result.rating,
+        score: percentScore,
+      })
+
+      return {
+        grade: practiceGrade,
+        feedback: `Score: ${percentScore ?? 'N/A'}/100. ${result.transcript ? `Transcript: "${result.transcript.substring(0, 50)}..."` : ''}`,
+      }
+    } catch (error) {
+      console.error('[MediaPageContainer] Grading failed with exception:', error)
+      // Log detailed error if available
+      if (error instanceof Error) {
+          console.error('Error message:', error.message)
+          console.error('Error stack:', error.stack)
+      }
+      return {
+        grade: 'B', // Fallback
+        feedback: `Grading failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }
+    }
+  }, [clipMetadata, firstClip, grade])
+
+  // Loading state - check both loading AND data completeness to prevent placeholder flash
+  if (isLoadingWork || isLoadingClip || !clipMetadata?.title || !clipMetadata?.artist) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -338,9 +449,9 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     )
   }
 
-  // Extract metadata from Grove
-  const title = clipMetadata?.title || 'Untitled'
-  const artist = clipMetadata?.artist || 'Unknown Artist'
+  // Extract metadata from Grove (guaranteed to exist due to loading check above)
+  const title = clipMetadata.title
+  const artist = clipMetadata.artist
 
   // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
   // coverUri is set during pipeline emission in emit-clip-events.ts

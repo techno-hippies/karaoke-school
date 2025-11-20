@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { Badge } from '@/components/ui/badge'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
@@ -194,8 +193,8 @@ export function KaraokePracticeSession({
         <div className="absolute inset-0 flex items-center justify-center flex-col gap-4 text-center px-6">
           <Spinner size="lg" />
           <div>
-            <p className="text-lg font-semibold">{submissionMessage}</p>
-            <p className="text-sm text-white/60 mt-1">Uploading browser audio as WebM/Opus</p>
+            <p className="text-lg font-semibold">Grading...</p>
+            <p className="text-sm text-white/60 mt-1">Please wait 3-10 seconds</p>
           </div>
         </div>
       )
@@ -211,9 +210,6 @@ export function KaraokePracticeSession({
             <p className="text-2xl font-semibold">{grade.title}</p>
             <p className="text-white/70">{result.feedback || grade.description}</p>
           </div>
-          <Badge variant="secondary" className="uppercase tracking-wider">
-            {grade.description}
-          </Badge>
         </div>
       )
     }
@@ -230,11 +226,11 @@ export function KaraokePracticeSession({
   }
 
   return (
-    <div className={cn('relative w-full h-screen bg-black text-white flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-2xl flex flex-col bg-black/95">
+    <div className={cn('relative w-full h-screen text-white flex items-center justify-center', className)}>
+      <div className="relative w-full h-full md:max-w-2xl flex flex-col">
         <audio ref={audioRef} src={audioUrl} preload="auto" className="hidden" />
 
-        <div className="flex-none px-4 h-20 border-b border-white/10 flex items-center gap-2 bg-black/80 backdrop-blur">
+        <div className="flex-none px-4 h-20 border-b border-white/10 flex items-center gap-2 backdrop-blur">
           <BackButton
             onClick={handleClose}
             aria-label="Close"
@@ -244,7 +240,6 @@ export function KaraokePracticeSession({
             <h1 className="text-sm sm:text-base font-semibold text-white truncate">
               Preview: {title}
             </h1>
-            <p className="text-xs text-white/70 truncate">{artist}</p>
           </div>
           {(!isSubscriber && onSubscribe) ? (
             <Button
@@ -265,7 +260,7 @@ export function KaraokePracticeSession({
           {renderMainContent()}
         </div>
 
-        <div className="flex-none border-t border-white/10 bg-black/90 backdrop-blur">
+        <div className="flex-none border-t border-white/10 backdrop-blur">
           <div className="w-full px-4 py-4 space-y-3">
             {error && <p className="text-sm text-red-300">{error}</p>}
 
@@ -276,22 +271,10 @@ export function KaraokePracticeSession({
               onClick={phase === 'result' ? handleRestart : handleStart}
             >
               {phase === 'idle' && 'Start Practice'}
-              {phase === 'recording' && 'Recording in Progress'}
-              {phase === 'processing' && 'Submitting Take…'}
+              {phase === 'recording' && 'Recording...'}
+              {phase === 'processing' && 'Submitting...'}
               {phase === 'result' && 'Try Again'}
             </Button>
-
-            {phase === 'recording' && (
-              <p className="text-center text-sm text-white/70">
-                Instrumental cannot be paused. Keep singing until the track ends.
-              </p>
-            )}
-
-            {phase === 'result' && result && (
-              <p className="text-center text-sm text-white/60">
-                Ready for another take? We keep each submission as audio/webm for Lit scoring.
-              </p>
-            )}
           </div>
         </div>
       </div>

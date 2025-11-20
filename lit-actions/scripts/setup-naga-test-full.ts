@@ -44,6 +44,43 @@ const PKP_NFT_ABI = [
   }
 ];
 
+const CONTRACT_ABI = [
+  {
+    name: 'setTrustedPKP',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'newPKP', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'trustedPKP',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  }
+];
+
+const LENS_TESTNET = defineChain({
+  id: 37111,
+  name: 'Lens Testnet',
+  network: 'lens-testnet',
+  nativeCurrency: { name: 'GRASS', symbol: 'GRASS', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.testnet.lens.xyz'] },
+  },
+});
+
+const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';
+const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409';
+
 async function main() {
   console.log('🚀 Starting Full Setup for Naga Testnet...');
   
@@ -178,13 +215,13 @@ async function main() {
 
   // 3. Update Code with new PKP
   console.log('\n📝 Updating Lit Actions with new PKP...');
-  await updateFileWithPkp(join(ROOT_DIR, 'study/exercise-grader-v1.js'), pkpInfo.publicKey);
-  await updateFileWithPkp(join(ROOT_DIR, 'karaoke/karaoke-grader-v1.js'), pkpInfo.publicKey);
+  await updateFileWithPkp(join(ROOT_DIR, 'actions/exercise-grader-v1.js'), pkpInfo.publicKey);
+  await updateFileWithPkp(join(ROOT_DIR, 'actions/karaoke-grader-v1.js'), pkpInfo.publicKey);
 
   // 4. Upload to IPFS
   console.log('\n📤 Uploading Lit Actions to IPFS...');
-  const exerciseCid = await uploadToIpfs(join(ROOT_DIR, 'study/exercise-grader-v1.js'), 'Exercise Grader v1');
-  const karaokeCid = await uploadToIpfs(join(ROOT_DIR, 'karaoke/karaoke-grader-v1.js'), 'Karaoke Grader v1');
+  const exerciseCid = await uploadToIpfs(join(ROOT_DIR, 'actions/exercise-grader-v1.js'), 'Exercise Grader v1');
+  const karaokeCid = await uploadToIpfs(join(ROOT_DIR, 'actions/karaoke-grader-v1.js'), 'Karaoke Grader v1');
   console.log(`✅ Exercise CID: ${exerciseCid}`);
   console.log(`✅ Karaoke CID: ${karaokeCid}`);
 
@@ -204,10 +241,24 @@ async function main() {
   // 6. Encrypt Keys
   console.log('\nCw Encrypting API Keys...');
   await encryptKey(litClient, exerciseCid, process.env.VOXTRAL_API_KEY, 'voxtral_api_key_exercise.json');
+  // Also save as standard name for backward compatibility
+  await encryptKey(litClient, exerciseCid, process.env.VOXTRAL_API_KEY, 'voxtral_api_key.json');
+  
   await encryptKey(litClient, karaokeCid, process.env.VOXTRAL_API_KEY, 'voxtral_api_key_karaoke.json');
   await encryptKey(litClient, karaokeCid, process.env.OPENROUTER_API_KEY, 'openrouter_api_key_karaoke.json');
+  // Also save as standard name for backward compatibility
+  await encryptKey(litClient, karaokeCid, process.env.OPENROUTER_API_KEY, 'openrouter_api_key.json');
 
-  // 7. Update Tests
+  // 7. Update Trusted PKP on Contracts
+  console.log('\n🤝 Updating Trusted PKP on Contracts...');
+  try {
+      await updateTrustedPKP(pkpInfo.ethAddress);
+  } catch (err) {
+      console.error('❌ Failed to update trusted PKP:', err);
+      // Don't exit, just warn
+  }
+
+  // 8. Update Tests
   console.log('\n🧪 Updating Test Files...');
   await updateTestFile(join(ROOT_DIR, 'tests/test-exercise-grader-say-it-back.mjs'), exerciseCid, 'voxtral_api_key_exercise.json');
   await updateTestFile(join(ROOT_DIR, 'tests/test-karaoke-grader-ngrok.mjs'), karaokeCid, 'voxtral_api_key_karaoke.json', 'openrouter_api_key_karaoke.json');
@@ -337,6 +388,55 @@ async function updateTestFile(filePath, cid, keyFile1, keyFile2) {
   }
 
   await writeFile(filePath, content);
+}
+
+async function updateTrustedPKP(newPKPAddress) {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+        console.warn('   Skipping contract update (no PRIVATE_KEY)');
+        return;
+    }
+
+    const account = privateKeyToAccount(privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`);
+    const wallet = createWalletClient({
+        account,
+        chain: LENS_TESTNET,
+        transport: http(),
+    });
+    const publicClient = createPublicClient({
+        chain: LENS_TESTNET,
+        transport: http(),
+    });
+
+    const updateContract = async (address, name) => {
+        console.log(`   Checking ${name}...`);
+        const contract = getContract({ address, abi: CONTRACT_ABI, client: { public: publicClient, wallet } });
+
+        try {
+            const owner = await contract.read.owner();
+            if (owner.toLowerCase() !== account.address.toLowerCase()) {
+                console.log(`   ⚠️ Not owner of ${name}. Owner: ${owner}`);
+                return;
+            }
+
+            const currentPKP = await contract.read.trustedPKP();
+            if (currentPKP.toLowerCase() === newPKPAddress.toLowerCase()) {
+                console.log(`   ✅ ${name} already has correct PKP`);
+                return;
+            }
+
+            console.log(`   Updating ${name} to ${newPKPAddress}...`);
+            const hash = await contract.write.setTrustedPKP([newPKPAddress]);
+            console.log(`   Tx Sent: ${hash}`);
+            await publicClient.waitForTransactionReceipt({ hash });
+            console.log(`   ✅ ${name} updated!`);
+        } catch (e) {
+            console.error(`   ❌ Failed to update ${name}: ${e.message}`);
+        }
+    };
+
+    await updateContract(EXERCISE_EVENTS_ADDRESS, 'ExerciseEvents');
+    await updateContract(KARAOKE_EVENTS_ADDRESS, 'KaraokeEvents');
 }
 
 main().catch((err) => {

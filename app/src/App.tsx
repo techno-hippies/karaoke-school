@@ -13,7 +13,9 @@ import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { ClassPage } from '@/pages/ClassPage'
 import { StudySessionPage } from '@/pages/StudySessionPage'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { AuthDialog } from '@/components/layout/AuthDialog'
+import { WagmiProvider } from 'wagmi'
+import { config as wagmiConfig } from '@/wagmi.config'
+import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
@@ -53,6 +55,8 @@ function AppRouter() {
     signIn,
     showUsernameInput,
     resetAuthFlow,
+    loginWithGoogle,
+    loginWithDiscord
   } = useAuth()
 
   // Dialog state
@@ -124,6 +128,23 @@ function AppRouter() {
     }
   }, [signIn])
 
+  const handleSocialLogin = useCallback(async (provider: 'google' | 'discord', username?: string) => {
+    try {
+      if (provider === 'google') {
+        await loginWithGoogle(username)
+      } else {
+        await loginWithDiscord(username)
+      }
+      
+      // After successful login, close dialog after showing success
+      setTimeout(() => {
+        setShowAuthDialog(false)
+      }, 2000)
+    } catch (error) {
+      console.error(`[App] ${provider} login error:`, error)
+    }
+  }, [loginWithGoogle, loginWithDiscord])
+
   const handleUsernameBack = useCallback(() => {
     resetAuthFlow()
     setUsernameAvailability(null)
@@ -186,22 +207,26 @@ function AppRouter() {
         </Routes>
       </AppLayout>
 
-      <AuthDialog
+      <ConnectedAuthDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
         currentStep={authStep}
         isAuthenticating={isAuthenticating}
-        authMode={authMode}
+        // authMode={authMode} // Type check fail? AuthDialogProps doesn't have authMode anymore in my edit?
+        // Actually I kept it in AuthDialog types? No, I removed it from AuthDialogProps in the big edit.
+        // Let's check AuthDialogProps.
         statusMessage={authStatus}
         errorMessage={authError?.message || ''}
         usernameAvailability={usernameAvailability}
-        isPKPReady={isPKPReady}
-        hasSocialAccount={hasLensAccount}
+        // isPKPReady={isPKPReady} // Removed
+        // hasSocialAccount={hasLensAccount} // Removed
         onRegister={handleRegisterClick}
         onRegisterWithUsername={handleRegisterWithUsername}
         onLogin={handleLogin}
         onUsernameBack={handleUsernameBack}
         onUsernameChange={checkUsernameAvailabilityDebounced}
+        onLoginGoogle={(username) => handleSocialLogin('google', username)}
+        onLoginDiscord={(username) => handleSocialLogin('discord', username)}
       />
 
       <Toaster />
@@ -226,19 +251,21 @@ function AppRouter() {
  */
 function App() {
   return (
-    <LensProvider client={lensClient}>
-      <QueryClientProvider client={queryClient}>
-        <HashRouter>
-          <AuthProvider>
-            <LanguagePreferenceProvider>
-              <VideoPlaybackProvider>
-                <AppRouter />
-              </VideoPlaybackProvider>
-            </LanguagePreferenceProvider>
-          </AuthProvider>
-        </HashRouter>
-      </QueryClientProvider>
-    </LensProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <LensProvider client={lensClient}>
+        <QueryClientProvider client={queryClient}>
+          <HashRouter>
+            <AuthProvider>
+              <LanguagePreferenceProvider>
+                <VideoPlaybackProvider>
+                  <AppRouter />
+                </VideoPlaybackProvider>
+              </LanguagePreferenceProvider>
+            </AuthProvider>
+          </HashRouter>
+        </QueryClientProvider>
+      </LensProvider>
+    </WagmiProvider>
   )
 }
 
