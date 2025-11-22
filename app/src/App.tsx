@@ -100,7 +100,7 @@ function AppRouter() {
           <Route path="/song/grc20/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
 
           <Route path="/wallet" element={<WalletPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-          <Route path="/profile" element={<ProfilePageContainer />} />
+          <Route path="/profile" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>

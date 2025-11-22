@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { House, Exam, User, MagnifyingGlass, Wallet } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
@@ -17,6 +18,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   walletAddress,
   onConnectWallet
 }) => {
+  const { t } = useTranslation()
+
   return (
     <div className="max-md:hidden fixed left-0 top-0 h-full w-80 bg-sidebar border-r border-border z-50">
       <div className="flex flex-col h-full">
@@ -37,7 +40,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <House className="w-7 h-7 flex-shrink-0" />
-            <span>Home</span>
+            <span>{t('nav.home')}</span>
           </Button>
 
           <Button
@@ -50,7 +53,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <MagnifyingGlass className="w-7 h-7 flex-shrink-0" />
-            <span>Search</span>
+            <span>{t('nav.search')}</span>
           </Button>
 
           <Button
@@ -63,7 +66,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <Exam className="w-7 h-7 flex-shrink-0" />
-            <span>Study</span>
+            <span>{t('nav.study')}</span>
           </Button>
 
           <Button
@@ -76,7 +79,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <Wallet className="w-7 h-7 flex-shrink-0" />
-            <span>Wallet</span>
+            <span>{t('nav.wallet')}</span>
           </Button>
 
           <Button
@@ -89,7 +92,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             }`}
           >
             <User className="w-7 h-7 flex-shrink-0" />
-            <span>Profile</span>
+            <span>{t('nav.profile')}</span>
           </Button>
         </nav>
 
@@ -115,7 +118,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               variant="default"
               className="w-full px-6 py-4 h-auto text-base md:text-lg lg:text-xl"
             >
-              Connect
+              {t('auth.connect')}
             </Button>
           )}
         </div>

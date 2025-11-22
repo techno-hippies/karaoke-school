@@ -33,7 +33,7 @@ const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = 'https://rpc.testnet.lens.xyz';
 
 // PKP Configuration (must match contract's trustedPKP)
-const PKP_PUBLIC_KEY = '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e';
+const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
 
 // ============================================================
 // MAIN EXECUTION
@@ -69,7 +69,11 @@ const go = async () => {
 
     // Metadata
     attemptId,        // Unique attempt identifier
-    metadataUri       // Grove URI for result metadata
+    metadataUri,      // Grove URI for result metadata
+
+    // Debug / overrides
+    txDebugStage,     // Optional: 'simulate' | 'prepare' to aid debugging
+    rpcUrlOverride    // Optional: override RPC URL (e.g., via Lit.Actions.getRpcUrl)
   } = jsParams || {};
 
   try {
@@ -142,7 +146,9 @@ async function handleSayItBack({
   voxtralEncryptedKey,
   attemptId,
   metadataUri,
-  testMode
+  testMode,
+  txDebugStage,
+  rpcUrlOverride
 }) {
   const startTime = Date.now();
   let success = false;
@@ -281,7 +287,9 @@ async function handleSayItBack({
         learner: userAddress,
         score: calculatedScore * 100, // Convert to basis points
         rating: scoreToRatingNumeric(calculatedScore),
-        metadataUri: metadataUri || `grove://${generateRandomCID()}`
+        metadataUri: metadataUri || `grove://${generateRandomCID()}`,
+        txDebugStage,
+        rpcUrlOverride
       });
       success = true;
     } catch (txError) {
@@ -418,8 +426,8 @@ async function handleMultipleChoice({
  * Submit Say It Back attempt to ExerciseEvents contract
  * Function: gradeSayItBackAttempt(attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri)
  */
-async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri }) {
-  const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
+async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride }) {
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrlOverride || LENS_TESTNET_RPC);
 
   // Create contract instance
   const exerciseEventsABI = [
@@ -454,15 +462,15 @@ async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineInde
   ]);
 
   // Submit via zkSync transaction
-  return await submitZkSyncTransaction(gradeTxData, provider);
+  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage);
 }
 
 /**
  * Submit Multiple Choice attempt to ExerciseEvents contract
  * Function: gradeMultipleChoiceAttempt(attemptId, questionId, learner, score, rating, metadataUri)
  */
-async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, score, rating, metadataUri }) {
-  const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
+async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride }) {
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrlOverride || LENS_TESTNET_RPC);
 
   // Create contract instance
   const exerciseEventsABI = [
@@ -493,14 +501,14 @@ async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, sco
   ]);
 
   // Submit via zkSync transaction
-  return await submitZkSyncTransaction(gradeTxData, provider);
+  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage);
 }
 
 /**
  * Submit zkSync type 0x71 transaction (16-field RLP encoding)
  * CRITICAL: This is the working pattern from say-it-back-v1.js - DO NOT MODIFY
  */
-async function submitZkSyncTransaction(txData, provider) {
+async function submitZkSyncTransaction(txData, provider, txDebugStage) {
   // Get PKP address
   const pkpEthAddress = ethers.utils.computeAddress(PKP_PUBLIC_KEY);
 
@@ -515,8 +523,25 @@ async function submitZkSyncTransaction(txData, provider) {
     });
     console.log(' Simulation succeeded:', simResult);
   } catch (simError) {
-    console.error('L Simulation failed with reason:', simError.reason || simError.message || simError);
-    throw new Error(`Contract simulation failed: ${simError.reason || simError.message}`);
+    let simDetails = simError.reason || simError.message || simError;
+    try {
+      const extra = {
+        code: simError.code,
+        data: simError.data,
+        body: simError.body,
+        error: simError.error?.message || simError.error
+      };
+      simDetails = `${simDetails} | debug=${JSON.stringify(extra)}`;
+    } catch (_) {
+      // ignore JSON issues
+    }
+    console.error('L Simulation failed with reason:', simDetails);
+    throw new Error(`Contract simulation failed: ${simDetails}`);
+  }
+
+  // Debug stage: return early after simulation
+  if (txDebugStage === 'simulate') {
+    return 'DEBUG_SIMULATION_OK';
   }
 
   const nonce = await provider.getTransactionCount(pkpEthAddress);
@@ -660,6 +685,16 @@ async function submitZkSyncTransaction(txData, provider) {
 
   // Prepend type 0x71
   const signedTxSerialized = '0x71' + signedRlp.slice(2);
+
+  // Debug stage: return prepared tx without submitting
+  if (txDebugStage === 'prepare') {
+    return JSON.stringify({
+      stage: 'prepare',
+      nonce: nonce.toString(),
+      gasPrice: gasPrice.toString(),
+      signedTxSerialized
+    });
+  }
 
   console.log('Built zkSync type 0x71 transaction');
 

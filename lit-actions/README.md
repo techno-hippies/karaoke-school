@@ -4,81 +4,35 @@
 
 ---
 
-## 📁 Structure
+## Structure
 
 ```
 lit-actions/
 ├── actions/
-│   ├── karaoke-grader-v1.js       # Aggregate performance grader
-│   └── exercise-grader-v1.js      # Line-level exercise grader
+│   ├── karaoke-grader-v1.js    # Aggregate performance grader
+│   └── exercise-grader-v1.js   # Line-level exercise grader
 ├── scripts/
-│   ├── upload-lit-action.mjs      # Upload to IPFS via Pinata
-│   ├── encrypt-voxtral-key.mjs    # Encrypt Voxtral API key
-│   ├── encrypt-openrouter-key.mjs # Encrypt OpenRouter API key
-│   ├── quick-encrypt.mjs          # Batch encrypt both keys
-│   └── add-pkp-permission.mjs     # Add PKP permissions
-├── keys/                          # Encrypted API keys (git ignored)
-│   ├── exercise/voxtral_api_key_exercise.json
-│   └── karaoke/{voxtral_api_key_karaoke.json,openrouter_api_key_karaoke.json}
-├── tests/                         # Test scripts (grouped per action)
-├── AGENTS.md                      # Service integration guide
-└── README.md                      # This file
+│   ├── setup.ts                # Complete deployment workflow
+│   ├── upload-action.ts        # Upload to IPFS via Pinata
+│   ├── add-permission.ts       # Add PKP permissions
+│   ├── encrypt-key.ts          # Encrypt API keys
+│   ├── verify.ts               # Verify keys & permissions
+│   ├── mint-pkp.ts             # Mint new PKP
+│   └── check-balance.ts        # Check wallet balance
+├── tests/
+│   ├── shared/env.ts           # Centralized config (Env module)
+│   ├── karaoke/                # Karaoke grader tests
+│   ├── exercise/               # Exercise grader tests
+│   └── fixtures/               # Test audio files
+├── keys/{dev,test}/            # Encrypted API keys (git ignored)
+├── cids/{dev,test}.json        # Action CIDs per environment
+├── output/                     # PKP credentials, auth storage
+└── config/lit-envs.json        # Environment configuration
 ```
 
 ---
 
-## 🚀 Current Status
-
-### Karaoke Grader (karaoke-grader-v1.js)
-**CID**: `QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq`
-**Contract**: KaraokeEvents (`0x51aA6987130AA7E4654218859E075D8e790f4409`)
-**Status**: ✅ **Production-ready** (except PKP signing - see below)
-
-**Features**:
-- Voxtral STT transcription with encrypted API key
-- Gemini AI pronunciation grading via OpenRouter
-- zkSync type 0x71 transaction encoding for Lens Testnet
-- Contract simulation and transaction preparation
-- Debug stages: simulate, prepare, sign
-- Metrics tracking for all operations
-
-### Exercise Grader (exercise-grader-v1.js)
-**CID**: `QmbV3NTurgXwMqkaAD1z8t43iWAPNoBMHW9cMWk1LjTbfB`
-**Contract**: ExerciseEvents (`0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`)
-**Status**: ✅ **Production-ready**
-
-**Features**:
-- Say It Back: Voxtral transcription + Levenshtein scoring
-- Multiple Choice: Answer validation
-- FSRS rating calculation (1-4)
-- Transaction deduplication with `Lit.Actions.runOnce()`
-
----
-
-## ⚠️ PKP Signing Network Degradation
-
-**Current Issue**: PKP signing is degraded on both Lit testnets
-
-| Component | Expected | Actual | Status |
-|-----------|----------|--------|--------|
-| Key Decryption | ~50ms | ~50ms | ✅ Works |
-| Voxtral STT | ~500-1000ms | ~500-1000ms | ✅ Works |
-| AI Grading | ~660-750ms | ~660-750ms | ✅ Works |
-| Contract Simulation | ~150ms | ~150ms | ✅ Works |
-| Transaction Prep | ~440ms | ~440ms | ✅ Works |
-| **PKP Signing** | **1-2s** | **60+ seconds** | ❌ **Timeout** |
-
-**Root Cause**: Lit Protocol network performance degradation on nagaDev and nagaTest networks
-
-**Workarounds**:
-- Use `skipTx: true` to test grading without transaction submission
-- Use `txDebugStage: "simulate"` to test contract simulation
-- Use `txDebugStage: "prepare"` to test transaction preparation
-- Use `testMode: true` in exercise grader tests
-
----
-
-## 🔧 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -88,133 +42,50 @@ bun install
 
 # Set environment variables
 cp .env.example .env
-# Edit .env with your API keys
+# Edit with: VOXTRAL_API_KEY, OPENROUTER_API_KEY, PINATA_JWT, PRIVATE_KEY
 ```
 
-Required environment variables:
-```bash
-VOXTRAL_API_KEY=your_voxtral_key      # Note: VOXTRAL not VOXSTRAL
-OPENROUTER_API_KEY=your_openrouter_key
-PINATA_JWT=your_pinata_jwt
-```
-
-### Test Current Deployment
+### Run Tests
 
 ```bash
 # Load environment
 set -a && source .env && set +a
 
-# Test karaoke grader (skip PKP signing)
-KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
-KARAOKE_SKIP_TX=true \
-bun tests/debug/test-openrouter-minimal.mjs
+# Karaoke grader (full flow with signing)
+LIT_NETWORK=naga-dev bun tests/karaoke/test-karaoke-grader.ts
 
-# Test exercise grader
-bun tests/test-exercise-grader-say-it-back.mjs
-```
-
-**Expected Output**:
-```json
-{
-  "success": true,
-  "similarityScore": 9850,
-  "grade": "Excellent",
-  "executionTime": 859,
-  "metrics": {
-    "transcriptionMs": 0,
-    "geminiMs": 712
-  }
-}
+# Exercise grader
+LIT_NETWORK=naga-dev bun tests/exercise/test-exercise-grader-say-it-back.ts
 ```
 
 ### Deploy New Version
 
 ```bash
-# 1. Upload Lit Action
-node scripts/upload-lit-action.mjs actions/karaoke-grader-v1.js "Description"
-# Returns: QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# Complete workflow (upload, add permission, encrypt keys)
+bun scripts/setup.ts karaoke
+bun scripts/setup.ts exercise
+bun scripts/setup.ts --all
 
-# 2. Update CID in scripts/quick-encrypt.mjs
-# Edit line 12: const CID = 'QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
-
-# 3. Encrypt API keys
-node scripts/quick-encrypt.mjs
-# Saves to: keys/voxtral_api_key.json, keys/openrouter_api_key.json
-
-# 4. Add PKP permission
-bun scripts/add-pkp-permission.mjs QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX nagaTest
-
-# 5. Test
-KARAOKE_GRADER_CID=QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
-KARAOKE_SKIP_TX=true \
-bun tests/debug/test-openrouter-minimal.mjs
+# Or individual steps:
+bun scripts/upload-action.ts karaoke
+bun scripts/add-permission.ts QmXxx...
+bun scripts/encrypt-key.ts --action=karaoke
+bun scripts/verify.ts
 ```
 
 ---
 
-## 🧪 Testing
+## Networks & Environments
 
-### Debug Stages
+| Env | Lit Network | Key Folder | Notes |
+|-----|-------------|------------|-------|
+| naga-dev | nagaDev | keys/dev/ | Free, for development |
+| naga-test | nagaTest | keys/test/ | Paid, requires tstLPX |
 
-The karaoke grader supports debug stages for incremental testing:
+Set via `LIT_NETWORK` env var or defaults to `naga-dev`.
 
-**Skip Transaction** (fastest):
-```bash
-KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
-KARAOKE_SKIP_TX=true \
-bun tests/debug/test-openrouter-minimal.mjs
-```
-- Tests: Decryption, transcription, AI grading
-- Skips: Contract interaction
-- Time: ~860ms
+### Contracts (Lens Testnet - 37111)
 
-**Simulate** (contract validation):
-```bash
-KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
-KARAOKE_TX_STAGE=simulate \
-bun tests/debug/test-openrouter-minimal.mjs
-```
-- Tests: Everything + contract simulation (eth_call)
-- Skips: Transaction preparation, PKP signing, submission
-- Time: ~1013ms
-
-**Prepare** (full transaction prep):
-```bash
-KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
-KARAOKE_TX_STAGE=prepare \
-bun tests/debug/test-openrouter-minimal.mjs
-```
-- Tests: Everything + nonce/gas fetching + transaction encoding
-- Skips: PKP signing, submission
-- Time: ~1234ms
-
-### Test Parameters
-
-**Override Transcript** (skip Voxtral API):
-```bash
-KARAOKE_TRANSCRIPT_OVERRIDE_PATH=tests/fixtures/transcript-override.txt \
-bun tests/debug/test-openrouter-minimal.mjs
-```
-
-**Test with Real Audio**:
-```bash
-# Remove transcript override
-KARAOKE_GRADER_CID=QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq \
-KARAOKE_SKIP_TX=true \
-KARAOKE_AUDIO_PATH=path/to/audio.mp3 \
-bun tests/debug/test-openrouter-minimal.mjs
-```
-
----
-
-## 🌐 Networks & Contracts
-
-### Lens Testnet
-- **Chain ID**: 37111
-- **RPC**: https://rpc.testnet.lens.xyz
-- **Explorer**: https://explorer.testnet.lens.xyz
-
-**Deployed Contracts**:
 ```typescript
 const CONTRACTS = {
   KaraokeEvents: "0x51aA6987130AA7E4654218859E075D8e790f4409",
@@ -222,147 +93,85 @@ const CONTRACTS = {
 }
 ```
 
-### Lit Protocol
-- **Network**: nagaTest (testnet)
-- **PKP Address**: `0x4e8dFa140265BEC567Ab22f6f882C4F587dBB889`
-- **Status**: ⚠️ PKP signing degraded (60+ second latency)
+---
+
+## Scripts Reference
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `setup.ts` | Full deployment workflow | `bun scripts/setup.ts karaoke` |
+| `upload-action.ts` | Upload to IPFS | `bun scripts/upload-action.ts karaoke` |
+| `add-permission.ts` | Add PKP permission | `bun scripts/add-permission.ts QmXxx...` |
+| `encrypt-key.ts` | Encrypt API keys | `bun scripts/encrypt-key.ts` |
+| `verify.ts` | Verify setup | `bun scripts/verify.ts --all` |
+| `mint-pkp.ts` | Mint new PKP | `bun scripts/mint-pkp.ts` |
 
 ---
 
-## 🔐 Security
+## Testing
 
-### API Key Encryption
+### Environment Variables
 
-**How it Works**:
-1. Keys encrypted with Lit Protocol
-2. Access control tied to specific CID
-3. Old CIDs cannot decrypt new keys
-4. Decryption happens inside Lit nodes (never exposed)
-
-**Access Control Conditions**:
-```javascript
-{
-  conditionType: 'evmBasic',
-  contractAddress: '',
-  standardContractType: '',
-  chain: 'ethereum',
-  method: '',
-  parameters: [':currentActionIpfsId'],
-  returnValueTest: {
-    comparator: '=',
-    value: 'QmWAKj9fULe2TVnkd9z49WadxrL957DSmDKquL75jcK9aq'
-  }
-}
-```
-
-### PKP Permissions
-
-**Manage Permissions**:
 ```bash
-# Add permission for new Lit Action
-bun scripts/add-pkp-permission.mjs <CID> nagaTest
+# Skip transaction (test grading only)
+KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
 
-# Check current permissions
-# (requires Lit Protocol SDK exploration tools)
+# Debug stages
+KARAOKE_TX_STAGE=simulate  # Test contract simulation
+KARAOKE_TX_STAGE=prepare   # Test tx preparation
+
+# Override transcript (skip STT)
+KARAOKE_TRANSCRIPT_OVERRIDE_PATH=tests/fixtures/transcript.txt
+
+# Use local code instead of IPFS
+USE_LOCAL_CODE=1
 ```
 
-**Contract Integration**:
-- Only trusted PKP can call grading functions
-- PKP address configured in smart contracts
-- Immutable performance records on-chain
+### Test Files
+
+- `tests/karaoke/test-karaoke-grader.ts` - Full karaoke flow
+- `tests/karaoke/test-karaoke-stt.ts` - STT only
+- `tests/karaoke/test-karaoke-gemini.ts` - Gemini grading only
+- `tests/exercise/test-exercise-grader-say-it-back.ts` - Say It Back
+- `tests/exercise/test-exercise-grader-trivia-quiz.ts` - Multiple choice
+- `tests/exercise/test-exercise-grader-translation-quiz.ts` - Translation
 
 ---
 
-## 📊 Performance Metrics
-
-Based on recent test runs with `skipTx=true`:
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Key Decryption | ~50ms | Both Voxtral + OpenRouter |
-| Transcription | 0ms | Using override in tests |
-| AI Grading | ~660-750ms | Gemini 2.0 Flash via OpenRouter |
-| Total (no tx) | ~860ms | End-to-end grading |
-
-With contract interaction:
-
-| Stage | Total Time | Added Time |
-|-------|------------|------------|
-| simulate | ~1013ms | +153ms (eth_call) |
-| prepare | ~1234ms | +374ms (nonce + gas + encoding) |
-| sign | 60+ seconds | ❌ Timeout (network issue) |
-
----
-
-## 🆘 Troubleshooting
+## Troubleshooting
 
 ### "Access control conditions check failed"
-**Cause**: Keys encrypted for different CID
-**Fix**:
+Keys encrypted for different CID. Re-encrypt:
 ```bash
-# Update CID in scripts/quick-encrypt.mjs
-# Then re-encrypt
-node scripts/quick-encrypt.mjs
+bun scripts/encrypt-key.ts
 ```
 
-### "Request timed out" / "PKP signing timeout"
-**Cause**: PKP signing network degraded
-**Fix**: Use workarounds
+### "PKP signing timeout"
+Use workarounds:
 ```bash
-# Skip transaction
-KARAOKE_SKIP_TX=true bun tests/debug/test-openrouter-minimal.mjs
-
-# Or test up to simulation
-KARAOKE_TX_STAGE=simulate bun tests/debug/test-openrouter-minimal.mjs
+KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
 ```
 
-### "Cannot find module"
-**Cause**: Missing dependencies
-**Fix**:
+### Missing keys
+Verify setup:
 ```bash
-bun install
+bun scripts/verify.ts
 ```
-
-### "VOXSTRAL is not defined" or similar
-**Cause**: Wrong API name (common mistake)
-**Fix**: It's VOXTRAL not VOXSTRAL
-```bash
-# Correct
-echo $VOXTRAL_API_KEY
-
-# Wrong
-echo $VOXSTRAL_API_KEY  # ❌ Has extra S
-```
-
-**Memory Aid**: VOXTRAL = VOX (voice) + TR (transcribe) + AL (all)
 
 ---
 
-## 📝 Recent Updates
+## Security
 
-**2025-11-17**:
-- ✅ Consolidated all .md files into AGENTS.md and README.md
-- ✅ Fixed txDebugStage scope bug in karaoke-grader
-- ✅ Added runOnce pattern for transaction deduplication
-- ✅ Created quick-encrypt.mjs helper script
-- ✅ Documented PKP signing network degradation
-- ✅ Added comprehensive testing guides with all debug stages
+### API Key Encryption
+- Keys encrypted with Lit Protocol
+- Access control tied to specific CID
+- Old CIDs cannot decrypt new keys
+- Decryption inside Lit nodes only
 
-**2025-11-05**:
-- ✅ Fixed VOXSTRAL → VOXTRAL naming consistency
-- ✅ Re-encrypted keys for correct spelling
-- ✅ Updated all scripts and documentation
+### PKP Permissions
+- Only permitted CIDs can use PKP
+- Contracts only accept trusted PKP signatures
 
 ---
 
-## 📚 Additional Documentation
-
-- **[AGENTS.md](./AGENTS.md)** - Service integration guide with detailed flow diagrams
-- **[../AGENTS.md](../AGENTS.md)** - Full project integration guide
-- **[scripts/](./scripts/)** - Helper scripts with inline documentation
-
----
-
-**Status**: ✅ Code production-ready, waiting for PKP signing network recovery
-
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-11-22

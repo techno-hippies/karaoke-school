@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudyCards } from '@/hooks/useStudyCards'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,7 @@ function ClassPageLoadingSkeleton() {
  * - Progress toward daily goal
  */
 export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isPKPReady, isAuthenticating } = useAuth()
@@ -86,7 +88,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
   }, [studyStats])
 
   const hasCards = dueCards.length > 0
-  const studyButtonLabel = songId ? 'Study Song' : 'Study All Due Cards'
+  const studyButtonLabel = songId ? t('study.studySong') : t('study.studyAllDue')
 
   const handleStudyClick = () => {
     if (songId) {
@@ -103,8 +105,8 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
       acc[key] = {
         grc20WorkId: key,
         spotifyTrackId: card.spotifyTrackId,
-        title: card.title || 'Unknown Song',
-        artist: card.artist || 'Unknown Artist',
+        title: card.title || t('study.unknownSong'),
+        artist: card.artist || t('study.unknownArtist'),
         artworkUrl: card.artworkUrl,
         cards: []
       }
@@ -191,9 +193,9 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
           {/* Statistics Grid - 3 Box Model (Preview with zeros) */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'New', count: 0, color: 'text-green-500', tooltip: 'Never studied 🌱' },
-              { label: 'Learning', count: 0, color: 'text-blue-500', tooltip: 'In progress 💧' },
-              { label: 'Due Today', count: 0, color: 'text-red-500', tooltip: 'Study now ⚡' },
+              { label: t('study.new'), count: 0, color: 'text-green-500' },
+              { label: t('study.learning'), count: 0, color: 'text-blue-500' },
+              { label: t('study.dueToday'), count: 0, color: 'text-red-500' },
             ].map((stat) => (
               <Card key={stat.label} className="p-4 text-center space-y-2">
                 <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
@@ -208,15 +210,15 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
             disabled
             className="w-full h-12 text-base"
           >
-            Study
+            {t('study.studyButton')}
           </Button>
 
           {/* Sign Up Call-to-Action */}
           <Card className="p-8 text-center space-y-4 bg-muted">
-            <h2 className="text-2xl font-bold">Sign Up</h2>
-            <p className="text-muted-foreground">Karaoke to your favorite songs for free!</p>
+            <h2 className="text-2xl font-bold">{t('study.signUp')}</h2>
+            <p className="text-muted-foreground">{t('study.signUpDescription')}</p>
             <Button onClick={onConnectWallet || (() => navigate('/'))}>
-              Sign Up
+              {t('study.signUp')}
             </Button>
           </Card>
         </div>
@@ -247,9 +249,9 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
         {/* Statistics Grid - 3 Box Model */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'New', count: stats.new, color: 'text-green-500', tooltip: 'Never studied 🌱' },
-            { label: 'Learning', count: stats.learning, color: 'text-blue-500', tooltip: 'In progress 💧' },
-            { label: 'Due Today', count: stats.dueToday, color: 'text-red-500', tooltip: 'Study now ⚡' },
+            { label: t('study.new'), count: stats.new, color: 'text-green-500' },
+            { label: t('study.learning'), count: stats.learning, color: 'text-blue-500' },
+            { label: t('study.dueToday'), count: stats.dueToday, color: 'text-red-500' },
           ].map((stat) => (
             <Card key={stat.label} className="p-4 text-center space-y-2">
               <div className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</div>
@@ -270,10 +272,10 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
         ) : (
           <Card className="p-8 text-center space-y-4 bg-muted">
             <div className="text-4xl">🎉</div>
-            <h3 className="text-lg font-semibold">All Caught Up!</h3>
-            <p className="text-muted-foreground">No cards due today. Come back tomorrow.</p>
+            <h3 className="text-lg font-semibold">{t('study.allCaughtUp')}</h3>
+            <p className="text-muted-foreground">{t('study.noCardsDueToday')}</p>
             <Button variant="outline" onClick={() => navigate('/')}>
-              Browse Songs
+              {t('study.browseSongs')}
             </Button>
           </Card>
         )}
@@ -281,7 +283,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
         {/* Songs Due */}
         {hasCards && songsList.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase">Songs ({songsList.length})</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase">{t('study.songsCount', { count: songsList.length })}</h3>
             <ItemGroup className="gap-2">
               {songsList.map((song) => (
                 <SongItem

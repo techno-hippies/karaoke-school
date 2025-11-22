@@ -1,5 +1,6 @@
 import { ArrowRight, Flag } from '@phosphor-icons/react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -22,18 +23,20 @@ export function NavigationControls({
   onNext,
   onReport,
   disabled = false,
-  label = 'Next',
+  label,
   exerciseKey,
   className,
 }: NavigationControlsProps) {
+  const { t } = useTranslation()
   const [showReportMenu, setShowReportMenu] = useState(false)
+  const displayLabel = label || t('study.next')
 
   const reportReasons = [
-    { id: 'incorrect_answer', label: 'Incorrect answer' },
-    { id: 'unclear_question', label: 'Unclear question' },
-    { id: 'technical_issue', label: 'Technical issue' },
-    { id: 'inappropriate_content', label: 'Inappropriate content' },
-    { id: 'other', label: 'Other' },
+    { id: 'incorrect_answer', label: t('study.incorrectAnswer') },
+    { id: 'unclear_question', label: t('study.unclearQuestion') },
+    { id: 'technical_issue', label: t('study.technicalIssue') },
+    { id: 'inappropriate_content', label: t('study.inappropriateContent') },
+    { id: 'other', label: t('study.other') },
   ]
 
   const handleReport = (reason: string) => {
@@ -49,7 +52,7 @@ export function NavigationControls({
         // Report menu
         <div className="space-y-2">
           <div className="text-base text-muted-foreground mb-3">
-            What's wrong with this exercise?
+            {t('study.whatsWrong')}
           </div>
           {reportReasons.map((reason) => (
             <button
@@ -64,7 +67,7 @@ export function NavigationControls({
             onClick={() => setShowReportMenu(false)}
             className="w-full p-3 text-center text-muted-foreground hover:text-foreground transition-colors text-base"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       ) : (
@@ -76,7 +79,7 @@ export function NavigationControls({
               variant="outline"
               size="lg"
               className="h-12"
-              aria-label="Report issue"
+              aria-label={t('study.reportIssue')}
             >
               <Flag size={20} weight="bold" />
             </Button>
@@ -88,7 +91,7 @@ export function NavigationControls({
             size="lg"
             className="flex-1 h-12"
           >
-            {label}
+            {displayLabel}
             <ArrowRight size={20} weight="bold" />
           </Button>
         </div>

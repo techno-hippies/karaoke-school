@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Copy } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
@@ -128,6 +129,7 @@ export function WalletPageView({
   onPurchaseUsername,
   isLoading = false,
 }: WalletPageViewProps) {
+  const { t } = useTranslation()
   // Group tokens by network
   const tokensByNetwork = tokens.reduce((acc, token) => {
     if (!acc[token.network]) {
@@ -152,7 +154,7 @@ export function WalletPageView({
     return (
       <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12 space-y-8">
         <div>
-          <h2 className="text-base font-medium text-muted-foreground mb-3">Wallet Address</h2>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">{t('wallet.address')}</h2>
           <div className="flex items-center gap-3">
             <Skeleton className="flex-1 h-11 rounded-full" />
             <Skeleton className="w-11 h-11 rounded-full" />
@@ -160,7 +162,7 @@ export function WalletPageView({
         </div>
 
         <div>
-          <h2 className="text-base font-medium text-muted-foreground mb-3">Username</h2>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">{t('wallet.username')}</h2>
           <div className="space-y-3">
             <Skeleton className="h-10 rounded-lg" />
             <Skeleton className="h-10 rounded-lg" />
@@ -168,7 +170,7 @@ export function WalletPageView({
         </div>
 
         <div>
-          <h2 className="text-base font-medium text-muted-foreground mb-3">Balances</h2>
+          <h2 className="text-base font-medium text-muted-foreground mb-3">{t('wallet.balances')}</h2>
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, index) => (
               <TokenSkeleton key={`wallet-skeleton-${index}`} />
@@ -183,7 +185,7 @@ export function WalletPageView({
     <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
       {/* Wallet Address */}
       <div className="mb-8">
-        <h2 className="text-base font-medium text-muted-foreground mb-3">Wallet Address</h2>
+        <h2 className="text-base font-medium text-muted-foreground mb-3">{t('wallet.address')}</h2>
         <div className="flex items-center gap-3">
           <div className="flex-1 w-0 bg-secondary rounded-full h-11 px-4 flex items-center">
             <div className="font-mono text-base text-foreground">
@@ -211,7 +213,7 @@ export function WalletPageView({
 
       {/* Token Balances - Grouped by Network */}
       <div>
-        <h2 className="text-base font-medium text-muted-foreground mb-3">Balances</h2>
+        <h2 className="text-base font-medium text-muted-foreground mb-3">{t('wallet.balances')}</h2>
         <div className="space-y-6">
           {sortedNetworks.map((network) => (
             <div key={network} className="space-y-2">

@@ -46,15 +46,10 @@ export function SongItem({
 }: SongItemProps) {
 
   return (
-    <Item variant="default" asChild className={cn("gap-3 px-4 py-3", className)}>
+    <Item variant="default" asChild className={cn("gap-3 px-0 py-3", className)}>
       <button
         onClick={onClick}
-        className={cn(
-          "w-full cursor-pointer transition-colors rounded-full",
-          isHighlighted
-            ? "bg-primary/10 hover:bg-primary/15"
-            : "bg-muted/30 hover:bg-muted/40"
-        )}
+        className="w-full cursor-pointer"
       >
         {/* Rank */}
         {rank !== undefined && (

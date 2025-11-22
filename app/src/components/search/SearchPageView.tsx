@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from '@phosphor-icons/react'
 import { SongItem } from '@/components/ui/SongItem'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -52,6 +53,7 @@ export function SearchPageView({
   onSongClick,
   initialSearchQuery = '',
 }: SearchPageViewProps) {
+  const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [hasSearched, setHasSearched] = useState(!!initialSearchQuery)
 
@@ -79,15 +81,6 @@ export function SearchPageView({
 
   return (
     <div className='min-h-screen bg-background flex flex-col'>
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between px-4 py-4 border-b border-border">
-        <div className="w-12" />
-        <h1 className="text-center font-semibold text-base md:text-xl text-foreground flex-1">
-          Search
-        </h1>
-        <div className="w-12" />
-      </div>
-
       {/* Content area */}
       <div className="flex-1 flex flex-col min-h-0 p-4 max-w-6xl mx-auto w-full">
         {/* Search */}
@@ -95,7 +88,7 @@ export function SearchPageView({
           <InputGroup>
             <InputGroupInput
               type="text"
-              placeholder="Search songs..."
+              placeholder={t('search.placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
@@ -111,7 +104,7 @@ export function SearchPageView({
                   onClick={handleClearSearch}
                 >
                   <X className="w-4 h-4 mr-1" />
-                  Clear
+                  {t('search.clear')}
                 </InputGroupButton>
               ) : (
                 <InputGroupButton
@@ -119,7 +112,7 @@ export function SearchPageView({
                   onClick={handleSearch}
                   disabled={!searchQuery.trim()}
                 >
-                  Search
+                  {t('nav.search')}
                 </InputGroupButton>
               )}
             </InputGroupAddon>
@@ -147,7 +140,7 @@ export function SearchPageView({
               ) : (
                 <div className="flex items-center justify-center py-12">
                   <p className="text-muted-foreground text-base md:text-lg">
-                    {hasSearched ? 'No songs found' : 'No songs available'}
+                    {hasSearched ? t('search.noSongsFound') : t('search.noSongsAvailable')}
                   </p>
                 </div>
               )}

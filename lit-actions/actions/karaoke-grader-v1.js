@@ -7,7 +7,7 @@ const ethers = ethersLib;
 const KARAOKE_EVENTS_ADDRESS = "0x51aA6987130AA7E4654218859E075D8e790f4409";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
-const PKP_PUBLIC_KEY = '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e';
+const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
 
 const DEFAULT_SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2";

@@ -1,4 +1,6 @@
 // Legacy EOA auth placeholder - not used in current PKP flow, but kept for dynamic import compatibility.
+import i18n from '@/lib/i18n'
+
 export async function createEoaAuthContext() {
   throw new Error('EOA auth not implemented. Use PKP/WebAuthn flow.')
 }
@@ -16,6 +18,6 @@ export async function connectEOA(
   authData: any
   isNewUser: boolean
 }> {
-  onStatusUpdate('EOA login is not supported in this build. Please use Passkey.')
+  onStatusUpdate(i18n.t('auth.eoaNotSupported'))
   throw new Error('EOA auth not implemented. Use PKP/WebAuthn flow.')
 }

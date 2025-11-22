@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -98,6 +99,8 @@ export function AuthDialog({
   onConnectWallet,
   onWalletDisconnect,
 }: AuthDialogProps) {
+  const { t } = useTranslation()
+
   // Internal UI state to manage the multi-step flow over the context's simpler state
   const [view, setView] = useState<AuthStep>('select-method')
   const [username, setUsername] = useState('')
@@ -190,12 +193,12 @@ export function AuthDialog({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">
-            {view === 'select-method' && 'Welcome to K-School'}
-            {view === 'passkey-intro' && 'Use Passkey'}
-            {view === 'wallet-select' && 'Connect Wallet'}
-            {view === 'username' && 'Choose Username'}
-            {view === 'processing' && 'Authenticating'}
-            {view === 'complete' && 'Success!'}
+            {view === 'select-method' && t('auth.welcome')}
+            {view === 'passkey-intro' && t('auth.usePasskey')}
+            {view === 'wallet-select' && t('auth.connectWallet')}
+            {view === 'username' && t('auth.chooseUsername')}
+            {view === 'processing' && t('auth.authenticating')}
+            {view === 'complete' && t('auth.success')}
           </DialogTitle>
         </DialogHeader>
 
@@ -213,12 +216,12 @@ export function AuthDialog({
               <Button
                 onClick={() => handleProviderSelect('passkey')}
                 variant="outline"
-                className="w-full h-14 justify-start px-4 text-base font-medium gap-3 hover:bg-slate-50"
+                className="w-full h-14 justify-start px-4 text-base font-medium gap-3"
               >
                 <Fingerprint className="w-6 h-6 text-orange-500" />
                 <div className="flex flex-col items-start">
-                  <span>Passkey (Recommended)</span>
-                  <span className="text-xs text-muted-foreground font-normal">No password, secure sign in</span>
+                  <span>{t('auth.passkeyRecommended')}</span>
+                  <span className="text-xs text-muted-foreground font-normal">{t('auth.noPasswordSecure')}</span>
                 </div>
               </Button>
 
@@ -227,26 +230,26 @@ export function AuthDialog({
                   <div className="w-full border-t border-border"></div>
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or Social Login</span>
+                  <span className="bg-background px-2 text-muted-foreground">{t('auth.orSocialLogin')}</span>
                 </div>
               </div>
 
               <Button
                 onClick={() => handleProviderSelect('google')}
                 variant="outline"
-                className="w-full h-12 justify-start px-4 text-base font-medium gap-3 hover:bg-slate-50"
+                className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
               >
                 <GoogleLogo className="w-6 h-6 text-red-500" weight="bold" />
-                <span>Continue with Google</span>
+                <span>{t('auth.continueWithGoogle')}</span>
               </Button>
-              
+
               <Button
                 onClick={() => handleProviderSelect('discord')}
                 variant="outline"
-                className="w-full h-12 justify-start px-4 text-base font-medium gap-3 hover:bg-slate-50"
+                className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
               >
                 <DiscordLogo className="w-6 h-6 text-indigo-500" weight="fill" />
-                <span>Continue with Discord</span>
+                <span>{t('auth.continueWithDiscord')}</span>
               </Button>
             </div>
           )}
@@ -268,7 +271,7 @@ export function AuthDialog({
                 className="w-full h-12"
                 size="lg"
               >
-                Create New Account {pendingProvider && pendingProvider !== 'passkey' ? `with ${pendingProvider === 'google' ? 'Google' : 'Discord'}` : ''}
+                {pendingProvider === 'google' ? t('auth.createWithGoogle') : pendingProvider === 'discord' ? t('auth.createWithDiscord') : t('auth.createNewAccount')}
               </Button>
 
               <div className="relative">
@@ -276,7 +279,7 @@ export function AuthDialog({
                   <div className="w-full border-t border-border"></div>
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  <span className="bg-background px-2 text-muted-foreground">{t('auth.or')}</span>
                 </div>
               </div>
 
@@ -295,11 +298,11 @@ export function AuthDialog({
                 variant="outline"
                 className="w-full h-12"
               >
-                Sign In {pendingProvider && pendingProvider !== 'passkey' ? `with ${pendingProvider === 'google' ? 'Google' : 'Discord'}` : ''}
+                {pendingProvider === 'google' ? t('auth.signInWithGoogle') : pendingProvider === 'discord' ? t('auth.signInWithDiscord') : t('auth.signIn')}
               </Button>
 
               <Button variant="ghost" size="sm" onClick={handleBack} className="w-full text-muted-foreground">
-                <CaretLeft className="mr-2 h-4 w-4" /> Back
+                <CaretLeft className="mr-2 h-4 w-4" /> {t('common.back')}
               </Button>
             </div>
           )}
@@ -309,7 +312,7 @@ export function AuthDialog({
             <form onSubmit={handleUsernameSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Input
-                  placeholder="Username (e.g. alice_in_chains)"
+                  placeholder={t('auth.usernamePlaceholder')}
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value)
@@ -321,21 +324,21 @@ export function AuthDialog({
                 />
                 {usernameAvailability === 'available' && (
                   <span className="text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle weight="fill" /> Format valid
+                    <CheckCircle weight="fill" /> {t('auth.formatValid')}
                   </span>
                 )}
               </div>
-              
+
               <div className="flex gap-3">
                 <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  Back
+                  {t('common.back')}
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1"
                   disabled={username.length < 6 || usernameAvailability === 'unavailable'}
                 >
-                  Continue
+                  {t('common.next')}
                 </Button>
               </div>
 
@@ -352,11 +355,11 @@ export function AuthDialog({
                   variant="outline"
                   className="w-full justify-start gap-3 h-12"
                 >
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
                     {connector.icon ? (
                       <img src={connector.icon} alt="" className="w-4 h-4" />
                     ) : (
-                      <Wallet className="w-4 h-4 text-slate-400" />
+                      <Wallet className="w-4 h-4 text-muted-foreground" />
                     )}
                   </div>
                   {connector.name}
@@ -365,12 +368,12 @@ export function AuthDialog({
 
               {walletConnectors.length === 0 && (
                  <div className="text-center text-sm text-muted-foreground py-4">
-                   No wallets detected. Please install MetaMask or Rabby.
+                   {t('auth.noWalletsDetected')}
                  </div>
               )}
 
               <Button variant="ghost" size="sm" onClick={handleBack} className="w-full mt-2">
-                <CaretLeft className="mr-2 h-4 w-4" /> Back
+                <CaretLeft className="mr-2 h-4 w-4" /> {t('common.back')}
               </Button>
             </div>
           )}
@@ -380,11 +383,11 @@ export function AuthDialog({
             <div className="flex flex-col items-center py-8 space-y-4 text-center">
               <Spinner className="w-10 h-10" />
               <p className="text-muted-foreground animate-pulse">
-                {statusMessage || 'Processing...'}
+                {statusMessage || t('auth.processing')}
               </p>
               {/* Show wallet address if connected during processing */}
               {isWalletConnected && walletAddress && (
-                <div className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">
+                <div className="text-xs font-mono bg-muted px-2 py-1 rounded">
                   {walletAddress.slice(0,6)}...{walletAddress.slice(-4)}
                 </div>
               )}
@@ -396,10 +399,10 @@ export function AuthDialog({
             <div className="flex flex-col items-center py-6 space-y-4">
               <CheckCircle className="w-16 h-16 text-green-500" weight="fill" />
               <p className="text-center text-muted-foreground">
-                You are successfully authenticated!
+                {t('auth.successMessage')}
               </p>
               <Button onClick={() => onOpenChange(false)} className="w-full">
-                Start Learning
+                {t('auth.startLearning')}
               </Button>
             </div>
           )}

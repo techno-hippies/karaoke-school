@@ -4,6 +4,7 @@
  */
 
 import { WebAuthnAuthenticator } from '@lit-protocol/auth'
+import i18n from '@/lib/i18n'
 import { getLitClient } from './client'
 import { LIT_WEBAUTHN_CONFIG } from './config'
 import { saveSession } from './storage'
@@ -30,11 +31,11 @@ export async function registerUser(
   username: string | undefined,
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
-  onStatusUpdate('Initializing Lit Protocol...')
+  onStatusUpdate(i18n.t('auth.initializingLit'))
   await getLitClient()
 
   // Register new WebAuthn credential and mint PKP
-  onStatusUpdate('Please create a passkey using your device...')
+  onStatusUpdate(i18n.t('auth.createPasskey'))
   const registerResult = await WebAuthnAuthenticator.registerAndMintPKP({
     username: username || 'K-School User',
     authServiceBaseUrl: AUTH_SERVICE_URL,
@@ -47,12 +48,12 @@ export async function registerUser(
 
   // SDK v8: registerAndMintPKP only returns { pkpInfo, webAuthnPublicKey }
   // We must call authenticate() separately to get authData
-  onStatusUpdate('Authenticating with your new passkey...')
+  onStatusUpdate(i18n.t('auth.authenticatingPasskey'))
   const authData = await WebAuthnAuthenticator.authenticate()
   console.log('✅ Authenticated with new credential')
 
   // Create auth context (session signature)
-  onStatusUpdate('Creating secure session...')
+  onStatusUpdate(i18n.t('auth.creatingSession'))
 
   // Convert PKP info to our types first
   const pkpInfoTyped: PKPInfo = {
@@ -93,17 +94,17 @@ export async function registerUser(
 export async function loginUser(
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
-  onStatusUpdate('Initializing Lit Protocol...')
+  onStatusUpdate(i18n.t('auth.initializingLit'))
   const litClient = await getLitClient()
 
   // Authenticate with existing WebAuthn credential
-  onStatusUpdate('Please authenticate with your device...')
+  onStatusUpdate(i18n.t('auth.authenticateDevice'))
   const authData = await WebAuthnAuthenticator.authenticate()
 
   console.log('✅ Authenticated with existing credential')
 
   // Get PKP for this credential
-  onStatusUpdate('Fetching your account...')
+  onStatusUpdate(i18n.t('auth.fetchingAccount'))
   const pkpsResult = await litClient.viewPKPsByAuthData({
     authData: {
       authMethodType: authData.authMethodType,
@@ -123,7 +124,7 @@ export async function loginUser(
   console.log('✅ PKP found:', pkpInfo.ethAddress)
 
   // Create auth context (session signature)
-  onStatusUpdate('Creating secure session...')
+  onStatusUpdate(i18n.t('auth.creatingSession'))
 
   // Convert PKP info to our types first
   const pkpInfoTyped: PKPInfo = {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ForYouFeed } from './ForYouFeed'
 import { FollowingFeed } from './FollowingFeed'
 import { VerticalVideoFeed } from './VerticalVideoFeed'
@@ -26,6 +27,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
   const [activeTab, setActiveTab] = useState<FeedTab>(defaultTab)
   const { lensSession } = useAuth()
   const isAuthenticated = !!lensSession
+  const { t } = useTranslation()
 
   return (
     <div className="relative h-vh-screen md:h-screen w-full bg-background">
@@ -41,7 +43,7 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
                 : 'text-neutral-400'
             )}
           >
-            For You
+            {t('feed.forYou')}
             {activeTab === 'for-you' && (
               <div className="h-0.5 bg-white mt-1 rounded-full" />
             )}
@@ -56,9 +58,9 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
               !isAuthenticated ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
             )}
             disabled={!isAuthenticated}
-            title={!isAuthenticated ? 'Sign in to see your Following feed' : ''}
+            title={!isAuthenticated ? t('auth.signInToSeeFollowing') : ''}
           >
-            Following
+            {t('feed.following')}
             {activeTab === 'following' && (
               <div className="h-0.5 bg-white mt-1 rounded-full" />
             )}
@@ -102,8 +104,8 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
                     <div className="text-xl font-semibold mb-2">⚠️ {error}</div>
                     <div className="text-neutral-400 mt-2">
                       {!isAuthenticated
-                        ? 'Sign in to see posts from creators you follow'
-                        : 'Try following some creators first'}
+                        ? t('feed.signInToSee')
+                        : t('feed.tryFollowing')}
                     </div>
                   </div>
                 </div>
@@ -120,9 +122,9 @@ export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
               return (
                 <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
                   <div className="text-white text-center px-8">
-                    <div className="text-xl font-semibold mb-2">No posts yet</div>
+                    <div className="text-xl font-semibold mb-2">{t('feed.noPosts')}</div>
                     <div className="text-neutral-400">
-                      Follow creators to see their karaoke videos here
+                      {t('feed.followCreators')}
                     </div>
                   </div>
                 </div>

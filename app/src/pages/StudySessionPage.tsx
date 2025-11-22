@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudySession } from '@/hooks/useStudySession'
@@ -24,6 +25,7 @@ import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
  * - Optimistic UI updates (instant feedback)
  */
 export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
+  const { t } = useTranslation()
   const { workId } = useParams<{ workId?: string }>()
   const { isPKPReady, isAuthenticating, pkpAddress, pkpWalletClient } = useAuth()
   const navigate = useNavigate()
@@ -103,10 +105,10 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
 
   const cardsCompleted = session.initialTotalCards > 0 ? session.initialTotalCards : session.totalCards
   const completionTitle = session.songTitle
-    ? `You finished ${session.songTitle}`
+    ? t('study.youFinished', { title: session.songTitle })
     : isGlobalSession
-    ? 'You finished all due cards'
-    : 'You finished your session'
+    ? t('study.youFinishedAll')
+    : t('study.youFinishedSession')
 
   // Auth check: Distinguish between loading and not logged in
   if (!isPKPReady) {
@@ -122,15 +124,15 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
     // Not logged in - show clear message
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Sign Up</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">{t('study.signUp')}</h1>
         <p className="text-muted-foreground text-center max-w-md">
-          Karaoke to your favorite songs for free!
+          {t('study.signUpDescription')}
         </p>
         <button
           onClick={onConnectWallet || (() => navigate(returnPath))}
           className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
-          Sign Up
+          {t('study.signUp')}
         </button>
       </div>
     )
@@ -149,9 +151,9 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
   if (session.totalCards === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-2xl font-bold">No Cards to Study</h1>
+        <h1 className="text-2xl font-bold">{t('study.noCards')}</h1>
         <button onClick={() => navigate(returnPath)} className="text-primary hover:underline">
-          Go Back
+          {t('study.goBack')}
         </button>
       </div>
     )
@@ -165,16 +167,16 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
           <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 text-center gap-8">
             <div className="space-y-3 max-w-xl">
               <h1 className="text-sm uppercase tracking-wide text-muted-foreground">
-                Complete!
+                {t('study.complete')}
               </h1>
               <p className="text-3xl font-bold">{completionTitle}</p>
               <p className="text-base text-muted-foreground">
-                Come back tomorrow to increase your daily study streak for rewards.
+                {t('study.comeBackTomorrow')}
               </p>
             </div>
 
             <Card className="w-full max-w-sm border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-2">
-              <p className="text-base text-muted-foreground">Cards completed</p>
+              <p className="text-base text-muted-foreground">{t('study.cardsCompleted')}</p>
               <p className="text-6xl font-semibold tracking-tight">{cardsCompleted}</p>
             </Card>
 
@@ -183,17 +185,17 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center p-6 text-left sm:text-left">
                   <div className="flex-1">
                     <p className="text-xs uppercase tracking-wide text-primary font-semibold">
-                      Support the artist
+                      {t('study.supportArtist')}
                     </p>
                     <h2 className="text-2xl font-semibold mt-1">
-                      Subscribe to {session.artistName}
+                      {t('study.subscribeTo', { name: session.artistName })}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-2">
-                      Unlock full songs, premium exercises, and translations released weekly.
+                      {t('study.unlockContent')}
                     </p>
                   </div>
                   <Button size="lg" className="w-full sm:w-auto" onClick={handleSubscriptionClick}>
-                    Subscribe
+                    {t('study.subscribe')}
                   </Button>
                 </div>
               </Card>
@@ -203,7 +205,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
           <div className="border-t border-border bg-background/95 backdrop-blur-sm">
             <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
               <Button size="lg" className="w-full" onClick={() => navigate(returnPath)}>
-                Complete
+                {t('study.finish')}
               </Button>
             </div>
           </div>
@@ -246,14 +248,14 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
           ) : session.exerciseData.type === 'ERROR' ? (
             <div className="space-y-4 text-center">
               <p className="text-destructive font-medium">
-                Failed to load this exercise: {session.exerciseData.message}
+                {t('study.failedToLoad')}: {session.exerciseData.message}
               </p>
               <div className="flex justify-center gap-3">
                 <Button variant="outline" onClick={session.handleNext}>
-                  Skip
+                  {t('study.skip')}
                 </Button>
                 <Button onClick={() => window.location.reload()}>
-                  Reload page
+                  {t('study.reloadPage')}
                 </Button>
               </div>
             </div>
@@ -289,7 +291,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
                 ? {
                     type: 'navigation',
                     onNext: session.handleNext,
-                    label: 'Next',
+                    label: t('study.next'),
                     exerciseKey: session.currentCard?.id,
                   }
                 : session.exerciseData.type === 'SAY_IT_BACK'
@@ -299,7 +301,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
                     isProcessing: session.isProcessing,
                     onStartRecording: session.handleStartRecording,
                     onStopRecording: session.handleStopRecording,
-                    label: 'Record',
+                    label: t('study.record'),
                   }
                 : {
                     type: 'hidden', // Quiz handles submission internally via onAnswer

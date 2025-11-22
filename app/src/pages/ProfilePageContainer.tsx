@@ -1,24 +1,40 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ProfilePage, type Achievement } from '@/components/profile/ProfilePage'
 import { ProfilePageSkeleton } from '@/components/profile/ProfilePageSkeleton'
 import type { VideoPost } from '@/components/video/VideoGrid'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAccountStats } from '@/lib/lens/hooks/useAccountStats'
 import { useAccountPosts } from '@/lib/lens/hooks/useAccountPosts'
+import { Button } from '@/components/ui/button'
 
 /**
  * ProfilePageContainer - Container for the user's own profile
  * Shows Edit Profile button instead of Follow/Message buttons
  */
-export function ProfilePageContainer() {
+export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // ✅ Real auth data from context
-  const { lensAccount } = useAuth()
+  const { lensAccount, isPKPReady } = useAuth()
 
   // Wait for account to load before fetching related data
   const { following, followers, isLoading: statsLoading } = useAccountStats(lensAccount?.address)
   const { posts, isLoading: postsLoading } = useAccountPosts(lensAccount?.address)
+
+  // Show sign up CTA for unauthenticated users
+  if (!isPKPReady) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+        <h2 className="text-2xl font-bold text-center">{t('study.signUp')}</h2>
+        <p className="text-muted-foreground text-center">{t('study.signUpDescription')}</p>
+        <Button onClick={onConnectWallet}>
+          {t('study.signUp')}
+        </Button>
+      </div>
+    )
+  }
 
   // Show loading state while account or related data is loading
   const isLoading = !lensAccount || statsLoading || postsLoading

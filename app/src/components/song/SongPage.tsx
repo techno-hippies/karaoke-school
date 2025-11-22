@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Play, DotsThree } from '@phosphor-icons/react'
 import { BackButton } from '@/components/ui/back-button'
 import { Button } from '@/components/ui/button'
@@ -67,6 +68,7 @@ export function SongPage({
   currentUser,
   className,
 }: SongPageProps) {
+  const { t } = useTranslation()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Query videos by genius_id (queries Lens for all creator videos of this song)
@@ -148,8 +150,8 @@ export function SongPage({
             {/* Tabs: Videos | Students */}
             <Tabs defaultValue="videos" className="w-full">
               <TabsList className="w-full grid grid-cols-2 bg-muted/50">
-                <TabsTrigger value="videos">Videos</TabsTrigger>
-                <TabsTrigger value="students">Students</TabsTrigger>
+                <TabsTrigger value="videos">{t('song.videos')}</TabsTrigger>
+                <TabsTrigger value="students">{t('song.students')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="videos" className="mt-4">
@@ -183,7 +185,7 @@ export function SongPage({
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{entry.username}</p>
                         <p className="text-sm text-muted-foreground">
-                          {entry.score.toLocaleString()} pts
+                          {entry.score.toLocaleString()} {t('song.points')}
                         </p>
                       </div>
                     </div>
@@ -206,7 +208,7 @@ export function SongPage({
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">{currentUser.username}</p>
                         <p className="text-sm text-muted-foreground">
-                          {currentUser.score.toLocaleString()} pts
+                          {currentUser.score.toLocaleString()} {t('song.points')}
                         </p>
                       </div>
                     </div>
@@ -228,7 +230,7 @@ export function SongPage({
                   onClick={onStudy}
                   className="flex-1"
                 >
-                  Study
+                  {t('song.study')}
                 </Button>
               )}
               {onKaraoke && (
@@ -238,7 +240,7 @@ export function SongPage({
                   onClick={onKaraoke}
                   className="flex-1"
                 >
-                  Karaoke
+                  {t('song.karaoke')}
                 </Button>
               )}
             </div>

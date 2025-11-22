@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Microphone, StopCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -23,8 +24,11 @@ export function VoiceControls({
   isProcessing = false,
   onStartRecording,
   onStopRecording,
-  label = 'Record',
+  label,
 }: VoiceControlsProps) {
+  const { t } = useTranslation()
+  const displayLabel = label || t('study.record')
+
   const handleRecordToggle = () => {
     if (isRecording) {
       onStopRecording?.()
@@ -42,7 +46,7 @@ export function VoiceControls({
         className="w-full h-12"
       >
         <Spinner />
-        Processing...
+        {t('study.processing')}
       </Button>
     )
   }
@@ -61,12 +65,12 @@ export function VoiceControls({
       {isRecording ? (
         <>
           <StopCircle size={24} weight="fill" />
-          Stop
+          {t('study.stop')}
         </>
       ) : (
         <>
           <Microphone size={24} weight="fill" />
-          {label}
+          {displayLabel}
         </>
       )}
     </Button>

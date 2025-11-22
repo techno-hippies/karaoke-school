@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
@@ -59,6 +60,7 @@ interface MediaPageContainerProps {
  * - /song/:workId/karaoke (Practice)
  */
 export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProps = {}) {
+  const { t } = useTranslation()
   const { workId } = useParams<{ workId: string }>()
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
@@ -402,7 +404,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   if (!workData || !firstClip || !clipMetadata) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">{t('song.unableToLoad')}</h1>
         <p className="text-muted-foreground">
           {!workData
             ? 'Work not found'
@@ -411,7 +413,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
               : 'Clip metadata not available'}
         </p>
         <button onClick={() => navigate(-1)} className="text-primary hover:underline">
-          Go back
+          {t('common.back')}
         </button>
       </div>
     )
@@ -440,10 +442,10 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   if (!audioUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">Unable to load media</h1>
-        <p className="text-muted-foreground">Instrumental audio not available</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-center">{t('song.unableToLoad')}</h1>
+        <p className="text-muted-foreground">{t('song.instrumentalNotAvailable')}</p>
         <button onClick={() => navigate(-1)} className="text-primary hover:underline">
-          Go back
+          {t('common.back')}
         </button>
       </div>
     )

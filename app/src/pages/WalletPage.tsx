@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { WalletPageView } from '@/components/wallet/WalletPageView'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePKPBalances } from '@/hooks/usePKPBalances'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
  * Handles wallet data fetching and state management
  */
 export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
+  const { t } = useTranslation()
   const { pkpAddress, lensAccount, isPKPReady } = useAuth()
   const { balances, error } = usePKPBalances()
 
@@ -51,10 +53,10 @@ export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }
   if (!isPKPReady) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h2 className="text-2xl font-bold text-center">Sign Up</h2>
-        <p className="text-muted-foreground text-center">Karaoke to your favorite songs for free!</p>
+        <h2 className="text-2xl font-bold text-center">{t('study.signUp')}</h2>
+        <p className="text-muted-foreground text-center">{t('study.signUpDescription')}</p>
         <Button onClick={onConnectWallet}>
-          Sign Up
+          {t('study.signUp')}
         </Button>
       </div>
     )
@@ -65,13 +67,13 @@ export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }
     return (
       <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-4 text-destructive">Error Loading Balances</h2>
+          <h2 className="text-xl font-semibold mb-4 text-destructive">{t('wallet.errorLoadingBalances')}</h2>
           <p className="text-muted-foreground mb-4">{error.message}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       </div>
