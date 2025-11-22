@@ -6,12 +6,15 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const base = env.VITE_BASE_PATH || (mode === 'production' ? './' : '/')
 
   return {
+    // Use a relative base so assets resolve correctly when served from IPFS/Fleek gateways
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        '@': path.resolve(__dirname, './src'),
         buffer: 'buffer',
         process: 'process/browser',
       },
@@ -21,35 +24,35 @@ export default defineConfig(({ mode }) => {
       include: ['@lens-chain/sdk/viem', 'buffer', 'process'],
     },
     define: {
-      'global': 'globalThis',
+      global: 'globalThis',
       // Runtime process global comes from index.html inline script
       // This replaces process.env.* at build time
       'process.env': env,
     },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // Lit Protocol chunks - large and independent
-          if (id.includes('@lit-protocol')) {
-            return 'lit-core';
-          }
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // Lit Protocol chunks - large and independent
+            if (id.includes('@lit-protocol')) {
+              return 'lit-core'
+            }
 
-          // Lens Protocol chunks - large and independent
-          if (id.includes('@lens-protocol')) {
-            return 'lens-core';
-          }
+            // Lens Protocol chunks - large and independent
+            if (id.includes('@lens-protocol')) {
+              return 'lens-core'
+            }
 
-          // UI components - independent
-          if (id.includes('@radix-ui') || id.includes('@phosphor-icons')) {
-            return 'ui-libs';
-          }
+            // UI components - independent
+            if (id.includes('@radix-ui') || id.includes('@phosphor-icons')) {
+              return 'ui-libs'
+            }
 
-          // Let Vite handle viem/wagmi/React Router automatically to avoid circular deps
+            // Let Vite handle viem/wagmi/React Router automatically to avoid circular deps
+          },
         },
       },
+      chunkSizeWarningLimit: 2000, // Increase limit since we're chunking less
     },
-    chunkSizeWarningLimit: 2000, // Increase limit since we're chunking less
-  },
-}
+  }
 })
