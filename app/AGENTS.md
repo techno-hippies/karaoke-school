@@ -379,6 +379,18 @@ WebAuthn Passkey → PKP Wallet → Lens Session Resume → Account Owner Role
 - `VITE_LENS_ENVIRONMENT` - Lens testnet/mainnet
 - `VITE_LENS_APP_ADDRESS` - Lens app contract address
 - `VITE_PKP_WALLET` - Lit Protocol configuration
+- `VITE_LIT_PAYER_ADDRESS` - naga-test payer that funds PKP minting / Lit Actions
+
+**Lit Payments (naga-test)**:
+- Payer EOA: `0x9456aec64179FE39a1d0a681de7613d5955E75D3`
+- PKP signer (Lit Actions/contracts): `0x3e89ABa33562d4C45E62A97Aa11443F738983bFf` (keep GRASS on-chain for gas)
+- Keep the payer’s Lit Payment Manager positive (tstLPX on Yellowstone). Fund via faucet, then deposit from a secure script:
+  - `await pm.deposit({ amountInEth: '1' })` or `depositForUser({ userAddress: payer, amountInEth: '1' })`
+  - `await pm.getBalance({ userAddress: payer })` to confirm
+- Do not ship the payer private key to the browser; only expose `VITE_LIT_PAYER_ADDRESS` in `.env.local`.
+- To sponsor new PKPs minted in the frontend, reuse the same payer and delegate or deposit for each new PKP address server-side:
+  - `await pm.delegatePaymentsBatch({ userAddresses: [newPkp], totalMaxPrice: '20000000000000000', requestsPerPeriod: '100', periodSeconds: '3600' })`
+  - or `await pm.depositForUser({ userAddress: newPkp, amountInEth: '0.1' })`
 
 **External APIs**:
 - **Lens Protocol**: Social identity & profiles

@@ -70,6 +70,14 @@ export interface SegmentMetadata {
     language_code: string
     grove_url: string
   }>
+  karaoke_lines?: Array<{
+    line_index: number
+    start_ms: number | string
+    end_ms: number | string
+    original_text?: string
+    text?: string
+    [key: string]: unknown
+  }>
 }
 
 /**

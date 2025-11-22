@@ -34,7 +34,14 @@ interface AuthState {
 
   isAuthenticating: boolean
   authError: Error | null
-  authStep: 'idle' | 'username' | 'webauthn' | 'session' | 'social' | 'complete'
+  authStep:
+    | 'idle'
+    | 'username'
+    | 'webauthn'
+    | 'session'
+    | 'social'
+    | 'processing'
+    | 'complete'
   authMode: 'register' | 'login' | null
   authStatus: string
   lensSetupStatus: 'pending' | 'complete' | 'failed'
@@ -417,7 +424,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 2. Connect Lens
       setAuthStatus('Setting up social features...')
-      const pkpWalletClient = await loadLit().then(m => m.createPKPWalletClient(result.pkpInfo, result.authContext))
+      const litModule = await loadLit()
+      const pkpWalletClient = await litModule.createPKPWalletClient(
+        result.pkpInfo,
+        result.authContext
+      )
       const lensResult = await loginLensStandalone(
         pkpWalletClient,
         result.pkpInfo.ethAddress,
@@ -430,7 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPkpInfo(result.pkpInfo)
       setAuthData(result.authData)
       setSessionClient(lensResult.session)
-      setAccount(lensResult.lensAccount)
+      setAccount(lensResult.account)
       setLensSetupStatus('complete') // or derived
 
       setAuthStep('complete')
@@ -480,7 +491,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthStatus('Setting up social features...')
       
       // Get PKP Wallet Client for Lens
-      const pkpWalletClient = await loadLit().then(m => m.createPKPWalletClient(result.pkpInfo, result.authContext))
+      const litModule = await loadLit()
+      const pkpWalletClient = await litModule.createPKPWalletClient(
+        result.pkpInfo,
+        result.authContext
+      )
       
       const lensResult = await loginLensStandalone(
         pkpWalletClient,
@@ -494,7 +509,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPkpInfo(result.pkpInfo)
       setAuthData(result.authData)
       setSessionClient(lensResult.session)
-      setAccount(lensResult.lensAccount)
+      setAccount(lensResult.account)
       setLensSetupStatus('complete')
       
       setAuthStep('complete')
@@ -549,7 +564,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthStatus('Setting up social features...')
       
       // Get PKP Wallet Client for Lens
-      const pkpWalletClient = await loadLit().then(m => m.createPKPWalletClient(result.pkpInfo, result.authContext))
+      const litModule = await loadLit()
+      const pkpWalletClient = await litModule.createPKPWalletClient(
+        result.pkpInfo,
+        result.authContext
+      )
       
       const lensResult = await loginLensStandalone(
         pkpWalletClient,
@@ -563,7 +582,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPkpInfo(result.pkpInfo)
       setAuthData(result.authData)
       setSessionClient(lensResult.session)
-      setAccount(lensResult.lensAccount)
+      setAccount(lensResult.account)
       setLensSetupStatus('complete')
       
       setAuthStep('complete')

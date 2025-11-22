@@ -62,11 +62,51 @@ VITE_LENS_CUSTOM_NAMESPACE=0xa304467aD0C296C2bb11079Bc2748223568D463e
 # Defaults to The Graph Studio (production)
 # Set to "local" to use local GND on port 8000
 # VITE_SUBGRAPH_MODE=local
+
+# Lit Payments (naga-test)
+# Payer that sponsors PKP mint + Lit Actions
+VITE_LIT_PAYER_ADDRESS=0x9456aec64179FE39a1d0a681de7613d5955E75D3
 ```
 
 **Subgraph Endpoints:**
 - **Production** (default): `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
 - **Local GND**: `http://localhost:8000/subgraphs/name/subgraph-0/` (requires `VITE_SUBGRAPH_MODE=local`)
+
+### Lit Payments (naga-test)
+- **Payer address**: `0x9456aec64179FE39a1d0a681de7613d5955E75D3`
+- **PKP signer (Lit Actions/contracts)**: `0x3e89ABa33562d4C45E62A97Aa11443F738983bFf` (keep ≥0.02 GRASS)
+- Keep the payer’s Lit Payment Manager balance > 0 on naga-test. Top up with tstLPX from the Yellowstone faucet, then deposit from a secure script (do not ship the key to the browser):
+
+```ts
+import { createLitClient } from '@lit-protocol/lit-client'
+import { nagaTest } from '@lit-protocol/networks'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const litClient = await createLitClient({ network: nagaTest })
+const account = privateKeyToAccount(process.env.PAYER_PRIVATE_KEY!)
+const pm = await litClient.getPaymentManager({ account })
+
+await pm.deposit({ amountInEth: '1' })            // sponsor everyone from payer
+// or
+await pm.depositForUser({ userAddress: account.address, amountInEth: '1' })
+
+console.log(await pm.getBalance({ userAddress: account.address }))
+```
+
+Add only the payer **address** to `.env.local` (`VITE_LIT_PAYER_ADDRESS`); run deposits from a server-side helper or local script with the private key.
+
+**Sponsoring PKP mints in the frontend**:
+- Use the same payer above. After a new PKP is minted, delegate payments to that PKP address server-side:
+  ```ts
+  await pm.delegatePaymentsBatch({
+    userAddresses: [newPkpEthAddress],
+    totalMaxPrice: '20000000000000000', // optional guardrails
+    requestsPerPeriod: '100',
+    periodSeconds: '3600',
+  })
+  ```
+- Alternatively, `depositForUser({ userAddress: newPkpEthAddress, amountInEth: '0.1' })` to sponsor that user directly.
+- Keep these operations off the client; reuse the single payer and update balances periodically.
 
 ## 🎵 Karaoke Player Integration
 

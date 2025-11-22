@@ -39,8 +39,10 @@ export function useAudioRecorder() {
       })
 
       // Create recorder
+      // Keep bitrate low so Lit Action payload stays under node limits
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 48000,
       })
 
       mediaRecorder.ondataavailable = (event) => {

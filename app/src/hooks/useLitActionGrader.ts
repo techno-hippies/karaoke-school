@@ -141,9 +141,10 @@ export function useLitActionGrader() {
                
                // 1. Get Trusted PKP from contract (Source of Truth)
                const trustedPKP = await publicClient.readContract({
-                   address: KARAOKE_EVENTS_ADDRESS,
+                   address: KARAOKE_EVENTS_ADDRESS as `0x${string}`,
                    abi: parseAbi(['function trustedPKP() external view returns (address)']),
-                   functionName: 'trustedPKP'
+                   functionName: 'trustedPKP',
+                   authorizationList: undefined,
                });
                
                // 2. Get pending nonce for that PKP

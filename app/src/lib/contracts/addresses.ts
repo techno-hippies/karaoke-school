@@ -25,9 +25,9 @@ export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb78
  * IMPORTANT: Must match the trustedPKP configured on ExerciseEvents.sol
  * Lit Action: exercise-grader-v1.js uses this PKP for signing submissions
  */
-export const EXERCISE_EVENTS_PKP_ADDRESS = '0x3e89ABa33562d4C45E62A97Aa11443F738983bFf'
+export const EXERCISE_EVENTS_PKP_ADDRESS = '0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379'
 export const EXERCISE_EVENTS_PKP_PUBLIC_KEY =
-  '0x047ae2744a82e4ca8bd9bb499ffb46b98c2f2aba81f41de1e521256300ba05d9e191ef116520daa845af42bcf58d868c60881b689f9cb4b5499565a18f9d69991e'
+  '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7'
 
 // ============ Karaoke Events ============
 
@@ -86,7 +86,7 @@ export const ACCOUNT_EVENTS_ADDRESS = '0x3709f41cdc9E7852140bc23A21adCe600434d4E
  * - Validates lineId is non-zero before contract submission
  * - Contract: EXERCISE_EVENTS_ADDRESS
  */
-export const LIT_ACTION_IPFS_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa'
+export const LIT_ACTION_IPFS_CID = 'QmUWhBbe8Q6oQbmEdgEhDLHaabnruZsjWTD2ewTprWnzz5'
 
 /**
  * Deployed Lit Action for full karaoke grading (Clip/Song)
@@ -100,7 +100,7 @@ export const LIT_ACTION_IPFS_CID = 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTe
  * Deployment: 2025-11-20 (Karaoke Grader v1 - timeout-guarded)
  * - CID: QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S
  */
-export const LIT_KARAOKE_GRADER_CID = 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S'
+export const LIT_KARAOKE_GRADER_CID = 'QmRqh6sj3TD4wcBSkWo3DNMjmc9s5vqhdqWG4P5dHwBdWk'
 
 /**
  * Encrypted Voxtral API Key Parameters
@@ -123,7 +123,7 @@ export const LIT_ACTION_VOXTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmSA96awmjMEaTgRL91DhVv4JLReRaPEguZ1Mw93hJTexa',
+        value: 'QmUWhBbe8Q6oQbmEdgEhDLHaabnruZsjWTD2ewTprWnzz5',
       },
     },
   ],
@@ -147,7 +147,7 @@ export const LIT_KARAOKE_VOXTRAL_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S',
+        value: 'QmRqh6sj3TD4wcBSkWo3DNMjmc9s5vqhdqWG4P5dHwBdWk',
       },
     },
   ],
@@ -166,7 +166,7 @@ export const LIT_KARAOKE_OPENROUTER_KEY = {
       parameters: [':currentActionIpfsId'],
       returnValueTest: {
         comparator: '=',
-        value: 'QmRKtTTydCULhbbqj1WYQeN3jKnwGExKyDxhnNfeSN7q6S',
+        value: 'QmRqh6sj3TD4wcBSkWo3DNMjmc9s5vqhdqWG4P5dHwBdWk',
       },
     },
   ],

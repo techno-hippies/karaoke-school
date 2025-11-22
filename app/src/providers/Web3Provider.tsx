@@ -6,7 +6,14 @@ import { injected } from 'wagmi/connectors'
 import { lensClient } from '@/lib/lens/client'
 import type { ReactNode } from 'react'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 // Minimal wagmi setup so hooks like usePublicClient / useWalletClient work
 const wagmiConfig = createConfig({

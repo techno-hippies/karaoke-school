@@ -3,7 +3,7 @@
  * Network and auth service settings
  */
 
-import { nagaTest } from '@lit-protocol/networks'
+import { nagaDev } from '@lit-protocol/networks'
 import {
   LIT_SESSION_STORAGE_KEY,
   LIT_NETWORK_NAME,
@@ -13,7 +13,7 @@ import {
 
 export const LIT_WEBAUTHN_CONFIG = {
   // Lit Protocol network
-  network: nagaTest,
+  network: nagaDev,
   networkName: LIT_NETWORK_NAME,
 
   // Lit Auth Service URL

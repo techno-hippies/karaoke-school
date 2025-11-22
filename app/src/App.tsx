@@ -1,7 +1,9 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LensProvider } from '@lens-protocol/react'
+import { WagmiProvider } from 'wagmi'
+import { config as wagmiConfig } from '@/wagmi.config'
 import { HomePage } from '@/pages/HomePage'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
@@ -13,17 +15,13 @@ import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { ClassPage } from '@/pages/ClassPage'
 import { StudySessionPage } from '@/pages/StudySessionPage'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { WagmiProvider } from 'wagmi'
-import { config as wagmiConfig } from '@/wagmi.config'
 import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
-import { validateUsernameFormat } from '@/lib/lens/account-creation'
 import { lensClient } from '@/lib/lens/client'
 
-// React Query client for data fetching
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -33,37 +31,14 @@ const queryClient = new QueryClient({
   },
 })
 
-/**
- * AppRouter - Main routing with layout and navigation state
- */
 function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
 
-  // Auth from context
-  const {
-    isPKPReady,
-    pkpAddress,
-    hasLensAccount,
-    isAuthenticating,
-    authStep,
-    authMode,
-    authStatus,
-    authError,
-    register,
-    signIn,
-    showUsernameInput,
-    resetAuthFlow,
-    loginWithGoogle,
-    loginWithDiscord
-  } = useAuth()
-
-  // Dialog state
+  const { isPKPReady, pkpAddress } = useAuth()
   const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const [usernameAvailability, setUsernameAvailability] = useState<'available' | 'unavailable' | null>(null)
 
-  // Map routes to active tabs
   useEffect(() => {
     const pathToTab: Record<string, 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'> = {
       '/': 'home',
@@ -73,9 +48,7 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    // Deep routes (song, creator pages) should have no tab selected
-    if (location.pathname.startsWith('/song/') ||
-        location.pathname.startsWith('/u/')) {
+    if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/')) {
       setActiveTab('none')
     } else {
       const tab = pathToTab[location.pathname] || 'home'
@@ -94,78 +67,6 @@ function AppRouter() {
     navigate(routes[tab])
   }
 
-  // Auth Handlers
-  const handleRegisterClick = useCallback(() => {
-    showUsernameInput()
-    setUsernameAvailability(null)
-  }, [showUsernameInput])
-
-  const handleRegisterWithUsername = useCallback(async (username: string) => {
-    try {
-      await register(username)
-
-      // After successful registration, close dialog after showing success
-      setTimeout(() => {
-        setShowAuthDialog(false)
-      }, 2000)
-    } catch (error) {
-      // Error is already set in auth context
-      console.error('[App] Registration error:', error)
-    }
-  }, [register])
-
-  const handleLogin = useCallback(async () => {
-    try {
-      await signIn()
-
-      // After successful login, close dialog after showing success
-      setTimeout(() => {
-        setShowAuthDialog(false)
-      }, 2000)
-    } catch (error) {
-      // Error is already set in auth context
-      console.error('[App] Login error:', error)
-    }
-  }, [signIn])
-
-  const handleSocialLogin = useCallback(async (provider: 'google' | 'discord', username?: string) => {
-    try {
-      if (provider === 'google') {
-        await loginWithGoogle(username)
-      } else {
-        await loginWithDiscord(username)
-      }
-      
-      // After successful login, close dialog after showing success
-      setTimeout(() => {
-        setShowAuthDialog(false)
-      }, 2000)
-    } catch (error) {
-      console.error(`[App] ${provider} login error:`, error)
-    }
-  }, [loginWithGoogle, loginWithDiscord])
-
-  const handleUsernameBack = useCallback(() => {
-    resetAuthFlow()
-    setUsernameAvailability(null)
-  }, [resetAuthFlow])
-
-  const checkUsernameAvailabilityDebounced = useCallback(async (username: string) => {
-    // Validate format first
-    const formatError = validateUsernameFormat(username)
-    if (formatError) {
-      setUsernameAvailability(null)
-      return
-    }
-
-    // Note: We can't check actual availability without authentication
-    // The Lens API requires authentication for canCreateUsername query
-    // Actual availability will be checked during account creation
-    // For now, just validate format and assume available if format is valid
-    setUsernameAvailability('available')
-  }, [])
-
-  // Hide mobile footer on full-screen pages (song detail, media player, study, video detail)
   const hideMobileFooter =
     location.pathname.match(/^\/song\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
 
@@ -185,17 +86,14 @@ function AppRouter() {
           <Route path="/u/:lenshandle" element={<AccountPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
 
-          {/* Song routes - GRC-20 work ID based */}
           <Route path="/song/:workId" element={<SongPageContainer />} />
           <Route path="/song/:workId/play" element={<MediaPageContainer />} />
           <Route path="/song/:workId/karaoke" element={<MediaPageContainer variant="practice" />} />
           <Route path="/song/:workId/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
-          {/* Study routes - Global study dashboard */}
           <Route path="/study/session" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
-          {/* Legacy routes (redirect for backwards compatibility) */}
           <Route path="/karaoke/:workId" element={<Navigate to={`/song/:workId`} replace />} />
           <Route path="/karaoke/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
           <Route path="/song/grc20/:workId" element={<Navigate to={`/song/:workId`} replace />} />
@@ -210,23 +108,6 @@ function AppRouter() {
       <ConnectedAuthDialog
         open={showAuthDialog}
         onOpenChange={setShowAuthDialog}
-        currentStep={authStep}
-        isAuthenticating={isAuthenticating}
-        // authMode={authMode} // Type check fail? AuthDialogProps doesn't have authMode anymore in my edit?
-        // Actually I kept it in AuthDialog types? No, I removed it from AuthDialogProps in the big edit.
-        // Let's check AuthDialogProps.
-        statusMessage={authStatus}
-        errorMessage={authError?.message || ''}
-        usernameAvailability={usernameAvailability}
-        // isPKPReady={isPKPReady} // Removed
-        // hasSocialAccount={hasLensAccount} // Removed
-        onRegister={handleRegisterClick}
-        onRegisterWithUsername={handleRegisterWithUsername}
-        onLogin={handleLogin}
-        onUsernameBack={handleUsernameBack}
-        onUsernameChange={checkUsernameAvailabilityDebounced}
-        onLoginGoogle={(username) => handleSocialLogin('google', username)}
-        onLoginDiscord={(username) => handleSocialLogin('discord', username)}
       />
 
       <Toaster />
@@ -234,21 +115,6 @@ function AppRouter() {
   )
 }
 
-/**
- * App - Root component with providers
- *
- * Routes:
- * / - Feed (all artist videos, chronological)
- * /search - Search for songs
- * /u/:lenshandle - Account profile (students, creators, artists - from Lens + Grove metadata)
- * /u/:lenshandle/video/:postId - Video detail (TikTok sidebar)
- * /song/:workId - Song overview + creator videos (from GRC-20 + Lens)
- * /song/:workId/play - Media player with instrumental and lyrics
- * /song/:workId/karaoke - Practice session with sticky footer + recording
- * /song/:workId/study - Study session with FSRS
- * /wallet - Wallet balances and address
- * /profile - Current user's own profile with Edit Profile button
- */
 function App() {
   return (
     <WagmiProvider config={wagmiConfig}>
