@@ -6,7 +6,6 @@ import { gql } from 'graphql-request'
 
 /**
  * Get user's performance history for a specific segment
- * Used to determine FSRS state (which lines have been practiced)
  */
 export const GET_USER_SEGMENT_PROGRESS = gql`
   query GetUserSegmentProgress($userAddress: Bytes!, $segmentHash: Bytes!) {
@@ -27,7 +26,7 @@ export const GET_USER_SEGMENT_PROGRESS = gql`
 `
 
 /**
- * Get ALL performances for a user (for overall progress tracking)
+ * Get ALL performances for a user
  */
 export const GET_USER_ALL_PERFORMANCES = gql`
   query GetUserAllPerformances($userAddress: Bytes!) {
@@ -57,7 +56,6 @@ export const GET_SEGMENT_DETAILS = gql`
     segment(id: $segmentHash) {
       id
       segmentHash
-      grc20WorkId
       spotifyTrackId
       segmentStartMs
       segmentEndMs
@@ -81,7 +79,7 @@ export const GET_SEGMENT_DETAILS = gql`
 `
 
 /**
- * Get LineCard aggregate stats (how many times line has been practiced overall)
+ * Get LineCard aggregate stats
  */
 export const GET_LINE_STATS = gql`
   query GetLineStats($lineId: Bytes!) {
@@ -101,10 +99,6 @@ export const GET_LINE_STATS = gql`
     }
   }
 `
-
-/**
- * TypeScript types for query responses
- */
 
 export interface LinePerformance {
   id: string
@@ -136,7 +130,6 @@ export interface Translation {
 export interface Segment {
   id: string
   segmentHash: string
-  grc20WorkId: string
   spotifyTrackId: string
   segmentStartMs: number
   segmentEndMs: number

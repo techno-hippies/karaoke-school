@@ -32,10 +32,8 @@ export interface VideoPostData {
   // Primary: slug-based routing (e.g., /eminem/lose-yourself)
   artistSlug?: string
   songSlug?: string
-  // Legacy identifiers (deprecated - use slugs instead)
-  geniusId?: number
+  // Identifiers
   spotifyTrackId?: string
-  grc20WorkId?: string
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number

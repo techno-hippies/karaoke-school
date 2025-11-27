@@ -43,17 +43,22 @@ See [AGENTS.md](../AGENTS.md) for complete pipeline documentation including:
 
 ```
 pipeline-new/
-├── songs/              # Song data organized by ISWC
+├── songs/                    # Ignored in git (media files)
 │   └── T0112199333/
-│       ├── en-lyrics.txt
-│       ├── zh-lyrics.txt
-│       └── original.mp3
-├── accounts/           # Posting account configs
+│       ├── en-lyrics.txt     # English lyrics
+│       ├── zh-lyrics.txt     # Chinese lyrics
+│       ├── original.mp3      # Full audio
+│       ├── alignment.json    # Character timing
+│       ├── background.mp4    # Raw video
+│       ├── vocals.mp3        # Audio clip
+│       ├── clip.ass          # Subtitles
+│       └── clip.mp4          # Final output
+├── accounts/
 └── src/
-    ├── scripts/        # CLI commands
-    ├── services/       # External API integrations
-    ├── db/             # Database queries
-    └── lib/            # Utilities
+    ├── scripts/              # CLI commands
+    ├── services/             # External APIs
+    ├── db/                   # Database queries
+    └── lib/                  # Utilities
 ```
 
 ## Key Scripts
@@ -63,9 +68,11 @@ pipeline-new/
 | `add-song.ts` | Add song to database |
 | `add-lyrics.ts` | Add translated lyrics |
 | `generate-exercises.ts` | Create translation/sayitback questions |
+| `generate-karaoke-video.ts` | Generate karaoke video with highlighting |
 | `insert-clip.ts` | Create clip record |
 | `emit-clip.ts` | Emit ClipRegistered event |
 | `emit-exercises.ts` | Emit exercise questions |
+| `post-clip.ts` | Post video to Lens |
 
 ## Contracts (Lens Testnet)
 

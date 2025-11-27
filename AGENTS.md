@@ -114,10 +114,7 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 
 | Script | Purpose | Args |
 |--------|---------|------|
-| `align-clip-chars.ts` | Character-level ZH alignment | `--clip`, `--lyrics` |
-| `generate-clip-ass.ts` | Create ASS subtitles | `--alignment`, `--en-lines` |
-| `burn-subtitles.ts` | Burn ASS onto video | `--video`, `--ass`, `--audio` |
-| `generate-video.ts` | Full video generation | `--iswc`, `--start`, `--end` |
+| `generate-karaoke-video.ts` | Generate karaoke video with char-by-char highlighting | `--iswc` or `--song-dir` |
 | `post-clip.ts` | Post to Lens | `--video-id`, `--account` |
 
 ### Account Management
@@ -199,15 +196,20 @@ OPENROUTER_API_KEY=...
 
 ```
 pipeline-new/
-├── songs/
+├── songs/                       # Ignored in git (media files)
 │   └── T0112199333/             # ISWC folder
-│       ├── en-lyrics.txt        # Required
-│       ├── zh-lyrics.txt        # Translated lyrics
-│       ├── original.mp3         # For audio processing
-│       └── 1.33.548-1.43.548/   # Clip files
-│           ├── alignment.json   # Character timing
-│           ├── alignment.ass    # Subtitles
-│           └── clip-final.mp4   # Output video
+│       ├── en-lyrics.txt        # English lyrics
+│       ├── zh-lyrics.txt        # Chinese lyrics
+│       ├── original.mp3         # Full original audio
+│       ├── original.flac        # Full original (high quality)
+│       ├── cover.mp3            # Cover version audio
+│       ├── cover.png            # Album cover image
+│       ├── thumbnail.jpg        # Video thumbnail
+│       ├── alignment.json       # Character-level timing (ElevenLabs)
+│       ├── background.mp4       # Raw video clip (no subtitles)
+│       ├── vocals.mp3           # Audio clip with vocals
+│       ├── clip.ass             # Generated subtitles
+│       └── clip.mp4             # Final output video
 ├── accounts/
 │   └── scarlett/
 │       └── avatar.png
@@ -255,16 +257,19 @@ bun src/scripts/emit-exercises.ts --iswc=T0123456789 --limit=5
 bun src/scripts/emit-exercises.ts --iswc=T0123456789 --dry-run
 ```
 
-### Generate Video with Subtitles
+### Generate Karaoke Video
 ```bash
-# 1. Align ZH lyrics to clip audio
-bun src/scripts/align-clip-chars.ts --clip=songs/T0123456789/clip.mp3 --lyrics="吻一下 我沦陷\nYou're toxic 我深陷"
+# Requires in songs/{ISWC}/:
+#   - background.mp4   (raw video)
+#   - vocals.mp3       (audio clip with vocals)
+#   - alignment.json   (character-level timing from ElevenLabs)
 
-# 2. Generate ASS subtitles
-bun src/scripts/generate-clip-ass.ts --alignment=alignment.json --en-lines="Line 1\nLine 2"
+# Generate video with char-by-char highlighting
+bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 
-# 3. Burn subtitles onto video
-bun src/scripts/burn-subtitles.ts --video=clip.mp4 --ass=alignment.ass --audio=clip.mp3
+# Outputs:
+#   - clip.ass   (subtitle file)
+#   - clip.mp4   (final video)
 ```
 
 ## Subgraph

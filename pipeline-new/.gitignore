@@ -27,3 +27,6 @@ temp/
 
 # Test coverage
 coverage/
+
+# Song media files (large binaries, generated content)
+songs/

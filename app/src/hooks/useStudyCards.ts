@@ -50,12 +50,11 @@ const Rating = {
  * @returns { data: studyCards[], isLoading, error }
  */
 export interface StudyCard {
-  id: string // lineId (UUID) or segmentHash (fallback)
-  questionId?: string // Exercise question identifier (bytes32 hex)
-  lineId?: string // UUID from karaoke_lines table
-  lineIndex?: number // Position within segment (0-based)
+  id: string
+  questionId?: string
+  lineId?: string
+  lineIndex?: number
   segmentHash?: string
-  grc20WorkId?: string
   spotifyTrackId?: string
   exerciseType?: 'SAY_IT_BACK' | 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE'
 
@@ -99,28 +98,22 @@ const GET_CLIPS_WITH_PERFORMANCES = gql`
     clips(where: { spotifyTrackId: $spotifyTrackId }, first: 1000) {
       id
       clipHash
-      grc20WorkId
       spotifyTrackId
       metadataUri
       instrumentalUri
       alignmentUri
       clipStartMs
       clipEndMs
-
       translations {
         languageCode
         translationUri
       }
-
-      # OLD: Clip-level performances (for leaderboards)
       performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
         id
         score
         gradedAt
       }
     }
-
-    # NEW: Line-level performances (for FSRS tracking) - fetch separately and join in frontend
     linePerformances(where: {
       performerAddress: $performer
     }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
@@ -139,28 +132,22 @@ const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
     clips(first: 1000) {
       id
       clipHash
-      grc20WorkId
       spotifyTrackId
       metadataUri
       instrumentalUri
       alignmentUri
       clipStartMs
       clipEndMs
-
       translations {
         languageCode
         translationUri
       }
-
-      # OLD: Clip-level performances (for leaderboards)
       performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
         id
         score
         gradedAt
       }
     }
-
-    # NEW: Line-level performances (for FSRS tracking) - fetch separately and join in frontend
     linePerformances(where: {
       performerAddress: $performer
     }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
@@ -193,7 +180,6 @@ const GET_EXERCISE_CARDS = gql`
       clipHash
       clip {
         clipHash
-        grc20WorkId
       }
       attempts(
         where: { performerAddress: $performer }
@@ -237,7 +223,6 @@ export function useStudyCards(songId?: string) {
       try {
 
         // Use different query based on whether we're filtering by songId
-        // songId can be either spotifyTrackId (from slug routes) or grc20WorkId (legacy)
         let data
         if (songId) {
           // Query specific song by spotifyTrackId
@@ -398,7 +383,6 @@ export function useStudyCards(songId?: string) {
             lineId: card.lineId ?? undefined,
             lineIndex: Number.isNaN(lineIndexValue) ? undefined : lineIndexValue,
             segmentHash: card.clipHash ?? card.clip?.clipHash ?? undefined,
-            grc20WorkId: card.clip?.grc20WorkId ?? undefined,
             spotifyTrackId: card.spotifyTrackId ?? undefined,
             title,
             artist,
@@ -466,7 +450,6 @@ export function useStudyCards(songId?: string) {
               lineId, // Deterministic bytes32 from Grove data (no contract needed!)
               lineIndex,
               segmentHash: clip.clipHash,
-              grc20WorkId: clip.grc20WorkId,
               spotifyTrackId: clip.spotifyTrackId,
               metadataUri: clip.metadataUri,
               instrumentalUri: clip.instrumentalUri,

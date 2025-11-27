@@ -40,18 +40,6 @@ const COLORS = {
 
 const DEFAULT_STYLES: AssStyle[] = [
   {
-    name: 'English',
-    fontName: 'Arial',
-    fontSize: 48,
-    primaryColor: COLORS.white,
-    secondaryColor: COLORS.white,
-    outlineColor: COLORS.black,
-    backColor: COLORS.shadow,
-    bold: true,
-    alignment: 8, // Top center
-    marginV: 60,
-  },
-  {
     name: 'Chinese',
     fontName: 'Noto Sans SC',
     fontSize: 56,
@@ -61,7 +49,7 @@ const DEFAULT_STYLES: AssStyle[] = [
     backColor: COLORS.shadow,
     bold: true,
     alignment: 2, // Bottom center
-    marginV: 80,
+    marginV: 40, // Closer to bottom edge
   },
 ];
 
@@ -172,12 +160,7 @@ export function generateAssSubtitles(
     const start = msToAss(event.startMs);
     const end = msToAss(event.endMs);
 
-    // English line (static, top)
-    if (event.enText) {
-      lines.push(`Dialogue: 0,${start},${end},English,,0,0,0,,${event.enText}`);
-    }
-
-    // Chinese line (karaoke, bottom)
+    // Chinese line only (karaoke, bottom)
     if (event.zhText && event.wordTimings.length > 0) {
       const karaokeText = generateKaraokeTags(event.zhText, event.wordTimings, event.startMs);
       lines.push(`Dialogue: 0,${start},${end},Chinese,,0,0,0,,${karaokeText}`);

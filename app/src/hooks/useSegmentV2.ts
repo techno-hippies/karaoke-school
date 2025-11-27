@@ -47,7 +47,6 @@ export interface SegmentMetadata {
 
   // NEW FORMAT FIELDS (from karaoke-pipeline)
   segment_hash?: string
-  grc20_work_id?: string
   spotify_track_id?: string
   title?: string
   artist?: string

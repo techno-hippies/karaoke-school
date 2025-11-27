@@ -31,17 +31,10 @@ export function transformLensPostToVideoData(
   const getAttribute = (key: string) =>
     video.attributes?.find(a => a.key === key)?.value
 
-  const geniusId = getAttribute('genius_id')
-    ? Number(getAttribute('genius_id'))
-    : undefined
-
   // Primary: slug-based routing (clean URLs like /eminem/lose-yourself)
   const artistSlug = getAttribute('artist_slug')
   const songSlug = getAttribute('song_slug')
-
-  // Legacy identifiers (for backwards compatibility)
   const spotifyTrackId = getAttribute('spotify_track_id')
-  const grc20WorkId = getAttribute('grc20_work_id')
   const tiktokVideoId = getAttribute('tiktok_video_id')
 
   // Extract karaoke lines from transcriptions attribute (stored as JSON)
@@ -178,13 +171,9 @@ export function transformLensPostToVideoData(
     musicTitle,
     musicAuthor,
     musicImageUrl,
-    // Primary: slug-based routing
     artistSlug,
     songSlug,
-    // Legacy identifiers
-    geniusId,
     spotifyTrackId,
-    grc20WorkId,
     createdAt: (post as any).createdAt,
     likes: post.stats?.upvotes ?? 0,
     comments: post.stats?.comments ?? 0,

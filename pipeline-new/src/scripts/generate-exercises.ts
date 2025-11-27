@@ -25,6 +25,7 @@ import {
 } from '../db/queries';
 import { normalizeISWC } from '../lib/lyrics-parser';
 import { validateEnv, GENIUS_API_KEY, OPENROUTER_API_KEY } from '../config';
+import { callOpenRouter } from '../services/openrouter';
 import type { Lyric, QuestionData, GeniusReferent } from '../types';
 
 // Parse CLI arguments
@@ -176,29 +177,161 @@ Respond in JSON format:
 }
 
 // ============================================================================
-// TRANSLATION EXERCISE GENERATION
+// TRANSLATION EXERCISE GENERATION (AI-powered distractors)
 // ============================================================================
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  zh: 'Simplified Chinese',
+  vi: 'Vietnamese',
+  id: 'Indonesian',
+};
+
+const DISTRACTOR_POOL_SIZE = 6;
+const MAX_DISTRACTOR_WORDS = 12;
+
+interface DistractorResult {
+  distractors: string[];
+  explanation: string;
+  explanationLocalized: string;
+}
+
+interface TranslationExerciseResult {
+  correctAnswer: string;
+  distractors: string[];
+  explanationLocalized: string;
+}
+
+/**
+ * Generate a complete translation exercise using AI.
+ *
+ * IMPORTANT: We generate a PURE translation as the correct answer, not the artistic
+ * Chinglish from zh-lyrics.txt. Song lyrics often mix languages for artistic effect,
+ * but for language learning we need proper translations.
+ */
+async function generateTranslationExerciseAI(
+  enLine: Lyric,
+  languageCode: string,
+  songTitle: string,
+  contextLines: { previous?: string; next?: string }
+): Promise<TranslationExerciseResult> {
+  const languageName = LANGUAGE_NAMES[languageCode] || languageCode;
+
+  const contextStr = [
+    contextLines.previous ? `Previous line: "${contextLines.previous}"` : null,
+    contextLines.next ? `Next line: "${contextLines.next}"` : null,
+  ].filter(Boolean).join('\n');
+
+  const systemPrompt = `You create language-learning translation exercises for ${languageName} speakers learning English. Respond strictly in JSON.`;
+
+  const userPrompt = `Create a multiple-choice translation quiz for this English lyric.
+
+English lyric to translate:
+"""${enLine.text}"""
+
+Song: ${songTitle}
+
+Context:
+${contextStr || 'No adjacent lines'}
+
+Requirements:
+1. Provide ONE correct translation in ${languageName}:
+   - Must be written ENTIRELY in ${languageName} (NO English words)
+   - Natural, accurate translation that captures the meaning
+   - NOT a transliteration or Chinglish mix
+
+2. Generate exactly ${DISTRACTOR_POOL_SIZE} incorrect translations in ${languageName}:
+   - Each written ENTIRELY in ${languageName} (NO English words)
+   - Linguistically plausible but meaningfully wrong
+   - Under ${MAX_DISTRACTOR_WORDS} words each
+   - All unique (no duplicates)
+
+3. Provide a brief explanation in ${languageName} for the learner
+
+Return JSON:
+{
+  "correct_answer": "the correct ${languageName} translation (NO English)",
+  "distractors": ["wrong answer 1", "wrong answer 2", ...],
+  "explanation": "Brief explanation in ${languageName} for the learner"
+}`;
+
+  try {
+    const response = await callOpenRouter([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ]);
+
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const correctAnswer = (parsed.correct_answer || '').trim();
+    if (!correctAnswer) {
+      throw new Error('No correct answer provided');
+    }
+
+    // Validate distractors
+    let distractors: string[] = parsed.distractors || [];
+    const correctLower = correctAnswer.toLowerCase();
+
+    // Filter out any that match correct answer or are empty
+    distractors = distractors
+      .map((d: string) => d.trim())
+      .filter((d: string) => d && d.toLowerCase() !== correctLower);
+
+    // Deduplicate
+    distractors = [...new Set(distractors.map((d: string) => d.toLowerCase()))]
+      .map(lower => distractors.find((d: string) => d.toLowerCase() === lower)!);
+
+    // Ensure we have enough distractors
+    while (distractors.length < 3) {
+      distractors.push(`(选项 ${distractors.length + 1})`);
+    }
+
+    return {
+      correctAnswer,
+      distractors: distractors.slice(0, DISTRACTOR_POOL_SIZE),
+      explanationLocalized: parsed.explanation || `正确翻译是"${correctAnswer}"`,
+    };
+  } catch (error: any) {
+    console.error(`   ⚠️ AI translation exercise generation failed: ${error.message}`);
+    throw error; // Re-throw to skip this line
+  }
+}
 
 async function generateTranslationExercise(
   enLine: Lyric,
-  zhLine: Lyric,
-  allZhLines: Lyric[]
+  allEnLines: Lyric[],
+  languageCode: string,
+  songTitle: string
 ): Promise<QuestionData> {
-  // Get 3 random distractors from other Chinese lines
-  const otherLines = allZhLines.filter((l) => l.line_index !== zhLine.line_index);
-  const shuffled = otherLines.sort(() => Math.random() - 0.5);
-  const distractors = shuffled.slice(0, 3).map((l) => l.text);
+  // Get context (previous/next English lines)
+  const prevLine = allEnLines.find(l => l.line_index === enLine.line_index - 1);
+  const nextLine = allEnLines.find(l => l.line_index === enLine.line_index + 1);
 
-  // If not enough distractors, generate some
-  while (distractors.length < 3) {
-    distractors.push(`(No translation ${distractors.length + 1})`);
-  }
+  const context = {
+    previous: prevLine?.text,
+    next: nextLine?.text,
+  };
 
+  // Generate complete exercise with AI (correct answer + distractors)
+  // This ensures PURE translations without Chinglish mixing
+  const { correctAnswer, distractors, explanationLocalized } = await generateTranslationExerciseAI(
+    enLine,
+    languageCode,
+    songTitle,
+    context
+  );
+
+  // Prompt is just the English text - learner identifies correct translation
+  // Both correct answer and distractors are pure target language (no English)
   return {
-    prompt: `What is the Chinese translation of: "${enLine.text}"`,
-    correct_answer: zhLine.text,
+    prompt: enLine.text,
+    correct_answer: correctAnswer,
     distractors,
-    explanation: `"${enLine.text}" translates to "${zhLine.text}"`,
+    explanation: explanationLocalized,
   };
 }
 
@@ -325,32 +458,50 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // TRANSLATION
+  // TRANSLATION (AI generates both correct answer + distractors)
   // -------------------------------------------------------------------------
   if (exerciseType === 'all' || exerciseType === 'translation') {
-    console.log('\n🌐 Generating translation exercises...');
+    console.log('\n🌐 Generating translation exercises (AI-powered, pure translations)...');
+    validateEnv(['OPENROUTER_API_KEY']);
 
-    // Create translation exercises for each line pair
-    const zhByIndex = new Map(zhLyrics.map((l) => [l.line_index, l]));
     let translationCount = 0;
 
     for (const enLine of enLyrics) {
       if (translationCount >= limit) break;
 
-      const zhLine = zhByIndex.get(enLine.line_index);
-      if (!zhLine) continue;
+      // Skip section markers like [Verse 1], [Chorus]
+      if (enLine.text.match(/^\[.*\]$/)) continue;
 
-      const questionData = await generateTranslationExercise(enLine, zhLine, zhLyrics);
+      // Skip very short lines (less than 3 words)
+      const wordCount = enLine.text.split(/\s+/).length;
+      if (wordCount < 3) continue;
 
-      exercises.push({
-        song_id: song.id,
-        lyric_id: enLine.id,
-        exercise_type: 'translation',
-        language_code: 'zh',
-        question_data: questionData,
-      });
+      console.log(`   📝 Line ${translationCount + 1}: "${enLine.text.slice(0, 40)}..."`);
 
-      translationCount++;
+      try {
+        // AI generates BOTH correct answer and distractors (pure Chinese, no Chinglish)
+        const questionData = await generateTranslationExercise(
+          enLine,
+          enLyrics,
+          'zh',
+          song.title
+        );
+
+        exercises.push({
+          song_id: song.id,
+          lyric_id: enLine.id,
+          exercise_type: 'translation',
+          language_code: 'zh',
+          question_data: questionData,
+        });
+
+        translationCount++;
+      } catch (error: any) {
+        console.log(`   ⚠️ Skipped: ${error.message}`);
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     console.log(`   Generated ${translationCount} translation exercises`);

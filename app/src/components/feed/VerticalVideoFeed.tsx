@@ -350,11 +350,10 @@ function VerticalVideoFeedComponent({
                   navigate(`/${artistSlug}/${songSlug}`)
                   return
                 }
-                // Legacy fallback: use IDs for older posts without song info
-                console.log('[VerticalVideoFeed] Audio clicked (legacy):', video.grc20WorkId || video.spotifyTrackId || video.geniusId)
-                const songId = video.grc20WorkId || video.spotifyTrackId || video.geniusId
-                if (songId) {
-                  navigate(`/song/${songId}`)
+                // Legacy fallback: use Spotify track ID
+                console.log('[VerticalVideoFeed] Audio clicked (fallback):', video.spotifyTrackId)
+                if (video.spotifyTrackId) {
+                  navigate(`/song/${video.spotifyTrackId}`)
                 }
               }}
             />

@@ -100,11 +100,10 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
 
   // Group cards by song for display
   const cardsBySong = dueCards.reduce((acc, card) => {
-    const key = card.grc20WorkId || 'unknown'
+    const key = card.spotifyTrackId || 'unknown'
     if (!acc[key]) {
       acc[key] = {
-        grc20WorkId: key,
-        spotifyTrackId: card.spotifyTrackId,
+        spotifyTrackId: key,
         title: card.title || t('study.unknownSong'),
         artist: card.artist || t('study.unknownArtist'),
         artworkUrl: card.artworkUrl,
@@ -113,13 +112,13 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
     }
     acc[key].cards.push(card)
     return acc
-  }, {} as Record<string, { grc20WorkId: string; spotifyTrackId?: string; title: string; artist: string; artworkUrl?: string; cards: typeof dueCards }>)
+  }, {} as Record<string, { spotifyTrackId: string; title: string; artist: string; artworkUrl?: string; cards: typeof dueCards }>)
 
   const songsList = Object.values(cardsBySong).sort((a, b) => b.cards.length - a.cards.length)
 
   const dueCardsSample = useMemo(() => dueCards.slice(0, 3).map((card) => ({
     lineId: card.lineId,
-    grc20WorkId: card.grc20WorkId,
+    spotifyTrackId: card.spotifyTrackId,
     state: card.fsrs.state,
   })), [dueCards])
 
@@ -287,12 +286,12 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
             <ItemGroup className="gap-2">
               {songsList.map((song) => (
                 <SongItem
-                  key={song.grc20WorkId}
+                  key={song.spotifyTrackId}
                   title={song.title}
                   artist={song.artist}
                   artworkUrl={song.artworkUrl}
                   badge={song.cards.length}
-                  onClick={() => navigate(`/song/${song.grc20WorkId}/study`)}
+                  onClick={() => navigate(`/song/${song.spotifyTrackId}/study`)}
                 />
               ))}
             </ItemGroup>

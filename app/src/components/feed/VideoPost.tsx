@@ -305,9 +305,7 @@ const areVideoPostPropsEqual = (prev: VideoPostProps, next: VideoPostProps) => {
     prev.musicImageUrl === next.musicImageUrl &&
     prev.artistSlug === next.artistSlug &&
     prev.songSlug === next.songSlug &&
-    prev.geniusId === next.geniusId &&
     prev.spotifyTrackId === next.spotifyTrackId &&
-    prev.grc20WorkId === next.grc20WorkId &&
     prev.tiktokVideoId === next.tiktokVideoId &&
     prev.createdAt === next.createdAt &&
     prev.likes === next.likes &&

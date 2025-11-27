@@ -27,7 +27,7 @@ import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
  *
  * Routes supported:
  * - /:artistSlug/:songSlug/study (slug-based, resolves to spotifyTrackId)
- * - /song/:workId/study (legacy GRC-20 workId)
+ * - /song/:workId/study (Spotify track ID)
  * - /study/session (global session, all songs)
  */
 export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
@@ -46,7 +46,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
 
   // Determine which identifier to use:
   // - Slug route: use resolved spotifyTrackId
-  // - Legacy route: use workId (grc20WorkId)
+  // - Direct route: use workId (spotifyTrackId)
   // - Global session: undefined (all songs)
   const songId = slugData?.spotifyTrackId || workId
   const isSlugRoute = !!artistSlug && !!songSlug

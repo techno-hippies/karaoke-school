@@ -245,11 +245,11 @@ export function AccountPageContainer() {
   // Parse songs from artistSongs
   const songs: ArtistSong[] = artistSongs
     ? artistSongs.map((song) => ({
-        id: song.grc20WorkId,
+        id: song.spotifyTrackId,
         title: song.title,
         artist: song.artist,
         artworkUrl: song.coverUri,
-        onSongClick: () => navigate(`/song/${song.grc20WorkId}`),
+        onSongClick: () => navigate(`/song/${song.spotifyTrackId}`),
       }))
     : []
 

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
+import { useSongClips } from '@/hooks/useSongClips'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { KaraokePracticeSession } from '@/components/karaoke/KaraokePracticeSession'
@@ -38,8 +38,8 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   // Subscription dialog state
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
 
-  // Fetch clips for this GRC-20 work with metadata
-  const { data: workData, isLoading: isLoadingWork } = useGRC20WorkClipsWithMetadata(workId)
+  // Fetch clips with metadata
+  const { data: workData, isLoading: isLoadingWork } = useSongClips(workId)
 
   // Get first clip from work
   const firstClip = workData?.clips?.[0]
@@ -254,7 +254,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const title = clipMetadata.title
   const artist = clipMetadata.artist
 
-  // Extract artwork/cover image from Grove metadata (uploaded from grc20_artists.image_url)
+  // Extract artwork/cover image from Grove metadata
   // coverUri is set during pipeline emission in emit-clip-events.ts
   // NOTE: Don't pass artworkUrl to MediaPage to avoid background image on play page
   const artworkUrl = undefined // Don't show artwork background on play page

@@ -36,7 +36,6 @@ export interface SearchOptions {
 
 /**
  * GraphQL query to get karaoke songs with clips
- * This queries clips and groups them by grc20WorkId (local schema)
  */
 const GET_KARAOKE_SONGS_QUERY = gql`
   query GetKaraokeSongs(
@@ -55,7 +54,6 @@ const GET_KARAOKE_SONGS_QUERY = gql`
     ) {
       id
       clipHash
-      grc20WorkId
       spotifyTrackId
       hasInstrumental
       hasAlignments
@@ -71,8 +69,7 @@ const GET_KARAOKE_SONGS_QUERY = gql`
 `
 
 /**
- * GraphQL query for search functionality (local schema)
- * Search by spotifyTrackId for now
+ * GraphQL query for search functionality
  */
 const SEARCH_KARAOKE_SONGS_QUERY = gql`
   query SearchKaraokeSongs(
@@ -94,7 +91,6 @@ const SEARCH_KARAOKE_SONGS_QUERY = gql`
     ) {
       id
       clipHash
-      grc20WorkId
       spotifyTrackId
       hasInstrumental
       hasAlignments
@@ -252,7 +248,7 @@ function groupClipsBySpotifyTrack(clips: any[]): KaraokeSong[] {
 }
 
 /**
- * Fetch Grove metadata for a song (same pattern as useSongV2.ts)
+ * Fetch Grove metadata for a song
  */
 async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
   if (!(song as any).metadataUri) {

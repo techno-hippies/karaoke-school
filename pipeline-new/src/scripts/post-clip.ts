@@ -165,16 +165,21 @@ async function main() {
     [song.artist_id]
   ) : null;
 
-  // Fall back to Spotify image if no thumbnail was extracted
+  // Get Spotify album art for the song (separate from video thumbnail)
+  const spotifyImages = song.spotify_images as Array<{ url: string; width: number; height: number }> | null;
+  const spotifyAlbumArt = spotifyImages?.[0]?.url;
+
+  // Fall back to Spotify image if no video thumbnail was extracted
   if (!coverImageUrl) {
-    const spotifyImages = song.spotify_images as Array<{ url: string; width: number; height: number }> | null;
-    coverImageUrl = spotifyImages?.[0]?.url;
+    coverImageUrl = spotifyAlbumArt;
   }
 
   // Create and upload metadata with slug-based linking
   console.log('\n📋 Creating metadata...');
   console.log(`   Artist slug: ${artist?.slug}`);
   console.log(`   Song slug: ${song.slug}`);
+  console.log(`   Video thumbnail: ${coverImageUrl}`);
+  console.log(`   Album art: ${spotifyAlbumArt}`);
 
   const metadata = await createPostMetadata({
     content,
@@ -182,13 +187,13 @@ async function main() {
     tags,
     videoUrl,
     audioUrl: aiCoverUrl,
-    coverImageUrl,
+    coverImageUrl, // Video thumbnail (frame from video)
     // Primary: slugs for clean URL routing (e.g., /eminem/lose-yourself)
     artistSlug: artist?.slug || undefined,
     songSlug: song.slug || undefined,
     songName: song.title,
     artistName: artist?.name,
-    albumArt: coverImageUrl,
+    albumArt: spotifyAlbumArt, // Spotify album art (the actual song artwork)
     // Legacy: keep spotify_track_id for backwards compatibility
     spotifyTrackId: song.spotify_track_id || undefined,
   });

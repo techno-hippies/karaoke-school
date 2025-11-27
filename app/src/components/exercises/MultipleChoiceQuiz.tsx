@@ -23,8 +23,8 @@ export interface MultipleChoiceQuizProps {
   selectedAnswerId?: string | null
   /** Optional explanation to show after answering */
   explanation?: string
-  /** Exercise type to determine prompt text */
-  exerciseType?: 'TRANSLATION_QUIZ' | 'TRIVIA_QUIZ'
+  /** Exercise type to determine prompt text (matches subgraph enum) */
+  exerciseType?: 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE' | 'TRANSLATION_QUIZ' | 'TRIVIA_QUIZ'
 }
 
 export const MultipleChoiceQuiz = ({
@@ -118,12 +118,16 @@ export const MultipleChoiceQuiz = ({
   }
 
   // Determine prompt text based on exercise type
+  // Translation = learner selects correct translation of English text
+  // Trivia = learner answers a question about the song/lyrics
   const getPromptText = () => {
     switch (exerciseType) {
+      case 'TRANSLATION_MULTIPLE_CHOICE':
       case 'TRANSLATION_QUIZ':
         return 'Translate:'
+      case 'TRIVIA_MULTIPLE_CHOICE':
       case 'TRIVIA_QUIZ':
-        return 'Answer the trivia:'
+        return 'Answer:'
       default:
         return 'Question:'
     }

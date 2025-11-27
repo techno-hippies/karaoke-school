@@ -3,19 +3,14 @@ import { convertGroveUri } from '@/lib/lens/utils'
 import { SUBGRAPH_URL } from '@/lib/graphql/client'
 
 export interface ArtistSong {
-  grc20WorkId: string
+  spotifyTrackId: string
   title: string
   artist: string
   coverUri?: string
-  spotifyTrackId?: string
 }
 
 /**
  * Fetch songs for an artist by their Lens handle
- * Queries the subgraph for clips with matching artistLensHandle from metadata
- *
- * @param lensHandle - The artist's Lens handle (e.g., "pitbull-ks1")
- * @returns Array of songs with metadata
  */
 export function useArtistSongsByLensHandle(lensHandle?: string) {
   return useQuery({
@@ -25,8 +20,6 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
         throw new Error('Lens handle is required')
       }
 
-      // Query subgraph for all clips
-      // Then filter by fetching metadata and checking artistLensHandle
       const response = await fetch(SUBGRAPH_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,7 +28,6 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
             query GetAllClips {
               clips(first: 1000, orderBy: registeredAt, orderDirection: desc) {
                 id
-                grc20WorkId
                 spotifyTrackId
                 metadataUri
               }
@@ -50,7 +42,6 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
         return []
       }
 
-      // Fetch metadata for each clip and filter by artistLensHandle
       const songsMap = new Map<string, ArtistSong>()
 
       await Promise.all(
@@ -59,16 +50,13 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
             const metadataResponse = await fetch(clip.metadataUri)
             const metadata = await metadataResponse.json()
 
-            // Check if this clip belongs to the artist
             if (metadata.artistLensHandle === lensHandle) {
-              // Only add unique works (by grc20WorkId)
-              if (!songsMap.has(clip.grc20WorkId)) {
-                songsMap.set(clip.grc20WorkId, {
-                  grc20WorkId: clip.grc20WorkId,
+              if (!songsMap.has(clip.spotifyTrackId)) {
+                songsMap.set(clip.spotifyTrackId, {
+                  spotifyTrackId: clip.spotifyTrackId,
                   title: metadata.title || 'Untitled',
                   artist: metadata.artist || 'Unknown Artist',
                   coverUri: metadata.coverUri ? convertGroveUri(metadata.coverUri) : undefined,
-                  spotifyTrackId: clip.spotifyTrackId
                 })
               }
             }
@@ -81,7 +69,7 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
       return Array.from(songsMap.values())
     },
     enabled: !!lensHandle,
-    staleTime: 60000, // 1 minute
+    staleTime: 60000,
     refetchOnWindowFocus: false,
   })
 }

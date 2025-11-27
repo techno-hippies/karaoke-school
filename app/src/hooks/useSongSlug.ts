@@ -9,14 +9,14 @@ import { convertGroveUri } from '@/lib/lens/utils'
 export function generateSlug(text: string): string {
   return text
     .toLowerCase()
-    .replace(/['']/g, '') // Remove apostrophes
-    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
-    .replace(/^-+|-+$/g, '') // Trim leading/trailing hyphens
-    .substring(0, 50) // Limit length
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50)
 }
 
 /**
- * Match slug against text (handles common variations)
+ * Match slug against text
  */
 export function matchesSlug(slug: string, text: string): boolean {
   const generatedSlug = generateSlug(text)
@@ -24,13 +24,12 @@ export function matchesSlug(slug: string, text: string): boolean {
 }
 
 /**
- * Query to get all clips with metadata for slug resolution
+ * Query to get all clips for slug resolution
  */
 const ALL_CLIPS_QUERY = gql`
   query GetAllClipsForSlugResolution {
     clips(first: 100, orderBy: registeredAt, orderDirection: desc) {
       spotifyTrackId
-      grc20WorkId
       metadataUri
     }
   }
@@ -38,7 +37,6 @@ const ALL_CLIPS_QUERY = gql`
 
 interface ClipForSlug {
   spotifyTrackId: string
-  grc20WorkId: string
   metadataUri: string
 }
 
@@ -48,14 +46,7 @@ interface SongMetadata {
 }
 
 /**
- * Resolve artist/song slugs to Spotify track ID
- *
- * This hook fetches all clips, resolves their metadata, and matches against slugs.
- * For a production system, this would be a database lookup.
- *
- * @param artistSlug - Artist slug (e.g., 'eminem')
- * @param songSlug - Song slug (e.g., 'lose-yourself')
- * @returns Spotify track ID if found
+ * Dynamic slug resolution (fallback)
  */
 export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
   return useQuery({
@@ -65,14 +56,12 @@ export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
         throw new Error('Both artist and song slugs are required')
       }
 
-      // Fetch all clips
       const data = await graphClient.request<{ clips: ClipForSlug[] }>(ALL_CLIPS_QUERY)
 
       if (!data.clips || data.clips.length === 0) {
         throw new Error('No clips found')
       }
 
-      // Fetch metadata for each clip and find match
       for (const clip of data.clips) {
         try {
           const httpUrl = convertGroveUri(clip.metadataUri)
@@ -81,19 +70,13 @@ export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
 
           const metadata: SongMetadata = await response.json()
 
-          // Check if this clip matches the slugs
           const titleMatches = metadata.title && matchesSlug(songSlug, metadata.title)
           const artistMatches = metadata.artist && matchesSlug(artistSlug, metadata.artist)
 
           if (titleMatches && artistMatches) {
-            return {
-              spotifyTrackId: clip.spotifyTrackId,
-              grc20WorkId: clip.grc20WorkId,
-              metadata,
-            }
+            return { spotifyTrackId: clip.spotifyTrackId }
           }
-        } catch (e) {
-          // Skip clips with invalid metadata
+        } catch {
           continue
         }
       }
@@ -101,58 +84,42 @@ export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
       throw new Error(`No song found for ${artistSlug}/${songSlug}`)
     },
     enabled: !!artistSlug && !!songSlug,
-    staleTime: 300000, // 5 minutes
+    staleTime: 300000,
     retry: false,
   })
 }
 
 /**
- * Slug → Spotify Track ID mapping
- *
- * This is the source of truth for routing.
- * Generated from pipeline-new database: SELECT artist_slug, song_slug, spotify_track_id
- *
- * Format: 'artist-slug/song-slug' → 'spotifyTrackId'
+ * Static slug → Spotify Track ID map
  */
-const SLUG_MAP: Record<string, { spotifyTrackId: string; iswc: string }> = {
-  'eminem/lose-yourself': {
-    spotifyTrackId: '5Z01UMMf7V1o0MzF86s6WJ',
-    iswc: 'T0718898588'
-  },
-  // Add more songs as they're processed through the pipeline
+const SLUG_MAP: Record<string, string> = {
+  'eminem/lose-yourself': '5Z01UMMf7V1o0MzF86s6WJ',
+  'britney-spears/toxic': '717TY4sfgKQm4kFbYQIzgo',
 }
 
 /**
- * Resolve slug to song data
+ * Resolve slug to Spotify track ID
  */
-export function resolveSlug(artistSlug: string, songSlug: string): { spotifyTrackId: string; iswc: string } | undefined {
-  const key = `${artistSlug}/${songSlug}`
-  return SLUG_MAP[key]
+export function resolveSlug(artistSlug: string, songSlug: string): string | undefined {
+  return SLUG_MAP[`${artistSlug}/${songSlug}`]
 }
 
 /**
- * Get all available slugs (for sitemap/discovery)
+ * Get all available slugs
  */
-export function getAllSlugs(): Array<{ artistSlug: string; songSlug: string; iswc: string }> {
-  return Object.entries(SLUG_MAP).map(([key, value]) => {
+export function getAllSlugs(): Array<{ artistSlug: string; songSlug: string }> {
+  return Object.keys(SLUG_MAP).map(key => {
     const [artistSlug, songSlug] = key.split('/')
-    return { artistSlug, songSlug, iswc: value.iswc }
+    return { artistSlug, songSlug }
   })
 }
 
 /**
  * Primary hook for slug-based routing
- *
- * Uses static map (fast, no network). Falls back to dynamic resolution
- * only if the song isn't in the map (for newly added songs).
  */
 export function useSongSlug(artistSlug?: string, songSlug?: string) {
-  // Try static resolution first (instant)
-  const staticResult = artistSlug && songSlug
-    ? resolveSlug(artistSlug, songSlug)
-    : undefined
+  const staticResult = artistSlug && songSlug ? resolveSlug(artistSlug, songSlug) : undefined
 
-  // Fall back to dynamic resolution if not in static map
   const dynamicQuery = useSongSlugResolution(
     staticResult ? undefined : artistSlug,
     staticResult ? undefined : songSlug
@@ -160,10 +127,7 @@ export function useSongSlug(artistSlug?: string, songSlug?: string) {
 
   if (staticResult) {
     return {
-      data: {
-        spotifyTrackId: staticResult.spotifyTrackId,
-        iswc: staticResult.iswc,
-      },
+      data: { spotifyTrackId: staticResult },
       isLoading: false,
       error: null,
     }
