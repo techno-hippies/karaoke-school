@@ -110,11 +110,42 @@ export function useLitActionGrader() {
           jsParams.language = 'en'
           jsParams.voxtralEncryptedKey = LIT_ACTION_VOXTRAL_KEY
 
+          // Fetch deterministic nonce to prevent collisions
+          try {
+            console.log('[useLitActionGrader] Fetching deterministic nonce for SAY_IT_BACK...');
+            const publicClient = createPublicClient({
+              chain: lensTestnet,
+              transport: http()
+            });
+
+            // Get Trusted PKP from ExerciseEvents contract
+            const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';
+            const trustedPKP = await publicClient.readContract({
+              address: EXERCISE_EVENTS_ADDRESS as `0x${string}`,
+              abi: parseAbi(['function trustedPKP() external view returns (address)']),
+              functionName: 'trustedPKP',
+              authorizationList: undefined,
+            });
+
+            // Get pending nonce for that PKP
+            const nonce = await publicClient.getTransactionCount({
+              address: trustedPKP,
+              blockTag: 'pending'
+            });
+
+            console.log(`[useLitActionGrader] Resolved PKP: ${trustedPKP}, Nonce: ${nonce}`);
+            jsParams.nonceOverride = Number(nonce);
+          } catch (err) {
+            console.warn('[useLitActionGrader] Failed to fetch deterministic nonce:', err);
+            // Fallback to Lit Action internal handling
+          }
+
           console.log('[useLitActionGrader] SAY_IT_BACK params:', {
             lineId: params.lineId,
             lineIndex: params.lineIndex,
             segmentHash: params.segmentHash,
             audioSize: params.audioDataBase64.length,
+            nonceOverride: jsParams.nonceOverride
           })
         } else if (params.exerciseType === 'KARAOKE_PERFORMANCE') {
           // Karaoke Grader specific parameters
@@ -174,10 +205,41 @@ export function useLitActionGrader() {
           jsParams.userAnswer = params.userAnswer
           jsParams.correctAnswer = params.correctAnswer
 
+          // Fetch deterministic nonce to prevent collisions
+          try {
+            console.log('[useLitActionGrader] Fetching deterministic nonce for MULTIPLE_CHOICE...');
+            const publicClient = createPublicClient({
+              chain: lensTestnet,
+              transport: http()
+            });
+
+            // Get Trusted PKP from ExerciseEvents contract
+            const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';
+            const trustedPKP = await publicClient.readContract({
+              address: EXERCISE_EVENTS_ADDRESS as `0x${string}`,
+              abi: parseAbi(['function trustedPKP() external view returns (address)']),
+              functionName: 'trustedPKP',
+              authorizationList: undefined,
+            });
+
+            // Get pending nonce for that PKP
+            const nonce = await publicClient.getTransactionCount({
+              address: trustedPKP,
+              blockTag: 'pending'
+            });
+
+            console.log(`[useLitActionGrader] Resolved PKP: ${trustedPKP}, Nonce: ${nonce}`);
+            jsParams.nonceOverride = Number(nonce);
+          } catch (err) {
+            console.warn('[useLitActionGrader] Failed to fetch deterministic nonce:', err);
+            // Fallback to Lit Action internal handling
+          }
+
           console.log('[useLitActionGrader] Multiple choice params:', {
             questionId: params.questionId,
             userAnswer: params.userAnswer,
             correctAnswer: params.correctAnswer,
+            nonceOverride: jsParams.nonceOverride
           })
         }
 

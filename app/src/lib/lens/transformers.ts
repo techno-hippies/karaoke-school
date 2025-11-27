@@ -35,6 +35,11 @@ export function transformLensPostToVideoData(
     ? Number(getAttribute('genius_id'))
     : undefined
 
+  // Primary: slug-based routing (clean URLs like /eminem/lose-yourself)
+  const artistSlug = getAttribute('artist_slug')
+  const songSlug = getAttribute('song_slug')
+
+  // Legacy identifiers (for backwards compatibility)
   const spotifyTrackId = getAttribute('spotify_track_id')
   const grc20WorkId = getAttribute('grc20_work_id')
   const tiktokVideoId = getAttribute('tiktok_video_id')
@@ -137,6 +142,29 @@ export function transformLensPostToVideoData(
   const albumArt = getAttribute('album_art')
   const musicImageUrl = albumArt ? convertGroveUri(albumArt) : undefined
 
+  // Get song/artist from attributes, with fallback to parsing title for legacy posts
+  // Legacy format: "Song Name - Karaoke" or "Song Name"
+  let musicTitle = getAttribute('song_name')
+  let musicAuthor = getAttribute('artist_name')
+
+  // Fallback: extract from title for legacy posts without attributes
+  if (!musicTitle && video.title) {
+    const titleMatch = video.title.match(/^(.+?)\s*-\s*Karaoke$/i)
+    if (titleMatch) {
+      musicTitle = titleMatch[1].trim()
+    }
+  }
+
+  // Known song -> artist mapping for legacy posts without artist info
+  // This ensures old posts can still link to song pages
+  const KNOWN_SONGS: Record<string, string> = {
+    'Lose Yourself': 'Eminem',
+    'Naughty Girl': 'Beyoncé',
+  }
+  if (musicTitle && !musicAuthor && KNOWN_SONGS[musicTitle]) {
+    musicAuthor = KNOWN_SONGS[musicTitle]
+  }
+
   const result = {
     id: post.id,
     tiktokVideoId,
@@ -147,9 +175,13 @@ export function transformLensPostToVideoData(
     authorAddress: post.author.address,
     grade: getAttribute('grade'),
     description: video.content,
-    musicTitle: getAttribute('song_name'),
-    musicAuthor: getAttribute('artist_name'),
+    musicTitle,
+    musicAuthor,
     musicImageUrl,
+    // Primary: slug-based routing
+    artistSlug,
+    songSlug,
+    // Legacy identifiers
     geniusId,
     spotifyTrackId,
     grc20WorkId,

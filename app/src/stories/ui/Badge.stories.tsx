@@ -9,7 +9,7 @@ const meta: Meta<typeof Badge> = {
     backgrounds: {
       default: 'dark',
       options: {
-        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' },
+        dark: { name: 'dark', value: 'oklch(0.145 0 0)' },
         light: { name: 'light', value: 'oklch(1 0 0)' }
       }
     }
@@ -18,7 +18,7 @@ const meta: Meta<typeof Badge> = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'secondary', 'destructive', 'outline']
+      options: ['default', 'secondary', 'destructive', 'outline', 'gradient', 'success', 'fire', 'gold', 'purple', 'glow-primary', 'glow-success']
     }
   }
 }
@@ -65,8 +65,71 @@ export const StatusBadges: Story = {
 
 export const TrendingBadge: Story = {
   render: () => (
-    <Badge className="bg-brand-red hover:bg-brand-red/90">
+    <Badge variant="fire">
       🔥 Trending
     </Badge>
+  )
+}
+
+/**
+ * Gradient badges - vibrant, eye-catching status indicators
+ */
+export const GradientVariants: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <Badge variant="gradient">Primary</Badge>
+      <Badge variant="success">Success</Badge>
+      <Badge variant="fire">Hot</Badge>
+      <Badge variant="gold">Premium</Badge>
+      <Badge variant="purple">New</Badge>
+    </div>
+  )
+}
+
+/**
+ * Glowing badges - for extra emphasis
+ */
+export const GlowingBadges: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-4">
+      <Badge variant="glow-primary">Live</Badge>
+      <Badge variant="glow-success">Perfect!</Badge>
+    </div>
+  )
+}
+
+/**
+ * Karaoke-themed badges
+ */
+export const KaraokeBadges: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <Badge variant="fire">🔥 5 Streak</Badge>
+      <Badge variant="gold">⭐ Top 10%</Badge>
+      <Badge variant="success">✓ Mastered</Badge>
+      <Badge variant="gradient">🎤 Recording</Badge>
+      <Badge variant="purple">✨ New Song</Badge>
+    </div>
+  )
+}
+
+/**
+ * All variants comparison
+ */
+export const AllVariants: Story = {
+  render: () => (
+    <div className="grid grid-cols-3 gap-3">
+      <Badge variant="default">Default</Badge>
+      <Badge variant="secondary">Secondary</Badge>
+      <Badge variant="destructive">Destructive</Badge>
+      <Badge variant="outline">Outline</Badge>
+      <Badge variant="gradient">Gradient</Badge>
+      <Badge variant="success">Success</Badge>
+      <Badge variant="fire">Fire</Badge>
+      <Badge variant="gold">Gold</Badge>
+      <Badge variant="purple">Purple</Badge>
+      <Badge variant="glow-primary">Glow</Badge>
+      <Badge variant="glow-success">Glow Success</Badge>
+    </div>
   )
 }

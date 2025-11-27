@@ -29,9 +29,13 @@ export interface VideoPostData {
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
-  geniusId?: number // Genius song ID (deprecated)
-  spotifyTrackId?: string // Spotify track ID (deprecated)
-  grc20WorkId?: string // GRC-20 work ID for linking to /song/{grc20WorkId}
+  // Primary: slug-based routing (e.g., /eminem/lose-yourself)
+  artistSlug?: string
+  songSlug?: string
+  // Legacy identifiers (deprecated - use slugs instead)
+  geniusId?: number
+  spotifyTrackId?: string
+  grc20WorkId?: string
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number

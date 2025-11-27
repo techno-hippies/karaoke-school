@@ -4,6 +4,7 @@ import { VideoPost } from './VideoPost'
 import { useAuth } from '@/contexts/AuthContext'
 import { followAccount, unfollowAccount } from '@/lib/lens/follow'
 import { likePost, unlikePost } from '@/lib/lens/reactions'
+import { generateSlug } from '@/hooks/useSongSlug'
 import { toast } from 'sonner'
 import type { VideoPostData } from './types'
 
@@ -335,8 +336,22 @@ function VerticalVideoFeedComponent({
                 navigate(`/u/${video.username}`)
               }}
               onAudioClick={() => {
-                console.log('[VerticalVideoFeed] Audio clicked:', video.grc20WorkId || video.spotifyTrackId || video.geniusId)
-                // Use GRC-20 work ID (preferred), fallback to Spotify or Genius ID for legacy posts
+                // Primary: use slugs for clean URLs (e.g., /eminem/lose-yourself)
+                if (video.artistSlug && video.songSlug) {
+                  console.log('[VerticalVideoFeed] Audio clicked (slug attr):', `/${video.artistSlug}/${video.songSlug}`)
+                  navigate(`/${video.artistSlug}/${video.songSlug}`)
+                  return
+                }
+                // Fallback: generate slugs from song/artist names
+                if (video.musicTitle && video.musicAuthor) {
+                  const artistSlug = generateSlug(video.musicAuthor)
+                  const songSlug = generateSlug(video.musicTitle)
+                  console.log('[VerticalVideoFeed] Audio clicked (generated slug):', `/${artistSlug}/${songSlug}`)
+                  navigate(`/${artistSlug}/${songSlug}`)
+                  return
+                }
+                // Legacy fallback: use IDs for older posts without song info
+                console.log('[VerticalVideoFeed] Audio clicked (legacy):', video.grc20WorkId || video.spotifyTrackId || video.geniusId)
                 const songId = video.grc20WorkId || video.spotifyTrackId || video.geniusId
                 if (songId) {
                   navigate(`/song/${songId}`)

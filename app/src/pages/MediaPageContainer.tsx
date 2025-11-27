@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
-import { KaraokePracticeSession, type RecordingSubmission, type PracticeResult, type PracticeGrade } from '@/components/karaoke/KaraokePracticeSession'
+import { KaraokePracticeSession } from '@/components/karaoke/KaraokePracticeSession'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
@@ -13,40 +13,7 @@ import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { useDecryptFullAudio } from '@/hooks/useDecryptFullAudio'
 import { useAuth } from '@/contexts/AuthContext'
-import { useLitActionGrader } from '@/hooks/useLitActionGrader'
-import { EXERCISE_EVENTS_PKP_ADDRESS } from '@/lib/contracts/addresses'
-
-// Debug logging configuration
-const DEBUG_TIMING = false
-const DEBUG_RERENDERS = false
-
-const ratingToGradeMap: Record<string, PracticeGrade> = {
-  excellent: 'A',
-  easy: 'A',
-  great: 'B',
-  good: 'B',
-  ok: 'C',
-  hard: 'C',
-  'needs work': 'F',
-  again: 'F',
-}
-
-function normalizePracticeGrade({ rating, score }: { rating?: string; score?: number }): PracticeGrade {
-  const normalizedRating = rating?.trim().toLowerCase()
-  if (normalizedRating && ratingToGradeMap[normalizedRating]) {
-    return ratingToGradeMap[normalizedRating]
-  }
-
-  if (typeof score === 'number') {
-    if (score >= 90) return 'A'
-    if (score >= 80) return 'B'
-    if (score >= 70) return 'C'
-    if (score >= 60) return 'D'
-    return 'F'
-  }
-
-  return 'B'
-}
+import { useLineKaraokeGrader } from '@/hooks/useLineKaraokeGrader'
 
 interface MediaPageContainerProps {
   variant?: 'media' | 'practice'
@@ -66,29 +33,10 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
   const { pkpAddress, pkpWalletClient } = useAuth()
-  const { grade, isGrading } = useLitActionGrader()
+  const { gradeLine } = useLineKaraokeGrader()
 
   // Subscription dialog state
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
-
-  // Performance tracking
-  const renderCountRef = useRef(0)
-  const lastRenderTimeRef = useRef(Date.now())
-  const componentStartTimeRef = useRef(Date.now())
-
-  // Timing synchronization tracking
-  const lastActiveLineRef = useRef<number | null>(null)
-  const lastActiveWordRef = useRef<{ lineIndex: number; wordIndex: number } | null>(null)
-  const timingLogsRef = useRef<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>([])
-
-  // Increment render counter and log performance
-  renderCountRef.current++
-  const currentRender = renderCountRef.current
-
-  if (DEBUG_RERENDERS) {
-    const now = Date.now()
-    lastRenderTimeRef.current = now
-  }
 
   // Fetch clips for this GRC-20 work with metadata
   const { data: workData, isLoading: isLoadingWork } = useGRC20WorkClipsWithMetadata(workId)
@@ -98,24 +46,9 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const spotifyTrackIds = firstClip?.spotifyTrackId ? [firstClip.spotifyTrackId] : undefined
 
-  console.log('[MediaPageContainer] 🔐 First clip data:', {
-    spotifyTrackId: firstClip?.spotifyTrackId,
-    hasEncryptedFullUri: !!firstClip?.encryptedFullUri,
-    hasUnlockLockAddress: !!firstClip?.unlockLockAddress,
-    hasUnlockChainId: !!firstClip?.unlockChainId,
-    encryptedFullUri: firstClip?.encryptedFullUri,
-    unlockLockAddress: firstClip?.unlockLockAddress,
-    unlockChainId: firstClip?.unlockChainId,
-  })
-  console.log('[MediaPageContainer] 🔐 Subscription setup - spotifyTrackIds:', spotifyTrackIds)
-  console.log('[MediaPageContainer] 🔐 PKP Address:', pkpAddress)
-  console.log('[MediaPageContainer] 🔐 PKP Wallet Client:', pkpWalletClient ? 'Available' : 'Not available')
-  console.log('[MediaPageContainer] 🔐 PKP Wallet Client chain:', pkpWalletClient?.chain)
-  console.log('[MediaPageContainer] 🔐 PKP Wallet Client account:', pkpWalletClient?.account)
+  // Debug logging removed - too noisy
 
   const { data: subscriptionLockData } = useCreatorSubscriptionLock(spotifyTrackIds)
-
-  console.log('[MediaPageContainer] 🔐 Subscription lock data:', subscriptionLockData)
 
   const {
     subscribe,
@@ -129,7 +62,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     { walletClient: pkpWalletClient }
   )
 
-  console.log('[MediaPageContainer] 🔐 Subscription status:', subscriptionStatus)
 
   const isSubscriptionProcessing =
     subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
@@ -144,9 +76,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const unlockLockAddress = firstClip?.unlockLockAddress
   const unlockChainId = firstClip?.unlockChainId
 
-  console.log('[MediaPageContainer] 🔐 Encrypted full URI:', encryptedFullUri)
-  console.log('[MediaPageContainer] 🔐 Unlock lock address:', unlockLockAddress)
-  console.log('[MediaPageContainer] 🔐 Unlock chain ID:', unlockChainId)
 
   // Decrypt full audio if user has subscription
   const {
@@ -161,84 +90,30 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     unlockChainId
   )
 
-  console.log('[MediaPageContainer] 🔐 Decryption status:', {
-    isDecrypting,
-    hasSubscription,
-    hasDecryptedAudio: !!decryptedAudioUrl,
-    error: decryptError,
-  })
-
-  // Timing synchronization function - calculates which line/word should be active
-  const calculateActiveLineAndWord = useCallback((currentTime: number, lyrics: any[]) => {
-    if (!lyrics || lyrics.length === 0) return { lineIndex: -1, wordIndex: -1 }
-    
-    let activeLineIndex = -1
-    let activeWordIndex = -1
-    
-    // Find the current line
-    for (let i = 0; i < lyrics.length; i++) {
-      const line = lyrics[i]
-      if (currentTime >= line.start && currentTime <= line.end) {
-        activeLineIndex = i
-        break
-      }
-    }
-    
-    // If we found an active line, find the active word within that line
-    if (activeLineIndex >= 0) {
-      const activeLine = lyrics[activeLineIndex]
-      for (let j = 0; j < activeLine.words.length; j++) {
-        const word = activeLine.words[j]
-        if (currentTime >= word.start && currentTime <= word.end) {
-          activeWordIndex = j
-          break
-        }
-      }
-    }
-    
-    return { lineIndex: activeLineIndex, wordIndex: activeWordIndex }
-  }, [])
-
-  // Create debug info that will be passed to MediaPage for child component logging
-  const debugInfo = {
-    renderCount: currentRender,
-    startTime: componentStartTimeRef.current,
-    lastActiveLine: lastActiveLineRef.current,
-    lastActiveWord: lastActiveWordRef.current,
-    calculateActiveLineAndWord,
-    timingLogsRef,
-  }
-
-  if (DEBUG_TIMING && performance.now() % 100 < 16) { // Log roughly every ~6 seconds at 60fps
-    console.log('⏰ [MediaPageContainer] Current performance metrics:', {
-      renderCount: currentRender,
-      avgRenderInterval: componentStartTimeRef.current > 0 ? (Date.now() - componentStartTimeRef.current) / currentRender : 0,
-      activeLine: lastActiveLineRef.current,
-      activeWord: lastActiveWordRef.current,
-    })
-  }
-
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
     if (!clipMetadata) {
       return
     }
 
-    // NEW: Prioritize karaoke_lines (all 86 lines) over translations (often partial)
-    if (clipMetadata.karaoke_lines && Array.isArray(clipMetadata.karaoke_lines) && clipMetadata.karaoke_lines.length > 0) {
-        console.log(`[MediaPageContainer] Using ${clipMetadata.karaoke_lines.length} karaoke lines from metadata`)
-        
-        const lyricsLines = clipMetadata.karaoke_lines.map((line: any) => ({
-            start: Number(line.start_ms) / 1000,
-            end: Number(line.end_ms) / 1000,
-            startTime: Number(line.start_ms),
-            endTime: Number(line.end_ms),
-            originalText: line.text || line.original_text || '',
-            words: [], // Words not strictly needed for display if missing
-        }))
-        
-        setOriginalLyricsLines(lyricsLines)
-    }
+  // NEW: Prioritize karaoke_lines (all lines) over translations (often partial)
+  if (clipMetadata.karaoke_lines && Array.isArray(clipMetadata.karaoke_lines) && clipMetadata.karaoke_lines.length > 0) {
+      console.log(`[MediaPageContainer] Using ${clipMetadata.karaoke_lines.length} karaoke lines from metadata`)
+      
+      const lyricsLines = clipMetadata.karaoke_lines.map((line: any) => ({
+          start: Number(line.start_ms) / 1000,
+          end: Number(line.end_ms) / 1000,
+          // Convert word timing array if present; fallback to coarse line timing
+          words: Array.isArray(line.words) ? line.words.map((w: any) => ({
+            text: w.text || w.word || '',
+            start: Number(w.start_ms || w.start || 0) / 1000,
+            end: Number(w.end_ms || w.end || 0) / 1000,
+          })) : [],
+          originalText: line.text || line.original_text || '',
+      }))
+      
+      setOriginalLyricsLines(lyricsLines)
+  }
 
     // Load alignment if it exists in metadata
     if (clipMetadata.assets?.alignment) {
@@ -258,7 +133,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     // Choose translation URLs based on subscription status
     // Non-subscribed: Use clip_grove_url (40-60s clip only)
     // Subscribed: Use grove_url (full song)
-    console.log('[MediaPageContainer] Loading translations - hasSubscription:', hasSubscription)
+    // console.log('[MediaPageContainer] Loading translations - hasSubscription:', hasSubscription)
     Promise.all<[string, any] | null>(
     // @ts-expect-error - Promise.all type inference
       clipMetadata.translations.map(async (t: any) => {
@@ -293,18 +168,20 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
         // Transform lines to include calculated timing fields (start, end, startTime, endTime)
         const lyricsLines = firstTranslation.lines.map((line: any) => {
           return {
+            // Keep in seconds to match audio currentTime comparisons
             start: line.start,
             end: line.end,
-            startTime: line.start * 1000,
-            endTime: line.end * 1000,
+            startTime: line.start,
+            endTime: line.end,
             originalText: line.originalText || line.text || '',
             words:
               line.words?.map((w: any) => ({
                 text: w.text || w.word || '',
+                // Keep word timings in seconds as well
                 start: w.start || 0,
                 end: w.end || 0,
-                startTime: (w.start || 0) * 1000,
-                endTime: (w.end || 0) * 1000,
+                startTime: w.start || 0,
+                endTime: w.end || 0,
               })) || [],
           }
         })
@@ -316,80 +193,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       setLoadedTranslations(translations)
     })
   }, [clipMetadata, hasSubscription]) // Removed originalLyricsLines from dep array to avoid loops
-
-  const handlePracticeSubmit = useCallback(async (submission: RecordingSubmission): Promise<PracticeResult> => {
-    if (!clipMetadata || !firstClip) {
-      return { grade: 'B', feedback: 'Metadata not ready' }
-    }
-
-    console.log('[MediaPageContainer] 🎙️ Submitting practice for grading...', {
-      duration: submission.duration,
-      size: submission.blob.size
-    })
-
-    // Convert Blob to Base64
-    const reader = new FileReader()
-    const base64Promise = new Promise<string>((resolve, reject) => {
-      reader.onloadend = () => {
-        const base64String = reader.result as string
-        // Remove data URL prefix (e.g., "data:audio/webm;base64,")
-        const base64Data = base64String.split(',')[1]
-        resolve(base64Data)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(submission.blob)
-    })
-
-    try {
-      console.log('[MediaPageContainer] Converting audio to Base64...')
-      const audioDataBase64 = await base64Promise
-      console.log(`[MediaPageContainer] Audio converted: ${audioDataBase64.length} chars. Calling grade()...`)
-      
-      // Call Lit Action
-      const result = await grade({
-        exerciseType: 'KARAOKE_PERFORMANCE',
-        audioDataBase64,
-        performanceId: Date.now(),
-        clipHash: firstClip.clipHash || '0x00', // Fallback if missing, though unlikely
-        spotifyTrackId: firstClip.spotifyTrackId,
-        metadataUri: firstClip.metadataUri,
-        performanceType: 'CLIP', // Or 'FULL_SONG' if we detect full duration?
-      })
-
-      console.log('[MediaPageContainer] Grade result:', result)
-
-      if (!result) {
-        throw new Error('Grading returned null')
-      }
-
-      // Normalize score (karaoke grader returns basis points, exercise returns percentage)
-      const percentScore =
-        typeof result.score === 'number'
-          ? result.score > 100 ? Math.round(result.score / 100) : Math.round(result.score)
-          : undefined
-
-      const practiceGrade = normalizePracticeGrade({
-        rating: result.rating,
-        score: percentScore,
-      })
-
-      return {
-        grade: practiceGrade,
-        feedback: `Score: ${percentScore ?? 'N/A'}/100. ${result.transcript ? `Transcript: "${result.transcript.substring(0, 50)}..."` : ''}`,
-      }
-    } catch (error) {
-      console.error('[MediaPageContainer] Grading failed with exception:', error)
-      // Log detailed error if available
-      if (error instanceof Error) {
-          console.error('Error message:', error.message)
-          console.error('Error stack:', error.stack)
-      }
-      return {
-        grade: 'B', // Fallback
-        feedback: `Grading failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      }
-    }
-  }, [clipMetadata, firstClip, grade])
 
   // Loading state - check both loading AND data completeness to prevent placeholder flash
   if (isLoadingWork || isLoadingClip || !clipMetadata?.title || !clipMetadata?.artist) {
@@ -431,11 +234,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const audioUrl = decryptedAudioUrl || clipAudioUrl
 
-  console.log('[MediaPageContainer] 🔐 Audio URL selection:', {
-    hasDecrypted: !!decryptedAudioUrl,
-    clipUrl: clipAudioUrl,
-    finalUrl: audioUrl,
-  })
+  // Audio URL selection debug removed
 
   // Audio URL configured
 
@@ -485,16 +284,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     Object.entries(allTranslations).forEach(([lang, lyricsData]: [string, any]) => {
       const translatedLine = lyricsData.lines?.[index]
       if (translatedLine) {
-        if (index === 0) {
-          console.log(`[MediaPageContainer] ${lang} line structure:`, {
-            keys: Object.keys(translatedLine),
-            hasTranslatedWords: !!translatedLine.translatedWords,
-            hasTranslatedText: !!translatedLine.translatedText,
-            hasText: !!translatedLine.text,
-            translatedTextValue: typeof translatedLine.translatedText === 'string' ? translatedLine.translatedText.substring(0, 40) : 'not a string',
-          })
-        }
-
         // Use translatedText field (line-level translation from Gemini)
         const text = translatedLine.translatedText || translatedLine.text || translatedLine.words?.map((w: any) => w.text || w.word).join(' ') || ''
         translations[lang] = text
@@ -502,18 +291,20 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     })
 
     if (index === 0) {
-      console.log('[MediaPageContainer] First line - allTranslations keys:', Object.keys(allTranslations))
-      console.log('[MediaPageContainer] First line - zh sample:', allTranslations.zh?.lines?.[0])
-      console.log('[MediaPageContainer] Translations built for first line:', translations)
+      // console.log('[MediaPageContainer] First line - allTranslations keys:', Object.keys(allTranslations))
+      // console.log('[MediaPageContainer] First line - zh sample:', allTranslations.zh?.lines?.[0])
+      // console.log('[MediaPageContainer] Translations built for first line:', translations)
     }
 
     const builtLine = {
       lineIndex: index,
-      originalText: line.words.map((w: any) => w.text).join(' '),
+      originalText: (line.words && line.words.length > 0)
+        ? line.words.map((w: any) => w.text).join(' ')
+        : (line.originalText || ''),
       translations: Object.keys(translations).length > 0 ? translations : undefined,
       start: line.start,
       end: line.end,
-      words: line.words.map((w: any) => ({
+      words: (line.words || []).map((w: any) => ({
         text: w.text,
         start: w.start,
         end: w.end,
@@ -521,17 +312,21 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     }
 
     if (index === 0) {
-      console.log('[MediaPageContainer] First built line:', builtLine)
+      // console.log('[MediaPageContainer] First built line:', builtLine)
+      // Log FULL word timing for debugging - show actual values
+      const wordTiming = builtLine.words.map((w: any) => `"${w.text}" [${w.start?.toFixed?.(2) ?? w.start ?? 'undefined'}-${w.end?.toFixed?.(2) ?? w.end ?? 'undefined'}]`)
+      // console.log('[MediaPageContainer] 🎯 WORD TIMING:', wordTiming.join(', '))
+      // console.log('[MediaPageContainer] 🎯 LINE TIMING: start=', builtLine.start, 'end=', builtLine.end)
     }
 
     return builtLine
   })
 
   const handleUnlockClick = () => {
-    console.log('[MediaPageContainer] 🔐 handleUnlockClick called')
-    console.log('[MediaPageContainer] 🔐 subscriptionLockData:', subscriptionLockData)
-    console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
-    console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
+    // console.log('[MediaPageContainer] 🔐 handleUnlockClick called')
+    // console.log('[MediaPageContainer] 🔐 subscriptionLockData:', subscriptionLockData)
+    // console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
+    // console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
 
     if (!subscriptionLockData?.unlockLockAddress) {
       console.warn('[MediaPageContainer] 🔐 No lock address available')
@@ -545,14 +340,14 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       return
     }
 
-    console.log('[MediaPageContainer] 🔐 Opening subscription dialog')
+    // console.log('[MediaPageContainer] 🔐 Opening subscription dialog')
     setShowSubscriptionDialog(true)
   }
 
   const handleSubscriptionConfirm = async () => {
-    console.log('[MediaPageContainer] 🔐 handleSubscriptionConfirm called')
-    console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
-    console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
+    // console.log('[MediaPageContainer] 🔐 handleSubscriptionConfirm called')
+    // console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
+    // console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
 
     if (!pkpAddress || !pkpWalletClient) {
       console.error('[MediaPageContainer] 🔐 No PKP wallet available for subscription')
@@ -560,28 +355,28 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       return
     }
 
-    console.log('[MediaPageContainer] 🔐 Calling subscribe()')
+    // console.log('[MediaPageContainer] 🔐 Calling subscribe()')
     await subscribe()
   }
 
   const handleSubscriptionRetry = async () => {
-    console.log('[MediaPageContainer] 🔐 handleSubscriptionRetry called')
+    // console.log('[MediaPageContainer] 🔐 handleSubscriptionRetry called')
     if (!pkpAddress || !pkpWalletClient) {
       console.error('[MediaPageContainer] 🔐 No PKP wallet available for retry')
       alert('Please sign in to subscribe and unlock this song.')
       return
     }
-    console.log('[MediaPageContainer] 🔐 Resetting subscription and retrying')
+    // console.log('[MediaPageContainer] 🔐 Resetting subscription and retrying')
     resetSubscription()
     await subscribe()
   }
 
   const handleSubscriptionDialogClose = (open: boolean) => {
-    console.log('[MediaPageContainer] 🔐 handleSubscriptionDialogClose called, open:', open)
-    console.log('[MediaPageContainer] 🔐 Current subscription status:', subscriptionStatus)
+    // console.log('[MediaPageContainer] 🔐 handleSubscriptionDialogClose called, open:', open)
+    // console.log('[MediaPageContainer] 🔐 Current subscription status:', subscriptionStatus)
     setShowSubscriptionDialog(open)
     if (!open && subscriptionStatus === 'complete') {
-      console.log('[MediaPageContainer] 🔐 Resetting subscription after completion')
+      // console.log('[MediaPageContainer] 🔐 Resetting subscription after completion')
       resetSubscription()
     }
   }
@@ -594,10 +389,12 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           artist={artist}
           audioUrl={audioUrl}
           lyrics={lyrics}
+          clipHash={firstClip.clipHash}
+          metadataUri={firstClip.metadataUri}
           isSubscriber={hasSubscription}
           onClose={() => navigate(-1)}
-          onSubmitRecording={handlePracticeSubmit}
           onSubscribe={hasSubscription ? undefined : handleUnlockClick}
+          gradeLine={gradeLine}
         />
       )
     : (
@@ -616,7 +413,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
               : undefined
           }
           onUnlockClick={hasSubscription ? undefined : handleUnlockClick}
-          debugInfo={debugInfo}
         />
       )
 

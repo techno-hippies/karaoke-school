@@ -5,21 +5,21 @@ import { convertGroveUri } from '@/lib/lens/utils'
 
 /**
  * Karaoke song data structure for search results
+ * Primary identifier is spotifyTrackId (used for slug-based routing)
  */
 export interface KaraokeSong {
-  grc20WorkId: string
   spotifyTrackId: string
   title: string
   artist: string
   artworkUrl?: string
-  
+
   // Segment availability
   hasInstrumental: boolean
   hasAlignments: boolean
   translationCount: number
   performanceCount: number
   totalSegments: number
-  
+
   // Metadata
   firstSegmentAt: string
   lastUpdatedAt?: string
@@ -48,7 +48,7 @@ const GET_KARAOKE_SONGS_QUERY = gql`
       where: {
         hasInstrumental: $hasInstrumental
       }
-      orderBy: registeredAt
+      orderBy: processedAt
       orderDirection: desc
       first: $first
       skip: $skip
@@ -87,7 +87,7 @@ const SEARCH_KARAOKE_SONGS_QUERY = gql`
         processedAt_not: null
         spotifyTrackId_contains: $searchTerm
       }
-      orderBy: registeredAt
+      orderBy: processedAt
       orderDirection: desc
       first: $first
       skip: $skip
@@ -128,7 +128,7 @@ async function getKaraokeSongs(options: SearchOptions = {}): Promise<KaraokeSong
 
   console.log('[useKaraokeSongsSearch] Got clips:', data.clips.length)
 
-  const songs = groupClipsByWork(data.clips)
+  const songs = groupClipsBySpotifyTrack(data.clips)
   console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
 
   // For trending/default view: Show recent songs even with incomplete metadata
@@ -157,7 +157,7 @@ async function searchKaraokeSongs(
 
   console.log('[useKaraokeSongsSearch] Search found clips:', data.clips.length)
 
-  const songs = groupClipsByWork(data.clips)
+  const songs = groupClipsBySpotifyTrack(data.clips)
   console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
 
   // For search: Be more strict to filter out poor quality results
@@ -201,17 +201,16 @@ function filterSongsByQuality(songs: KaraokeSong[], isSearch: boolean = false): 
 }
 
 /**
- * Group clips by GRC-20 work ID to create song entities (local schema)
- * This is the key transformation from clips to songs
+ * Group clips by Spotify track ID to create song entities
+ * Primary identifier is spotifyTrackId (used for slug-based routing)
  */
-function groupClipsByWork(clips: any[]): KaraokeSong[] {
+function groupClipsBySpotifyTrack(clips: any[]): KaraokeSong[] {
   const grouped = clips.reduce((acc, clip) => {
-    const workId = clip.grc20WorkId
+    const trackId = clip.spotifyTrackId
 
-    if (!acc[workId]) {
-      acc[workId] = {
-        grc20WorkId: workId,
-        spotifyTrackId: clip.spotifyTrackId,
+    if (!acc[trackId]) {
+      acc[trackId] = {
+        spotifyTrackId: trackId,
         clips: [],
         hasInstrumental: false,
         hasAlignments: false,
@@ -224,7 +223,7 @@ function groupClipsByWork(clips: any[]): KaraokeSong[] {
       }
     }
 
-    const song = acc[workId]
+    const song = acc[trackId]
     song.clips.push(clip)
     song.totalSegments += 1
 
@@ -244,10 +243,10 @@ function groupClipsByWork(clips: any[]): KaraokeSong[] {
     return acc
   }, {} as Record<string, any>)
 
-  // Convert to array and fetch metadata
+  // Convert to array - title/artist will be enriched with metadata
   return Object.values(grouped).map((song: any) => ({
     ...song,
-    title: `Work ${song.grc20WorkId}`, // Will be enriched with metadata
+    title: `Track ${song.spotifyTrackId}`, // Will be enriched with metadata
     artist: 'Unknown Artist' // Will be enriched with metadata
   }))
 }
@@ -326,7 +325,7 @@ export function useKaraokeSongsSearchWithMetadata(
   const { data: songs, isLoading, error, ...rest } = useKaraokeSongsSearch(searchTerm, options)
 
   const { data: enrichedSongs, isLoading: isEnriching } = useQuery({
-    queryKey: ['karaoke-songs-metadata', songs?.map(s => s.grc20WorkId)],
+    queryKey: ['karaoke-songs-metadata', songs?.map(s => s.spotifyTrackId)],
     queryFn: async () => {
       if (!songs) return []
       return Promise.all(songs.map(song => enrichSongWithMetadata(song)))

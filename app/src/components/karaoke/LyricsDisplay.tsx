@@ -5,23 +5,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
-// Debug logging configuration
-const DEBUG_TIMING = true
-
 export interface LyricsDisplayProps {
   lyrics: LyricLine[]
   currentTime: number
   selectedLanguage?: string
   showTranslations?: boolean
   className?: string
-  debugInfo?: {
-    renderCount: number
-    startTime: number
-    lastActiveLine: number | null
-    lastActiveWord: { lineIndex: number; wordIndex: number } | null
-    calculateActiveLineAndWord: (currentTime: number, lyrics: LyricLine[]) => { lineIndex: number; wordIndex: number }
-    timingLogsRef: React.MutableRefObject<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>
-  }
 }
 
 /**
@@ -33,7 +22,6 @@ export function LyricsDisplay({
   selectedLanguage = 'zh', // ISO 639-1 code
   showTranslations = true,
   className,
-  debugInfo,
 }: LyricsDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -60,39 +48,6 @@ export function LyricsDisplay({
       selectedLanguage,
     }))
   }, [filteredLyrics, currentLineIndex, showTranslations, selectedLanguage, currentTime])
-
-  // Add timing synchronization logging if debugInfo is provided
-  if (debugInfo && DEBUG_TIMING && currentTime > 0) {
-    const calculatedActive = debugInfo.calculateActiveLineAndWord(currentTime, lyrics)
-    
-    // Log when active line changes or at regular intervals for monitoring
-    const shouldLog = calculatedActive.lineIndex !== debugInfo.lastActiveLine ||
-                     Math.floor(currentTime * 10) % 50 === 0 // Log roughly every 5 seconds
-    
-    if (shouldLog) {
-      const logEntry = {
-        timestamp: Date.now(),
-        currentTime: Math.round(currentTime * 100) / 100,
-        activeLine: calculatedActive.lineIndex,
-        activeWord: calculatedActive.wordIndex,
-      }
-      
-      debugInfo.timingLogsRef.current.push(logEntry)
-      // Keep only last 100 entries
-      if (debugInfo.timingLogsRef.current.length > 100) {
-        debugInfo.timingLogsRef.current.shift()
-      }
-      
-      console.log(`🎭 [LyricsDisplay] ACTIVE LINE CHANGED - Audio: ${logEntry.currentTime}s, Line: ${logEntry.activeLine}, Word: ${logEntry.activeWord}`, {
-        lineText: calculatedActive.lineIndex >= 0 ? filteredLyrics[calculatedActive.lineIndex]?.originalText?.substring(0, 30) + '...' : 'none',
-        wordText: calculatedActive.lineIndex >= 0 && calculatedActive.wordIndex >= 0 ?
-          filteredLyrics[calculatedActive.lineIndex]?.words?.[calculatedActive.wordIndex]?.text : 'none',
-        renderCount: debugInfo.renderCount,
-        currentLineIndex,
-        filteredLyricsCount: filteredLyrics.length,
-      })
-    }
-  }
 
   // Auto-scroll to active line
   useAutoScroll(currentLineIndex, containerRef)

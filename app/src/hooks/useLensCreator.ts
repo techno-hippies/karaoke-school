@@ -16,14 +16,20 @@ import type { Account, Post, EvmAddress } from '@lens-protocol/react'
  * Pass a namespace address to query custom namespaces.
  */
 export function useLensAccount(username: string | undefined, namespace?: string) {
-  // Build username object - omit namespace field for global lens/* namespace
-  const usernameParam = username ? {
+  const isAddress = !!username && /^0x[a-fA-F0-9]{40}$/.test(username)
+
+  // Build request: prefer address lookup when URL param is an EVM address (e.g., post links)
+  // Otherwise fall back to username (localName) with optional namespace.
+  const usernameParam = !isAddress && username ? {
     localName: username,
-    ...(namespace ? { namespace } : {}), // Only include namespace if provided
+    ...(namespace ? { namespace } : {}),
   } : undefined
 
+  const addressParam = isAddress && username ? evmAddress(username as EvmAddress) : undefined
+
   return useAccount({
-    username: usernameParam,
+    ...(addressParam ? { address: addressParam } : {}),
+    ...(usernameParam ? { username: usernameParam } : {}),
   })
 }
 

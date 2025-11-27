@@ -13,7 +13,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
+      options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link', 'gradient', 'gradient-success', 'gradient-fire', 'gradient-gold', 'recording'],
     },
     size: {
       control: 'select',
@@ -173,6 +173,79 @@ export const IconSizes: Story = {
         <GitBranch size={24} weight="bold" />
         Large
       </Button>
+    </div>
+  ),
+};
+
+/**
+ * Gradient buttons - vibrant, eye-catching CTAs with glow on hover
+ */
+export const Gradients: Story = {
+  render: () => (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap gap-4">
+        <Button variant="gradient">
+          <MusicNotes size={20} weight="fill" />
+          Start Practice
+        </Button>
+        <Button variant="gradient-success">
+          <MusicNotes size={20} weight="fill" />
+          Complete
+        </Button>
+        <Button variant="gradient-fire">
+          <MusicNotes size={20} weight="fill" />
+          Hot Streak
+        </Button>
+        <Button variant="gradient-gold">
+          <MusicNotes size={20} weight="fill" />
+          Premium
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        <Button variant="gradient" size="lg">
+          Large Gradient
+        </Button>
+        <Button variant="gradient-success" size="sm">
+          Small Success
+        </Button>
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * Recording state - pulsing glow animation for active recording
+ */
+export const Recording: Story = {
+  render: () => (
+    <div className="flex flex-col items-center gap-4">
+      <Button variant="recording" size="lg" className="w-48">
+        Recording...
+      </Button>
+      <p className="text-sm text-muted-foreground">
+        Pulsing glow indicates active recording
+      </p>
+    </div>
+  ),
+};
+
+/**
+ * All button variants comparison
+ */
+export const AllVariants: Story = {
+  render: () => (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <Button variant="default">Default</Button>
+      <Button variant="secondary">Secondary</Button>
+      <Button variant="outline">Outline</Button>
+      <Button variant="ghost">Ghost</Button>
+      <Button variant="destructive">Destructive</Button>
+      <Button variant="link">Link</Button>
+      <Button variant="gradient">Gradient</Button>
+      <Button variant="gradient-success">Success</Button>
+      <Button variant="gradient-fire">Fire</Button>
+      <Button variant="gradient-gold">Gold</Button>
+      <Button variant="recording">Recording</Button>
     </div>
   ),
 };

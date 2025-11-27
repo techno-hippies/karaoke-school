@@ -2,23 +2,30 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SearchPageView, type Song } from '@/components/search/SearchPageView'
 import { useKaraokeSongsSearchWithMetadata } from '@/hooks/useKaraokeSongsSearch'
+import { generateSlug } from '@/hooks/useSongSlug'
+
+// Extended Song type with slugs for routing
+interface SongWithSlug extends Song {
+  artistSlug: string
+  songSlug: string
+}
 
 // Transform KaraokeSong to Song for SearchPageView compatibility
-function transformKaraokeSongToSong(karaokeSong: any): Song {
-  // Create a consistent numeric ID from the GRC-20 work ID
-  const workIdHash = Math.abs(karaokeSong.grc20WorkId.split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0)
-    return a & a
-  }, 0))
+function transformKaraokeSongToSong(karaokeSong: any): SongWithSlug {
+  // Generate slugs from title/artist for clean URL routing
+  const artistSlug = generateSlug(karaokeSong.artist || 'unknown')
+  const songSlug = generateSlug(karaokeSong.title || 'unknown')
 
   return {
-    id: karaokeSong.grc20WorkId,
-    geniusId: workIdHash, // Generate consistent numeric ID from string
+    id: karaokeSong.spotifyTrackId,
+    geniusId: 0, // Not used anymore
     title: karaokeSong.title,
     artist: karaokeSong.artist,
     artworkUrl: karaokeSong.artworkUrl || '',
     isProcessed: karaokeSong.hasInstrumental,
-  } as Song
+    artistSlug,
+    songSlug,
+  }
 }
 
 // Client-side fuzzy search function
@@ -46,7 +53,7 @@ export function SearchPage() {
     isLoading
   } = useKaraokeSongsSearchWithMetadata('', {
     hasInstrumental: true,  // Only show songs with instrumentals
-    first: 5,               // Limit initial display
+    first: 10,              // Show more results (ordered by registeredAt desc)
   })
 
   console.log('[SearchPage] Search state:', {
@@ -79,9 +86,10 @@ export function SearchPage() {
   }
 
   const handleSongClick = (song: Song) => {
-    console.log('Song clicked:', song)
-    // Navigate directly to song page (matches /song/:workId route)
-    navigate(`/song/${song.id}`)
+    const songWithSlug = song as SongWithSlug
+    console.log('Song clicked:', song, 'navigating to:', `/${songWithSlug.artistSlug}/${songWithSlug.songSlug}`)
+    // Navigate using clean slug-based URL
+    navigate(`/${songWithSlug.artistSlug}/${songWithSlug.songSlug}`)
   }
 
   return (

@@ -1,29 +1,46 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
-import { useGRC20WorkClipsWithMetadata } from '@/hooks/useSongV2'
+import { useGRC20WorkClipsWithMetadata, useSpotifyTrackClipsWithMetadata } from '@/hooks/useSongV2'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
 /**
- * Song Page Container - GRC-20 based
+ * Detect if an ID is a Spotify track ID vs GRC-20 UUID
+ * Spotify IDs are 22-char base62 strings (alphanumeric)
+ * GRC-20 UUIDs are 36-char with dashes (8-4-4-4-12)
+ */
+function isSpotifyTrackId(id: string): boolean {
+  // Spotify IDs: 22 alphanumeric characters
+  return /^[a-zA-Z0-9]{22}$/.test(id)
+}
+
+/**
+ * Song Page Container - Supports both GRC-20 and Spotify track IDs
  *
  * Routes:
- * - /song/grc20/:workId (GRC-20 work UUID)
+ * - /song/:workId (GRC-20 work UUID or Spotify track ID)
  *
- * All queries are clip-based, grouped by grc20WorkId
+ * Auto-detects identifier type and uses appropriate query
  */
 export function SongPageContainer() {
   const { workId } = useParams<{ workId?: string }>()
   const navigate = useNavigate()
 
-  // Fetch clips for this GRC-20 work
+  // Detect identifier type
+  const isSpotifyId = workId ? isSpotifyTrackId(workId) : false
+
+  // Fetch clips - use appropriate hook based on identifier type
+  const grc20Query = useGRC20WorkClipsWithMetadata(isSpotifyId ? undefined : workId)
+  const spotifyQuery = useSpotifyTrackClipsWithMetadata(isSpotifyId ? workId : undefined)
+
+  // Use whichever query is active
   const {
     data: workData,
     isLoading: isLoadingClips,
     error: clipsError,
-  } = useGRC20WorkClipsWithMetadata(workId)
+  } = isSpotifyId ? spotifyQuery : grc20Query
 
   // Fetch creator videos by GRC-20 work ID
   const { data: lensVideos, isLoading: isLoadingVideos } = useSongVideos(workId)
@@ -110,7 +127,7 @@ export function SongPageContainer() {
       songLinks={songLinks}
       lyricsLinks={[]}
       onBack={() => navigate(-1)}
-      onPlay={() => navigate(karaokeRoute)}
+      onPlay={() => navigate(`/song/${workId}/play`)}
       onArtistClick={
         metadata?.artistLensHandle
           ? () => navigate(`/u/${metadata.artistLensHandle}`)

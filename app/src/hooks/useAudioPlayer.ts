@@ -98,6 +98,13 @@ export function useAudioPlayer(
     audio.addEventListener('play', handlePlay)
     audio.addEventListener('pause', handlePause)
 
+    // IMPORTANT: If audio is already playing (e.g., effect re-ran due to dependency change),
+    // restart the RAF loop
+    if (!audio.paused) {
+      lastUpdateRef.current = 0
+      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+    }
+
     return () => {
       // Clean up animation frame on unmount
       if (requestAnimationFrameRef.current) {

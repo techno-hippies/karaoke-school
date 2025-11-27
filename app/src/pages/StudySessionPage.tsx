@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudySession } from '@/hooks/useStudySession'
+import { useSongSlug } from '@/hooks/useSongSlug'
 import { SayItBackExercise } from '@/components/exercises/SayItBackExercise'
 import { MultipleChoiceQuiz } from '@/components/exercises/MultipleChoiceQuiz'
 import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
@@ -23,18 +24,42 @@ import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
  * - Smooth content transitions
  * - Prefetched exercise data (zero wait time)
  * - Optimistic UI updates (instant feedback)
+ *
+ * Routes supported:
+ * - /:artistSlug/:songSlug/study (slug-based, resolves to spotifyTrackId)
+ * - /song/:workId/study (legacy GRC-20 workId)
+ * - /study/session (global session, all songs)
  */
 export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const { t } = useTranslation()
-  const { workId } = useParams<{ workId?: string }>()
+  const { workId, artistSlug, songSlug } = useParams<{
+    workId?: string
+    artistSlug?: string
+    songSlug?: string
+  }>()
   const { isPKPReady, isAuthenticating, pkpAddress, pkpWalletClient } = useAuth()
   const navigate = useNavigate()
   const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
-  const isGlobalSession = !workId
-  const returnPath = workId ? `/song/${workId}` : '/study'
+
+  // Resolve slug to spotifyTrackId (instant from static map, or async from subgraph)
+  const { data: slugData, isLoading: isLoadingSlug } = useSongSlug(artistSlug, songSlug)
+
+  // Determine which identifier to use:
+  // - Slug route: use resolved spotifyTrackId
+  // - Legacy route: use workId (grc20WorkId)
+  // - Global session: undefined (all songs)
+  const songId = slugData?.spotifyTrackId || workId
+  const isSlugRoute = !!artistSlug && !!songSlug
+  const isGlobalSession = !songId && !isSlugRoute
+  const returnPath = isSlugRoute
+    ? `/${artistSlug}/${songSlug}`
+    : workId
+      ? `/song/${workId}`
+      : '/study'
 
   // Main orchestration hook handles all state and logic
-  const session = useStudySession(workId, { exitPath: returnPath })
+  // Pass spotifyTrackId for slug routes, workId for legacy routes
+  const session = useStudySession(songId, { exitPath: returnPath })
 
   const activeSpotifyTrackIds = useMemo(() => {
     if (session.currentCard?.spotifyTrackId) {
@@ -109,6 +134,15 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
     : isGlobalSession
     ? t('study.youFinishedAll')
     : t('study.youFinishedSession')
+
+  // Loading slug resolution for slug-based routes
+  if (isSlugRoute && isLoadingSlug) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
 
   // Auth check: Distinguish between loading and not logged in
   if (!isPKPReady) {

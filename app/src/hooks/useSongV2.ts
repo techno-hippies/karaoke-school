@@ -103,10 +103,92 @@ const GRC20_CLIPS_QUERY = gql`
 `
 
 /**
- * Fetch clips for a GRC-20 work ID (primary approach)
+ * Query clips by Spotify track ID (new primary approach)
+ * This decouples from GRC-20 and uses stable Spotify identifiers
+ */
+const SPOTIFY_CLIPS_QUERY = gql`
+  query GetClipsBySpotifyTrack($spotifyTrackId: String!) {
+    clips(
+      where: { spotifyTrackId: $spotifyTrackId }
+      orderBy: clipStartMs
+      orderDirection: asc
+    ) {
+      id
+      clipHash
+      grc20WorkId
+      spotifyTrackId
+      metadataUri
+      instrumentalUri
+      alignmentUri
+      clipStartMs
+      clipEndMs
+      translationCount
+      performanceCount
+      averageScore
+      registeredAt
+      processedAt
+      encryptedFullUri
+      unlockLockAddress
+      unlockChainId
+      performances(first: 5, orderBy: gradedAt, orderDirection: desc) {
+        id
+        score
+        performer {
+          username
+          lensAccountAddress
+        }
+      }
+      translations(first: 10, orderBy: confidenceScore, orderDirection: desc) {
+        languageCode
+        translationUri
+        confidenceScore
+      }
+    }
+  }
+`
+
+/**
+ * Fetch clips by Spotify track ID (new primary approach)
+ *
+ * @param spotifyTrackId - The Spotify track ID (e.g., '5Z01UMMf7V1o0MzF86s6WJ')
+ * @returns Clips for this track
+ */
+export function useClipsBySpotifyTrack(spotifyTrackId?: string) {
+  return useQuery({
+    queryKey: ['clips-spotify', spotifyTrackId],
+    queryFn: async () => {
+      if (!spotifyTrackId) {
+        throw new Error('Spotify track ID is required')
+      }
+
+      const data = await graphClient.request<{ clips: Clip[] }>(
+        SPOTIFY_CLIPS_QUERY,
+        { spotifyTrackId }
+      )
+
+      if (!data.clips || data.clips.length === 0) {
+        throw new Error('No clips found for this track')
+      }
+
+      const firstClip = data.clips[0]
+      return {
+        grc20WorkId: firstClip.grc20WorkId,
+        spotifyTrackId,
+        clips: data.clips,
+      } as GRC20WorkClips
+    },
+    enabled: !!spotifyTrackId,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+/**
+ * Fetch clips for a GRC-20 work ID (legacy approach)
  *
  * @param grc20WorkId - The GRC-20 work UUID
  * @returns Clips grouped by grc20WorkId
+ * @deprecated Use useClipsBySpotifyTrack instead
  */
 export function useClipsByGRC20Work(grc20WorkId?: string) {
   return useQuery({
@@ -186,6 +268,57 @@ export function useGRC20WorkClipsWithMetadata(grc20WorkId?: string) {
       console.log('[useSongV2] 🚨 Keys in Grove data:', Object.keys(rawData))
       console.log('[useSongV2] 🚨 Has coverUri?', rawData.coverUri ? 'YES' : 'NO')
       console.log('[useSongV2] 🚨 coverUri value:', rawData.coverUri)
+      return rawData as Promise<SongMetadata>
+    },
+    enabled: !!firstClip?.metadataUri,
+    staleTime: 300000, // 5 minutes (immutable)
+  })
+
+  // Enhance first clip with metadata
+  const enrichedClips = workData?.clips.map((clip, idx) => ({
+    ...clip,
+    metadata: idx === 0 ? metadata : undefined,
+  } as EnrichedClip)) ?? []
+
+  return {
+    data: workData ? {
+      ...workData,
+      clips: enrichedClips,
+    } : undefined,
+    isLoading: isLoadingClips || isLoadingMetadata,
+    error: clipsError,
+  }
+}
+
+/**
+ * Fetch clips by Spotify track ID with Grove metadata enriched
+ * This is the new primary hook for song pages
+ *
+ * @param spotifyTrackId - The Spotify track ID
+ * @returns Clips enriched with metadata
+ */
+export function useSpotifyTrackClipsWithMetadata(spotifyTrackId?: string) {
+  // Fetch clips from The Graph by Spotify track ID
+  const { data: workData, isLoading: isLoadingClips, error: clipsError } =
+    useClipsBySpotifyTrack(spotifyTrackId)
+
+  // Fetch metadata from Grove for first clip
+  const firstClip = workData?.clips[0]
+  const { data: metadata, isLoading: isLoadingMetadata } = useQuery({
+    queryKey: ['clip-metadata', firstClip?.metadataUri],
+    queryFn: async () => {
+      if (!firstClip?.metadataUri) {
+        throw new Error('Metadata URI is required')
+      }
+
+      const httpUrl = convertGroveUri(firstClip.metadataUri)
+      console.log('[useSongV2] Fetching Grove metadata from:', httpUrl)
+      const response = await fetch(httpUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata: ${response.status}`)
+      }
+      const rawData = await response.json()
+      console.log('[useSongV2] 🚨 Raw Grove data:', rawData)
       return rawData as Promise<SongMetadata>
     },
     enabled: !!firstClip?.metadataUri,

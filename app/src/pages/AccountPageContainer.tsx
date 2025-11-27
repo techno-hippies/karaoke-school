@@ -24,6 +24,7 @@ import {
   convertLensImage,
   parseVideoMetadata,
 } from '@/lib/lens/utils'
+import { LENS_CUSTOM_NAMESPACE } from '@/lib/lens/config'
 
 export function AccountPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
@@ -31,7 +32,7 @@ export function AccountPageContainer() {
   const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
   const { pkpAddress, pkpWalletClient } = useAuth()
 
-  // Fetch account and posts from Lens (using global lens/* namespace)
+  // Fetch account and posts from Lens (using kschool2 custom namespace)
   const {
     account,
     posts,
@@ -39,7 +40,7 @@ export function AccountPageContainer() {
     isLoadingPosts,
     accountError,
     postsError,
-  } = useLensCreator(lenshandle)
+  } = useLensCreator(lenshandle, LENS_CUSTOM_NAMESPACE)
 
   // Note: Grove metadata integration removed - using Lens metadata directly
 

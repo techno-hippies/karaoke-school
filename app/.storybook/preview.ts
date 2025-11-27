@@ -12,7 +12,7 @@ const preview: Preview = {
 
     backgrounds: {
       options: {
-        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' },
+        dark: { name: 'dark', value: 'oklch(0.145 0 0)' },
         light: { name: 'light', value: 'oklch(1.0000 0 0)' },
       },
     },

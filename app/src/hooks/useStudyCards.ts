@@ -41,12 +41,12 @@ const Rating = {
  * Load FSRS study cards for a song (or all songs)
  *
  * Queries subgraph for:
- * 1. All segments for the work/song
- * 2. Performance events (grades) for those segments
+ * 1. All clips for the song
+ * 2. Performance events (grades) for those clips
  * 3. Calculate FSRS state from performance history
  * 4. Filter to due cards (due date <= today)
  *
- * @param songId Optional GRC-20 work ID to filter to one song
+ * @param songId Optional Spotify track ID to filter to one song
  * @returns { data: studyCards[], isLoading, error }
  */
 export interface StudyCard {
@@ -95,8 +95,8 @@ export interface StudyCard {
 }
 
 const GET_CLIPS_WITH_PERFORMANCES = gql`
-  query GetClipsWithPerformances($grc20WorkId: String!, $performer: Bytes!) {
-    clips(where: { grc20WorkId: $grc20WorkId }, first: 1000) {
+  query GetClipsWithPerformances($spotifyTrackId: String!, $performer: Bytes!) {
+    clips(where: { spotifyTrackId: $spotifyTrackId }, first: 1000) {
       id
       clipHash
       grc20WorkId
@@ -237,11 +237,12 @@ export function useStudyCards(songId?: string) {
       try {
 
         // Use different query based on whether we're filtering by songId
+        // songId can be either spotifyTrackId (from slug routes) or grc20WorkId (legacy)
         let data
         if (songId) {
-          // Query specific work
+          // Query specific song by spotifyTrackId
           data = await graphClient.request(GET_CLIPS_WITH_PERFORMANCES, {
-            grc20WorkId: songId,
+            spotifyTrackId: songId,
             performer: pkpAddress.toLowerCase(),
           })
         } else {

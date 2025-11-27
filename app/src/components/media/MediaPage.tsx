@@ -8,9 +8,6 @@ import { LockKey } from '@phosphor-icons/react'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
-// Debug logging configuration
-const DEBUG_TIMING = true
-
 export interface MediaPageProps {
   title: string
   artist: string
@@ -23,14 +20,6 @@ export interface MediaPageProps {
   onArtistClick?: () => void
   onUnlockClick?: () => void
   className?: string
-  debugInfo?: {
-    renderCount: number
-    startTime: number
-    lastActiveLine: number | null
-    lastActiveWord: { lineIndex: number; wordIndex: number } | null
-    calculateActiveLineAndWord: (currentTime: number, lyrics: LyricLine[]) => { lineIndex: number; wordIndex: number }
-    timingLogsRef: React.MutableRefObject<Array<{timestamp: number, currentTime: number, activeLine: number, activeWord: number}>>
-  }
 }
 
 /**
@@ -49,7 +38,6 @@ export function MediaPage({
   onArtistClick,
   onUnlockClick,
   className,
-  debugInfo,
 }: MediaPageProps) {
   const {
     audioRef,
@@ -59,36 +47,6 @@ export function MediaPage({
     togglePlayPause,
     seek,
   } = useAudioPlayer(audioUrl)
-
-  // Log timing synchronization if debugInfo is provided
-  if (debugInfo && DEBUG_TIMING && currentTime > 0) {
-    const currentActive = debugInfo.calculateActiveLineAndWord(currentTime, lyrics)
-
-    // Only log when the active line or word changes
-    if (currentActive.lineIndex !== debugInfo.lastActiveLine ||
-        currentActive.wordIndex !== debugInfo.lastActiveWord?.wordIndex) {
-
-      const logEntry = {
-        timestamp: Date.now(),
-        currentTime: Math.round(currentTime * 100) / 100,
-        activeLine: currentActive.lineIndex,
-        activeWord: currentActive.wordIndex,
-      }
-
-      debugInfo.timingLogsRef.current.push(logEntry)
-      // Keep only last 100 entries
-      if (debugInfo.timingLogsRef.current.length > 100) {
-        debugInfo.timingLogsRef.current.shift()
-      }
-
-      console.log(`🎵 [MediaPage] TIMING SYNC - Audio: ${logEntry.currentTime}s, Line: ${logEntry.activeLine}, Word: ${logEntry.activeWord}`, {
-        lineText: currentActive.lineIndex >= 0 ? lyrics[currentActive.lineIndex]?.originalText?.substring(0, 30) + '...' : 'none',
-        wordText: currentActive.lineIndex >= 0 && currentActive.wordIndex >= 0 ?
-          lyrics[currentActive.lineIndex]?.words?.[currentActive.wordIndex]?.text : 'none',
-        isPlaying,
-      })
-    }
-  }
 
   return (
     <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
@@ -160,7 +118,6 @@ export function MediaPage({
           currentTime={currentTime}
           selectedLanguage={selectedLanguage}
           showTranslations={showTranslations}
-          debugInfo={debugInfo}
           className="absolute inset-0"
         />
       </div>

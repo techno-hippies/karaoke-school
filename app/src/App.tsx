@@ -10,6 +10,7 @@ import { SearchPage } from '@/pages/SearchPage'
 import { AccountPageContainer } from '@/pages/AccountPageContainer'
 import { VideoDetailPage } from '@/pages/VideoDetailPage'
 import { SongPageContainer } from '@/pages/SongPageContainer'
+import { SlugSongPageContainer } from '@/pages/SlugSongPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
 import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { ClassPage } from '@/pages/ClassPage'
@@ -48,7 +49,10 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/')) {
+    // Hide tab bar on song pages (slug-based or legacy) and user pages
+    if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/') ||
+        // Slug-based song routes: /:artistSlug/:songSlug
+        (location.pathname.split('/').length >= 3 && !['search', 'study', 'wallet', 'profile', 'u', 'song'].includes(location.pathname.split('/')[1]))) {
       setActiveTab('none')
     } else {
       const tab = pathToTab[location.pathname] || 'home'
@@ -67,8 +71,13 @@ function AppRouter() {
     navigate(routes[tab])
   }
 
+  // Hide footer on song pages (both slug-based and legacy) and video detail pages
   const hideMobileFooter =
-    location.pathname.match(/^\/song\//) || location.pathname.match(/^\/u\/[^/]+\/video\//)
+    location.pathname.match(/^\/song\//) ||
+    location.pathname.match(/^\/u\/[^/]+\/video\//) ||
+    // Slug-based routes: /:artistSlug/:songSlug
+    (location.pathname.split('/').filter(Boolean).length >= 2 &&
+     !['search', 'study', 'wallet', 'profile', 'u', 'song'].includes(location.pathname.split('/')[1]))
 
   return (
     <>
@@ -86,6 +95,13 @@ function AppRouter() {
           <Route path="/u/:lenshandle" element={<AccountPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
 
+          {/* Primary song routes - slug-based (e.g., /eminem/lose-yourself) */}
+          <Route path="/:artistSlug/:songSlug" element={<SlugSongPageContainer />} />
+          <Route path="/:artistSlug/:songSlug/play" element={<MediaPageContainer />} />
+          <Route path="/:artistSlug/:songSlug/karaoke" element={<MediaPageContainer variant="practice" />} />
+          <Route path="/:artistSlug/:songSlug/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
+
+          {/* Legacy song routes - redirect to search (no longer supported) */}
           <Route path="/song/:workId" element={<SongPageContainer />} />
           <Route path="/song/:workId/play" element={<MediaPageContainer />} />
           <Route path="/song/:workId/karaoke" element={<MediaPageContainer variant="practice" />} />
@@ -93,11 +109,6 @@ function AppRouter() {
 
           <Route path="/study/session" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-
-          <Route path="/karaoke/:workId" element={<Navigate to={`/song/:workId`} replace />} />
-          <Route path="/karaoke/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
-          <Route path="/song/grc20/:workId" element={<Navigate to={`/song/:workId`} replace />} />
-          <Route path="/song/grc20/:workId/play" element={<Navigate to={`/song/:workId/play`} replace />} />
 
           <Route path="/wallet" element={<WalletPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/profile" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />

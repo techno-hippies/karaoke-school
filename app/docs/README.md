@@ -69,7 +69,7 @@ VITE_LIT_PAYER_ADDRESS=0x9456aec64179FE39a1d0a681de7613d5955E75D3
 ```
 
 **Subgraph Endpoints:**
-- **Production** (default): `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
+- **Production** (default): `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.3`
 - **Local GND**: `http://localhost:8000/subgraphs/name/subgraph-0/` (requires `VITE_SUBGRAPH_MODE=local`)
 
 ### Lit Payments (naga-test)

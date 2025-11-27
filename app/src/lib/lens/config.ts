@@ -10,11 +10,15 @@ import type { EvmAddress } from '@lens-protocol/client'
 
 // Lens App address (must match backend for sponsorship)
 export const LENS_APP_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_APP_ADDRESS ||
-  '0x77fc7265c6a52E7A9dB1D887fB0F9A3d898Ae5a0') as EvmAddress
+  '0x5856057743d66951e43361ac3E1e67C6474Ea7B6') as EvmAddress
 
-// Custom Namespace (kschool2/*) - now enabled with PKP-signed gasless transactions
+// Lens Graph address (for feed/timeline queries)
+export const LENS_GRAPH_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_GRAPH_ADDRESS ||
+  '0x73b0588EE59f299D66E368ea6A1a400D41d33E02') as EvmAddress
+
+// Custom Namespace - now enabled with PKP-signed gasless transactions
 export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||
-  '0xa304467aD0C296C2bb11079Bc2748223568D463e') as EvmAddress
+  '0x6Cf6bC01D51aF736Cd34bC3a682B7b081eA77B07') as EvmAddress
 
 /**
  * Check if Lens is configured

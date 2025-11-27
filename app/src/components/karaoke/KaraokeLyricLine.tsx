@@ -3,8 +3,6 @@ import { TikTokKaraokeRenderer } from './KaraokeWordsRenderer'
 import type { LyricLine } from '@/types/karaoke'
 import { cn } from '@/lib/utils'
 
-const DEBUG = true
-
 export interface KaraokeLyricLineProps {
   line: LyricLine
   currentTime: number
@@ -29,18 +27,6 @@ export function KaraokeLyricLine({
 }: KaraokeLyricLineProps) {
   // Only filter out truly empty words - keep all words with actual content
   const allWords = (line.words || []).filter((word) => word.text.trim() !== '')
-
-  // Debug logging for line timing
-  if (DEBUG && currentTime > 0 && isActive && Math.round(currentTime * 100) % 10 === 0) {
-    console.log(`📝 [KaraokeLyricLine] Line is ACTIVE`, {
-      lineText: line.originalText.substring(0, 50),
-      lineStart: line.start.toFixed(3),
-      lineEnd: line.end.toFixed(3),
-      currentTime: currentTime.toFixed(3),
-      wordCount: allWords.length,
-      firstWord: allWords[0] ? { text: allWords[0].text, start: allWords[0].start?.toFixed(3), end: allWords[0].end?.toFixed(3) } : 'none',
-    })
-  }
 
   // Check if word-level data is complete by verifying first word matches line text
   const hasCompleteWordData = allWords.length > 0 && (() => {
@@ -68,11 +54,14 @@ export function KaraokeLyricLine({
       {isActive && hasCompleteWordData ? (
         <TikTokKaraokeRenderer
           words={processedWords}
-          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight"
+          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight drop-shadow-[0_0_20px_rgba(96,165,250,0.4)]"
         />
       ) : (
         <p
-          className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight break-words transition-colors duration-300 w-full max-w-full"
+          className={cn(
+            'text-xl sm:text-2xl md:text-3xl font-bold leading-tight break-words transition-all duration-300 w-full max-w-full',
+            isActive && 'drop-shadow-[0_0_20px_rgba(96,165,250,0.4)]'
+          )}
           style={{
             color: isActive ? '#ffffff' : isPast ? '#a3a3a3' : '#737373',
           }}
@@ -85,8 +74,10 @@ export function KaraokeLyricLine({
       {translation && (
         <p
           className={cn(
-            'text-base sm:text-lg md:text-xl mt-3 break-words transition-colors duration-300 w-full max-w-full',
-            isActive ? 'text-neutral-300' : 'text-neutral-600'
+            'text-base sm:text-lg md:text-xl mt-3 break-words transition-all duration-300 w-full max-w-full',
+            isActive
+              ? 'text-neutral-200 drop-shadow-[0_0_10px_rgba(96,165,250,0.2)]'
+              : 'text-neutral-600'
           )}
         >
           {translation}

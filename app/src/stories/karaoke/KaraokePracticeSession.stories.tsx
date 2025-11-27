@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { KaraokePracticeSession } from '@/components/karaoke/KaraokePracticeSession'
 import type { LyricLine } from '@/types/karaoke'
+import type { GradeLineParams, GradeLineResult } from '@/hooks/useKaraokeLineSession'
 
 const meta = {
   title: 'Karaoke/KaraokePracticeSession',
@@ -132,11 +133,33 @@ const englishLyrics: LyricLine[] = [
   },
 ]
 
-const mockSubmission = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+/**
+ * Mock grading function that simulates real-time line grading.
+ * Returns varying scores to simulate natural karaoke performance.
+ */
+const mockGradeLine = async (params: GradeLineParams): Promise<GradeLineResult> => {
+  // Simulate grading delay (STT + scoring)
+  await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500))
+
+  // Generate realistic-ish scores
+  const baseScore = 70 + Math.random() * 25
+  const scoreBp = Math.round(baseScore * 100)
+  const rating = baseScore >= 85 ? 'Easy' : baseScore >= 70 ? 'Good' : baseScore >= 55 ? 'Hard' : 'Again'
+
+  const line = englishLyrics[params.lineIndex]
+
+  console.log(`[MockGrader] Line ${params.lineIndex}: ${scoreBp / 100}% (${rating})`, {
+    sessionId: params.sessionId.slice(0, 10),
+    startSession: params.startSession,
+    endSession: params.endSession,
+  })
+
   return {
-    grade: 'A' as const,
-    feedback: 'Excellent breath control and timing throughout the entire clip.',
+    score: Math.round(scoreBp / 100),
+    scoreBp,
+    rating,
+    expectedText: line?.originalText || 'Sample line',
+    transcript: line?.originalText || 'Sample transcript',
   }
 }
 
@@ -146,9 +169,11 @@ export const ClipPreview: Story = {
     artist: 'Karaoke School',
     audioUrl: mockAudioUrl,
     lyrics: englishLyrics,
+    clipHash: '0x' + '11'.repeat(32),
     isSubscriber: false,
-    onSubmitRecording: mockSubmission,
+    emitTransactions: false,
     onSubscribe: () => console.log('subscribe clicked'),
+    gradeLine: mockGradeLine,
   },
 }
 
@@ -158,7 +183,22 @@ export const FullAccess: Story = {
     artist: 'Karaoke School',
     audioUrl: mockAudioUrl,
     lyrics: englishLyrics,
+    clipHash: '0x' + '11'.repeat(32),
     isSubscriber: true,
-    onSubmitRecording: mockSubmission,
+    emitTransactions: false,
+    gradeLine: mockGradeLine,
+  },
+}
+
+export const WithTransactions: Story = {
+  args: {
+    title: 'Say It Back',
+    artist: 'Karaoke School',
+    audioUrl: mockAudioUrl,
+    lyrics: englishLyrics,
+    clipHash: '0x' + '11'.repeat(32),
+    isSubscriber: true,
+    emitTransactions: true,
+    gradeLine: mockGradeLine,
   },
 }

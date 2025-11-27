@@ -10,7 +10,7 @@ const meta: Meta<typeof ScrollArea> = {
     backgrounds: {
       default: 'dark',
       options: {
-        dark: { name: 'dark', value: 'oklch(0.1821 0.0125 285.0965)' },
+        dark: { name: 'dark', value: 'oklch(0.145 0 0)' },
       }
     }
   },
