@@ -4,15 +4,14 @@
  * All contracts are event-only (no storage) and deploy to Lens via ZKSync
  */
 
-// ============ Direct imports from lit-actions (single source of truth) ============
-// These imports ensure frontend always uses the latest encrypted keys and CIDs
-// No manual sync needed - Vite HMR picks up changes automatically
+// ============ Lit Action Keys (copied from lit-actions/keys/dev/) ============
+// Note: These files are synced from lit-actions/keys/dev/ for Fleek/IPFS builds
 
-import litCids from '../../../../lit-actions/cids/dev.json'
-import exerciseVoxtralKey from '../../../../lit-actions/keys/dev/exercise/voxtral_api_key_exercise.json'
-import karaokeVoxtralKey from '../../../../lit-actions/keys/dev/karaoke/voxtral_api_key_karaoke.json'
-import karaokeOpenrouterKey from '../../../../lit-actions/keys/dev/karaoke/openrouter_api_key_karaoke.json'
-import karaokeLineVoxtralKey from '../../../../lit-actions/keys/dev/karaoke-line/voxtral_api_key_karaoke-line.json'
+import litCids from './keys/dev.json'
+import exerciseVoxtralKey from './keys/exercise/voxtral_api_key_exercise.json'
+import karaokeVoxtralKey from './keys/karaoke/voxtral_api_key_karaoke.json'
+import karaokeOpenrouterKey from './keys/karaoke/openrouter_api_key_karaoke.json'
+import karaokeLineVoxtralKey from './keys/karaoke-line/voxtral_api_key_karaoke-line.json'
 
 // ============ Network Configuration ============
 
