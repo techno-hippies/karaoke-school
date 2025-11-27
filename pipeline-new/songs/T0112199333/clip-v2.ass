@@ -1,0 +1,48 @@
+[Script Info]
+Title: Karaoke - Character Highlight
+ScriptType: v4.00+
+PlayResX: 1076
+PlayResY: 1926
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Chinese,Noto Sans SC,70,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,3,2,2,20,20,220,1
+Style: English,Arial,42,&H00CCCCCC,&H00CCCCCC,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,20,20,120,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:04.45,0:00:07.31,Chinese,,0,0,0,,太high 下不来
+Dialogue: 0,0:00:04.45,0:00:07.31,English,,0,0,0,,Too high, can't come down
+Dialogue: 0,0:00:07.57,0:00:10.87,Chinese,,0,0,0,,这空气里 全是你
+Dialogue: 0,0:00:07.57,0:00:10.87,English,,0,0,0,,It's in the air and it's all around
+Dialogue: 0,0:00:00.23,0:00:00.56,Chinese,,0,0,0,,{\c&H00FFFF&}吻{\c&HFFFFFF&}一下我沦陷
+Dialogue: 0,0:00:00.56,0:00:00.95,Chinese,,0,0,0,,吻{\c&H00FFFF&}一{\c&HFFFFFF&}下我沦陷
+Dialogue: 0,0:00:00.95,0:00:01.39,Chinese,,0,0,0,,吻一{\c&H00FFFF&}下{\c&HFFFFFF&}我沦陷
+Dialogue: 0,0:00:01.41,0:00:01.79,Chinese,,0,0,0,,吻一下{\c&H00FFFF&}我{\c&HFFFFFF&}沦陷
+Dialogue: 0,0:00:01.79,0:00:02.17,Chinese,,0,0,0,,吻一下我{\c&H00FFFF&}沦{\c&HFFFFFF&}陷
+Dialogue: 0,0:00:02.18,0:00:02.59,Chinese,,0,0,0,,吻一下我沦{\c&H00FFFF&}陷{\c&HFFFFFF&}
+Dialogue: 0,0:00:00.23,0:00:02.59,English,,0,0,0,,With a taste of your lips, I'm on a ride
+Dialogue: 0,0:00:03.48,0:00:03.53,Chinese,,0,0,0,,{\c&H00FFFF&}Y{\c&HFFFFFF&}ou'retoxic我深陷
+Dialogue: 0,0:00:03.53,0:00:03.59,Chinese,,0,0,0,,Y{\c&H00FFFF&}o{\c&HFFFFFF&}u'retoxic我深陷
+Dialogue: 0,0:00:03.59,0:00:03.64,Chinese,,0,0,0,,Yo{\c&H00FFFF&}u{\c&HFFFFFF&}'retoxic我深陷
+Dialogue: 0,0:00:03.64,0:00:03.70,Chinese,,0,0,0,,You{\c&H00FFFF&}'{\c&HFFFFFF&}retoxic我深陷
+Dialogue: 0,0:00:03.70,0:00:03.76,Chinese,,0,0,0,,You'{\c&H00FFFF&}r{\c&HFFFFFF&}etoxic我深陷
+Dialogue: 0,0:00:03.76,0:00:03.81,Chinese,,0,0,0,,You'r{\c&H00FFFF&}e{\c&HFFFFFF&}toxic我深陷
+Dialogue: 0,0:00:03.89,0:00:04.03,Chinese,,0,0,0,,You're{\c&H00FFFF&}t{\c&HFFFFFF&}oxic我深陷
+Dialogue: 0,0:00:04.03,0:00:04.16,Chinese,,0,0,0,,You'ret{\c&H00FFFF&}o{\c&HFFFFFF&}xic我深陷
+Dialogue: 0,0:00:04.16,0:00:04.29,Chinese,,0,0,0,,You'reto{\c&H00FFFF&}x{\c&HFFFFFF&}ic我深陷
+Dialogue: 0,0:00:04.29,0:00:04.42,Chinese,,0,0,0,,You'retox{\c&H00FFFF&}i{\c&HFFFFFF&}c我深陷
+Dialogue: 0,0:00:04.42,0:00:04.55,Chinese,,0,0,0,,You'retoxi{\c&H00FFFF&}c{\c&HFFFFFF&}我深陷
+Dialogue: 0,0:00:04.83,0:00:05.29,Chinese,,0,0,0,,You'retoxic{\c&H00FFFF&}我{\c&HFFFFFF&}深陷
+Dialogue: 0,0:00:05.29,0:00:05.61,Chinese,,0,0,0,,You'retoxic我{\c&H00FFFF&}深{\c&HFFFFFF&}陷
+Dialogue: 0,0:00:05.61,0:00:05.94,Chinese,,0,0,0,,You'retoxic我深{\c&H00FFFF&}陷{\c&HFFFFFF&}
+Dialogue: 0,0:00:03.48,0:00:05.94,English,,0,0,0,,You're toxic, I'm slippin' under
+Dialogue: 0,0:00:07.13,0:00:07.59,Chinese,,0,0,0,,{\c&H00FFFF&}毒{\c&HFFFFFF&}天堂我沉迷
+Dialogue: 0,0:00:07.59,0:00:08.00,Chinese,,0,0,0,,毒{\c&H00FFFF&}天{\c&HFFFFFF&}堂我沉迷
+Dialogue: 0,0:00:08.00,0:00:08.01,Chinese,,0,0,0,,毒天{\c&H00FFFF&}堂{\c&HFFFFFF&}我沉迷
+Dialogue: 0,0:00:08.39,0:00:08.67,Chinese,,0,0,0,,毒天堂{\c&H00FFFF&}我{\c&HFFFFFF&}沉迷
+Dialogue: 0,0:00:08.67,0:00:08.77,Chinese,,0,0,0,,毒天堂我{\c&H00FFFF&}沉{\c&HFFFFFF&}迷
+Dialogue: 0,0:00:08.77,0:00:09.96,Chinese,,0,0,0,,毒天堂我沉{\c&H00FFFF&}迷{\c&HFFFFFF&}
+Dialogue: 0,0:00:07.13,0:00:09.96,English,,0,0,0,,With a taste of a poison paradise

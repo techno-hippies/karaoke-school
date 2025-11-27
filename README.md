@@ -1,221 +1,75 @@
-# Karaoke School v1 🎵
+# Karaoke School
 
-**AI-Powered Language Learning Through Music**
+**AI-powered language learning through music**
 
-Transform TikTok videos into interactive karaoke sessions with word-level timing, AI pronunciation scoring, and blockchain-native copyright tracking.
+Learn languages by singing along to your favorite songs with word-level karaoke timing, AI pronunciation scoring, and spaced repetition.
 
-## 🎯 Overview
+## How It Works
 
-Karaoke School combines decentralized music industry standards (GRC-20) with AI-powered karaoke processing to create a fair, scalable language learning platform. Users sing along to AI-enhanced instrumentals while receiving real-time pronunciation feedback and learning through spaced repetition.
+1. **Listen** - Songs with dual-language subtitles (English + Chinese/Vietnamese/Indonesian)
+2. **Practice** - Sing along with AI-enhanced instrumentals
+3. **Learn** - FSRS spaced repetition schedules your reviews
+4. **Score** - AI grades pronunciation and timing
 
-**Core Innovation**: Multi-layer blockchain architecture separates concerns across industry standards (GRC-20), dapp-specific events (smart contracts), and IP tracking (Story Protocol) for optimal cost and flexibility.
-
-## 🏗️ Architecture Layers
+## Architecture
 
 ```
-TikTok → Processing → Database → GRC-20 → Contracts → Subgraph → Grove → App
-   ↓         ↓          ↓         ↓         ↓          ↓       ↓      ↓
-8,196    12-Step     2,766    92.3%    5/5 Deployed  Local   IPFS   React
-videos   pipeline    Lines    Complete  Events     Index   Assets  Frontend
+Songs (ISWC) → Pipeline → Database → Lens Posts → App
+                  ↓
+            [Audio Processing]
+            - Demucs separation (vocals/instrumental)
+            - FAL enhancement
+            - ElevenLabs word-level alignment
+            - OpenRouter translations
 ```
 
-### Layer 1: GRC-20 (Public Music Metadata)
-- **Purpose**: Industry-standard identifiers (ISNI, ISWC, ISRC) on-chain
-- **Status**: ✅ 52 artists, 36 works, 39 recordings minted (92.3% complete)
-- **Network**: Geo Testnet, Space ID: `78e6adba-6d19-49e8-8b12-9d1e72ecfd25`
+### Tech Stack
 
-### Layer 2: Smart Contracts (Event-Only Storage)
-- **Purpose**: Karaoke clips, translations, performances, line-level FSRS
-- **Network**: Lens Testnet (Chain ID: 37111)
-- **Deployed**: ExerciseEvents (line-level), SongEvents, ClipEvents, AccountEvents, TranslationEvents
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite |
+| Database | Neon PostgreSQL |
+| Storage | Grove (IPFS) |
+| Social | Lens Protocol |
+| Identity | Lit Protocol PKPs |
+| AI Scoring | Lit Actions + Voxtral |
 
-### Layer 3: The Graph Subgraph (Query Layer)
-- **Purpose**: Index contract events for GraphQL queries
-- **Status**: ✅ Deployed to The Graph Studio (v0.0.2)
-- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
-- **Line-Level FSRS**: 2,766 karaoke lines with UUID identifiers
+### Smart Contracts (Lens Testnet)
 
-### Layer 4: Grove/IPFS (Immutable Storage)
-- **Purpose**: Audio files, word timing, translations
-- **Status**: 36 segments with Grove URLs
-- **Assets**: Instrumental MP3s, alignment JSON, translation JSONs
+| Contract | Purpose |
+|----------|---------|
+| ExerciseEvents | FSRS exercise grading |
+| KaraokeEvents | Session tracking |
+| ClipEvents | Clip lifecycle |
+| AccountEvents | User accounts |
 
-## 📊 Current Status
+## Project Structure
 
-### ✅ Deployed & Operational
-- **Database**: 2,766 karaoke lines (276 per segment average)
-- **Smart Contracts**: All 5 contracts deployed on Lens Testnet
-- **Line-Level FSRS**: Backend deployed, app updated
-- **GRC-20**: 92.3% complete (39/42 works)
-- **TikTok Data**: 8,196 videos (5,653 copyrighted)
-
-### 🎯 Line-Level FSRS Implementation (Complete)
-**Problem Solved**: Users previously only got 1 exercise per song (segment-level). Now each lyric line is a separate FSRS card.
-
-**Architecture**:
-- **Database**: `karaoke_lines` table with 2,766 lines, UUID stable identifiers
-- **Contract**: `LinePerformanceGraded` event for line-level tracking
-- **Subgraph**: `LineCard` entities for fast queries
-- **App**: Updated to use `lineIndex` for progressive learning
-
-### 🔧 Smart Contracts (Lens Testnet - 37111)
-```typescript
-const CONTRACTS = {
-  ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832", // FSRS exercise grading
-  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
-  ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
-  AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x4aE979A4f115d734670403e644d83d4C695f9c58"
-}
+```
+karaoke-school-v1/
+├── app/              # React frontend (5173)
+├── pipeline-new/     # Content processing pipeline
+├── contracts/        # Solidity smart contracts
+├── subgraph/         # The Graph indexer
+└── lit-actions/      # AI scoring actions
 ```
 
-### ⏳ High Priority Tasks
-1. **Story Protocol Integration** - Test single video IP Asset
-2. **PKP Creation** - 51 TikTok creators
-3. **Production Testing** - Verify end-to-end flow with deployed subgraph
+## Quick Start
 
-## 🚀 Quick Start
-
-### Development
 ```bash
-# Start core services
-cd karaoke-pipeline && ./supervisor.sh  # Pipeline (8787)
-cd app && bun run dev                   # App (5173)
-cd subgraph && npm run dev              # Subgraph (8000)
+# Frontend
+cd app && bun install && bun run dev
+
+# Pipeline (process new songs)
+cd pipeline-new && bun install
+bun src/scripts/add-song.ts --help
 ```
 
-### Testing Line-Level FSRS
-```bash
-# Start app and visit study page
-cd app && bun run dev
-# Navigate to: /song/{workId}/study
+## Documentation
 
-# Check subgraph for line-level entities
-curl -s -X POST 'http://localhost:8000/subgraphs/name/subgraph-0' \
-  -H 'Content-Type: application/json' \
-  -d '{"query": "{ lineCards(first: 5) { id lineId lineIndex } }"}'
-```
+- **[AGENTS.md](./AGENTS.md)** - Technical guide for running the pipeline
+- **[app/docs/](./app/docs/)** - Frontend documentation
 
-### Environment
-```bash
-# Required variables
-VITE_LENS_ENVIRONMENT=testnet
-NEON_DATABASE_URL=postgresql://...
-GROVE_API_KEY=...
-# Subgraph Mode (defaults to production)
-# VITE_SUBGRAPH_MODE=local  # Uncomment for local GND development
-# Production: https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
-```
+## License
 
-## 🎯 Key Database Tables
-
-### `karaoke_segments`
-```sql
-spotify_track_id TEXT PRIMARY KEY
-fal_segment_grove_url TEXT       -- Instrumental MP3
-alignment_data JSONB             -- Word-level timing
-```
-
-### `karaoke_lines` (NEW - Line-Level FSRS)
-```sql
-line_id UUID PRIMARY KEY          -- Stable identifier
-line_index INTEGER               -- Position within segment
-spotify_track_id TEXT            -- Links to segment
-original_text TEXT               -- Lyric text
-start_ms INTEGER                 -- Absolute timing
-end_ms INTEGER
-segment_hash TEXT                -- Auto-computed
-```
-
-### `elevenlabs_word_alignments`
-```sql
-spotify_track_id TEXT UNIQUE
-words JSONB                      -- [{text: "Hello", start: 0.1, end: 0.5}, ...]
-```
-
-### `lyrics_translations`
-```sql
-spotify_track_id TEXT, language_code TEXT
-lines JSONB                      -- Line-level with word timing
-```
-
-## 🔧 Core Services
-
-### Karaoke Pipeline (12-Step Processing)
-```bash
-# Process TikTok → Grove → Contracts flow
-cd karaoke-pipeline
-bun run unified --step=12 --limit=1
-
-# Create PKPs for TikTok creators
-bun run mint-creator-pkps
-
-# Emit events to blockchain
-bun run emit-segment-events
-```
-
-### Lit Actions (AI Scoring)
-- **Network**: Base Sepolia
-- **Purpose**: Pronunciation and timing analysis
-- **Integration**: Called via Lit Protocol for performance grading
-
-### Grove Storage
-- **API**: Content-addressed storage (IPFS under the hood)
-- **Assets**: MP3s, JSONs, images with `grove://` URIs
-- **Cost**: Free for IPFS storage
-
-## 📋 Line-Level FSRS Migration
-
-### Before (Broken)
-```
-User visits study page → 1 card loaded → Shows line 0 only
-After 1 practice → "Study session complete!" ❌
-```
-
-### After (Fixed)
-```
-User visits study page → 15+ cards loaded (FSRS daily limit)
-Shows line 0 → Next → Shows line 1 → Next → Shows line 2...
-After 15 practices → "Daily limit reached! Come back tomorrow." ✅
-```
-
-### Required Updates
-1. **useStudyCards Hook**: Query `lineCards` instead of `segments`
-2. **Lit Action Grader**: Call `gradeLinePerformance()` with `lineId` + `lineIndex`
-3. **Subgraph Deployment**: Deploy to The Graph Studio for production
-
-## 🔗 Documentation
-
-### Service Documentation
-- **[AGENTS.md](./AGENTS.md)**: Service integration guide, API endpoints
-- **[app/docs/](./app/docs/)**: React frontend documentation
-- **[karaoke-pipeline/docs/](./karaoke-pipeline/docs/)**: Processing pipeline docs
-- **[contracts/docs/](./contracts/docs/)**: Smart contract documentation
-
-### Implementation Details
-- **FSRS Implementation**: Move detailed docs to `/app/docs/line-level-fsrs.md`
-- **GRC-20 Integration**: Move to `/contracts/docs/grc20.md`
-- **Story Protocol**: Move to `/subgraph/docs/story-protocol.md`
-
-## 🎯 Next Steps
-
-### Immediate (Today)
-1. **Deploy Subgraph** - Local → The Graph Studio
-2. **Update App Integration** - Enable line-level FSRS queries
-3. **Test Lit Actions** - Verify gradeLinePerformance() works
-4. **End-to-End Testing** - Complete 15+ card study session
-
-### This Week
-1. **Story Protocol** - Test single video (7558957526327332118)
-2. **Revenue Split** - 82% artist, 18% creator
-3. **PKP Creation** - 51 TikTok creators
-4. **Production Deployment** - Subgraph → testnet
-
-### Next Month
-- **Complete ISWCs** - Final 3 works need codes
-- **Scale Story Protocol** - 5,653 copyrighted videos
-- **Performance Optimization** - Audio streaming, caching
-
----
-
-**Multi-layer blockchain architecture with line-level FSRS for progressive language learning** 🎵
+MIT

@@ -10,6 +10,146 @@ import {
   BigInt,
 } from "@graphprotocol/graph-ts";
 
+export class MultipleChoiceAttemptGraded extends ethereum.Event {
+  get params(): MultipleChoiceAttemptGraded__Params {
+    return new MultipleChoiceAttemptGraded__Params(this);
+  }
+}
+
+export class MultipleChoiceAttemptGraded__Params {
+  _event: MultipleChoiceAttemptGraded;
+
+  constructor(event: MultipleChoiceAttemptGraded) {
+    this._event = event;
+  }
+
+  get attemptId(): BigInt {
+    return this._event.parameters[0].value.toBigInt();
+  }
+
+  get questionId(): Bytes {
+    return this._event.parameters[1].value.toBytes();
+  }
+
+  get learner(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+
+  get score(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
+  get rating(): i32 {
+    return this._event.parameters[4].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[5].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[6].value.toBigInt();
+  }
+}
+
+export class PausedUpdated extends ethereum.Event {
+  get params(): PausedUpdated__Params {
+    return new PausedUpdated__Params(this);
+  }
+}
+
+export class PausedUpdated__Params {
+  _event: PausedUpdated;
+
+  constructor(event: PausedUpdated) {
+    this._event = event;
+  }
+
+  get paused(): boolean {
+    return this._event.parameters[0].value.toBoolean();
+  }
+}
+
+export class QuestionToggled extends ethereum.Event {
+  get params(): QuestionToggled__Params {
+    return new QuestionToggled__Params(this);
+  }
+}
+
+export class QuestionToggled__Params {
+  _event: QuestionToggled;
+
+  constructor(event: QuestionToggled) {
+    this._event = event;
+  }
+
+  get questionId(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get enabled(): boolean {
+    return this._event.parameters[1].value.toBoolean();
+  }
+
+  get toggledBy(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[3].value.toBigInt();
+  }
+}
+
+export class SayItBackAttemptGraded extends ethereum.Event {
+  get params(): SayItBackAttemptGraded__Params {
+    return new SayItBackAttemptGraded__Params(this);
+  }
+}
+
+export class SayItBackAttemptGraded__Params {
+  _event: SayItBackAttemptGraded;
+
+  constructor(event: SayItBackAttemptGraded) {
+    this._event = event;
+  }
+
+  get attemptId(): BigInt {
+    return this._event.parameters[0].value.toBigInt();
+  }
+
+  get lineId(): Bytes {
+    return this._event.parameters[1].value.toBytes();
+  }
+
+  get segmentHash(): Bytes {
+    return this._event.parameters[2].value.toBytes();
+  }
+
+  get lineIndex(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
+  get learner(): Address {
+    return this._event.parameters[4].value.toAddress();
+  }
+
+  get score(): i32 {
+    return this._event.parameters[5].value.toI32();
+  }
+
+  get rating(): i32 {
+    return this._event.parameters[6].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[7].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[8].value.toBigInt();
+  }
+}
+
 export class TranslationQuestionRegistered extends ethereum.Event {
   get params(): TranslationQuestionRegistered__Params {
     return new TranslationQuestionRegistered__Params(this);
@@ -81,8 +221,8 @@ export class TriviaQuestionRegistered__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get spotifyTrackId(): Bytes {
-    return this._event.parameters[1].value.toBytes();
+  get spotifyTrackId(): string {
+    return this._event.parameters[1].value.toString();
   }
 
   get languageCode(): string {
@@ -106,128 +246,6 @@ export class TriviaQuestionRegistered__Params {
   }
 }
 
-export class SayItBackAttemptGraded extends ethereum.Event {
-  get params(): SayItBackAttemptGraded__Params {
-    return new SayItBackAttemptGraded__Params(this);
-  }
-}
-
-export class SayItBackAttemptGraded__Params {
-  _event: SayItBackAttemptGraded;
-
-  constructor(event: SayItBackAttemptGraded) {
-    this._event = event;
-  }
-
-  get attemptId(): BigInt {
-    return this._event.parameters[0].value.toBigInt();
-  }
-
-  get lineId(): Bytes {
-    return this._event.parameters[1].value.toBytes();
-  }
-
-  get segmentHash(): Bytes {
-    return this._event.parameters[2].value.toBytes();
-  }
-
-  get lineIndex(): i32 {
-    return this._event.parameters[3].value.toI32();
-  }
-
-  get learner(): Address {
-    return this._event.parameters[4].value.toAddress();
-  }
-
-  get score(): i32 {
-    return this._event.parameters[5].value.toI32();
-  }
-
-  get rating(): i32 {
-    return this._event.parameters[6].value.toI32();
-  }
-
-  get metadataUri(): string {
-    return this._event.parameters[7].value.toString();
-  }
-
-  get timestamp(): BigInt {
-    return this._event.parameters[8].value.toBigInt();
-  }
-}
-
-export class MultipleChoiceAttemptGraded extends ethereum.Event {
-  get params(): MultipleChoiceAttemptGraded__Params {
-    return new MultipleChoiceAttemptGraded__Params(this);
-  }
-}
-
-export class MultipleChoiceAttemptGraded__Params {
-  _event: MultipleChoiceAttemptGraded;
-
-  constructor(event: MultipleChoiceAttemptGraded) {
-    this._event = event;
-  }
-
-  get attemptId(): BigInt {
-    return this._event.parameters[0].value.toBigInt();
-  }
-
-  get questionId(): Bytes {
-    return this._event.parameters[1].value.toBytes();
-  }
-
-  get learner(): Address {
-    return this._event.parameters[2].value.toAddress();
-  }
-
-  get score(): i32 {
-    return this._event.parameters[3].value.toI32();
-  }
-
-  get rating(): i32 {
-    return this._event.parameters[4].value.toI32();
-  }
-
-  get metadataUri(): string {
-    return this._event.parameters[5].value.toString();
-  }
-
-  get timestamp(): BigInt {
-    return this._event.parameters[6].value.toBigInt();
-  }
-}
-
-export class QuestionToggled extends ethereum.Event {
-  get params(): QuestionToggled__Params {
-    return new QuestionToggled__Params(this);
-  }
-}
-
-export class QuestionToggled__Params {
-  _event: QuestionToggled;
-
-  constructor(event: QuestionToggled) {
-    this._event = event;
-  }
-
-  get questionId(): Bytes {
-    return this._event.parameters[0].value.toBytes();
-  }
-
-  get enabled(): boolean {
-    return this._event.parameters[1].value.toBoolean();
-  }
-
-  get toggledBy(): Address {
-    return this._event.parameters[2].value.toAddress();
-  }
-
-  get timestamp(): BigInt {
-    return this._event.parameters[3].value.toBigInt();
-  }
-}
-
 export class TrustedPKPUpdated extends ethereum.Event {
   get params(): TrustedPKPUpdated__Params {
     return new TrustedPKPUpdated__Params(this);
@@ -247,24 +265,6 @@ export class TrustedPKPUpdated__Params {
 
   get newPKP(): Address {
     return this._event.parameters[1].value.toAddress();
-  }
-}
-
-export class PausedUpdated extends ethereum.Event {
-  get params(): PausedUpdated__Params {
-    return new PausedUpdated__Params(this);
-  }
-}
-
-export class PausedUpdated__Params {
-  _event: PausedUpdated;
-
-  constructor(event: PausedUpdated) {
-    this._event = event;
-  }
-
-  get paused(): boolean {
-    return this._event.parameters[0].value.toBoolean();
   }
 }
 
@@ -453,6 +453,56 @@ export class EmitTriviaQuestionRegisteredCall__Outputs {
   }
 }
 
+export class GradeMultipleChoiceAttemptCall extends ethereum.Call {
+  get inputs(): GradeMultipleChoiceAttemptCall__Inputs {
+    return new GradeMultipleChoiceAttemptCall__Inputs(this);
+  }
+
+  get outputs(): GradeMultipleChoiceAttemptCall__Outputs {
+    return new GradeMultipleChoiceAttemptCall__Outputs(this);
+  }
+}
+
+export class GradeMultipleChoiceAttemptCall__Inputs {
+  _call: GradeMultipleChoiceAttemptCall;
+
+  constructor(call: GradeMultipleChoiceAttemptCall) {
+    this._call = call;
+  }
+
+  get attemptId(): BigInt {
+    return this._call.inputValues[0].value.toBigInt();
+  }
+
+  get questionId(): Bytes {
+    return this._call.inputValues[1].value.toBytes();
+  }
+
+  get learner(): Address {
+    return this._call.inputValues[2].value.toAddress();
+  }
+
+  get score(): i32 {
+    return this._call.inputValues[3].value.toI32();
+  }
+
+  get rating(): i32 {
+    return this._call.inputValues[4].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._call.inputValues[5].value.toString();
+  }
+}
+
+export class GradeMultipleChoiceAttemptCall__Outputs {
+  _call: GradeMultipleChoiceAttemptCall;
+
+  constructor(call: GradeMultipleChoiceAttemptCall) {
+    this._call = call;
+  }
+}
+
 export class GradeSayItBackAttemptCall extends ethereum.Call {
   get inputs(): GradeSayItBackAttemptCall__Inputs {
     return new GradeSayItBackAttemptCall__Inputs(this);
@@ -507,90 +557,6 @@ export class GradeSayItBackAttemptCall__Outputs {
   _call: GradeSayItBackAttemptCall;
 
   constructor(call: GradeSayItBackAttemptCall) {
-    this._call = call;
-  }
-}
-
-export class GradeMultipleChoiceAttemptCall extends ethereum.Call {
-  get inputs(): GradeMultipleChoiceAttemptCall__Inputs {
-    return new GradeMultipleChoiceAttemptCall__Inputs(this);
-  }
-
-  get outputs(): GradeMultipleChoiceAttemptCall__Outputs {
-    return new GradeMultipleChoiceAttemptCall__Outputs(this);
-  }
-}
-
-export class GradeMultipleChoiceAttemptCall__Inputs {
-  _call: GradeMultipleChoiceAttemptCall;
-
-  constructor(call: GradeMultipleChoiceAttemptCall) {
-    this._call = call;
-  }
-
-  get attemptId(): BigInt {
-    return this._call.inputValues[0].value.toBigInt();
-  }
-
-  get questionId(): Bytes {
-    return this._call.inputValues[1].value.toBytes();
-  }
-
-  get learner(): Address {
-    return this._call.inputValues[2].value.toAddress();
-  }
-
-  get score(): i32 {
-    return this._call.inputValues[3].value.toI32();
-  }
-
-  get rating(): i32 {
-    return this._call.inputValues[4].value.toI32();
-  }
-
-  get metadataUri(): string {
-    return this._call.inputValues[5].value.toString();
-  }
-}
-
-export class GradeMultipleChoiceAttemptCall__Outputs {
-  _call: GradeMultipleChoiceAttemptCall;
-
-  constructor(call: GradeMultipleChoiceAttemptCall) {
-    this._call = call;
-  }
-}
-
-export class ToggleQuestionCall extends ethereum.Call {
-  get inputs(): ToggleQuestionCall__Inputs {
-    return new ToggleQuestionCall__Inputs(this);
-  }
-
-  get outputs(): ToggleQuestionCall__Outputs {
-    return new ToggleQuestionCall__Outputs(this);
-  }
-}
-
-export class ToggleQuestionCall__Inputs {
-  _call: ToggleQuestionCall;
-
-  constructor(call: ToggleQuestionCall) {
-    this._call = call;
-  }
-
-  get questionId(): Bytes {
-    return this._call.inputValues[0].value.toBytes();
-  }
-
-  get enabled(): boolean {
-    return this._call.inputValues[1].value.toBoolean();
-  }
-}
-
-export class ToggleQuestionCall__Outputs {
-  _call: ToggleQuestionCall;
-
-  constructor(call: ToggleQuestionCall) {
     this._call = call;
   }
 }
@@ -651,6 +617,40 @@ export class SetTrustedPKPCall__Outputs {
   _call: SetTrustedPKPCall;
 
   constructor(call: SetTrustedPKPCall) {
+    this._call = call;
+  }
+}
+
+export class ToggleQuestionCall extends ethereum.Call {
+  get inputs(): ToggleQuestionCall__Inputs {
+    return new ToggleQuestionCall__Inputs(this);
+  }
+
+  get outputs(): ToggleQuestionCall__Outputs {
+    return new ToggleQuestionCall__Outputs(this);
+  }
+}
+
+export class ToggleQuestionCall__Inputs {
+  _call: ToggleQuestionCall;
+
+  constructor(call: ToggleQuestionCall) {
+    this._call = call;
+  }
+
+  get questionId(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get enabled(): boolean {
+    return this._call.inputValues[1].value.toBoolean();
+  }
+}
+
+export class ToggleQuestionCall__Outputs {
+  _call: ToggleQuestionCall;
+
+  constructor(call: ToggleQuestionCall) {
     this._call = call;
   }
 }

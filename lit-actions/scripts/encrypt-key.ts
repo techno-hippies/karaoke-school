@@ -36,7 +36,7 @@ interface KeyDef {
 }
 
 interface Task {
-  action: 'karaoke' | 'exercise';
+  action: 'karaoke' | 'exercise' | 'karaoke-line';
   cid: string;
   keys: KeyDef[];
 }
@@ -48,6 +48,13 @@ const ALL_TASKS: Task[] = [
     keys: [
       { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' },
       { name: 'openrouter_api_key', envVar: 'OPENROUTER_API_KEY' }
+    ]
+  },
+  {
+    action: 'karaoke-line',
+    cid: Env.cids['karaoke-line'] || Env.cids.karaoke,
+    keys: [
+      { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' }
     ]
   },
   {
@@ -159,6 +166,9 @@ async function main() {
 
   await litClient.disconnect();
   console.log('✨ Encryption complete!');
+  console.log('');
+  console.log('💡 Frontend imports keys directly from lit-actions/keys/');
+  console.log('   Restart app dev server to pick up changes (HMR)');
 }
 
 main().catch(err => {

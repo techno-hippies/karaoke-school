@@ -150,6 +150,8 @@ type GlobalStats @entity(immutable: false) {
   enabledTranslations: Int!
   totalExerciseCards: Int!
   totalExerciseAttempts: Int!
+  totalKaraokeSessions: Int!
+  completedKaraokeSessions: Int!
 }
 
 """
@@ -204,4 +206,41 @@ type ExerciseAttempt @entity(immutable: true) {
   rating: Int!
   metadataUri: String!
   gradedAt: BigInt!
+}
+
+"""
+A karaoke session for line-by-line grading (real-time feedback)
+Aggregates line scores from KaraokeLineGraded events
+"""
+type KaraokeSession @entity(immutable: false) {
+  id: ID! # sessionId hex
+  sessionId: Bytes!
+  clip: Clip!
+  clipHash: Bytes!
+  performer: Bytes!
+  expectedLineCount: Int!
+
+  # Derived from events
+  lines: [KaraokeLineScore!]! @derivedFrom(field: "session")
+  completedLineCount: Int!
+  aggregateScore: Int! # Average of line scores (0-10000)
+  isCompleted: Boolean!
+  wasAbandoned: Boolean!
+
+  startedAt: BigInt!
+  endedAt: BigInt
+}
+
+"""
+A graded line within a karaoke session
+"""
+type KaraokeLineScore @entity(immutable: true) {
+  id: ID! # sessionId-lineIndex
+  session: KaraokeSession!
+  sessionId: Bytes!
+  lineIndex: Int!
+  score: Int! # 0-10000 basis points
+  rating: Int! # FSRS 0-3
+  metadataUri: String!
+  timestamp: BigInt!
 }

@@ -47,6 +47,29 @@ contract KaraokeEventsTest is Test {
 
     event ClipToggled(bytes32 indexed clipHash, bool enabled, uint64 timestamp);
 
+    event KaraokeSessionStarted(
+        bytes32 indexed sessionId,
+        bytes32 indexed clipHash,
+        address indexed performer,
+        uint16 expectedLineCount,
+        uint64 timestamp
+    );
+
+    event KaraokeLineGraded(
+        bytes32 indexed sessionId,
+        uint16 lineIndex,
+        uint16 score,
+        uint8 rating,
+        string metadataUri,
+        uint64 timestamp
+    );
+
+    event KaraokeSessionEnded(
+        bytes32 indexed sessionId,
+        bool completed,
+        uint64 timestamp
+    );
+
     function setUp() public {
         karaokeEvents = new KaraokeEvents(trustedPKP);
     }
@@ -134,5 +157,187 @@ contract KaraokeEventsTest is Test {
         bytes32 actual = karaokeEvents.getClipHash(TRACK_ID, CLIP_START_MS);
 
         assertEq(actual, expected);
+    }
+
+    // ============ Session Function Tests ============
+
+    function testStartKaraokeSession() public {
+        bytes32 sessionId = keccak256("session-1");
+        address performer = address(0x1234);
+        uint16 expectedLineCount = 12;
+
+        vm.prank(trustedPKP);
+        vm.expectEmit();
+        emit KaraokeSessionStarted(
+            sessionId,
+            CLIP_HASH,
+            performer,
+            expectedLineCount,
+            uint64(block.timestamp)
+        );
+
+        karaokeEvents.startKaraokeSession(
+            sessionId,
+            CLIP_HASH,
+            performer,
+            expectedLineCount
+        );
+    }
+
+    function testStartKaraokeSession_RevertNotTrustedPKP() public {
+        bytes32 sessionId = keccak256("session-1");
+        address performer = address(0x1234);
+
+        vm.prank(address(0x999));
+        vm.expectRevert(KaraokeEvents.NotTrustedPKP.selector);
+        karaokeEvents.startKaraokeSession(
+            sessionId,
+            CLIP_HASH,
+            performer,
+            12
+        );
+    }
+
+    function testStartKaraokeSession_RevertInvalidSession() public {
+        vm.prank(trustedPKP);
+        vm.expectRevert(KaraokeEvents.InvalidSession.selector);
+        karaokeEvents.startKaraokeSession(
+            bytes32(0), // invalid
+            CLIP_HASH,
+            address(0x1234),
+            12
+        );
+    }
+
+    function testGradeKaraokeLine() public {
+        bytes32 sessionId = keccak256("session-1");
+        uint16 lineIndex = 3;
+        uint16 score = 8500; // 85% similarity
+        uint8 rating = 2; // Good
+
+        vm.prank(trustedPKP);
+        vm.expectEmit();
+        emit KaraokeLineGraded(
+            sessionId,
+            lineIndex,
+            score,
+            rating,
+            "grove://line-metadata",
+            uint64(block.timestamp)
+        );
+
+        karaokeEvents.gradeKaraokeLine(
+            sessionId,
+            lineIndex,
+            score,
+            rating,
+            "grove://line-metadata"
+        );
+    }
+
+    function testGradeKaraokeLine_RevertNotTrustedPKP() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(address(0x999));
+        vm.expectRevert(KaraokeEvents.NotTrustedPKP.selector);
+        karaokeEvents.gradeKaraokeLine(
+            sessionId,
+            0,
+            8500,
+            2,
+            "grove://metadata"
+        );
+    }
+
+    function testGradeKaraokeLine_RevertInvalidScore() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(trustedPKP);
+        vm.expectRevert(KaraokeEvents.InvalidScore.selector);
+        karaokeEvents.gradeKaraokeLine(
+            sessionId,
+            0,
+            10001, // > 10000
+            2,
+            "grove://metadata"
+        );
+    }
+
+    function testGradeKaraokeLine_RevertInvalidRating() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(trustedPKP);
+        vm.expectRevert(KaraokeEvents.InvalidRating.selector);
+        karaokeEvents.gradeKaraokeLine(
+            sessionId,
+            0,
+            8500,
+            4, // > 3
+            "grove://metadata"
+        );
+    }
+
+    function testEndKaraokeSession_Completed() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(trustedPKP);
+        vm.expectEmit();
+        emit KaraokeSessionEnded(
+            sessionId,
+            true,
+            uint64(block.timestamp)
+        );
+
+        karaokeEvents.endKaraokeSession(sessionId, true);
+    }
+
+    function testEndKaraokeSession_Abandoned() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(trustedPKP);
+        vm.expectEmit();
+        emit KaraokeSessionEnded(
+            sessionId,
+            false, // abandoned
+            uint64(block.timestamp)
+        );
+
+        karaokeEvents.endKaraokeSession(sessionId, false);
+    }
+
+    function testEndKaraokeSession_RevertNotTrustedPKP() public {
+        bytes32 sessionId = keccak256("session-1");
+
+        vm.prank(address(0x999));
+        vm.expectRevert(KaraokeEvents.NotTrustedPKP.selector);
+        karaokeEvents.endKaraokeSession(sessionId, true);
+    }
+
+    function testEndKaraokeSession_RevertInvalidSession() public {
+        vm.prank(trustedPKP);
+        vm.expectRevert(KaraokeEvents.InvalidSession.selector);
+        karaokeEvents.endKaraokeSession(bytes32(0), true);
+    }
+
+    // ============ Full Session Flow Test ============
+
+    function testFullSessionFlow() public {
+        bytes32 sessionId = keccak256("session-flow-test");
+        address performer = address(0xBEEF);
+        uint16 lineCount = 3;
+
+        // 1. Start session
+        vm.prank(trustedPKP);
+        karaokeEvents.startKaraokeSession(sessionId, CLIP_HASH, performer, lineCount);
+
+        // 2. Grade lines
+        vm.startPrank(trustedPKP);
+        karaokeEvents.gradeKaraokeLine(sessionId, 0, 9200, 3, "grove://line0");
+        karaokeEvents.gradeKaraokeLine(sessionId, 1, 7500, 2, "grove://line1");
+        karaokeEvents.gradeKaraokeLine(sessionId, 2, 8800, 2, "grove://line2");
+
+        // 3. End session
+        karaokeEvents.endKaraokeSession(sessionId, true);
+        vm.stopPrank();
     }
 }

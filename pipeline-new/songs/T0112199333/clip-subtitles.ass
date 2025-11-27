@@ -1,0 +1,25 @@
+[Script Info]
+Title: Karaoke Subtitles
+ScriptType: v4.00+
+PlayResX: 1076
+PlayResY: 1926
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: English,Arial,48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,8,10,10,60,1
+Style: Chinese,Noto Sans SC,56,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,2,10,10,80,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:04.45,0:00:07.31,English,,0,0,0,,Too high, can't come down
+Dialogue: 0,0:00:04.45,0:00:07.31,Chinese,,0,0,0,,太high{\kf8} 下不来
+Dialogue: 0,0:00:07.57,0:00:10.87,English,,0,0,0,,It's in the air and it's all around
+Dialogue: 0,0:00:07.57,0:00:10.87,Chinese,,0,0,0,,这空气里{\kf12} 全是你
+Dialogue: 0,0:00:00.23,0:00:02.59,English,,0,0,0,,With a taste of your lips, I'm on a ride
+Dialogue: 0,0:00:00.23,0:00:02.59,Chinese,,0,0,0,,吻一下{\kf4} 我沦陷
+Dialogue: 0,0:00:03.48,0:00:05.94,English,,0,0,0,,You're toxic, I'm slippin' under
+Dialogue: 0,0:00:03.48,0:00:05.94,Chinese,,0,0,0,,{\kf29}You're{\kf15} toxic{\kf22} 我深陷
+Dialogue: 0,0:00:07.13,0:00:09.96,English,,0,0,0,,With a taste of a poison paradise
+Dialogue: 0,0:00:07.13,0:00:09.96,Chinese,,0,0,0,,毒天堂{\kf0} 我沉迷

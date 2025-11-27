@@ -44,6 +44,15 @@ interface EncryptedKey {
   dataToEncryptHash: string;
 }
 
+interface PkpCreds {
+  tokenId: string;
+  publicKey: string;
+  ethAddress: string;
+  pkpPrivateKey?: string;
+  capacityTokenId?: string;
+  [key: string]: any;
+}
+
 // Load Configs
 const litEnvsPath = join(ROOT_DIR, 'config/lit-envs.json');
 const litEnvs: Record<string, LitEnvConfig> = JSON.parse(readFileSync(litEnvsPath, 'utf-8'));
@@ -94,6 +103,30 @@ export const Env = {
       throw new Error(`Key file not found: ${path} (Env: ${ENV_NAME})`);
     }
     return JSON.parse(readFileSync(path, 'utf-8'));
+  },
+
+  loadPkpCreds(): PkpCreds {
+    const pkpPath = join(ROOT_DIR, envConfig.pkpFile);
+    if (!existsSync(pkpPath)) {
+      throw new Error(`PKP file not found: ${pkpPath} (Env: ${ENV_NAME})`);
+    }
+
+    const base = JSON.parse(readFileSync(pkpPath, 'utf-8')) as PkpCreds;
+    const pkpPrivateKey = process.env.PKP_PRIVATE_KEY
+      || process.env.LIT_TEST_PRIVATE_KEY
+      || process.env.PRIVATE_KEY
+      || base.pkpPrivateKey;
+
+    const capacityTokenId = process.env.LIT_CAPACITY_TOKEN_ID
+      || process.env.CAPACITY_TOKEN_ID
+      || base.capacityTokenId
+      || base.tokenId; // fallback to PKP tokenId for dev if capacity not set
+
+    return {
+      ...base,
+      pkpPrivateKey,
+      capacityTokenId,
+    };
   },
 
   getAuthStoragePath(appName: string): string {

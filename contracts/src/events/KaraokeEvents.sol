@@ -20,6 +20,8 @@ contract KaraokeEvents {
     error ContractPaused();
     error InvalidAddress();
     error InvalidScore();
+    error InvalidSession();
+    error InvalidRating();
 
     // ============ Constructor ============
 
@@ -119,6 +121,52 @@ contract KaraokeEvents {
     event ClipToggled(
         bytes32 indexed clipHash,
         bool enabled,
+        uint64 timestamp
+    );
+
+    /**
+     * @notice Emitted when a karaoke session is started for line-by-line grading
+     * @param sessionId Deterministic session identifier (e.g., keccak256(performer, clipHash, clientNonce))
+     * @param clipHash Clip identifier (keccak256(spotifyTrackId, clipStartMs))
+     * @param performer User wallet address
+     * @param expectedLineCount Total lines expected in the session (song or clip)
+     * @param timestamp Block timestamp
+     */
+    event KaraokeSessionStarted(
+        bytes32 indexed sessionId,
+        bytes32 indexed clipHash,
+        address indexed performer,
+        uint16 expectedLineCount,
+        uint64 timestamp
+    );
+
+    /**
+     * @notice Emitted when a karaoke line is graded within a session
+     * @param sessionId Session identifier
+     * @param lineIndex Line index (0-based)
+     * @param score Levenshtein similarity score in basis points (0-10000)
+     * @param rating FSRS-aligned rating (0=Again, 1=Hard, 2=Good, 3=Easy)
+     * @param metadataUri Grove URI containing transcript/analysis for the line
+     * @param timestamp Block timestamp
+     */
+    event KaraokeLineGraded(
+        bytes32 indexed sessionId,
+        uint16 lineIndex,
+        uint16 score,
+        uint8 rating,
+        string metadataUri,
+        uint64 timestamp
+    );
+
+    /**
+     * @notice Emitted when a karaoke session ends (completed or abandoned)
+     * @param sessionId Session identifier
+     * @param completed True if all expected lines were completed, false if abandoned early
+     * @param timestamp Block timestamp
+     */
+    event KaraokeSessionEnded(
+        bytes32 indexed sessionId,
+        bool completed,
         uint64 timestamp
     );
 
@@ -238,6 +286,84 @@ contract KaraokeEvents {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked(spotifyTrackId, clipStartMs));
+    }
+
+    // ============ Session-Based Line Grading (PKP-gated) ============
+
+    /**
+     * @notice Start a karaoke session for line-by-line grading
+     * @dev Only callable by trusted PKP (Lit Action)
+     * @param sessionId Deterministic session identifier
+     * @param clipHash Clip identifier
+     * @param performer User wallet address
+     * @param expectedLineCount Number of lines expected in the session
+     */
+    function startKaraokeSession(
+        bytes32 sessionId,
+        bytes32 clipHash,
+        address performer,
+        uint16 expectedLineCount
+    ) external onlyTrustedPKP whenNotPaused {
+        if (sessionId == bytes32(0) || clipHash == bytes32(0)) revert InvalidSession();
+        if (performer == address(0)) revert InvalidAddress();
+        if (expectedLineCount == 0) revert InvalidScore();
+
+        emit KaraokeSessionStarted(
+            sessionId,
+            clipHash,
+            performer,
+            expectedLineCount,
+            uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice Grade a single karaoke line within a session
+     * @dev Only callable by trusted PKP (Lit Action)
+     * @param sessionId Session identifier
+     * @param lineIndex Line index (0-based)
+     * @param score Levenshtein similarity score (0-10000)
+     * @param rating FSRS rating (0-3)
+     * @param metadataUri Grove URI with transcript/analysis for the line
+     */
+    function gradeKaraokeLine(
+        bytes32 sessionId,
+        uint16 lineIndex,
+        uint16 score,
+        uint8 rating,
+        string calldata metadataUri
+    ) external onlyTrustedPKP whenNotPaused {
+        if (sessionId == bytes32(0)) revert InvalidSession();
+        if (score > 10000) revert InvalidScore();
+        if (rating > 3) revert InvalidRating();
+
+        emit KaraokeLineGraded(
+            sessionId,
+            lineIndex,
+            score,
+            rating,
+            metadataUri,
+            uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice End a karaoke session
+     * @dev Only callable by trusted PKP (Lit Action)
+     * @param sessionId Session identifier
+     * @param completed True if all expected lines were graded, false if abandoned early
+     */
+    function endKaraokeSession(
+        bytes32 sessionId,
+        bool completed
+    ) external onlyTrustedPKP whenNotPaused {
+        if (sessionId == bytes32(0)) revert InvalidSession();
+
+        emit KaraokeSessionEnded(
+            sessionId,
+            completed,
+            uint64(block.timestamp)
+        );
     }
 
     // ============ Performance Grading (PKP-gated) ============

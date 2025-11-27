@@ -1,335 +1,301 @@
-# Karaoke School v1 - Service Integration Guide
+# Karaoke School - Agent Guide
 
-**Essential service integration for AI-powered language learning through music**
+Technical reference for AI agents running the content pipeline.
 
----
+## Database
 
-## 🏗️ Core Services
+**Project**: `silent-rain-11383465` (karaoke-pipeline-v3)
+**Connection**: Use `DATABASE_URL` env var
 
-| Service | Purpose | Status | Port | Network |
-|---------|---------|--------|------|---------|
-| **app/** | React frontend | ✅ Active | 5173 | Local |
-| **karaoke-pipeline/** | Content processing | ✅ Active | 8787 | Local |
-| **subgraph/** | Event indexing | ✅ Deployed | - | The Graph Studio |
-| **contracts/** | Smart contracts | ✅ Deployed | - | Lens Testnet |
-| **lit-actions/** | AI scoring | ✅ Active | - | Base Sepolia |
+```sql
+-- Check song status
+SELECT iswc, title, stage FROM songs;
 
-## 🔄 Data Flow
+-- Check lyrics
+SELECT line_index, language, text FROM lyrics WHERE song_id = '<uuid>' ORDER BY line_index, language;
+
+-- Check exercises
+SELECT exercise_type, language_code, emitted_at FROM exercises WHERE song_id = '<uuid>';
+
+-- Check clips
+SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
+```
+
+### Tables
+
+| Table | Purpose |
+|-------|---------|
+| `songs` | Core song data (ISWC, title, spotify_track_id, audio URLs) |
+| `artists` | Artist metadata (name, slug, image) |
+| `lyrics` | Line-by-line lyrics (en, zh) with word-level timing |
+| `clips` | Clip segments with start/end ms, emission status |
+| `exercises` | Translation, trivia, sayitback questions |
+| `accounts` | Posting accounts (scarlett) |
+| `genius_referents` | Song annotations for trivia generation |
+
+## Pipeline Flow
 
 ```
-TikTok → Pipeline → Database → GRC-20 , Contracts → Subgraph → Grove → App
-     ↓         ↓          ↓         ↓         ↓          ↓       ↓      ↓
-  8,196    12-Step     2,766    92.3%    5/5 Deployed  Local   IPFS   React
+┌─────────────────────────────────────────────────────────────────────────┐
+│  1. add-song.ts         Creates song + artist + EN lyrics in DB         │
+│                                                                         │
+│  2. process-audio.ts    Demucs separation + FAL enhancement             │
+│     └─► Creates: vocals_url, instrumental_url, enhanced_url             │
+│                                                                         │
+│  3. align-lyrics.ts     ElevenLabs forced alignment                     │
+│     └─► Creates: word-level timing on lyrics table                      │
+│                                                                         │
+│  4. add-lyrics.ts       Add translated lyrics (zh, vi, id)              │
+│                                                                         │
+│  5. generate-exercises.ts  Create translation + sayitback questions     │
+│                                                                         │
+│  6. insert-clip.ts      Create clip record in DB                        │
+│                                                                         │
+│  7. emit-clip.ts        Emit ClipRegistered to KaraokeEvents            │
+│                                                                         │
+│  8. emit-exercises.ts   Emit TranslationQuestionRegistered              │
+│                                                                         │
+│  9. generate-video.ts   FFmpeg with ASS subtitles (optional)            │
+│                                                                         │
+│ 10. post-clip.ts        Post to Lens feed (optional)                    │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔗 Integration Points
+## Quick Start
 
-### Pipeline API (Port 8787)
-- **Base URL**: `http://localhost:8787`
-- **Health**: `GET /health`
-- **Process**: `POST /trigger?step={1-12}&limit={count}`
-- **Status**: `GET /status`
+```bash
+cd pipeline-new
 
-### Subgraph GraphQL
-- **Production Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
-- **Local Endpoint** (optional): `http://localhost:8000/subgraphs/name/subgraph-0`
-- **Query Format**: POST JSON with GraphQL queries
-- **Entities**: Clip, Translation, LineCard, Performance, ExerciseCard, Account
-- **Switch to Local**: Set `VITE_SUBGRAPH_MODE=local` in `app/.env.local`
+# 1. Create song folder and add lyrics
+mkdir -p songs/T0112199333
+# Add en-lyrics.txt and zh-lyrics.txt to folder
 
-### App Development (Port 5173)
-- **URL**: `http://localhost:5173`
-- **Build**: `bun run dev`
-- **GraphQL**: Auto-switches local/studio based on environment
+# 2. Add song to database
+bun src/scripts/add-song.ts --iswc=T0112199333 --title="Toxic" --artist="Britney Spears" --spotify-id=717TY4sfgKQm4kFbYQIzgo
 
-## 🏛️ Smart Contracts (Lens Testnet - 37111)
+# 3. Process audio (optional - if original.mp3 available)
+bun src/scripts/process-audio.ts --iswc=T0112199333
 
-```typescript
-const CONTRACTS = {
-  ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832", // FSRS grading
-  SongEvents: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6",
-  ClipEvents: "0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274", // Clip lifecycle events
-  AccountEvents: "0x3709f41cdc9E7852140bc23A21adCe600434d4E8",
-  TranslationEvents: "0x4aE979A4f115d734670403e644d83d4C695f9c58"
+# 4. Align lyrics
+bun src/scripts/align-lyrics.ts --iswc=T0112199333
+
+# 5. Add ZH lyrics
+bun src/scripts/add-lyrics.ts --iswc=T0112199333 --language=zh
+
+# 6. Generate exercises
+bun src/scripts/generate-exercises.ts --iswc=T0112199333
+
+# 7. Create clip (start/end in ms)
+bun src/scripts/insert-clip.ts --iswc=T0112199333 --start=93548 --end=103548
+
+# 8. Emit clip to chain
+bun src/scripts/emit-clip.ts --clip-id=<uuid>
+
+# 9. Emit exercises to chain
+bun src/scripts/emit-exercises.ts --iswc=T0112199333
+```
+
+## Scripts Reference
+
+### Core Pipeline
+
+| Script | Purpose | Args |
+|--------|---------|------|
+| `add-song.ts` | Create song + artist + EN lyrics | `--iswc`, `--title`, `--artist`, `--spotify-id` |
+| `add-lyrics.ts` | Add translated lyrics | `--iswc`, `--language` |
+| `align-lyrics.ts` | ElevenLabs word alignment | `--iswc` |
+| `process-audio.ts` | Demucs + FAL | `--iswc` |
+| `generate-exercises.ts` | Translation/trivia/sayitback | `--iswc` |
+| `insert-clip.ts` | Create clip record | `--iswc`, `--start`, `--end` |
+| `emit-clip.ts` | Emit ClipRegistered | `--iswc` or `--clip-id` |
+| `emit-exercises.ts` | Emit exercises to chain | `--iswc`, `--limit` |
+
+### Video Generation
+
+| Script | Purpose | Args |
+|--------|---------|------|
+| `align-clip-chars.ts` | Character-level ZH alignment | `--clip`, `--lyrics` |
+| `generate-clip-ass.ts` | Create ASS subtitles | `--alignment`, `--en-lines` |
+| `burn-subtitles.ts` | Burn ASS onto video | `--video`, `--ass`, `--audio` |
+| `generate-video.ts` | Full video generation | `--iswc`, `--start`, `--end` |
+| `post-clip.ts` | Post to Lens | `--video-id`, `--account` |
+
+### Account Management
+
+| Script | Purpose | Args |
+|--------|---------|------|
+| `create-account.ts` | Create posting account | `--handle`, `--name` |
+| `create-lens-account.ts` | Lens account for posting | `--handle` |
+| `mint-pkp.ts` | PKP for signing | `--handle` |
+
+### Utilities
+
+| Script | Purpose | Args |
+|--------|---------|------|
+| `fetch-and-translate.ts` | LRCLIB + auto-translate | `--iswc` |
+| `insert-referents.ts` | Add Genius referents | `--iswc`, `--genius-id` |
+| `fix-scarlett-account.ts` | Fix account issues | n/a |
+
+## Lyrics Format
+
+**en-lyrics.txt** / **zh-lyrics.txt**:
+```
+[Intro]
+Baby, can't you see
+
+[Verse 1]
+A guy like you should wear a warning
+It's dangerous, I'm falling
+
+[Chorus]
+With a taste of your lips I'm on a ride
+```
+
+Rules:
+- Section markers: `[Intro]`, `[Verse 1]`, `[Chorus]`, `[Bridge]`, etc.
+- One lyric line per line
+- Line counts must match between languages
+- Empty lines are ignored
+
+## Smart Contracts
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| ClipEvents | `0x369Cd327c39E2f00b851f06B6e25bb01a5149961` | ClipRegistered (emit-clip.ts) |
+| ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | TranslationQuestionRegistered |
+| KaraokeEvents | `0x51aA6987130AA7E4654218859E075D8e790f4409` | Live karaoke session grading |
+| TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
+| AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |
+
+**Network**: Lens Testnet (Chain ID: 37111)
+**RPC**: `https://rpc.testnet.lens.xyz`
+**Explorer**: `https://block-explorer.testnet.lens.dev`
+
+## Environment Variables
+
+```bash
+# Required
+DATABASE_URL=postgresql://...
+PRIVATE_KEY=0x...
+
+# Audio processing
+ELEVENLABS_API_KEY=...
+RUNPOD_API_KEY=...
+RUNPOD_DEMUCS_ENDPOINT_ID=...
+FAL_API_KEY=...
+
+# Metadata
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+GENIUS_API_KEY=...
+
+# AI
+OPENROUTER_API_KEY=...
+```
+
+**Note**: Grove storage doesn't require an API key.
+
+## Directory Structure
+
+```
+pipeline-new/
+├── songs/
+│   └── T0112199333/             # ISWC folder
+│       ├── en-lyrics.txt        # Required
+│       ├── zh-lyrics.txt        # Translated lyrics
+│       ├── original.mp3         # For audio processing
+│       └── 1.33.548-1.43.548/   # Clip files
+│           ├── alignment.json   # Character timing
+│           ├── alignment.ass    # Subtitles
+│           └── clip-final.mp4   # Output video
+├── accounts/
+│   └── scarlett/
+│       └── avatar.png
+└── src/
+    ├── scripts/                 # CLI commands
+    ├── services/                # External APIs (grove, elevenlabs, etc.)
+    ├── db/                      # Database queries
+    └── lib/                     # Utilities
+```
+
+## Common Tasks
+
+### Add a New Song
+```bash
+# 1. Create folder with lyrics
+mkdir -p songs/T0123456789
+echo "Line 1\nLine 2" > songs/T0123456789/en-lyrics.txt
+
+# 2. Add to DB
+bun src/scripts/add-song.ts --iswc=T0123456789 --title="Song Name" --artist="Artist" --spotify-id=xyz
+
+# 3. Add translations
+echo "翻译1\n翻译2" > songs/T0123456789/zh-lyrics.txt
+bun src/scripts/add-lyrics.ts --iswc=T0123456789 --language=zh
+
+# 4. Generate exercises
+bun src/scripts/generate-exercises.ts --iswc=T0123456789
+```
+
+### Create and Emit a Clip
+```bash
+# Insert clip record (start/end in milliseconds)
+bun src/scripts/insert-clip.ts --iswc=T0123456789 --start=30000 --end=40000
+
+# Emit to chain
+bun src/scripts/emit-clip.ts --clip-id=<uuid>
+```
+
+### Emit Exercises
+```bash
+# Emit translation exercises (5 at a time)
+bun src/scripts/emit-exercises.ts --iswc=T0123456789 --limit=5
+
+# Dry run to preview
+bun src/scripts/emit-exercises.ts --iswc=T0123456789 --dry-run
+```
+
+### Generate Video with Subtitles
+```bash
+# 1. Align ZH lyrics to clip audio
+bun src/scripts/align-clip-chars.ts --clip=songs/T0123456789/clip.mp3 --lyrics="吻一下 我沦陷\nYou're toxic 我深陷"
+
+# 2. Generate ASS subtitles
+bun src/scripts/generate-clip-ass.ts --alignment=alignment.json --en-lines="Line 1\nLine 2"
+
+# 3. Burn subtitles onto video
+bun src/scripts/burn-subtitles.ts --video=clip.mp4 --ass=alignment.ass --audio=clip.mp3
+```
+
+## Subgraph
+
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.5`
+
+```graphql
+query {
+  clips(first: 10) {
+    id
+    spotifyTrackId
+    clipStartMs
+    clipEndMs
+  }
+  translationQuestions(first: 10) {
+    id
+    spotifyTrackId
+    languageCode
+    metadataUri
+  }
 }
 ```
 
-### Line-Level FSRS Events
-```solidity
-// ExerciseEvents.sol
-event SayItBackAttemptGraded(
-    uint256 attemptId,
-    bytes32 lineId,
-    bytes32 segmentHash,
-    uint16 lineIndex,
-    address learner,
-    uint16 score,
-    uint8 rating,
-    string metadataUri
-);
+## Cost Estimates
 
-event MultipleChoiceAttemptGraded(
-    uint256 attemptId,
-    bytes32 questionId,
-    address learner,
-    uint16 score,
-    uint8 rating,
-    string metadataUri
-);
-```
-
-## 🛠️ Development Workflow
-
-### Start Services
-```bash
-# Core services
-cd karaoke-pipeline && ./supervisor.sh &      # 8787
-cd app && bun run dev &                       # 5173
-
-# Subgraph (GND - requires PostgreSQL 16 in PATH)
-cd subgraph && bun run build
-PATH="/usr/lib/postgresql/16/bin:$PATH" gnd --ethereum-rpc lens-testnet:https://rpc.testnet.lens.xyz > gnd.log 2>&1 &
-# GND auto-deploys from ./build and serves on port 8000
-# Monitor: tail -f gnd.log
-```
-
-### Environment Variables
-```bash
-# Required
-NEON_DATABASE_URL=postgresql://...
-VITE_LENS_ENVIRONMENT=testnet
-GROVE_API_KEY=...
-
-# Subgraph Mode (optional)
-# Defaults to The Graph Studio (production)
-# Set to "local" to use local GND on port 8000
-VITE_SUBGRAPH_MODE=local  # Optional: Only for local development
-```
-
-## 📊 Database Integration
-
-### ⚠️ DATABASE QUERY RULES - CRITICAL
-
-**ALWAYS use MCP tools for database queries. NEVER use inline scripts or dotenvx.**
-
-✅ **CORRECT - Use MCP:**
-```typescript
-// Use call_mcp_tool with run_sql or run_sql_transaction
-call_mcp_tool("run_sql", {
-  params: {
-    projectId: "flat-mode-57592166",
-    databaseName: "neondb",
-    sql: "SELECT * FROM song_pipeline_status LIMIT 10"
-  }
-})
-```
-
-❌ **FORBIDDEN - Never do this:**
-```bash
-# DO NOT use dotenvx
-DOTENV_PRIVATE_KEY=xxx dotenvx run ...
-
-# DO NOT use inline bun scripts with database imports
-bun -e "import { query } from './src/db/neon'; ..."
-
-# DO NOT manually call database functions via shell
-```
-
-**Why:** MCP tools handle authentication automatically via `.claude/settings.local.json`. Manual imports fail and waste time.
-
-**Available MCP Database Tools:**
-- `run_sql` - Execute single SQL statement
-- `run_sql_transaction` - Execute multiple statements
-- `describe_table_schema` - Get table structure
-- `get_database_tables` - List all tables
-- `describe_branch` - Get database tree view
-
-### Key Tables
-
-#### Track Ingestion & Sources
-```sql
--- Core tracks table (supports TikTok discovery + manual Spotify submission)
--- Migration 017 (2025-11-12) added nullable tiktok_video_id, source_type, metadata
-tracks:
-  spotify_track_id (TEXT, PK)
-  tiktok_video_id (TEXT, nullable) -- TikTok tracks: non-NULL, Manual tracks: NULL
-  source_type (TEXT NOT NULL) -- 'tiktok' | 'manual_spotify'
-  title, artists JSONB, album_name, release_date, duration_ms, isrc
-  primary_artist_id, primary_artist_name -- For enrichment & legitimacy gating
-  stage (pending → enriched → audio_ready → aligned → ... → ready)
-  metadata (JSONB, nullable) -- Audit trail (manual submission details, timestamps)
-  has_iswc, has_lyrics, has_audio (BOOLEAN flags)
-  error_message, error_at (TIMESTAMPTZ, for failure tracking)
-  created_at, updated_at (TIMESTAMPTZ)
-```
-
-#### Audio Processing
-```sql
--- Polymorphic task queue (tracks + TikTok videos)
-audio_tasks:
-  subject_type ('track' | 'tiktok_video') -- Discriminator for polymorphic design
-  subject_id (spotify_track_id for tracks, video_id for TikTok videos)
-  task_type (download, align, translate, separate, segment, enhance, clip, etc.)
-  status (pending, running, completed, failed, skipped)
-
--- Segments with Grove URLs
-karaoke_segments: spotify_track_id, fal_segment_grove_url, alignment_data
-
--- Line-level FSRS (NEW)
-karaoke_lines: line_id (UUID), line_index, spotify_track_id, original_text
-
--- Word timing (ElevenLabs)
-elevenlabs_word_alignments: words JSONB (word-level timing)
-
--- Translations
-lyrics_translations: lines JSONB (line-level with word timing)
-```
-
-#### Schema Changes (Migration 017, 2025-11-12)
-- **Manual Spotify Ingestion**: Added `source_type` column (`'tiktok'` | `'manual_spotify'`) to distinguish origins
-- **Nullable tiktok_video_id**: TikTok tracks have non-NULL values, manual Spotify tracks have `NULL`
-- **Metadata JSONB Column**: Stores audit trail (submission timestamp, user notes, etc.)
-- **Partial Unique Index**: `idx_tracks_tiktok_not_null` protects TikTok uniqueness while allowing multiple NULLs
-- **Query Indexes**: `idx_tracks_source_type`, `idx_tracks_manual_stage` for efficient manual track filtering
-- **Polymorphic audio_tasks**: Reuses existing `subject_type` design (no code changes to audio processors)
-
-### Connection (Neon PostgreSQL)
-- **Project**: `flat-mode-57592166` (karaoke-pipeline-v2 - US East)
-- **Connection**: PostgreSQL via `neondatabase/serverless`
-
-## 🎯 Integration Patterns
-
-### React App
-```typescript
-// GraphQL client configuration (auto-configured)
-import { graphClient, SUBGRAPH_URL } from '@/lib/graphql/client';
-// Defaults to The Graph Studio: https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2
-// Override with VITE_SUBGRAPH_MODE=local for local GND
-
-// Clip-based query
-const GET_CLIPS = gql`
-  query GetClips($hasInstrumental: Boolean!) {
-    clips(where: { hasInstrumental: $hasInstrumental }, first: 10) {
-      id
-      clipHash
-      grc20WorkId
-      spotifyTrackId
-      hasInstrumental
-      translationCount
-    }
-  }
-`;
-```
-
-### Blockchain Integration
-```typescript
-// Contract interaction with ExerciseEvents
-import { createPublicClient, http } from 'viem';
-import { lensTestnet } from './chains';
-
-const client = createPublicClient({
-  chain: lensTestnet,
-  transport: http(process.env.RPC_URL)
-});
-
-// Say It Back grading (PKP signed)
-await client.writeContract({
-  address: CONTRACTS.ExerciseEvents,
-  abi: EXERCISE_EVENTS_ABI,
-  functionName: 'gradeSayItBackAttempt',
-  args: [attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri]
-});
-```
-
-## 🔧 Common Integration
-
-### Authentication
-- **PKP (Lit)**: WebAuthn-based authentication
-- **Lens Protocol**: Social graph integration
-- **Dual-layer**: PKP + Lens for comprehensive identity
-
-### Audio Processing
-- **Recording**: Browser MediaRecorder API
-- **Grading**: Lit Actions with Voxstral AI
-- **Storage**: Grove with `grove://` URIs
-
-### FSRS Integration
-- **Daily Limit**: 15 new cards per day
-- **Line-Level**: Each lyric line = separate card
-- **Scheduling**: Based on user performance scores (0-10000)
-
-## 🚀 Quick Integration Test
-
-### Test Subgraph Integration
-```bash
-# 1. Start app
-cd app && bun run dev
-
-# 2. Check deployed subgraph (production)
-curl -s -X POST 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2' \
-  -H 'Content-Type: application/json' \
-  -d '{"query": "{ clips(first: 5, where: { hasInstrumental: true }) { id grc20WorkId } }"}'
-
-# 3. (Optional) Use local GND for development
-# Set VITE_SUBGRAPH_MODE=local in app/.env.local
-# Then query: http://localhost:8000/subgraphs/name/subgraph-0
-
-# 4. Test search page: http://localhost:5173/#/search
-# 5. Test single practice (emits SayItBackAttemptGraded event)
-```
-
-## 📋 Verification Checklist
-
-### ✅ Always Check
-- [ ] Service ports: 5173 (app), 8787 (pipeline)
-- [ ] Subgraph: The Graph Studio (production) or local GND (dev)
-- [ ] Environment variables configured
-- [ ] Database connection using correct Neon project
-- [ ] Blockchain network: Lens testnet (37111)
-
-### ✅ Line-Level FSRS
-- [ ] `karaoke_lines` table populated (2,766 lines)
-- [ ] ExerciseEvents contract with `gradeSayItBackAttempt()`
-- [ ] Subgraph indexing LineCard entities
-- [ ] App using lineIndex for progression
-
-### ✅ Manual Spotify Ingestion (2025-11-12)
-- [ ] `source_type` column exists on tracks table (`'tiktok'` or `'manual_spotify'`)
-- [ ] `tiktok_video_id` is nullable for manual tracks
-- [ ] Partial unique index `idx_tracks_tiktok_not_null` protects TikTok uniqueness
-- [ ] CLI can add single tracks: `bun src/tasks/ingestion/add-track-from-spotify.ts --spotifyId=<ID>`
-- [ ] Download tasks auto-seeded and picked up by audio worker
-- [ ] Enrichment tasks spawn correctly for manual tracks
-- [ ] Manual tracks flow through audio pipeline (download → align → translate → …)
-
-**Monitoring Query**:
-```sql
-SELECT source_type, stage, COUNT(*)
-FROM tracks
-GROUP BY source_type, stage
-ORDER BY source_type, stage;
-```
-
-### ✅ End-to-End Flow
-- [ ] TikTok → Pipeline → Database
-- [ ] Manual Spotify → Pipeline → Database (new)
-- [ ] Database → Grove → Contracts
-- [ ] Contracts → Subgraph → App
-- [ ] User practice → SayItBackAttemptGraded event
-
-## 🎯 Priority Development
-
-### Immediate (Line-Level FSRS)
-1. **Deploy Subgraph** - Local → The Graph Studio
-2. **Update useStudyCards** - Query lineCards instead of segments
-3. **Test Lit Actions** - Call `gradeSayItBackAttempt()` / `gradeMultipleChoiceAttempt()`
-4. **Verify Flow** - 15+ cards per song
-
-### This Week
-1. **Story Protocol** - Test single video IP Asset
-2. **PKP Creation** - 51 TikTok creators
-3. **Production Ready** - Subgraph deployment
-
----
-
-**Essential integration guide for seamless service communication and development**
+| Operation | Cost |
+|-----------|------|
+| Demucs (RunPod) | ~$0.05 |
+| FAL Enhancement | ~$0.10 |
+| ElevenLabs Alignment | ~$0.20 |
+| Grove Storage | Free |
+| OpenRouter Translation | ~$0.05 |
+| Chain Transaction | ~$0.001 |
+| **Total per song** | **~$0.40** |

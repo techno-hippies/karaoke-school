@@ -15,7 +15,7 @@
 // ============================================================
 
 // Exercise Grading
-export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832'; // Deployed ✅
+export const EXERCISE_EVENTS_ADDRESS = '0x84e23f7e2513EDf3f37135D399D1482eC5566EA6'; // Deployed ✅ 2025-11-25 (fixed trivia indexed bug)
 
 // Events
 export const CLIP_EVENTS_ADDRESS = '0x369Cd327c39E2f00b851f06B6e25bb01a5149961'; // Deployed ✅ 2025-11-10

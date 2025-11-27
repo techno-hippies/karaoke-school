@@ -55,6 +55,14 @@ const ACTIONS: Record<string, ActionDef> = {
       { name: 'openrouter_api_key', envVar: 'OPENROUTER_API_KEY' }
     ]
   },
+  'karaoke-line': {
+    name: 'karaoke-line',
+    path: 'actions/karaoke-line-grader-v1.js',
+    displayName: 'Karaoke Line Grader v1',
+    keys: [
+      { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' }
+    ]
+  },
   exercise: {
     name: 'exercise',
     path: 'actions/exercise-grader-v1.js',
@@ -313,6 +321,7 @@ async function main() {
       console.log('\n📋 Next steps:');
       console.log('   1. Run tests: bun tests/karaoke/test-karaoke-grader.ts');
       console.log('   2. Verify: bun scripts/verify.ts');
+      console.log('   3. Restart app dev server to pick up new keys');
     }
 
   } finally {

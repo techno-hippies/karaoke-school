@@ -120,6 +120,44 @@ export class ClipToggled__Params {
   }
 }
 
+export class KaraokeLineGraded extends ethereum.Event {
+  get params(): KaraokeLineGraded__Params {
+    return new KaraokeLineGraded__Params(this);
+  }
+}
+
+export class KaraokeLineGraded__Params {
+  _event: KaraokeLineGraded;
+
+  constructor(event: KaraokeLineGraded) {
+    this._event = event;
+  }
+
+  get sessionId(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get lineIndex(): i32 {
+    return this._event.parameters[1].value.toI32();
+  }
+
+  get score(): i32 {
+    return this._event.parameters[2].value.toI32();
+  }
+
+  get rating(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[4].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[5].value.toBigInt();
+  }
+}
+
 export class KaraokePerformanceGraded extends ethereum.Event {
   get params(): KaraokePerformanceGraded__Params {
     return new KaraokePerformanceGraded__Params(this);
@@ -171,6 +209,66 @@ export class KaraokePerformanceGraded__Params {
 
   get timestamp(): BigInt {
     return this._event.parameters[9].value.toBigInt();
+  }
+}
+
+export class KaraokeSessionEnded extends ethereum.Event {
+  get params(): KaraokeSessionEnded__Params {
+    return new KaraokeSessionEnded__Params(this);
+  }
+}
+
+export class KaraokeSessionEnded__Params {
+  _event: KaraokeSessionEnded;
+
+  constructor(event: KaraokeSessionEnded) {
+    this._event = event;
+  }
+
+  get sessionId(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get completed(): boolean {
+    return this._event.parameters[1].value.toBoolean();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[2].value.toBigInt();
+  }
+}
+
+export class KaraokeSessionStarted extends ethereum.Event {
+  get params(): KaraokeSessionStarted__Params {
+    return new KaraokeSessionStarted__Params(this);
+  }
+}
+
+export class KaraokeSessionStarted__Params {
+  _event: KaraokeSessionStarted;
+
+  constructor(event: KaraokeSessionStarted) {
+    this._event = event;
+  }
+
+  get sessionId(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get clipHash(): Bytes {
+    return this._event.parameters[1].value.toBytes();
+  }
+
+  get performer(): Address {
+    return this._event.parameters[2].value.toAddress();
+  }
+
+  get expectedLineCount(): i32 {
+    return this._event.parameters[3].value.toI32();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[4].value.toBigInt();
   }
 }
 
@@ -557,6 +655,86 @@ export class EmitSongEncryptedCall__Outputs {
   }
 }
 
+export class EndKaraokeSessionCall extends ethereum.Call {
+  get inputs(): EndKaraokeSessionCall__Inputs {
+    return new EndKaraokeSessionCall__Inputs(this);
+  }
+
+  get outputs(): EndKaraokeSessionCall__Outputs {
+    return new EndKaraokeSessionCall__Outputs(this);
+  }
+}
+
+export class EndKaraokeSessionCall__Inputs {
+  _call: EndKaraokeSessionCall;
+
+  constructor(call: EndKaraokeSessionCall) {
+    this._call = call;
+  }
+
+  get sessionId(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get completed(): boolean {
+    return this._call.inputValues[1].value.toBoolean();
+  }
+}
+
+export class EndKaraokeSessionCall__Outputs {
+  _call: EndKaraokeSessionCall;
+
+  constructor(call: EndKaraokeSessionCall) {
+    this._call = call;
+  }
+}
+
+export class GradeKaraokeLineCall extends ethereum.Call {
+  get inputs(): GradeKaraokeLineCall__Inputs {
+    return new GradeKaraokeLineCall__Inputs(this);
+  }
+
+  get outputs(): GradeKaraokeLineCall__Outputs {
+    return new GradeKaraokeLineCall__Outputs(this);
+  }
+}
+
+export class GradeKaraokeLineCall__Inputs {
+  _call: GradeKaraokeLineCall;
+
+  constructor(call: GradeKaraokeLineCall) {
+    this._call = call;
+  }
+
+  get sessionId(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get lineIndex(): i32 {
+    return this._call.inputValues[1].value.toI32();
+  }
+
+  get score(): i32 {
+    return this._call.inputValues[2].value.toI32();
+  }
+
+  get rating(): i32 {
+    return this._call.inputValues[3].value.toI32();
+  }
+
+  get metadataUri(): string {
+    return this._call.inputValues[4].value.toString();
+  }
+}
+
+export class GradeKaraokeLineCall__Outputs {
+  _call: GradeKaraokeLineCall;
+
+  constructor(call: GradeKaraokeLineCall) {
+    this._call = call;
+  }
+}
+
 export class GradeKaraokePerformanceCall extends ethereum.Call {
   get inputs(): GradeKaraokePerformanceCall__Inputs {
     return new GradeKaraokePerformanceCall__Inputs(this);
@@ -675,6 +853,48 @@ export class SetTrustedPKPCall__Outputs {
   _call: SetTrustedPKPCall;
 
   constructor(call: SetTrustedPKPCall) {
+    this._call = call;
+  }
+}
+
+export class StartKaraokeSessionCall extends ethereum.Call {
+  get inputs(): StartKaraokeSessionCall__Inputs {
+    return new StartKaraokeSessionCall__Inputs(this);
+  }
+
+  get outputs(): StartKaraokeSessionCall__Outputs {
+    return new StartKaraokeSessionCall__Outputs(this);
+  }
+}
+
+export class StartKaraokeSessionCall__Inputs {
+  _call: StartKaraokeSessionCall;
+
+  constructor(call: StartKaraokeSessionCall) {
+    this._call = call;
+  }
+
+  get sessionId(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get clipHash(): Bytes {
+    return this._call.inputValues[1].value.toBytes();
+  }
+
+  get performer(): Address {
+    return this._call.inputValues[2].value.toAddress();
+  }
+
+  get expectedLineCount(): i32 {
+    return this._call.inputValues[3].value.toI32();
+  }
+}
+
+export class StartKaraokeSessionCall__Outputs {
+  _call: StartKaraokeSessionCall;
+
+  constructor(call: StartKaraokeSessionCall) {
     this._call = call;
   }
 }

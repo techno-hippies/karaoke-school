@@ -1,0 +1,294 @@
+/**
+ * Lyrics Parser
+ *
+ * Parse and validate en-lyrics.txt and zh-lyrics.txt files.
+ * Ensures line counts match and section markers align.
+ */
+
+import type {
+  ParsedLyrics,
+  ParsedLine,
+  SectionMarker,
+  LyricsValidationResult,
+} from '../types';
+
+// Section marker pattern: [Intro], [Verse 1], [Chorus], [Bridge], etc.
+const SECTION_MARKER_REGEX = /^\[([^\]]+)\]$/;
+
+/**
+ * Parse a lyrics file into structured lines
+ *
+ * @param content - Raw lyrics file content
+ * @returns Parsed lyrics with lines and section markers
+ */
+export function parseLyrics(content: string): ParsedLyrics {
+  const rawLines = content.split('\n');
+  const lines: ParsedLine[] = [];
+  const sectionMarkers: SectionMarker[] = [];
+
+  let currentSection: string | null = null;
+  let lineIndex = 0;
+
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      continue;
+    }
+
+    // Check for section marker
+    const markerMatch = trimmed.match(SECTION_MARKER_REGEX);
+    if (markerMatch) {
+      currentSection = trimmed;
+      sectionMarkers.push({
+        marker: trimmed,
+        lineIndex,
+      });
+      continue;
+    }
+
+    // Regular lyric line
+    lines.push({
+      index: lineIndex,
+      text: trimmed,
+      sectionMarker: currentSection,
+    });
+
+    lineIndex++;
+  }
+
+  return { lines, sectionMarkers };
+}
+
+/**
+ * Validate that English and Chinese lyrics match
+ *
+ * Checks:
+ * 1. Same number of lyric lines (excluding section markers)
+ * 2. Same section markers in same order
+ * 3. Section markers at matching line indices
+ *
+ * @param enContent - English lyrics file content
+ * @param zhContent - Chinese lyrics file content
+ * @returns Validation result with warnings and errors
+ */
+export function validateLyrics(
+  enContent: string,
+  zhContent: string
+): LyricsValidationResult {
+  const en = parseLyrics(enContent);
+  const zh = parseLyrics(zhContent);
+
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  // Check line counts
+  if (en.lines.length !== zh.lines.length) {
+    errors.push(
+      `Line count mismatch: en=${en.lines.length}, zh=${zh.lines.length}`
+    );
+  }
+
+  // Check section marker counts
+  if (en.sectionMarkers.length !== zh.sectionMarkers.length) {
+    warnings.push(
+      `Section marker count mismatch: en=${en.sectionMarkers.length}, zh=${zh.sectionMarkers.length}`
+    );
+  }
+
+  // Check section markers match
+  const maxMarkers = Math.max(en.sectionMarkers.length, zh.sectionMarkers.length);
+
+  for (let i = 0; i < maxMarkers; i++) {
+    const enMarker = en.sectionMarkers[i];
+    const zhMarker = zh.sectionMarkers[i];
+
+    if (!enMarker && zhMarker) {
+      warnings.push(
+        `Extra section in zh at line ${zhMarker.lineIndex}: ${zhMarker.marker}`
+      );
+      continue;
+    }
+
+    if (enMarker && !zhMarker) {
+      warnings.push(
+        `Missing section in zh: ${enMarker.marker} (en line ${enMarker.lineIndex})`
+      );
+      continue;
+    }
+
+    if (enMarker && zhMarker) {
+      // Check if markers match (normalize for comparison)
+      const enNormalized = normalizeMarker(enMarker.marker);
+      const zhNormalized = normalizeMarker(zhMarker.marker);
+
+      if (enNormalized !== zhNormalized) {
+        warnings.push(
+          `Section marker mismatch at position ${i}: en=${enMarker.marker}, zh=${zhMarker.marker}`
+        );
+      }
+
+      // Check if line indices match
+      if (enMarker.lineIndex !== zhMarker.lineIndex) {
+        warnings.push(
+          `Section position mismatch for ${enMarker.marker}: en=line ${enMarker.lineIndex}, zh=line ${zhMarker.lineIndex}`
+        );
+      }
+    }
+  }
+
+  // Check for potential line alignment issues
+  const minLines = Math.min(en.lines.length, zh.lines.length);
+  for (let i = 0; i < minLines; i++) {
+    const enLine = en.lines[i];
+    const zhLine = zh.lines[i];
+
+    // Warn if section markers don't match for a given line index
+    if (enLine.sectionMarker !== zhLine.sectionMarker) {
+      const enSection = enLine.sectionMarker || '(none)';
+      const zhSection = zhLine.sectionMarker || '(none)';
+      warnings.push(
+        `Line ${i} section mismatch: en in ${enSection}, zh in ${zhSection}`
+      );
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    warnings,
+    errors,
+    enLineCount: en.lines.length,
+    zhLineCount: zh.lines.length,
+  };
+}
+
+/**
+ * Normalize section marker for comparison
+ * Removes brackets and normalizes common variations
+ */
+function normalizeMarker(marker: string): string {
+  return marker
+    .toLowerCase()
+    .replace(/[\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/–/g, '-')  // em-dash to hyphen
+    .trim();
+}
+
+/**
+ * Read and validate lyrics files
+ *
+ * @param enPath - Path to English lyrics file
+ * @param zhPath - Path to Chinese lyrics file
+ * @returns Parsed lyrics for both languages and validation result
+ */
+export async function readAndValidateLyrics(
+  enPath: string,
+  zhPath: string
+): Promise<{
+  en: ParsedLyrics;
+  zh: ParsedLyrics;
+  validation: LyricsValidationResult;
+}> {
+  const enFile = Bun.file(enPath);
+  const zhFile = Bun.file(zhPath);
+
+  if (!(await enFile.exists())) {
+    throw new Error(`English lyrics file not found: ${enPath}`);
+  }
+
+  if (!(await zhFile.exists())) {
+    throw new Error(`Chinese lyrics file not found: ${zhPath}`);
+  }
+
+  const enContent = await enFile.text();
+  const zhContent = await zhFile.text();
+
+  const en = parseLyrics(enContent);
+  const zh = parseLyrics(zhContent);
+  const validation = validateLyrics(enContent, zhContent);
+
+  return { en, zh, validation };
+}
+
+/**
+ * Print validation result to console
+ */
+export function printValidationResult(result: LyricsValidationResult): void {
+  console.log('\n📋 Lyrics Validation');
+  console.log(`   EN lines: ${result.enLineCount}`);
+  console.log(`   ZH lines: ${result.zhLineCount}`);
+
+  if (result.errors.length > 0) {
+    console.log('\n❌ Errors:');
+    result.errors.forEach((e) => console.log(`   ${e}`));
+  }
+
+  if (result.warnings.length > 0) {
+    console.log('\n⚠️  Warnings:');
+    result.warnings.forEach((w) => console.log(`   ${w}`));
+  }
+
+  if (result.valid && result.warnings.length === 0) {
+    console.log('\n✅ Lyrics validated successfully');
+  } else if (result.valid) {
+    console.log('\n✅ Lyrics valid (with warnings)');
+  } else {
+    console.log('\n❌ Lyrics validation failed');
+  }
+}
+
+/**
+ * Combine EN and ZH lyrics into paired lines
+ *
+ * @param en - Parsed English lyrics
+ * @param zh - Parsed Chinese lyrics
+ * @returns Array of paired lines (en + zh at same index)
+ */
+export function pairLyrics(
+  en: ParsedLyrics,
+  zh: ParsedLyrics
+): Array<{ index: number; en: string; zh: string; section: string | null }> {
+  const paired: Array<{
+    index: number;
+    en: string;
+    zh: string;
+    section: string | null;
+  }> = [];
+
+  const maxLines = Math.max(en.lines.length, zh.lines.length);
+
+  for (let i = 0; i < maxLines; i++) {
+    const enLine = en.lines[i];
+    const zhLine = zh.lines[i];
+
+    paired.push({
+      index: i,
+      en: enLine?.text || '',
+      zh: zhLine?.text || '',
+      section: enLine?.sectionMarker || zhLine?.sectionMarker || null,
+    });
+  }
+
+  return paired;
+}
+
+/**
+ * Validate ISWC format (no dots)
+ *
+ * @param iswc - ISWC string
+ * @returns true if valid format
+ */
+export function validateISWC(iswc: string): boolean {
+  // Format: T followed by 9 digits, then hyphen and 1 digit
+  // e.g., T0704563291 or T070456329-1
+  return /^T\d{9,10}(-\d)?$/.test(iswc);
+}
+
+/**
+ * Normalize ISWC (remove dots if present)
+ */
+export function normalizeISWC(iswc: string): string {
+  return iswc.replace(/[.-]/g, '');
+}

@@ -1,0 +1,32 @@
+{
+  "name": "pipeline-new",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "script:create-account": "bun src/scripts/create-account.ts",
+    "script:add-song": "bun src/scripts/add-song.ts",
+    "script:generate-video": "bun src/scripts/generate-video.ts",
+    "script:generate-exercises": "bun src/scripts/generate-exercises.ts",
+    "script:post-clip": "bun src/scripts/post-clip.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lens-chain/sdk": "^0.0.0-canary-20250113140152",
+    "@lens-chain/storage-client": "^0.0.0-canary-20250319215446",
+    "@lens-protocol/client": "^0.0.0-canary-20250507135641",
+    "@lens-protocol/env": "^0.0.0-canary-20250320085756",
+    "@lens-protocol/metadata": "^1.2.0",
+    "@lit-protocol/contracts-sdk": "^7.0.2",
+    "@lit-protocol/lit-client": "^8.2.3",
+    "@lit-protocol/lit-node-client": "^7.0.2",
+    "@lit-protocol/networks": "^8.3.2",
+    "@neondatabase/serverless": "^0.10.4",
+    "ethers": "^6.13.4",
+    "viem": "^2.21.54"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "typescript": "^5.7.2"
+  }
+}

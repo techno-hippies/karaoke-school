@@ -73,7 +73,8 @@ const go = async () => {
 
     // Debug / overrides
     txDebugStage,     // Optional: 'simulate' | 'prepare' to aid debugging
-    rpcUrlOverride    // Optional: override RPC URL (e.g., via Lit.Actions.getRpcUrl)
+    rpcUrlOverride,   // Optional: override RPC URL (e.g., via Lit.Actions.getRpcUrl)
+    nonceOverride     // Optional: deterministic nonce to prevent collisions
   } = jsParams || {};
 
   try {
@@ -96,7 +97,10 @@ const go = async () => {
           voxtralEncryptedKey,
           attemptId,
           metadataUri,
-          testMode
+          testMode,
+          txDebugStage,
+          rpcUrlOverride,
+          nonceOverride
         });
         break;
 
@@ -109,7 +113,8 @@ const go = async () => {
           correctAnswer,
           attemptId,
           metadataUri,
-          testMode
+          testMode,
+          nonceOverride
         });
         break;
 
@@ -148,7 +153,8 @@ async function handleSayItBack({
   metadataUri,
   testMode,
   txDebugStage,
-  rpcUrlOverride
+  rpcUrlOverride,
+  nonceOverride
 }) {
   const startTime = Date.now();
   let success = false;
@@ -289,7 +295,8 @@ async function handleSayItBack({
         rating: scoreToRatingNumeric(calculatedScore),
         metadataUri: metadataUri || `grove://${generateRandomCID()}`,
         txDebugStage,
-        rpcUrlOverride
+        rpcUrlOverride,
+        nonceOverride
       });
       success = true;
     } catch (txError) {
@@ -332,7 +339,8 @@ async function handleMultipleChoice({
   correctAnswer,
   attemptId,
   metadataUri,
-  testMode
+  testMode,
+  nonceOverride
 }) {
   const startTime = Date.now();
   let success = false;
@@ -385,7 +393,8 @@ async function handleMultipleChoice({
         learner: userAddress,
         score: calculatedScore * 100, // Convert to basis points (10000 or 0)
         rating: scoreToRatingNumeric(calculatedScore),
-        metadataUri: metadataUri || `grove://${generateRandomCID()}`
+        metadataUri: metadataUri || `grove://${generateRandomCID()}`,
+        nonceOverride
       });
       success = true;
     } catch (txError) {
@@ -426,7 +435,7 @@ async function handleMultipleChoice({
  * Submit Say It Back attempt to ExerciseEvents contract
  * Function: gradeSayItBackAttempt(attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri)
  */
-async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride }) {
+async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineIndex, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride, nonceOverride }) {
   const provider = new ethers.providers.JsonRpcProvider(rpcUrlOverride || LENS_TESTNET_RPC);
 
   // Create contract instance
@@ -462,14 +471,14 @@ async function submitSayItBackAttempt({ attemptId, lineId, segmentHash, lineInde
   ]);
 
   // Submit via zkSync transaction
-  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage);
+  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage, nonceOverride);
 }
 
 /**
  * Submit Multiple Choice attempt to ExerciseEvents contract
  * Function: gradeMultipleChoiceAttempt(attemptId, questionId, learner, score, rating, metadataUri)
  */
-async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride }) {
+async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, score, rating, metadataUri, txDebugStage, rpcUrlOverride, nonceOverride }) {
   const provider = new ethers.providers.JsonRpcProvider(rpcUrlOverride || LENS_TESTNET_RPC);
 
   // Create contract instance
@@ -501,14 +510,14 @@ async function submitMultipleChoiceAttempt({ attemptId, questionId, learner, sco
   ]);
 
   // Submit via zkSync transaction
-  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage);
+  return await submitZkSyncTransaction(gradeTxData, provider, txDebugStage, nonceOverride);
 }
 
 /**
  * Submit zkSync type 0x71 transaction (16-field RLP encoding)
  * CRITICAL: This is the working pattern from say-it-back-v1.js - DO NOT MODIFY
  */
-async function submitZkSyncTransaction(txData, provider, txDebugStage) {
+async function submitZkSyncTransaction(txData, provider, txDebugStage, nonceOverride) {
   // Get PKP address
   const pkpEthAddress = ethers.utils.computeAddress(PKP_PUBLIC_KEY);
 
@@ -544,7 +553,10 @@ async function submitZkSyncTransaction(txData, provider, txDebugStage) {
     return 'DEBUG_SIMULATION_OK';
   }
 
-  const nonce = await provider.getTransactionCount(pkpEthAddress);
+  // Use nonceOverride if provided to prevent race conditions in parallel submissions
+  const nonce = typeof nonceOverride !== 'undefined' && nonceOverride !== null
+    ? ethers.BigNumber.from(nonceOverride)
+    : await provider.getTransactionCount(pkpEthAddress);
   const feeData = await provider.getFeeData();
 
   // Use fee data from provider

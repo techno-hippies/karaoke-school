@@ -32,6 +32,10 @@ const ACTIONS: Record<string, { path: string; name: string }> = {
     path: 'actions/karaoke-grader-v1.js',
     name: 'Karaoke Grader v1'
   },
+  'karaoke-line': {
+    path: 'actions/karaoke-line-grader-v1.js',
+    name: 'Karaoke Line Grader v1'
+  },
   exercise: {
     path: 'actions/exercise-grader-v1.js',
     name: 'Exercise Grader v1'

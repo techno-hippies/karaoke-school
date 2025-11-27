@@ -1,36 +1,68 @@
 # Lit Actions - Karaoke School
 
-**AI-powered exercise grading for karaoke language learning**
+AI-powered exercise grading with Lit Protocol PKP signing.
 
----
-
-## Structure
+## Architecture
 
 ```
 lit-actions/
-├── actions/
-│   ├── karaoke-grader-v1.js    # Aggregate performance grader
-│   └── exercise-grader-v1.js   # Line-level exercise grader
-├── scripts/
-│   ├── setup.ts                # Complete deployment workflow
-│   ├── upload-action.ts        # Upload to IPFS via Pinata
-│   ├── add-permission.ts       # Add PKP permissions
-│   ├── encrypt-key.ts          # Encrypt API keys
-│   ├── verify.ts               # Verify keys & permissions
-│   ├── mint-pkp.ts             # Mint new PKP
-│   └── check-balance.ts        # Check wallet balance
-├── tests/
-│   ├── shared/env.ts           # Centralized config (Env module)
-│   ├── karaoke/                # Karaoke grader tests
-│   ├── exercise/               # Exercise grader tests
-│   └── fixtures/               # Test audio files
-├── keys/{dev,test}/            # Encrypted API keys (git ignored)
-├── cids/{dev,test}.json        # Action CIDs per environment
-├── output/                     # PKP credentials, auth storage
-└── config/lit-envs.json        # Environment configuration
+├── actions/                    # Lit Action source code (JS)
+│   ├── exercise-grader-v1.js   # Say It Back + Multiple Choice
+│   ├── karaoke-grader-v1.js    # Full clip/song grading
+│   └── karaoke-line-grader-v1.js
+│
+├── cids/                       # Action CIDs per environment
+│   ├── dev.json               # naga-dev (free)
+│   ├── test.json              # naga-test (tstLPX)
+│   └── mainnet.json           # mainnet (LIT)
+│
+├── keys/                       # Encrypted API keys per environment
+│   ├── dev/
+│   │   ├── exercise/voxtral_api_key_exercise.json
+│   │   ├── karaoke/voxtral_api_key_karaoke.json
+│   │   ├── karaoke/openrouter_api_key_karaoke.json
+│   │   └── karaoke-line/voxtral_api_key_karaoke-line.json
+│   ├── test/                   # Same structure
+│   └── mainnet/                # Same structure (placeholder)
+│
+├── config/
+│   ├── lit-envs.json          # Environment configuration
+│   └── contracts.config.js    # Contract addresses
+│
+├── output/
+│   ├── pkp-naga-dev.json      # PKP credentials (dev)
+│   ├── pkp-naga-test.json     # PKP credentials (test)
+│   └── lit-auth/              # Test session storage
+│
+├── scripts/                    # Deployment & management
+│   ├── setup.ts               # Full deployment pipeline
+│   ├── upload-action.ts       # Upload to IPFS
+│   ├── add-permission.ts      # Add PKP permission
+│   ├── encrypt-key.ts         # Encrypt API keys
+│   ├── verify.ts              # Verify configuration
+│   ├── mint-pkp.ts            # Mint new PKP
+│   └── check-balance.ts       # Check wallet balance
+│
+└── tests/
+    ├── shared/env.ts          # Centralized environment config
+    ├── exercise/              # Exercise grader tests
+    ├── karaoke/               # Karaoke grader tests
+    └── fixtures/              # Test audio files
 ```
 
----
+## Environments
+
+| Environment | Lit Network | Cost | Status |
+|-------------|-------------|------|--------|
+| `naga-dev`  | nagaDev     | Free | Active |
+| `naga-test` | nagaTest    | tstLPX | Ready |
+| `mainnet`   | naga        | LIT  | Planned |
+
+Set environment via `LIT_NETWORK`:
+```bash
+LIT_NETWORK=naga-dev bun scripts/setup.ts exercise
+LIT_NETWORK=naga-test bun scripts/setup.ts exercise
+```
 
 ## Quick Start
 
@@ -40,138 +72,131 @@ lit-actions/
 cd lit-actions
 bun install
 
-# Set environment variables
-cp .env.example .env
-# Edit with: VOXTRAL_API_KEY, OPENROUTER_API_KEY, PINATA_JWT, PRIVATE_KEY
+# Create .env with:
+VOXTRAL_API_KEY=...
+OPENROUTER_API_KEY=...
+PINATA_JWT=...
+PRIVATE_KEY=0x...
 ```
 
-### Run Tests
+### Deploy Action
 
 ```bash
 # Load environment
 set -a && source .env && set +a
 
-# Karaoke grader (full flow with signing)
-LIT_NETWORK=naga-dev bun tests/karaoke/test-karaoke-grader.ts
+# Full deployment (upload → permission → encrypt)
+bun scripts/setup.ts exercise
+bun scripts/setup.ts karaoke
+bun scripts/setup.ts karaoke-line
 
-# Exercise grader
-LIT_NETWORK=naga-dev bun tests/exercise/test-exercise-grader-say-it-back.ts
+# Or deploy all
+bun scripts/setup.ts --all
 ```
 
-### Deploy New Version
+### Run Tests
 
 ```bash
-# Complete workflow (upload, add permission, encrypt keys)
-bun scripts/setup.ts karaoke
-bun scripts/setup.ts exercise
-bun scripts/setup.ts --all
+# Exercise grader
+LIT_NETWORK=naga-dev bun tests/exercise/test-exercise-grader-say-it-back.ts
 
-# Or individual steps:
-bun scripts/upload-action.ts karaoke
-bun scripts/add-permission.ts QmXxx...
-bun scripts/encrypt-key.ts --action=karaoke
-bun scripts/verify.ts
+# Karaoke grader
+LIT_NETWORK=naga-dev bun tests/karaoke/test-karaoke-grader.ts
+
+# Skip blockchain transaction (test grading only)
+KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
 ```
 
----
+## Frontend Integration
 
-## Networks & Environments
-
-| Env | Lit Network | Key Folder | Notes |
-|-----|-------------|------------|-------|
-| naga-dev | nagaDev | keys/dev/ | Free, for development |
-| naga-test | nagaTest | keys/test/ | Paid, requires tstLPX |
-
-Set via `LIT_NETWORK` env var or defaults to `naga-dev`.
-
-### Contracts (Lens Testnet - 37111)
+The frontend (`app/src/lib/contracts/addresses.ts`) imports directly from this directory:
 
 ```typescript
-const CONTRACTS = {
-  KaraokeEvents: "0x51aA6987130AA7E4654218859E075D8e790f4409",
-  ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832"
-}
+import litCids from '../../../../lit-actions/cids/dev.json'
+import exerciseKey from '../../../../lit-actions/keys/dev/exercise/voxtral_api_key_exercise.json'
+
+export const LIT_ACTION_IPFS_CID = litCids.exercise
+export const LIT_ACTION_VOXTRAL_KEY = exerciseKey
 ```
 
----
+**No manual sync needed** - Vite HMR picks up changes. Just restart the dev server after deploying.
+
+## Encryption Model
+
+API keys are encrypted with access control conditions tied to the IPFS CID:
+
+```javascript
+accessControlConditions: [{
+  conditionType: 'evmBasic',
+  parameters: [':currentActionIpfsId'],
+  returnValueTest: {
+    comparator: '=',
+    value: 'QmXxx...'  // Only this CID can decrypt
+  }
+}]
+```
+
+When you upload a new action version:
+1. New CID is generated
+2. Keys are re-encrypted for the new CID
+3. Old CID can no longer decrypt
+
+## Smart Contracts (Lens Testnet - 37111)
+
+```typescript
+// Exercise grading
+ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832"
+
+// Karaoke performance grading
+KaraokeEvents: "0x51aA6987130AA7E4654218859E075D8e790f4409"
+
+// Trusted PKP (naga-dev)
+PKP: "0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379"
+```
 
 ## Scripts Reference
 
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `setup.ts` | Full deployment workflow | `bun scripts/setup.ts karaoke` |
-| `upload-action.ts` | Upload to IPFS | `bun scripts/upload-action.ts karaoke` |
-| `add-permission.ts` | Add PKP permission | `bun scripts/add-permission.ts QmXxx...` |
-| `encrypt-key.ts` | Encrypt API keys | `bun scripts/encrypt-key.ts` |
-| `verify.ts` | Verify setup | `bun scripts/verify.ts --all` |
-| `mint-pkp.ts` | Mint new PKP | `bun scripts/mint-pkp.ts` |
-
----
-
-## Testing
-
-### Environment Variables
-
-```bash
-# Skip transaction (test grading only)
-KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
-
-# Debug stages
-KARAOKE_TX_STAGE=simulate  # Test contract simulation
-KARAOKE_TX_STAGE=prepare   # Test tx preparation
-
-# Override transcript (skip STT)
-KARAOKE_TRANSCRIPT_OVERRIDE_PATH=tests/fixtures/transcript.txt
-
-# Use local code instead of IPFS
-USE_LOCAL_CODE=1
-```
-
-### Test Files
-
-- `tests/karaoke/test-karaoke-grader.ts` - Full karaoke flow
-- `tests/karaoke/test-karaoke-stt.ts` - STT only
-- `tests/karaoke/test-karaoke-gemini.ts` - Gemini grading only
-- `tests/exercise/test-exercise-grader-say-it-back.ts` - Say It Back
-- `tests/exercise/test-exercise-grader-trivia-quiz.ts` - Multiple choice
-- `tests/exercise/test-exercise-grader-translation-quiz.ts` - Translation
-
----
+| Script | Purpose |
+|--------|---------|
+| `setup.ts` | Full deployment: upload → permission → encrypt |
+| `upload-action.ts` | Upload action to IPFS via Pinata |
+| `add-permission.ts` | Add CID to PKP's permitted actions |
+| `encrypt-key.ts` | Encrypt API keys for a CID |
+| `verify.ts` | Verify PKP permissions and key configuration |
+| `mint-pkp.ts` | Mint a new PKP (one-time setup) |
+| `check-balance.ts` | Check wallet tstLPX balance |
 
 ## Troubleshooting
 
-### "Access control conditions check failed"
-Keys encrypted for different CID. Re-encrypt:
+### "Decryption failure"
+
+The encrypted keys don't match the deployed CID. Re-deploy:
+
 ```bash
-bun scripts/encrypt-key.ts
+bun scripts/setup.ts exercise
 ```
 
 ### "PKP signing timeout"
-Use workarounds:
-```bash
-KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
-```
 
-### Missing keys
-Verify setup:
-```bash
-bun scripts/verify.ts
-```
+Network congestion or rate limiting. Options:
+- Wait and retry
+- Skip transaction for testing: `KARAOKE_SKIP_TX=true`
 
----
+### "Access control conditions check failed"
+
+Same as decryption failure - keys encrypted for different CID.
+
+### Missing PKP file
+
+Mint a new PKP:
+
+```bash
+bun scripts/mint-pkp.ts
+```
 
 ## Security
 
-### API Key Encryption
-- Keys encrypted with Lit Protocol
-- Access control tied to specific CID
-- Old CIDs cannot decrypt new keys
-- Decryption inside Lit nodes only
-
-### PKP Permissions
-- Only permitted CIDs can use PKP
-- Contracts only accept trusted PKP signatures
-
----
-
-**Last Updated**: 2025-11-22
+- **API keys**: Encrypted, only decryptable inside Lit nodes
+- **PKP permissions**: Only permitted CIDs can sign
+- **Contract access**: Only trusted PKP can call grading functions
+- **No secrets in git**: Keys are encrypted, private keys in `.env`

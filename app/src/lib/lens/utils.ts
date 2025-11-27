@@ -32,6 +32,12 @@ export function convertGroveUri(uri: string | null | undefined): string {
     return lensToGroveUrl(uri)
   }
 
+  // Handle grove:// URIs (direct Grove storage)
+  if (lower.startsWith('grove://')) {
+    const hash = uri.replace(/^grove:\/\//i, '')
+    return `https://api.grove.storage/${hash}`
+  }
+
   // Handle ipfs:// URIs
   if (lower.startsWith('ipfs://')) {
     const hash = uri.replace(/^ipfs:\/\//i, '')

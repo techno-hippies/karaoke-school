@@ -85,8 +85,12 @@ lit-actions/lit-auth-storage*/
 # IDE
 .claude/
 .~lock.*
-tiktoks_to_scrape.csv
 quansic-service/bin/
+
+# Pipeline scraping data
+**/creators_to_*.csv
+**/tiktoks_to_scrape.csv
+**/*_cookies.txt
 
 # Wrangler build artifacts
 *.wrangler/

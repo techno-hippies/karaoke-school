@@ -1,21 +1,23 @@
 import { BigInt, BigDecimal } from "@graphprotocol/graph-ts";
+// ClipEvents - Clip registration, processing, encryption
 import {
   ClipRegistered,
   ClipProcessed,
   ClipToggled,
   SongEncrypted,
+} from "../generated/ClipEvents/ClipEvents";
+// KaraokeEvents - Session tracking only
+import {
   KaraokePerformanceGraded,
+  KaraokeSessionStarted,
+  KaraokeLineGraded,
+  KaraokeSessionEnded,
 } from "../generated/KaraokeEvents/KaraokeEvents";
 import {
   TranslationAdded,
   TranslationUpdated,
   TranslationToggled,
 } from "../generated/TranslationEvents/TranslationEvents";
-import {
-  PerformanceGraded,
-  PerformanceSubmitted,
-  LinePerformanceGraded,
-} from "../generated/PerformanceGrader/PerformanceGrader";
 import {
   TranslationQuestionRegistered,
   TriviaQuestionRegistered,
@@ -38,6 +40,8 @@ import {
   LinePerformance,
   ExerciseCard,
   ExerciseAttempt,
+  KaraokeSession,
+  KaraokeLineScore,
 } from "./entities";
 
 // Helper to load or create global stats
@@ -52,6 +56,8 @@ function loadOrCreateGlobalStats(): GlobalStats {
     stats.enabledTranslations = 0;
     stats.totalExerciseCards = 0;
     stats.totalExerciseAttempts = 0;
+    stats.totalKaraokeSessions = 0;
+    stats.completedKaraokeSessions = 0;
   }
   return stats;
 }
@@ -222,153 +228,6 @@ export function handleTranslationToggled(event: TranslationToggled): void {
   }
 }
 
-// ============ Performance Event Handlers ============
-
-export function handlePerformanceGraded(event: PerformanceGraded): void {
-  let performanceId = event.params.performanceId.toString();
-  let performance = new Performance(performanceId);
-  performance.performanceId = event.params.performanceId;
-  let clipId = event.params.segmentHash.toHexString();
-  performance.clip = clipId;
-  performance.performer = event.params.performer.toHexString();
-  performance.performerAddress = event.params.performer;
-  performance.score = event.params.score;
-  performance.metadataUri = event.params.metadataUri;
-  performance.gradedAt = event.params.timestamp;
-
-  // Load clip to update stats
-  let clip = Clip.load(clipId);
-  if (clip != null) {
-    performance.clipHash = clip.clipHash;
-
-    // Update clip stats
-    let oldAvg = clip.averageScore;
-    let oldCount = clip.performanceCount;
-    let newCount = oldCount + 1;
-
-    // Calculate new average: (oldAvg * oldCount + newScore) / newCount
-    let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
-    let newScore = BigDecimal.fromString(event.params.score.toString());
-    let newTotal = totalScore.plus(newScore);
-    let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
-
-    clip.performanceCount = newCount;
-    clip.averageScore = newAvg;
-    clip.save();
-  } else {
-    // Fallback if clip not found
-    performance.clipHash = event.params.segmentHash;
-  }
-
-  performance.save();
-
-  // Update or create account
-  let accountId = event.params.performer.toHexString();
-  let account = Account.load(accountId);
-  if (account != null) {
-    account.updatedAt = event.params.timestamp;
-    account.performanceCount = account.performanceCount + 1;
-    account.totalScore = account.totalScore.plus(BigInt.fromI32(event.params.score));
-    account.averageScore = account.totalScore
-      .toBigDecimal()
-      .div(BigDecimal.fromString(account.performanceCount.toString()));
-    
-    // Update best score
-    if (event.params.score > account.bestScore) {
-      account.bestScore = event.params.score;
-    }
-    
-    account.save();
-  }
-
-  let stats = loadOrCreateGlobalStats();
-  stats.totalPerformances = stats.totalPerformances + 1;
-  stats.save();
-}
-
-export function handlePerformanceSubmitted(event: PerformanceSubmitted): void {
-  // Performance submission events are logged but don't require entity creation
-  // The actual Performance entity is created when PerformanceGraded event is emitted
-  // This allows tracking of submitted vs graded performances if needed
-}
-
-// ============ Line Performance Event Handlers ============
-
-export function handleLinePerformanceGraded(event: LinePerformanceGraded): void {
-  // 1. Load or create LineCard
-  let lineCardId = event.params.lineId.toHexString();
-  let lineCard = LineCard.load(lineCardId);
-  let clipId = event.params.segmentHash.toHexString();
-  
-  if (lineCard == null) {
-    lineCard = new LineCard(lineCardId);
-    lineCard.lineId = event.params.lineId;
-    lineCard.clipHash = event.params.segmentHash;
-    lineCard.lineIndex = event.params.lineIndex;
-    lineCard.clip = clipId;
-    lineCard.performanceCount = 0;
-    lineCard.averageScore = BigDecimal.zero();
-  }
-
-  lineCard.clip = clipId;
-  lineCard.clipHash = event.params.segmentHash;
-
-  // 2. Create LinePerformance
-  let performanceId = event.params.performanceId.toString();
-  let linePerformance = new LinePerformance(performanceId);
-  linePerformance.performanceId = event.params.performanceId;
-  linePerformance.line = lineCard.id;
-  linePerformance.lineId = event.params.lineId;
-  linePerformance.clip = clipId;
-  linePerformance.clipHash = event.params.segmentHash;
-  linePerformance.lineIndex = event.params.lineIndex;
-  linePerformance.performer = event.params.performer.toHexString();
-  linePerformance.performerAddress = event.params.performer;
-  linePerformance.score = event.params.score;
-  linePerformance.metadataUri = event.params.metadataUri;
-  linePerformance.gradedAt = event.params.timestamp;
-  linePerformance.save();
-
-  // 3. Update LineCard aggregate stats
-  let oldAvg = lineCard.averageScore;
-  let oldCount = lineCard.performanceCount;
-  let newCount = oldCount + 1;
-
-  // Calculate new average: (oldAvg * oldCount + newScore) / newCount
-  let totalScore = oldAvg.times(BigDecimal.fromString(oldCount.toString()));
-  let newScore = BigDecimal.fromString(event.params.score.toString());
-  let newTotal = totalScore.plus(newScore);
-  let newAvg = newTotal.div(BigDecimal.fromString(newCount.toString()));
-
-  lineCard.performanceCount = newCount;
-  lineCard.averageScore = newAvg;
-  lineCard.save();
-
-  // 4. Update Account stats
-  let accountId = event.params.performer.toHexString();
-  let account = Account.load(accountId);
-  if (account != null) {
-    account.updatedAt = event.params.timestamp;
-    account.performanceCount = account.performanceCount + 1;
-    account.totalScore = account.totalScore.plus(BigInt.fromI32(event.params.score));
-    account.averageScore = account.totalScore
-      .toBigDecimal()
-      .div(BigDecimal.fromString(account.performanceCount.toString()));
-    
-    // Update best score
-    if (event.params.score > account.bestScore) {
-      account.bestScore = event.params.score;
-    }
-    
-    account.save();
-  }
-
-  // 5. Update global stats
-  let stats = loadOrCreateGlobalStats();
-  stats.totalPerformances = stats.totalPerformances + 1;
-  stats.save();
-}
-
 // ============ Exercise Event Handlers ============
 
 export function handleTranslationQuestionRegistered(event: TranslationQuestionRegistered): void {
@@ -418,7 +277,7 @@ export function handleTriviaQuestionRegistered(event: TriviaQuestionRegistered):
   let card = new ExerciseCard(cardId);
   card.questionId = event.params.questionId;
   card.exerciseType = "TRIVIA_MULTIPLE_CHOICE";
-  card.spotifyTrackId = event.params.spotifyTrackId.toHexString();
+  card.spotifyTrackId = event.params.spotifyTrackId; // Now a string, not indexed bytes
   card.languageCode = event.params.languageCode;
   card.metadataUri = event.params.metadataUri;
   card.distractorPoolSize = event.params.distractorPoolSize;
@@ -716,4 +575,91 @@ export function handleKaraokePerformanceGraded(event: KaraokePerformanceGraded):
   let stats = loadOrCreateGlobalStats();
   stats.totalPerformances = stats.totalPerformances + 1;
   stats.save();
+}
+
+// ============ Karaoke Session Event Handlers ============
+
+export function handleKaraokeSessionStarted(event: KaraokeSessionStarted): void {
+  let sessionId = event.params.sessionId.toHexString();
+  let session = new KaraokeSession(sessionId);
+  session.sessionId = event.params.sessionId;
+  session.clipHash = event.params.clipHash;
+  session.performer = event.params.performer;
+  session.expectedLineCount = event.params.expectedLineCount;
+  session.completedLineCount = 0;
+  session.aggregateScore = 0;
+  session.isCompleted = false;
+  session.wasAbandoned = false;
+  session.startedAt = event.params.timestamp;
+  session.endedAt = null;
+
+  // Link to clip if it exists
+  let clipId = event.params.clipHash.toHexString();
+  let clip = Clip.load(clipId);
+  if (clip != null) {
+    session.clip = clipId;
+  } else {
+    // Create a placeholder reference; the clip entity must exist for the relation
+    session.clip = clipId;
+  }
+
+  session.save();
+
+  let stats = loadOrCreateGlobalStats();
+  stats.totalKaraokeSessions = stats.totalKaraokeSessions + 1;
+  stats.save();
+}
+
+export function handleKaraokeLineGraded(event: KaraokeLineGraded): void {
+  let sessionId = event.params.sessionId.toHexString();
+  let session = KaraokeSession.load(sessionId);
+
+  if (session == null) {
+    // Session should exist; if not, skip this event
+    return;
+  }
+
+  // Create line score entity
+  let lineScoreId = sessionId + "-" + event.params.lineIndex.toString();
+  let lineScore = new KaraokeLineScore(lineScoreId);
+  lineScore.session = sessionId;
+  lineScore.sessionId = event.params.sessionId;
+  lineScore.lineIndex = event.params.lineIndex;
+  lineScore.score = event.params.score;
+  lineScore.rating = event.params.rating;
+  lineScore.metadataUri = event.params.metadataUri;
+  lineScore.timestamp = event.params.timestamp;
+  lineScore.save();
+
+  // Update session aggregates
+  // Increment completed line count
+  session.completedLineCount = session.completedLineCount + 1;
+
+  // Recalculate aggregate score (running average)
+  let oldTotal = session.aggregateScore * (session.completedLineCount - 1);
+  let newTotal = oldTotal + event.params.score;
+  session.aggregateScore = newTotal / session.completedLineCount;
+
+  session.save();
+}
+
+export function handleKaraokeSessionEnded(event: KaraokeSessionEnded): void {
+  let sessionId = event.params.sessionId.toHexString();
+  let session = KaraokeSession.load(sessionId);
+
+  if (session == null) {
+    return;
+  }
+
+  session.isCompleted = event.params.completed;
+  session.wasAbandoned = !event.params.completed;
+  session.endedAt = event.params.timestamp;
+  session.save();
+
+  // Update global stats for completed sessions
+  if (event.params.completed) {
+    let stats = loadOrCreateGlobalStats();
+    stats.completedKaraokeSessions = stats.completedKaraokeSessions + 1;
+    stats.save();
+  }
 }

@@ -64,7 +64,7 @@ contract ExerciseEvents {
      */
     event TriviaQuestionRegistered(
         bytes32 indexed questionId,
-        string indexed spotifyTrackId,
+        string spotifyTrackId,
         string languageCode,
         string metadataUri,
         uint16 distractorPoolSize,

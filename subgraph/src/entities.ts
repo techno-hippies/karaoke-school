@@ -8,4 +8,6 @@ export {
   LinePerformance,
   ExerciseCard,
   ExerciseAttempt,
+  KaraokeSession,
+  KaraokeLineScore,
 } from "../generated/schema";
