@@ -3,22 +3,19 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   LIT_ACTION_IPFS_CID,
   LIT_ACTION_VOXTRAL_KEY,
-  LIT_KARAOKE_GRADER_CID,
-  LIT_KARAOKE_VOXTRAL_KEY,
-  LIT_KARAOKE_OPENROUTER_KEY,
-  KARAOKE_EVENTS_ADDRESS,
 } from '@/lib/contracts/addresses'
 import { createPublicClient, http, parseAbi } from 'viem'
 import { lensTestnet } from '@/lib/lit/signer-pkp'
 
 /**
- * Exercise Grader v1 - Unified grading for all exercise types
+ * Exercise Grader v1 - Grading for exercise types
  *
  * Supports:
  * - SAY_IT_BACK: Voice transcription + pronunciation scoring
  * - TRANSLATION_QUIZ: Multiple choice translation questions
  * - TRIVIA_QUIZ: Multiple choice trivia questions
- * - KARAOKE_PERFORMANCE: Full clip/song grading (NEW)
+ *
+ * Note: Karaoke line-by-line grading uses useLineKaraokeGrader instead.
  */
 
 // Parameter types for each exercise type
@@ -41,24 +38,12 @@ export interface MultipleChoiceGradingParams {
   metadataUri: string
 }
 
-export interface KaraokePerformanceGradingParams {
-  exerciseType: 'KARAOKE_PERFORMANCE'
-  audioDataBase64: string
-  performanceId: number
-  clipHash: string
-  spotifyTrackId: string
-  metadataUri: string
-  // Optional overrides
-  performanceType?: 'CLIP' | 'FULL_SONG'
-  nonceOverride?: number | string // For deterministic signing
-}
-
-export type GradingParams = SayItBackGradingParams | MultipleChoiceGradingParams | KaraokePerformanceGradingParams
+export type GradingParams = SayItBackGradingParams | MultipleChoiceGradingParams
 
 export interface GradingResult {
   score: number // 0-100 (percentage)
-  transcript?: string // Only for SAY_IT_BACK / KARAOKE
-  rating: 'Easy' | 'Good' | 'Hard' | 'Again' | string // FSRS rating or qualitative grade
+  transcript?: string // Only for SAY_IT_BACK
+  rating: 'Easy' | 'Good' | 'Hard' | 'Again' | string // FSRS rating
   performanceId: number // uint256 from Lit Action
   txHash?: string // Transaction hash if submitted to contract
   errorType?: string // Error message if submission failed
@@ -82,12 +67,7 @@ export function useLitActionGrader() {
         const { getLitClient } = await import('@/lib/lit')
         const litClient = await getLitClient()
 
-        // Determine Lit Action CID based on exercise type
-        const ipfsId = params.exerciseType === 'KARAOKE_PERFORMANCE' 
-          ? LIT_KARAOKE_GRADER_CID 
-          : LIT_ACTION_IPFS_CID
-
-        console.log('[useLitActionGrader] Executing Lit Action:', ipfsId)
+        console.log('[useLitActionGrader] Executing Lit Action:', LIT_ACTION_IPFS_CID)
         console.log('[useLitActionGrader] Exercise type:', params.exerciseType)
         console.log('[useLitActionGrader] User address:', pkpInfo.ethAddress)
 
@@ -147,57 +127,6 @@ export function useLitActionGrader() {
             audioSize: params.audioDataBase64.length,
             nonceOverride: jsParams.nonceOverride
           })
-        } else if (params.exerciseType === 'KARAOKE_PERFORMANCE') {
-          // Karaoke Grader specific parameters
-          // Matches karaoke-grader-v1.js inputs
-          jsParams.performanceId = params.performanceId
-          jsParams.clipHash = params.clipHash
-          jsParams.spotifyTrackId = params.spotifyTrackId
-          jsParams.performer = pkpInfo.ethAddress
-          jsParams.performanceType = params.performanceType || 'CLIP'
-          jsParams.audioDataBase64 = params.audioDataBase64
-          jsParams.voxtralEncryptedKey = LIT_KARAOKE_VOXTRAL_KEY
-          jsParams.openRouterEncryptedKey = LIT_KARAOKE_OPENROUTER_KEY
-          
-          if (params.nonceOverride) {
-            jsParams.nonceOverride = params.nonceOverride
-          } else {
-            // Automatically fetch deterministic nonce if not provided
-            try {
-               console.log('[useLitActionGrader] Fetching deterministic nonce...');
-               const publicClient = createPublicClient({
-                   chain: lensTestnet,
-                   transport: http()
-               });
-               
-               // 1. Get Trusted PKP from contract (Source of Truth)
-               const trustedPKP = await publicClient.readContract({
-                   address: KARAOKE_EVENTS_ADDRESS as `0x${string}`,
-                   abi: parseAbi(['function trustedPKP() external view returns (address)']),
-                   functionName: 'trustedPKP',
-                   authorizationList: undefined,
-               });
-               
-               // 2. Get pending nonce for that PKP
-               const nonce = await publicClient.getTransactionCount({
-                   address: trustedPKP,
-                   blockTag: 'pending'
-               });
-               
-               console.log(`[useLitActionGrader] Resolved PKP: ${trustedPKP}, Nonce: ${nonce}`);
-               jsParams.nonceOverride = Number(nonce);
-            } catch (err) {
-                console.warn('[useLitActionGrader] Failed to fetch deterministic nonce:', err);
-                // Fallback to Lit Action internal handling
-            }
-          }
-
-          console.log('[useLitActionGrader] KARAOKE_PERFORMANCE params:', {
-            performanceId: params.performanceId,
-            clipHash: params.clipHash,
-            audioSize: params.audioDataBase64.length,
-            nonceOverride: jsParams.nonceOverride
-          })
         } else {
           // Multiple choice specific parameters
           jsParams.attemptId = params.attemptId
@@ -245,7 +174,7 @@ export function useLitActionGrader() {
 
         const result = await withTimeout(
           litClient.executeJs({
-            ipfsId: ipfsId,
+            ipfsId: LIT_ACTION_IPFS_CID,
             authContext: pkpAuthContext,
             jsParams,
           }),
@@ -273,7 +202,6 @@ export function useLitActionGrader() {
           throw new Error(response.errorType || response.error || 'Grading failed')
         }
 
-        // Karaoke grader returns similarityScore (basis points) + grade label.
         // Exercise grader returns score (0-100) + rating.
         const normalizedScore = normalizeScore(response)
         const rating =
@@ -345,26 +273,13 @@ function scoreToRating(score: number): 'Easy' | 'Good' | 'Hard' | 'Again' {
 }
 
 /**
- * Normalize Lit Action score outputs between exercise + karaoke graders.
- * - exercise-grader: score (0-100)
- * - karaoke-grader: similarityScore / aggregateScoreBp (0-10000 basis points)
+ * Normalize Lit Action score outputs.
+ * Exercise grader returns score (0-100).
  */
 function normalizeScore(response: any): number | undefined {
   if (typeof response?.score === 'number') {
     return response.score
   }
-
-  const bpScore =
-    typeof response?.similarityScore === 'number'
-      ? response.similarityScore
-      : typeof response?.aggregateScoreBp === 'number'
-        ? response.aggregateScoreBp
-        : undefined
-
-  if (typeof bpScore === 'number') {
-    return Math.round(bpScore / 100) // Convert basis points to 0-100 percentage
-  }
-
   return undefined
 }
 

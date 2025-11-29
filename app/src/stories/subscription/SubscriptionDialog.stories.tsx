@@ -38,7 +38,7 @@ export const Idle: Story = {
 }
 
 /**
- * Approving - Wallet signature request
+ * Approving - Signing transaction
  */
 export const Approving: Story = {
   args: {
@@ -46,7 +46,7 @@ export const Approving: Story = {
     displayName: 'Grimes',
     currentStep: 'approving',
     isProcessing: true,
-    statusMessage: 'Approve transaction in your wallet...',
+    statusMessage: 'Signing transaction...',
     errorMessage: '',
     onOpenChange: () => {},
     onSubscribe: () => {},

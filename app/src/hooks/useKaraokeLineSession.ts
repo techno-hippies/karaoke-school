@@ -150,14 +150,21 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
    * Voxtral STT only accepts MP3/WAV, not WebM or MP4.
    */
   const blobToBase64 = useCallback(async (blob: Blob): Promise<string> => {
+    console.log(`[useKaraokeLineSession] Input blob: ${blob.type}, ${(blob.size / 1024).toFixed(1)} KB`)
+
     // Convert WebM/MP4 to WAV for Voxtral compatibility
     let audioBlob = blob
     if (blob.type.includes('webm') || blob.type.includes('mp4')) {
       try {
         audioBlob = await webmToWav(blob, 16000)
+        // Verify WAV header
+        const headerBytes = new Uint8Array(await audioBlob.slice(0, 12).arrayBuffer())
+        const header = String.fromCharCode(...headerBytes.slice(0, 4)) + '...' + String.fromCharCode(...headerBytes.slice(8, 12))
+        console.log(`[useKaraokeLineSession] Converted to WAV: ${audioBlob.type}, ${(audioBlob.size / 1024).toFixed(1)} KB, header: ${header}`)
       } catch (err) {
-        console.warn('[useKaraokeLineSession] Audio→WAV conversion failed, using original:', err)
-        // Fall back to original blob if conversion fails
+        console.error('[useKaraokeLineSession] ❌ Audio→WAV conversion FAILED:', err)
+        // This will cause Voxtral to fail - WebM is not supported
+        throw new Error(`WAV conversion failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     }
 

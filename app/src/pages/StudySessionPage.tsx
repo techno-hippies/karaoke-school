@@ -61,15 +61,9 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
   // Pass spotifyTrackId for slug routes, workId for legacy routes
   const session = useStudySession(songId, { exitPath: returnPath })
 
-  const activeSpotifyTrackIds = useMemo(() => {
-    if (session.currentCard?.spotifyTrackId) {
-      return [session.currentCard.spotifyTrackId]
-    }
-    return session.spotifyTrackIds
-  }, [session.currentCard?.spotifyTrackId, session.spotifyTrackIds])
-
-  const spotifyTrackIds = activeSpotifyTrackIds.length > 0 ? activeSpotifyTrackIds : undefined
-  const { data: subscriptionLockData } = useCreatorSubscriptionLock(spotifyTrackIds)
+  // Get subscription lock by artist slug (from URL params)
+  // For global sessions, we don't have an artist slug, so subscription won't apply
+  const { data: subscriptionLockData } = useCreatorSubscriptionLock(artistSlug)
   const {
     subscribe,
     status: subscriptionStatus,

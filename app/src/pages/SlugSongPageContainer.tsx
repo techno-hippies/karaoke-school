@@ -2,8 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useSongSlug } from '@/hooks/useSongSlug'
 import { useSongClips } from '@/hooks/useSongClips'
 import { useSongVideos } from '@/hooks/useSongVideos'
-import { SongPage, type LeaderboardEntry } from '@/components/song/SongPage'
-import { Spinner } from '@/components/ui/spinner'
+import { useSongLeaderboard } from '@/hooks/useLeaderboard'
+import { useAuth } from '@/contexts/AuthContext'
+import { SongPage, SongPageSkeleton, type LeaderboardEntry } from '@/components/song/SongPage'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
 
@@ -19,6 +20,7 @@ import type { VideoPost } from '@/components/video/VideoGrid'
 export function SlugSongPageContainer() {
   const { artistSlug, songSlug } = useParams<{ artistSlug?: string; songSlug?: string }>()
   const navigate = useNavigate()
+  const { pkpAddress } = useAuth()
 
   // Resolve slugs to Spotify track ID
   const { data: slugData, isLoading: isLoadingSlug, error: slugError } = useSongSlug(artistSlug, songSlug)
@@ -33,12 +35,11 @@ export function SlugSongPageContainer() {
   // Fetch creator videos
   const { data: lensVideos, isLoading: isLoadingVideos } = useSongVideos(slugData?.spotifyTrackId)
 
+  // Fetch leaderboard data (called when Students tab is viewed)
+  const { leaderboard: leaderboardData } = useSongLeaderboard(slugData?.spotifyTrackId)
+
   if (isLoadingSlug || isLoadingClips) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Spinner size="lg" />
-      </div>
-    )
+    return <SongPageSkeleton />
   }
 
   if (slugError || !slugData?.spotifyTrackId) {
@@ -94,7 +95,14 @@ export function SlugSongPageContainer() {
     })
   }
 
-  const leaderboard: LeaderboardEntry[] = []
+  // Map leaderboard data to the format expected by SongPage
+  const currentUserAddress = pkpAddress?.toLowerCase()
+  const leaderboard: LeaderboardEntry[] = leaderboardData.map(entry => ({
+    rank: entry.rank,
+    username: entry.username,
+    score: entry.totalPoints,
+    isCurrentUser: currentUserAddress ? entry.address === currentUserAddress : false,
+  }))
 
   return (
     <SongPage
@@ -106,8 +114,8 @@ export function SlugSongPageContainer() {
       onBack={() => navigate(-1)}
       onPlay={() => navigate(`${basePath}/play`)}
       onArtistClick={
-        metadata?.artistLensHandle
-          ? () => navigate(`/u/${metadata.artistLensHandle}`)
+        artistSlug
+          ? () => navigate(`/${artistSlug}`)
           : undefined
       }
       videos={videos}

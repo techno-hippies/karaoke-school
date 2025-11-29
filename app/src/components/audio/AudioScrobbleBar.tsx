@@ -6,6 +6,7 @@ export interface AudioScrobbleBarProps {
   duration: number
   onSeek?: (time: number) => void
   showTimeLabels?: boolean
+  isAudioLoading?: boolean
   className?: string
 }
 
@@ -17,6 +18,7 @@ export function AudioScrobbleBar({
   duration,
   onSeek,
   showTimeLabels = true,
+  isAudioLoading = false,
   className = '',
 }: AudioScrobbleBarProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -88,8 +90,8 @@ export function AudioScrobbleBar({
       {/* Time Display */}
       {showTimeLabels && (
         <div className="flex justify-between text-xs text-neutral-400 mt-3">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
+          <span>{isAudioLoading ? '--:--' : formatTime(currentTime)}</span>
+          <span>{isAudioLoading ? '--:--' : formatTime(duration)}</span>
         </div>
       )}
     </div>

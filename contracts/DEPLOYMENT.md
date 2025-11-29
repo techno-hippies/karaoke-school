@@ -38,12 +38,12 @@ forge build --via-ir --force
 
 ```bash
 # Template for deploying any contract
-PRIVATE_KEY=0x... TRUSTED_PKP_ADDRESS=0x... npx tsx deploy-<contract-name>.ts
+PRIVATE_KEY=0x... TRUSTED_PKP_ADDRESS=0x... npx tsx scripts/deploy-<contract-name>.ts
 
 # Example: Deploy KaraokeEvents
 PRIVATE_KEY=0x7ad3639f0de041ea9cf7bbcd865180383eb85a65fd333a955e9d9d0ab0184235 \
 TRUSTED_PKP_ADDRESS=0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7 \
-npx tsx deploy-karaoke-events.ts
+npx tsx scripts/deploy-karaoke-events.ts
 ```
 
 **Why explicit env vars?**
@@ -95,7 +95,7 @@ Error: PRIVATE_KEY must be set
 **Solution:**
 DO NOT use `source .env`. Use explicit vars:
 ```bash
-PRIVATE_KEY=0x... npx tsx deploy-script.ts
+PRIVATE_KEY=0x... npx tsx scripts/deploy-script.ts
 ```
 
 **Why it happens:**
@@ -211,7 +211,7 @@ forge script script/DeployEvents.s.sol:DeployEvents \
 forge build --via-ir --force && \
 PRIVATE_KEY=0x7ad3639f0de041ea9cf7bbcd865180383eb85a65fd333a955e9d9d0ab0184235 \
 TRUSTED_PKP_ADDRESS=0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7 \
-npx tsx deploy-karaoke-events.ts
+npx tsx scripts/deploy-karaoke-events.ts
 ```
 
 ## After Deployment
@@ -227,11 +227,10 @@ npx tsx deploy-karaoke-events.ts
 
 Update this list after each deployment:
 
-- **KaraokeEvents**: `0x51aA6987130AA7E4654218859E075D8e790f4409` (deployed 2025-01-13)
-- **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`
-- **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6`
-- **TranslationEvents**: `0x4aE979A4f115d734670403e644d83d4C695f9c58`
-- **AccountEvents**: `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
+- **KaraokeEvents**: `0x51aA6987130AA7E4654218859E075D8e790f4409` (clip lifecycle + grading)
+- **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
+- **TranslationEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
+- **AccountEvents**: `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)
 
 ---
 

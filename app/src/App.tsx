@@ -1,9 +1,5 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { LensProvider } from '@lens-protocol/react'
-import { WagmiProvider } from 'wagmi'
-import { config as wagmiConfig } from '@/wagmi.config'
 import { HomePage } from '@/pages/HomePage'
 import { WalletPage } from '@/pages/WalletPage'
 import { SearchPage } from '@/pages/SearchPage'
@@ -11,6 +7,7 @@ import { AccountPageContainer } from '@/pages/AccountPageContainer'
 import { VideoDetailPage } from '@/pages/VideoDetailPage'
 import { SongPageContainer } from '@/pages/SongPageContainer'
 import { SlugSongPageContainer } from '@/pages/SlugSongPageContainer'
+import { ArtistPageContainer } from '@/pages/ArtistPageContainer'
 import { MediaPageContainer } from '@/pages/MediaPageContainer'
 import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
 import { ClassPage } from '@/pages/ClassPage'
@@ -21,24 +18,20 @@ import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
-import { lensClient } from '@/lib/lens/client'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-})
+import { Web3Provider } from '@/providers/Web3Provider'
 
 function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
 
-  const { isPKPReady, pkpAddress } = useAuth()
+  const { isPKPReady, pkpAddress, setAuthDialogOpener } = useAuth()
   const [showAuthDialog, setShowAuthDialog] = useState(false)
+
+  // Register the auth dialog opener with AuthContext so any component can trigger it
+  useEffect(() => {
+    setAuthDialogOpener(() => setShowAuthDialog(true))
+  }, [setAuthDialogOpener])
 
   useEffect(() => {
     const pathToTab: Record<string, 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'> = {
@@ -49,10 +42,15 @@ function AppRouter() {
       '/profile': 'profile',
     }
 
-    // Hide tab bar on song pages (slug-based or legacy) and user pages
+    // Hide tab bar on song pages (slug-based or legacy), user pages, and artist pages
+    const pathParts = location.pathname.split('/').filter(Boolean)
+    const reservedPaths = ['search', 'study', 'wallet', 'profile', 'u', 'song']
+
     if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/') ||
+        // Artist pages: /:artistSlug (single segment, not reserved)
+        (pathParts.length === 1 && !reservedPaths.includes(pathParts[0])) ||
         // Slug-based song routes: /:artistSlug/:songSlug
-        (location.pathname.split('/').length >= 3 && !['search', 'study', 'wallet', 'profile', 'u', 'song'].includes(location.pathname.split('/')[1]))) {
+        (pathParts.length >= 2 && !reservedPaths.includes(pathParts[0]))) {
       setActiveTab('none')
     } else {
       const tab = pathToTab[location.pathname] || 'home'
@@ -71,13 +69,17 @@ function AppRouter() {
     navigate(routes[tab])
   }
 
-  // Hide footer on song pages (both slug-based and legacy) and video detail pages
+  // Hide footer on song pages (both slug-based and legacy), video detail pages, and artist pages
+  const footerPathParts = location.pathname.split('/').filter(Boolean)
+  const footerReservedPaths = ['search', 'study', 'wallet', 'profile', 'u', 'song']
+
   const hideMobileFooter =
     location.pathname.match(/^\/song\//) ||
     location.pathname.match(/^\/u\/[^/]+\/video\//) ||
+    // Artist pages: /:artistSlug (single segment, not reserved)
+    (footerPathParts.length === 1 && !footerReservedPaths.includes(footerPathParts[0])) ||
     // Slug-based routes: /:artistSlug/:songSlug
-    (location.pathname.split('/').filter(Boolean).length >= 2 &&
-     !['search', 'study', 'wallet', 'profile', 'u', 'song'].includes(location.pathname.split('/')[1]))
+    (footerPathParts.length >= 2 && !footerReservedPaths.includes(footerPathParts[0]))
 
   return (
     <>
@@ -94,6 +96,9 @@ function AppRouter() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/u/:lenshandle" element={<AccountPageContainer />} />
           <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
+
+          {/* Artist page (e.g., /queen, /eminem) */}
+          <Route path="/:artistSlug" element={<ArtistPageContainer />} />
 
           {/* Primary song routes - slug-based (e.g., /eminem/lose-yourself) */}
           <Route path="/:artistSlug/:songSlug" element={<SlugSongPageContainer />} />
@@ -128,21 +133,17 @@ function AppRouter() {
 
 function App() {
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <LensProvider client={lensClient}>
-        <QueryClientProvider client={queryClient}>
-          <HashRouter>
-            <AuthProvider>
-              <LanguagePreferenceProvider>
-                <VideoPlaybackProvider>
-                  <AppRouter />
-                </VideoPlaybackProvider>
-              </LanguagePreferenceProvider>
-            </AuthProvider>
-          </HashRouter>
-        </QueryClientProvider>
-      </LensProvider>
-    </WagmiProvider>
+    <Web3Provider>
+      <HashRouter>
+        <AuthProvider>
+          <LanguagePreferenceProvider>
+            <VideoPlaybackProvider>
+              <AppRouter />
+            </VideoPlaybackProvider>
+          </LanguagePreferenceProvider>
+        </AuthProvider>
+      </HashRouter>
+    </Web3Provider>
   )
 }
 

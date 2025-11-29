@@ -22,11 +22,12 @@ export async function likePost(sessionClient: SessionClient, postIdValue: string
       return false
     }
 
-    console.log('[Reactions] addReaction response:', result.value)
-    console.log('[Reactions] typename:', result.value.__typename)
-    console.log('[Reactions] success field:', (result.value as any).success)
+    // Log failure reason if available
+    if (result.value.__typename === 'AddReactionFailure') {
+      console.error('[Reactions] Reaction failure:', (result.value as any).reason)
+      return false
+    }
 
-    // Check if the result is successful
     return result.value.__typename === 'AddReactionResponse' && result.value.success
   } catch (error) {
     console.error('[Reactions] Error liking post:', error)

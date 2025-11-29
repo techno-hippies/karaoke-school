@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { CheckCircle, Wallet, Fingerprint, CaretLeft, Copy, GoogleLogo, DiscordLogo } from '@phosphor-icons/react'
+import { CheckCircle, Wallet, Fingerprint, CaretLeft, GoogleLogo, DiscordLogo } from '@phosphor-icons/react'
 
 // ---------------- Types ----------------
 
@@ -193,7 +193,6 @@ export function AuthDialog({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">
-            {view === 'select-method' && t('auth.welcome')}
             {view === 'passkey-intro' && t('auth.usePasskey')}
             {view === 'wallet-select' && t('auth.connectWallet')}
             {view === 'username' && t('auth.chooseUsername')}
@@ -251,6 +250,28 @@ export function AuthDialog({
                 <DiscordLogo className="w-6 h-6 text-indigo-500" weight="fill" />
                 <span>{t('auth.continueWithDiscord')}</span>
               </Button>
+
+              {onConnectWallet && (
+                <>
+                  <div className="relative py-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-border"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">{t('auth.orConnectWallet')}</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={onConnectWallet}
+                    variant="outline"
+                    className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
+                  >
+                    <Wallet className="w-6 h-6 text-blue-500" weight="fill" />
+                    <span>{t('auth.connectWallet')}</span>
+                  </Button>
+                </>
+              )}
             </div>
           )}
 

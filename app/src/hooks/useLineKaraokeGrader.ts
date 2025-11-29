@@ -97,10 +97,18 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         voxtralEncryptedKey: LIT_KARAOKE_LINE_VOXTRAL_KEY,
       }
 
+      // Debug: log audio data size
+      const audioSize = params.audioDataBase64?.length || 0
+      const audioSizeKB = (audioSize * 0.75 / 1024).toFixed(1) // base64 → bytes → KB
+
       console.log(`[useLineKaraokeGrader] Grading line ${params.lineIndex} in session ${params.sessionId.slice(0, 10)}...`, {
         startSession: params.startSession,
         endSession: params.endSession,
         skipTx: params.skipTx,
+        audioSizeKB: `${audioSizeKB} KB`,
+        hasVoxtralKey: !!LIT_KARAOKE_LINE_VOXTRAL_KEY,
+        metadataUriOverride: params.metadataUriOverride || '(none)',
+        subgraphUrl: SUBGRAPH_URL,
       })
 
       const result = await withTimeout(
@@ -112,6 +120,13 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         45_000, // Increased timeout for blockchain tx
         'Lit Action execution timed out'
       )
+
+      // Debug: log full result
+      console.log(`[useLineKaraokeGrader] Lit Action FULL response:`, result.response)
+
+      if (!result.response) {
+        throw new Error('Lit Action returned empty response')
+      }
 
       const response = typeof result.response === 'string'
         ? JSON.parse(result.response)

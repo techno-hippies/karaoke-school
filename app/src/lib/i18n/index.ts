@@ -14,6 +14,14 @@ export const supportedLanguages = [
   { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia' },
 ] as const
 
+// Debug: Log what's available before i18n init
+console.log('[i18n] Detection sources:', {
+  localStorage_i18nextLng: localStorage.getItem('i18nextLng'),
+  localStorage_languagePreference: localStorage.getItem('languagePreference'),
+  navigator_language: navigator.language,
+  navigator_languages: navigator.languages,
+})
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)

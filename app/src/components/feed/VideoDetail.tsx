@@ -10,6 +10,8 @@ import { ShareSheet } from './ShareSheet'
 import { Comment, type CommentData } from './Comment'
 import { CommentInput } from './CommentInput'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import type { VideoPostData } from './types'
 
 export interface VideoDetailProps extends VideoPostData {
@@ -62,6 +64,8 @@ export function VideoDetail({
   className,
   ...videoPostProps
 }: VideoDetailProps) {
+  const { t } = useTranslation()
+
   // Use shared video playback logic (force autoplay on detail view)
   const {
     isPlaying,
@@ -112,6 +116,41 @@ export function VideoDetail({
     videoPostProps.onShareClick?.()
   }
 
+  const handleCopyLink = () => {
+    toast.success(t('share.linkCopied'))
+  }
+
+  const handleDownloadVideo = async () => {
+    if (!videoPostProps.videoUrl) return
+
+    try {
+      // Fetch the video as a blob
+      const response = await fetch(videoPostProps.videoUrl)
+      if (!response.ok) throw new Error('Failed to fetch video')
+
+      const blob = await response.blob()
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `karaoke-${videoPostProps.username}-${videoPostProps.id}.mp4`
+
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast.success(t('share.downloadStarted'))
+    } catch (error) {
+      console.error('Failed to download video:', error)
+      toast.error('Failed to download video')
+    }
+  }
+
   // Mobile: Use VideoPost for full-screen TikTok experience
   if (typeof window !== 'undefined' && window.innerWidth < 768) {
     return (
@@ -155,6 +194,8 @@ export function VideoDetail({
           onOpenChange={setShareSheetOpen}
           postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${videoPostProps.username}/video/${videoPostProps.id}` : ''}
           postDescription={videoPostProps.description}
+          onCopyLink={handleCopyLink}
+          onDownload={handleDownloadVideo}
         />
       </div>
     )
@@ -434,6 +475,8 @@ export function VideoDetail({
         onOpenChange={setShareSheetOpen}
         postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${videoPostProps.username}/video/${videoPostProps.id}` : ''}
         postDescription={videoPostProps.description}
+        onCopyLink={handleCopyLink}
+        onDownload={handleDownloadVideo}
       />
     </div>
   )

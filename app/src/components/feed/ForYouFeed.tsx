@@ -63,13 +63,13 @@ export function ForYouFeed({ children }: ForYouFeedProps) {
   const activePosts = fallbackPosts
   const isActiveLoading = fallbackLoading
 
-  // Debug: Log post counts
-  console.log('[ForYouFeed] Post counts:', {
-    isAuthenticated,
-    fallbackPosts: fallbackPosts.length,
-    activePosts: activePosts.length,
-    isActiveLoading
-  })
+  // Debug logging (only in development with debug flag)
+  if (import.meta.env.DEV && localStorage.getItem('debug')?.includes('feed')) {
+    console.log('[ForYouFeed] State:', {
+      isAuthenticated,
+      postCount: activePosts.length,
+    })
+  }
 
   // Track post IDs to detect when posts actually change (not just reference)
   const previousPostIds = useRef<Set<string>>(new Set())

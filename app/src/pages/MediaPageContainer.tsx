@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSongClips } from '@/hooks/useSongClips'
+import { useSongSlug } from '@/hooks/useSongSlug'
 import { useSegmentMetadata } from '@/hooks/useSegmentV2'
 import { MediaPage } from '@/components/media/MediaPage'
 import { KaraokePracticeSession } from '@/components/karaoke/KaraokePracticeSession'
@@ -11,7 +12,7 @@ import { getPreferredLanguage } from '@/lib/language'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
 import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
-import { useDecryptFullAudio } from '@/hooks/useDecryptFullAudio'
+import { useHybridDecrypt } from '@/hooks/useHybridDecrypt'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLineKaraokeGrader } from '@/hooks/useLineKaraokeGrader'
 
@@ -25,10 +26,12 @@ interface MediaPageContainerProps {
  * Routes:
  * - /song/:workId/play (MediaPage)
  * - /song/:workId/karaoke (Practice)
+ * - /:artistSlug/:songSlug/play (MediaPage via slug)
+ * - /:artistSlug/:songSlug/karaoke (Practice via slug)
  */
 export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProps = {}) {
   const { t } = useTranslation()
-  const { workId } = useParams<{ workId: string }>()
+  const { workId, artistSlug, songSlug } = useParams<{ workId?: string; artistSlug?: string; songSlug?: string }>()
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
@@ -37,18 +40,26 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   // Subscription dialog state
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
+  // Trigger to re-check subscription after purchase
+  const [subscriptionRecheckTrigger, setSubscriptionRecheckTrigger] = useState(0)
+
+  // Resolve slug to Spotify track ID if using slug-based route
+  const { data: slugData, isLoading: isLoadingSlug } = useSongSlug(artistSlug, songSlug)
+
+  // Determine spotifyTrackId: direct workId or resolved from slug
+  const spotifyTrackId = workId || slugData?.spotifyTrackId
 
   // Fetch clips with metadata
-  const { data: workData, isLoading: isLoadingWork } = useSongClips(workId)
+  const { data: workData, isLoading: isLoadingWork } = useSongClips(spotifyTrackId)
 
   // Get first clip from work
   const firstClip = workData?.clips?.[0]
 
-  const spotifyTrackIds = firstClip?.spotifyTrackId ? [firstClip.spotifyTrackId] : undefined
+  // Get artist slug from URL params or clip metadata
+  const resolvedArtistSlug = artistSlug || firstClip?.metadata?.artistSlug
 
-  // Debug logging removed - too noisy
-
-  const { data: subscriptionLockData } = useCreatorSubscriptionLock(spotifyTrackIds)
+  // Get subscription lock by artist slug (works for all songs from same artist)
+  const { data: subscriptionLockData } = useCreatorSubscriptionLock(resolvedArtistSlug)
 
   const {
     subscribe,
@@ -71,23 +82,26 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     firstClip?.metadataUri
   )
 
-  // Fetch encryption data from subgraph for full audio decryption
-  const encryptedFullUri = firstClip?.encryptedFullUri
+  // Get subscription lock data from subgraph
   const unlockLockAddress = firstClip?.unlockLockAddress
   const unlockChainId = firstClip?.unlockChainId
 
+  // Get encryption metadata URI for v2 hybrid decryption
+  // This points to JSON with encrypted key + audio URL (no longer leaks unencrypted URL)
+  const encryptionMetadataUri = clipMetadata?.encryption?.encryptionMetadataUri
 
-  // Decrypt full audio if user has subscription
+  // Decrypt full audio using v2 hybrid encryption (key-only Lit, no 413 errors!)
   const {
     decryptedAudioUrl,
     isDecrypting,
     hasSubscription,
     error: decryptError,
-  } = useDecryptFullAudio(
+    isLoading: isDecryptLoading,
+    progress: decryptProgress,
+  } = useHybridDecrypt(
+    encryptionMetadataUri,
     firstClip?.spotifyTrackId,
-    encryptedFullUri,
-    unlockLockAddress,
-    unlockChainId
+    subscriptionRecheckTrigger
   )
 
   // Load translations and alignment from NEW format (separate Grove files)
@@ -96,18 +110,25 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       return
     }
 
-  // NEW: Prioritize karaoke_lines (all lines) over translations (often partial)
-  if (clipMetadata.karaoke_lines && Array.isArray(clipMetadata.karaoke_lines) && clipMetadata.karaoke_lines.length > 0) {
-      console.log(`[MediaPageContainer] Using ${clipMetadata.karaoke_lines.length} karaoke lines from metadata`)
-      
-      const lyricsLines = clipMetadata.karaoke_lines.map((line: any) => ({
+  // Choose karaoke lines based on subscription status:
+  // - Subscribers get full_karaoke_lines (all lyrics) if available
+  // - Non-subscribers get karaoke_lines (clip portion only)
+  const karaokeLinesToUse = hasSubscription && clipMetadata.full_karaoke_lines?.length
+    ? clipMetadata.full_karaoke_lines
+    : clipMetadata.karaoke_lines
+
+  if (karaokeLinesToUse && Array.isArray(karaokeLinesToUse) && karaokeLinesToUse.length > 0) {
+      console.log(`[MediaPageContainer] Using ${karaokeLinesToUse.length} karaoke lines (subscriber: ${hasSubscription}, full available: ${!!clipMetadata.full_karaoke_lines?.length})`)
+
+      const lyricsLines = karaokeLinesToUse.map((line: any) => ({
           start: Number(line.start_ms) / 1000,
           end: Number(line.end_ms) / 1000,
           // Convert word timing array if present; fallback to coarse line timing
           words: Array.isArray(line.words) ? line.words.map((w: any) => ({
             text: w.text || w.word || '',
-            start: Number(w.start_ms || w.start || 0) / 1000,
-            end: Number(w.end_ms || w.end || 0) / 1000,
+            // Handle both ms (new format) and seconds (old format)
+            start: w.start_ms ? Number(w.start_ms) / 1000 : Number(w.start || 0),
+            end: w.end_ms ? Number(w.end_ms) / 1000 : Number(w.end || 0),
           })) : [],
           originalText: line.text || line.original_text || '',
       }))
@@ -195,7 +216,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   }, [clipMetadata, hasSubscription]) // Removed originalLyricsLines from dep array to avoid loops
 
   // Loading state - check both loading AND data completeness to prevent placeholder flash
-  if (isLoadingWork || isLoadingClip || !clipMetadata?.title || !clipMetadata?.artist) {
+  if (isLoadingSlug || isLoadingWork || isLoadingClip || !clipMetadata?.title || !clipMetadata?.artist) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -234,7 +255,16 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const audioUrl = decryptedAudioUrl || clipAudioUrl
 
-  // Audio URL selection debug removed
+  // Debug audio URL selection
+  console.log('[MediaPageContainer] 🎵 Audio URL selection:', {
+    hasSubscription,
+    encryptionMetadataUri: encryptionMetadataUri?.slice(0, 50) || '(none)',
+    isDecrypting,
+    decryptProgress,
+    decryptedAudioUrl: decryptedAudioUrl?.slice(0, 50) || '(none)',
+    clipAudioUrl: clipAudioUrl?.slice(0, 50) || '(none)',
+    finalAudioUrl: audioUrl?.slice(0, 50) || '(none)',
+  })
 
   // Audio URL configured
 
@@ -266,12 +296,26 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     lines: originalLyricsLines.length > 0 ? originalLyricsLines : clipMetadata.lyrics.original.lines,
   }
 
-  // Get available translation languages from EITHER format
+  // Get available translation languages from ALL formats
   // OLD: clipMetadata.lyrics.translations (inline)
   // NEW: loadedTranslations (fetched separately)
+  // NEWEST: karaoke_lines with zh_text, vi_text, id_text
   const inlineTranslations = clipMetadata.lyrics.translations || {}
   const allTranslations = { ...inlineTranslations, ...loadedTranslations }
-  const availableLanguages = Object.keys(allTranslations)
+
+  // Determine which karaoke lines to use for translations based on subscription
+  const activeKaraokeLines = hasSubscription && clipMetadata?.full_karaoke_lines?.length
+    ? clipMetadata.full_karaoke_lines
+    : clipMetadata?.karaoke_lines
+
+  // Check for inline translations in karaoke_lines
+  const firstKaraokeLine = activeKaraokeLines?.[0]
+  const karaokeInlineLanguages: string[] = []
+  if (firstKaraokeLine?.zh_text) karaokeInlineLanguages.push('zh')
+  if (firstKaraokeLine?.vi_text) karaokeInlineLanguages.push('vi')
+  if (firstKaraokeLine?.id_text) karaokeInlineLanguages.push('id')
+
+  const availableLanguages = [...new Set([...Object.keys(allTranslations), ...karaokeInlineLanguages])]
 
   // Determine preferred language based on browser settings
   const preferredLanguage = getPreferredLanguage(availableLanguages)
@@ -279,6 +323,13 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const lyrics = originalLyrics.lines.map((line: any, index: number) => {
     // Build translations object from BOTH formats
     const translations: Record<string, string> = {}
+
+    // NEW: Check for inline translations in karaoke_lines (zh_text, vi_text, id_text)
+    // Use activeKaraokeLines which is full_karaoke_lines for subscribers, karaoke_lines otherwise
+    const karaokeLineSource = activeKaraokeLines?.[index]
+    if (karaokeLineSource?.zh_text) translations['zh'] = karaokeLineSource.zh_text
+    if (karaokeLineSource?.vi_text) translations['vi'] = karaokeLineSource.vi_text
+    if (karaokeLineSource?.id_text) translations['id'] = karaokeLineSource.id_text
 
     // Add translations from other languages (both inline and fetched)
     Object.entries(allTranslations).forEach(([lang, lyricsData]: [string, any]) => {
@@ -378,6 +429,8 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     if (!open && subscriptionStatus === 'complete') {
       // console.log('[MediaPageContainer] 🔐 Resetting subscription after completion')
       resetSubscription()
+      // Trigger re-check of subscription to unlock full audio
+      setSubscriptionRecheckTrigger(prev => prev + 1)
     }
   }
 
@@ -406,6 +459,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           artworkUrl={artworkUrl}
           selectedLanguage={preferredLanguage}
           showTranslations={availableLanguages.length > 0}
+          isAudioLoading={isDecrypting || isDecryptLoading}
           onBack={() => navigate(-1)}
           onArtistClick={
             (clipMetadata as any)?.artistLensHandle

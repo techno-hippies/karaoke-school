@@ -8,8 +8,7 @@ AI-powered exercise grading with Lit Protocol PKP signing.
 lit-actions/
 ├── actions/                    # Lit Action source code (JS)
 │   ├── exercise-grader-v1.js   # Say It Back + Multiple Choice
-│   ├── karaoke-grader-v1.js    # Full clip/song grading
-│   └── karaoke-line-grader-v1.js
+│   └── karaoke-line-grader-v1.js # Line-by-line karaoke grading
 │
 ├── cids/                       # Action CIDs per environment
 │   ├── dev.json               # naga-dev (free)
@@ -19,8 +18,6 @@ lit-actions/
 ├── keys/                       # Encrypted API keys per environment
 │   ├── dev/
 │   │   ├── exercise/voxtral_api_key_exercise.json
-│   │   ├── karaoke/voxtral_api_key_karaoke.json
-│   │   ├── karaoke/openrouter_api_key_karaoke.json
 │   │   └── karaoke-line/voxtral_api_key_karaoke-line.json
 │   ├── test/                   # Same structure
 │   └── mainnet/                # Same structure (placeholder)
@@ -87,7 +84,6 @@ set -a && source .env && set +a
 
 # Full deployment (upload → permission → encrypt)
 bun scripts/setup.ts exercise
-bun scripts/setup.ts karaoke
 bun scripts/setup.ts karaoke-line
 
 # Or deploy all
@@ -100,11 +96,8 @@ bun scripts/setup.ts --all
 # Exercise grader
 LIT_NETWORK=naga-dev bun tests/exercise/test-exercise-grader-say-it-back.ts
 
-# Karaoke grader
-LIT_NETWORK=naga-dev bun tests/karaoke/test-karaoke-grader.ts
-
-# Skip blockchain transaction (test grading only)
-KARAOKE_SKIP_TX=true bun tests/karaoke/test-karaoke-grader.ts
+# Karaoke line grader
+LIT_NETWORK=naga-dev bun tests/karaoke/test-karaoke-line-grader.ts
 ```
 
 ## Frontend Integration

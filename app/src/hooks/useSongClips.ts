@@ -104,6 +104,7 @@ export function useSongClips(spotifyTrackId?: string) {
       if (!spotifyTrackId) throw new Error('Spotify track ID required')
 
       const data = await graphClient.request<{ clips: Clip[] }>(CLIPS_QUERY, { spotifyTrackId })
+      console.log('[useSongClips] Subgraph response:', { spotifyTrackId, clips: data.clips })
       if (!data.clips?.length) throw new Error('No clips found')
 
       return { spotifyTrackId, clips: data.clips } as SongClips
@@ -114,14 +115,19 @@ export function useSongClips(spotifyTrackId?: string) {
   })
 
   const firstClip = clipsQuery.data?.clips[0]
+  console.log('[useSongClips] First clip:', firstClip?.id, 'metadataUri:', firstClip?.metadataUri)
 
   const metadataQuery = useQuery({
     queryKey: ['song-metadata', firstClip?.metadataUri],
     queryFn: async () => {
       if (!firstClip?.metadataUri) throw new Error('No metadata URI')
-      const response = await fetch(convertGroveUri(firstClip.metadataUri))
+      const url = convertGroveUri(firstClip.metadataUri)
+      console.log('[useSongClips] Fetching metadata from:', url)
+      const response = await fetch(url)
       if (!response.ok) throw new Error(`Metadata fetch failed: ${response.status}`)
-      return response.json() as Promise<SongMetadata>
+      const metadata = await response.json() as SongMetadata
+      console.log('[useSongClips] Metadata result:', metadata)
+      return metadata
     },
     enabled: !!firstClip?.metadataUri,
     staleTime: 300000,

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -13,7 +14,9 @@ import {
   Link,
   DownloadSimple,
   ShareNetwork,
+  CircleNotch,
 } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 
 interface ShareSheetProps {
   open: boolean
@@ -21,7 +24,7 @@ interface ShareSheetProps {
   postUrl: string
   postDescription?: string
   onCopyLink?: () => void
-  onDownload?: () => void
+  onDownload?: () => Promise<void>
 }
 
 /**
@@ -38,6 +41,9 @@ export function ShareSheet({
   onCopyLink,
   onDownload,
 }: ShareSheetProps) {
+  const { t } = useTranslation()
+  const [isDownloading, setIsDownloading] = useState(false)
+
   // --- Derived share data ----------------------------------------------------
 
   const shareUrl = postUrl
@@ -117,9 +123,18 @@ export function ShareSheet({
     }
   }
 
-  const handleSaveVideo = () => {
-    onDownload?.()
-    onOpenChange(false)
+  const handleSaveVideo = async () => {
+    if (!onDownload) return
+
+    setIsDownloading(true)
+    try {
+      await onDownload()
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Download failed:', error)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   // --- Share options config --------------------------------------------------
@@ -128,7 +143,7 @@ export function ShareSheet({
     // Native share: star of the show on mobile
     {
       id: 'native',
-      name: 'Share',
+      name: t('share.share'),
       icon: ShareNetwork,
       color: 'bg-primary hover:bg-primary/90',
       hidden: !(isMobile && canUseNativeShare),
@@ -138,7 +153,7 @@ export function ShareSheet({
     },
     {
       id: 'x',
-      name: 'X',
+      name: t('share.x'),
       icon: XLogo,
       color: 'bg-neutral-900 hover:bg-neutral-800',
       hidden: false,
@@ -146,7 +161,7 @@ export function ShareSheet({
     },
     {
       id: 'telegram',
-      name: 'Telegram',
+      name: t('share.telegram'),
       icon: TelegramLogo,
       color: 'bg-sky-500 hover:bg-sky-600',
       hidden: false,
@@ -154,7 +169,7 @@ export function ShareSheet({
     },
     {
       id: 'whatsapp',
-      name: 'WhatsApp',
+      name: t('share.whatsapp'),
       icon: WhatsappLogo,
       color: 'bg-green-600 hover:bg-green-700',
       hidden: false,
@@ -171,31 +186,30 @@ export function ShareSheet({
         className="h-auto bg-card border-border pb-8 px-4"
       >
         <VisuallyHidden>
-          <SheetTitle>Share options</SheetTitle>
+          <SheetTitle>{t('share.title')}</SheetTitle>
           <SheetDescription>
-            Share this video on social media or copy the link
+            {t('share.description')}
           </SheetDescription>
         </VisuallyHidden>
 
-        {/* Social Share Options - 4 column grid */}
-        <div className="w-full grid grid-cols-4 gap-4 mb-6 pt-6">
+        {/* Social Share Options - evenly distributed across width */}
+        <div className="w-full flex justify-evenly mb-6 pt-6">
           {visibleOptions.slice(0, 4).map((option) => {
             const Icon = option.icon
             return (
-              <div key={option.id} className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={option.action}
-                  className="flex flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+              <button
+                key={option.id}
+                type="button"
+                onClick={option.action}
+                className="flex flex-col items-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+              >
+                <div
+                  className={`w-14 h-14 rounded-full ${option.color} flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95`}
                 >
-                  <div
-                    className={`w-14 h-14 rounded-full ${option.color} flex items-center justify-center transition-transform duration-150 hover:scale-105 active:scale-95`}
-                  >
-                    <Icon size={28} weight="fill" className="text-foreground" />
-                  </div>
-                  <span className="text-foreground text-sm">{option.name}</span>
-                </button>
-              </div>
+                  <Icon size={28} weight="fill" className="text-foreground" />
+                </div>
+                <span className="text-foreground text-sm">{option.name}</span>
+              </button>
             )
           })}
         </div>
@@ -210,16 +224,21 @@ export function ShareSheet({
             }}
           >
             <Link size={22} weight="regular" />
-            Copy link
+            {t('share.copyLink')}
           </Button>
 
           <Button
             variant="outline"
             className="w-full justify-start gap-3 h-14 text-base"
-            onClick={handleSaveVideo}
+            onClick={() => void handleSaveVideo()}
+            disabled={isDownloading}
           >
-            <DownloadSimple size={22} weight="regular" />
-            Save video
+            {isDownloading ? (
+              <CircleNotch size={22} weight="bold" className="animate-spin" />
+            ) : (
+              <DownloadSimple size={22} weight="regular" />
+            )}
+            {t('share.saveVideo')}
           </Button>
         </div>
       </SheetContent>

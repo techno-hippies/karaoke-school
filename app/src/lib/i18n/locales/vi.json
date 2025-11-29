@@ -44,7 +44,8 @@
     "fetchingAccount": "Đang tải tài khoản của bạn...",
     "googleNotAvailable": "Đăng nhập Google không khả dụng. Vui lòng sử dụng Passkey.",
     "discordNotAvailable": "Đăng nhập Discord không khả dụng. Vui lòng sử dụng Passkey.",
-    "eoaNotSupported": "Đăng nhập EOA không được hỗ trợ. Vui lòng sử dụng Passkey."
+    "eoaNotSupported": "Đăng nhập EOA không được hỗ trợ. Vui lòng sử dụng Passkey.",
+    "orConnectWallet": "Hoặc kết nối ví"
   },
   "feed": {
     "forYou": "Dành cho bạn",
@@ -75,7 +76,9 @@
     "students": "Học sinh",
     "points": "điểm",
     "unableToLoad": "Không thể tải phương tiện",
-    "instrumentalNotAvailable": "Nhạc nền không khả dụng"
+    "instrumentalNotAvailable": "Nhạc nền không khả dụng",
+    "noStudentsYet": "Chưa ai học bài hát này!",
+    "noVideosYet": "Chưa có video"
   },
   "study": {
     "startSession": "Bắt đầu học",
@@ -127,7 +130,11 @@
     "technicalIssue": "Lỗi kỹ thuật",
     "inappropriateContent": "Nội dung không phù hợp",
     "other": "Khác",
-    "failedToLoad": "Không thể tải bài tập này"
+    "failedToLoad": "Không thể tải bài tập này",
+    "translate": "Dịch:",
+    "answer": "Trả lời:",
+    "question": "Câu hỏi:",
+    "explanation": "Giải thích:"
   },
   "common": {
     "loading": "Đang tải...",
@@ -160,5 +167,34 @@
     "notifications": "Thông báo",
     "privacy": "Quyền riêng tư",
     "help": "Trợ giúp"
+  },
+  "artist": {
+    "song": "bài hát",
+    "songs": "bài hát",
+    "songsTab": "Bài hát",
+    "studentsTab": "Học sinh",
+    "noSongs": "Chưa có bài hát",
+    "noStudents": "Chưa có học sinh. Hãy là người đầu tiên luyện tập!",
+    "points": "điểm",
+    "dayStreak": "ngày liên tiếp"
+  },
+  "leaderboard": {
+    "title": "Bảng xếp hạng",
+    "points": "điểm",
+    "streak": "{{days}} ngày liên tiếp",
+    "empty": "Chưa có hoạt động. Hãy là người đầu tiên!",
+    "error": "Không thể tải bảng xếp hạng"
+  },
+  "share": {
+    "title": "Tùy chọn chia sẻ",
+    "description": "Chia sẻ video này trên mạng xã hội hoặc sao chép liên kết",
+    "share": "Chia sẻ",
+    "x": "X",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "copyLink": "Sao chép liên kết",
+    "saveVideo": "Lưu video",
+    "linkCopied": "Đã sao chép liên kết!",
+    "downloadStarted": "Bắt đầu tải xuống"
   }
 }

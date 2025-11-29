@@ -4,37 +4,7 @@ indexerHints:
 schema:
   file: ./schema.graphql
 dataSources:
-  # ClipEvents - Clip registration, processing, encryption
-  # Address: 0x369Cd327c39E2f00b851f06B6e25bb01a5149961
-  - kind: ethereum
-    name: ClipEvents
-    network: lens-testnet
-    source:
-      address: "0x369Cd327c39E2f00b851f06B6e25bb01a5149961"
-      abi: ClipEvents
-      startBlock: 4210000
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Clip
-        - GlobalStats
-      abis:
-        - name: ClipEvents
-          file: ./abis/ClipEvents.json
-      eventHandlers:
-        - event: ClipRegistered(indexed bytes32,string,string,uint32,uint32,string,indexed address,uint64)
-          handler: handleClipRegistered
-        - event: ClipProcessed(indexed bytes32,string,string,uint8,string,uint64)
-          handler: handleClipProcessed
-        - event: SongEncrypted(indexed bytes32,string,string,string,address,uint32,string,uint64)
-          handler: handleSongEncrypted
-        - event: ClipToggled(indexed bytes32,bool,uint64)
-          handler: handleClipToggled
-      file: ./src/mappings.ts
-
-  # KaraokeEvents - Session tracking (live karaoke grading)
+  # KaraokeEvents - Clip lifecycle + karaoke grading
   # Address: 0x51aA6987130AA7E4654218859E075D8e790f4409
   - kind: ethereum
     name: KaraokeEvents
@@ -48,6 +18,7 @@ dataSources:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
+        - Clip
         - Performance
         - KaraokeSession
         - KaraokeLineScore
@@ -56,6 +27,16 @@ dataSources:
         - name: KaraokeEvents
           file: ./abis/KaraokeEvents.json
       eventHandlers:
+        # Clip lifecycle events
+        - event: ClipRegistered(indexed bytes32,string,string,uint32,uint32,string,indexed address,uint64)
+          handler: handleClipRegistered
+        - event: ClipProcessed(indexed bytes32,string,string,uint8,string,uint64)
+          handler: handleClipProcessed
+        - event: SongEncrypted(indexed bytes32,string,string,string,address,uint32,string,uint64)
+          handler: handleSongEncrypted
+        - event: ClipToggled(indexed bytes32,bool,uint64)
+          handler: handleClipToggled
+        # Karaoke grading events
         - event: KaraokePerformanceGraded(indexed uint256,indexed bytes32,string,indexed address,string,uint16,uint16,string,string,uint64)
           handler: handleKaraokePerformanceGraded
         - event: KaraokeSessionStarted(indexed bytes32,indexed bytes32,indexed address,uint16,uint64)

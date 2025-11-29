@@ -100,6 +100,7 @@ export async function resumeLensSession(): Promise<SessionClient | null> {
   const resumed = await lensClient.resumeSession()
 
   if (resumed.isErr()) {
+    console.error('[Lens Auth] Failed to resume session:', resumed.error)
     return null
   }
 

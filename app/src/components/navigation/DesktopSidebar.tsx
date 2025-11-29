@@ -25,7 +25,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="p-6 px-8">
-          <h1 className="text-foreground font-bold text-3xl">KSchool</h1>
+          <h1 className="text-foreground font-bold text-3xl">K School</h1>
         </div>
 
         {/* Navigation */}

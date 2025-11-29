@@ -25,9 +25,9 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       global: 'globalThis',
-      // Runtime process global comes from index.html inline script
-      // This replaces process.env.* at build time
-      'process.env': env,
+      // Provide empty process.env for Node polyfills
+      // VITE_* vars are automatically available via import.meta.env
+      'process.env': {},
     },
     build: {
       rollupOptions: {

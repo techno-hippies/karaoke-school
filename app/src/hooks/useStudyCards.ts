@@ -315,7 +315,9 @@ export function useStudyCards(songId?: string) {
         const clipMetadataCache = new Map<string, any>()
         const metadataFailures: Array<{ metadataUri: string; error: string }> = []
 
+        console.log('[useStudyCards] Processing clips:', data.clips?.length, 'clips')
         for (const clip of data.clips) {
+          console.log('[useStudyCards] Clip:', clip.id, 'metadataUri:', clip.metadataUri?.substring(0, 60))
           if (!clip.metadataUri) continue
 
           try {
@@ -337,11 +339,14 @@ export function useStudyCards(songId?: string) {
 
             // Store title/artist/artwork for this track
             if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+              console.log('[useStudyCards] ✅ Stored metadata for', clip.spotifyTrackId, ':', clipMetadata.title, '-', clipMetadata.artist)
               songMetadataBySpotifyId.set(clip.spotifyTrackId, {
                 title: clipMetadata.title,
                 artist: clipMetadata.artist,
                 artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
               })
+            } else {
+              console.log('[useStudyCards] ⚠️ Missing title/artist in metadata for', clip.spotifyTrackId, ':', clipMetadata)
             }
           } catch (error) {
             console.warn('[useStudyCards] ⚠️ Error fetching clip metadata', {
@@ -376,6 +381,7 @@ export function useStudyCards(songId?: string) {
           const title = songMetadata?.title
           const artist = songMetadata?.artist
           const artworkUrl = songMetadata?.artworkUrl
+          console.log('[useStudyCards] Exercise card', card.id.substring(0, 12), 'spotifyTrackId:', card.spotifyTrackId, '→', title, '-', artist)
 
           studyCards.push({
             id: card.id,

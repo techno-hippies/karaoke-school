@@ -36,7 +36,7 @@ function VerticalVideoFeedComponent({
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const navigate = useNavigate()
-  const { lensSession, pkpWalletClient, pkpAddress } = useAuth()
+  const { lensSession, pkpWalletClient, pkpAddress, openAuthDialog } = useAuth()
 
   // Track follow and like state for each video (optimistic updates)
   const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
@@ -195,11 +195,9 @@ function VerticalVideoFeedComponent({
               karaokeClassName="pt-20 md:pt-6"
               hasMobileFooter={hasMobileFooter}
               onLikeClick={async () => {
-                console.log('[VerticalVideoFeed] Like clicked:', video.id)
-
-                // Check if user is authenticated
+                // Check if user is authenticated - open auth dialog if not
                 if (!lensSession) {
-                  toast.error('Please sign in to like posts')
+                  openAuthDialog()
                   return
                 }
 
@@ -255,19 +253,15 @@ function VerticalVideoFeedComponent({
                 }
               }}
               onCommentClick={() => {
-                console.log('[VerticalVideoFeed] Comment clicked:', video.id)
-                // TODO: Handle comment sheet
+                // Comment sheet is handled by VideoPost component
               }}
               onShareClick={() => {
-                console.log('[VerticalVideoFeed] Share clicked:', video.id)
-                // TODO: Handle share sheet
+                // Share sheet is handled by VideoPost component
               }}
               onFollowClick={async () => {
-                console.log('[VerticalVideoFeed] Follow clicked:', video.username)
-
-                // Check if user is authenticated
+                // Check if user is authenticated - open auth dialog if not
                 if (!lensSession || !pkpWalletClient) {
-                  toast.error('Please sign in to follow accounts')
+                  openAuthDialog()
                   return
                 }
 
@@ -332,13 +326,11 @@ function VerticalVideoFeedComponent({
                 }
               }}
               onProfileClick={() => {
-                console.log('[VerticalVideoFeed] Profile clicked:', video.username)
                 navigate(`/u/${video.username}`)
               }}
               onAudioClick={() => {
                 // Primary: use slugs for clean URLs (e.g., /eminem/lose-yourself)
                 if (video.artistSlug && video.songSlug) {
-                  console.log('[VerticalVideoFeed] Audio clicked (slug attr):', `/${video.artistSlug}/${video.songSlug}`)
                   navigate(`/${video.artistSlug}/${video.songSlug}`)
                   return
                 }
@@ -346,12 +338,10 @@ function VerticalVideoFeedComponent({
                 if (video.musicTitle && video.musicAuthor) {
                   const artistSlug = generateSlug(video.musicAuthor)
                   const songSlug = generateSlug(video.musicTitle)
-                  console.log('[VerticalVideoFeed] Audio clicked (generated slug):', `/${artistSlug}/${songSlug}`)
                   navigate(`/${artistSlug}/${songSlug}`)
                   return
                 }
                 // Legacy fallback: use Spotify track ID
-                console.log('[VerticalVideoFeed] Audio clicked (fallback):', video.spotifyTrackId)
                 if (video.spotifyTrackId) {
                   navigate(`/song/${video.spotifyTrackId}`)
                 }

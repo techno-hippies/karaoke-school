@@ -8,7 +8,7 @@ import * as contracts from '../../config/contracts.config.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '../../');
 
-// Load root .env if present (for API keys mostly)
+// Load lit-actions/.env if present
 dotenv.config({ path: join(ROOT_DIR, '.env') });
 
 // Detect Environment

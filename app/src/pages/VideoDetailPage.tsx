@@ -6,7 +6,7 @@
 
 import { useMemo, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { usePost, useAccount } from '@lens-protocol/react'
+import { usePost, useAccount, postId as lensPostId } from '@lens-protocol/react'
 import { VideoDetail } from '@/components/feed/VideoDetail'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { convertGroveUri, parseVideoMetadata } from '@/lib/lens/utils'
@@ -42,7 +42,8 @@ export function VideoDetailPage() {
   const videoList = fromContext === 'song' && songVideos ? songVideos : allPosts
 
   // Fetch current post from Lens
-  const { data: post, loading, error } = usePost({ post: postId! })
+  // Note: postId from URL must be wrapped with lensPostId() helper
+  const { data: post, loading, error } = usePost({ post: lensPostId(postId!) })
 
   // Fetch follow state
   const authorAddress = post?.author?.address || prevPostRef.current?.author?.address

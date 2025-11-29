@@ -16,6 +16,7 @@ export interface MediaPageProps {
   artworkUrl?: string
   selectedLanguage?: string
   showTranslations?: boolean
+  isAudioLoading?: boolean
   onBack?: () => void
   onArtistClick?: () => void
   onUnlockClick?: () => void
@@ -34,6 +35,7 @@ export function MediaPage({
   artworkUrl,
   selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
   showTranslations = true,
+  isAudioLoading = false,
   onBack,
   onArtistClick,
   onUnlockClick,
@@ -84,19 +86,7 @@ export function MediaPage({
         )}>
           {!artworkUrl && <BackButton onClick={onBack} />}
           <div className="flex-1 min-w-0">
-            <h1 className={cn(
-              'text-foreground font-semibold flex-1 text-center truncate min-w-0',
-              artworkUrl ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
-            )}>
-              {title} - {onArtistClick ? (
-                <button
-                  onClick={onArtistClick}
-                  className="hover:text-primary transition-colors cursor-pointer"
-                >
-                  {artist}
-                </button>
-              ) : artist}
-            </h1>
+            {/* Title and artist removed per user request */}
           </div>
           {onUnlockClick && (
             <Button
@@ -138,6 +128,7 @@ export function MediaPage({
           duration={duration}
           onSeek={seek}
           showTimeLabels
+          isAudioLoading={isAudioLoading}
           className="w-full"
         />
       </div>

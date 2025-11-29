@@ -344,9 +344,7 @@ export function KaraokePracticeSession({
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center px-16">
-              <h1 className="text-sm sm:text-base font-semibold text-white truncate">
-                {isSubscriber ? title : `Preview: ${title}`}
-              </h1>
+              {/* Title removed per user request */}
               {phase === 'recording' && (
                 <p className="text-xs text-white/50">
                   {activeLineCount > 0 ? 'Grading...' : 'Listening...'}

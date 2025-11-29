@@ -297,6 +297,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
             </ItemGroup>
           </div>
         )}
+
       </div>
     </div>
   )

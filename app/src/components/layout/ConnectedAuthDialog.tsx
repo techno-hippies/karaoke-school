@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { AuthDialog } from './AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { validateUsernameFormat } from '@/lib/lens/account-creation'
@@ -26,6 +27,8 @@ export function ConnectedAuthDialog({ open, onOpenChange }: ConnectedAuthDialogP
     loginWithGoogle,
     loginWithDiscord,
   } = useAuth()
+
+  const { openConnectModal } = useConnectModal()
 
   const [usernameAvailability, setUsernameAvailability] =
     useState<'available' | 'unavailable' | null>(null)
@@ -85,6 +88,15 @@ export function ConnectedAuthDialog({ open, onOpenChange }: ConnectedAuthDialogP
     setUsernameAvailability(null)
   }, [resetAuthFlow])
 
+  const handleConnectWallet = useCallback(() => {
+    // Close AuthDialog and open RainbowKit modal
+    onOpenChange(false)
+    // Small delay to let the dialog close before opening RainbowKit
+    setTimeout(() => {
+      openConnectModal?.()
+    }, 100)
+  }, [onOpenChange, openConnectModal])
+
   const checkUsernameAvailability = useCallback((username: string) => {
     const formatError = validateUsernameFormat(username)
     setUsernameAvailability(formatError ? null : 'available')
@@ -126,6 +138,7 @@ export function ConnectedAuthDialog({ open, onOpenChange }: ConnectedAuthDialogP
       onUsernameChange={checkUsernameAvailability}
       onLoginGoogle={(username) => handleSocialLogin('google', username)}
       onLoginDiscord={(username) => handleSocialLogin('discord', username)}
+      onConnectWallet={handleConnectWallet}
     />
   )
 }

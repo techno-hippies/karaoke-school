@@ -1,13 +1,10 @@
 import { BigInt, BigDecimal } from "@graphprotocol/graph-ts";
-// ClipEvents - Clip registration, processing, encryption
+// KaraokeEvents - Clip lifecycle + karaoke grading
 import {
   ClipRegistered,
   ClipProcessed,
   ClipToggled,
   SongEncrypted,
-} from "../generated/ClipEvents/ClipEvents";
-// KaraokeEvents - Session tracking only
-import {
   KaraokePerformanceGraded,
   KaraokeSessionStarted,
   KaraokeLineGraded,

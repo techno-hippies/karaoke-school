@@ -44,7 +44,8 @@ export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: ()
   }
 
   // Extract real profile data (only after loading is complete)
-  const username = lensAccount.username?.localName || 'user' // Handle without @
+  // Prefer metadata.name (set during registration) over username.localName (may be auto-generated global namespace)
+  const username = lensAccount.metadata?.name || lensAccount.username?.localName || 'user'
   const displayName = lensAccount.metadata?.name || lensAccount.username?.localName || 'User'
   const avatarUrl = lensAccount.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
 

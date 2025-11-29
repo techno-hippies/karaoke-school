@@ -44,7 +44,8 @@
     "fetchingAccount": "正在获取您的账户...",
     "googleNotAvailable": "Google登录不可用。请使用密钥。",
     "discordNotAvailable": "Discord登录不可用。请使用密钥。",
-    "eoaNotSupported": "不支持EOA登录。请使用密钥。"
+    "eoaNotSupported": "不支持EOA登录。请使用密钥。",
+    "orConnectWallet": "或连接钱包"
   },
   "feed": {
     "forYou": "为你推荐",
@@ -75,7 +76,9 @@
     "students": "学生",
     "points": "分",
     "unableToLoad": "无法加载媒体",
-    "instrumentalNotAvailable": "伴奏音频不可用"
+    "instrumentalNotAvailable": "伴奏音频不可用",
+    "noStudentsYet": "还没有人学习这首歌！",
+    "noVideosYet": "暂无视频"
   },
   "study": {
     "startSession": "开始学习",
@@ -127,7 +130,11 @@
     "technicalIssue": "技术问题",
     "inappropriateContent": "不当内容",
     "other": "其他",
-    "failedToLoad": "加载练习失败"
+    "failedToLoad": "加载练习失败",
+    "translate": "翻译：",
+    "answer": "回答：",
+    "question": "问题：",
+    "explanation": "解释："
   },
   "common": {
     "loading": "加载中...",
@@ -160,5 +167,34 @@
     "notifications": "通知",
     "privacy": "隐私",
     "help": "帮助"
+  },
+  "artist": {
+    "song": "歌曲",
+    "songs": "歌曲",
+    "songsTab": "歌曲",
+    "studentsTab": "学生",
+    "noSongs": "暂无歌曲",
+    "noStudents": "暂无学生。成为第一个练习的人！",
+    "points": "分",
+    "dayStreak": "天连续"
+  },
+  "leaderboard": {
+    "title": "排行榜",
+    "points": "分",
+    "streak": "{{days}}天连续",
+    "empty": "暂无活动。成为第一个！",
+    "error": "加载排行榜失败"
+  },
+  "share": {
+    "title": "分享选项",
+    "description": "在社交媒体上分享此视频或复制链接",
+    "share": "分享",
+    "x": "X",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "copyLink": "复制链接",
+    "saveVideo": "保存视频",
+    "linkCopied": "链接已复制！",
+    "downloadStarted": "开始下载"
   }
 }

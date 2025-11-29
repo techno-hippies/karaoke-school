@@ -6,6 +6,7 @@ export interface ArtistSong {
   spotifyTrackId: string
   title: string
   artist: string
+  artistSlug?: string
   coverUri?: string
 }
 
@@ -56,6 +57,7 @@ export function useArtistSongsByLensHandle(lensHandle?: string) {
                   spotifyTrackId: clip.spotifyTrackId,
                   title: metadata.title || 'Untitled',
                   artist: metadata.artist || 'Unknown Artist',
+                  artistSlug: metadata.artistSlug,
                   coverUri: metadata.coverUri ? convertGroveUri(metadata.coverUri) : undefined,
                 })
               }

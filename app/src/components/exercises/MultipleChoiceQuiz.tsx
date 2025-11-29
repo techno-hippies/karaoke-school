@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -37,6 +38,7 @@ export const MultipleChoiceQuiz = ({
   explanation,
   exerciseType = 'TRIVIA_QUIZ',
 }: MultipleChoiceQuizProps) => {
+  const { t } = useTranslation()
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(selectedAnswerId ?? null)
   const [internalAnswered, setInternalAnswered] = useState<boolean>(!!hasAnswered)
 
@@ -124,12 +126,12 @@ export const MultipleChoiceQuiz = ({
     switch (exerciseType) {
       case 'TRANSLATION_MULTIPLE_CHOICE':
       case 'TRANSLATION_QUIZ':
-        return 'Translate:'
+        return t('study.translate')
       case 'TRIVIA_MULTIPLE_CHOICE':
       case 'TRIVIA_QUIZ':
-        return 'Answer:'
+        return t('study.answer')
       default:
-        return 'Question:'
+        return t('study.question')
     }
   }
 
@@ -172,7 +174,7 @@ export const MultipleChoiceQuiz = ({
       {/* Explanation (shown after answering if provided) */}
       {resolvedAnswered && !isProcessing && explanation && (
         <div className="p-4 bg-secondary/20 rounded-lg">
-          <div className="text-muted-foreground text-base font-medium mb-1">Explanation:</div>
+          <div className="text-muted-foreground text-base font-medium mb-1">{t('study.explanation')}</div>
           <div className="text-foreground text-base">{explanation}</div>
         </div>
       )}

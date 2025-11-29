@@ -7,6 +7,8 @@ import { VideoInfo } from './VideoInfo'
 import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import type { KaraokeLine, KaraokeWord, VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
@@ -61,6 +63,8 @@ function VideoPostComponent({
   karaokeClassName,
   hasMobileFooter = false
 }: VideoPostProps) {
+  const { t } = useTranslation()
+
   // Use shared video playback logic
   const {
     isPlaying,
@@ -84,6 +88,41 @@ function VideoPostComponent({
   const handleShareClick = () => {
     setShareSheetOpen(true)
     onShareClick?.()
+  }
+
+  const handleCopyLink = () => {
+    toast.success(t('share.linkCopied'))
+  }
+
+  const handleDownloadVideo = async () => {
+    if (!videoUrl) return
+
+    try {
+      // Fetch the video as a blob
+      const response = await fetch(videoUrl)
+      if (!response.ok) throw new Error('Failed to fetch video')
+
+      const blob = await response.blob()
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `karaoke-${username}-${id}.mp4`
+
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast.success(t('share.downloadStarted'))
+    } catch (error) {
+      console.error('Failed to download video:', error)
+      toast.error('Failed to download video')
+    }
   }
 
   const safeAreaBottom = 'var(--safe-area-bottom)'
@@ -234,8 +273,8 @@ function VideoPostComponent({
         onOpenChange={setShareSheetOpen}
         postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${username}/video/${id}` : ''}
         postDescription={`${username} got a ${grade || 'grade'} on ${musicTitle || 'karaoke'}`}
-        onCopyLink={() => console.log('Link copied')}
-        onDownload={() => console.log('Download video')}
+        onCopyLink={handleCopyLink}
+        onDownload={handleDownloadVideo}
       />
     </div>
   )

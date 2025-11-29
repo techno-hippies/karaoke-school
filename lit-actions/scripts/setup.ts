@@ -10,10 +10,10 @@
  * 4. Verify everything is configured correctly
  *
  * Usage:
- *   bun scripts/setup.ts karaoke           # Full setup for karaoke action
  *   bun scripts/setup.ts exercise          # Full setup for exercise action
- *   bun scripts/setup.ts --all             # Setup both actions
- *   bun scripts/setup.ts karaoke --dry-run # Preview without changes
+ *   bun scripts/setup.ts karaoke-line      # Full setup for karaoke-line action
+ *   bun scripts/setup.ts --all             # Setup all actions
+ *   bun scripts/setup.ts exercise --dry-run # Preview without changes
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
@@ -46,15 +46,6 @@ interface ActionDef {
 }
 
 const ACTIONS: Record<string, ActionDef> = {
-  karaoke: {
-    name: 'karaoke',
-    path: 'actions/karaoke-grader-v1.js',
-    displayName: 'Karaoke Grader v1',
-    keys: [
-      { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' },
-      { name: 'openrouter_api_key', envVar: 'OPENROUTER_API_KEY' }
-    ]
-  },
   'karaoke-line': {
     name: 'karaoke-line',
     path: 'actions/karaoke-line-grader-v1.js',
@@ -319,7 +310,7 @@ async function main() {
       console.log('\n⚠️  DRY RUN - no changes were made');
     } else {
       console.log('\n📋 Next steps:');
-      console.log('   1. Run tests: bun tests/karaoke/test-karaoke-grader.ts');
+      console.log('   1. Run tests: bun tests/karaoke/test-karaoke-line-grader.ts');
       console.log('   2. Verify: bun scripts/verify.ts');
       console.log('   3. Restart app dev server to pick up new keys');
     }

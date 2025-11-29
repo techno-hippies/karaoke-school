@@ -44,7 +44,8 @@
     "fetchingAccount": "Mengambil akun Anda...",
     "googleNotAvailable": "Login Google tidak tersedia. Silakan gunakan Passkey.",
     "discordNotAvailable": "Login Discord tidak tersedia. Silakan gunakan Passkey.",
-    "eoaNotSupported": "Login EOA tidak didukung. Silakan gunakan Passkey."
+    "eoaNotSupported": "Login EOA tidak didukung. Silakan gunakan Passkey.",
+    "orConnectWallet": "Atau Hubungkan Dompet"
   },
   "feed": {
     "forYou": "Untuk Anda",
@@ -75,7 +76,9 @@
     "students": "Siswa",
     "points": "poin",
     "unableToLoad": "Tidak dapat memuat media",
-    "instrumentalNotAvailable": "Audio instrumental tidak tersedia"
+    "instrumentalNotAvailable": "Audio instrumental tidak tersedia",
+    "noStudentsYet": "Belum ada yang belajar lagu ini!",
+    "noVideosYet": "Belum ada video"
   },
   "study": {
     "startSession": "Mulai Belajar",
@@ -127,7 +130,11 @@
     "technicalIssue": "Masalah teknis",
     "inappropriateContent": "Konten tidak pantas",
     "other": "Lainnya",
-    "failedToLoad": "Gagal memuat latihan ini"
+    "failedToLoad": "Gagal memuat latihan ini",
+    "translate": "Terjemahkan:",
+    "answer": "Jawab:",
+    "question": "Pertanyaan:",
+    "explanation": "Penjelasan:"
   },
   "common": {
     "loading": "Memuat...",
@@ -160,5 +167,34 @@
     "notifications": "Notifikasi",
     "privacy": "Privasi",
     "help": "Bantuan"
+  },
+  "artist": {
+    "song": "lagu",
+    "songs": "lagu",
+    "songsTab": "Lagu",
+    "studentsTab": "Siswa",
+    "noSongs": "Belum ada lagu",
+    "noStudents": "Belum ada siswa. Jadilah yang pertama berlatih!",
+    "points": "poin",
+    "dayStreak": "hari berturut-turut"
+  },
+  "leaderboard": {
+    "title": "Papan Peringkat",
+    "points": "poin",
+    "streak": "{{days}} hari berturut-turut",
+    "empty": "Belum ada aktivitas. Jadilah yang pertama!",
+    "error": "Gagal memuat papan peringkat"
+  },
+  "share": {
+    "title": "Opsi berbagi",
+    "description": "Bagikan video ini di media sosial atau salin tautan",
+    "share": "Bagikan",
+    "x": "X",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "copyLink": "Salin tautan",
+    "saveVideo": "Simpan video",
+    "linkCopied": "Tautan disalin!",
+    "downloadStarted": "Unduhan dimulai"
   }
 }

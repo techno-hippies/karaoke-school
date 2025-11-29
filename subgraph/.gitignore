@@ -1,0 +1,12 @@
+# Build artifacts
+build/
+generated/
+
+# GND temp directories
+pgtemp-*/
+
+# Logs
+*.log
+
+# Node
+node_modules/

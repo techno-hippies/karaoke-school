@@ -1,6 +1,9 @@
 /**
- * useDecryptFullAudio
- * Decrypts Lit-encrypted full song audio when user owns Unlock subscription NFT
+ * useSubscriptionCheck
+ * Checks if user owns Unlock subscription NFT on Base Sepolia
+ *
+ * NOTE: Lit Protocol decryption disabled due to large file (413) issues.
+ * Instead, we verify subscription via NFT balance and use unencrypted fullInstrumental URL.
  */
 
 import { useState, useEffect } from 'react'
@@ -15,60 +18,56 @@ export interface DecryptFullAudioResult {
 }
 
 /**
- * Hook to decrypt full audio if user has subscription
+ * Hook to check subscription status via Unlock NFT balance
  *
- * @param spotifyTrackId - Spotify track ID
- * @param encryptedFullUrl - Grove URL to encrypted full audio
+ * @param spotifyTrackId - Spotify track ID (for logging)
+ * @param fullInstrumentalUrl - Grove URL to unencrypted full audio (from metadata.assets.fullInstrumental)
  * @param unlockLockAddress - Unlock Protocol lock contract address
  * @param unlockChainId - Chain ID where lock contract is deployed (84532 = Base Sepolia)
- * @returns Decrypted audio URL or error
+ * @param recheckTrigger - Optional trigger to force re-check (increment after subscription purchase)
+ * @returns hasSubscription flag and fullInstrumentalUrl if subscribed
  */
 export function useDecryptFullAudio(
   spotifyTrackId?: string,
-  encryptedFullUrl?: string,
+  fullInstrumentalUrl?: string,
   unlockLockAddress?: string,
-  unlockChainId?: number
+  unlockChainId?: number,
+  recheckTrigger?: number
 ): DecryptFullAudioResult {
-  const { pkpAuthContext, pkpInfo } = useAuth()
-  const [isDecrypting, setIsDecrypting] = useState(false)
-  const [decryptedAudioUrl, setDecryptedAudioUrl] = useState<string>()
+  const { pkpInfo } = useAuth()
+  const [isChecking, setIsChecking] = useState(false)
   const [error, setError] = useState<string>()
   const [hasSubscription, setHasSubscription] = useState(false)
 
   useEffect(() => {
     // Reset state when track changes
-    setDecryptedAudioUrl(undefined)
     setError(undefined)
     setHasSubscription(false)
 
-    if (!spotifyTrackId || !encryptedFullUrl || !unlockLockAddress || !unlockChainId || !pkpAuthContext || !pkpInfo) {
-      console.log('[useDecryptFullAudio] Missing required parameters:', {
+    if (!spotifyTrackId || !unlockLockAddress || !unlockChainId || !pkpInfo) {
+      console.log('[useSubscriptionCheck] Missing required parameters:', {
         spotifyTrackId: !!spotifyTrackId,
-        encryptedFullUrl: !!encryptedFullUrl,
         unlockLockAddress: !!unlockLockAddress,
         unlockChainId: !!unlockChainId,
-        pkpAuthContext: !!pkpAuthContext,
         pkpInfo: !!pkpInfo,
       })
       return
     }
 
-    const checkAndDecrypt = async () => {
-      console.log('[useDecryptFullAudio] Checking subscription and decrypting...')
-      console.log('[useDecryptFullAudio] Track:', spotifyTrackId)
-      console.log('[useDecryptFullAudio] Encrypted URL:', encryptedFullUrl)
-      console.log('[useDecryptFullAudio] PKP Address:', pkpInfo.ethAddress)
+    const checkSubscription = async () => {
+      console.log('[useSubscriptionCheck] Checking subscription...')
+      console.log('[useSubscriptionCheck] Track:', spotifyTrackId)
+      console.log('[useSubscriptionCheck] PKP Address:', pkpInfo.ethAddress)
 
-      setIsDecrypting(true)
+      setIsChecking(true)
       setError(undefined)
 
       try {
-        // 1. Check if user has subscription (owns Unlock NFT)
         const lockAddress = unlockLockAddress as Address
 
-        console.log('[useDecryptFullAudio] Checking Unlock NFT balance...')
-        console.log('[useDecryptFullAudio] Lock address:', lockAddress)
-        console.log('[useDecryptFullAudio] Chain ID:', unlockChainId)
+        console.log('[useSubscriptionCheck] Checking Unlock NFT balance...')
+        console.log('[useSubscriptionCheck] Lock address:', lockAddress)
+        console.log('[useSubscriptionCheck] Chain ID:', unlockChainId)
 
         const { createPublicClient, http } = await import('viem')
         const { baseSepolia } = await import('viem/chains')
@@ -94,103 +93,32 @@ export function useDecryptFullAudio(
           args: [pkpInfo.ethAddress as Address],
         })
 
-        console.log('[useDecryptFullAudio] NFT Balance:', balance.toString())
+        console.log('[useSubscriptionCheck] NFT Balance:', balance.toString())
 
         if (balance === 0n) {
-          console.log('[useDecryptFullAudio] No subscription - user does not own NFT')
+          console.log('[useSubscriptionCheck] No subscription - user does not own NFT')
           setHasSubscription(false)
-          setIsDecrypting(false)
-          return
+        } else {
+          console.log('[useSubscriptionCheck] ✅ User has subscription!')
+          setHasSubscription(true)
         }
 
-        console.log('[useDecryptFullAudio] ✅ User has subscription!')
-        setHasSubscription(true)
-
-        // 2. Decrypt audio with Lit Protocol
-        console.log('[useDecryptFullAudio] Decrypting full audio with Lit Protocol...')
-
-        const { createLitClient } = await import('@lit-protocol/lit-client')
-        const { nagaTest } = await import('@lit-protocol/networks')
-
-        const litClient = await createLitClient({
-      // @ts-expect-error - Lit Protocol version mismatch between dependencies
-          network: nagaTest,
-        })
-
-        // Fetch encrypted data from Grove (stored as JSON with { ciphertext, dataToEncryptHash })
-        console.log('[useDecryptFullAudio] Fetching encrypted data from:', encryptedFullUrl)
-        const encryptedResponse = await fetch(encryptedFullUrl)
-        const encryptedData = await encryptedResponse.json()
-
-        console.log('[useDecryptFullAudio] Encrypted data fetched:', {
-          hasCiphertext: !!encryptedData.ciphertext,
-          hasDataToEncryptHash: !!encryptedData.dataToEncryptHash,
-          ciphertextLength: encryptedData.ciphertext?.length,
-        })
-
-        // Build access control conditions (reconstructed from unlock parameters)
-        const accessControlConditions = [
-          {
-            conditionType: 'evmBasic' as const,
-            contractAddress: lockAddress.toLowerCase(),
-            standardContractType: 'ERC721',
-            chain: 'baseSepolia' as const,
-            method: 'balanceOf',
-            parameters: [':userAddress'],
-            returnValueTest: {
-              comparator: '>',
-              value: '0',
-            },
-          },
-        ]
-
-        console.log('[useDecryptFullAudio] Access control conditions:', accessControlConditions)
-
-        // Decrypt with Lit Protocol (pass encrypted data object directly)
-        const decryptedData = await litClient.decrypt({
-          data: encryptedData,
-          unifiedAccessControlConditions: accessControlConditions as any,
-          authContext: pkpAuthContext,
-          chain: 'baseSepolia',
-        })
-
-        console.log('[useDecryptFullAudio] ✅ Audio decrypted successfully')
-
-        // 3. Create blob URL from decrypted data
-        const audioBlob = new Blob([decryptedData.decryptedData], { type: 'audio/mpeg' })
-        const blobUrl = URL.createObjectURL(audioBlob)
-
-        console.log('[useDecryptFullAudio] ✅ Decrypted audio URL created:', blobUrl)
-
-        setDecryptedAudioUrl(blobUrl)
-
-        // Disconnect Lit client
-        await litClient.disconnect()
-
       } catch (err) {
-        console.error('[useDecryptFullAudio] ❌ Error:', err)
-        const errorMsg = err instanceof Error ? err.message : 'Failed to decrypt audio'
+        console.error('[useSubscriptionCheck] ❌ Error:', err)
+        const errorMsg = err instanceof Error ? err.message : 'Failed to check subscription'
         setError(errorMsg)
       } finally {
-        setIsDecrypting(false)
+        setIsChecking(false)
       }
     }
 
-    checkAndDecrypt()
-  }, [spotifyTrackId, encryptedFullUrl, unlockLockAddress, unlockChainId, pkpAuthContext, pkpInfo])
-
-  // Cleanup blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (decryptedAudioUrl) {
-        URL.revokeObjectURL(decryptedAudioUrl)
-      }
-    }
-  }, [decryptedAudioUrl])
+    checkSubscription()
+  }, [spotifyTrackId, unlockLockAddress, unlockChainId, pkpInfo, recheckTrigger])
 
   return {
-    isDecrypting,
-    decryptedAudioUrl,
+    isDecrypting: isChecking,
+    // Return the full instrumental URL if user has subscription
+    decryptedAudioUrl: hasSubscription && fullInstrumentalUrl ? fullInstrumentalUrl : undefined,
     error,
     hasSubscription,
   }

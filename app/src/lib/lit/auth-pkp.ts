@@ -51,16 +51,18 @@ export async function createPKPAuthContext(
     const authManager = getAuthManager()
 
     // Create PKP auth context - use tuple format (object format breaks PKP signing)
+    // IMPORTANT: Include decryption resource so subscribers can decrypt premium content
     const authContext = await authManager.createPkpAuthContext({
       authData: authData,
       pkpPublicKey: pkpInfo.publicKey,
       authConfig: {
         domain: typeof window !== 'undefined' ? window.location.host : 'localhost',
-        statement: 'Execute Lit Actions and sign transactions',
+        statement: 'Execute Lit Actions, sign transactions, and decrypt content',
         expiration: getConsistentExpiration(),
         resources: [
           ['lit-action-execution', '*'],
           ['pkp-signing', '*'],
+          ['access-control-condition-decryption', '*'],
         ],
       },
       litClient: litClient,

@@ -107,13 +107,10 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 
 ## Deployed Contracts (Lens Testnet)
 
-- **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`
-- **ClipEvents:** `0x9958Bd32bf16b5CCa0580DEB6FD29921D0466274`
-- **SongEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6`
-- **AccountEvents:** `0xb31b8abB319Ee6AB6f0706E0086bEa310E25da22`
-- **TranslationEvents:** `0x4aE979A4f115d734670403e644d83d4C695f9c58`
-
-> Legacy `PerformanceGrader` data sources remain for historical analytics but are read-only.
+- **KaraokeEvents:** `0x51aA6987130AA7E4654218859E075D8e790f4409` (clip lifecycle + grading)
+- **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
+- **TranslationEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
+- **AccountEvents:** `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)
 
 ## Verify Indexing
 

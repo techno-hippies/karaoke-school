@@ -95,6 +95,7 @@ export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
 const SLUG_MAP: Record<string, string> = {
   'eminem/lose-yourself': '5Z01UMMf7V1o0MzF86s6WJ',
   'britney-spears/toxic': '717TY4sfgKQm4kFbYQIzgo',
+  'queen/bohemian-rhapsody': '4u7EnebtmKWzUH433cf5Qv',
 }
 
 /**

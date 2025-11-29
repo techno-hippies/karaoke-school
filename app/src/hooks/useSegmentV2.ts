@@ -10,7 +10,7 @@ export interface SegmentMetadata {
   version: string
   type: string
   geniusId: number
-  tiktokSegmentId: string
+  clipId: string // Spotify track ID or clip identifier
   segmentHash: string
   startTime: number
   endTime: number
@@ -52,17 +52,15 @@ export interface SegmentMetadata {
   artist?: string
   coverUri?: string // Album artwork/cover image (Grove URI)
   timing?: {
-    full_segment_start_ms?: number
-    full_segment_end_ms?: number
-    full_segment_duration_ms?: number
-    tiktok_clip_start_ms?: number
-    tiktok_clip_end_ms?: number
-    tiktok_clip_duration_ms?: number
-    cropped_duration_ms?: number // For backwards compatibility
+    full_duration_ms?: number
+    free_clip_start_ms?: number
+    free_clip_end_ms?: number
+    free_clip_duration_ms?: number
   }
   assets?: {
     instrumental: string
     full_instrumental?: string
+    fullInstrumental?: string // camelCase variant from newer schema
     alignment: string
   }
   translations?: Array<{
@@ -70,6 +68,14 @@ export interface SegmentMetadata {
     grove_url: string
   }>
   karaoke_lines?: Array<{
+    line_index: number
+    start_ms: number | string
+    end_ms: number | string
+    original_text?: string
+    text?: string
+    [key: string]: unknown
+  }>
+  full_karaoke_lines?: Array<{
     line_index: number
     start_ms: number | string
     end_ms: number | string
@@ -105,26 +111,81 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
     }
   }
 
-  // Handle NEW format: timing.tiktok_clip_*, assets.instrumental, translations[]
-  if (groveData.timing?.tiktok_clip_duration_ms && groveData.translations) {
-    // For NEW format, return as-is (app will fetch translations separately)
-    // Map clip timing to expected format
+  // Handle LEGACY format: timing.free_clip_*, assets.instrumental, translations[]
+  // (Previously used tiktok_clip_* naming)
+  if ((groveData.timing?.free_clip_duration_ms || groveData.timing?.tiktok_clip_duration_ms) && groveData.translations) {
+    const freeClipStart = groveData.timing.free_clip_start_ms ?? groveData.timing.tiktok_clip_start_ms
+    const freeClipEnd = groveData.timing.free_clip_end_ms ?? groveData.timing.tiktok_clip_end_ms
+    const freeClipDuration = groveData.timing.free_clip_duration_ms ?? groveData.timing.tiktok_clip_duration_ms
+
     return {
       version: 'v2',
       type: 'karaoke-segment',
       geniusId: 0,
-      tiktokSegmentId: groveData.spotify_track_id,
+      clipId: groveData.spotify_track_id,
       segmentHash: groveData.segment_hash,
-      startTime: groveData.timing.tiktok_clip_start_ms,
-      endTime: groveData.timing.tiktok_clip_end_ms,
-      duration: groveData.timing.tiktok_clip_duration_ms,
-      // These are filled in by MediaPageContainer which will fetch translations
+      startTime: freeClipStart,
+      endTime: freeClipEnd,
+      duration: freeClipDuration,
       lyrics: {
         original: { language: 'en', lines: [] },
         translations: undefined,
       },
       registeredBy: 'karaoke-pipeline',
-      // Store original data for access
+      ...groveData,
+    }
+  }
+
+  // Handle KARAOKE-CLIP format (v2.0.0): type='karaoke-clip', timing.clipStartMs/clipEndMs, assets.clipInstrumental
+  if (groveData.type === 'karaoke-clip' && groveData.timing?.clipEndMs !== undefined) {
+    console.log('[useSegmentV2] Detected karaoke-clip v2.0.0 format')
+
+    // Use actual karaoke_lines if present, otherwise fallback to lyricsPreview
+    const karaoke_lines = groveData.karaoke_lines || groveData.lyricsPreview?.map((line: any) => ({
+      line_index: line.index,
+      start_ms: line.startMs,
+      end_ms: line.endMs,
+      original_text: line.text,
+      text: line.text,
+    })) || []
+
+    const freeClipDuration = groveData.timing.clipEndMs - groveData.timing.clipStartMs
+
+    return {
+      version: groveData.version || 'v2.0.0',
+      type: 'karaoke-clip',
+      geniusId: 0,
+      clipId: groveData.spotifyTrackId,
+      segmentHash: groveData.clipHash,
+      startTime: groveData.timing.clipStartMs,
+      endTime: groveData.timing.clipEndMs,
+      duration: freeClipDuration,
+      lyrics: {
+        original: { language: 'en', lines: [] },
+        translations: undefined,
+      },
+      registeredBy: 'karaoke-pipeline',
+      // Map to expected field names
+      spotify_track_id: groveData.spotifyTrackId,
+      title: groveData.title,
+      artist: groveData.artist,
+      coverUri: groveData.coverUri,
+      thumbnailUri: groveData.thumbnailUri,
+      timing: {
+        free_clip_start_ms: groveData.timing.clipStartMs,
+        free_clip_end_ms: groveData.timing.clipEndMs,
+        free_clip_duration_ms: freeClipDuration,
+        full_duration_ms: groveData.timing.fullDurationMs,
+      },
+      assets: {
+        instrumental: groveData.assets?.clipInstrumental,
+        full_instrumental: groveData.assets?.fullInstrumental,
+        alignment: groveData.assets?.alignment,
+      },
+      karaoke_lines,
+      // Pass through encryption data
+      encryption: groveData.encryption,
+      // Original data for reference
       ...groveData,
     }
   }

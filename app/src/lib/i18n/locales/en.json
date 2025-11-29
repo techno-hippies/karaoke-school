@@ -44,7 +44,8 @@
     "fetchingAccount": "Fetching your account...",
     "googleNotAvailable": "Google login is not available. Please use Passkey.",
     "discordNotAvailable": "Discord login is not available. Please use Passkey.",
-    "eoaNotSupported": "EOA login is not supported. Please use Passkey."
+    "eoaNotSupported": "EOA login is not supported. Please use Passkey.",
+    "orConnectWallet": "Or Connect Wallet"
   },
   "feed": {
     "forYou": "For You",
@@ -75,7 +76,9 @@
     "students": "Students",
     "points": "pts",
     "unableToLoad": "Unable to load media",
-    "instrumentalNotAvailable": "Instrumental audio not available"
+    "instrumentalNotAvailable": "Instrumental audio not available",
+    "noStudentsYet": "Nobody has studied this song yet!",
+    "noVideosYet": "No videos yet"
   },
   "study": {
     "startSession": "Start Session",
@@ -127,7 +130,11 @@
     "technicalIssue": "Technical issue",
     "inappropriateContent": "Inappropriate content",
     "other": "Other",
-    "failedToLoad": "Failed to load this exercise"
+    "failedToLoad": "Failed to load this exercise",
+    "translate": "Translate:",
+    "answer": "Answer:",
+    "question": "Question:",
+    "explanation": "Explanation:"
   },
   "common": {
     "loading": "Loading...",
@@ -160,5 +167,34 @@
     "notifications": "Notifications",
     "privacy": "Privacy",
     "help": "Help"
+  },
+  "artist": {
+    "song": "song",
+    "songs": "songs",
+    "songsTab": "Songs",
+    "studentsTab": "Students",
+    "noSongs": "No songs available",
+    "noStudents": "No students yet. Be the first to practice!",
+    "points": "pts",
+    "dayStreak": "day streak"
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "points": "pts",
+    "streak": "{{days}}d streak",
+    "empty": "No activity yet. Be the first!",
+    "error": "Failed to load leaderboard"
+  },
+  "share": {
+    "title": "Share options",
+    "description": "Share this video on social media or copy the link",
+    "share": "Share",
+    "x": "X",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "copyLink": "Copy link",
+    "saveVideo": "Save video",
+    "linkCopied": "Link copied!",
+    "downloadStarted": "Download started"
   }
 }

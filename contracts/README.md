@@ -32,14 +32,7 @@ forge build --via-ir --force
 **CRITICAL: Use explicit env vars, NOT `source .env` (subprocess doesn't inherit):**
 
 ```bash
-PRIVATE_KEY=0x... TRUSTED_PKP_ADDRESS=0x... npx tsx deploy-<contract-name>.ts
-```
-
-**Example:**
-```bash
-PRIVATE_KEY=0x7ad3639f0de041ea9cf7bbcd865180383eb85a65fd333a955e9d9d0ab0184235 \
-TRUSTED_PKP_ADDRESS=0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7 \
-npx tsx deploy-karaoke-events.ts
+PRIVATE_KEY=0x... TRUSTED_PKP_ADDRESS=0x... npx tsx scripts/deploy-<contract-name>.ts
 ```
 
 **Why this pattern?**
@@ -53,30 +46,62 @@ See `DEPLOYMENT.md` for detailed troubleshooting and common errors.
 
 > **Chain ID**: 37111 | **RPC**: https://rpc.testnet.lens.xyz
 
-- **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` ✅
-  - PKP-gated grading for “Say It Back” + multiple choice attempts
-  - Emits `SayItBackAttemptGraded` / `MultipleChoiceAttemptGraded`
-  - Trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| **KaraokeEvents** | `0x51aA6987130AA7E4654218859E075D8e790f4409` | Clip lifecycle + karaoke grading |
+| **ExerciseEvents** | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
+| **TranslationEvents** | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Multi-language translations |
+| **AccountEvents** | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User account management |
 
-> Looking for the old `PerformanceGrader` flow? The Solidity sources, tests,
-> and scripts now live in `contracts/archived/performance-grader/` for
-> historical reference only.
+### KaraokeEvents
 
-- **KaraokeEvents**: `0x51aA6987130AA7E4654218859E075D8e790f4409` ✅
-  - Clip registration, processing, song encryption, and performance grading
-  - Emits `ClipRegistered`, `ClipProcessed`, `SongEncrypted`, `ClipToggled`, `KaraokePerformanceGraded`
-  - PKP-gated performance grading for clips and full songs
-  - Trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
-  - Deployed 2025-01-13 via ethers.js (renamed from ClipEvents)
+The main contract handling clip registration and karaoke grading:
+- `ClipRegistered` - New clip added
+- `ClipProcessed` - Audio/alignment processed
+- `SongEncrypted` - Full song encrypted for subscribers
+- `ClipToggled` - Enable/disable clip
+- `KaraokeSessionStarted` - Live karaoke session begins
+- `KaraokeLineGraded` - Line-by-line grading
+- `KaraokeSessionEnded` - Session complete
+- `KaraokePerformanceGraded` - Final performance score
 
-- **SongEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` ✅
-  - Song registration events (~28k gas)
+PKP-gated grading functions require trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
 
-- **TranslationEvents**: `0x4aE979A4f115d734670403e644d83d4C695f9c58` ✅
-  - Translation tracking events (~25k gas)
-  - Deployed 2025-11-03 via ethers.js
+### ExerciseEvents
 
-- **AccountEvents**: `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` ✅
-  - Account tracking (optional, ~25k gas)
+FSRS spaced repetition study cards:
+- `TranslationQuestionRegistered` - Translation exercise
+- `TriviaQuestionRegistered` - Trivia exercise
+- `SayItBackAttemptGraded` - Audio response graded
+- `MultipleChoiceAttemptGraded` - MCQ graded
+
+### TranslationEvents
+
+Multi-language translation tracking:
+- `TranslationAdded` - New translation
+- `TranslationUpdated` - Translation updated
+- `TranslationToggled` - Enable/disable translation
+
+### AccountEvents
+
+User account lifecycle:
+- `AccountCreated` - New account
+- `AccountMetadataUpdated` - Profile update
+- `AccountVerified` - Verification status
+
+## Directory Structure
+
+```
+contracts/
+├── src/events/           # Solidity contracts
+│   ├── KaraokeEvents.sol     # Clip lifecycle + grading
+│   ├── ExerciseEvents.sol    # FSRS study cards
+│   ├── TranslationEvents.sol # Translations
+│   └── AccountEvents.sol     # Accounts
+├── script/               # Foundry deploy scripts (.sol)
+├── scripts/              # TypeScript deploy scripts
+├── test/                 # Foundry tests
+└── lib/forge-std/        # Foundry stdlib
+```
 
 See contract source files in `src/events/` for full documentation.

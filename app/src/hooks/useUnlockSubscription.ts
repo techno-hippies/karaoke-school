@@ -124,7 +124,7 @@ export function useUnlockSubscription(
 
       // Step 1: Approving (wallet signature request)
       setStatus('approving')
-      setStatusMessage('Approve transaction in your wallet...')
+      setStatusMessage('Signing transaction...')
       setErrorMessage('')
       console.log('[useUnlockSubscription] Status: approving')
 

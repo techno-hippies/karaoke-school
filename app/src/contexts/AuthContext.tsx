@@ -57,6 +57,11 @@ interface AuthActions {
 
   showUsernameInput: () => void
   resetAuthFlow: () => void
+
+  /** Open the auth dialog (set by App.tsx) */
+  openAuthDialog: () => void
+  /** Set the auth dialog opener (called by App.tsx) */
+  setAuthDialogOpener: (opener: () => void) => void
 }
 
 type AuthContextType = AuthState & AuthActions
@@ -173,6 +178,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [lensSetupStatus, setLensSetupStatus] =
     useState<'pending' | 'complete' | 'failed'>('pending')
 
+  // Auth dialog opener - set by App.tsx
+  const authDialogOpenerRef = useRef<(() => void) | null>(null)
+
+  const openAuthDialog = useCallback(() => {
+    if (authDialogOpenerRef.current) {
+      authDialogOpenerRef.current()
+    } else {
+      console.warn('[Auth] Auth dialog opener not set')
+    }
+  }, [])
+
+  const setAuthDialogOpener = useCallback((opener: () => void) => {
+    authDialogOpenerRef.current = opener
+  }, [])
+
   const address = walletClient?.account?.address || null
   const isConnected = !!walletClient && !!authContext
 
@@ -241,10 +261,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await initializePKP(status.pkpInfo, status.authData)
 
           const lensSession = await resumeLensSession()
+
           if (lensSession) {
             setSessionClient(lensSession)
 
             const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
+
             if (accounts.length > 0) {
               setAccount(accounts[0].account)
               setLensSetupStatus('complete')
@@ -659,6 +681,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       showUsernameInput,
       resetAuthFlow,
+      openAuthDialog,
+      setAuthDialogOpener,
     }),
     [
       pkpInfo,
@@ -682,6 +706,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       showUsernameInput,
       resetAuthFlow,
+      openAuthDialog,
+      setAuthDialogOpener,
     ]
   )
 

@@ -159,7 +159,6 @@ export async function createAccountInCustomNamespace(
 
   await switchToAccountOwner(sessionClient, account.address)
   console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
-  console.log('[Account Creation] SessionClient urql client updated with new account context')
 
   // ============ STEP 3: Create Username in Custom Namespace ============
   console.log('[Account Creation] Step 3/3: Creating username in kschool2 custom namespace...')

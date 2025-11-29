@@ -25,13 +25,23 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 
 | Table | Purpose |
 |-------|---------|
-| `songs` | Core song data (ISWC, title, spotify_track_id, audio URLs) |
-| `artists` | Artist metadata (name, slug, image) |
+| `songs` | Core song data (ISWC, title, spotify_track_id, audio URLs, cover images) |
+| `artists` | Artist metadata (name, slug, image_grove_url) |
 | `lyrics` | Line-by-line lyrics (en, zh) with word-level timing |
 | `clips` | Clip segments with start/end ms, emission status |
 | `exercises` | Translation, trivia, sayitback questions |
 | `accounts` | Posting accounts (scarlett) |
 | `genius_referents` | Song annotations for trivia generation |
+
+### Key Song Columns
+
+| Column | Purpose |
+|--------|---------|
+| `cover_grove_url` | Full-size album art (640x640) on Grove |
+| `thumbnail_grove_url` | Thumbnail (300x300) on Grove for lists |
+| `spotify_images` | Original Spotify CDN URLs (reference only) |
+| `clip_instrumental_url` | Free clip audio on Grove |
+| `encrypted_full_url_testnet` | Lit-encrypted full audio |
 
 ## Pipeline Flow
 
@@ -88,8 +98,8 @@ bun src/scripts/generate-exercises.ts --iswc=T0112199333
 # 7. Create clip (start/end in ms)
 bun src/scripts/insert-clip.ts --iswc=T0112199333 --start=93548 --end=103548
 
-# 8. Emit clip to chain
-bun src/scripts/emit-clip.ts --clip-id=<uuid>
+# 8. Emit clip to chain (with Zod validation)
+bun src/scripts/emit-clip-full.ts --iswc=T0112199333
 
 # 9. Emit exercises to chain
 bun src/scripts/emit-exercises.ts --iswc=T0112199333
@@ -101,13 +111,14 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 
 | Script | Purpose | Args |
 |--------|---------|------|
-| `add-song.ts` | Create song + artist + EN lyrics | `--iswc`, `--title`, `--artist`, `--spotify-id` |
+| `add-song.ts` | Create song + artist + EN lyrics + cover images | `--iswc`, `--title`, `--spotify-id` |
 | `add-lyrics.ts` | Add translated lyrics | `--iswc`, `--language` |
 | `align-lyrics.ts` | ElevenLabs word alignment | `--iswc` |
 | `process-audio.ts` | Demucs + FAL | `--iswc` |
 | `generate-exercises.ts` | Translation/trivia/sayitback | `--iswc` |
 | `insert-clip.ts` | Create clip record | `--iswc`, `--start`, `--end` |
-| `emit-clip.ts` | Emit ClipRegistered | `--iswc` or `--clip-id` |
+| `emit-clip.ts` | Emit ClipRegistered (simple) | `--iswc` or `--clip-id` |
+| `emit-clip-full.ts` | Full emit with Zod validation | `--iswc`, `--upload-images`, `--dry-run` |
 | `emit-exercises.ts` | Emit exercises to chain | `--iswc`, `--limit` |
 
 ### Video Generation
@@ -158,9 +169,8 @@ Rules:
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
-| ClipEvents | `0x369Cd327c39E2f00b851f06B6e25bb01a5149961` | ClipRegistered (emit-clip.ts) |
-| ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | TranslationQuestionRegistered |
-| KaraokeEvents | `0x51aA6987130AA7E4654218859E075D8e790f4409` | Live karaoke session grading |
+| KaraokeEvents | `0x51aA6987130AA7E4654218859E075D8e790f4409` | Clip lifecycle + karaoke grading |
+| ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
 | TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |
 
@@ -292,6 +302,66 @@ query {
   }
 }
 ```
+
+## Clip Metadata Structure (v2.0.0)
+
+Clip metadata is validated with Zod (`pipeline-new/src/lib/schemas.ts`) before upload to Grove.
+
+### Key Fields
+
+```typescript
+{
+  version: '2.0.0',
+  type: 'karaoke-clip',
+
+  // Identifiers
+  clipHash: '0x...',              // bytes32 (64 hex chars)
+  iswc: 'T0123456789',            // T + 10 digits
+  spotifyTrackId: '22chars...',   // Exactly 22 characters
+
+  // Images (must be Grove URLs)
+  coverUri: 'https://api.grove.storage/...',      // 640x640
+  thumbnailUri: 'https://api.grove.storage/...',  // 300x300
+
+  // Audio assets
+  assets: {
+    clipInstrumental: '...',      // Free clip audio (~50s)
+    fullInstrumental: '...',      // Full song audio (subscribers)
+  },
+
+  // Lyrics - FREE users (clip portion only)
+  karaoke_lines: [...],           // 7-10 lines for clip
+
+  // Lyrics - SUBSCRIBERS (full song)
+  full_karaoke_lines: [...],      // All lines (e.g., 49 for Bohemian Rhapsody)
+
+  // Stats
+  stats: {
+    clipLyricsLines: 7,
+    fullLyricsLines: 49,
+    totalLyricsLines: 49,
+  }
+}
+```
+
+### Subscriber vs Free User
+
+| Feature | Free User | Subscriber |
+|---------|-----------|------------|
+| Audio | `clipInstrumental` (~50s) | `fullInstrumental` (full song) |
+| Lyrics | `karaoke_lines` (clip only) | `full_karaoke_lines` (all lines) |
+| Karaoke Practice | Clip portion only | Full song |
+
+The frontend (`MediaPageContainer.tsx`) automatically selects the right lyrics based on subscription status:
+- Checks NFT balance via Unlock Protocol on Base Sepolia
+- Uses `full_karaoke_lines` if subscriber, `karaoke_lines` otherwise
+
+### Validation
+
+The `emit-clip-full.ts` script validates metadata before emitting:
+- Use `--dry-run` to preview without emitting
+- Use `--upload-images` to upload missing cover images from Spotify CDN to Grove
+- Auto-generates Chinese translations via AI if missing
 
 ## Cost Estimates
 

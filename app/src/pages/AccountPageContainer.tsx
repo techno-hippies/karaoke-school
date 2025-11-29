@@ -50,14 +50,14 @@ export function AccountPageContainer() {
     isLoading: isLoadingSongs,
   } = useArtistSongsByLensHandle(lenshandle)
 
-  // Extract Spotify track IDs from artist songs
-  const spotifyTrackIds = artistSongs?.map(song => song.spotifyTrackId).filter(Boolean) as string[] | undefined
+  // Get artist slug from the first song (all songs from same artist have same slug)
+  const artistSlug = artistSongs?.[0]?.artistSlug
 
-  // Fetch subscription lock address for creator from subgraph
+  // Get subscription lock by artist slug (works for all songs from same artist)
   const {
     data: subscriptionLockData,
     isLoading: isLoadingLock,
-  } = useCreatorSubscriptionLock(spotifyTrackIds)
+  } = useCreatorSubscriptionLock(artistSlug)
 
   // Fetch follow state and follower counts
   const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({

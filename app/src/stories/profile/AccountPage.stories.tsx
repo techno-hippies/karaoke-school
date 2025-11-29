@@ -61,7 +61,7 @@ function AccountPageWithSubscription(args: any) {
         displayName={args.displayName}
         currentStep={subscriptionStep}
         statusMessage={
-          subscriptionStep === 'approving' ? 'Approve transaction in your wallet...' :
+          subscriptionStep === 'approving' ? 'Signing transaction...' :
           subscriptionStep === 'purchasing' ? 'Processing subscription...' :
           ''
         }

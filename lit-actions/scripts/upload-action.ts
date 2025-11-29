@@ -5,11 +5,11 @@
  *
  * Usage:
  *   bun scripts/upload-action.ts <action-name>
- *   bun scripts/upload-action.ts karaoke
  *   bun scripts/upload-action.ts exercise
+ *   bun scripts/upload-action.ts karaoke-line
  *
  * Or with explicit path:
- *   bun scripts/upload-action.ts --path=actions/karaoke-grader-v1.js --name="Karaoke Grader v1"
+ *   bun scripts/upload-action.ts --path=actions/exercise-grader-v1.js --name="Exercise Grader v1"
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -28,10 +28,6 @@ const actionArg = args.find(a => !a.startsWith('--'));
 
 // Action definitions
 const ACTIONS: Record<string, { path: string; name: string }> = {
-  karaoke: {
-    path: 'actions/karaoke-grader-v1.js',
-    name: 'Karaoke Grader v1'
-  },
   'karaoke-line': {
     path: 'actions/karaoke-line-grader-v1.js',
     name: 'Karaoke Line Grader v1'

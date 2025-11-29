@@ -100,13 +100,12 @@ export function VideoActions({
         </button>
       </div>
 
-      {/* Like Button */}
+      {/* Like Button - always clickable, auth check happens in handler */}
       <button
         onClick={(e) => {
           e.stopPropagation()
-          if (canLike) onLikeClick()
+          onLikeClick()
         }}
-        disabled={!canLike}
         className="flex flex-col items-center cursor-pointer"
       >
         <div className={cn(
