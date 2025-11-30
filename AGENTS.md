@@ -315,7 +315,7 @@ bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 
 ## Subgraph
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.6`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.8`
 
 ```graphql
 query {
