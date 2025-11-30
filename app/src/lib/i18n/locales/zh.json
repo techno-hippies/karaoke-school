@@ -3,8 +3,8 @@
     "home": "首页",
     "search": "搜索",
     "study": "学习",
-    "wallet": "钱包",
-    "profile": "我的"
+    "chat": "聊天",
+    "wallet": "钱包"
   },
   "auth": {
     "connect": "连接",

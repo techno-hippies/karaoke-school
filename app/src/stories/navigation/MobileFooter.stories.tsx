@@ -48,6 +48,16 @@ export const StudyActive: Story = {
 }
 
 /**
+ * Mobile footer with Chat tab active
+ */
+export const ChatActive: Story = {
+  args: {
+    activeTab: 'chat',
+    onTabChange: (tab) => console.log('Tab changed:', tab),
+  },
+}
+
+/**
  * Mobile footer with Wallet tab active
  */
 export const WalletActive: Story = {
@@ -58,20 +68,10 @@ export const WalletActive: Story = {
 }
 
 /**
- * Mobile footer with Profile tab active
- */
-export const ProfileActive: Story = {
-  args: {
-    activeTab: 'profile',
-    onTabChange: (tab) => console.log('Tab changed:', tab),
-  },
-}
-
-/**
  * Interactive mobile footer with state management
  */
 export const Interactive = () => {
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'>('home')
 
   return (
     <div className="h-screen flex items-center justify-center bg-background">

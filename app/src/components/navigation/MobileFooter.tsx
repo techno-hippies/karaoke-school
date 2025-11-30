@@ -1,10 +1,10 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { House, Exam, MagnifyingGlass, Wallet, User } from '@phosphor-icons/react'
+import { House, Exam, MagnifyingGlass, ChatCircle, Wallet } from '@phosphor-icons/react'
 
 interface MobileFooterProps {
-  activeTab: 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => void
+  activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
 }
 
 export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChange }) => {
@@ -50,6 +50,17 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
         </button>
 
         <button
+          onClick={() => onTabChange('chat')}
+          className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
+            activeTab === 'chat' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          aria-label={t('nav.chat')}
+        >
+          <ChatCircle className="w-6 h-6" weight={activeTab === 'chat' ? 'fill' : 'regular'} />
+          <span className="text-xs mt-1">{t('nav.chat')}</span>
+        </button>
+
+        <button
           onClick={() => onTabChange('wallet')}
           className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             activeTab === 'wallet' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -58,17 +69,6 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ activeTab, onTabChan
         >
           <Wallet className="w-6 h-6" weight={activeTab === 'wallet' ? 'fill' : 'regular'} />
           <span className="text-xs mt-1">{t('nav.wallet')}</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange('profile')}
-          className={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
-            activeTab === 'profile' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          aria-label={t('nav.profile')}
-        >
-          <User className="w-6 h-6" weight={activeTab === 'profile' ? 'fill' : 'regular'} />
-          <span className="text-xs mt-1">{t('nav.profile')}</span>
         </button>
       </div>
     </div>

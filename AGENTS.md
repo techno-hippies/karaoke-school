@@ -42,6 +42,14 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 | `spotify_images` | Original Spotify CDN URLs (reference only) |
 | `clip_instrumental_url` | Free clip audio on Grove |
 | `encrypted_full_url_testnet` | Lit-encrypted full audio |
+| `lyric_tags` | AI-generated psychographic tags from lyrics (e.g., `["ambition", "resilience"]`) |
+
+### Key Clip Columns
+
+| Column | Purpose |
+|--------|---------|
+| `visual_tags` | Manual tags describing video visuals (e.g., `["anime", "streetwear"]`) |
+| `lyric_tags` | Psychographic tags (can override song-level tags) |
 
 ## Pipeline Flow
 
@@ -121,12 +129,13 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | `emit-clip-full.ts` | Full emit with Zod validation | `--iswc`, `--upload-images`, `--dry-run` |
 | `emit-exercises.ts` | Emit exercises to chain | `--iswc`, `--limit` |
 
-### Video Generation
+### Video Generation & Posting
 
 | Script | Purpose | Args |
 |--------|---------|------|
 | `generate-karaoke-video.ts` | Generate karaoke video with char-by-char highlighting | `--iswc` or `--song-dir` |
-| `post-clip.ts` | Post to Lens | `--video-id`, `--account` |
+| `generate-lyric-tags.ts` | AI-generate psychographic tags from lyrics (Gemini 2.5 Flash) | `--iswc`, `--dry-run` |
+| `post-clip.ts` | Post to Lens (requires visual + lyric tags) | `--video-id`, `--account`, `--visual-tags` |
 
 ### Account Management
 
@@ -135,6 +144,28 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | `create-account.ts` | Create posting account | `--handle`, `--name` |
 | `create-lens-account.ts` | Lens account for posting | `--handle` |
 | `mint-pkp.ts` | PKP for signing | `--handle` |
+
+### Subscription Locks
+
+| Script | Purpose | Args |
+|--------|---------|------|
+| `deploy-artist-lock.ts` | Deploy Unlock Protocol lock for artist | `--artist-id` or `--spotify-id` |
+| `sync-lock-config.ts` | Sync lock addresses from DB → frontend config | (none) |
+
+**Workflow for adding artist subscription:**
+
+```bash
+# 1. Deploy lock (updates database automatically)
+bun src/scripts/deploy-artist-lock.ts --artist-id=<uuid>
+
+# 2. Sync to frontend config (auto-updates addresses.ts)
+bun src/scripts/sync-lock-config.ts
+
+# 3. Rebuild frontend if needed
+cd ../app && bun run build
+```
+
+The `sync-lock-config.ts` script reads all artist lock addresses from the database and updates `app/src/lib/contracts/addresses.ts` automatically.
 
 ### Utilities
 
@@ -284,7 +315,7 @@ bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 
 ## Subgraph
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.5`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.6`
 
 ```graphql
 query {
@@ -363,6 +394,46 @@ The `emit-clip-full.ts` script validates metadata before emitting:
 - Use `--upload-images` to upload missing cover images from Spotify CDN to Grove
 - Auto-generates Chinese translations via AI if missing
 
+## Psychographic Tagging System
+
+Posts include two types of tags for AI chat context and user profiling:
+
+### Visual Tags (Manual)
+Describe what's visually in the video. Provided via `--visual-tags` flag when posting.
+
+Examples:
+- `anime`, `death-note`, `cosplay` (visual style)
+- `streetwear`, `gangster`, `urban` (fashion/aesthetic)
+- `kinky`, `latex`, `submissive` (adult themes)
+
+### Lyric Tags (AI-Generated)
+Psychographic themes from song lyrics. Generated via `generate-lyric-tags.ts`.
+
+Examples:
+- Toxic: `self-destructive-desire`, `addictive-attraction`, `hedonistic-surrender`
+- Lose Yourself: `ambition`, `perseverance`, `self-actualization`
+
+### Workflow
+
+```bash
+# 1. Generate lyric tags (run once per song)
+bun src/scripts/generate-lyric-tags.ts --iswc=T0112199333
+
+# 2. Post with visual tags (required)
+bun src/scripts/post-clip.ts --video-id=<uuid> --account=scarlett \
+  --visual-tags="kinky,latex,submissive"
+```
+
+The `post-clip.ts` script will **fail** if:
+- `--visual-tags` is not provided
+- `lyric_tags` is not set in the database (run `generate-lyric-tags.ts` first)
+
+### Usage in AI Chat
+
+The frontend `useChatContext` hook reads these tags from Lens post metadata to build psychographic profiles:
+- Users who watch videos tagged `anime`, `death-note` → interests in anime
+- Users who engage with lyrics tagged `heartbreak`, `nostalgia` → emotional preferences
+
 ## Cost Estimates
 
 | Operation | Cost |
@@ -372,5 +443,6 @@ The `emit-clip-full.ts` script validates metadata before emitting:
 | ElevenLabs Alignment | ~$0.20 |
 | Grove Storage | Free |
 | OpenRouter Translation | ~$0.05 |
+| OpenRouter Lyric Tags | ~$0.01 |
 | Chain Transaction | ~$0.001 |
-| **Total per song** | **~$0.40** |
+| **Total per song** | **~$0.41** |

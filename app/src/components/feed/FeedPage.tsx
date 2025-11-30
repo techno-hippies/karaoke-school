@@ -1,152 +1,37 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { ForYouFeed } from './ForYouFeed'
-import { FollowingFeed } from './FollowingFeed'
 import { VerticalVideoFeed } from './VerticalVideoFeed'
 import { FeedLoadingSkeleton } from './FeedLoadingSkeleton'
-import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
-
-export type FeedTab = 'for-you' | 'following'
-
-export interface FeedPageProps {
-  defaultTab?: FeedTab
-}
 
 /**
- * FeedPage - Main feed container with For You and Following tabs
+ * FeedPage - Main feed container
  *
- * Tabs:
- * - For You: Global feed of all karaoke videos (copyright-free)
- * - Following: Personalized feed from creators you follow (requires auth)
+ * Shows global feed of all karaoke videos
  *
  * Mobile: Full screen vertical scrolling
  * Desktop: Centered 9:16 cards with snap scrolling
  */
-export function FeedPage({ defaultTab = 'for-you' }: FeedPageProps) {
-  const [activeTab, setActiveTab] = useState<FeedTab>(defaultTab)
-  const { lensSession } = useAuth()
-  const isAuthenticated = !!lensSession
-  const { t } = useTranslation()
-
+export function FeedPage() {
   return (
     <div className="relative h-vh-screen md:h-screen w-full bg-background">
-      {/* Tab Navigation - fixed at top */}
-      <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-center pt-safe pointer-events-none">
-        <div className="flex gap-8 pt-4 pb-2 pointer-events-auto">
-          <button
-            onClick={() => setActiveTab('for-you')}
-            className={cn(
-              'text-base font-semibold transition-colors cursor-pointer',
-              activeTab === 'for-you'
-                ? 'text-white'
-                : 'text-neutral-400'
-            )}
-          >
-            {t('feed.forYou')}
-            {activeTab === 'for-you' && (
-              <div className="h-0.5 bg-white mt-1 rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('following')}
-            className={cn(
-              'text-base font-semibold transition-colors',
-              activeTab === 'following'
-                ? 'text-white'
-                : 'text-neutral-400',
-              !isAuthenticated ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-            )}
-            disabled={!isAuthenticated}
-            title={!isAuthenticated ? t('auth.signInToSeeFollowing') : ''}
-          >
-            {t('feed.following')}
-            {activeTab === 'following' && (
-              <div className="h-0.5 bg-white mt-1 rounded-full" />
-            )}
-          </button>
-        </div>
-      </div>
+      <ForYouFeed>
+        {(videos, isLoading) => {
+          if (isLoading && videos.length === 0) {
+            return <FeedLoadingSkeleton />
+          }
 
-      {/* Feed Content */}
-      {activeTab === 'for-you' && (
-        <ForYouFeed>
-          {(videos, isLoading) => {
-            // Show loading skeleton (desktop only, mobile shows blank)
-            if (isLoading && videos.length === 0) {
-              return <FeedLoadingSkeleton />
-            }
-
-            return (
-              <VerticalVideoFeed
-                videos={videos}
-                isLoading={isLoading}
-                onLoadMore={() => {
-                  console.log('[FeedPage] Load more requested')
-                  // TODO: Implement pagination
-                }}
-                hasMore={false} // TODO: Implement pagination
-                hasMobileFooter={true}
-              />
-            )
-          }}
-        </ForYouFeed>
-      )}
-
-      {activeTab === 'following' && (
-        <FollowingFeed>
-          {(videos, isLoading, error) => {
-            // Show error state
-            if (error) {
-              return (
-                <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
-                  <div className="text-white text-center px-8">
-                    <div className="text-xl font-semibold mb-2">⚠️ {error}</div>
-                    <div className="text-neutral-400 mt-2">
-                      {!isAuthenticated
-                        ? t('feed.signInToSee')
-                        : t('feed.tryFollowing')}
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-
-            // Show loading skeleton (desktop only, mobile shows blank)
-            if (isLoading && videos.length === 0) {
-              return <FeedLoadingSkeleton />
-            }
-
-            // Show empty state
-            if (videos.length === 0 && !isLoading) {
-              return (
-                <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
-                  <div className="text-white text-center px-8">
-                    <div className="text-xl font-semibold mb-2">{t('feed.noPosts')}</div>
-                    <div className="text-neutral-400">
-                      {t('feed.followCreators')}
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-
-            // Show video feed
-            return (
-              <VerticalVideoFeed
-                videos={videos}
-                isLoading={isLoading}
-                onLoadMore={() => {
-                  console.log('[FeedPage] Following: Load more requested')
-                  // TODO: Implement pagination with timeline.next()
-                }}
-                hasMore={false} // TODO: Implement pagination
-                hasMobileFooter={true}
-              />
-            )
-          }}
-        </FollowingFeed>
-      )}
+          return (
+            <VerticalVideoFeed
+              videos={videos}
+              isLoading={isLoading}
+              onLoadMore={() => {
+                console.log('[FeedPage] Load more requested')
+              }}
+              hasMore={false}
+              hasMobileFooter={true}
+            />
+          )
+        }}
+      </ForYouFeed>
     </div>
   )
 }

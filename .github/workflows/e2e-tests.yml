@@ -1,0 +1,66 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: bun install
+
+      - name: Install Playwright Browsers
+        working-directory: ./app
+        run: npx playwright install chromium
+
+      - name: Build wallet cache
+        working-directory: ./app
+        run: xvfb-run npx synpress
+        env:
+          # MetaMask requires headed mode, xvfb-run provides virtual display
+          DISPLAY: ':99'
+
+      - name: Run E2E tests
+        working-directory: ./app
+        run: xvfb-run npx playwright test
+        env:
+          # Required for MetaMask extension
+          DISPLAY: ':99'
+          # App environment variables (use test/staging values)
+          VITE_WALLETCONNECT_PROJECT_ID: ${{ secrets.VITE_WALLETCONNECT_PROJECT_ID }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: app/playwright-report/
+          retention-days: 7
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-screenshots
+          path: app/test-results/
+          retention-days: 7

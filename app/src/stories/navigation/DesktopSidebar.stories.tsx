@@ -67,6 +67,18 @@ export const StudyActive: Story = {
 }
 
 /**
+ * Desktop sidebar with Chat tab active
+ */
+export const ChatActive: Story = {
+  args: {
+    activeTab: 'chat',
+    isConnected: true,
+    walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
+    onTabChange: (tab) => console.log('Tab changed:', tab),
+  },
+}
+
+/**
  * Desktop sidebar with Wallet tab active
  */
 export const WalletActive: Story = {
@@ -79,22 +91,10 @@ export const WalletActive: Story = {
 }
 
 /**
- * Desktop sidebar with Profile tab active
- */
-export const ProfileActive: Story = {
-  args: {
-    activeTab: 'profile',
-    isConnected: true,
-    walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    onTabChange: (tab) => console.log('Tab changed:', tab),
-  },
-}
-
-/**
  * Interactive desktop sidebar with state management
  */
 export const Interactive = () => {
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'>('home')
   const [isConnected, setIsConnected] = useState(false)
 
   return (

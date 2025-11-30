@@ -36,6 +36,9 @@ interface LitEnvConfig {
 interface CIDs {
   karaoke: string;
   exercise: string;
+  chat?: string;
+  translate?: string;
+  [key: string]: string | undefined;
 }
 
 interface EncryptedKey {
@@ -92,12 +95,12 @@ export const Env = {
     output: join(ROOT_DIR, 'output', 'lit-auth', ENV_NAME),
   },
 
-  getKeyPath(action: 'karaoke' | 'exercise', keyName: string): string {
+  getKeyPath(action: 'karaoke' | 'exercise' | 'chat', keyName: string): string {
     const fileName = `${keyName}_${action}.json`;
     return join(this.paths.keys, action, fileName);
   },
 
-  loadKey(action: 'karaoke' | 'exercise', keyName: string): EncryptedKey {
+  loadKey(action: 'karaoke' | 'exercise' | 'chat', keyName: string): EncryptedKey {
     const path = this.getKeyPath(action, keyName);
     if (!existsSync(path)) {
       throw new Error(`Key file not found: ${path} (Env: ${ENV_NAME})`);

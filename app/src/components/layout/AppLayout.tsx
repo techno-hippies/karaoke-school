@@ -4,8 +4,8 @@ import { DesktopSidebar } from '@/components/navigation/DesktopSidebar'
 
 export interface AppLayoutProps {
   children: ReactNode
-  activeTab: 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => void
+  activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
   isConnected?: boolean
   walletAddress?: string
   onConnectWallet?: () => void

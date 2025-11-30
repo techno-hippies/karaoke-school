@@ -1,7 +1,7 @@
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { HomePage } from '@/pages/HomePage'
-import { WalletPage } from '@/pages/WalletPage'
+import { ChatPage } from '@/pages/ChatPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { AccountPageContainer } from '@/pages/AccountPageContainer'
 import { VideoDetailPage } from '@/pages/VideoDetailPage'
@@ -23,7 +23,8 @@ import { Web3Provider } from '@/providers/Web3Provider'
 function AppRouter() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'>('home')
+  const [inChatConversation, setInChatConversation] = useState(false)
 
   const { isPKPReady, pkpAddress, setAuthDialogOpener } = useAuth()
   const [showAuthDialog, setShowAuthDialog] = useState(false)
@@ -34,17 +35,17 @@ function AppRouter() {
   }, [setAuthDialogOpener])
 
   useEffect(() => {
-    const pathToTab: Record<string, 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'> = {
+    const pathToTab: Record<string, 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'> = {
       '/': 'home',
       '/search': 'search',
       '/study': 'study',
+      '/chat': 'chat',
       '/wallet': 'wallet',
-      '/profile': 'profile',
     }
 
     // Hide tab bar on song pages (slug-based or legacy), user pages, and artist pages
     const pathParts = location.pathname.split('/').filter(Boolean)
-    const reservedPaths = ['search', 'study', 'wallet', 'profile', 'u', 'song']
+    const reservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
 
     if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/') ||
         // Artist pages: /:artistSlug (single segment, not reserved)
@@ -56,22 +57,27 @@ function AppRouter() {
       const tab = pathToTab[location.pathname] || 'home'
       setActiveTab(tab)
     }
+
+    // Reset chat conversation state when leaving /chat
+    if (location.pathname !== '/chat') {
+      setInChatConversation(false)
+    }
   }, [location.pathname])
 
-  const handleTabChange = (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => {
+  const handleTabChange = (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => {
     const routes = {
       home: '/',
       study: '/study',
       search: '/search',
-      wallet: '/wallet',
-      profile: '/profile'
+      chat: '/chat',
+      wallet: '/wallet'
     }
     navigate(routes[tab])
   }
 
-  // Hide footer on song pages (both slug-based and legacy), video detail pages, and artist pages
+  // Hide footer on song pages (both slug-based and legacy), video detail pages, artist pages, and chat conversations
   const footerPathParts = location.pathname.split('/').filter(Boolean)
-  const footerReservedPaths = ['search', 'study', 'wallet', 'profile', 'u', 'song']
+  const footerReservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
 
   const hideMobileFooter =
     location.pathname.match(/^\/song\//) ||
@@ -79,7 +85,9 @@ function AppRouter() {
     // Artist pages: /:artistSlug (single segment, not reserved)
     (footerPathParts.length === 1 && !footerReservedPaths.includes(footerPathParts[0])) ||
     // Slug-based routes: /:artistSlug/:songSlug
-    (footerPathParts.length >= 2 && !footerReservedPaths.includes(footerPathParts[0]))
+    (footerPathParts.length >= 2 && !footerReservedPaths.includes(footerPathParts[0])) ||
+    // Inside a chat conversation
+    inChatConversation
 
   return (
     <>
@@ -115,8 +123,8 @@ function AppRouter() {
           <Route path="/study/session" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
-          <Route path="/wallet" element={<WalletPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-          <Route path="/profile" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />
+          <Route path="/chat" element={<ChatPage onConversationChange={setInChatConversation} />} />
+          <Route path="/wallet" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>

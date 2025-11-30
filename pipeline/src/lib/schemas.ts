@@ -269,3 +269,69 @@ export function formatZodErrors(error: z.ZodError): string {
     .map(issue => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
 }
+
+// ============================================================================
+// POST METADATA SCHEMAS
+// ============================================================================
+
+/**
+ * Psychographic tag schema
+ * Tags should be lowercase, single words or hyphenated phrases
+ */
+const psychographicTagSchema = z.string()
+  .min(1)
+  .max(50)
+  .regex(/^[a-z0-9-]+$/, { message: 'Tags must be lowercase alphanumeric with hyphens only' });
+
+/**
+ * Post Metadata Schema
+ *
+ * Validates Lens post metadata before uploading to Grove.
+ * Ensures visual_tags and lyric_tags are present for psychographic profiling.
+ */
+export const PostMetadataSchema = z.object({
+  // Required content
+  content: z.string().min(1),
+  title: z.string().min(1).max(200),
+
+  // Video (required for clip posts)
+  videoUrl: groveUrlSchema,
+  coverImageUrl: groveUrlSchema, // Video thumbnail (frame from video)
+
+  // Song identifiers
+  artistSlug: z.string().min(1).max(100).optional(),
+  songSlug: z.string().min(1).max(100).nullable().optional(),
+  songName: z.string().min(1).max(200),
+  artistName: z.string().min(1).max(200),
+
+  // Psychographic tags (REQUIRED for AI chat context)
+  visualTags: z.array(psychographicTagSchema)
+    .min(1, 'Must have at least 1 visual tag (e.g., "anime", "streetwear")')
+    .max(10),
+  lyricTags: z.array(psychographicTagSchema)
+    .min(1, 'Must have at least 1 lyric tag - run generate-lyric-tags.ts first')
+    .max(10),
+
+  // Optional
+  audioUrl: z.string().url().optional(),
+  albumArt: z.string().url().optional(), // Spotify album art (reference)
+  spotifyTrackId: spotifyTrackIdSchema.optional(),
+  tags: z.array(z.string()).optional(), // General hashtags
+});
+
+export type PostMetadata = z.infer<typeof PostMetadataSchema>;
+
+/**
+ * Validate post metadata before upload
+ * Throws ZodError with detailed messages if invalid
+ */
+export function validatePostMetadata(data: unknown): PostMetadata {
+  return PostMetadataSchema.parse(data);
+}
+
+/**
+ * Safe validation for post metadata
+ */
+export function safeValidatePostMetadata(data: unknown): z.SafeParseReturnType<unknown, PostMetadata> {
+  return PostMetadataSchema.safeParse(data);
+}

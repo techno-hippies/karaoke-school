@@ -36,7 +36,7 @@ interface KeyDef {
 }
 
 interface Task {
-  action: 'karaoke' | 'exercise' | 'karaoke-line';
+  action: 'karaoke' | 'exercise' | 'karaoke-line' | 'chat' | 'tts';
   cid: string;
   keys: KeyDef[];
 }
@@ -62,6 +62,21 @@ const ALL_TASKS: Task[] = [
     cid: Env.cids.exercise,
     keys: [
       { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' }
+    ]
+  },
+  {
+    action: 'chat',
+    cid: Env.cids.chat || 'placeholder-chat-cid',
+    keys: [
+      { name: 'venice_api_key', envVar: 'VENICE_API_KEY' },
+      { name: 'deepinfra_api_key', envVar: 'DEEPINFRA_API_KEY' }
+    ]
+  },
+  {
+    action: 'tts',
+    cid: Env.cids.tts || 'placeholder-tts-cid',
+    keys: [
+      { name: 'deepinfra_api_key', envVar: 'DEEPINFRA_API_KEY' }
     ]
   }
 ];

@@ -1,27 +1,22 @@
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ProfilePage, type Achievement } from '@/components/profile/ProfilePage'
+import { ProfileWalletPage, type Achievement } from '@/components/profile/ProfileWalletPage'
 import { ProfilePageSkeleton } from '@/components/profile/ProfilePageSkeleton'
-import type { VideoPost } from '@/components/video/VideoGrid'
 import { useAuth } from '@/contexts/AuthContext'
-import { useAccountStats } from '@/lib/lens/hooks/useAccountStats'
-import { useAccountPosts } from '@/lib/lens/hooks/useAccountPosts'
+import { usePKPBalances } from '@/hooks/usePKPBalances'
 import { Button } from '@/components/ui/button'
 
 /**
  * ProfilePageContainer - Container for the user's own profile
- * Shows Edit Profile button instead of Follow/Message buttons
+ * Wallet-focused view with tokens and achievements
  */
 export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
-  // ✅ Real auth data from context
-  const { lensAccount, isPKPReady } = useAuth()
+  // Auth data from context
+  const { lensAccount, pkpAddress, isPKPReady } = useAuth()
 
-  // Wait for account to load before fetching related data
-  const { following, followers, isLoading: statsLoading } = useAccountStats(lensAccount?.address)
-  const { posts, isLoading: postsLoading } = useAccountPosts(lensAccount?.address)
+  // Fetch token balances
+  const { balances, isLoading: balancesLoading } = usePKPBalances()
 
   // Show sign up CTA for unauthenticated users
   if (!isPKPReady) {
@@ -36,28 +31,16 @@ export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: ()
     )
   }
 
-  // Show loading state while account or related data is loading
-  const isLoading = !lensAccount || statsLoading || postsLoading
+  // Show loading state while account is loading
+  const isLoading = !lensAccount || !pkpAddress
 
   if (isLoading) {
     return <ProfilePageSkeleton />
   }
 
-  // Extract real profile data (only after loading is complete)
-  // Prefer metadata.name (set during registration) over username.localName (may be auto-generated global namespace)
-  const username = lensAccount.metadata?.name || lensAccount.username?.localName || 'user'
-  const displayName = lensAccount.metadata?.name || lensAccount.username?.localName || 'User'
-  const avatarUrl = lensAccount.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`
-
-  // Convert Lens posts to VideoPost format
-  const videos: VideoPost[] = posts.map(post => ({
-    id: post.id,
-    thumbnailUrl: (post.metadata as any)?.asset?.video?.cover || '',
-    duration: '0:00', // TODO: Extract from metadata
-    views: 0, // TODO: Extract from stats
-    likes: 0, // TODO: Extract from stats
-    username: username,
-  }))
+  // Extract profile data
+  const username = lensAccount.metadata?.name || lensAccount.username?.localName || undefined
+  const avatarUrl = lensAccount.metadata?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || pkpAddress}`
 
   // TODO: Achievements from app-specific contract/database
   const mockAchievements: Achievement[] = [
@@ -83,30 +66,24 @@ export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: ()
     },
   ]
 
-  const handleEditProfile = () => {
-    // TODO: Navigate to profile edit page or open edit modal
-    console.log('Edit profile clicked')
-  }
-
-  const handleVideoClick = (video: VideoPost) => {
-    // TODO: Navigate to video page
-    console.log('Video clicked:', video)
+  const handleCopyAddress = async () => {
+    if (!pkpAddress) return
+    try {
+      await navigator.clipboard.writeText(pkpAddress)
+      console.log('Address copied to clipboard')
+    } catch (err) {
+      console.error('Failed to copy address:', err)
+    }
   }
 
   return (
-    <ProfilePage
+    <ProfileWalletPage
       username={username}
-      displayName={displayName}
       avatarUrl={avatarUrl}
-      following={following}
-      followers={followers}
-      isVerified={false}
-      isOwnProfile={true}
-      videos={videos}
-      onVideoClick={handleVideoClick}
+      walletAddress={pkpAddress}
+      tokens={balances}
       achievements={mockAchievements}
-      onBack={() => navigate(-1)}
-      onEditProfile={handleEditProfile}
+      onCopyAddress={handleCopyAddress}
     />
   )
 }

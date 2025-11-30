@@ -10,6 +10,9 @@
 import litCids from './keys/dev.json'
 import exerciseVoxtralKey from './keys/exercise/voxtral_api_key_exercise.json'
 import karaokeLineVoxtralKey from './keys/karaoke-line/voxtral_api_key_karaoke-line.json'
+import chatVeniceKey from './keys/chat/venice_api_key_chat.json'
+import chatDeepinfraKey from './keys/chat/deepinfra_api_key_chat.json'
+import ttsDeepinfraKey from './keys/tts/deepinfra_api_key_tts.json'
 
 // ============ Network Configuration ============
 
@@ -65,6 +68,21 @@ export const LIT_ACTION_VOXTRAL_KEY = exerciseVoxtralKey
 /** Encrypted Voxtral key for Karaoke Line Grader */
 export const LIT_KARAOKE_LINE_VOXTRAL_KEY = karaokeLineVoxtralKey
 
+/** Chat Action CID (Scarlett/Violet) */
+export const LIT_CHAT_ACTION_CID = chatVeniceKey.cid || 'QmXQET5YfM7wsmY86edaWzn8ddzd1wUUyVBsdTb9iphDTa'
+
+/** Encrypted Venice key for Chat Action */
+export const LIT_CHAT_VENICE_KEY = chatVeniceKey
+
+/** Encrypted DeepInfra key for Chat STT/TTS */
+export const LIT_CHAT_DEEPINFRA_KEY = chatDeepinfraKey
+
+/** TTS Action CID (on-demand text-to-speech) */
+export const LIT_TTS_ACTION_CID = ttsDeepinfraKey.cid || litCids.tts
+
+/** Encrypted DeepInfra key for TTS Action */
+export const LIT_TTS_DEEPINFRA_KEY = ttsDeepinfraKey
+
 // ============ Artist Subscription Locks (Unlock Protocol on Base Sepolia) ============
 
 /**
@@ -74,11 +92,43 @@ export const LIT_KARAOKE_LINE_VOXTRAL_KEY = karaokeLineVoxtralKey
  * Chain: Base Sepolia (84532)
  */
 export const ARTIST_SUBSCRIPTION_LOCKS: Record<string, { lockAddress: `0x${string}`, chainId: number }> = {
+  'britney-spears': {
+    lockAddress: '0x8a66d2528a0271520e870bb0e98764514046574b',
+    chainId: 84532, // Base Sepolia
+  },
+  'eminem': {
+    lockAddress: '0x72f304efb7b49f0caec531a662d08d281a385a91',
+    chainId: 84532, // Base Sepolia
+  },
   'queen': {
     lockAddress: '0xe9b80d4e10fa11fa1fe04afcf9ab954ecb7570c9',
     chainId: 84532, // Base Sepolia
   },
-  // Add more artists as they get subscription locks deployed
+  'taylor-swift': {
+    lockAddress: '0x175284ff891db054ec06f044eef6cc7ad3699dbe',
+    chainId: 84532, // Base Sepolia
+  },
+}
+
+// ============ Premium AI Lock (Unlock Protocol on Base Sepolia) ============
+
+/**
+ * Global subscription lock for Premium AI features:
+ * - Better AI model (zai-org-glm-4.6 on Venice)
+ * - Better TTS (ElevenLabs v3 expressive)
+ *
+ * Deploy with: bun src/scripts/infra/deploy-premium-ai-lock.ts
+ * Price: 0.001 ETH / 30 days
+ */
+export const PREMIUM_AI_LOCK = {
+  testnet: {
+    lockAddress: '0xfec85fbc62ca614097b0952b2088442295b269af' as `0x${string}`,
+    chainId: 84532, // Base Sepolia
+  },
+  mainnet: {
+    lockAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Deploy when ready
+    chainId: 8453, // Base
+  },
 }
 
 // ============ Other Configuration ============

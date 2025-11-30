@@ -29,6 +29,9 @@ export async function createPostMetadata(params: {
   albumArt?: string;
   // Legacy identifiers (for backwards compatibility)
   spotifyTrackId?: string;
+  // Content tags for AI chat context (psychographics)
+  visualTags?: string[]; // Video visuals: death-note, cosplay, anime
+  lyricTags?: string[];  // Lyric themes: empowerment, heartbreak
 }): Promise<Record<string, unknown>> {
   // Build attributes array for song linking
   const attributes: Array<{ key: string; type: string; value: string }> = [];
@@ -53,6 +56,14 @@ export async function createPostMetadata(params: {
   // Legacy: keep spotify_track_id for backwards compatibility
   if (params.spotifyTrackId) {
     attributes.push({ key: 'spotify_track_id', type: 'String', value: params.spotifyTrackId });
+  }
+
+  // Content tags for AI chat context (psychographics)
+  if (params.visualTags && params.visualTags.length > 0) {
+    attributes.push({ key: 'visual_tags', type: 'String', value: params.visualTags.join(',') });
+  }
+  if (params.lyricTags && params.lyricTags.length > 0) {
+    attributes.push({ key: 'lyric_tags', type: 'String', value: params.lyricTags.join(',') });
   }
 
   // Use posts/ schema (not publications/) for Lens v3

@@ -3,8 +3,8 @@
     "home": "Home",
     "search": "Search",
     "study": "Study",
-    "wallet": "Wallet",
-    "profile": "Profile"
+    "chat": "Chat",
+    "wallet": "Wallet"
   },
   "auth": {
     "connect": "Connect",

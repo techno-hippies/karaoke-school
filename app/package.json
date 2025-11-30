@@ -16,7 +16,16 @@
     "lint:bun": "bun run eslint .",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:e2e": "playwright test app-ui.spec.ts basic.spec.ts account.spec.ts study-session.spec.ts karaoke.spec.ts",
+    "test:e2e:all": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:cache": "synpress",
+    "test:cache:force": "synpress --force",
+    "test:cache:debug": "synpress --debug --force"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -50,6 +59,7 @@
     "graphql-request": "^7.3.1",
     "i18next": "^25.6.3",
     "i18next-browser-languagedetector": "^8.2.0",
+    "idb": "^8.0.3",
     "opus-decoder": "^0.7.11",
     "process": "^0.11.10",
     "react": "^19.1.1",
@@ -67,10 +77,12 @@
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.1",
     "@eslint/js": "^9.33.0",
+    "@playwright/test": "^1.57.0",
     "@storybook/addon-a11y": "^9.1.10",
     "@storybook/addon-docs": "^9.1.10",
     "@storybook/addon-onboarding": "^9.1.10",
     "@storybook/react-vite": "^9.1.10",
+    "@synthetixio/synpress": "^4.1.1",
     "@tailwindcss/postcss": "^4.1.12",
     "@tailwindcss/vite": "^4.1.12",
     "@types/node": "^24.6.2",

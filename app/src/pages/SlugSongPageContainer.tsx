@@ -111,7 +111,7 @@ export function SlugSongPageContainer() {
       artworkUrl={artworkUrl}
       songLinks={songLinks}
       lyricsLinks={[]}
-      onBack={() => navigate(-1)}
+      onBack={() => navigate('/')}
       onPlay={() => navigate(`${basePath}/play`)}
       onArtistClick={
         artistSlug

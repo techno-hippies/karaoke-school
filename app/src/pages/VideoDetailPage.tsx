@@ -29,6 +29,8 @@ export function VideoDetailPage() {
   const fromContext = searchParams.get('from')
   const songIdParam = searchParams.get('songId')
   const songId = songIdParam ? parseInt(songIdParam) : undefined
+  const songSlugParam = searchParams.get('song') // e.g., "britney-spears/toxic"
+  const spotifyTrackIdParam = searchParams.get('spotifyTrackId')
 
   // Fetch the account to get the address
   const { data: account } = useAccount({ username: { localName: lenshandle! } })
@@ -36,7 +38,7 @@ export function VideoDetailPage() {
   // Fetch videos based on context
   // If from song page: fetch song videos, otherwise fetch all creator videos
   const { posts: allPosts } = useAccountPosts(account?.address)
-  const { data: songVideos } = useSongVideos(fromContext === 'song' ? songId : undefined)
+  const { data: songVideos } = useSongVideos(fromContext === 'song' ? spotifyTrackIdParam || undefined : undefined)
 
   // Use appropriate video list based on context
   const videoList = fromContext === 'song' && songVideos ? songVideos : allPosts
@@ -77,24 +79,49 @@ export function VideoDetailPage() {
     }
   }, [videoList, postId])
 
+  // Handle back navigation based on context
+  const handleClose = useCallback(() => {
+    if (fromContext === 'song') {
+      // Navigate back to the song page
+      if (songSlugParam) {
+        // From slug-based song page (e.g., /britney-spears/toxic)
+        navigate(`/${songSlugParam}`)
+      } else if (spotifyTrackIdParam) {
+        // From spotify track ID song page
+        navigate(`/song/${spotifyTrackIdParam}`)
+      } else {
+        // Fallback to feed
+        navigate('/')
+      }
+    } else {
+      // Default: go to feed (main mobile footer destination)
+      navigate('/')
+    }
+  }, [fromContext, songSlugParam, spotifyTrackIdParam, navigate])
+
+  // Build query string for song context navigation
+  const buildSongQueryString = useCallback(() => {
+    if (fromContext !== 'song') return ''
+    if (songSlugParam) return `?from=song&song=${songSlugParam}`
+    if (spotifyTrackIdParam) return `?from=song&spotifyTrackId=${spotifyTrackIdParam}`
+    if (songId) return `?from=song&songId=${songId}`
+    return ''
+  }, [fromContext, songSlugParam, spotifyTrackIdParam, songId])
+
   // Navigation handlers - memoized to prevent unnecessary re-renders
   const handleNavigatePrevious = useCallback(() => {
     if (currentVideoIndex > 0) {
       const prevVideo = videoList[currentVideoIndex - 1]
-      // Preserve query params when navigating
-      const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
-      navigate(`/u/${lenshandle}/video/${prevVideo.id}${queryString}`)
+      navigate(`/u/${lenshandle}/video/${prevVideo.id}${buildSongQueryString()}`)
     }
-  }, [currentVideoIndex, videoList, fromContext, songId, lenshandle, navigate])
+  }, [currentVideoIndex, videoList, lenshandle, navigate, buildSongQueryString])
 
   const handleNavigateNext = useCallback(() => {
     if (currentVideoIndex < videoList.length - 1) {
       const nextVideo = videoList[currentVideoIndex + 1]
-      // Preserve query params when navigating
-      const queryString = fromContext === 'song' ? `?from=song&songId=${songId}` : ''
-      navigate(`/u/${lenshandle}/video/${nextVideo.id}${queryString}`)
+      navigate(`/u/${lenshandle}/video/${nextVideo.id}${buildSongQueryString()}`)
     }
-  }, [currentVideoIndex, videoList, fromContext, songId, lenshandle, navigate])
+  }, [currentVideoIndex, videoList, lenshandle, navigate, buildSongQueryString])
 
   // Skip loading spinner - show content immediately with thumbnail
   // The VideoPlayer will handle loading state with thumbnail
@@ -106,10 +133,10 @@ export function VideoDetailPage() {
         <h1 className="text-xl font-bold">Video not found</h1>
         <p className="text-gray-400">This video may have been removed or doesn't exist</p>
         <button
-          onClick={() => navigate(`/u/${lenshandle}`)}
+          onClick={handleClose}
           className="text-purple-500 hover:text-purple-400"
         >
-          Back to profile
+          Go back
         </button>
       </div>
     )
@@ -128,10 +155,10 @@ export function VideoDetailPage() {
         <h1 className="text-xl font-bold">Invalid post type</h1>
         <p className="text-gray-400">This post is not a video</p>
         <button
-          onClick={() => navigate(`/u/${lenshandle}`)}
+          onClick={handleClose}
           className="text-purple-500 hover:text-purple-400"
         >
-          Back to profile
+          Go back
         </button>
       </div>
     )
@@ -271,6 +298,16 @@ export function VideoDetailPage() {
   const comments = stats?.comments || 0
   const shares = stats?.mirrors || 0
 
+  // Debug: Log stats from Lens
+  console.log('[VideoDetailPage] Post stats:', {
+    postId,
+    stats,
+    likes,
+    comments,
+    shares,
+    rawPost: displayPost,
+  })
+
   // Format created date
   const createdAt = displayPost.createdAt ? new Date(displayPost.createdAt).toLocaleDateString() : undefined
 
@@ -291,7 +328,6 @@ export function VideoDetailPage() {
         description={content || title}
         musicTitle={songName}
         musicAuthor={artistName}
-        geniusId={geniusId ? Number(geniusId) : undefined}
         createdAt={createdAt}
         likes={likes}
         comments={comments}
@@ -308,7 +344,7 @@ export function VideoDetailPage() {
         onNavigatePrevious={handleNavigatePrevious}
         onNavigateNext={handleNavigateNext}
         // Handlers
-        onClose={() => navigate(`/u/${lenshandle}`)}
+        onClose={handleClose}
         onLikeClick={async () => {
           if (canLike) {
             try {

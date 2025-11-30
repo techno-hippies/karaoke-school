@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
+import { generateSlug } from './useSongSlug'
 
 export interface Clip {
   id: string
@@ -39,6 +40,7 @@ export interface Clip {
 export interface SongMetadata {
   title?: string
   artist?: string
+  artistSlug?: string
   coverUri?: string
   artistLensHandle?: string
   karaoke_lines?: Array<{
@@ -126,6 +128,10 @@ export function useSongClips(spotifyTrackId?: string) {
       const response = await fetch(url)
       if (!response.ok) throw new Error(`Metadata fetch failed: ${response.status}`)
       const metadata = await response.json() as SongMetadata
+      // Derive artistSlug from artist name if not present in metadata
+      if (!metadata.artistSlug && metadata.artist) {
+        metadata.artistSlug = generateSlug(metadata.artist)
+      }
       console.log('[useSongClips] Metadata result:', metadata)
       return metadata
     },

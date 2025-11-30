@@ -6,11 +6,11 @@ export interface ExerciseFeedbackProps {
   isCorrect: boolean
   /** Optional custom message (defaults to "Correct!" or "Try again") */
   message?: string
-  /** Whether to animate the feedback (default: true) */
+  /** Whether to animate the feedback (default: false, footer slides up instead) */
   animated?: boolean
 }
 
-export function ExerciseFeedback({ isCorrect, message, animated = true }: ExerciseFeedbackProps) {
+export function ExerciseFeedback({ isCorrect, message, animated = false }: ExerciseFeedbackProps) {
   const defaultMessage = isCorrect ? 'Correct!' : 'Try again'
   const displayMessage = message || defaultMessage
 

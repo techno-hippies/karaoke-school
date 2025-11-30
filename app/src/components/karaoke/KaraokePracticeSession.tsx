@@ -336,7 +336,7 @@ export function KaraokePracticeSession({
       <div className="relative w-full h-full md:max-w-2xl flex flex-col">
         <audio ref={audioRef} src={audioUrl} preload="auto" className="hidden" />
 
-        <div className="flex-none px-4 h-20 border-b border-white/10 flex items-center justify-between backdrop-blur relative">
+        <div className="flex-none px-4 h-16 border-b border-border flex items-center justify-between bg-background/95 backdrop-blur relative">
           <BackButton
             onClick={handleClose}
             aria-label="Close"

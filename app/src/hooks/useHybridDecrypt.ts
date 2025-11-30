@@ -10,9 +10,8 @@
  * 6. Return object URL for playback
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import type { Address } from 'viem'
 
 export interface HybridEncryptionMetadata {
   version: string
@@ -45,7 +44,6 @@ export interface HybridDecryptResult {
   isDecrypting: boolean
   decryptedAudioUrl?: string
   error?: string
-  hasSubscription: boolean
   progress?: number
 }
 
@@ -119,7 +117,6 @@ export function useHybridDecrypt(
   const [isLoading, setIsLoading] = useState(false)
   const [isDecrypting, setIsDecrypting] = useState(false)
   const [error, setError] = useState<string>()
-  const [hasSubscription, setHasSubscription] = useState(false)
   const [decryptedAudioUrl, setDecryptedAudioUrl] = useState<string>()
   const [progress, setProgress] = useState<number>()
 
@@ -135,7 +132,6 @@ export function useHybridDecrypt(
   useEffect(() => {
     // Reset state when track changes
     setError(undefined)
-    setHasSubscription(false)
     setDecryptedAudioUrl(undefined)
     setProgress(undefined)
 
@@ -175,50 +171,9 @@ export function useHybridDecrypt(
         }
 
         console.log('[useHybridDecrypt] Encryption metadata loaded')
-
-        // Step 2: Check subscription
-        console.log('[useHybridDecrypt] Step 2: Checking subscription...')
         setProgress(20)
 
-        const lockAddress = metadata.unlock.lockAddress as Address
-
-        const { createPublicClient, http } = await import('viem')
-        const { baseSepolia } = await import('viem/chains')
-
-        const publicClient = createPublicClient({
-          chain: baseSepolia,
-          transport: http(),
-        })
-
-        const balance = await publicClient.readContract({
-          authorizationList: undefined as any,
-          address: lockAddress,
-          abi: [
-            {
-              inputs: [{ name: '_owner', type: 'address' }],
-              name: 'balanceOf',
-              outputs: [{ name: '', type: 'uint256' }],
-              stateMutability: 'view',
-              type: 'function',
-            },
-          ] as const,
-          functionName: 'balanceOf',
-          args: [pkpInfo.ethAddress as Address],
-        })
-
-        console.log('[useHybridDecrypt] NFT Balance:', balance.toString())
-
-        if (balance === 0n) {
-          console.log('[useHybridDecrypt] No subscription - user does not own NFT')
-          setHasSubscription(false)
-          setIsLoading(false)
-          return
-        }
-
-        console.log('[useHybridDecrypt] ✅ User has subscription!')
-        setHasSubscription(true)
-
-        // Step 3: Decrypt symmetric key with Lit Protocol (tiny - 32 bytes!)
+        // Step 2: Decrypt symmetric key with Lit Protocol (tiny - 32 bytes!)
         console.log('[useHybridDecrypt] Step 3: Decrypting symmetric key with Lit...')
         setIsDecrypting(true)
         setProgress(40)
@@ -302,7 +257,6 @@ export function useHybridDecrypt(
     isDecrypting,
     decryptedAudioUrl,
     error,
-    hasSubscription,
     progress,
   }
 }

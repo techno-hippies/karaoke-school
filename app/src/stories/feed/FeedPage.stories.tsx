@@ -40,39 +40,6 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Default feed starting on For You tab
- * Shows global karaoke feed
+ * Default feed showing global karaoke videos
  */
-export const ForYouTab: Story = {
-  args: {
-    defaultTab: 'for-you',
-  },
-}
-
-/**
- * Feed starting on Following tab
- * Shows personalized feed from followed creators
- * Requires authentication
- */
-export const FollowingTab: Story = {
-  args: {
-    defaultTab: 'following',
-  },
-}
-
-/**
- * Following tab when not authenticated
- * Shows sign-in prompt
- */
-export const FollowingUnauthenticated: Story = {
-  args: {
-    defaultTab: 'following',
-  },
-  parameters: {
-    docs: {
-      description: {
-        story: 'When user is not authenticated, Following tab shows a sign-in prompt',
-      },
-    },
-  },
-}
+export const Default: Story = {}

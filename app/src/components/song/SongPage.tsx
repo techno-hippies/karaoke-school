@@ -104,8 +104,8 @@ export interface SongPageProps {
   // Footer actions
   onStudy?: () => void
   onKaraoke?: () => void
-  // Videos - can provide manually or via geniusId query
-  geniusId?: number // Query all videos for this song across creators
+  // Videos - can provide manually or via spotifyTrackId query
+  spotifyTrackId?: string // Query all videos for this song across creators
   videos?: VideoPost[] // Manual override (for Storybook)
   isLoadingVideos?: boolean
   onVideoClick?: (video: VideoPost) => void
@@ -130,7 +130,7 @@ export function SongPage({
   onArtistClick,
   onStudy,
   onKaraoke,
-  geniusId,
+  spotifyTrackId,
   videos: manualVideos,
   isLoadingVideos: manualIsLoadingVideos,
   onVideoClick,
@@ -141,10 +141,10 @@ export function SongPage({
   const { t } = useTranslation()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // Query videos by genius_id (queries Lens for all creator videos of this song)
+  // Query videos by spotifyTrackId (queries Lens for all creator videos of this song)
   // Only used when videos are not provided manually (Storybook mode)
   const { data: queriedVideos, isLoading: queriedIsLoadingVideos } = useSongVideos(
-    manualVideos ? undefined : geniusId
+    manualVideos ? undefined : spotifyTrackId
   )
 
   // Use manual videos/loading if provided (for container), otherwise use queried

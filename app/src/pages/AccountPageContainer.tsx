@@ -263,7 +263,6 @@ export function AccountPageContainer() {
 
   console.log('[CreatorPage] 🔒 Subscription check:', {
     songsCount: songs.length,
-    spotifyTrackIds,
     subscriptionLockData,
     hasSubscription,
   })

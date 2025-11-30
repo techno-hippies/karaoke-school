@@ -78,6 +78,8 @@ export interface Song {
   encrypted_full_url_mainnet: string | null;
   encryption_manifest_url_mainnet: string | null;
   lit_network_mainnet: string | null;
+  // Content tags for AI chat context
+  lyric_tags: string[] | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -119,6 +121,9 @@ export interface Clip {
   metadata_uri: string | null;
   emitted_at: Date | null;
   transaction_hash: string | null;
+  // Content tags for AI chat context
+  visual_tags: string[] | null;
+  lyric_tags: string[] | null;
   created_at: Date;
 }
 

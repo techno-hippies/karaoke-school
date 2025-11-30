@@ -81,8 +81,8 @@ export function MediaPage({
 
         {/* Title and Artist Bar */}
         <div className={cn(
-          'flex items-center justify-between px-4 gap-2 border-b border-neutral-800',
-          artworkUrl ? 'h-14 bg-background/95 backdrop-blur' : 'h-16'
+          'flex items-center justify-between px-4 gap-2 border-b border-border',
+          artworkUrl ? 'h-16 bg-background/95 backdrop-blur' : 'h-16'
         )}>
           {!artworkUrl && <BackButton onClick={onBack} />}
           <div className="flex-1 min-w-0">

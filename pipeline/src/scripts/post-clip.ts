@@ -8,6 +8,7 @@
  *   bun src/scripts/post-clip.ts --video-id=<uuid> --account=scarlett
  *   bun src/scripts/post-clip.ts --video-id=<uuid> --account=scarlett --ai-cover=./ai-cover.mp3
  *   bun src/scripts/post-clip.ts --video-id=<uuid> --account=scarlett --content="Check out this karaoke!"
+ *   bun src/scripts/post-clip.ts --video-id=<uuid> --account=scarlett --visual-tags="death-note,anime,dark"
  */
 
 import { parseArgs } from 'util';
@@ -17,6 +18,7 @@ import { getAccountByHandle, createPost, getSongByISWC } from '../db/queries';
 import { uploadMetadataToGrove, uploadVideoToGrove, uploadAudioToGrove, uploadImageToGrove } from '../services/grove';
 import { postToLens, createPostMetadata } from '../services/lens';
 import { validateEnv } from '../config';
+import { safeValidatePostMetadata, formatZodErrors } from '../lib/schemas';
 import type { Video, Song, Account } from '../types';
 
 // Parse CLI arguments
@@ -27,7 +29,8 @@ const { values } = parseArgs({
     account: { type: 'string' },
     content: { type: 'string' },
     'ai-cover': { type: 'string' },
-    tags: { type: 'string' }, // Comma-separated
+    tags: { type: 'string' }, // Comma-separated general tags
+    'visual-tags': { type: 'string' }, // Comma-separated visual content tags (death-note, cosplay, anime)
     'dry-run': { type: 'boolean', default: false },
   },
   strict: true,
@@ -154,10 +157,14 @@ async function main() {
   const defaultContent = `🎤 Karaoke time! "${song.title}" - Practice your singing with our bilingual subtitles!\n\n#karaoke #languagelearning #music`;
   const content = values.content || defaultContent;
   const tags = values.tags?.split(',').map((t) => t.trim()) || ['karaoke', 'music', 'languagelearning'];
+  const visualTags = values['visual-tags']?.split(',').map((t) => t.trim()) || [];
 
   console.log('\n📝 Post content:');
   console.log(`   ${content.slice(0, 100)}...`);
   console.log(`   Tags: ${tags.join(', ')}`);
+  if (visualTags.length > 0) {
+    console.log(`   Visual tags: ${visualTags.join(', ')}`);
+  }
 
   // Get artist info with slug
   const artist = song.artist_id ? await queryOne<{ name: string; slug: string | null; image_grove_url?: string }>(
@@ -173,6 +180,27 @@ async function main() {
   if (!coverImageUrl) {
     coverImageUrl = spotifyAlbumArt;
   }
+
+  // Validate required psychographic tags BEFORE creating metadata
+  console.log('\n🔍 Validating psychographic tags...');
+  const lyricTags = song.lyric_tags || [];
+
+  if (visualTags.length === 0) {
+    console.error('❌ Missing required --visual-tags');
+    console.log('   Visual tags describe video content (e.g., "anime,streetwear,cosplay")');
+    console.log('   These are provided manually based on what\'s in the video.');
+    process.exit(1);
+  }
+
+  if (lyricTags.length === 0) {
+    console.error('❌ Missing lyric_tags in database');
+    console.log('   Run: bun src/scripts/generate-lyric-tags.ts --iswc=' + song.iswc);
+    console.log('   This generates psychographic tags from song lyrics via AI.');
+    process.exit(1);
+  }
+
+  console.log(`   Visual tags: ${visualTags.join(', ')}`);
+  console.log(`   Lyric tags: ${lyricTags.join(', ')}`);
 
   // Create and upload metadata with slug-based linking
   console.log('\n📋 Creating metadata...');
@@ -196,7 +224,35 @@ async function main() {
     albumArt: spotifyAlbumArt, // Spotify album art (the actual song artwork)
     // Legacy: keep spotify_track_id for backwards compatibility
     spotifyTrackId: song.spotify_track_id || undefined,
+    // Content tags for AI chat context (psychographics)
+    visualTags,
+    lyricTags,
   });
+
+  // Validate metadata with Zod schema before uploading
+  const validationResult = safeValidatePostMetadata({
+    content,
+    title: `${song.title} - Karaoke`,
+    videoUrl,
+    coverImageUrl,
+    artistSlug: artist?.slug,
+    songSlug: song.slug,
+    songName: song.title,
+    artistName: artist?.name || 'Unknown Artist',
+    visualTags,
+    lyricTags,
+    audioUrl: aiCoverUrl,
+    albumArt: spotifyAlbumArt,
+    spotifyTrackId: song.spotify_track_id || undefined,
+    tags,
+  });
+
+  if (!validationResult.success) {
+    console.error('\n❌ Metadata validation failed:');
+    console.error(formatZodErrors(validationResult.error));
+    process.exit(1);
+  }
+  console.log('   ✅ Metadata validated');
 
   const metadataResult = await uploadMetadataToGrove(metadata, 'post-metadata.json');
   // Use HTTPS URL for contentUri (grove:// not supported by all apps)

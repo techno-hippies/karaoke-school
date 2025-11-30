@@ -1,11 +1,11 @@
 import { FeedPage } from '@/components/feed/FeedPage'
 
 /**
- * HomePage - Main feed with For You and Following tabs
+ * HomePage - Main feed
  *
  * Route: /
- * Shows global karaoke feed (For You) and personalized feed (Following)
+ * Shows global karaoke feed
  */
 export function HomePage() {
-  return <FeedPage defaultTab="for-you" />
+  return <FeedPage />
 }

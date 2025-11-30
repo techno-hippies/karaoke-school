@@ -13,6 +13,7 @@ import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog
 import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { useHybridDecrypt } from '@/hooks/useHybridDecrypt'
+import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLineKaraokeGrader } from '@/hooks/useLineKaraokeGrader'
 
@@ -88,21 +89,33 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   // Get encryption metadata URI for v2 hybrid decryption
   // This points to JSON with encrypted key + audio URL (no longer leaks unencrypted URL)
-  const encryptionMetadataUri = clipMetadata?.encryption?.encryptionMetadataUri
+  const encryptionMetadataUri = (clipMetadata as any)?.encryption?.encryptionMetadataUri
 
-  // Decrypt full audio using v2 hybrid encryption (key-only Lit, no 413 errors!)
+  // Single source of truth for subscription status
+  // Checks NFT balance using ARTIST_SUBSCRIPTION_LOCKS config
+  const { hasSubscription } = useSubscriptionCheck(
+    resolvedArtistSlug,
+    subscriptionRecheckTrigger
+  )
+
+  // Decrypt full audio using v2 hybrid encryption (only for v2 clips with encryptionMetadataUri)
   const {
     decryptedAudioUrl,
     isDecrypting,
-    hasSubscription,
     error: decryptError,
     isLoading: isDecryptLoading,
     progress: decryptProgress,
   } = useHybridDecrypt(
-    encryptionMetadataUri,
+    hasSubscription ? encryptionMetadataUri : undefined, // Only attempt decrypt if subscribed
     firstClip?.spotifyTrackId,
     subscriptionRecheckTrigger
   )
+
+  console.log('[MediaPageContainer] Subscription status:', {
+    hasSubscription,
+    artistSlug: resolvedArtistSlug,
+    hasV2Encryption: !!encryptionMetadataUri,
+  })
 
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
@@ -326,10 +339,10 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
     // NEW: Check for inline translations in karaoke_lines (zh_text, vi_text, id_text)
     // Use activeKaraokeLines which is full_karaoke_lines for subscribers, karaoke_lines otherwise
-    const karaokeLineSource = activeKaraokeLines?.[index]
-    if (karaokeLineSource?.zh_text) translations['zh'] = karaokeLineSource.zh_text
-    if (karaokeLineSource?.vi_text) translations['vi'] = karaokeLineSource.vi_text
-    if (karaokeLineSource?.id_text) translations['id'] = karaokeLineSource.id_text
+    const karaokeLineSource = activeKaraokeLines?.[index] as Record<string, any> | undefined
+    if (karaokeLineSource?.zh_text) translations['zh'] = karaokeLineSource.zh_text as string
+    if (karaokeLineSource?.vi_text) translations['vi'] = karaokeLineSource.vi_text as string
+    if (karaokeLineSource?.id_text) translations['id'] = karaokeLineSource.id_text as string
 
     // Add translations from other languages (both inline and fetched)
     Object.entries(allTranslations).forEach(([lang, lyricsData]: [string, any]) => {

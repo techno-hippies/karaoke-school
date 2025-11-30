@@ -3,8 +3,8 @@
     "home": "Beranda",
     "search": "Cari",
     "study": "Belajar",
-    "wallet": "Dompet",
-    "profile": "Profil"
+    "chat": "Obrolan",
+    "wallet": "Dompet"
   },
   "auth": {
     "connect": "Hubungkan",

@@ -33,3 +33,10 @@ storybook-static
 .env.production.local
 .env.keys
 .env.keys*
+
+# Playwright / Synpress
+.cache-synpress/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/

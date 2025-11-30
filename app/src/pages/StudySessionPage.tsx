@@ -258,8 +258,8 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
   return (
     <div className="flex flex-col h-screen">
       {/* Header - PERSISTENT */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border flex-shrink-0">
-        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-3">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
+        <div className="max-w-3xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
           <ExerciseHeader
             progress={session.progress}
             onClose={session.handleClose}
@@ -302,42 +302,41 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
               hasAnswered={!!session.feedback}
               selectedAnswerId={session.selectedAnswer ? String(session.selectedAnswer) : null}
               explanation={session.exerciseData.explanation}
-      // @ts-expect-error - Exercise type compatibility
               exerciseType={session.exerciseData.exerciseType}
             />
           ) : null}
         </div>
       </div>
 
-      {/* Footer - PERSISTENT */}
-      <div className="border-t border-border bg-background flex-shrink-0">
-        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4">
-          <ExerciseFooter
-            feedback={session.feedback}
-            controls={
-              session.feedback
-                ? {
-                    type: 'navigation',
-                    onNext: session.handleNext,
-                    label: t('study.next'),
-                    exerciseKey: session.currentCard?.id,
-                  }
-                : session.exerciseData.type === 'SAY_IT_BACK'
-                ? {
-                    type: 'voice',
-                    isRecording: session.isRecording,
-                    isProcessing: session.isProcessing,
-                    onStartRecording: session.handleStartRecording,
-                    onStopRecording: session.handleStopRecording,
-                    label: t('study.record'),
-                  }
-                : {
-                    type: 'hidden', // Quiz handles submission internally via onAnswer
-                  }
-            }
-          />
-        </div>
-      </div>
+      {/* Footer - Slides up when visible */}
+      <ExerciseFooter
+        show={
+          // Show footer when: has feedback OR voice controls (SayItBack)
+          !!session.feedback || session.exerciseData.type === 'SAY_IT_BACK'
+        }
+        feedback={session.feedback}
+        controls={
+          session.feedback
+            ? {
+                type: 'navigation',
+                onNext: session.handleNext,
+                label: t('study.next'),
+                exerciseKey: session.currentCard?.id,
+              }
+            : session.exerciseData.type === 'SAY_IT_BACK'
+            ? {
+                type: 'voice',
+                isRecording: session.isRecording,
+                isProcessing: session.isProcessing,
+                onStartRecording: session.handleStartRecording,
+                onStopRecording: session.handleStopRecording,
+                label: t('study.record'),
+              }
+            : {
+                type: 'hidden', // Quiz handles submission internally via onAnswer
+              }
+        }
+      />
     </div>
   )
 }

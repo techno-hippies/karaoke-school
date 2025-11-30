@@ -1,11 +1,11 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { House, Exam, User, MagnifyingGlass, Wallet } from '@phosphor-icons/react'
+import { House, Exam, Wallet, MagnifyingGlass, ChatCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 
 interface DesktopSidebarProps {
-  activeTab: 'home' | 'study' | 'search' | 'wallet' | 'profile' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'search' | 'wallet' | 'profile') => void
+  activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
   isConnected?: boolean
   walletAddress?: string
   onConnectWallet?: () => void
@@ -70,6 +70,19 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </Button>
 
           <Button
+            onClick={() => onTabChange('chat')}
+            variant="ghost"
+            className={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
+              activeTab === 'chat'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+            }`}
+          >
+            <ChatCircle className="w-7 h-7 flex-shrink-0" />
+            <span>{t('nav.chat')}</span>
+          </Button>
+
+          <Button
             onClick={() => onTabChange('wallet')}
             variant="ghost"
             className={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
@@ -81,26 +94,13 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             <Wallet className="w-7 h-7 flex-shrink-0" />
             <span>{t('nav.wallet')}</span>
           </Button>
-
-          <Button
-            onClick={() => onTabChange('profile')}
-            variant="ghost"
-            className={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
-              activeTab === 'profile'
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
-            }`}
-          >
-            <User className="w-7 h-7 flex-shrink-0" />
-            <span>{t('nav.profile')}</span>
-          </Button>
         </nav>
 
         {/* Auth section */}
         <div className="px-4 pt-8 pb-6 border-t border-border">
           {isConnected && walletAddress ? (
             <Button
-              onClick={() => onTabChange('profile')}
+              onClick={() => onTabChange('wallet')}
               variant="ghost"
               className="w-full justify-start gap-4 px-6 py-4 h-auto hover:bg-secondary"
             >

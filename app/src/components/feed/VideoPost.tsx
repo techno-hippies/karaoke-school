@@ -180,11 +180,9 @@ function VideoPostComponent({
         </div>
       </div>
 
-      {/* Mobile: Bottom gradient + Video Info */}
+      {/* Mobile: Video Info */}
       <div
-        className={cn(
-          'md:hidden absolute left-0 right-0 p-6 pr-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-30'
-        )}
+        className="md:hidden absolute left-0 right-0 p-6 pr-20 pointer-events-none z-40"
         style={{ bottom: gradientBottomOffset, paddingBottom: gradientPaddingBottom }}
       >
         <VideoInfo
@@ -199,7 +197,7 @@ function VideoPostComponent({
 
       {/* Mobile: Actions overlay on right side */}
       <div
-        className="md:hidden absolute right-4 z-20"
+        className="md:hidden absolute right-4 z-40"
         style={{ bottom: actionsBottomOffset }}
       >
         <VideoActions

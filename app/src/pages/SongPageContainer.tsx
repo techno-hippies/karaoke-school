@@ -77,7 +77,7 @@ export function SongPageContainer() {
       artworkUrl={artworkUrl}
       songLinks={songLinks}
       lyricsLinks={[]}
-      onBack={() => navigate(-1)}
+      onBack={() => navigate('/')}
       onPlay={() => navigate(`/song/${spotifyTrackId}/play`)}
       onArtistClick={
         metadata?.artistLensHandle

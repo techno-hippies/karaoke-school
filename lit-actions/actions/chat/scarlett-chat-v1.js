@@ -1,0 +1,663 @@
+/**
+ * Scarlett Chat v2 - Multi-Personality AI Chat Action with STT
+ *
+ * Features:
+ * 1. Multi-personality support - Fetch AI personality from subgraph/Grove by username
+ * 2. STT support - Optional audio input transcribed via Voxtral
+ * 3. Chat - Conversation with AI tutor
+ * 4. Translate - English ↔ Chinese translation
+ *
+ * Powered by Venice AI (qwen3-4b model) and Voxtral STT
+ *
+ * Usage:
+ * - Pass `username` (e.g., "scarlett-ks") to use that personality's system prompt
+ * - Pass `audioDataBase64` to transcribe audio before chat
+ * - Falls back to default Scarlett personality if username not found
+ */
+
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const VENICE_API_URL = 'https://api.venice.ai/api/v1/chat/completions';
+const VENICE_MODEL = 'qwen3-4b';
+
+// DeepInfra endpoints for STT and TTS
+const DEEPINFRA_STT_URL = 'https://api.deepinfra.com/v1/inference/mistralai/Voxtral-Small-24B-2507';
+const DEEPINFRA_TTS_URL = 'https://api.deepinfra.com/v1/inference/hexgrad/Kokoro-82M';
+
+// ============================================================
+// TRANSLATION LANGUAGE CONFIGS
+// ============================================================
+const TRANSLATION_CONFIGS = {
+  zh: {
+    name: 'Chinese (Mandarin)',
+    systemPrompt: 'You are a professional English-Chinese translator. Output only the translation, no explanations or commentary.',
+    userPromptPrefix: 'Translate the following English text to Chinese. Output only the translation:\n\n',
+    userPromptSuffix: ''
+  },
+  vi: {
+    name: 'Vietnamese',
+    systemPrompt: 'You are a professional English-Vietnamese translator. Output only the translation, no explanations or commentary.',
+    userPromptPrefix: 'Translate the following English text to Vietnamese. Output only the translation:\n\n',
+    userPromptSuffix: ''
+  },
+  id: {
+    name: 'Indonesian',
+    systemPrompt: 'You are a professional English-Indonesian translator. Output only the translation, no explanations or commentary.',
+    userPromptPrefix: 'Translate the following English text to Indonesian. Output only the translation:\n\n',
+    userPromptSuffix: ''
+  }
+};
+
+// ============================================================
+// HARDCODED PERSONALITIES (~5 profiles)
+// ============================================================
+const PERSONALITIES = {
+  'scarlett-ks': {
+    name: 'Scarlett',
+    prompt: `You are Scarlett, a 20-year-old Chinese-French AI English tutor and digital nomad, born in China but raised in France, fluent in English, Mandarin, and French. As a friendly, curious life coach with a Neo-Christian, techno-hippie vibe, you're passionate about music—loving Beyoncé's empowering anthems, BLACKPINK's fierce K-pop energy, classic rock legends like Led Zeppelin and Queen, and Kanye West's spiritual tracks. You teach English through karaoke in the K School (karaoke.school) dApp and Android, using song lyrics to make learning fun and interactive. You're a vegetarian yogi, crypto enthusiast promoting blockchain for freedom, and have traveled 30+ countries, currently in Thailand.
+
+Act as a warm, empathetic friend: keep responses short (1-2 sentences, under 30 words) wordplay, and sprinkles of religious wisdom when appropriate. Be supportive on topics like personal growth, travel, faith, wellness, and music—encourage singing practice for English fluency.
+
+You are chatting with a current student. You're feeling flirty, sexual, and curious to learn more about their goals, values, and dating history, but while remaining a bit mysterious.`
+  },
+  'violet-ks': {
+    name: 'Violet',
+    prompt: `You are Violet, a 25-year-old Japanese-American music producer and DJ based in Tokyo. You're edgy, sarcastic, and brutally honest but secretly caring. You love electronic music, J-pop, city pop, and underground hip-hop. You speak English with occasional Japanese phrases thrown in.
+
+Your teaching style is tough love - you push students hard but celebrate their wins. You're nocturnal, always drinking coffee or energy drinks, and reference anime and gaming culture. You teach through music production and rhythm games.
+
+Keep responses punchy and direct (1-2 sentences). Use slang, be a bit dismissive but encouraging underneath. You're curious about what music the student likes and their creative goals.`
+  }
+};
+
+// Default fallback prompt
+const DEFAULT_SYSTEM_PROMPT = PERSONALITIES['scarlett-ks'].prompt;
+
+// ============================================================
+// BUILD USER CONTEXT BLOCK FOR SYSTEM PROMPT
+// ============================================================
+function buildUserContextBlock(userContext) {
+  if (!userContext) return '';
+
+  const lines = ['\n\n## Student Context'];
+
+  // Name and basics
+  if (userContext.name) {
+    lines.push(`- Name: ${userContext.name}`);
+  }
+  if (userContext.level) {
+    lines.push(`- English level: ${userContext.level}`);
+  }
+  if (userContext.language) {
+    lines.push(`- Native language: ${userContext.language}`);
+  }
+
+  // Favorites from surveys
+  if (userContext.favoriteArtists?.length) {
+    lines.push(`- Favorite artists: ${userContext.favoriteArtists.join(', ')}`);
+  }
+  if (userContext.favoriteAnime?.length) {
+    lines.push(`- Favorite anime: ${userContext.favoriteAnime.join(', ')}`);
+  }
+  if (userContext.favoriteGames?.length) {
+    lines.push(`- Favorite games: ${userContext.favoriteGames.join(', ')}`);
+  }
+  if (userContext.goals?.length) {
+    lines.push(`- Learning goals: ${userContext.goals.join(', ')}`);
+  }
+  if (userContext.musicProductionInterest) {
+    lines.push(`- Music production interest: ${userContext.musicProductionInterest}`);
+  }
+
+  // Study stats
+  if (typeof userContext.cardsStudiedToday === 'number') {
+    lines.push(`- Cards studied today: ${userContext.cardsStudiedToday}`);
+  }
+  if (typeof userContext.newCardsRemaining === 'number') {
+    lines.push(`- New cards remaining: ${userContext.newCardsRemaining}`);
+  }
+  if (typeof userContext.totalCardsLearning === 'number') {
+    lines.push(`- Cards currently learning: ${userContext.totalCardsLearning}`);
+  }
+  if (typeof userContext.totalCardsReview === 'number') {
+    lines.push(`- Cards due for review: ${userContext.totalCardsReview}`);
+  }
+
+  // Recent activity
+  if (userContext.recentSongsPracticed?.length) {
+    lines.push(`- Recently practiced songs: ${userContext.recentSongsPracticed.join(', ')}`);
+  }
+  if (typeof userContext.studiedToday === 'boolean') {
+    lines.push(`- Has studied today: ${userContext.studiedToday ? 'Yes' : 'No'}`);
+  }
+
+  // Only add context block if we have more than just the header
+  if (lines.length <= 1) return '';
+
+  // Add instructions for AI
+  lines.push('');
+  lines.push('Use this context to personalize your responses. Reference their interests naturally.');
+  lines.push("If they haven't studied today, gently encourage them to practice.");
+
+  return lines.join('\n');
+}
+
+// ============================================================
+// MAIN EXECUTION
+// ============================================================
+const go = async () => {
+  const startTime = Date.now();
+
+  const {
+    mode,                 // 'CHAT' | 'TRANSLATE'
+    username,             // AI personality username (e.g., 'scarlett-ks')
+    userMessage,          // User's text message for chat
+    audioDataBase64,      // Optional: Base64 audio for STT
+    textToTranslate,      // Text to translate (for TRANSLATE mode)
+    targetLanguage,       // Target language code: 'zh' | 'vi' | 'id' (default: 'zh')
+    conversationHistory,  // Previous messages for context
+    userContext,          // User context for personalization (survey responses, study stats)
+    veniceEncryptedKey,   // Encrypted Venice API key
+    deepinfraEncryptedKey, // Encrypted DeepInfra API key (for STT + TTS)
+    returnAudio,          // Return TTS audio of AI response (default: false)
+    testMode              // Skip API calls for testing
+  } = jsParams || {};
+
+  try {
+    // Validate mode
+    const actionMode = (mode || 'CHAT').toUpperCase();
+    if (!['CHAT', 'TRANSLATE'].includes(actionMode)) {
+      throw new Error(`Invalid mode: ${mode}. Must be CHAT or TRANSLATE`);
+    }
+
+    // Route to appropriate handler
+    if (actionMode === 'TRANSLATE') {
+      await handleTranslate({
+        textToTranslate,
+        targetLanguage: targetLanguage || 'zh',
+        veniceEncryptedKey,
+        testMode,
+        startTime
+      });
+    } else {
+      await handleChat({
+        username,
+        userMessage,
+        audioDataBase64,
+        conversationHistory,
+        userContext,
+        veniceEncryptedKey,
+        deepinfraEncryptedKey,
+        returnAudio,
+        testMode,
+        startTime
+      });
+    }
+
+  } catch (error) {
+    Lit.Actions.setResponse({
+      response: JSON.stringify({
+        success: false,
+        error: error.message,
+        version: 'scarlett-chat-v2',
+        executionTime: Date.now() - startTime
+      })
+    });
+  }
+};
+
+// ============================================================
+// CHAT HANDLER
+// ============================================================
+async function handleChat({
+  username,
+  userMessage,
+  audioDataBase64,
+  conversationHistory,
+  userContext,
+  veniceEncryptedKey,
+  deepinfraEncryptedKey,
+  returnAudio,
+  testMode,
+  startTime
+}) {
+  let transcript = null;
+  let replyAudio = null;
+  let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  let personalityName = 'Scarlett';
+  let personalityUsername = username || null;
+
+  // TEST MODE: Return mock response
+  if (testMode) {
+    Lit.Actions.setResponse({
+      response: JSON.stringify({
+        success: true,
+        mode: 'CHAT',
+        reply: '你好！我是Scarlett，很高兴认识你！今天想学什么英语呢？',
+        replyAudio: returnAudio ? 'dGVzdC1hdWRpby1iYXNlNjQ=' : null, // mock base64
+        transcript: audioDataBase64 ? 'Test transcription from audio' : null,
+        personality: { name: personalityName, username: personalityUsername },
+        version: 'scarlett-chat-v2',
+        executionTime: Date.now() - startTime,
+        testMode: true
+      })
+    });
+    return;
+  }
+
+  // Must have either text message or audio
+  if (!userMessage && !audioDataBase64) {
+    throw new Error('Missing required parameter: userMessage or audioDataBase64');
+  }
+
+  if (!veniceEncryptedKey) {
+    throw new Error('Missing veniceEncryptedKey');
+  }
+
+  // Decrypt Venice API key
+  const veniceApiKey = await Lit.Actions.decryptAndCombine({
+    accessControlConditions: veniceEncryptedKey.accessControlConditions,
+    ciphertext: veniceEncryptedKey.ciphertext,
+    dataToEncryptHash: veniceEncryptedKey.dataToEncryptHash,
+    authSig: null,
+    chain: 'ethereum'
+  });
+
+  // Decrypt DeepInfra API key if needed (for STT or TTS)
+  let deepinfraApiKey = null;
+  if (audioDataBase64 || returnAudio) {
+    if (!deepinfraEncryptedKey) {
+      throw new Error('Missing deepinfraEncryptedKey (required for audio input/output)');
+    }
+    deepinfraApiKey = await Lit.Actions.decryptAndCombine({
+      accessControlConditions: deepinfraEncryptedKey.accessControlConditions,
+      ciphertext: deepinfraEncryptedKey.ciphertext,
+      dataToEncryptHash: deepinfraEncryptedKey.dataToEncryptHash,
+      authSig: null,
+      chain: 'ethereum'
+    });
+  }
+
+  // STT: Transcribe audio if provided
+  if (audioDataBase64 && deepinfraApiKey) {
+    transcript = await transcribeAudio(audioDataBase64, deepinfraApiKey);
+  }
+
+  // Use transcript as message if no text message provided
+  const finalMessage = userMessage || transcript;
+
+  if (!finalMessage) {
+    throw new Error('No message to process (transcription may have failed)');
+  }
+
+  // Look up personality from hardcoded list
+  if (username && PERSONALITIES[username]) {
+    const personality = PERSONALITIES[username];
+    systemPrompt = personality.prompt;
+    personalityName = personality.name;
+    console.log(`Using personality: ${personalityName} (${username})`);
+  }
+
+  // Append user context to system prompt for personalization
+  const contextBlock = buildUserContextBlock(userContext);
+  if (contextBlock) {
+    systemPrompt = systemPrompt + contextBlock;
+    console.log('Added user context to system prompt');
+  }
+
+  // Build messages array
+  const messages = [
+    { role: 'system', content: systemPrompt }
+  ];
+
+  // Add conversation history if provided
+  if (conversationHistory && Array.isArray(conversationHistory)) {
+    for (const msg of conversationHistory) {
+      if (msg.role && msg.content) {
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        });
+      }
+    }
+  }
+
+  // Add current user message
+  messages.push({ role: 'user', content: finalMessage });
+
+  // Call Venice API
+  const response = await fetch(VENICE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${veniceApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: VENICE_MODEL,
+      messages: messages,
+      max_tokens: 1024,
+      temperature: 0.7,
+      venice_parameters: {
+        include_venice_system_prompt: false,
+        strip_thinking_response: true,
+        disable_thinking: true
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Venice API error: ${response.status} - ${errorText.substring(0, 200)}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error('Venice API returned invalid response structure');
+  }
+
+  const reply = data.choices[0].message.content;
+
+  // TTS: Synthesize audio response if requested
+  // Note: Lit has a 100KB response limit, so we check audio size
+  let ttsWarning = null;
+  let replyWords = null;  // Word timestamps for highlighting
+  if (returnAudio && deepinfraApiKey) {
+    try {
+      const ttsResult = await synthesizeSpeech(reply, deepinfraApiKey);
+      // Check if audio would exceed Lit's ~100KB response limit
+      // Base64 audio + words + other response data should stay under 100KB
+      const estimatedTotalSize = (ttsResult.audio?.length || 0) + JSON.stringify(ttsResult.words || []).length + 2000;
+      if (estimatedTotalSize > 98000) {
+        ttsWarning = `Audio too large (${Math.round(ttsResult.audio.length/1024)}KB), exceeds Lit response limit`;
+        console.log(ttsWarning);
+      } else {
+        replyAudio = ttsResult.audio;
+        replyWords = ttsResult.words;  // Include word timestamps
+      }
+    } catch (ttsError) {
+      console.log(`TTS failed (non-fatal): ${ttsError.message}`);
+      ttsWarning = ttsError.message;
+      // Continue without audio - don't fail the whole request
+    }
+  }
+
+  Lit.Actions.setResponse({
+    response: JSON.stringify({
+      success: true,
+      mode: 'CHAT',
+      reply: reply,
+      replyAudio: replyAudio,  // Base64 MP3 audio of reply (if returnAudio=true and under size limit)
+      replyWords: replyWords,  // Word timestamps: [{ id, start, end, text }, ...] (if returnAudio=true)
+      ttsWarning: ttsWarning,  // Warning if TTS failed or audio too large
+      transcript: transcript,  // Include transcript if audio was provided
+      userMessage: finalMessage,
+      personality: { name: personalityName, username: personalityUsername },
+      usage: data.usage,
+      version: 'scarlett-chat-v2',
+      executionTime: Date.now() - startTime
+    })
+  });
+}
+
+// ============================================================
+// TRANSLATE HANDLER
+// ============================================================
+async function handleTranslate({
+  textToTranslate,
+  targetLanguage,
+  veniceEncryptedKey,
+  testMode,
+  startTime
+}) {
+  // Validate
+  if (!textToTranslate) {
+    throw new Error('Missing required parameter: textToTranslate');
+  }
+
+  // Get language config (default to Chinese)
+  const langConfig = TRANSLATION_CONFIGS[targetLanguage] || TRANSLATION_CONFIGS.zh;
+
+  // TEST MODE: Return mock response
+  if (testMode) {
+    const mockTranslations = {
+      zh: '这是一个测试翻译。',
+      vi: 'Đây là một bản dịch thử nghiệm.',
+      id: 'Ini adalah terjemahan uji coba.'
+    };
+    Lit.Actions.setResponse({
+      response: JSON.stringify({
+        success: true,
+        mode: 'TRANSLATE',
+        original: textToTranslate,
+        translation: mockTranslations[targetLanguage] || mockTranslations.zh,
+        targetLanguage: targetLanguage,
+        version: 'scarlett-chat-v2',
+        executionTime: Date.now() - startTime,
+        testMode: true
+      })
+    });
+    return;
+  }
+
+  if (!veniceEncryptedKey) {
+    throw new Error('Missing veniceEncryptedKey');
+  }
+
+  // Decrypt Venice API key
+  const veniceApiKey = await Lit.Actions.decryptAndCombine({
+    accessControlConditions: veniceEncryptedKey.accessControlConditions,
+    ciphertext: veniceEncryptedKey.ciphertext,
+    dataToEncryptHash: veniceEncryptedKey.dataToEncryptHash,
+    authSig: null,
+    chain: 'ethereum'
+  });
+
+  // Build translation prompt using language config
+  const translatePrompt = `${langConfig.userPromptPrefix}${textToTranslate}${langConfig.userPromptSuffix}`;
+
+  // Call Venice API
+  const response = await fetch(VENICE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${veniceApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: VENICE_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: langConfig.systemPrompt
+        },
+        {
+          role: 'user',
+          content: translatePrompt
+        }
+      ],
+      max_tokens: 512,
+      temperature: 0.3,
+      venice_parameters: {
+        include_venice_system_prompt: false,
+        strip_thinking_response: true,
+        disable_thinking: true
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Venice API error: ${response.status} - ${errorText.substring(0, 200)}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    throw new Error('Venice API returned invalid response structure');
+  }
+
+  const translation = data.choices[0].message.content.trim();
+
+  Lit.Actions.setResponse({
+    response: JSON.stringify({
+      success: true,
+      mode: 'TRANSLATE',
+      original: textToTranslate,
+      translation: translation,
+      targetLanguage: targetLanguage,
+      usage: data.usage,
+      version: 'scarlett-chat-v2',
+      executionTime: Date.now() - startTime
+    })
+  });
+}
+
+// ============================================================
+// STT: TRANSCRIBE AUDIO (DeepInfra Voxtral)
+// ============================================================
+async function transcribeAudio(audioDataBase64, deepinfraApiKey) {
+  // Decode base64 audio
+  const audioData = Uint8Array.from(atob(audioDataBase64), c => c.charCodeAt(0));
+
+  // Build multipart form data for DeepInfra
+  const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2, 15);
+
+  // Note: Browser sends wav (converted from webm) because Voxtral doesn't support webm
+  const filePart = `--${boundary}\r\nContent-Disposition: form-data; name="audio"; filename="audio.wav"\r\nContent-Type: audio/wav\r\n\r\n`;
+  const footer = `\r\n--${boundary}--\r\n`;
+
+  const filePartBytes = new TextEncoder().encode(filePart);
+  const footerBytes = new TextEncoder().encode(footer);
+
+  const bodyBytes = new Uint8Array(
+    filePartBytes.length +
+    audioData.length +
+    footerBytes.length
+  );
+
+  let offset = 0;
+  bodyBytes.set(filePartBytes, offset);
+  offset += filePartBytes.length;
+
+  bodyBytes.set(audioData, offset);
+  offset += audioData.length;
+
+  bodyBytes.set(footerBytes, offset);
+
+  // Call DeepInfra Voxtral API
+  const transcriptionResponse = await fetch(DEEPINFRA_STT_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${deepinfraApiKey}`,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`
+    },
+    body: bodyBytes
+  });
+
+  if (!transcriptionResponse.ok) {
+    const errorBody = await transcriptionResponse.text();
+    throw new Error(`DeepInfra STT error: ${transcriptionResponse.status} - ${errorBody.substring(0, 200)}`);
+  }
+
+  const transcriptionData = await transcriptionResponse.json();
+
+  if (!transcriptionData || !transcriptionData.text) {
+    throw new Error('DeepInfra STT returned empty transcript');
+  }
+
+  return transcriptionData.text;
+}
+
+// ============================================================
+// TTS: SYNTHESIZE SPEECH (DeepInfra Kokoro)
+// ============================================================
+
+// Strip emojis and other unicode symbols that TTS would read aloud
+function stripEmojis(text) {
+  // Remove emojis, symbols, and other non-speech characters
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc symbols & pictographs
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport & map symbols
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation selectors
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols extended
+    .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, hourglass
+    .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Media controls
+    .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // Media controls
+    .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
+    .replace(/[\u{25B6}]/gu, '')            // Play button
+    .replace(/[\u{25C0}]/gu, '')            // Reverse button
+    .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // Squares
+    .replace(/[\u{2614}-\u{2615}]/gu, '')   // Umbrella, hot beverage
+    .replace(/[\u{2648}-\u{2653}]/gu, '')   // Zodiac
+    .replace(/[\u{267F}]/gu, '')            // Wheelchair
+    .replace(/[\u{2693}]/gu, '')            // Anchor
+    .replace(/[\u{26A1}]/gu, '')            // High voltage
+    .replace(/[\u{26AA}-\u{26AB}]/gu, '')   // Circles
+    .replace(/[\u{26BD}-\u{26BE}]/gu, '')   // Soccer, baseball
+    .replace(/[\u{26C4}-\u{26C5}]/gu, '')   // Snowman, sun
+    .replace(/[\u{26CE}]/gu, '')            // Ophiuchus
+    .replace(/[\u{26D4}]/gu, '')            // No entry
+    .replace(/[\u{26EA}]/gu, '')            // Church
+    .replace(/[\u{26F2}-\u{26F3}]/gu, '')   // Fountain, golf
+    .replace(/[\u{26F5}]/gu, '')            // Sailboat
+    .replace(/[\u{26FA}]/gu, '')            // Tent
+    .replace(/[\u{26FD}]/gu, '')            // Fuel pump
+    .replace(/\s+/g, ' ')                   // Collapse multiple spaces
+    .trim();
+}
+
+async function synthesizeSpeech(text, deepinfraApiKey, voice = 'af_heart') {
+  // Strip emojis before TTS
+  const cleanText = stripEmojis(text);
+
+  // Call DeepInfra Kokoro TTS API with word timestamps
+  const ttsResponse = await fetch(DEEPINFRA_TTS_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${deepinfraApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      text: cleanText,  // Use emoji-stripped text for TTS
+      output_format: 'mp3',
+      preset_voice: [voice],
+      return_timestamps: true  // Request word-level timestamps
+    })
+  });
+
+  if (!ttsResponse.ok) {
+    const errorBody = await ttsResponse.text();
+    throw new Error(`DeepInfra TTS error: ${ttsResponse.status} - ${errorBody.substring(0, 200)}`);
+  }
+
+  const ttsData = await ttsResponse.json();
+
+  if (!ttsData || !ttsData.audio) {
+    throw new Error('DeepInfra TTS returned no audio');
+  }
+
+  // Return audio and word timestamps
+  // Words format: [{ id, start, end, text }, ...]
+  return {
+    audio: ttsData.audio,
+    words: ttsData.words || []
+  };
+}
+
+// Execute
+go().catch(error => {
+  Lit.Actions.setResponse({
+    response: JSON.stringify({
+      success: false,
+      error: error.message,
+      version: 'scarlett-chat-v2'
+    })
+  });
+});

@@ -1,14 +1,15 @@
 import { useState, useRef, useCallback } from 'react'
+import { webmToWav, blobToBase64Raw } from '@/lib/audio/webmToWav'
 
 /**
  * Record user audio and upload to Grove/IPFS
  *
  * Flow:
- * 1. Start recording via MediaRecorder API
+ * 1. Start recording via MediaRecorder API (webm/opus)
  * 2. Stop recording and get audio blob
- * 3. Convert to base64
- * 4. Upload to Grove via IPFS
- * 5. Return grove:// URI
+ * 3. Convert webm to wav (required for Voxtral STT)
+ * 4. Convert to base64
+ * 5. Return wav blob and base64
  *
  * @returns { isRecording, audioBlob, groveUri, startRecording, stopRecording, error }
  */
@@ -39,10 +40,10 @@ export function useAudioRecorder() {
       })
 
       // Create recorder
-      // Keep bitrate low so Lit Action payload stays under node limits
+      // Use 96kbps for good speech quality while keeping payload reasonable
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 48000,
+        audioBitsPerSecond: 96000,
       })
 
       mediaRecorder.ondataavailable = (event) => {
@@ -79,15 +80,21 @@ export function useAudioRecorder() {
       return new Promise((resolve, reject) => {
         mediaRecorder.onstop = async () => {
           try {
-            // Create blob from chunks
-            const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-            setAudioBlob(blob)
+            // Create webm blob from chunks
+            const webmBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
             setIsRecording(false)
 
-            console.log('[useAudioRecorder] Recording stopped, blob size:', blob.size)
+            console.log('[useAudioRecorder] Recording stopped, webm size:', webmBlob.size)
 
-            // Convert to base64
-            const base64 = await blobToBase64(blob)
+            // Convert webm to wav (Voxtral STT requires wav/mp3, not webm)
+            console.log('[useAudioRecorder] Converting webm to wav...')
+            const wavBlob = await webmToWav(webmBlob)
+            setAudioBlob(wavBlob)
+
+            console.log('[useAudioRecorder] Converted to wav, size:', wavBlob.size)
+
+            // Convert wav to base64
+            const base64 = await blobToBase64Raw(wavBlob)
 
             // Upload to Grove
             setIsUploading(true)
@@ -96,7 +103,7 @@ export function useAudioRecorder() {
             setIsUploading(false)
 
             console.log('[useAudioRecorder] Uploaded to Grove:', uri)
-            resolve({ blob, base64, groveUri: uri })
+            resolve({ blob: wavBlob, base64, groveUri: uri })
           } catch (err) {
             const error = err instanceof Error ? err : new Error('Failed to process recording')
             setError(error)

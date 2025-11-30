@@ -7,9 +7,14 @@
  * Usage:
  *   bun src/scripts/create-lens-account.ts --handle=scarlett
  *   bun src/scripts/create-lens-account.ts --handle=scarlett --lens-handle=scarlett-ks
+ *
+ * For AI accounts with personality:
+ *   bun src/scripts/create-lens-account.ts --handle=scarlett --system-prompt="你是Scarlett..."
+ *   bun src/scripts/create-lens-account.ts --handle=scarlett --system-prompt-file=accounts/scarlett/system-prompt.txt
  */
 
 import { parseArgs } from 'util';
+import { readFileSync, existsSync } from 'fs';
 import { createWalletClient, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { getAccountByHandle, updateAccountLens } from '../db/queries';
@@ -28,6 +33,8 @@ const { values } = parseArgs({
     handle: { type: 'string' },
     'lens-handle': { type: 'string' },
     bio: { type: 'string' },
+    'system-prompt': { type: 'string' },  // AI personality system prompt
+    'system-prompt-file': { type: 'string' },  // Or load from file
   },
   strict: true,
 });
@@ -132,16 +139,38 @@ async function main() {
   // Create storage client
   const storageClient = StorageClient.create();
 
+  // Load system prompt if provided (for AI accounts)
+  let systemPrompt: string | undefined;
+  if (values['system-prompt-file']) {
+    if (!existsSync(values['system-prompt-file'])) {
+      console.error(`❌ System prompt file not found: ${values['system-prompt-file']}`);
+      process.exit(1);
+    }
+    systemPrompt = readFileSync(values['system-prompt-file'], 'utf-8').trim();
+    console.log(`   System prompt loaded from file (${systemPrompt.length} chars)`);
+  } else if (values['system-prompt']) {
+    systemPrompt = values['system-prompt'];
+    console.log(`   System prompt provided (${systemPrompt.length} chars)`);
+  }
+
   // Build account metadata
   console.log('\n📝 Building account metadata...');
+  const attributes: any[] = [
+    { type: MetadataAttributeType.STRING, key: 'pkpAddress', value: account.pkp_address },
+    { type: MetadataAttributeType.STRING, key: 'accountType', value: account.account_type },
+    { type: MetadataAttributeType.STRING, key: 'handle', value: handle },
+  ];
+
+  // Add system prompt for AI accounts
+  if (systemPrompt && account.account_type === 'ai') {
+    attributes.push({ type: MetadataAttributeType.STRING, key: 'systemPrompt', value: systemPrompt });
+    console.log('   ✓ Added systemPrompt attribute for AI personality');
+  }
+
   const metadata = profileMetadata({
     name: account.display_name || handle,
     bio,
-    attributes: [
-      { type: MetadataAttributeType.STRING, key: 'pkpAddress', value: account.pkp_address },
-      { type: MetadataAttributeType.STRING, key: 'accountType', value: account.account_type },
-      { type: MetadataAttributeType.STRING, key: 'handle', value: handle },
-    ],
+    attributes,
   });
 
   // Upload metadata to Grove
