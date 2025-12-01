@@ -24,26 +24,6 @@ export function createLensGraphQLClient(accessToken?: string): GraphQLClient {
 }
 
 /**
- * Execute GraphQL mutation with error handling
- */
-export async function executeMutation<T = any>(
-  client: GraphQLClient,
-  mutation: string,
-  variables: Variables
-): Promise<T> {
-  try {
-    const data = await client.request<T>(mutation, variables)
-    return data
-  } catch (error: any) {
-    console.error('[GraphQL] Mutation error:', error)
-    if (error.response) {
-      console.error('[GraphQL] Response:', JSON.stringify(error.response, null, 2))
-    }
-    throw error
-  }
-}
-
-/**
  * Execute GraphQL query with error handling
  */
 export async function executeQuery<T = any>(

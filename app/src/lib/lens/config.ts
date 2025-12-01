@@ -19,10 +19,3 @@ export const LENS_GRAPH_ADDRESS: EvmAddress = (import.meta.env.VITE_LENS_GRAPH_A
 // Custom Namespace - kschool2 namespace for karaoke school accounts
 export const LENS_CUSTOM_NAMESPACE: EvmAddress = (import.meta.env.VITE_LENS_CUSTOM_NAMESPACE ||
   '0x6Cf6bC01D51aF736Cd34bC3a682B7b081eA77B07') as EvmAddress
-
-/**
- * Check if Lens is configured
- */
-export function isLensConfigured(): boolean {
-  return !!LENS_APP_ADDRESS
-}

@@ -50,7 +50,6 @@ interface AuthState {
 interface AuthActions {
   register: (username?: string) => Promise<void>
   signIn: () => Promise<void>
-  loginWithWallet: (walletClient: any, address: Address) => Promise<void>
   loginWithGoogle: (username?: string) => Promise<void>
   loginWithDiscord: (username?: string) => Promise<void>
   logout: () => void
@@ -72,12 +71,10 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 type LitModule = typeof import('@/lib/lit')
 type AuthFlowsModule = typeof import('@/lib/auth/flows')
-type AuthEOAModule = typeof import('@/lib/lit/auth-eoa')
 type AuthSocialModule = typeof import('@/lib/lit/auth-social')
 
 let litPromise: Promise<LitModule> | null = null
 let authFlowsPromise: Promise<AuthFlowsModule> | null = null
-let authEOAPromise: Promise<AuthEOAModule> | null = null
 let authSocialPromise: Promise<AuthSocialModule> | null = null
 
 function loadLit(): Promise<LitModule> {
@@ -92,13 +89,6 @@ function loadAuthFlows(): Promise<AuthFlowsModule> {
     authFlowsPromise = import('@/lib/auth/flows')
   }
   return authFlowsPromise
-}
-
-function loadAuthEOA(): Promise<AuthEOAModule> {
-  if (!authEOAPromise) {
-    authEOAPromise = import('@/lib/lit/auth-eoa')
-  }
-  return authEOAPromise
 }
 
 function loadAuthSocial(): Promise<AuthSocialModule> {
@@ -412,75 +402,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // --------- Login with Wallet (EOA) ---------
-
-  const loginWithWallet = useCallback(async (walletClient: any, address: Address) => {
-    try {
-      setIsAuthenticating(true)
-      setAuthMode('login')
-      setAuthStep('processing')
-      setAuthStatus('Connecting to Lit Protocol...')
-      setAuthError(null)
-
-      const { connectEOA } = await loadAuthEOA()
-      const { loginLensStandalone } = await loadAuthFlows()
-
-      // 1. Connect EOA to Lit (Get PKP)
-      const result = await connectEOA(walletClient, address, (status) => {
-        setAuthStatus(status)
-      })
-
-      if (result.isNewUser) {
-        // Handle New User Case: EOA has no PKP
-        // We cannot auto-mint for EOA without a relayer service.
-        // So we guide them to use Passkey instead.
-        
-        console.log('[Auth] EOA has no PKP, guiding to Passkey...')
-        setAuthError(new Error('This wallet is not registered. Please "Create New Account" using a Passkey (it\'s gasless!). You can then link your wallet later.'))
-        setAuthStep('idle') // This triggers UI to go back to method select
-        // Don't set authMode to null so they can try again? Or reset?
-        setAuthMode(null)
-        setIsAuthenticating(false)
-        return
-      }
-
-      // 2. Connect Lens
-      setAuthStatus('Setting up social features...')
-      const litModule = await loadLit()
-      const pkpWalletClient = await litModule.createPKPWalletClient(
-        result.pkpInfo,
-        result.authContext
-      )
-      const lensResult = await loginLensStandalone(
-        pkpWalletClient,
-        result.pkpInfo.ethAddress,
-        undefined,
-        (status) => setAuthStatus(status)
-      )
-
-      setAuthContext(result.authContext)
-      setWalletClient(pkpWalletClient)
-      setPkpInfo(result.pkpInfo)
-      setAuthData(result.authData)
-      setSessionClient(lensResult.session)
-      setAccount(lensResult.account)
-      setLensSetupStatus('complete') // or derived
-
-      setAuthStep('complete')
-      setAuthMode(null)
-      setAuthStatus('')
-    } catch (error) {
-      console.error('[Auth] Wallet login error:', error)
-      setAuthError(error as Error)
-      setAuthStep('idle') // or stay on error?
-      setAuthMode(null)
-      setAuthStatus('')
-      throw error
-    } finally {
-      setIsAuthenticating(false)
-    }
-  }, [])
-
   // --------- Login with Google ---------
   
   const loginWithGoogle = useCallback(async (username?: string) => {
@@ -675,7 +596,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Actions
       register,
       signIn,
-      loginWithWallet,
       loginWithGoogle,
       loginWithDiscord,
       logout,
@@ -702,7 +622,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lensSetupStatus,
       register,
       signIn,
-      loginWithWallet,
       logout,
       showUsernameInput,
       resetAuthFlow,

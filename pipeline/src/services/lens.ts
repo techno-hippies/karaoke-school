@@ -212,15 +212,3 @@ export async function postToLens(
     transactionHash: txHash,
   };
 }
-
-/**
- * Get Lens account info
- */
-export async function getLensAccountInfo(accountAddress: Address): Promise<{
-  handle: string;
-  id: string;
-} | null> {
-  // This would query the Lens API for account details
-  // For now, return null (implement when needed)
-  return null;
-}

@@ -62,28 +62,6 @@ export async function searchGenius(query: string): Promise<GeniusSong | null> {
 }
 
 /**
- * Get song details by ID
- */
-export async function getGeniusSong(songId: number): Promise<GeniusSong | null> {
-  if (!GENIUS_API_KEY) {
-    throw new Error('GENIUS_API_KEY not configured');
-  }
-
-  const response = await fetch(`${GENIUS_API_URL}/songs/${songId}`, {
-    headers: {
-      Authorization: `Bearer ${GENIUS_API_KEY}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Genius song fetch failed: ${response.status}`);
-  }
-
-  const data: GeniusSongResponse = await response.json();
-  return data.response.song;
-}
-
-/**
  * Scrape lyrics from Genius page
  *
  * Note: Genius doesn't provide lyrics via API, we need to scrape the page.

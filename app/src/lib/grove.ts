@@ -18,15 +18,3 @@ export function lensUriToHttp(uri: string): string {
   return uri
 }
 
-/**
- * Convert a grove:// URI to an HTTP URL using Grove gateway
- * @param uri - The grove:// URI to convert
- * @returns HTTP URL for accessing the content
- */
-export function groveUriToHttp(uri: string): string {
-  if (uri.startsWith('grove://')) {
-    const hash = uri.replace('grove://', '')
-    return `${GROVE_GATEWAY}/${hash}`
-  }
-  return uri
-}

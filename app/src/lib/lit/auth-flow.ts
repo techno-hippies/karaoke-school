@@ -158,19 +158,3 @@ export async function loginUser(
   return result
 }
 
-/**
- * Unified authentication flow (backwards compat)
- * Auto-detects new vs returning users
- */
-export async function authenticateUser(
-  onStatusUpdate: (status: string) => void
-): Promise<AuthFlowResult> {
-  try {
-    // Try login first
-    return await loginUser(onStatusUpdate)
-  } catch {
-    // If login fails, try register
-    console.log('Login failed, attempting registration...')
-    return await registerUser(undefined, onStatusUpdate)
-  }
-}

@@ -145,24 +145,3 @@ export async function enhanceInstrumentalFromBuffer(
   const result = await enhanceInstrumental(inputUrl);
   return result.audioUrl;
 }
-
-/**
- * Check if FAL service is available
- */
-export async function checkFalAvailability(): Promise<boolean> {
-  if (!FAL_API_KEY) {
-    return false;
-  }
-
-  try {
-    const response = await fetch(`${FAL_API_URL}/fal-ai/audio-enhance`, {
-      method: 'OPTIONS',
-      headers: {
-        Authorization: `Key ${FAL_API_KEY}`,
-      },
-    });
-    return response.ok || response.status === 405; // 405 = method not allowed but endpoint exists
-  } catch {
-    return false;
-  }
-}

@@ -47,25 +47,6 @@ export async function searchLyrics(
 }
 
 /**
- * Search with fuzzy matching
- */
-export async function searchLyricsFuzzy(query: string): Promise<LRCLibTrack[]> {
-  const params = new URLSearchParams({ q: query });
-
-  const response = await fetch(`${LRCLIB_API_URL}/search?${params}`, {
-    headers: {
-      'User-Agent': 'KaraokeSchool/1.0 (https://github.com/karaoke-school)',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`LRCLIB search error: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
  * Get lyrics by LRCLIB ID
  */
 export async function getLyricsById(id: number): Promise<LRCLibTrack | null> {

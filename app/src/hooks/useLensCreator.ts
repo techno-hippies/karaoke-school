@@ -82,16 +82,6 @@ export function isVideoPost(post: Post): boolean {
 }
 
 /**
- * Type guard to check if an account is verified
- * Uses account.score as a proxy for verification status
- * @param account - Lens account
- * @param threshold - Score threshold for verification (default: 50)
- */
-export function isVerifiedAccount(account: Account, threshold = 50): boolean {
-  return (account.score ?? 0) >= threshold
-}
-
-/**
  * Export types for convenience
  */
 export type { Account, Post }

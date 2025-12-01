@@ -127,25 +127,6 @@ export async function unfollowAccount(
 }
 
 /**
- * Check if a logged-in account can follow a target account
- * Uses the account.operations.canFollow field
- */
-export function canFollowAccount(account: Account | null): boolean {
-  if (!account?.operations?.canFollow) {
-    return false
-  }
-
-  return account.operations.canFollow.__typename === 'AccountFollowOperationValidationPassed'
-}
-
-/**
- * Check if the logged-in account is following the target account
- */
-export function isFollowingAccount(account: Account | null): boolean {
-  return account?.operations?.isFollowedByMe ?? false
-}
-
-/**
  * Follower data (from Lens API)
  */
 export interface Follower {

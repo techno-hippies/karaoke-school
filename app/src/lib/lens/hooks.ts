@@ -3,34 +3,8 @@
  * React hooks for Lens authentication and accounts
  */
 
-import { useState, useEffect } from 'react'
-import type { SessionClient, Account } from '@lens-protocol/client'
-import { resumeLensSession } from './auth'
-
-/**
- * Hook to manage Lens session state
- */
-export function useLensSession() {
-  const [sessionClient, setSessionClient] = useState<SessionClient | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  // Try to resume session on mount
-  useEffect(() => {
-    resumeLensSession()
-      .then(setSessionClient)
-      .catch(setError)
-      .finally(() => setIsLoading(false))
-  }, [])
-
-  return {
-    sessionClient,
-    setSessionClient,
-    isAuthenticated: !!sessionClient,
-    isLoading,
-    error,
-  }
-}
+import { useState } from 'react'
+import type { Account } from '@lens-protocol/client'
 
 /**
  * Hook to track current Lens account

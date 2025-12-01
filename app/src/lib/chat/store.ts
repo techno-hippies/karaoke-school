@@ -219,25 +219,6 @@ export async function getMessages(
   return all.slice(-limit)
 }
 
-export async function getRecentMessages(
-  threadId: string,
-  count: number
-): Promise<Message[]> {
-  const db = await getDB()
-  const all = await db.getAllFromIndex('messages', 'by-thread', threadId)
-  all.sort((a, b) => a.idx - b.idx)
-  return all.slice(-count)
-}
-
-export async function getMessagesSince(
-  threadId: string,
-  afterIdx: number
-): Promise<Message[]> {
-  const db = await getDB()
-  const all = await db.getAllFromIndex('messages', 'by-thread', threadId)
-  return all.filter((m) => m.idx > afterIdx).sort((a, b) => a.idx - b.idx)
-}
-
 export async function addMessage(
   threadId: string,
   role: Message['role'],
@@ -292,13 +273,6 @@ export async function addMessage(
 // Utilities
 // ============================================================
 
-export async function clearAllData(): Promise<void> {
-  const db = await getDB()
-  await db.clear('profile')
-  await db.clear('threads')
-  await db.clear('messages')
-}
-
 export async function markThreadRead(threadId: string): Promise<void> {
   await updateThread(threadId, { unreadCount: 0 })
 }
@@ -314,41 +288,11 @@ export async function needsSummary(threadId: string): Promise<boolean> {
 // View History (for AI chat context / psychographics)
 // ============================================================
 
-export async function addViewHistoryEntry(
-  entry: Omit<ViewHistoryEntry, 'id' | 'viewedAt'>
-): Promise<ViewHistoryEntry> {
-  const db = await getDB()
-
-  const fullEntry: ViewHistoryEntry = {
-    ...entry,
-    id: crypto.randomUUID(),
-    viewedAt: Date.now(),
-  }
-
-  await db.put('viewHistory', fullEntry)
-
-  // Prune old entries if needed
-  const all = await db.getAllFromIndex('viewHistory', 'by-viewed-at')
-  if (all.length > MAX_VIEW_HISTORY * 1.5) {
-    const toDelete = all.slice(0, all.length - MAX_VIEW_HISTORY)
-    const tx = db.transaction('viewHistory', 'readwrite')
-    await Promise.all(toDelete.map((e) => tx.store.delete(e.id)))
-    await tx.done
-  }
-
-  return fullEntry
-}
-
 export async function getViewHistory(limit = 50): Promise<ViewHistoryEntry[]> {
   const db = await getDB()
   const all = await db.getAllFromIndex('viewHistory', 'by-viewed-at')
   // Return newest first
   return all.reverse().slice(0, limit)
-}
-
-export async function getViewHistoryByContent(contentId: string): Promise<ViewHistoryEntry[]> {
-  const db = await getDB()
-  return db.getAllFromIndex('viewHistory', 'by-content', contentId)
 }
 
 /**
