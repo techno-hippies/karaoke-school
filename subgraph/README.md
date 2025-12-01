@@ -7,7 +7,7 @@ The Graph subgraph for Karaoke School V2 on Lens Chain testnet. Indexes contract
 ### Production (The Graph Studio)
 
 **Current Deployment:**
-- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.2`
+- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.8`
 - **Status**: ✅ Deployed and synced
 - **Network**: Lens Testnet (Chain ID: 37111)
 

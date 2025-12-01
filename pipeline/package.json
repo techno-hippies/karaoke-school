@@ -16,7 +16,7 @@
     "@lens-chain/storage-client": "^0.0.0-canary-20250319215446",
     "@lens-protocol/client": "^0.0.0-canary-20250507135641",
     "@lens-protocol/env": "^0.0.0-canary-20250320085756",
-    "@lens-protocol/metadata": "^1.2.0",
+    "@lens-protocol/metadata": "2.1.0",
     "@lit-protocol/contracts-sdk": "^7.0.2",
     "@lit-protocol/lit-client": "^8.2.3",
     "@lit-protocol/lit-node-client": "^7.0.2",

@@ -296,7 +296,7 @@ export const PostMetadataSchema = z.object({
 
   // Video (required for clip posts)
   videoUrl: groveUrlSchema,
-  coverImageUrl: groveUrlSchema, // Video thumbnail (frame from video)
+  coverImageUrl: groveUrlSchema, // Video thumbnail (frame from video) - NOT album art!
 
   // Song identifiers
   artistSlug: z.string().min(1).max(100).optional(),
@@ -317,7 +317,26 @@ export const PostMetadataSchema = z.object({
   albumArt: z.string().url().optional(), // Spotify album art (reference)
   spotifyTrackId: spotifyTrackIdSchema.optional(),
   tags: z.array(z.string()).optional(), // General hashtags
-});
+
+  // For validation: song's Grove album art URLs (to ensure coverImageUrl is different)
+  _songCoverGroveUrl: z.string().optional(),
+  _songThumbnailGroveUrl: z.string().optional(),
+}).refine(
+  (data) => {
+    // Ensure coverImageUrl is NOT the song's album art
+    if (data._songCoverGroveUrl && data.coverImageUrl === data._songCoverGroveUrl) {
+      return false;
+    }
+    if (data._songThumbnailGroveUrl && data.coverImageUrl === data._songThumbnailGroveUrl) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'coverImageUrl must be a video frame thumbnail, not album art. Extract thumbnail from video first.',
+    path: ['coverImageUrl']
+  }
+);
 
 export type PostMetadata = z.infer<typeof PostMetadataSchema>;
 

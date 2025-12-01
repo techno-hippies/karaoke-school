@@ -11,6 +11,7 @@ solc = "0.8.19"
 evm_version = "paris"
 optimizer = true
 optimizer_runs = 200
+via_ir = true
 
 # ZKsync specific settings
 [profile.zksync]

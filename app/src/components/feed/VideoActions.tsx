@@ -1,11 +1,11 @@
-import { Heart, ChatCircle, ShareFat, Plus, Check, SpeakerHigh, SpeakerX } from '@phosphor-icons/react'
+import { Heart, Exam, ShareFat, Plus, Check, SpeakerHigh, SpeakerX } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { AudioSourceButton } from './AudioSourceButton'
 import type { VideoActionsProps } from './types'
 
 /**
  * VideoActions - Vertical action buttons column
- * Profile avatar + follow, like, comment, share, mute, audio source
+ * Profile avatar + follow, like, study, share, mute, audio source
  * Mobile: overlays on right side of video
  * Desktop: positioned to right of video container
  */
@@ -17,14 +17,11 @@ export function VideoActions({
   isFollowLoading = false,
   onFollowClick,
   onProfileClick,
-  likes,
-  comments,
-  shares,
   isLiked,
-  canLike,
   onLikeClick,
-  onCommentClick,
   onShareClick,
+  canStudy,
+  onStudyClick,
   musicTitle,
   musicAuthor,
   musicImageUrl,
@@ -33,11 +30,6 @@ export function VideoActions({
   onToggleMute,
   className
 }: VideoActionsProps) {
-  const formatCount = (count: number): string => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
-    return count.toString()
-  }
 
   return (
     <div className={cn('flex flex-col items-center gap-4 md:gap-6', className)}>
@@ -123,28 +115,6 @@ export function VideoActions({
             weight="fill"
           />
         </div>
-        <span className={cn(
-          'text-xs max-md:mt-0 md:mt-1',
-          isLiked ? 'text-red-500' : 'text-foreground'
-        )}>
-          {formatCount(likes)}
-        </span>
-      </button>
-
-      {/* Comment Button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onCommentClick()
-        }}
-        className="flex flex-col items-center cursor-pointer"
-      >
-        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-          <ChatCircle className="w-7 h-7 text-foreground" weight="fill" />
-        </div>
-        <span className="text-foreground text-xs max-md:mt-0 md:mt-1">
-          {formatCount(comments)}
-        </span>
       </button>
 
       {/* Share Button */}
@@ -158,10 +128,22 @@ export function VideoActions({
         <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
           <ShareFat className="w-7 h-7 text-foreground" weight="fill" />
         </div>
-        <span className="text-foreground text-xs max-md:mt-0 md:mt-1">
-          {formatCount(shares)}
-        </span>
       </button>
+
+      {/* Study Button - only show when song data is available */}
+      {canStudy && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onStudyClick?.()
+          }}
+          className="flex flex-col items-center cursor-pointer"
+        >
+          <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
+            <Exam className="w-7 h-7 text-foreground" weight="fill" />
+          </div>
+        </button>
+      )}
 
       {/* Audio Source Button - only show when music info is available */}
       {(musicTitle || musicAuthor) && (

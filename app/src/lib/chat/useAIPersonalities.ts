@@ -19,7 +19,7 @@ const AI_PERSONALITY_DEFS = [
   },
   {
     id: 'violet',
-    lensUsername: 'violet-ks',
+    lensUsername: 'violet-karaoke',
     name: 'Violet',
     description: '25F Tokyo DJ, edgy but caring',
     fallbackAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=violet',
@@ -40,7 +40,7 @@ export interface AIPersonality {
 export function useAIPersonalities() {
   // Fetch both accounts from Lens
   const scarlettAccount = useLensAccount('scarlett-ks', LENS_CUSTOM_NAMESPACE)
-  const violetAccount = useLensAccount('violet-ks', LENS_CUSTOM_NAMESPACE)
+  const violetAccount = useLensAccount('violet-karaoke', LENS_CUSTOM_NAMESPACE)
 
   const personalities = useMemo<AIPersonality[]>(() => {
     return AI_PERSONALITY_DEFS.map((def) => {

@@ -15,7 +15,7 @@
 // ============================================================
 
 // KaraokeEvents - Clip lifecycle + karaoke grading (consolidated contract)
-export const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409';
+export const KARAOKE_EVENTS_ADDRESS = '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76';
 
 // ExerciseEvents - FSRS study cards
 export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';

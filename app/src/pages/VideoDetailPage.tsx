@@ -15,6 +15,7 @@ import { useAccountPosts } from '@/lib/lens/hooks/useAccountPosts'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { useFollow } from '@/hooks/useFollow'
 import { useLike } from '@/hooks/useLike'
+import { useSEO } from '@/hooks/useSEO'
 
 export function VideoDetailPage() {
   const { lenshandle, postId } = useParams<{ lenshandle: string; postId: string }>()
@@ -67,6 +68,32 @@ export function VideoDetailPage() {
 
   // Use current post if available, otherwise use previous post to prevent flash
   const displayPost = post || prevPostRef.current
+
+  // SEO: Must be called before any early returns to satisfy Rules of Hooks
+  // Extract SEO data from displayPost if available
+  const seoData = (() => {
+    if (!displayPost || displayPost.metadata?.__typename !== 'VideoMetadata') {
+      return { songName: '', artistName: '', thumbnailUrl: '', musicImageUrl: '' }
+    }
+    const meta = displayPost.metadata as any
+    const attrs = meta.attributes || []
+    const getAttr = (key: string) => attrs.find((a: any) => a.key === key)?.value
+    const coverUri = meta.video?.cover
+    const albumArt = getAttr('album_art')
+    return {
+      songName: getAttr('song_name') || 'Unknown Song',
+      artistName: getAttr('artist_name') || 'Unknown Artist',
+      thumbnailUrl: coverUri ? convertGroveUri(coverUri) : '',
+      musicImageUrl: albumArt ? convertGroveUri(albumArt) : '',
+    }
+  })()
+
+  useSEO({
+    title: seoData.songName ? `${seoData.songName} - ${seoData.artistName} | @${lenshandle} | 卡拉OK学校` : '卡拉OK学校',
+    description: seoData.songName ? `${seoData.songName} (${seoData.artistName}) 卡拉OK翻唱 by @${lenshandle} | Karaoke cover` : '',
+    image: seoData.thumbnailUrl || seoData.musicImageUrl,
+    type: 'video.other',
+  })
 
   // Calculate current video index and total
   const { currentVideoIndex, totalVideos } = useMemo(() => {
@@ -215,6 +242,8 @@ export function VideoDetailPage() {
   const artistName = metadata.artist_name || 'Unknown Artist'
   const geniusId = metadata.genius_id
   const grade = metadata.grade
+  const albumArt = metadata.album_art
+  const musicImageUrl = albumArt ? convertGroveUri(albumArt) : undefined
 
   const videoUrl = videoUri ? convertGroveUri(videoUri) : ''
   const thumbnailUrl = coverUri ? convertGroveUri(coverUri) : ''
@@ -295,7 +324,6 @@ export function VideoDetailPage() {
   // Get stats
   const stats = displayPost.stats
   const likes = stats?.upvotes || 0
-  const comments = stats?.comments || 0
   const shares = stats?.mirrors || 0
 
   // Debug: Log stats from Lens
@@ -303,7 +331,6 @@ export function VideoDetailPage() {
     postId,
     stats,
     likes,
-    comments,
     shares,
     rawPost: displayPost,
   })
@@ -328,16 +355,15 @@ export function VideoDetailPage() {
         description={content || title}
         musicTitle={songName}
         musicAuthor={artistName}
+        musicImageUrl={musicImageUrl}
         createdAt={createdAt}
         likes={likes}
-        comments={comments}
         shares={shares}
         karaokeLines={karaokeLines}
         isLiked={isLiked}
         isFollowing={isFollowing}
         isFollowLoading={isFollowLoading}
         canInteract={hasLensAccount}
-        commentsData={[]} // TODO: Fetch comments from Lens
         // Navigation
         currentVideoIndex={currentVideoIndex}
         totalVideos={totalVideos}
@@ -358,9 +384,6 @@ export function VideoDetailPage() {
             }
           }
         }}
-        onCommentClick={() => {
-          console.log('[VideoDetailPage] Comment clicked')
-        }}
         onShareClick={() => {
           console.log('[VideoDetailPage] Share clicked')
           // TODO: Implement Lens mirror
@@ -376,15 +399,6 @@ export function VideoDetailPage() {
         }}
         onProfileClick={() => navigate(`/u/${username}`)}
         onAudioClick={geniusId ? () => navigate(`/song/${geniusId}`) : undefined}
-        onSubmitComment={async (commentContent: string) => {
-          console.log('[VideoDetailPage] Submit comment:', commentContent)
-          // TODO: Implement Lens comment
-          return true
-        }}
-        onLikeComment={(commentId: string) => {
-          console.log('[VideoDetailPage] Like comment:', commentId)
-          // TODO: Implement Lens comment reaction
-        }}
       />
     </VideoPlaybackProvider>
   )

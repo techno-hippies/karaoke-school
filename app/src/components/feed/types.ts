@@ -37,7 +37,6 @@ export interface VideoPostData {
   createdAt?: string // Post date/time
   // Engagement metrics
   likes: number
-  comments: number
   shares: number
   // Karaoke data
   karaokeLines?: KaraokeLine[]
@@ -96,14 +95,12 @@ export interface VideoActionsProps {
   onFollowClick: () => void
   onProfileClick: () => void
   // Engagement actions
-  likes: number
-  comments: number
-  shares: number
   isLiked: boolean
-  canLike: boolean
   onLikeClick: () => void
-  onCommentClick: () => void
   onShareClick: () => void
+  // Study action
+  canStudy?: boolean
+  onStudyClick?: () => void
   // Audio
   musicTitle?: string
   musicAuthor?: string

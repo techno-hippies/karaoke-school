@@ -27,7 +27,7 @@ async function main() {
   const { createUsername, setAccountMetadata } = await import('@lens-protocol/client/actions');
   const { StorageClient, immutable } = await import('@lens-chain/storage-client');
   const { chains } = await import('@lens-chain/sdk/viem');
-  const { profile: profileMetadata, MetadataAttributeType } = await import('@lens-protocol/metadata');
+  const { account: accountMetadata, MetadataAttributeType } = await import('@lens-protocol/metadata');
 
   // Create wallet client
   let privateKey = PRIVATE_KEY;
@@ -100,7 +100,7 @@ async function main() {
 
   // Step 2: Upload and set metadata
   console.log('\n📝 Building account metadata...');
-  const metadata = profileMetadata({
+  const metadata = accountMetadata({
     name: 'Scarlett',
     bio: 'AI karaoke coach helping you sing like a star',
     picture: AVATAR_URL,

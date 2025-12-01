@@ -54,12 +54,42 @@
           "internalType": "bytes32"
         },
         {
-          "name": "grc20WorkId",
+          "name": "spotifyTrackId",
           "type": "string",
           "internalType": "string"
         },
         {
-          "name": "spotifyTrackId",
+          "name": "iswc",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "artist",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "artistSlug",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "songSlug",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "coverUri",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "thumbnailUri",
           "type": "string",
           "internalType": "string"
         },
@@ -431,13 +461,49 @@
           "internalType": "bytes32"
         },
         {
-          "name": "grc20WorkId",
+          "name": "spotifyTrackId",
           "type": "string",
           "indexed": false,
           "internalType": "string"
         },
         {
-          "name": "spotifyTrackId",
+          "name": "iswc",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "artist",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "artistSlug",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "songSlug",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "coverUri",
+          "type": "string",
+          "indexed": false,
+          "internalType": "string"
+        },
+        {
+          "name": "thumbnailUri",
           "type": "string",
           "indexed": false,
           "internalType": "string"

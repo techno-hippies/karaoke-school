@@ -43,17 +43,29 @@ function stripTrailingAdLibs(text: string): string {
 }
 
 // Contract config - KaraokeEvents handles both clip lifecycle and grading
-const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409';
+const KARAOKE_EVENTS_ADDRESS = '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76';
 const LENS_RPC = 'https://rpc.testnet.lens.xyz';
 
 const KARAOKE_EVENTS_ABI = [
-  // Clip lifecycle events
-  'function emitClipRegistered(bytes32 clipHash, string grc20WorkId, string spotifyTrackId, uint32 clipStartMs, uint32 clipEndMs, string metadataUri) external',
+  // Clip lifecycle events - updated with slug fields for direct subgraph indexing
+  'function emitClipRegistered(bytes32 clipHash, string spotifyTrackId, string iswc, string title, string artist, string artistSlug, string songSlug, string coverUri, string thumbnailUri, uint32 clipStartMs, uint32 clipEndMs, string metadataUri) external',
   'function emitClipProcessed(bytes32 clipHash, string instrumentalUri, string alignmentUri, uint8 translationCount, string metadataUri) external',
   'function emitSongEncrypted(bytes32 clipHash, string spotifyTrackId, string encryptedFullUri, string encryptedManifestUri, address unlockLockAddress, uint32 unlockChainId, string metadataUri) external',
   // Karaoke session grading
   'function emitKaraokeSessionStarted(bytes32 sessionId, bytes32 clipHash, address performer) external',
 ];
+
+/**
+ * Convert text to URL-safe slug
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/['']/g, '') // Remove apostrophes
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '') // Trim hyphens from start/end
+    .replace(/-+/g, '-'); // Collapse multiple hyphens
+}
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -559,12 +571,24 @@ async function main() {
   const karaokeContract = new ethers.Contract(KARAOKE_EVENTS_ADDRESS, KARAOKE_EVENTS_ABI, wallet);
   console.log(`   Wallet: ${wallet.address}`);
 
-  // 1. Emit ClipRegistered
+  // Generate slugs for URL routing
+  const artistSlug = slugify(artist.name);
+  const songSlug = slugify(song.title);
+  console.log(`   Artist slug: ${artistSlug}`);
+  console.log(`   Song slug: ${songSlug}`);
+
+  // 1. Emit ClipRegistered with all fields for direct subgraph indexing
   console.log('\n📤 Emitting ClipRegistered...');
   const tx1 = await clipContract.emitClipRegistered(
     clipHash,
-    song.iswc, // Use ISWC as grc20WorkId
     song.spotify_track_id,
+    song.iswc,
+    song.title,
+    artist.name,
+    artistSlug,
+    songSlug,
+    coverGroveUrl,
+    thumbnailGroveUrl,
     0, // clipStartMs = 0
     song.clip_end_ms,
     metadataUpload.url

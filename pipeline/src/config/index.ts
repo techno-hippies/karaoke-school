@@ -35,15 +35,16 @@ export const LENS_CHAIN_ID = 37111;
 
 // Contracts (Lens Testnet)
 export const CONTRACTS = {
-  KaraokeEvents: '0x51aA6987130AA7E4654218859E075D8e790f4409',
+  KaraokeEvents: '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76',
   ExerciseEvents: '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832',
 } as const;
 
 // Lens (must match app/src/lib/lens/config.ts)
 export const LENS_APP_ADDRESS = '0x5856057743d66951e43361ac3E1e67C6474Ea7B6';
-// Use default Lens testnet namespace (working, verified with lana-del-rey-ks1 account)
-export const LENS_NAMESPACE_ADDRESS = '0xFBEdC5C278cc01A843D161d5469202Fe4EDC99E4';
-export const LENS_NAMESPACE_NAME = 'lens';
+// Custom namespace for Karaoke School accounts (kschool2)
+// All accounts should use {handle}-ks naming convention
+export const LENS_NAMESPACE_ADDRESS = '0x6Cf6bC01D51aF736Cd34bC3a682B7b081eA77B07';
+export const LENS_NAMESPACE_NAME = 'kschool2';
 
 // Lit Protocol
 export const LIT_NETWORK = process.env.LIT_NETWORK || 'naga-dev';

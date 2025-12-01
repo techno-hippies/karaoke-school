@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { Sparkle } from '@phosphor-icons/react'
 import { ChatMessage, type ChatMessageProps } from './ChatMessage'
 import { ChatSurveyMessage, type ChatSurveyMessageProps } from './ChatSurveyMessage'
@@ -63,6 +63,14 @@ export function ChatPage({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [items, isTyping])
+
+  // Scroll to bottom when input is focused (for mobile keyboard)
+  const handleInputFocus = useCallback(() => {
+    // Wait for keyboard animation to complete before scrolling
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 300)
+  }, [])
 
   return (
     <div className={cn('fixed inset-0 flex flex-col bg-background md:static md:h-screen', className)}>
@@ -138,7 +146,7 @@ export function ChatPage({
       </div>
 
       {/* Input */}
-      <ChatInput {...inputProps} />
+      <ChatInput {...inputProps} onFocus={handleInputFocus} />
       </div>
     </div>
   )

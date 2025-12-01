@@ -187,8 +187,27 @@ export async function postToLens(
     console.log('   ⚠️  Timeout waiting, but transaction may have succeeded');
   }
 
+  // Fetch the actual post ID from Lens API (different from tx hash)
+  let actualPostId = txHash;
+  try {
+    const response = await fetch('https://api.staging.lens.dev/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `query { post(request: { txHash: "${txHash}" }) { ... on Post { id } } }`,
+      }),
+    });
+    const data = await response.json() as { data?: { post?: { id?: string } } };
+    if (data.data?.post?.id) {
+      actualPostId = data.data.post.id as Hex;
+      console.log(`   📋 Post ID: ${actualPostId}`);
+    }
+  } catch (e) {
+    console.log('   ⚠️  Could not fetch post ID, using tx hash');
+  }
+
   return {
-    postId: txHash, // Post ID will be assigned by indexer
+    postId: actualPostId,
     metadataUri,
     transactionHash: txHash,
   };

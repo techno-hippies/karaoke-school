@@ -33,9 +33,18 @@ export function transformLensPostToVideoData(
 
   // Primary: slug-based routing (clean URLs like /eminem/lose-yourself)
   const artistSlug = getAttribute('artist_slug')
-  const songSlug = getAttribute('song_slug')
   const spotifyTrackId = getAttribute('spotify_track_id')
   const tiktokVideoId = getAttribute('tiktok_video_id')
+
+  // Get song slug - fallback to generating from song_name if not set
+  let songSlug = getAttribute('song_slug')
+  if (!songSlug) {
+    const songName = getAttribute('song_name')
+    if (songName) {
+      // Generate slug from song name: "Toxic" -> "toxic", "Lose Yourself" -> "lose-yourself"
+      songSlug = songName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    }
+  }
 
   // Extract karaoke lines from transcriptions attribute (stored as JSON)
   let karaokeLines
@@ -176,7 +185,6 @@ export function transformLensPostToVideoData(
     spotifyTrackId,
     createdAt: (post as any).createdAt,
     likes: post.stats?.upvotes ?? 0,
-    comments: post.stats?.comments ?? 0,
     shares: post.stats?.reposts ?? 0,
     karaokeLines,
     isLiked,

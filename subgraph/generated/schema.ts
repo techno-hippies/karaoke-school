@@ -64,19 +64,6 @@ export class Clip extends Entity {
     this.set("clipHash", Value.fromBytes(value));
   }
 
-  get grc20WorkId(): string {
-    let value = this.get("grc20WorkId");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set grc20WorkId(value: string) {
-    this.set("grc20WorkId", Value.fromString(value));
-  }
-
   get spotifyTrackId(): string {
     let value = this.get("spotifyTrackId");
     if (!value || value.kind == ValueKind.NULL) {
@@ -88,6 +75,97 @@ export class Clip extends Entity {
 
   set spotifyTrackId(value: string) {
     this.set("spotifyTrackId", Value.fromString(value));
+  }
+
+  get iswc(): string {
+    let value = this.get("iswc");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set iswc(value: string) {
+    this.set("iswc", Value.fromString(value));
+  }
+
+  get title(): string {
+    let value = this.get("title");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title(value: string) {
+    this.set("title", Value.fromString(value));
+  }
+
+  get artist(): string {
+    let value = this.get("artist");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist(value: string) {
+    this.set("artist", Value.fromString(value));
+  }
+
+  get artistSlug(): string {
+    let value = this.get("artistSlug");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artistSlug(value: string) {
+    this.set("artistSlug", Value.fromString(value));
+  }
+
+  get songSlug(): string {
+    let value = this.get("songSlug");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set songSlug(value: string) {
+    this.set("songSlug", Value.fromString(value));
+  }
+
+  get coverUri(): string {
+    let value = this.get("coverUri");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set coverUri(value: string) {
+    this.set("coverUri", Value.fromString(value));
+  }
+
+  get thumbnailUri(): string {
+    let value = this.get("thumbnailUri");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set thumbnailUri(value: string) {
+    this.set("thumbnailUri", Value.fromString(value));
   }
 
   get clipStartMs(): i32 {

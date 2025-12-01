@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lit Lite Test</string>
+
+    <!--
+    Digital Asset Links for Passkey association.
+    NOTE: For testing, we're using Lit's RP ID "lit" which points to their domain.
+    In production, you'd host /.well-known/assetlinks.json on your domain.
+    -->
+    <string name="asset_statements">[]</string>
+</resources>

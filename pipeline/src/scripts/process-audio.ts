@@ -18,12 +18,17 @@
 
 import { parseArgs } from 'util';
 import path from 'path';
+import { z } from 'zod';
 import { getSongByISWC, updateSongAudio, updateSongStage } from '../db/queries';
 import { separateAudio, type DemucsResult } from '../services/demucs';
 import { enhanceInstrumental } from '../services/fal';
 import { uploadAudioToGrove } from '../services/grove';
 import { normalizeISWC } from '../lib/lyrics-parser';
 import { validateEnv } from '../config';
+
+// Supported audio formats - FLAC will be auto-converted to MP3
+const SUPPORTED_EXTENSIONS = ['.mp3', '.flac', '.wav', '.m4a'] as const;
+const AudioFormatSchema = z.enum(['.mp3', '.flac', '.wav', '.m4a']);
 
 // FAL.ai has a 3:10 (190s) limit - use 180s segments with 5s overlap
 const FAL_MAX_DURATION = 180;
@@ -40,6 +45,48 @@ async function getAudioDuration(audioPath: string): Promise<number> {
   const output = await new Response(proc.stdout).text();
   await proc.exited;
   return parseFloat(output.trim());
+}
+
+/**
+ * Convert audio file to MP3 if needed (FLAC, WAV, M4A → MP3)
+ * Returns path to MP3 file (original if already MP3, converted otherwise)
+ */
+async function ensureMp3(audioPath: string, iswc: string): Promise<string> {
+  const ext = path.extname(audioPath).toLowerCase();
+
+  // Validate format with Zod
+  const result = AudioFormatSchema.safeParse(ext);
+  if (!result.success) {
+    throw new Error(`Unsupported audio format: ${ext}. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+  }
+
+  // Already MP3, no conversion needed
+  if (ext === '.mp3') {
+    return audioPath;
+  }
+
+  // Convert to MP3
+  console.log(`   Converting ${ext.toUpperCase()} → MP3...`);
+  const outputPath = path.join(path.dirname(audioPath), 'original.mp3');
+
+  const ffmpeg = Bun.spawn([
+    'ffmpeg', '-y', '-i', audioPath,
+    '-b:a', '320k', // High quality MP3
+    '-map_metadata', '0', // Preserve metadata
+    outputPath
+  ], { stdout: 'pipe', stderr: 'pipe' });
+
+  const exitCode = await ffmpeg.exited;
+  if (exitCode !== 0) {
+    const stderr = await new Response(ffmpeg.stderr).text();
+    throw new Error(`FFmpeg conversion failed: ${stderr}`);
+  }
+
+  const originalSize = (await Bun.file(audioPath).size) / 1024 / 1024;
+  const convertedSize = (await Bun.file(outputPath).size) / 1024 / 1024;
+  console.log(`   ✅ Converted: ${originalSize.toFixed(1)}MB ${ext} → ${convertedSize.toFixed(1)}MB MP3`);
+
+  return outputPath;
 }
 
 /**
@@ -151,22 +198,29 @@ async function main() {
   let audioPath = values['audio-path'];
 
   if (!audioPath) {
-    // Check common filenames
-    const candidates = ['original.mp3', 'audio.mp3', `${iswc}.mp3`];
-    for (const candidate of candidates) {
-      const candidatePath = path.join(songDir, candidate);
-      if (await Bun.file(candidatePath).exists()) {
-        audioPath = candidatePath;
-        break;
+    // Check common filenames with all supported extensions
+    const basenames = ['original', 'audio', iswc];
+    for (const basename of basenames) {
+      for (const ext of SUPPORTED_EXTENSIONS) {
+        const candidatePath = path.join(songDir, `${basename}${ext}`);
+        if (await Bun.file(candidatePath).exists()) {
+          audioPath = candidatePath;
+          break;
+        }
       }
+      if (audioPath) break;
     }
   }
 
   if (!audioPath || !(await Bun.file(audioPath).exists())) {
     console.error('❌ Original audio not found.');
-    console.log('   Place original.mp3 in the song folder or use --audio-path');
+    console.log(`   Place original audio in the song folder (supported: ${SUPPORTED_EXTENSIONS.join(', ')})`);
+    console.log('   Or use --audio-path to specify a custom path');
     process.exit(1);
   }
+
+  // Convert to MP3 if needed (FLAC, WAV, M4A → MP3)
+  audioPath = await ensureMp3(audioPath, iswc);
 
   console.log(`   Audio: ${audioPath}`);
 

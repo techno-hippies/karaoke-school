@@ -44,7 +44,7 @@ export const EXERCISE_EVENTS_PKP_PUBLIC_KEY =
  * Events: ClipRegistered, ClipProcessed, SongEncrypted, ClipToggled,
  *         KaraokePerformanceGraded, KaraokeSessionStarted, KaraokeLineGraded, KaraokeSessionEnded
  */
-export const KARAOKE_EVENTS_ADDRESS = '0x51aA6987130AA7E4654218859E075D8e790f4409'
+export const KARAOKE_EVENTS_ADDRESS = '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76'
 
 // ============ Other Event Contracts ============
 

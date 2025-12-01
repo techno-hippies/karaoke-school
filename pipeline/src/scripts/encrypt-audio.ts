@@ -1,12 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Encrypt Full Audio with Lit Protocol
+ * Encrypt Full Audio with Hybrid Encryption
  *
- * Encrypts the full enhanced instrumental with Lit Protocol,
- * gated by Unlock Protocol NFT ownership.
+ * Uses hybrid encryption to avoid Lit Protocol 413 errors:
+ * 1. Generate random AES-256 symmetric key (32 bytes)
+ * 2. Encrypt audio locally with WebCrypto AES-GCM
+ * 3. Encrypt ONLY the symmetric key with Lit Protocol (tiny - 32 bytes)
+ * 4. Upload encrypted audio and encrypted key separately to Grove
  *
- * Non-subscribers see the free clip (0 → clip_end_ms).
- * Subscribers can decrypt the full audio via Lit + their Unlock key.
+ * On decrypt (frontend):
+ * 1. Fetch encrypted key metadata from Grove (tiny)
+ * 2. Call Lit with just the key ciphertext + hash (no 413 error!)
+ * 3. Get back decrypted AES key
+ * 4. Fetch encrypted audio from Grove
+ * 5. Decrypt audio locally with WebCrypto
  *
  * Usage:
  *   bun src/scripts/encrypt-audio.ts --iswc=T0101545054
@@ -26,6 +33,7 @@ const { values } = parseArgs({
     iswc: { type: 'string' },
     env: { type: 'string', default: 'testnet' },
     'dry-run': { type: 'boolean', default: false },
+    force: { type: 'boolean', default: false },
   },
   strict: true,
 });
@@ -45,13 +53,62 @@ async function downloadAudio(url: string): Promise<Buffer> {
 }
 
 /**
+ * Generate a random AES-256 key using WebCrypto
+ */
+async function generateSymmetricKey(): Promise<Uint8Array> {
+  const key = new Uint8Array(32); // 256 bits
+  crypto.getRandomValues(key);
+  return key;
+}
+
+/**
+ * Encrypt audio locally with AES-256-GCM
+ * Returns ciphertext, IV, and authTag
+ */
+async function encryptWithAesGcm(
+  data: Buffer,
+  symmetricKey: Uint8Array
+): Promise<{ ciphertext: Uint8Array; iv: Uint8Array; authTag: Uint8Array }> {
+  // Generate random IV (12 bytes recommended for AES-GCM)
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+
+  // Import key for WebCrypto
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    symmetricKey.buffer as ArrayBuffer,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+
+  // Encrypt with AES-GCM (includes authentication)
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv: iv,
+      tagLength: 128, // 16 bytes auth tag
+    },
+    cryptoKey,
+    new Uint8Array(data).buffer as ArrayBuffer
+  );
+
+  // AES-GCM appends the auth tag to the ciphertext
+  // Split them apart for clarity
+  const encryptedArray = new Uint8Array(encryptedBuffer);
+  const ciphertext = encryptedArray.slice(0, encryptedArray.length - 16);
+  const authTag = encryptedArray.slice(encryptedArray.length - 16);
+
+  return { ciphertext, iv, authTag };
+}
+
+/**
  * Initialize Lit Protocol client
  */
 async function initLitClient(litNetwork: string): Promise<any> {
   const { createLitClient } = await import('@lit-protocol/lit-client');
   const networks = await import('@lit-protocol/networks');
 
-  // Map network name to module
   const networkMap: Record<string, any> = {
     'naga-dev': networks.nagaDev,
     'naga-test': networks.nagaTest,
@@ -74,9 +131,6 @@ async function initLitClient(litNetwork: string): Promise<any> {
 
 /**
  * Build Access Control Conditions for Unlock NFT
- *
- * Condition: User must own a key (any tokenId) from the Unlock lock.
- * Uses ERC-721 balanceOf check: balanceOf(:userAddress) > 0
  */
 function buildAccessControlConditions(
   lockAddress: string,
@@ -87,9 +141,6 @@ function buildAccessControlConditions(
   console.log(`   Building ACC: NFT required from ${lockAddress} on ${chain}`);
 
   const builder = createAccBuilder();
-
-  // Build condition: must own ERC-721 token from Unlock lock
-  // tokenId='1' triggers ERC-721 mode; actual check is balanceOf > 0
   const accs = builder
     .requireNftOwnership(lockAddress.toLowerCase(), '1')
     .on(chain as any)
@@ -100,23 +151,24 @@ function buildAccessControlConditions(
 }
 
 /**
- * Encrypt audio data with Lit Protocol
+ * Encrypt ONLY the symmetric key with Lit Protocol
+ * This is tiny (32 bytes) - no 413 error!
  */
-async function encryptAudio(
+async function encryptSymmetricKeyWithLit(
   litClient: any,
-  audioBuffer: Buffer,
+  symmetricKey: Uint8Array,
   accs: any,
   chain: string
 ): Promise<{ ciphertext: string; dataToEncryptHash: string }> {
-  console.log(`   Encrypting ${(audioBuffer.length / 1024 / 1024).toFixed(2)} MB...`);
+  console.log(`   Encrypting symmetric key (${symmetricKey.length} bytes) with Lit...`);
 
   const encrypted = await litClient.encrypt({
-    dataToEncrypt: audioBuffer,
+    dataToEncrypt: symmetricKey,
     unifiedAccessControlConditions: accs,
     chain: chain,
   });
 
-  console.log('   Encryption complete');
+  console.log('   Symmetric key encrypted');
   return encrypted;
 }
 
@@ -130,10 +182,18 @@ function normalizeAccs(accs: any): any {
   return JSON.parse(serialized);
 }
 
+/**
+ * Convert Uint8Array to base64 string
+ */
+function toBase64(data: Uint8Array): string {
+  return Buffer.from(data).toString('base64');
+}
+
 async function main() {
   const iswc = values.iswc;
   const env = (values.env as Environment) || getEnvironment();
   const dryRun = values['dry-run'];
+  const force = values.force;
   const networkConfig = getNetworkConfig(env);
   const litNetwork = getLitNetwork(env);
 
@@ -142,7 +202,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('\n🔐 Encrypt Full Audio');
+  console.log('\n🔐 Encrypt Full Audio (Hybrid v2)');
   console.log(`   ISWC: ${iswc}`);
   console.log(`   Environment: ${env}`);
   console.log(`   Lit network: ${litNetwork}`);
@@ -196,24 +256,40 @@ async function main() {
     ? song.encrypted_full_url_testnet
     : song.encrypted_full_url_mainnet;
 
-  if (existingEncryption) {
+  if (existingEncryption && !force) {
     console.log(`\n⚠️  Already encrypted for ${env}: ${existingEncryption.substring(0, 50)}...`);
-    console.log('   To re-encrypt, manually clear the encryption columns first');
+    console.log('   Use --force to re-encrypt');
     process.exit(0);
   }
 
   if (dryRun) {
     console.log('\n✅ Dry run complete');
-    console.log('   Would encrypt full audio with:');
+    console.log('   Would encrypt with hybrid approach:');
     console.log(`   - Lit network: ${litNetwork}`);
     console.log(`   - Unlock lock: ${lockAddress}`);
     console.log(`   - Chain: ${networkConfig.unlock.chainName}`);
+    console.log('   - Method: AES-256-GCM (local) + Lit (key only)');
     process.exit(0);
   }
 
   // Download full audio
   console.log('\n📥 Downloading full instrumental...');
   const audioBuffer = await downloadAudio(song.enhanced_instrumental_url);
+
+  // Generate symmetric key
+  console.log('\n🔑 Generating symmetric key...');
+  const symmetricKey = await generateSymmetricKey();
+  console.log(`   Key size: ${symmetricKey.length} bytes (256 bits)`);
+
+  // Encrypt audio locally with WebCrypto
+  console.log('\n🔐 Encrypting audio with AES-256-GCM...');
+  const startTime = Date.now();
+  const { ciphertext, iv, authTag } = await encryptWithAesGcm(audioBuffer, symmetricKey);
+  const encryptTime = Date.now() - startTime;
+  console.log(`   Ciphertext: ${(ciphertext.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   IV: ${iv.length} bytes`);
+  console.log(`   Auth tag: ${authTag.length} bytes`);
+  console.log(`   Encryption time: ${encryptTime}ms`);
 
   // Initialize Lit Protocol
   console.log('\n🔐 Setting up Lit Protocol...');
@@ -224,69 +300,88 @@ async function main() {
   const accs = buildAccessControlConditions(lockAddress, networkConfig.lit.accChain);
   const normalizedAccs = normalizeAccs(accs);
 
-  // Encrypt audio
-  console.log('\n🔐 Encrypting audio...');
-  const encrypted = await encryptAudio(litClient, audioBuffer, accs, networkConfig.lit.accChain);
-
-  // Upload encrypted data to Grove
-  console.log('\n☁️  Uploading encrypted data to Grove...');
-  const encryptedBuffer = Buffer.from(JSON.stringify(encrypted));
-  const encryptedUpload = await uploadToGrove(
-    encryptedBuffer,
-    `${iswc}-encrypted-full.json`,
-    'application/json'
+  // Encrypt ONLY the symmetric key with Lit
+  console.log('\n🔐 Encrypting symmetric key with Lit...');
+  const encryptedKey = await encryptSymmetricKeyWithLit(
+    litClient,
+    symmetricKey,
+    accs,
+    networkConfig.lit.accChain
   );
-  console.log(`   Encrypted: ${encryptedUpload.url}`);
 
-  // Build and upload manifest
-  console.log('\n📋 Uploading encryption manifest...');
-  const manifest = {
-    version: '1.0.0',
+  // Clear symmetric key from memory
+  symmetricKey.fill(0);
+
+  // Upload encrypted audio (raw binary) to Grove
+  console.log('\n☁️  Uploading encrypted audio to Grove...');
+  const encryptedAudioUpload = await uploadToGrove(
+    Buffer.from(ciphertext),
+    `${iswc}-encrypted-audio.bin`,
+    'application/octet-stream'
+  );
+  console.log(`   Encrypted audio: ${encryptedAudioUpload.url}`);
+
+  // Build and upload encryption metadata (key + parameters)
+  console.log('\n📋 Uploading encryption metadata...');
+  const encryptionMetadata = {
+    version: '2.0.0',
+    method: 'hybrid-aes-gcm-lit',
     generatedAt: new Date().toISOString(),
     iswc,
     spotifyTrackId: song.spotify_track_id,
     environment: env,
-    source: {
-      enhancedInstrumentalUrl: song.enhanced_instrumental_url,
+    // AES-GCM parameters
+    aes: {
+      algorithm: 'AES-GCM',
+      keyBits: 256,
+      iv: toBase64(iv),
+      authTag: toBase64(authTag),
     },
+    // Lit-encrypted symmetric key
+    lit: {
+      network: litNetwork,
+      encryptedKey: encryptedKey.ciphertext,
+      dataToEncryptHash: encryptedKey.dataToEncryptHash,
+      unifiedAccessControlConditions: normalizedAccs,
+    },
+    // Unlock lock info
     unlock: {
       lockAddress,
       chainId: networkConfig.unlock.chainId,
       chainName: networkConfig.unlock.chainName,
     },
-    lit: {
-      network: litNetwork,
-      conditions: normalizedAccs,
-      dataToEncryptHash: encrypted.dataToEncryptHash,
-    },
-    encryptedFull: {
-      url: encryptedUpload.url,
-      cid: encryptedUpload.cid,
+    // Encrypted audio location
+    encryptedAudio: {
+      url: encryptedAudioUpload.url,
+      cid: encryptedAudioUpload.cid,
+      sizeBytes: ciphertext.length,
     },
   };
 
-  const manifestBuffer = Buffer.from(JSON.stringify(manifest, null, 2));
-  const manifestUpload = await uploadToGrove(
-    manifestBuffer,
-    `${iswc}-encryption-manifest.json`,
+  const metadataBuffer = Buffer.from(JSON.stringify(encryptionMetadata, null, 2));
+  const metadataUpload = await uploadToGrove(
+    metadataBuffer,
+    `${iswc}-encryption-v2.json`,
     'application/json'
   );
-  console.log(`   Manifest: ${manifestUpload.url}`);
+  console.log(`   Metadata: ${metadataUpload.url}`);
 
   // Update database
   console.log('\n💾 Updating database...');
   await updateSongEncryption(iswc, env, {
-    encrypted_full_url: encryptedUpload.url,
-    encryption_manifest_url: manifestUpload.url,
+    encrypted_full_url: encryptedAudioUpload.url,
+    encryption_manifest_url: metadataUpload.url,
     lit_network: litNetwork,
   });
 
-  console.log('\n✅ Encryption complete!');
+  console.log('\n✅ Hybrid encryption complete!');
   console.log(`   Environment: ${env}`);
-  console.log(`   Encrypted URL: ${encryptedUpload.url}`);
-  console.log(`   Manifest URL: ${manifestUpload.url}`);
+  console.log(`   Method: AES-256-GCM (local) + Lit Protocol (key only)`);
+  console.log(`   Encrypted audio: ${encryptedAudioUpload.url}`);
+  console.log(`   Encryption metadata: ${metadataUpload.url}`);
   console.log(`   Lit network: ${litNetwork}`);
   console.log(`   Unlock lock: ${lockAddress}`);
+  console.log('\n   ✨ Frontend can now decrypt without 413 errors!');
 }
 
 main().catch((error) => {

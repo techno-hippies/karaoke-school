@@ -70,7 +70,7 @@ async function main() {
 
   console.log(`\n✅ Clip created: ${result?.id}`);
   console.log('\n💡 Next steps:');
-  console.log(`   • Emit to chain: bun src/scripts/emit-clip.ts --clip-id=${result?.id}`);
+  console.log(`   • Emit to chain: bun src/scripts/emit-clip-full.ts --iswc=${values.iswc}`);
 }
 
 main().catch((error) => {

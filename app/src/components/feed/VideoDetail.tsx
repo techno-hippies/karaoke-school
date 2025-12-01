@@ -1,14 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, CaretUp, CaretDown, Heart, ChatCircle, ShareFat, MusicNote } from '@phosphor-icons/react'
+import { useNavigate } from 'react-router-dom'
+import { X, CaretUp, CaretDown, Heart, Exam, ShareFat, MusicNote } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { VideoPost } from './VideoPost'
 import { VideoPlayer } from './VideoPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
-import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
-import { Comment, type CommentData } from './Comment'
-import { CommentInput } from './CommentInput'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -17,7 +15,6 @@ import type { VideoPostData } from './types'
 export interface VideoDetailProps extends VideoPostData {
   // Handlers
   onLikeClick?: () => void
-  onCommentClick?: () => void
   onShareClick?: () => void
   onFollowClick?: () => void
   isFollowLoading?: boolean
@@ -30,13 +27,6 @@ export interface VideoDetailProps extends VideoPostData {
   totalVideos?: number
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
-
-  // Comment data
-  commentsData?: CommentData[]
-  onSubmitComment?: (content: string) => Promise<boolean>
-  onLikeComment?: (commentId: string) => void
-  isCommentsLoading?: boolean
-  isCommentSubmitting?: boolean
 
   className?: string
 }
@@ -56,15 +46,11 @@ export function VideoDetail({
   totalVideos,
   onNavigatePrevious,
   onNavigateNext,
-  commentsData = [],
-  onSubmitComment,
-  onLikeComment,
-  isCommentsLoading = false,
-  isCommentSubmitting = false,
   className,
   ...videoPostProps
 }: VideoDetailProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   // Use shared video playback logic (force autoplay on detail view)
   const {
@@ -76,9 +62,16 @@ export function VideoDetail({
     handleTimeUpdate: onTimeUpdate,
   } = useVideoPlayback({ autoplay: true, forceAutoplay: true })
 
-  const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  // Study navigation - only available when song data exists
+  const canStudy = !!(videoPostProps.artistSlug && videoPostProps.songSlug)
+  const handleStudyClick = () => {
+    if (canStudy) {
+      navigate(`/${videoPostProps.artistSlug}/${videoPostProps.songSlug}/study`)
+    }
+  }
 
   // Format engagement counts
   const formatCount = (count: number): string => {
@@ -104,12 +97,6 @@ export function VideoDetail({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onNavigatePrevious, onNavigateNext, onClose])
-
-  // Handlers must be defined BEFORE any conditional returns
-  const handleCommentClick = () => {
-    setCommentSheetOpen(true)
-    videoPostProps.onCommentClick?.()
-  }
 
   const handleShareClick = () => {
     setShareSheetOpen(true)
@@ -157,7 +144,6 @@ export function VideoDetail({
       <div className="fixed inset-0 z-50">
         <VideoPost
           {...videoPostProps}
-          onCommentClick={handleCommentClick}
           onShareClick={handleShareClick}
           karaokeClassName="pt-16"
         />
@@ -174,19 +160,6 @@ export function VideoDetail({
             <X className="w-6 h-6" weight="regular" />
           </Button>
         )}
-
-        {/* Comment Sheet */}
-        <CommentSheet
-          open={commentSheetOpen}
-          onOpenChange={setCommentSheetOpen}
-          comments={commentsData}
-          commentCount={videoPostProps.comments}
-          canComment={videoPostProps.canInteract || false}
-          isLoading={isCommentsLoading}
-          isSubmitting={isCommentSubmitting}
-          onSubmitComment={onSubmitComment}
-          onLikeComment={onLikeComment}
-        />
 
         {/* Share Sheet */}
         <ShareSheet
@@ -387,21 +360,23 @@ export function VideoDetail({
               </span>
             </button>
 
-            {/* Comment */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                // Comments are shown in sidebar, no need for sheet on desktop
-              }}
-              className="flex items-center gap-2 group"
-            >
-              <div className="rounded-full p-2 bg-muted/50 group-hover:bg-accent/50 transition-colors">
-                <ChatCircle className="w-6 h-6 text-foreground" weight="fill" />
-              </div>
-              <span className="text-sm font-medium text-foreground">
-                {formatCount(videoPostProps.comments)}
-              </span>
-            </button>
+            {/* Study - only show when song data is available */}
+            {canStudy && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStudyClick()
+                }}
+                className="flex items-center gap-2 group"
+              >
+                <div className="rounded-full p-2 bg-muted/50 group-hover:bg-accent/50 transition-colors">
+                  <Exam className="w-6 h-6 text-foreground" weight="fill" />
+                </div>
+                <span className="text-sm font-medium text-foreground">
+                  {t('nav.study')}
+                </span>
+              </button>
+            )}
 
             {/* Share */}
             <button
@@ -421,51 +396,30 @@ export function VideoDetail({
           </div>
         </div>
 
-        {/* Comments Section */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="font-semibold text-base text-foreground">
-              Comments {videoPostProps.comments > 0 && `(${videoPostProps.comments})`}
-            </h3>
-          </div>
-
-          {/* Comments List - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {isCommentsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="text-muted-foreground text-sm">Loading comments...</span>
-              </div>
-            ) : commentsData.length > 0 ? (
-              commentsData.map((comment) => (
-                <Comment
-                  key={comment.id}
-                  comment={comment}
-                  onLike={onLikeComment}
-                />
-              ))
-            ) : (
-              <div className="flex items-center justify-center py-8">
-                <p className="text-muted-foreground text-center text-sm">
-                  No comments yet. Be the first!
+        {/* Study CTA Section */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          {canStudy ? (
+            <div className="text-center space-y-4">
+              <Exam className="w-16 h-16 text-primary mx-auto" weight="fill" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-foreground">
+                  {t('study.learnThisSong')}
+                </h3>
+                <p className="text-muted-foreground text-sm max-w-xs">
+                  {t('study.practiceDescription')}
                 </p>
               </div>
-            )}
-          </div>
-
-          {/* Comment Input - Sticky at bottom */}
-          <div className="border-t border-border">
-            <CommentInput
-              onSubmit={(content) => {
-                if (onSubmitComment) {
-                  onSubmitComment(content)
-                }
-              }}
-              disabled={!videoPostProps.canInteract || isCommentSubmitting}
-              placeholder={
-                videoPostProps.canInteract ? 'Add a comment...' : 'Sign in to comment'
-              }
-            />
-          </div>
+              <Button size="lg" onClick={handleStudyClick}>
+                {t('study.startStudying')}
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center space-y-2">
+              <p className="text-muted-foreground text-sm">
+                {t('study.notAvailable')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

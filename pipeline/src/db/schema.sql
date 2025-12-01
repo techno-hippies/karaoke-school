@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS artists (
   slug TEXT UNIQUE,                        -- URL-friendly name (e.g., 'eminem', 'beyonce')
   image_url TEXT,                          -- Original Spotify URL (for reference)
   image_grove_url TEXT,                    -- Permanent Grove URL
+
+  -- Unlock Protocol subscription locks
+  unlock_lock_address_testnet TEXT,        -- Lock contract on Base Sepolia
+  unlock_lock_address_mainnet TEXT,        -- Lock contract on Base mainnet
+
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -58,11 +63,33 @@ CREATE TABLE IF NOT EXISTS songs (
   duration_ms INT,
   spotify_images JSONB,                  -- [{url, width, height}, ...]
 
+  -- Cover images (Grove - permanent URLs)
+  cover_grove_url TEXT,                  -- Full-size album art (640x640)
+  thumbnail_grove_url TEXT,              -- Thumbnail (300x300) for lists
+
   -- Audio URLs (Grove)
   original_audio_url TEXT,               -- Uploaded original
   instrumental_url TEXT,                 -- After demucs
   vocals_url TEXT,                       -- After demucs
   enhanced_instrumental_url TEXT,        -- After FAL (karaoke audio)
+
+  -- Clip assets (for free tier)
+  clip_end_ms INT,                       -- End of free clip (start is always 0)
+  clip_instrumental_url TEXT,            -- Cropped FAL instrumental for clip
+  clip_lyrics_url TEXT,                  -- Grove JSON with clip lyrics
+
+  -- Encryption (for premium subscribers) - testnet
+  encrypted_full_url_testnet TEXT,       -- Lit-encrypted full audio blob
+  encryption_manifest_url_testnet TEXT,  -- Encryption metadata JSON
+  lit_network_testnet TEXT,              -- 'naga-dev', 'naga-test'
+
+  -- Encryption (for premium subscribers) - mainnet
+  encrypted_full_url_mainnet TEXT,
+  encryption_manifest_url_mainnet TEXT,
+  lit_network_mainnet TEXT,
+
+  -- AI-generated tags
+  lyric_tags TEXT[],                     -- Psychographic tags from lyrics (e.g., 'ambition', 'heartbreak')
 
   -- Alignment (cached, reusable)
   alignment_data JSONB,                  -- ElevenLabs word-level timing
@@ -130,6 +157,10 @@ CREATE TABLE IF NOT EXISTS clips (
   emitted_at TIMESTAMPTZ,                -- When ClipRegistered emitted
   transaction_hash TEXT,
 
+  -- Tags for AI chat context and user profiling
+  visual_tags TEXT[],                    -- Manual: what's in the video (e.g., 'anime', 'streetwear')
+  lyric_tags TEXT[],                     -- AI-generated: psychographic themes (can override song-level)
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(song_id, start_ms)
 );
@@ -142,6 +173,7 @@ CREATE TABLE IF NOT EXISTS videos (
   song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
   background_video_url TEXT,             -- Input {uuid}.mp4
   output_video_url TEXT,                 -- Generated with subtitles (Grove)
+  thumbnail_url TEXT,                    -- Video frame thumbnail (Grove) - NOT album art
   subtitles_ass TEXT,                    -- ASS content
   snippet_start_ms INT NOT NULL,
   snippet_end_ms INT NOT NULL,

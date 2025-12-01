@@ -9,15 +9,27 @@ contract KaraokeEventsTest is Test {
     address private trustedPKP = address(0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7);
 
     bytes32 private constant CLIP_HASH = keccak256("clip-hash");
-    string private constant WORK_ID = "grc20-work-id";
     string private constant TRACK_ID = "spotify-track-id";
+    string private constant ISWC = "T0123456789";
+    string private constant TITLE = "Test Song";
+    string private constant ARTIST = "Test Artist";
+    string private constant ARTIST_SLUG = "test-artist";
+    string private constant SONG_SLUG = "test-song";
+    string private constant COVER_URI = "https://api.grove.storage/cover";
+    string private constant THUMBNAIL_URI = "https://api.grove.storage/thumbnail";
     uint32 private constant CLIP_START_MS = 15_000;
     uint32 private constant CLIP_END_MS = 45_000;
 
     event ClipRegistered(
         bytes32 indexed clipHash,
-        string grc20WorkId,
         string spotifyTrackId,
+        string iswc,
+        string title,
+        string artist,
+        string artistSlug,
+        string songSlug,
+        string coverUri,
+        string thumbnailUri,
         uint32 clipStartMs,
         uint32 clipEndMs,
         string metadataUri,
@@ -79,8 +91,14 @@ contract KaraokeEventsTest is Test {
         vm.expectEmit();
         emit ClipRegistered(
             CLIP_HASH,
-            WORK_ID,
             TRACK_ID,
+            ISWC,
+            TITLE,
+            ARTIST,
+            ARTIST_SLUG,
+            SONG_SLUG,
+            COVER_URI,
+            THUMBNAIL_URI,
             CLIP_START_MS,
             CLIP_END_MS,
             "grove://clip-metadata",
@@ -90,8 +108,14 @@ contract KaraokeEventsTest is Test {
 
         karaokeEvents.emitClipRegistered(
             CLIP_HASH,
-            WORK_ID,
             TRACK_ID,
+            ISWC,
+            TITLE,
+            ARTIST,
+            ARTIST_SLUG,
+            SONG_SLUG,
+            COVER_URI,
+            THUMBNAIL_URI,
             CLIP_START_MS,
             CLIP_END_MS,
             "grove://clip-metadata"

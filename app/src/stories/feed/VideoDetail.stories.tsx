@@ -34,53 +34,24 @@ export const Default: Story = {
     userHandle: 'Ida Zeile',
     userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=idazeile',
     grade: 'A+',
-    description: 'Based on many true stories 🤧',
+    description: 'Based on many true stories',
     musicTitle: 'Illegal',
     musicAuthor: 'PinkPantheress',
     musicImageUrl: 'https://picsum.photos/100/100?random=1',
-    geniusId: 8434253,
+    artistSlug: 'pinkpantheress',
+    songSlug: 'illegal',
     createdAt: '2 hours ago',
     likes: 12400,
-    comments: 342,
     shares: 89,
     isLiked: false,
     isFollowing: false,
     canInteract: true,
-    commentsData: [
-      {
-        id: '1',
-        username: 'musiclover',
-        text: 'This is amazing! Love your voice 🎵',
-        likes: 45,
-        isLiked: false,
-      },
-      {
-        id: '2',
-        username: 'karaokefan',
-        text: 'You nailed this one! A+ well deserved',
-        likes: 32,
-        isLiked: true,
-      },
-      {
-        id: '3',
-        username: 'singer123',
-        text: 'Such good pitch control 👏',
-        likes: 18,
-        isLiked: false,
-      },
-    ],
     onClose: () => console.log('Close clicked'),
     onLikeClick: () => console.log('Like clicked'),
-    onCommentClick: () => console.log('Comment clicked'),
     onShareClick: () => console.log('Share clicked'),
     onFollowClick: () => console.log('Follow clicked'),
     onProfileClick: () => console.log('Profile clicked'),
     onAudioClick: () => console.log('Audio clicked'),
-    onSubmitComment: async (content: string) => {
-      console.log('Submit comment:', content)
-      return true
-    },
-    onLikeComment: (commentId: string) => console.log('Like comment:', commentId),
   },
 }
 
@@ -133,48 +104,6 @@ export const NoInteraction: Story = {
 }
 
 /**
- * Loading Comments
- * Shows loading state for comments
- */
-export const LoadingComments: Story = {
-  args: {
-    ...Default.args,
-    commentsData: [],
-    isCommentsLoading: true,
-  },
-}
-
-/**
- * No Comments
- * Shows empty state when there are no comments
- */
-export const NoComments: Story = {
-  args: {
-    ...Default.args,
-    comments: 0,
-    commentsData: [],
-  },
-}
-
-/**
- * Many Comments
- * Shows scrollable comments section
- */
-export const ManyComments: Story = {
-  args: {
-    ...Default.args,
-    comments: 500,
-    commentsData: Array.from({ length: 20 }, (_, i) => ({
-      id: `${i + 1}`,
-      username: `user${i + 1}`,
-      text: `This is comment ${i + 1}. ${i % 3 === 0 ? 'Amazing performance! 🎵' : i % 3 === 1 ? 'Love this song! ❤️' : 'Great job! 👏'}`,
-      likes: Math.floor(Math.random() * 100),
-      isLiked: i % 5 === 0,
-    })),
-  },
-}
-
-/**
  * With Karaoke Lines
  * Shows video with synced lyrics overlay
  */
@@ -207,8 +136,8 @@ export const WithKaraokeLines: Story = {
 }
 
 /**
- * Minimal
- * Shows video with minimal metadata
+ * Minimal (no study button)
+ * Shows video with minimal metadata - no artistSlug/songSlug so no study button
  */
 export const Minimal: Story = {
   args: {
@@ -217,7 +146,6 @@ export const Minimal: Story = {
     thumbnailUrl: 'https://picsum.photos/400/711?random=3',
     username: 'artist',
     likes: 100,
-    comments: 5,
     shares: 2,
     canInteract: true,
     onClose: () => console.log('Close clicked'),
@@ -235,15 +163,15 @@ export const OriginalContent: Story = {
     thumbnailUrl: 'https://picsum.photos/400/711?random=2',
     username: 'musicmaker',
     userHandle: 'Original Artist',
-    description: 'My original composition 🎵',
+    description: 'My original composition',
     musicTitle: 'Summer Vibes',
     musicAuthor: 'Music Maker',
+    artistSlug: 'music-maker',
+    songSlug: 'summer-vibes',
     grade: 'A',
     likes: 8900,
-    comments: 234,
     shares: 67,
     canInteract: true,
-    commentsData: [],
     onClose: () => console.log('Close clicked'),
   },
 }

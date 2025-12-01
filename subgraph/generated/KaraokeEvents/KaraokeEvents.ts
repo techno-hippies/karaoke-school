@@ -65,32 +65,56 @@ export class ClipRegistered__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get grc20WorkId(): string {
+  get spotifyTrackId(): string {
     return this._event.parameters[1].value.toString();
   }
 
-  get spotifyTrackId(): string {
+  get iswc(): string {
     return this._event.parameters[2].value.toString();
   }
 
-  get clipStartMs(): BigInt {
-    return this._event.parameters[3].value.toBigInt();
+  get title(): string {
+    return this._event.parameters[3].value.toString();
   }
 
-  get clipEndMs(): BigInt {
-    return this._event.parameters[4].value.toBigInt();
+  get artist(): string {
+    return this._event.parameters[4].value.toString();
   }
 
-  get metadataUri(): string {
+  get artistSlug(): string {
     return this._event.parameters[5].value.toString();
   }
 
+  get songSlug(): string {
+    return this._event.parameters[6].value.toString();
+  }
+
+  get coverUri(): string {
+    return this._event.parameters[7].value.toString();
+  }
+
+  get thumbnailUri(): string {
+    return this._event.parameters[8].value.toString();
+  }
+
+  get clipStartMs(): BigInt {
+    return this._event.parameters[9].value.toBigInt();
+  }
+
+  get clipEndMs(): BigInt {
+    return this._event.parameters[10].value.toBigInt();
+  }
+
+  get metadataUri(): string {
+    return this._event.parameters[11].value.toString();
+  }
+
   get registeredBy(): Address {
-    return this._event.parameters[6].value.toAddress();
+    return this._event.parameters[12].value.toAddress();
   }
 
   get timestamp(): BigInt {
-    return this._event.parameters[7].value.toBigInt();
+    return this._event.parameters[13].value.toBigInt();
   }
 }
 
@@ -538,24 +562,48 @@ export class EmitClipRegisteredCall__Inputs {
     return this._call.inputValues[0].value.toBytes();
   }
 
-  get grc20WorkId(): string {
+  get spotifyTrackId(): string {
     return this._call.inputValues[1].value.toString();
   }
 
-  get spotifyTrackId(): string {
+  get iswc(): string {
     return this._call.inputValues[2].value.toString();
   }
 
+  get title(): string {
+    return this._call.inputValues[3].value.toString();
+  }
+
+  get artist(): string {
+    return this._call.inputValues[4].value.toString();
+  }
+
+  get artistSlug(): string {
+    return this._call.inputValues[5].value.toString();
+  }
+
+  get songSlug(): string {
+    return this._call.inputValues[6].value.toString();
+  }
+
+  get coverUri(): string {
+    return this._call.inputValues[7].value.toString();
+  }
+
+  get thumbnailUri(): string {
+    return this._call.inputValues[8].value.toString();
+  }
+
   get clipStartMs(): BigInt {
-    return this._call.inputValues[3].value.toBigInt();
+    return this._call.inputValues[9].value.toBigInt();
   }
 
   get clipEndMs(): BigInt {
-    return this._call.inputValues[4].value.toBigInt();
+    return this._call.inputValues[10].value.toBigInt();
   }
 
   get metadataUri(): string {
-    return this._call.inputValues[5].value.toString();
+    return this._call.inputValues[11].value.toString();
   }
 }
 

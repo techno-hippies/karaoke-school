@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
 
 /**
  * Generate URL-safe slug from text
@@ -12,43 +11,47 @@ export function generateSlug(text: string): string {
     .replace(/['']/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .substring(0, 50)
+    .replace(/-+/g, '-')
 }
 
 /**
- * Match slug against text
+ * Query to find clip by artist and song slug
+ * Uses indexed fields in subgraph for O(1) lookup
  */
-export function matchesSlug(slug: string, text: string): boolean {
-  const generatedSlug = generateSlug(text)
-  return generatedSlug === slug || generatedSlug.startsWith(slug) || slug.startsWith(generatedSlug)
-}
-
-/**
- * Query to get all clips for slug resolution
- */
-const ALL_CLIPS_QUERY = gql`
-  query GetAllClipsForSlugResolution {
-    clips(first: 100, orderBy: registeredAt, orderDirection: desc) {
+const CLIP_BY_SLUG_QUERY = gql`
+  query GetClipBySlug($artistSlug: String!, $songSlug: String!) {
+    clips(
+      where: { artistSlug: $artistSlug, songSlug: $songSlug }
+      first: 1
+    ) {
       spotifyTrackId
+      title
+      artist
+      artistSlug
+      songSlug
+      coverUri
+      thumbnailUri
       metadataUri
     }
   }
 `
 
-interface ClipForSlug {
+interface ClipBySlugResult {
   spotifyTrackId: string
+  title: string
+  artist: string
+  artistSlug: string
+  songSlug: string
+  coverUri: string
+  thumbnailUri: string
   metadataUri: string
 }
 
-interface SongMetadata {
-  title?: string
-  artist?: string
-}
-
 /**
- * Dynamic slug resolution (fallback)
+ * Primary hook for slug-based routing
+ * Queries subgraph directly by indexed slug fields - O(1) lookup
  */
-export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
+export function useSongSlug(artistSlug?: string, songSlug?: string) {
   return useQuery({
     queryKey: ['song-slug', artistSlug, songSlug],
     queryFn: async () => {
@@ -56,83 +59,44 @@ export function useSongSlugResolution(artistSlug?: string, songSlug?: string) {
         throw new Error('Both artist and song slugs are required')
       }
 
-      const data = await graphClient.request<{ clips: ClipForSlug[] }>(ALL_CLIPS_QUERY)
+      const data = await graphClient.request<{ clips: ClipBySlugResult[] }>(
+        CLIP_BY_SLUG_QUERY,
+        { artistSlug, songSlug }
+      )
 
       if (!data.clips || data.clips.length === 0) {
-        throw new Error('No clips found')
+        throw new Error(`No song found for ${artistSlug}/${songSlug}`)
       }
 
-      for (const clip of data.clips) {
-        try {
-          const httpUrl = convertGroveUri(clip.metadataUri)
-          const response = await fetch(httpUrl)
-          if (!response.ok) continue
-
-          const metadata: SongMetadata = await response.json()
-
-          const titleMatches = metadata.title && matchesSlug(songSlug, metadata.title)
-          const artistMatches = metadata.artist && matchesSlug(artistSlug, metadata.artist)
-
-          if (titleMatches && artistMatches) {
-            return { spotifyTrackId: clip.spotifyTrackId }
-          }
-        } catch {
-          continue
-        }
-      }
-
-      throw new Error(`No song found for ${artistSlug}/${songSlug}`)
+      return { spotifyTrackId: data.clips[0].spotifyTrackId }
     },
     enabled: !!artistSlug && !!songSlug,
-    staleTime: 300000,
+    staleTime: 300000, // 5 minutes
     retry: false,
   })
 }
 
 /**
- * Static slug → Spotify Track ID map
+ * Get all available slugs from subgraph
  */
-const SLUG_MAP: Record<string, string> = {
-  'eminem/lose-yourself': '5Z01UMMf7V1o0MzF86s6WJ',
-  'britney-spears/toxic': '717TY4sfgKQm4kFbYQIzgo',
-  'queen/bohemian-rhapsody': '4u7EnebtmKWzUH433cf5Qv',
-}
-
-/**
- * Resolve slug to Spotify track ID
- */
-export function resolveSlug(artistSlug: string, songSlug: string): string | undefined {
-  return SLUG_MAP[`${artistSlug}/${songSlug}`]
-}
-
-/**
- * Get all available slugs
- */
-export function getAllSlugs(): Array<{ artistSlug: string; songSlug: string }> {
-  return Object.keys(SLUG_MAP).map(key => {
-    const [artistSlug, songSlug] = key.split('/')
-    return { artistSlug, songSlug }
-  })
-}
-
-/**
- * Primary hook for slug-based routing
- */
-export function useSongSlug(artistSlug?: string, songSlug?: string) {
-  const staticResult = artistSlug && songSlug ? resolveSlug(artistSlug, songSlug) : undefined
-
-  const dynamicQuery = useSongSlugResolution(
-    staticResult ? undefined : artistSlug,
-    staticResult ? undefined : songSlug
-  )
-
-  if (staticResult) {
-    return {
-      data: { spotifyTrackId: staticResult },
-      isLoading: false,
-      error: null,
+const ALL_SLUGS_QUERY = gql`
+  query GetAllSlugs {
+    clips(first: 100, orderBy: registeredAt, orderDirection: desc) {
+      artistSlug
+      songSlug
     }
   }
+`
 
-  return dynamicQuery
+export function useAllSlugs() {
+  return useQuery({
+    queryKey: ['all-slugs'],
+    queryFn: async () => {
+      const data = await graphClient.request<{ clips: { artistSlug: string; songSlug: string }[] }>(
+        ALL_SLUGS_QUERY
+      )
+      return data.clips || []
+    },
+    staleTime: 300000,
+  })
 }

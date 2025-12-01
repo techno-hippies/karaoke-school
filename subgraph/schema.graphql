@@ -1,23 +1,33 @@
 """
 A processed clip of a song (40-80s karaoke clip with translations)
-References GRC-20 work entity for music metadata
+Includes slug fields for direct URL routing without metadata fetch
 """
 type Clip @entity(immutable: false) {
   id: ID! # clipHash
   clipHash: Bytes!
 
-  # GRC-20 reference
-  grc20WorkId: String!
+  # Song identification
+  spotifyTrackId: String!
+  iswc: String!
+
+  # Display metadata (indexed for queries)
+  title: String!
+  artist: String!
+  artistSlug: String!
+  songSlug: String!
+
+  # Images (Grove URIs)
+  coverUri: String!
+  thumbnailUri: String!
 
   # Clip timing and metadata
-  spotifyTrackId: String!
   clipStartMs: Int!
   clipEndMs: Int!
   metadataUri: String!
   registeredBy: Bytes!
   registeredAt: BigInt!
 
-  # Artist linking (from Grove metadata)
+  # Artist linking (optional)
   artistLensHandle: String
 
   # Populated after processing

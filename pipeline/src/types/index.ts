@@ -132,6 +132,7 @@ export interface Video {
   song_id: string;
   background_video_url: string | null;
   output_video_url: string | null;
+  thumbnail_url: string | null;  // Video frame thumbnail (Grove) - NOT album art
   subtitles_ass: string | null;
   snippet_start_ms: number;
   snippet_end_ms: number;

@@ -1,10 +1,10 @@
 import { useState, useRef, memo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { VideoPlayer } from './VideoPlayer'
 import { KaraokeOverlay } from './KaraokeOverlay'
 import { VideoActions } from './VideoActions'
 import { VideoInfo } from './VideoInfo'
-import { CommentSheet } from './CommentSheet'
 import { ShareSheet } from './ShareSheet'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +13,6 @@ import type { KaraokeLine, KaraokeWord, VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
   onLikeClick?: () => void
-  onCommentClick?: () => void
   onShareClick?: () => void
   onFollowClick?: () => void
   isFollowLoading?: boolean
@@ -43,15 +42,15 @@ function VideoPostComponent({
   musicTitle,
   musicAuthor,
   musicImageUrl,
+  artistSlug,
+  songSlug,
   likes,
-  comments,
   shares,
   karaokeLines,
   isLiked = false,
   isFollowing = false,
   canInteract = false,
   onLikeClick,
-  onCommentClick,
   onShareClick,
   onFollowClick,
   isFollowLoading = false,
@@ -64,6 +63,7 @@ function VideoPostComponent({
   hasMobileFooter = false
 }: VideoPostProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   // Use shared video playback logic
   const {
@@ -76,13 +76,16 @@ function VideoPostComponent({
     handleTimeUpdate,
   } = useVideoPlayback({ autoplay })
 
-  const [commentSheetOpen, setCommentSheetOpen] = useState(false)
   const [shareSheetOpen, setShareSheetOpen] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
-  const handleCommentClick = () => {
-    setCommentSheetOpen(true)
-    onCommentClick?.()
+  // Study navigation - only available when song data exists
+  const canStudy = !!(artistSlug && songSlug)
+
+  const handleStudyClick = () => {
+    if (canStudy) {
+      navigate(`/${artistSlug}/${songSlug}/study`)
+    }
   }
 
   const handleShareClick = () => {
@@ -208,14 +211,11 @@ function VideoPostComponent({
           isFollowLoading={isFollowLoading}
           onFollowClick={onFollowClick || (() => {})}
           onProfileClick={onProfileClick || (() => {})}
-          likes={likes}
-          comments={comments}
-          shares={shares}
           isLiked={isLiked}
-          canLike={canInteract}
           onLikeClick={onLikeClick || (() => {})}
-          onCommentClick={handleCommentClick}
           onShareClick={handleShareClick}
+          canStudy={canStudy}
+          onStudyClick={handleStudyClick}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
           musicImageUrl={musicImageUrl}
@@ -235,14 +235,11 @@ function VideoPostComponent({
           isFollowLoading={isFollowLoading}
           onFollowClick={onFollowClick || (() => {})}
           onProfileClick={onProfileClick || (() => {})}
-          likes={likes}
-          comments={comments}
-          shares={shares}
           isLiked={isLiked}
-          canLike={canInteract}
           onLikeClick={onLikeClick || (() => {})}
-          onCommentClick={handleCommentClick}
           onShareClick={handleShareClick}
+          canStudy={canStudy}
+          onStudyClick={handleStudyClick}
           musicTitle={musicTitle}
           musicAuthor={musicAuthor}
           musicImageUrl={musicImageUrl}
@@ -251,19 +248,6 @@ function VideoPostComponent({
           onToggleMute={() => setIsMuted(!isMuted)}
         />
       </div>
-
-      {/* Comment Sheet */}
-      <CommentSheet
-        open={commentSheetOpen}
-        onOpenChange={setCommentSheetOpen}
-        comments={[]}
-        commentCount={comments}
-        canComment={canInteract}
-        onSubmitComment={async (content) => {
-          console.log('Submit comment:', content)
-          return true
-        }}
-      />
 
       {/* Share Sheet */}
       <ShareSheet
@@ -346,7 +330,6 @@ const areVideoPostPropsEqual = (prev: VideoPostProps, next: VideoPostProps) => {
     prev.tiktokVideoId === next.tiktokVideoId &&
     prev.createdAt === next.createdAt &&
     prev.likes === next.likes &&
-    prev.comments === next.comments &&
     prev.shares === next.shares &&
     prev.isLiked === next.isLiked &&
     prev.isFollowing === next.isFollowing &&

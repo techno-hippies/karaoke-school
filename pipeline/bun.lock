@@ -8,7 +8,7 @@
         "@lens-chain/storage-client": "^0.0.0-canary-20250319215446",
         "@lens-protocol/client": "^0.0.0-canary-20250507135641",
         "@lens-protocol/env": "^0.0.0-canary-20250320085756",
-        "@lens-protocol/metadata": "^1.2.0",
+        "@lens-protocol/metadata": "2.1.0",
         "@lit-protocol/contracts-sdk": "^7.0.2",
         "@lit-protocol/lit-client": "^8.2.3",
         "@lit-protocol/lit-node-client": "^7.0.2",
@@ -213,7 +213,7 @@
 
     "@lens-protocol/graphql": ["@lens-protocol/graphql@0.0.0-paul-20250315192609", "", { "dependencies": { "@lens-protocol/types": "0.0.0-paul-20250315192609", "gql.tada": "^1.8.10", "graphql": "^16.9.0", "type-fest": "^4.26.1" } }, "sha512-g8bEgnN3MyukpUbhRE/D1++17ZeviaXOKbMkhf8+utVc9xmLZ9H79E1ukTSNf+fxIrf8gi47mrskIP6WGPLVqA=="],
 
-    "@lens-protocol/metadata": ["@lens-protocol/metadata@1.2.0", "", { "dependencies": { "json-stable-stringify": "^1.1.1", "uuid": "^9.0.1" }, "peerDependencies": { "zod": "^3.22.3" }, "optionalPeers": ["zod"] }, "sha512-fUB8+GvYiVt1uMqYJi/iN/aw/lzE+oEfpTjraTI87MqWPgYubbx0vFySjJs7uAdI7oftczvlwhthmMUl5DDuGA=="],
+    "@lens-protocol/metadata": ["@lens-protocol/metadata@2.1.0", "", { "dependencies": { "abitype": "^1.0.8", "json-stable-stringify": "^1.1.1", "uuid": "^9.0.1" }, "peerDependencies": { "zod": "^3.22.3" }, "optionalPeers": ["zod"] }, "sha512-aQOqs/SFLKgFRQLyyOlZtDqni0LtRzOf0W+zfxtovxOCyjFKkhxRvlw+qLqVlaYM1dS50lDZ+7/uVMQ+PH5wIQ=="],
 
     "@lens-protocol/storage": ["@lens-protocol/storage@0.0.0-paul-20250315192609", "", { "dependencies": { "@lens-protocol/types": "0.0.0-paul-20250315192609", "zod": "^3.23.8" } }, "sha512-NQHRKgatpYJVsnRUgahFdZPO5+D/66q0yblYbF8wUndRCDierisehvfWfPAsILNuzOpDOc9DNB28n+UPKmFsAg=="],
 
@@ -1105,7 +1105,7 @@
 
     "yargs-parser": ["yargs-parser@20.2.9", "", {}, "sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w=="],
 
-    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+    "zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
 
     "zod-validation-error": ["zod-validation-error@3.4.0", "", { "peerDependencies": { "zod": "^3.18.0" } }, "sha512-ZOPR9SVY6Pb2qqO5XHt+MkkTRxGXb4EVtnjc9JpXUOtUB1T9Ru7mZOT361AN3MsetVe7R0a1KZshJDZdgp9miQ=="],
 
@@ -1217,6 +1217,8 @@
 
     "@jest/types/@types/node": ["@types/node@24.10.1", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ=="],
 
+    "@lens-protocol/storage/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
     "@lit-protocol/access-control-conditions/@ethersproject/contracts": ["@ethersproject/contracts@5.8.0", "", { "dependencies": { "@ethersproject/abi": "^5.8.0", "@ethersproject/abstract-provider": "^5.8.0", "@ethersproject/abstract-signer": "^5.8.0", "@ethersproject/address": "^5.8.0", "@ethersproject/bignumber": "^5.8.0", "@ethersproject/bytes": "^5.8.0", "@ethersproject/constants": "^5.8.0", "@ethersproject/logger": "^5.8.0", "@ethersproject/properties": "^5.8.0", "@ethersproject/transactions": "^5.8.0" } }, "sha512-0eFjGz9GtuAi6MZwhb4uvUM216F38xiuR0yYCjKJpNfSEy4HUM8hvqqBj9Jmm0IUz8l0xKEhWwLIhPgxNY0yvQ=="],
 
     "@lit-protocol/access-control-conditions/@ethersproject/providers": ["@ethersproject/providers@5.7.0", "", { "dependencies": { "@ethersproject/abstract-provider": "^5.7.0", "@ethersproject/abstract-signer": "^5.7.0", "@ethersproject/address": "^5.7.0", "@ethersproject/base64": "^5.7.0", "@ethersproject/basex": "^5.7.0", "@ethersproject/bignumber": "^5.7.0", "@ethersproject/bytes": "^5.7.0", "@ethersproject/constants": "^5.7.0", "@ethersproject/hash": "^5.7.0", "@ethersproject/logger": "^5.7.0", "@ethersproject/networks": "^5.7.0", "@ethersproject/properties": "^5.7.0", "@ethersproject/random": "^5.7.0", "@ethersproject/rlp": "^5.7.0", "@ethersproject/sha2": "^5.7.0", "@ethersproject/strings": "^5.7.0", "@ethersproject/transactions": "^5.7.0", "@ethersproject/web": "^5.7.0", "bech32": "1.1.4", "ws": "7.4.6" } }, "sha512-+TTrrINMzZ0aXtlwO/95uhAggKm4USLm1PbeCBR/3XZ7+Oey+3pMyddzZEyRhizHpy1HXV0FRWRMI1O3EGYibA=="],
@@ -1235,8 +1237,6 @@
 
     "@lit-protocol/access-control-conditions/viem": ["viem@2.29.4", "", { "dependencies": { "@noble/curves": "1.8.2", "@noble/hashes": "1.7.2", "@scure/bip32": "1.6.2", "@scure/bip39": "1.5.4", "abitype": "1.0.8", "isows": "1.0.7", "ox": "0.6.9", "ws": "8.18.1" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-Dhyae+w1LKKpYVXypGjBnZ3WU5EHl/Uip5RtVwVRYSVxD5VvHzqKzIfbFU1KP4vnnh3++ZNgLjBY/kVT/tPrrg=="],
 
-    "@lit-protocol/access-control-conditions/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
-
     "@lit-protocol/access-control-conditions-schemas/@lit-protocol/constants": ["@lit-protocol/constants@8.0.2", "", { "dependencies": { "@lit-protocol/contracts": "0.5.3", "@openagenda/verror": "^3.1.4", "@t3-oss/env-core": "0.13.8", "@typechain/ethers-v6": "0.5.1", "ethers": "^5.7.1", "tslib": "^2.8.1", "typechain": "8.3.2", "viem": "2.29.4", "zod": "3.24.3" } }, "sha512-2jw9PNmU2w/DVRn86+hQmoiW5uCl9bNCPZv/4eS13fiPhi4VERys5lC9zxn4uUyLeCUivDlPnuP1LO0ElyfXxA=="],
 
     "@lit-protocol/access-control-conditions-schemas/@lit-protocol/contracts": ["@lit-protocol/contracts@0.5.3", "", { "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-s5q/X0iGLdJYY8dGUJi8EmVkfVJRxMfsVXAb4t/8YEWvOC1oQHuO069nqTPmCqkJO8OcDUknaSSkuxuDIvp2oQ=="],
@@ -1246,8 +1246,6 @@
     "@lit-protocol/access-control-conditions-schemas/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
     "@lit-protocol/access-control-conditions-schemas/viem": ["viem@2.29.4", "", { "dependencies": { "@noble/curves": "1.8.2", "@noble/hashes": "1.7.2", "@scure/bip32": "1.6.2", "@scure/bip39": "1.5.4", "abitype": "1.0.8", "isows": "1.0.7", "ox": "0.6.9", "ws": "8.18.1" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-Dhyae+w1LKKpYVXypGjBnZ3WU5EHl/Uip5RtVwVRYSVxD5VvHzqKzIfbFU1KP4vnnh3++ZNgLjBY/kVT/tPrrg=="],
-
-    "@lit-protocol/access-control-conditions-schemas/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
 
     "@lit-protocol/auth-browser/@lit-protocol/uint8arrays": ["@lit-protocol/uint8arrays@7.3.1", "", { "dependencies": { "@ethersproject/abstract-provider": "5.7.0", "@lit-protocol/accs-schemas": "^0.0.36", "@lit-protocol/constants": "7.3.1", "@lit-protocol/contracts": "^0.0.74", "@lit-protocol/types": "7.3.1", "@openagenda/verror": "^3.1.4", "depd": "^2.0.0", "ethers": "^5.7.1", "siwe": "^2.3.2", "tslib": "1.14.1" } }, "sha512-Y591CUPt17GzlDeQmcjCgMS77gGatHebIgEAgk7oV0oH2I1w6MooHLy6zWwXIlXh/8O5ZY6G6gcdzgmjz6f+Ng=="],
 
@@ -1268,8 +1266,6 @@
     "@lit-protocol/auth-helpers/ethers": ["ethers@5.8.0", "", { "dependencies": { "@ethersproject/abi": "5.8.0", "@ethersproject/abstract-provider": "5.8.0", "@ethersproject/abstract-signer": "5.8.0", "@ethersproject/address": "5.8.0", "@ethersproject/base64": "5.8.0", "@ethersproject/basex": "5.8.0", "@ethersproject/bignumber": "5.8.0", "@ethersproject/bytes": "5.8.0", "@ethersproject/constants": "5.8.0", "@ethersproject/contracts": "5.8.0", "@ethersproject/hash": "5.8.0", "@ethersproject/hdnode": "5.8.0", "@ethersproject/json-wallets": "5.8.0", "@ethersproject/keccak256": "5.8.0", "@ethersproject/logger": "5.8.0", "@ethersproject/networks": "5.8.0", "@ethersproject/pbkdf2": "5.8.0", "@ethersproject/properties": "5.8.0", "@ethersproject/providers": "5.8.0", "@ethersproject/random": "5.8.0", "@ethersproject/rlp": "5.8.0", "@ethersproject/sha2": "5.8.0", "@ethersproject/signing-key": "5.8.0", "@ethersproject/solidity": "5.8.0", "@ethersproject/strings": "5.8.0", "@ethersproject/transactions": "5.8.0", "@ethersproject/units": "5.8.0", "@ethersproject/wallet": "5.8.0", "@ethersproject/web": "5.8.0", "@ethersproject/wordlists": "5.8.0" } }, "sha512-DUq+7fHrCg1aPDFCHx6UIPb3nmt2XMpM7Y/g2gLhsl3lIBqeAfOJIl1qEvRf2uq3BiKxmh6Fh5pfp2ieyek7Kg=="],
 
     "@lit-protocol/auth-helpers/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
-
-    "@lit-protocol/auth-helpers/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
 
     "@lit-protocol/constants/ethers": ["ethers@5.8.0", "", { "dependencies": { "@ethersproject/abi": "5.8.0", "@ethersproject/abstract-provider": "5.8.0", "@ethersproject/abstract-signer": "5.8.0", "@ethersproject/address": "5.8.0", "@ethersproject/base64": "5.8.0", "@ethersproject/basex": "5.8.0", "@ethersproject/bignumber": "5.8.0", "@ethersproject/bytes": "5.8.0", "@ethersproject/constants": "5.8.0", "@ethersproject/contracts": "5.8.0", "@ethersproject/hash": "5.8.0", "@ethersproject/hdnode": "5.8.0", "@ethersproject/json-wallets": "5.8.0", "@ethersproject/keccak256": "5.8.0", "@ethersproject/logger": "5.8.0", "@ethersproject/networks": "5.8.0", "@ethersproject/pbkdf2": "5.8.0", "@ethersproject/properties": "5.8.0", "@ethersproject/providers": "5.8.0", "@ethersproject/random": "5.8.0", "@ethersproject/rlp": "5.8.0", "@ethersproject/sha2": "5.8.0", "@ethersproject/signing-key": "5.8.0", "@ethersproject/solidity": "5.8.0", "@ethersproject/strings": "5.8.0", "@ethersproject/transactions": "5.8.0", "@ethersproject/units": "5.8.0", "@ethersproject/wallet": "5.8.0", "@ethersproject/web": "5.8.0", "@ethersproject/wordlists": "5.8.0" } }, "sha512-DUq+7fHrCg1aPDFCHx6UIPb3nmt2XMpM7Y/g2gLhsl3lIBqeAfOJIl1qEvRf2uq3BiKxmh6Fh5pfp2ieyek7Kg=="],
 
@@ -1303,8 +1299,6 @@
 
     "@lit-protocol/crypto/viem": ["viem@2.29.4", "", { "dependencies": { "@noble/curves": "1.8.2", "@noble/hashes": "1.7.2", "@scure/bip32": "1.6.2", "@scure/bip39": "1.5.4", "abitype": "1.0.8", "isows": "1.0.7", "ox": "0.6.9", "ws": "8.18.1" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-Dhyae+w1LKKpYVXypGjBnZ3WU5EHl/Uip5RtVwVRYSVxD5VvHzqKzIfbFU1KP4vnnh3++ZNgLjBY/kVT/tPrrg=="],
 
-    "@lit-protocol/crypto/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
-
     "@lit-protocol/lit-client/@ethersproject/contracts": ["@ethersproject/contracts@5.8.0", "", { "dependencies": { "@ethersproject/abi": "^5.8.0", "@ethersproject/abstract-provider": "^5.8.0", "@ethersproject/abstract-signer": "^5.8.0", "@ethersproject/address": "^5.8.0", "@ethersproject/bignumber": "^5.8.0", "@ethersproject/bytes": "^5.8.0", "@ethersproject/constants": "^5.8.0", "@ethersproject/logger": "^5.8.0", "@ethersproject/properties": "^5.8.0", "@ethersproject/transactions": "^5.8.0" } }, "sha512-0eFjGz9GtuAi6MZwhb4uvUM216F38xiuR0yYCjKJpNfSEy4HUM8hvqqBj9Jmm0IUz8l0xKEhWwLIhPgxNY0yvQ=="],
 
     "@lit-protocol/lit-client/@ethersproject/providers": ["@ethersproject/providers@5.7.0", "", { "dependencies": { "@ethersproject/abstract-provider": "^5.7.0", "@ethersproject/abstract-signer": "^5.7.0", "@ethersproject/address": "^5.7.0", "@ethersproject/base64": "^5.7.0", "@ethersproject/basex": "^5.7.0", "@ethersproject/bignumber": "^5.7.0", "@ethersproject/bytes": "^5.7.0", "@ethersproject/constants": "^5.7.0", "@ethersproject/hash": "^5.7.0", "@ethersproject/logger": "^5.7.0", "@ethersproject/networks": "^5.7.0", "@ethersproject/properties": "^5.7.0", "@ethersproject/random": "^5.7.0", "@ethersproject/rlp": "^5.7.0", "@ethersproject/sha2": "^5.7.0", "@ethersproject/strings": "^5.7.0", "@ethersproject/transactions": "^5.7.0", "@ethersproject/web": "^5.7.0", "bech32": "1.1.4", "ws": "7.4.6" } }, "sha512-+TTrrINMzZ0aXtlwO/95uhAggKm4USLm1PbeCBR/3XZ7+Oey+3pMyddzZEyRhizHpy1HXV0FRWRMI1O3EGYibA=="],
@@ -1322,8 +1316,6 @@
     "@lit-protocol/lit-client/ethers": ["ethers@5.8.0", "", { "dependencies": { "@ethersproject/abi": "5.8.0", "@ethersproject/abstract-provider": "5.8.0", "@ethersproject/abstract-signer": "5.8.0", "@ethersproject/address": "5.8.0", "@ethersproject/base64": "5.8.0", "@ethersproject/basex": "5.8.0", "@ethersproject/bignumber": "5.8.0", "@ethersproject/bytes": "5.8.0", "@ethersproject/constants": "5.8.0", "@ethersproject/contracts": "5.8.0", "@ethersproject/hash": "5.8.0", "@ethersproject/hdnode": "5.8.0", "@ethersproject/json-wallets": "5.8.0", "@ethersproject/keccak256": "5.8.0", "@ethersproject/logger": "5.8.0", "@ethersproject/networks": "5.8.0", "@ethersproject/pbkdf2": "5.8.0", "@ethersproject/properties": "5.8.0", "@ethersproject/providers": "5.8.0", "@ethersproject/random": "5.8.0", "@ethersproject/rlp": "5.8.0", "@ethersproject/sha2": "5.8.0", "@ethersproject/signing-key": "5.8.0", "@ethersproject/solidity": "5.8.0", "@ethersproject/strings": "5.8.0", "@ethersproject/transactions": "5.8.0", "@ethersproject/units": "5.8.0", "@ethersproject/wallet": "5.8.0", "@ethersproject/web": "5.8.0", "@ethersproject/wordlists": "5.8.0" } }, "sha512-DUq+7fHrCg1aPDFCHx6UIPb3nmt2XMpM7Y/g2gLhsl3lIBqeAfOJIl1qEvRf2uq3BiKxmh6Fh5pfp2ieyek7Kg=="],
 
     "@lit-protocol/lit-client/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
-
-    "@lit-protocol/lit-client/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
 
     "@lit-protocol/lit-node-client/@lit-protocol/access-control-conditions": ["@lit-protocol/access-control-conditions@7.3.1", "", { "dependencies": { "@ethersproject/abstract-provider": "5.7.0", "@ethersproject/contracts": "5.7.0", "@ethersproject/providers": "5.7.2", "@lit-protocol/accs-schemas": "^0.0.36", "@lit-protocol/constants": "7.3.1", "@lit-protocol/contracts": "^0.0.74", "@lit-protocol/logger": "7.3.1", "@lit-protocol/misc": "7.3.1", "@lit-protocol/types": "7.3.1", "@lit-protocol/uint8arrays": "7.3.1", "@openagenda/verror": "^3.1.4", "ajv": "^8.12.0", "bech32": "^2.0.0", "depd": "^2.0.0", "ethers": "^5.7.1", "siwe": "^2.3.2", "tslib": "1.14.1", "util": "0.12.5" } }, "sha512-5K1d68VVXW4zJXg+RkzEQKNMw0tRmnSag1LtigNrv2Rb9U4WmrHFHwH6QSQo7aiwUsAmzFBCWzZzpU3a1Cjo5w=="],
 
@@ -1377,8 +1369,6 @@
 
     "@lit-protocol/networks/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
-    "@lit-protocol/networks/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
-
     "@lit-protocol/schemas/@lit-protocol/constants": ["@lit-protocol/constants@8.0.2", "", { "dependencies": { "@lit-protocol/contracts": "0.5.3", "@openagenda/verror": "^3.1.4", "@t3-oss/env-core": "0.13.8", "@typechain/ethers-v6": "0.5.1", "ethers": "^5.7.1", "tslib": "^2.8.1", "typechain": "8.3.2", "viem": "2.29.4", "zod": "3.24.3" } }, "sha512-2jw9PNmU2w/DVRn86+hQmoiW5uCl9bNCPZv/4eS13fiPhi4VERys5lC9zxn4uUyLeCUivDlPnuP1LO0ElyfXxA=="],
 
     "@lit-protocol/schemas/@lit-protocol/contracts": ["@lit-protocol/contracts@0.5.3", "", { "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-s5q/X0iGLdJYY8dGUJi8EmVkfVJRxMfsVXAb4t/8YEWvOC1oQHuO069nqTPmCqkJO8OcDUknaSSkuxuDIvp2oQ=="],
@@ -1388,8 +1378,6 @@
     "@lit-protocol/schemas/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
     "@lit-protocol/schemas/viem": ["viem@2.29.4", "", { "dependencies": { "@noble/curves": "1.8.2", "@noble/hashes": "1.7.2", "@scure/bip32": "1.6.2", "@scure/bip39": "1.5.4", "abitype": "1.0.8", "isows": "1.0.7", "ox": "0.6.9", "ws": "8.18.1" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-Dhyae+w1LKKpYVXypGjBnZ3WU5EHl/Uip5RtVwVRYSVxD5VvHzqKzIfbFU1KP4vnnh3++ZNgLjBY/kVT/tPrrg=="],
-
-    "@lit-protocol/schemas/zod": ["zod@3.24.3", "", {}, "sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg=="],
 
     "@lit-protocol/types/ethers": ["ethers@5.8.0", "", { "dependencies": { "@ethersproject/abi": "5.8.0", "@ethersproject/abstract-provider": "5.8.0", "@ethersproject/abstract-signer": "5.8.0", "@ethersproject/address": "5.8.0", "@ethersproject/base64": "5.8.0", "@ethersproject/basex": "5.8.0", "@ethersproject/bignumber": "5.8.0", "@ethersproject/bytes": "5.8.0", "@ethersproject/constants": "5.8.0", "@ethersproject/contracts": "5.8.0", "@ethersproject/hash": "5.8.0", "@ethersproject/hdnode": "5.8.0", "@ethersproject/json-wallets": "5.8.0", "@ethersproject/keccak256": "5.8.0", "@ethersproject/logger": "5.8.0", "@ethersproject/networks": "5.8.0", "@ethersproject/pbkdf2": "5.8.0", "@ethersproject/properties": "5.8.0", "@ethersproject/providers": "5.8.0", "@ethersproject/random": "5.8.0", "@ethersproject/rlp": "5.8.0", "@ethersproject/sha2": "5.8.0", "@ethersproject/signing-key": "5.8.0", "@ethersproject/solidity": "5.8.0", "@ethersproject/strings": "5.8.0", "@ethersproject/transactions": "5.8.0", "@ethersproject/units": "5.8.0", "@ethersproject/wallet": "5.8.0", "@ethersproject/web": "5.8.0", "@ethersproject/wordlists": "5.8.0" } }, "sha512-DUq+7fHrCg1aPDFCHx6UIPb3nmt2XMpM7Y/g2gLhsl3lIBqeAfOJIl1qEvRf2uq3BiKxmh6Fh5pfp2ieyek7Kg=="],
 
@@ -1468,6 +1456,8 @@
     "minimist-options/is-plain-obj": ["is-plain-obj@1.1.0", "", {}, "sha512-yvkRyxmFKEOQ4pNXCmJG5AEQNlXJS5LaONXo5/cLdTZdWvsZ1ioJEonLGAosKlMWE8lwUy/bJzMjcw8az73+Fg=="],
 
     "multihashes/varint": ["varint@5.0.2", "", {}, "sha512-lKxKYG6H03yCZUpAGOPOsMcGxd1RHCu1iKvEHYDPmTyq2HueGhD73ssNBqqQWfvYs04G9iUFRvmAVLW20Jw6ow=="],
+
+    "openai/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "ox/@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
 

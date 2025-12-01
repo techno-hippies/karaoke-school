@@ -64,20 +64,35 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 │     └─► Creates: word-level timing on lyrics table                      │
 │                                                                         │
 │  4. add-lyrics.ts       Add translated lyrics (zh, vi, id)              │
+│     └─► Or use fetch-and-translate.ts to auto-translate                 │
 │                                                                         │
 │  5. generate-exercises.ts  Create translation + sayitback questions     │
 │                                                                         │
-│  6. insert-clip.ts      Create clip record in DB                        │
+│  6. select-clip.ts      Auto-select ~60s clip boundary (after intro)    │
+│     └─► Sets: clip_end_ms on song                                       │
 │                                                                         │
-│  7. emit-clip.ts        Emit ClipRegistered to KaraokeEvents            │
+│  7. create-clip.ts      Crop FAL enhanced instrumental to clip_end_ms   │
+│     └─► Creates: clip_instrumental_url on Grove                         │
 │                                                                         │
-│  8. emit-exercises.ts   Emit TranslationQuestionRegistered              │
+│  8. emit-clip-full.ts   Emit ClipRegistered to KaraokeEvents            │
 │                                                                         │
-│  9. generate-video.ts   FFmpeg with ASS subtitles (optional)            │
+│  9. emit-exercises.ts   Emit TranslationQuestionRegistered              │
 │                                                                         │
-│ 10. post-clip.ts        Post to Lens feed (optional)                    │
+│ OPTIONAL - Cover video for Lens feed:                                   │
+│ 10. generate-karaoke-video.ts  FFmpeg with ASS subtitles                │
+│ 11. post-clip.ts        Post cover video to Lens feed                   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Clip vs Cover (Important Distinction)
+
+| Term | What it is | Purpose |
+|------|-----------|---------|
+| **Clip** | ~60s of FAL enhanced **instrumental** | Free preview for non-subscribers (emitted to chain) |
+| **Cover** | Video + cover audio (`cover.mp3` + `cover.mp4`) | Posted to Lens feed for engagement |
+
+- Clips are created from the **original song's instrumental** (processed via Demucs + FAL)
+- Covers are separate recordings/videos for social media posting
 
 ## Quick Start
 
@@ -88,8 +103,8 @@ cd pipeline-new
 mkdir -p songs/T0112199333
 # Add en-lyrics.txt and zh-lyrics.txt to folder
 
-# 2. Add song to database
-bun src/scripts/add-song.ts --iswc=T0112199333 --title="Toxic" --artist="Britney Spears" --spotify-id=717TY4sfgKQm4kFbYQIzgo
+# 2. Add song to database (artist auto-fetched from Spotify)
+bun src/scripts/add-song.ts --iswc=T0112199333 --title="Toxic" --spotify-id=717TY4sfgKQm4kFbYQIzgo
 
 # 3. Process audio (optional - if original.mp3 available)
 bun src/scripts/process-audio.ts --iswc=T0112199333
@@ -103,13 +118,16 @@ bun src/scripts/add-lyrics.ts --iswc=T0112199333 --language=zh
 # 6. Generate exercises
 bun src/scripts/generate-exercises.ts --iswc=T0112199333
 
-# 7. Create clip (start/end in ms)
-bun src/scripts/insert-clip.ts --iswc=T0112199333 --start=93548 --end=103548
+# 7. Select clip boundary (~60s, auto-finds section break)
+bun src/scripts/select-clip.ts --iswc=T0112199333
 
-# 8. Emit clip to chain (with Zod validation)
+# 8. Create clip audio (crops FAL enhanced instrumental)
+bun src/scripts/create-clip.ts --iswc=T0112199333
+
+# 9. Emit clip to chain (with Zod validation)
 bun src/scripts/emit-clip-full.ts --iswc=T0112199333
 
-# 9. Emit exercises to chain
+# 10. Emit exercises to chain
 bun src/scripts/emit-exercises.ts --iswc=T0112199333
 ```
 
@@ -120,12 +138,13 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | Script | Purpose | Args |
 |--------|---------|------|
 | `add-song.ts` | Create song + artist + EN lyrics + cover images | `--iswc`, `--title`, `--spotify-id` |
-| `add-lyrics.ts` | Add translated lyrics | `--iswc`, `--language` |
+| `add-lyrics.ts` | Add translated lyrics from file | `--iswc`, `--language` |
+| `fetch-and-translate.ts` | Auto-fetch from LRCLIB + translate | `--iswc` |
 | `align-lyrics.ts` | ElevenLabs word alignment | `--iswc` |
-| `process-audio.ts` | Demucs + FAL | `--iswc` |
+| `process-audio.ts` | Demucs + FAL (supports .mp3/.flac/.wav/.m4a, auto-converts to MP3) | `--iswc` |
 | `generate-exercises.ts` | Translation/trivia/sayitback | `--iswc` |
-| `insert-clip.ts` | Create clip record | `--iswc`, `--start`, `--end` |
-| `emit-clip.ts` | Emit ClipRegistered (simple) | `--iswc` or `--clip-id` |
+| `select-clip.ts` | Auto-select ~60s clip boundary | `--iswc`, `--dry-run` |
+| `create-clip.ts` | Crop enhanced instrumental to clip | `--iswc`, `--dry-run` |
 | `emit-clip-full.ts` | Full emit with Zod validation | `--iswc`, `--upload-images`, `--dry-run` |
 | `emit-exercises.ts` | Emit exercises to chain | `--iswc`, `--limit` |
 
@@ -133,7 +152,8 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 
 | Script | Purpose | Args |
 |--------|---------|------|
-| `generate-karaoke-video.ts` | Generate karaoke video with char-by-char highlighting | `--iswc` or `--song-dir` |
+| `generate-karaoke-video.ts` | Generate karaoke video with char-by-char highlighting (uses alignment.json) | `--iswc` or `--song-dir` |
+| `generate-video.ts` | Generate video from DB lyrics with time range (more complex) | `--iswc`, `--start`, `--end` |
 | `generate-lyric-tags.ts` | AI-generate psychographic tags from lyrics (Gemini 2.5 Flash) | `--iswc`, `--dry-run` |
 | `post-clip.ts` | Post to Lens (requires visual + lyric tags) | `--video-id`, `--account`, `--visual-tags` |
 
@@ -144,6 +164,19 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | `create-account.ts` | Create posting account | `--handle`, `--name` |
 | `create-lens-account.ts` | Lens account for posting | `--handle` |
 | `mint-pkp.ts` | PKP for signing | `--handle` |
+
+**Lens Account Naming Convention:**
+- Custom namespace: `kschool2` (`0x6Cf6bC01D51aF736Cd34bC3a682B7b081eA77B07`)
+- Lens handle format: `{handle}-ks` (e.g., `scarlett` → `scarlett-ks`)
+- The `-ks` suffix is added automatically by `create-lens-account.ts`
+
+```bash
+# Full account creation flow:
+bun src/scripts/create-account.ts --handle=newaccount --name="Display Name"
+bun src/scripts/mint-pkp.ts --handle=newaccount
+bun src/scripts/create-lens-account.ts --handle=newaccount
+# Result: Lens account newaccount-ks in kschool2 namespace
+```
 
 ### Subscription Locks
 
@@ -171,9 +204,13 @@ The `sync-lock-config.ts` script reads all artist lock addresses from the databa
 
 | Script | Purpose | Args |
 |--------|---------|------|
-| `fetch-and-translate.ts` | LRCLIB + auto-translate | `--iswc` |
 | `insert-referents.ts` | Add Genius referents | `--iswc`, `--genius-id` |
 | `fix-scarlett-account.ts` | Fix account issues | n/a |
+| `fix-artist-images.ts` | Upload missing artist images to Grove | n/a |
+| `delete-post.ts` | Delete a Lens post | `--post-id` |
+| `disable-exercises.ts` | Disable exercises for a song | `--iswc` |
+| `align-cover.ts` | Align cover audio with ElevenLabs | `--iswc` |
+| `encrypt-audio.ts` | Encrypt full audio with Lit (hybrid AES + Lit) | `--iswc`, `--env`, `--dry-run` |
 
 ## Lyrics Format
 
@@ -241,8 +278,8 @@ pipeline-new/
 │   └── T0112199333/             # ISWC folder
 │       ├── en-lyrics.txt        # English lyrics
 │       ├── zh-lyrics.txt        # Chinese lyrics
-│       ├── original.mp3         # Full original audio
-│       ├── original.flac        # Full original (high quality)
+│       ├── original.mp3         # Full original audio (auto-converted from FLAC/WAV/M4A)
+│       ├── original.flac        # FLAC source (auto-converts to MP3)
 │       ├── cover.mp3            # Cover version audio
 │       ├── cover.png            # Album cover image
 │       ├── thumbnail.jpg        # Video thumbnail
@@ -269,8 +306,8 @@ pipeline-new/
 mkdir -p songs/T0123456789
 echo "Line 1\nLine 2" > songs/T0123456789/en-lyrics.txt
 
-# 2. Add to DB
-bun src/scripts/add-song.ts --iswc=T0123456789 --title="Song Name" --artist="Artist" --spotify-id=xyz
+# 2. Add to DB (artist auto-fetched from Spotify)
+bun src/scripts/add-song.ts --iswc=T0123456789 --title="Song Name" --spotify-id=xyz
 
 # 3. Add translations
 echo "翻译1\n翻译2" > songs/T0123456789/zh-lyrics.txt
@@ -282,11 +319,12 @@ bun src/scripts/generate-exercises.ts --iswc=T0123456789
 
 ### Create and Emit a Clip
 ```bash
-# Insert clip record (start/end in milliseconds)
-bun src/scripts/insert-clip.ts --iswc=T0123456789 --start=30000 --end=40000
+# Use the full pipeline (recommended)
+bun src/scripts/emit-clip-full.ts --iswc=T0123456789
 
-# Emit to chain
-bun src/scripts/emit-clip.ts --clip-id=<uuid>
+# Or manually: insert clip then emit
+bun src/scripts/insert-clip.ts --iswc=T0123456789 --start=30000 --end=40000
+bun src/scripts/emit-clip-full.ts --iswc=T0123456789
 ```
 
 ### Emit Exercises

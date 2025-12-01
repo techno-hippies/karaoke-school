@@ -2,8 +2,8 @@ import { ethers } from 'ethers';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Load ABI and bytecode
-const artifactPath = path.join(__dirname, 'out', 'KaraokeEvents.sol', 'KaraokeEvents.json');
+// Load ABI and bytecode (from contracts/out/, not scripts/out/)
+const artifactPath = path.join(__dirname, '../out', 'KaraokeEvents.sol', 'KaraokeEvents.json');
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 
 async function main() {
@@ -47,8 +47,8 @@ async function main() {
     console.log('\n✅ KaraokeEvents deployed at:', contractAddress);
     console.log('Deployer:', wallet.address);
 
-    // Save ABI for subgraph
-    const abiPath = path.join(__dirname, '../subgraph/abis/KaraokeEvents.json');
+    // Save ABI for subgraph (contracts/scripts -> karaoke-school-v1/subgraph)
+    const abiPath = path.join(__dirname, '../../subgraph/abis/KaraokeEvents.json');
     fs.writeFileSync(abiPath, JSON.stringify({ abi: artifact.abi }, null, 2));
     console.log('✅ ABI saved to:', abiPath);
 

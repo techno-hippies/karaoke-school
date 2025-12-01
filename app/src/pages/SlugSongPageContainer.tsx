@@ -4,6 +4,7 @@ import { useSongClips } from '@/hooks/useSongClips'
 import { useSongVideos } from '@/hooks/useSongVideos'
 import { useSongLeaderboard } from '@/hooks/useLeaderboard'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSEO, generateSongTitle, generateSongDescription } from '@/hooks/useSEO'
 import { SongPage, SongPageSkeleton, type LeaderboardEntry } from '@/components/song/SongPage'
 import { convertGroveUri } from '@/lib/lens/utils'
 import type { VideoPost } from '@/components/video/VideoGrid'
@@ -37,6 +38,21 @@ export function SlugSongPageContainer() {
 
   // Fetch leaderboard data (called when Students tab is viewed)
   const { leaderboard: leaderboardData } = useSongLeaderboard(slugData?.spotifyTrackId)
+
+  // Extract metadata for SEO (must be before any early returns)
+  const firstClip = workData?.clips[0]
+  const metadata = firstClip?.metadata
+  const songTitle = metadata?.title || songSlug?.replace(/-/g, ' ') || 'Unknown'
+  const artist = metadata?.artist || artistSlug?.replace(/-/g, ' ') || 'Unknown'
+  const artworkUrl = metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined
+
+  // SEO: Update document title and meta tags (must be called unconditionally)
+  useSEO({
+    title: generateSongTitle(songTitle, artist),
+    description: generateSongDescription(songTitle, artist),
+    image: artworkUrl,
+    type: 'music.song',
+  })
 
   if (isLoadingSlug || isLoadingClips) {
     return <SongPageSkeleton />
@@ -72,18 +88,11 @@ export function SlugSongPageContainer() {
     )
   }
 
-  const firstClip = workData.clips[0]
-  const metadata = firstClip?.metadata
-
   const videos: VideoPost[] = lensVideos?.map(video => ({
     id: video.id,
     thumbnailUrl: video.thumbnailUrl,
     username: video.username,
   })) || []
-
-  const songTitle = metadata?.title || songSlug?.replace(/-/g, ' ') || 'Unknown'
-  const artist = metadata?.artist || artistSlug?.replace(/-/g, ' ') || 'Unknown'
-  const artworkUrl = metadata?.coverUri ? convertGroveUri(metadata.coverUri) : undefined
 
   const basePath = `/${artistSlug}/${songSlug}`
 

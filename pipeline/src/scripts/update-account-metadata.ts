@@ -92,7 +92,7 @@ async function main() {
   const { StorageClient } = await import('@lens-chain/storage-client');
   const { immutable } = await import('@lens-chain/storage-client');
   const { chains } = await import('@lens-chain/sdk/viem');
-  const { profile: profileMetadata, MetadataAttributeType } = await import('@lens-protocol/metadata');
+  const { account: accountMetadata, MetadataAttributeType } = await import('@lens-protocol/metadata');
 
   // Create wallet client
   let privateKey = PRIVATE_KEY;
@@ -135,9 +135,10 @@ async function main() {
     console.log('   ✓ Added systemPrompt attribute');
   }
 
-  const metadata = profileMetadata({
+  const metadata = accountMetadata({
     name: account.display_name || handle,
     bio,
+    picture: account.avatar_grove_url || undefined,
     attributes,
   });
 

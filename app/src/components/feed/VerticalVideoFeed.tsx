@@ -252,9 +252,6 @@ function VerticalVideoFeedComponent({
                   }))
                 }
               }}
-              onCommentClick={() => {
-                // Comment sheet is handled by VideoPost component
-              }}
               onShareClick={() => {
                 // Share sheet is handled by VideoPost component
               }}

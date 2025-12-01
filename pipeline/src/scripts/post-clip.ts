@@ -111,21 +111,34 @@ async function main() {
     process.exit(1);
   }
 
+  // Check if video already has a thumbnail stored
+  let coverImageUrl: string | undefined = video.thumbnail_url || undefined;
+
   // Extract thumbnail BEFORE uploading (need local file)
-  let coverImageUrl: string | undefined;
-  if (localVideoPath && !localVideoPath.startsWith('http') && !localVideoPath.startsWith('grove://')) {
+  if (!coverImageUrl && localVideoPath && !localVideoPath.startsWith('http') && !localVideoPath.startsWith('grove://')) {
     console.log('\n🖼️  Extracting video thumbnail...');
     const thumbnailPath = localVideoPath.replace(/\.[^.]+$/, '-thumb.jpg');
     const { execSync } = await import('child_process');
     try {
       execSync(`ffmpeg -i "${localVideoPath}" -ss 00:00:02 -vframes 1 -update 1 -q:v 2 "${thumbnailPath}" -y`, { stdio: 'pipe' });
       const thumbBuffer = Buffer.from(await Bun.file(thumbnailPath).arrayBuffer());
-      const thumbResult = await uploadImageToGrove(thumbBuffer, 'thumbnail.jpg');
+      const thumbResult = await uploadImageToGrove(thumbBuffer, 'video-thumbnail.jpg');
       coverImageUrl = thumbResult.url;
       console.log(`   Thumbnail: ${coverImageUrl}`);
+
+      // Save thumbnail to database
+      await query(
+        `UPDATE videos SET thumbnail_url = $2 WHERE id = $1`,
+        [video.id, coverImageUrl]
+      );
+      console.log('   Saved to videos.thumbnail_url');
     } catch (e) {
-      console.log('   ⚠️ Could not extract thumbnail, will use Spotify image');
+      console.error('❌ Could not extract thumbnail from video');
+      console.log('   Ensure the video file exists and ffmpeg is installed');
+      process.exit(1);
     }
+  } else if (coverImageUrl) {
+    console.log(`\n🖼️  Using stored video thumbnail: ${coverImageUrl}`);
   }
 
   // If videoUrl is a local path, upload to Grove
@@ -141,6 +154,17 @@ async function main() {
       `UPDATE videos SET output_video_url = $2 WHERE id = $1`,
       [video.id, videoUrl]
     );
+  }
+
+  // REQUIRE video thumbnail - no fallback to album art
+  if (!coverImageUrl) {
+    console.error('❌ No video thumbnail available');
+    console.log('   The video is already on Grove, but no thumbnail was extracted.');
+    console.log('   Options:');
+    console.log('   1. Re-generate video locally and post again');
+    console.log('   2. Download video, extract thumbnail manually, upload to Grove');
+    console.log('   3. Use --cover-image flag (if added) to provide thumbnail URL');
+    process.exit(1);
   }
 
   // Upload AI cover if provided
@@ -176,10 +200,7 @@ async function main() {
   const spotifyImages = song.spotify_images as Array<{ url: string; width: number; height: number }> | null;
   const spotifyAlbumArt = spotifyImages?.[0]?.url;
 
-  // Fall back to Spotify image if no video thumbnail was extracted
-  if (!coverImageUrl) {
-    coverImageUrl = spotifyAlbumArt;
-  }
+  // NOTE: We no longer fall back to album art - video thumbnail is required
 
   // Validate required psychographic tags BEFORE creating metadata
   console.log('\n🔍 Validating psychographic tags...');
@@ -230,6 +251,7 @@ async function main() {
   });
 
   // Validate metadata with Zod schema before uploading
+  // Include song's album art URLs so refinement can verify coverImageUrl is different
   const validationResult = safeValidatePostMetadata({
     content,
     title: `${song.title} - Karaoke`,
@@ -245,6 +267,9 @@ async function main() {
     albumArt: spotifyAlbumArt,
     spotifyTrackId: song.spotify_track_id || undefined,
     tags,
+    // For validation: ensure coverImageUrl is NOT album art
+    _songCoverGroveUrl: song.cover_grove_url || undefined,
+    _songThumbnailGroveUrl: song.thumbnail_grove_url || undefined,
   });
 
   if (!validationResult.success) {

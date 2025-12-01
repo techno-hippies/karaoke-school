@@ -51,7 +51,7 @@ Response:
 #### 2. Lens Authorization Endpoint
 ```bash
 POST https://karaoke-school-sponsorship-api.deletion-backup782.workers.dev/api/lens-auth
-Authorization: Bearer ddbdb4ae7abbd5673daa140e83b15b6acef510464a2c44031f18623053b1cb5f
+Authorization: Bearer $LENS_AUTH_BEARER_TOKEN
 Content-Type: application/json
 
 {
@@ -84,9 +84,9 @@ Go to the Lens Developer Dashboard and configure your app:
    ```
    https://karaoke-school-sponsorship-api.deletion-backup782.workers.dev/api/lens-auth
    ```
-4. Add bearer token:
+4. Add bearer token (from Cloudflare secret `LENS_AUTH_BEARER_TOKEN`):
    ```
-   ddbdb4ae7abbd5673daa140e83b15b6acef510464a2c44031f18623053b1cb5f
+   <your-bearer-token-here>
    ```
 
 ### 2. Test the Integration

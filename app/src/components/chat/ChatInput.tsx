@@ -9,6 +9,8 @@ export interface ChatInputProps {
   onStartRecording?: () => void
   /** Called when user taps stop button to stop recording */
   onStopRecording?: () => void
+  /** Called when input is focused (for scroll handling) */
+  onFocus?: () => void
   /** Placeholder text */
   placeholder?: string
   /** Disable input */
@@ -42,6 +44,7 @@ export function ChatInput({
   onSend,
   onStartRecording,
   onStopRecording,
+  onFocus,
   placeholder = 'Type a message...',
   disabled = false,
   isRecording = false,
@@ -227,6 +230,7 @@ export function ChatInput({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={onFocus}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}

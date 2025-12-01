@@ -91,8 +91,14 @@ export function handleClipRegistered(event: ClipRegistered): void {
   let clipId = event.params.clipHash.toHexString();
   let clip = new Clip(clipId);
   clip.clipHash = event.params.clipHash;
-  clip.grc20WorkId = event.params.grc20WorkId;
   clip.spotifyTrackId = event.params.spotifyTrackId;
+  clip.iswc = event.params.iswc;
+  clip.title = event.params.title;
+  clip.artist = event.params.artist;
+  clip.artistSlug = event.params.artistSlug;
+  clip.songSlug = event.params.songSlug;
+  clip.coverUri = event.params.coverUri;
+  clip.thumbnailUri = event.params.thumbnailUri;
   clip.clipStartMs = event.params.clipStartMs.toI32();
   clip.clipEndMs = event.params.clipEndMs.toI32();
   clip.metadataUri = event.params.metadataUri;

@@ -39,6 +39,7 @@ const { values } = parseArgs({
     width: { type: 'string', default: String(DEFAULT_VIDEO_WIDTH) },
     height: { type: 'string', default: String(DEFAULT_VIDEO_HEIGHT) },
     'skip-upload': { type: 'boolean', default: false },
+    'pretrimmed': { type: 'boolean', default: false }, // Use --start/--end for lyrics only, don't seek into media files
   },
   strict: true,
 });
@@ -73,8 +74,11 @@ async function main() {
 
   console.log('\n🎬 Generating Video');
   console.log(`   ISWC: ${iswc}`);
-  console.log(`   Snippet: ${startMs}ms - ${endMs}ms (${(endMs - startMs) / 1000}s)`);
+  console.log(`   Lyrics range: ${startMs}ms - ${endMs}ms (${(endMs - startMs) / 1000}s)`);
   console.log(`   Size: ${width}x${height}`);
+  if (values['pretrimmed']) {
+    console.log(`   Mode: PRETRIMMED (lyrics offset only, no media seeking)`);
+  }
 
   // Get song
   const song = await getSongByISWC(iswc);
@@ -183,19 +187,20 @@ async function main() {
   console.log(`   Output: ${outputPath}`);
 
   // FFmpeg command:
-  // 1. Trim background video to snippet duration
-  // 2. Trim instrumental audio to snippet duration
+  // 1. Trim background video to snippet duration (unless --pretrimmed)
+  // 2. Trim instrumental audio to snippet duration (unless --pretrimmed)
   // 3. Burn in ASS subtitles
   // 4. Scale to target resolution
+  const pretrimmed = values['pretrimmed'];
   const ffmpegCmd = [
     'ffmpeg', '-y',
     // Input: background video
-    '-ss', String(startSec),
-    '-t', String(durationSec),
+    ...(pretrimmed ? [] : ['-ss', String(startSec)]),
+    ...(pretrimmed ? [] : ['-t', String(durationSec)]),
     '-i', bgPath,
-    // Input: instrumental audio
-    '-ss', String(startSec),
-    '-t', String(durationSec),
+    // Input: instrumental/cover audio
+    ...(pretrimmed ? [] : ['-ss', String(startSec)]),
+    ...(pretrimmed ? [] : ['-t', String(durationSec)]),
     '-i', instrumentalPath,
     // Video filter: scale + subtitles
     '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,ass=${assPath}`,
@@ -208,6 +213,7 @@ async function main() {
     '-crf', '23',
     '-c:a', 'aac',
     '-b:a', '192k',
+    '-shortest', // Use shortest stream duration (important for pretrimmed)
     // Output
     outputPath,
   ];
@@ -228,7 +234,7 @@ async function main() {
   }
 
   const outputStat = await Bun.file(outputPath).stat();
-  console.log(`   Size: ${(outputStat?.size || 0 / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`   Size: ${((outputStat?.size || 0) / 1024 / 1024).toFixed(2)} MB`);
 
   // Save to database
   console.log('\n💾 Saving to database...');
@@ -250,8 +256,8 @@ async function main() {
   console.log(`   Duration: ${durationSec}s`);
 
   console.log('\n💡 Next steps:');
-  console.log(`   • Upload to Grove: bun src/scripts/upload-video.ts --path=${outputPath}`);
-  console.log(`   • Post to Lens: bun src/scripts/post-clip.ts --video-id=${video.id} --account=scarlett`);
+  console.log(`   • Post to Lens: bun src/scripts/post-clip.ts --video-id=${video.id} --account=scarlett --visual-tags="..."`);
+  console.log(`   (post-clip.ts handles Grove upload automatically)`);
 }
 
 main().catch((error) => {

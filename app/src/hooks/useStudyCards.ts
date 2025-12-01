@@ -486,6 +486,59 @@ export function useStudyCards(songId?: string) {
           return aPriority - bPriority
         })
 
+        // Interleave new cards by exercise type (cold start onboarding)
+        // Pedagogical order: translation (recognition) → trivia (knowledge) → say-it-back (production)
+        // Then lean heavier on translation with occasional variety
+        const nonNewCards = dueCards.filter(c => c.fsrs.state !== 0)
+        const newCards = dueCards.filter(c => c.fsrs.state === 0)
+
+        if (newCards.length > 1) {
+          // Group by exercise type
+          const translations: StudyCard[] = []
+          const trivia: StudyCard[] = []
+          const sayItBack: StudyCard[] = []
+
+          for (const card of newCards) {
+            switch (card.exerciseType) {
+              case 'TRANSLATION_MULTIPLE_CHOICE':
+                translations.push(card)
+                break
+              case 'TRIVIA_MULTIPLE_CHOICE':
+                trivia.push(card)
+                break
+              default:
+                sayItBack.push(card)
+            }
+          }
+
+          // Onboarding sequence: T, Tr, S, then weighted toward translation
+          // Pattern after intro: T, T, Tr, T, T, S, repeat
+          const interleaved: StudyCard[] = []
+
+          // Intro: 1 translation, 1 trivia, 1 say-it-back
+          if (translations.length > 0) interleaved.push(translations.shift()!)
+          if (trivia.length > 0) interleaved.push(trivia.shift()!)
+          if (sayItBack.length > 0) interleaved.push(sayItBack.shift()!)
+
+          // Remaining: weighted pattern (T, T, Tr, T, T, S)
+          while (translations.length > 0 || trivia.length > 0 || sayItBack.length > 0) {
+            // 2 translations
+            if (translations.length > 0) interleaved.push(translations.shift()!)
+            if (translations.length > 0) interleaved.push(translations.shift()!)
+            // 1 trivia
+            if (trivia.length > 0) interleaved.push(trivia.shift()!)
+            // 2 translations
+            if (translations.length > 0) interleaved.push(translations.shift()!)
+            if (translations.length > 0) interleaved.push(translations.shift()!)
+            // 1 say-it-back
+            if (sayItBack.length > 0) interleaved.push(sayItBack.shift()!)
+          }
+
+          // Replace dueCards with non-new + interleaved new
+          dueCards.length = 0
+          dueCards.push(...nonNewCards, ...interleaved)
+        }
+
         // Calculate daily new card limit (FSRS/Anki style)
         const todayStart = getTodayStartTimestamp()
 

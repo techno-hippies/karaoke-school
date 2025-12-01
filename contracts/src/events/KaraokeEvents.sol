@@ -53,18 +53,30 @@ contract KaraokeEvents {
     /**
      * @notice Emitted when a karaoke clip is registered
      * @param clipHash Unique identifier for the clip (keccak256(trackId, clipStartMs))
-     * @param grc20WorkId GRC-20 musical work entity UUID
      * @param spotifyTrackId Spotify track identifier
+     * @param iswc International Standard Musical Work Code
+     * @param title Song title
+     * @param artist Artist name
+     * @param artistSlug URL-safe artist slug for routing
+     * @param songSlug URL-safe song slug for routing
+     * @param coverUri Grove URI for cover image (640x640)
+     * @param thumbnailUri Grove URI for thumbnail (300x300)
      * @param clipStartMs Clip start time in milliseconds
      * @param clipEndMs Clip end time in milliseconds
-     * @param metadataUri Grove URI containing clip metadata
+     * @param metadataUri Grove URI containing full clip metadata
      * @param registeredBy Address that registered the clip
      * @param timestamp Block timestamp
      */
     event ClipRegistered(
         bytes32 indexed clipHash,
-        string grc20WorkId,
         string spotifyTrackId,
+        string iswc,
+        string title,
+        string artist,
+        string artistSlug,
+        string songSlug,
+        string coverUri,
+        string thumbnailUri,
         uint32 clipStartMs,
         uint32 clipEndMs,
         string metadataUri,
@@ -213,16 +225,28 @@ contract KaraokeEvents {
 
     function emitClipRegistered(
         bytes32 clipHash,
-        string calldata grc20WorkId,
         string calldata spotifyTrackId,
+        string calldata iswc,
+        string calldata title,
+        string calldata artist,
+        string calldata artistSlug,
+        string calldata songSlug,
+        string calldata coverUri,
+        string calldata thumbnailUri,
         uint32 clipStartMs,
         uint32 clipEndMs,
         string calldata metadataUri
     ) external {
         emit ClipRegistered(
             clipHash,
-            grc20WorkId,
             spotifyTrackId,
+            iswc,
+            title,
+            artist,
+            artistSlug,
+            songSlug,
+            coverUri,
+            thumbnailUri,
             clipStartMs,
             clipEndMs,
             metadataUri,
