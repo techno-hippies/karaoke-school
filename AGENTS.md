@@ -26,7 +26,7 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 | Table | Purpose |
 |-------|---------|
 | `songs` | Core song data (ISWC, title, spotify_track_id, audio URLs, cover images) |
-| `artists` | Artist metadata (name, slug, image_grove_url) |
+| `artists` | Artist metadata (name, slug, image_grove_url, genres) |
 | `lyrics` | Line-by-line lyrics (en, zh) with word-level timing |
 | `clips` | Clip segments with start/end ms, emission status |
 | `exercises` | Translation, trivia, sayitback questions |
@@ -97,7 +97,7 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 ## Quick Start
 
 ```bash
-cd pipeline-new
+cd pipeline
 
 # 1. Create song folder and add lyrics
 mkdir -p songs/T0112199333
@@ -178,18 +178,19 @@ bun src/scripts/create-lens-account.ts --handle=newaccount
 # Result: Lens account newaccount-ks in kschool2 namespace
 ```
 
-### Subscription Locks
+### Purchase/Subscription Locks
 
 | Script | Purpose | Args |
 |--------|---------|------|
-| `deploy-artist-lock.ts` | Deploy Unlock Protocol lock for artist | `--artist-id` or `--spotify-id` |
+| `deploy-song-lock.ts` | Deploy per-song purchase lock (~$0.15) | `--iswc` or `--spotify-id` |
+| `deploy-artist-lock.ts` | Deploy artist subscription lock (~$1.80/month) | `--artist-id` or `--spotify-id` |
 | `sync-lock-config.ts` | Sync lock addresses from DB → frontend config | (none) |
 
-**Workflow for adding artist subscription:**
+**Per-Song Purchase Model (Recommended):**
 
 ```bash
-# 1. Deploy lock (updates database automatically)
-bun src/scripts/deploy-artist-lock.ts --artist-id=<uuid>
+# 1. Deploy lock for a song (~$0.15 one-time purchase, 10-year validity)
+bun src/scripts/deploy-song-lock.ts --iswc=T0112199333
 
 # 2. Sync to frontend config (auto-updates addresses.ts)
 bun src/scripts/sync-lock-config.ts
@@ -198,7 +199,17 @@ bun src/scripts/sync-lock-config.ts
 cd ../app && bun run build
 ```
 
-The `sync-lock-config.ts` script reads all artist lock addresses from the database and updates `app/src/lib/contracts/addresses.ts` automatically.
+**Artist Subscription Model (Legacy):**
+
+```bash
+# 1. Deploy lock (updates database automatically)
+bun src/scripts/deploy-artist-lock.ts --artist-id=<uuid>
+
+# 2. Sync to frontend config (auto-updates addresses.ts)
+bun src/scripts/sync-lock-config.ts
+```
+
+The `sync-lock-config.ts` script syncs both song and artist lock addresses to `app/src/lib/contracts/addresses.ts`. The frontend checks locks in priority order: **song-level → artist-level → clip metadata**.
 
 ### Utilities
 
@@ -237,7 +248,7 @@ Rules:
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
-| KaraokeEvents | `0x51aA6987130AA7E4654218859E075D8e790f4409` | Clip lifecycle + karaoke grading |
+| KaraokeEvents | `0x1eF06255c8e60684F79C9792bd4A66d05B38ed76` | Clip lifecycle + karaoke grading |
 | ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
 | TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |
@@ -273,7 +284,7 @@ OPENROUTER_API_KEY=...
 ## Directory Structure
 
 ```
-pipeline-new/
+pipeline/
 ├── songs/                       # Ignored in git (media files)
 │   └── T0112199333/             # ISWC folder
 │       ├── en-lyrics.txt        # English lyrics
@@ -353,7 +364,7 @@ bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 
 ## Subgraph
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.8`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10`
 
 ```graphql
 query {
@@ -374,7 +385,7 @@ query {
 
 ## Clip Metadata Structure (v2.0.0)
 
-Clip metadata is validated with Zod (`pipeline-new/src/lib/schemas.ts`) before upload to Grove.
+Clip metadata is validated with Zod (`pipeline/src/lib/schemas.ts`) before upload to Grove.
 
 ### Key Fields
 

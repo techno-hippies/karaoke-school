@@ -2,19 +2,30 @@
  * useHybridDecrypt
  *
  * Decrypts full audio using hybrid encryption (v2):
- * 1. Check subscription via Unlock NFT balance
- * 2. Fetch encryption metadata from Grove (tiny JSON)
+ * 1. Fetch encryption metadata from Grove (tiny JSON)
+ * 2. Check LRU cache - if hit, skip to step 6
  * 3. Decrypt symmetric key with Lit Protocol (32 bytes - no 413 error!)
  * 4. Fetch encrypted audio from Grove
  * 5. Decrypt audio locally with WebCrypto AES-GCM
- * 6. Return object URL for playback
+ * 6. Cache decrypted blob, return object URL for playback
+ *
+ * Cache key includes dataToEncryptHash for auto-invalidation on re-encryption.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import {
+  buildCacheKey,
+  getFromCache,
+  saveToCache,
+  getInFlightDecrypt,
+  setInFlightDecrypt,
+} from '@/lib/audioCache'
+
+const IS_DEV = import.meta.env.DEV
 
 export interface HybridEncryptionMetadata {
-  version: string
+  version: string // '2.0.0' or '2.1.0'
   method: string
   aes: {
     algorithm: string
@@ -28,7 +39,16 @@ export interface HybridEncryptionMetadata {
     dataToEncryptHash: string
     unifiedAccessControlConditions: any[]
   }
-  unlock: {
+  // v2.1.0: New accessControl field (SongAccess or Unlock)
+  accessControl?: {
+    type: 'songAccess' | 'unlock'
+    contractAddress?: string // For songAccess
+    lockAddress?: string // For unlock
+    chainId: number
+    chainName: string
+  }
+  // v2.0.0: Legacy unlock field (backwards compat)
+  unlock?: {
     lockAddress: string
     chainId: number
     chainName: string
@@ -120,8 +140,17 @@ export function useHybridDecrypt(
   const [decryptedAudioUrl, setDecryptedAudioUrl] = useState<string>()
   const [progress, setProgress] = useState<number>()
 
-  // Cleanup object URL on unmount
+  // Track previous URL for cleanup on swap
+  const prevUrlRef = useRef<string | undefined>(undefined)
+
+  // Cleanup object URL on change or unmount
   useEffect(() => {
+    // Revoke previous URL when a new one is set
+    if (prevUrlRef.current && prevUrlRef.current !== decryptedAudioUrl) {
+      URL.revokeObjectURL(prevUrlRef.current)
+    }
+    prevUrlRef.current = decryptedAudioUrl
+
     return () => {
       if (decryptedAudioUrl) {
         URL.revokeObjectURL(decryptedAudioUrl)
@@ -136,28 +165,16 @@ export function useHybridDecrypt(
     setProgress(undefined)
 
     if (!encryptionMetadataUrl || !spotifyTrackId || !pkpInfo || !authData) {
-      console.log('[useHybridDecrypt] Missing required parameters:', {
-        encryptionMetadataUrl: !!encryptionMetadataUrl,
-        spotifyTrackId: !!spotifyTrackId,
-        pkpInfo: !!pkpInfo,
-        authData: !!authData,
-      })
       return
     }
 
     const decryptFullAudio = async () => {
-      console.log('[useHybridDecrypt] Starting hybrid decryption...')
-      console.log('[useHybridDecrypt] Track:', spotifyTrackId)
-      console.log('[useHybridDecrypt] PKP Address:', pkpInfo.ethAddress)
+      if (IS_DEV) console.log('[useHybridDecrypt] Starting decryption for:', spotifyTrackId)
 
-      setIsLoading(true)
       setError(undefined)
 
       try {
-        // Step 1: Fetch encryption metadata
-        console.log('[useHybridDecrypt] Step 1: Fetching encryption metadata...')
-        setProgress(10)
-
+        // Step 1: Fetch encryption metadata (needed for cache key) - silent, no loading indicator
         const metadataResponse = await fetch(encryptionMetadataUrl)
         if (!metadataResponse.ok) {
           throw new Error(`Failed to fetch encryption metadata: ${metadataResponse.status}`)
@@ -165,88 +182,118 @@ export function useHybridDecrypt(
 
         const metadata: HybridEncryptionMetadata = await metadataResponse.json()
 
-        // Verify this is v2 hybrid encryption
-        if (metadata.version !== '2.0.0' || metadata.method !== 'hybrid-aes-gcm-lit') {
+        // Verify this is v2 hybrid encryption (2.0.0 or 2.1.0)
+        if (!['2.0.0', '2.1.0'].includes(metadata.version) || metadata.method !== 'hybrid-aes-gcm-lit') {
           throw new Error(`Unsupported encryption version: ${metadata.version} / ${metadata.method}`)
         }
 
-        console.log('[useHybridDecrypt] Encryption metadata loaded')
-        setProgress(20)
+        // Step 2: Check cache BEFORE showing any loading state
+        const cacheKey = buildCacheKey(spotifyTrackId, metadata.lit.dataToEncryptHash)
 
-        // Step 2: Decrypt symmetric key with Lit Protocol (tiny - 32 bytes!)
-        console.log('[useHybridDecrypt] Step 3: Decrypting symmetric key with Lit...')
-        setIsDecrypting(true)
-        setProgress(40)
-
-        const { getLitClient } = await import('@/lib/lit/client')
-        const { createPKPAuthContext } = await import('@/lib/lit/auth-pkp')
-
-        // Use the singleton Lit client (same as used for auth)
-        console.log('[useHybridDecrypt] Getting singleton Lit client...')
-        const litClient = await getLitClient()
-
-        // Use the cached auth context (now includes decryption resources after login update)
-        // NOTE: If you see "Resource id not found" errors, you need to LOG OUT and LOG BACK IN
-        // to get a new session with decryption capabilities
-        console.log('[useHybridDecrypt] Getting PKP auth context...')
-        const authContext = await createPKPAuthContext(pkpInfo, authData)
-
-        console.log('[useHybridDecrypt] Decrypting symmetric key...')
-        const decryptedKeyResponse = await litClient.decrypt({
-          ciphertext: metadata.lit.encryptedKey,
-          dataToEncryptHash: metadata.lit.dataToEncryptHash,
-          unifiedAccessControlConditions: metadata.lit.unifiedAccessControlConditions,
-          chain: metadata.unlock.chainName === 'base-sepolia' ? 'baseSepolia' : metadata.unlock.chainName,
-          authContext: authContext,
-        })
-
-        const symmetricKey = decryptedKeyResponse.decryptedData
-        console.log('[useHybridDecrypt] ✅ Symmetric key decrypted!')
-
-        // Don't disconnect the singleton client - it's shared across the app
-
-        // Step 4: Fetch encrypted audio from Grove
-        console.log('[useHybridDecrypt] Step 4: Fetching encrypted audio...')
-        setProgress(60)
-
-        const audioResponse = await fetch(metadata.encryptedAudio.url)
-        if (!audioResponse.ok) {
-          throw new Error(`Failed to fetch encrypted audio: ${audioResponse.status}`)
+        // Check for in-flight decrypt (prevents duplicate work on re-renders)
+        const inFlight = getInFlightDecrypt(cacheKey)
+        if (inFlight) {
+          const cachedBlob = await inFlight
+          const objectUrl = URL.createObjectURL(cachedBlob)
+          setDecryptedAudioUrl(objectUrl)
+          return
         }
 
-        const encryptedAudio = await audioResponse.arrayBuffer()
-        console.log(`[useHybridDecrypt] Downloaded ${(encryptedAudio.byteLength / 1024 / 1024).toFixed(2)} MB encrypted audio`)
+        // Check cache - if hit, no loading indicator needed
+        const cachedBlob = await getFromCache(cacheKey)
+        if (cachedBlob) {
+          if (IS_DEV) console.log('[useHybridDecrypt] Cache hit')
+          const objectUrl = URL.createObjectURL(cachedBlob)
+          setDecryptedAudioUrl(objectUrl)
+          return
+        }
 
-        // Step 5: Decrypt audio locally with WebCrypto
-        console.log('[useHybridDecrypt] Step 5: Decrypting audio with WebCrypto...')
-        setProgress(80)
+        // Cache miss - NOW show loading indicator
+        setIsLoading(true)
+        setProgress(40)
 
-        const decryptedAudio = await decryptAudioWithAesGcm(
-          encryptedAudio,
-          symmetricKey,
-          metadata.aes.iv,
-          metadata.aes.authTag
-        )
+        // Step 3: Decrypt symmetric key with Lit Protocol (tiny - 32 bytes!)
+        if (IS_DEV) console.log('[useHybridDecrypt] Decrypting with Lit...')
+        setIsDecrypting(true)
 
-        console.log(`[useHybridDecrypt] ✅ Decrypted ${(decryptedAudio.byteLength / 1024 / 1024).toFixed(2)} MB audio`)
+        // Create decrypt promise and register as in-flight
+        const decryptPromise = performLitDecryption(metadata, pkpInfo, authData)
+        setInFlightDecrypt(cacheKey, decryptPromise)
+
+        const decryptedBlob = await decryptPromise
+
+        // Save to cache (async, don't await)
+        saveToCache(cacheKey, decryptedBlob).catch(() => {
+          // Cache save failed - non-critical
+        })
 
         // Create object URL for playback
-        const blob = new Blob([decryptedAudio], { type: 'audio/mpeg' })
-        const objectUrl = URL.createObjectURL(blob)
-
+        const objectUrl = URL.createObjectURL(decryptedBlob)
         setDecryptedAudioUrl(objectUrl)
         setProgress(100)
 
-        console.log('[useHybridDecrypt] ✅ Decryption complete!')
+        if (IS_DEV) console.log('[useHybridDecrypt] Decryption complete')
+        return
 
       } catch (err) {
-        console.error('[useHybridDecrypt] ❌ Error:', err)
+        console.error('[useHybridDecrypt] Error:', err)
         const errorMsg = err instanceof Error ? err.message : 'Failed to decrypt audio'
         setError(errorMsg)
       } finally {
         setIsLoading(false)
         setIsDecrypting(false)
       }
+    }
+
+    /**
+     * Perform the actual Lit decryption + AES decrypt (extracted for in-flight tracking)
+     */
+    async function performLitDecryption(
+      metadata: HybridEncryptionMetadata,
+      pkpInfoParam: NonNullable<typeof pkpInfo>,
+      authDataParam: NonNullable<typeof authData>
+    ): Promise<Blob> {
+      const { getLitClient } = await import('@/lib/lit/client')
+      const { createPKPAuthContext } = await import('@/lib/lit/auth-pkp')
+
+      const litClient = await getLitClient()
+
+      // NOTE: If you see "Resource id not found" errors, user needs to log out and back in
+      const authContext = await createPKPAuthContext(pkpInfoParam, authDataParam)
+
+      // Resolve chain name from accessControl (v2.1.0) or unlock (v2.0.0)
+      const chainName = metadata.accessControl?.chainName || metadata.unlock?.chainName || 'baseSepolia'
+      const litChain = chainName === 'base-sepolia' ? 'baseSepolia' : chainName
+
+      const decryptedKeyResponse = await litClient.decrypt({
+        ciphertext: metadata.lit.encryptedKey,
+        dataToEncryptHash: metadata.lit.dataToEncryptHash,
+        unifiedAccessControlConditions: metadata.lit.unifiedAccessControlConditions,
+        chain: litChain,
+        authContext: authContext,
+      })
+
+      const symmetricKey = decryptedKeyResponse.decryptedData
+
+      // Fetch encrypted audio from Grove
+      setProgress(60)
+      const audioResponse = await fetch(metadata.encryptedAudio.url)
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to fetch encrypted audio: ${audioResponse.status}`)
+      }
+
+      const encryptedAudio = await audioResponse.arrayBuffer()
+
+      // Decrypt audio locally with WebCrypto
+      setProgress(80)
+      const decryptedAudio = await decryptAudioWithAesGcm(
+        encryptedAudio,
+        symmetricKey,
+        metadata.aes.iv,
+        metadata.aes.authTag
+      )
+
+      return new Blob([decryptedAudio], { type: 'audio/mpeg' })
     }
 
     decryptFullAudio()

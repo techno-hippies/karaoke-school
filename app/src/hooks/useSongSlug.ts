@@ -4,9 +4,12 @@ import { graphClient } from '@/lib/graphql/client'
 
 /**
  * Generate URL-safe slug from text
+ * Normalizes accented characters (é → e, ñ → n, etc.)
  */
 export function generateSlug(text: string): string {
   return text
+    .normalize('NFD') // Decompose accents (é → e + combining accent)
+    .replace(/[\u0300-\u036f]/g, '') // Remove combining accents
     .toLowerCase()
     .replace(/['']/g, '')
     .replace(/[^a-z0-9]+/g, '-')

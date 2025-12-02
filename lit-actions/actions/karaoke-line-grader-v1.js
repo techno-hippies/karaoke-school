@@ -35,7 +35,7 @@ const KARAOKE_EVENTS_ADDRESS = "0x1eF06255c8e60684F79C9792bd4A66d05B38ed76";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
 const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
-const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.9";
+const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10";
 
 const VOXTRAL_TIMEOUT_MS = 10000; // Keep short for real-time feedback
 const LENS_RPC_TIMEOUT_MS = 10000;

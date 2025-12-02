@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSongClips } from '@/hooks/useSongClips'
 import { useSongSlug } from '@/hooks/useSongSlug'
@@ -10,8 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
-import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
-import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
+import { useSongPurchase } from '@/hooks/useSongPurchase'
 import { useHybridDecrypt } from '@/hooks/useHybridDecrypt'
 import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck'
 import { useAuth } from '@/contexts/AuthContext'
@@ -59,44 +58,36 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   // Get artist slug from URL params or clip metadata
   const resolvedArtistSlug = artistSlug || firstClip?.metadata?.artistSlug
 
-  // Get subscription lock by artist slug (works for all songs from same artist)
-  const { data: subscriptionLockData } = useCreatorSubscriptionLock(resolvedArtistSlug)
-
   const {
-    subscribe,
+    purchase,
     status: subscriptionStatus,
     statusMessage: subscriptionStatusMessage,
     errorMessage: subscriptionErrorMessage,
     reset: resetSubscription,
-  } = useUnlockSubscription(
+  } = useSongPurchase(
+    spotifyTrackId,
     pkpAddress ?? undefined,
-    subscriptionLockData?.unlockLockAddress,
     { walletClient: pkpWalletClient }
   )
 
 
   const isSubscriptionProcessing =
-    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
+    subscriptionStatus === 'checking' || subscriptionStatus === 'signing' || subscriptionStatus === 'purchasing'
 
   // Fetch clip metadata (includes lyrics and alignment)
   const { data: clipMetadata, isLoading: isLoadingClip } = useSegmentMetadata(
     firstClip?.metadataUri
   )
 
-  // Get subscription lock data from subgraph
-  const unlockLockAddress = firstClip?.unlockLockAddress
-  const unlockChainId = firstClip?.unlockChainId
-
   // Get encryption metadata URI for v2 hybrid decryption
-  // This points to JSON with encrypted key + audio URL (no longer leaks unencrypted URL)
   const encryptionMetadataUri = (clipMetadata as any)?.encryption?.encryptionMetadataUri
 
-  // Single source of truth for subscription status
-  // Checks NFT balance using ARTIST_SUBSCRIPTION_LOCKS config
-  const { hasSubscription } = useSubscriptionCheck(
-    resolvedArtistSlug,
-    subscriptionRecheckTrigger
-  )
+  // Check if user owns song (SongAccess contract) or has legacy Unlock subscription
+  const { hasSubscription } = useSubscriptionCheck({
+    spotifyTrackId,
+    artistSlug: resolvedArtistSlug,
+    recheckTrigger: subscriptionRecheckTrigger,
+  })
 
   // Decrypt full audio using v2 hybrid encryption (only for v2 clips with encryptionMetadataUri)
   const {
@@ -111,11 +102,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     subscriptionRecheckTrigger
   )
 
-  console.log('[MediaPageContainer] Subscription status:', {
-    hasSubscription,
-    artistSlug: resolvedArtistSlug,
-    hasV2Encryption: !!encryptionMetadataUri,
-  })
 
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
@@ -257,7 +243,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   }
 
   // Audio URL priority:
-  // 1. Decrypted full audio (if user has subscription)
+  // 1. Decrypted full audio (if ready)
   // 2. NEW FORMAT: Clip audio from metadata.assets.instrumental
   // 3. OLD FORMAT: Contract event's instrumentalUri
   const clipAudioUrl = clipMetadata?.assets?.instrumental
@@ -266,26 +252,19 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       ? convertGroveUri(firstClip.instrumentalUri)
       : undefined
 
+  // Always start with clip audio, swap to full when decrypted
+  // This prevents blocking the whole page while decrypting
   const audioUrl = decryptedAudioUrl || clipAudioUrl
 
-  // Debug audio URL selection
-  console.log('[MediaPageContainer] 🎵 Audio URL selection:', {
-    hasSubscription,
-    encryptionMetadataUri: encryptionMetadataUri?.slice(0, 50) || '(none)',
-    isDecrypting,
-    decryptProgress,
-    decryptedAudioUrl: decryptedAudioUrl?.slice(0, 50) || '(none)',
-    clipAudioUrl: clipAudioUrl?.slice(0, 50) || '(none)',
-    finalAudioUrl: audioUrl?.slice(0, 50) || '(none)',
-  })
+  // Track if we're upgrading from clip to full audio
+  const isUpgradingToFullAudio = hasSubscription && !decryptedAudioUrl && (isDecrypting || isDecryptLoading)
 
-  // Audio URL configured
-
+  // Show error only if we have no audio at all
   if (!audioUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">{t('song.unableToLoad')}</h1>
-        <p className="text-muted-foreground">{t('song.instrumentalNotAvailable')}</p>
+        <p className="text-muted-foreground">{decryptError || t('song.instrumentalNotAvailable')}</p>
         <button onClick={() => navigate(-1)} className="text-primary hover:underline">
           {t('common.back')}
         </button>
@@ -387,52 +366,33 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   })
 
   const handleUnlockClick = () => {
-    // console.log('[MediaPageContainer] 🔐 handleUnlockClick called')
-    // console.log('[MediaPageContainer] 🔐 subscriptionLockData:', subscriptionLockData)
-    // console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
-    // console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
-
-    if (!subscriptionLockData?.unlockLockAddress) {
-      console.warn('[MediaPageContainer] 🔐 No lock address available')
-      alert('Subscription not available for this song yet.')
-      return
-    }
-
     if (!pkpAddress || !pkpWalletClient) {
       console.warn('[MediaPageContainer] 🔐 No PKP wallet available')
-      alert('Please sign in to subscribe and unlock this song.')
+      alert('Please sign in to unlock this song.')
       return
     }
 
-    // console.log('[MediaPageContainer] 🔐 Opening subscription dialog')
     setShowSubscriptionDialog(true)
   }
 
   const handleSubscriptionConfirm = async () => {
-    // console.log('[MediaPageContainer] 🔐 handleSubscriptionConfirm called')
-    // console.log('[MediaPageContainer] 🔐 pkpAddress:', pkpAddress)
-    // console.log('[MediaPageContainer] 🔐 pkpWalletClient:', pkpWalletClient ? 'Available' : 'Not available')
-
     if (!pkpAddress || !pkpWalletClient) {
-      console.error('[MediaPageContainer] 🔐 No PKP wallet available for subscription')
-      alert('Please sign in to subscribe and unlock this song.')
+      console.error('[MediaPageContainer] 🔐 No PKP wallet available for purchase')
+      alert('Please sign in to unlock this song.')
       return
     }
 
-    // console.log('[MediaPageContainer] 🔐 Calling subscribe()')
-    await subscribe()
+    await purchase()
   }
 
   const handleSubscriptionRetry = async () => {
-    // console.log('[MediaPageContainer] 🔐 handleSubscriptionRetry called')
     if (!pkpAddress || !pkpWalletClient) {
       console.error('[MediaPageContainer] 🔐 No PKP wallet available for retry')
-      alert('Please sign in to subscribe and unlock this song.')
+      alert('Please sign in to unlock this song.')
       return
     }
-    // console.log('[MediaPageContainer] 🔐 Resetting subscription and retrying')
     resetSubscription()
-    await subscribe()
+    await purchase()
   }
 
   const handleSubscriptionDialogClose = (open: boolean) => {
@@ -472,7 +432,9 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           artworkUrl={artworkUrl}
           selectedLanguage={preferredLanguage}
           showTranslations={availableLanguages.length > 0}
-          isAudioLoading={isDecrypting || isDecryptLoading}
+          isAudioLoading={false}
+          isUnlockingFullAudio={isUpgradingToFullAudio}
+          unlockProgress={decryptProgress}
           onBack={() => navigate(-1)}
           onArtistClick={
             (clipMetadata as any)?.artistLensHandle
@@ -490,7 +452,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       <SubscriptionDialog
         open={showSubscriptionDialog}
         onOpenChange={handleSubscriptionDialogClose}
-        displayName={artist}
+        displayName={title}
         currentStep={subscriptionStatus}
         isProcessing={isSubscriptionProcessing}
         statusMessage={subscriptionStatusMessage}

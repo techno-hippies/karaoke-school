@@ -5,6 +5,7 @@ import type { SessionClient, Account } from '@lens-protocol/client'
 import { account as accountMetadata } from '@lens-protocol/metadata'
 import { StorageClient } from '@lens-chain/storage-client'
 
+import i18n from '@/lib/i18n'
 import type { PKPInfo, AuthData } from '@/lib/lit'
 import {
   loginAsOnboardingUser,
@@ -51,7 +52,7 @@ async function connectLensSession(
   console.log('[Auth Flow] ===== Starting connectLensSession =====')
   console.log('[Auth Flow] PKP Address:', address)
 
-  statusCallback('Checking for existing Lens account...')
+  statusCallback(i18n.t('auth.finishingSetup'))
 
   try {
     console.log('[Auth Flow] Step 1: Checking for existing accounts...')
@@ -64,7 +65,6 @@ async function connectLensSession(
 
     if (hasAccount) {
       console.log('[Auth Flow] Path: EXISTING ACCOUNT - Logging in as ACCOUNT_OWNER')
-      statusCallback('Logging in to Lens...')
       account = existingAccounts[0].account
       console.log('[Auth Flow] Account address:', account.address)
 
@@ -72,7 +72,6 @@ async function connectLensSession(
       console.log('[Auth Flow] ✓ Logged in as ACCOUNT_OWNER:', account.address)
     } else {
       console.log('[Auth Flow] Path: NEW ACCOUNT - Creating account with username:', username)
-      statusCallback('Creating your Lens account...')
 
       if (!username) {
         throw new Error('Username is required to create a new account')
@@ -88,7 +87,6 @@ async function connectLensSession(
       console.log('[Auth Flow] ✓ Logged in as ONBOARDING_USER')
 
       console.log('[Auth Flow] Step 2b: Creating account metadata...')
-      statusCallback('Uploading account metadata...')
       const displayName = username
       const metadata = accountMetadata({
         name: displayName,
@@ -102,7 +100,6 @@ async function connectLensSession(
       console.log('[Auth Flow] ✓ Metadata uploaded:', uploadResult.uri)
 
       console.log('[Auth Flow] Step 3: Creating account on-chain...')
-      statusCallback('Deploying account...')
 
       console.log('[Auth Flow] Creating account with username in custom namespace:', username)
       account = await createAccountInCustomNamespace(
@@ -137,7 +134,7 @@ export async function registerWithPasskeyFlow(
   username: string | undefined,
   statusCallback: StatusCallback
 ): Promise<AuthFlowResult> {
-  statusCallback('Starting registration...')
+  statusCallback(i18n.t('auth.settingUp'))
 
   // WebAuthn + PKP mint
   const { registerUser } = await loadLitAuthFlow()
@@ -146,13 +143,13 @@ export async function registerWithPasskeyFlow(
   })
 
   // PKP wallet client
-  statusCallback('Creating wallet...')
+  statusCallback(i18n.t('auth.almostDone'))
   const { createPKPAuthContext, createPKPWalletClient } = await loadLit()
   const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
   const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
 
   // Lens account / session
-  statusCallback('Account created! Setting up social features...')
+  statusCallback(i18n.t('auth.finishingSetup'))
   const lensResult = await connectLensSession(
     walletClient,
     result.pkpInfo.ethAddress,
@@ -160,7 +157,7 @@ export async function registerWithPasskeyFlow(
     statusCallback
   )
 
-  statusCallback('All set!')
+  statusCallback(i18n.t('auth.allSet'))
 
   return {
     pkpInfo: result.pkpInfo,
@@ -178,19 +175,19 @@ export async function registerWithPasskeyFlow(
 export async function signInWithPasskeyFlow(
   statusCallback: StatusCallback
 ): Promise<AuthFlowResult> {
-  statusCallback('Starting sign in...')
+  statusCallback(i18n.t('auth.settingUp'))
 
   const { loginUser } = await loadLitAuthFlow()
   const result = await loginUser((status) => {
     statusCallback(status)
   })
 
-  statusCallback('Restoring wallet...')
+  statusCallback(i18n.t('auth.almostDone'))
   const { createPKPAuthContext, createPKPWalletClient } = await loadLit()
   const pkpAuthContext = await createPKPAuthContext(result.pkpInfo, result.authData)
   const walletClient = await createPKPWalletClient(result.pkpInfo, pkpAuthContext)
 
-  statusCallback('Welcome back! Setting up social features...')
+  statusCallback(i18n.t('auth.finishingSetup'))
   const lensResult = await connectLensSession(
     walletClient,
     result.pkpInfo.ethAddress,
@@ -198,7 +195,7 @@ export async function signInWithPasskeyFlow(
     statusCallback
   )
 
-  statusCallback('All set!')
+  statusCallback(i18n.t('auth.allSet'))
 
   return {
     pkpInfo: result.pkpInfo,

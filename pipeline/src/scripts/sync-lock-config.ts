@@ -19,8 +19,13 @@ interface Artist {
   unlock_lock_address_testnet: string | null;
 }
 
+interface SongLock {
+  spotify_track_id: string;
+  unlock_lock_address_testnet: string | null;
+}
+
 async function main() {
-  console.log('🔄 Fetching artist lock addresses from database...\n');
+  console.log('🔄 Fetching lock addresses from database...\n');
 
   const artists = await query<Artist>(
     `SELECT slug, unlock_lock_address_testnet
@@ -29,41 +34,80 @@ async function main() {
      ORDER BY slug`
   );
 
-  if (artists.length === 0) {
-    console.log('⚠️  No artists with lock addresses found');
+  const songs = await query<SongLock>(
+    `SELECT spotify_track_id, unlock_lock_address_testnet
+     FROM songs
+     WHERE unlock_lock_address_testnet IS NOT NULL AND spotify_track_id IS NOT NULL
+     ORDER BY spotify_track_id`
+  );
+
+  if (artists.length === 0 && songs.length === 0) {
+    console.log('⚠️  No locks found for artists or songs');
     process.exit(0);
   }
 
-  console.log('Found artists with locks:');
-  artists.forEach(a => {
-    console.log(`  ${a.slug}: ${a.unlock_lock_address_testnet}`);
-  });
+  if (artists.length > 0) {
+    console.log('Found artists with locks:');
+    artists.forEach(a => {
+      console.log(`  ${a.slug}: ${a.unlock_lock_address_testnet}`);
+    });
+  }
+
+  if (songs.length > 0) {
+    console.log('\nFound songs with locks:');
+    songs.forEach(s => {
+      console.log(`  ${s.spotify_track_id}: ${s.unlock_lock_address_testnet}`);
+    });
+  }
 
   // Generate the config object
-  const configLines = artists.map(a =>
+  const artistConfigLines = artists.map(a =>
     `  '${a.slug}': {\n    lockAddress: '${a.unlock_lock_address_testnet}',\n    chainId: 84532, // Base Sepolia\n  },`
   ).join('\n');
 
-  const configBlock = `export const ARTIST_SUBSCRIPTION_LOCKS: Record<string, { lockAddress: \`0x\${string}\`, chainId: number }> = {\n${configLines}\n}`;
+  const songConfigLines = songs.map(s =>
+    `  '${s.spotify_track_id}': {\n    lockAddress: '${s.unlock_lock_address_testnet}',\n    chainId: 84532, // Base Sepolia\n  },`
+  ).join('\n');
+
+  const artistConfigBlock = `export const ARTIST_SUBSCRIPTION_LOCKS: Record<string, { lockAddress: \`0x\${string}\`, chainId: number }> = {\n${artistConfigLines}\n}`;
+
+  const songConfigBlock = `export const SONG_PURCHASE_LOCKS: Record<string, { lockAddress: \`0x\${string}\`, chainId: number }> = {\n${songConfigLines}\n}`;
 
   // Read current addresses.ts
   const addressesPath = join(import.meta.dir, '../../../app/src/lib/contracts/addresses.ts');
   let content = readFileSync(addressesPath, 'utf-8');
 
-  // Replace the ARTIST_SUBSCRIPTION_LOCKS block
-  const lockRegex = /export const ARTIST_SUBSCRIPTION_LOCKS[^}]+\{[\s\S]*?\n\}/;
+  const replaceBlock = (name: string, block: string) => {
+    const regex = new RegExp(`export const ${name}[^}]+\\{[\\s\\S]*?\\n\\}`);
+    if (regex.test(content)) {
+      content = content.replace(regex, block);
+      return true;
+    }
+    return false;
+  };
 
-  if (lockRegex.test(content)) {
-    content = content.replace(lockRegex, configBlock);
-    writeFileSync(addressesPath, content);
-    console.log('\n✅ Updated app/src/lib/contracts/addresses.ts');
-    console.log('\nDon\'t forget to rebuild the frontend!');
-  } else {
+  const artistReplaced = replaceBlock('ARTIST_SUBSCRIPTION_LOCKS', artistConfigBlock);
+  const songReplaced = replaceBlock('SONG_PURCHASE_LOCKS', songConfigBlock);
+
+  if (!artistReplaced) {
     console.error('\n❌ Could not find ARTIST_SUBSCRIPTION_LOCKS in addresses.ts');
-    console.log('\nGenerated config (add manually):');
-    console.log(configBlock);
+  }
+
+  if (!songReplaced) {
+    console.error('\n❌ Could not find SONG_PURCHASE_LOCKS in addresses.ts');
+  }
+
+  if (!artistReplaced && !songReplaced) {
+    console.log('\nGenerated configs (add manually):');
+    console.log(artistConfigBlock);
+    console.log('\n');
+    console.log(songConfigBlock);
     process.exit(1);
   }
+
+  writeFileSync(addressesPath, content);
+  console.log('\n✅ Updated app/src/lib/contracts/addresses.ts');
+  console.log('\nDon\'t forget to rebuild the frontend!');
 }
 
 main().catch(err => {

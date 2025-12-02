@@ -193,6 +193,7 @@ export const ClipMetadataSchema = z.object({
   artist: z.string().min(1).max(200),
   artistSlug: z.string().min(1).max(100),
   artistImageUri: groveUrlSchema, // Artist image (REQUIRED - from Spotify artist endpoint, stored on Grove)
+  genres: z.array(z.string().min(1).max(50)).optional(), // Spotify genres (e.g., ["pop", "r&b"])
 
   // Cover Images - MUST be on Grove, not Spotify CDN
   coverUri: groveUrlSchema,           // Full size (640x640) - REQUIRED

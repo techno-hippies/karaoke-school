@@ -51,6 +51,10 @@ type Clip @entity(immutable: false) {
   hasInstrumental: Boolean!
   hasAlignments: Boolean!
   hasEncryptedFull: Boolean!
+
+  # Trending / Discovery
+  studyCount: Int!              # Incremented on KaraokeSessionStarted
+  genres: [String!]!            # Spotify genres (e.g., ["pop", "r&b", "dance pop"])
 }
 
 """

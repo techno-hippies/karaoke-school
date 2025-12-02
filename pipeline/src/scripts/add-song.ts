@@ -32,7 +32,8 @@ import {
 } from '../lib/lyrics-parser';
 import { slugify } from '../lib/slugify';
 import { downloadAndUploadImageToGrove } from '../services/grove';
-import { validateEnv } from '../config';
+import { searchGenius } from '../services/genius';
+import { validateEnv, GENIUS_API_KEY } from '../config';
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -100,6 +101,7 @@ interface SpotifyArtist {
   id: string;
   name: string;
   images: Array<{ url: string; width: number; height: number }>;
+  genres: string[]; // Spotify genres (e.g., ["pop", "r&b", "dance pop"])
 }
 
 async function fetchSpotifyArtist(artistId: string, token: string): Promise<SpotifyArtist> {
@@ -239,10 +241,14 @@ async function main() {
         slug: artistSlug,
         image_url: artistImageUrl,
         image_grove_url: imageGroveUrl,
+        genres: spotifyArtist.genres || [],
       });
       artistId = artist.id;
       console.log(`   Artist ID: ${artistId}`);
       console.log(`   Artist Slug: ${artistSlug}`);
+      if (spotifyArtist.genres?.length) {
+        console.log(`   Genres: ${spotifyArtist.genres.join(', ')}`);
+      }
     }
   }
 
@@ -283,6 +289,33 @@ async function main() {
     }
   }
 
+  // Search Genius for song (auto-populate if not provided)
+  let geniusSongId: number | undefined = values['genius-id'] ? parseInt(values['genius-id']) : undefined;
+  let geniusUrl: string | undefined = values['genius-url'];
+
+  if (!geniusSongId && GENIUS_API_KEY) {
+    console.log('\n🔍 Searching Genius...');
+    const artistName = spotifyTrack?.artists[0]?.name;
+    const searchQuery = artistName ? `${values.title} ${artistName}` : values.title;
+
+    try {
+      const geniusResult = await searchGenius(searchQuery);
+      if (geniusResult) {
+        geniusSongId = geniusResult.id;
+        geniusUrl = geniusResult.url;
+        console.log(`   Found: ${geniusResult.title} by ${geniusResult.primary_artist.name}`);
+        console.log(`   Genius ID: ${geniusSongId}`);
+        console.log(`   URL: ${geniusUrl}`);
+      } else {
+        console.log(`   ⚠️  No Genius result found for "${searchQuery}"`);
+      }
+    } catch (error: any) {
+      console.log(`   ⚠️  Genius search failed: ${error.message}`);
+    }
+  } else if (!GENIUS_API_KEY) {
+    console.log('\n⚠️  GENIUS_API_KEY not set - skipping Genius search');
+  }
+
   // Create song
   console.log('\n💾 Creating song...');
   const song = await createSong({
@@ -294,8 +327,8 @@ async function main() {
     spotify_images: spotifyTrack?.album.images,
     cover_grove_url: coverGroveUrl,
     thumbnail_grove_url: thumbnailGroveUrl,
-    genius_song_id: values['genius-id'] ? parseInt(values['genius-id']) : undefined,
-    genius_url: values['genius-url'],
+    genius_song_id: geniusSongId,
+    genius_url: geniusUrl,
   });
 
   console.log(`   Song ID: ${song.id}`);

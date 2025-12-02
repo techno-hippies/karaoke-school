@@ -18,6 +18,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
+import { CurrencyProvider } from '@/contexts/CurrencyContext'
 import { Web3Provider } from '@/providers/Web3Provider'
 
 function AppRouter() {
@@ -26,7 +27,7 @@ function AppRouter() {
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'>('home')
   const [inChatConversation, setInChatConversation] = useState(false)
 
-  const { isPKPReady, pkpAddress, setAuthDialogOpener } = useAuth()
+  const { isPKPReady, pkpAddress, isCheckingSession, setAuthDialogOpener } = useAuth()
   const [showAuthDialog, setShowAuthDialog] = useState(false)
 
   // Register the auth dialog opener with AuthContext so any component can trigger it
@@ -95,6 +96,7 @@ function AppRouter() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         isConnected={isPKPReady}
+        isCheckingSession={isCheckingSession}
         walletAddress={pkpAddress || undefined}
         onConnectWallet={() => setShowAuthDialog(true)}
         hideMobileFooter={!!hideMobileFooter}
@@ -143,13 +145,15 @@ function App() {
   return (
     <Web3Provider>
       <HashRouter>
-        <AuthProvider>
-          <LanguagePreferenceProvider>
-            <VideoPlaybackProvider>
-              <AppRouter />
-            </VideoPlaybackProvider>
-          </LanguagePreferenceProvider>
-        </AuthProvider>
+        <CurrencyProvider>
+          <AuthProvider>
+            <LanguagePreferenceProvider>
+              <VideoPlaybackProvider>
+                <AppRouter />
+              </VideoPlaybackProvider>
+            </LanguagePreferenceProvider>
+          </AuthProvider>
+        </CurrencyProvider>
       </HashRouter>
     </Web3Provider>
   )

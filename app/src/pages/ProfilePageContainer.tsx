@@ -13,10 +13,15 @@ export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: ()
   const { t } = useTranslation()
 
   // Auth data from context
-  const { lensAccount, pkpAddress, isPKPReady } = useAuth()
+  const { lensAccount, pkpAddress, isPKPReady, isCheckingSession } = useAuth()
 
   // Fetch token balances
-  const { balances, isLoading: balancesLoading } = usePKPBalances()
+  const { balances, fetchOtherNetworks, hasLoadedOtherNetworks, isLoadingOtherNetworks } = usePKPBalances()
+
+  // Show skeleton while checking for stored session
+  if (isCheckingSession) {
+    return <ProfilePageSkeleton />
+  }
 
   // Show sign up CTA for unauthenticated users
   if (!isPKPReady) {
@@ -84,6 +89,9 @@ export function ProfilePageContainer({ onConnectWallet }: { onConnectWallet?: ()
       tokens={balances}
       achievements={mockAchievements}
       onCopyAddress={handleCopyAddress}
+      onLoadMoreTokens={fetchOtherNetworks}
+      hasLoadedOtherNetworks={hasLoadedOtherNetworks}
+      isLoadingOtherNetworks={isLoadingOtherNetworks}
     />
   )
 }

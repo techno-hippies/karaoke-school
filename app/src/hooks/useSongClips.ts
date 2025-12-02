@@ -4,6 +4,8 @@ import { graphClient } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { generateSlug } from './useSongSlug'
 
+const IS_DEV = import.meta.env.DEV
+
 export interface Clip {
   id: string
   clipHash: string
@@ -106,7 +108,7 @@ export function useSongClips(spotifyTrackId?: string) {
       if (!spotifyTrackId) throw new Error('Spotify track ID required')
 
       const data = await graphClient.request<{ clips: Clip[] }>(CLIPS_QUERY, { spotifyTrackId })
-      console.log('[useSongClips] Subgraph response:', { spotifyTrackId, clips: data.clips })
+      if (IS_DEV) console.log('[useSongClips] Found', data.clips?.length ?? 0, 'clips')
       if (!data.clips?.length) throw new Error('No clips found')
 
       return { spotifyTrackId, clips: data.clips } as SongClips
@@ -117,14 +119,12 @@ export function useSongClips(spotifyTrackId?: string) {
   })
 
   const firstClip = clipsQuery.data?.clips[0]
-  console.log('[useSongClips] First clip:', firstClip?.id, 'metadataUri:', firstClip?.metadataUri)
 
   const metadataQuery = useQuery({
     queryKey: ['song-metadata', firstClip?.metadataUri],
     queryFn: async () => {
       if (!firstClip?.metadataUri) throw new Error('No metadata URI')
       const url = convertGroveUri(firstClip.metadataUri)
-      console.log('[useSongClips] Fetching metadata from:', url)
       const response = await fetch(url)
       if (!response.ok) throw new Error(`Metadata fetch failed: ${response.status}`)
       const metadata = await response.json() as SongMetadata
@@ -132,7 +132,7 @@ export function useSongClips(spotifyTrackId?: string) {
       if (!metadata.artistSlug && metadata.artist) {
         metadata.artistSlug = generateSlug(metadata.artist)
       }
-      console.log('[useSongClips] Metadata result:', metadata)
+      if (IS_DEV) console.log('[useSongClips] Loaded metadata:', metadata.title)
       return metadata
     },
     enabled: !!firstClip?.metadataUri,

@@ -83,6 +83,32 @@ export const LIT_TTS_ACTION_CID = ttsDeepinfraKey.cid || litCids.tts
 /** Encrypted DeepInfra key for TTS Action */
 export const LIT_TTS_DEEPINFRA_KEY = ttsDeepinfraKey
 
+// ============ SongAccess Contract (Custom ERC-721 on Base Sepolia) ============
+
+/**
+ * SongAccess.sol - Soulbound NFT for per-song purchases
+ * - Pay $0.10 USDC to unlock a song forever
+ * - Uses EIP-2612 permit for single-signature UX
+ * - Lit Protocol checks ownsSong() for decryption access
+ *
+ * Chain: Base Sepolia (84532)
+ * USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+ */
+export const SONG_ACCESS_CONTRACT = {
+  testnet: {
+    address: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545' as `0x${string}`,
+    chainId: 84532, // Base Sepolia
+    usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
+    price: 100_000n, // $0.10 in USDC (6 decimals)
+  },
+  mainnet: {
+    address: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Deploy
+    chainId: 8453, // Base
+    usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`,
+    price: 100_000n, // $0.10 in USDC (6 decimals)
+  },
+}
+
 // ============ Artist Subscription Locks (Unlock Protocol on Base Sepolia) ============
 
 /**
@@ -106,6 +132,19 @@ export const ARTIST_SUBSCRIPTION_LOCKS: Record<string, { lockAddress: `0x${strin
   },
   'taylor-swift': {
     lockAddress: '0x175284ff891db054ec06f044eef6cc7ad3699dbe',
+    chainId: 84532, // Base Sepolia
+  },
+}
+
+// ============ Song Purchase Locks (Unlock Protocol on Base Sepolia) ============
+
+/**
+ * Maps Spotify track IDs to per-song Unlock Protocol lock addresses
+ * Populated by pipeline/src/scripts/sync-lock-config.ts
+ */
+export const SONG_PURCHASE_LOCKS: Record<string, { lockAddress: `0x${string}`, chainId: number }> = {
+  '717TY4sfgKQm4kFbYQIzgo': {
+    lockAddress: '0xdc7e1252a102dd40b949b10a38457604bf307744',
     chainId: 84532, // Base Sepolia
   },
 }

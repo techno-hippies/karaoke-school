@@ -1,9 +1,7 @@
 /**
- * useUnlockSubscription
- * Hook for purchasing Unlock Protocol subscription NFTs on Base Sepolia
- * Price: 0.006 ETH
- *
- * Supports both PKP wallet (from AuthContext) and wagmi wallet clients
+ * useUnlockPurchase
+ * Hook for one-time purchase of Unlock Protocol NFTs on Base Sepolia
+ * Price is read from the lock contract's keyPrice
  */
 
 import { useState } from 'react'
@@ -28,12 +26,11 @@ const UNLOCK_ABI = [
   },
 ] as const
 
-// Unlock lock address is passed per creator (fetched from Neon lens_accounts table)
-// If not provided, subscription is disabled
+// Default lock address when none configured
 const DEFAULT_LOCK_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
-// Subscription price: 0.006 ETH
-const SUBSCRIPTION_PRICE = parseEther('0.006')
+// Price for Unlock subscription (in wei) - used for balance logging
+const SUBSCRIPTION_PRICE = parseEther('0.001')
 
 export type SubscriptionStatus = 'idle' | 'approving' | 'purchasing' | 'complete' | 'error'
 
@@ -97,9 +94,9 @@ export function useUnlockSubscription(
     }
 
     if (resolvedLockAddress === DEFAULT_LOCK_ADDRESS) {
-      console.error('[useUnlockSubscription] Default lock address - subscription not configured')
+      console.error('[useUnlockSubscription] Default lock address - purchase not configured')
       setStatus('error')
-      setErrorMessage('Subscription not available for this creator')
+      setErrorMessage('Purchase not available for this song')
       return
     }
 
@@ -208,7 +205,7 @@ export function useUnlockSubscription(
 
       // Step 4: Purchasing
       setStatus('purchasing')
-      setStatusMessage('Processing subscription...')
+      setStatusMessage('Processing purchase...')
       console.log('[useUnlockSubscription] Status: purchasing')
 
       // Encode the purchase call
@@ -267,7 +264,7 @@ export function useUnlockSubscription(
       if (receipt.status === 'success') {
         console.log('[useUnlockSubscription] Transaction successful!')
         setStatus('complete')
-        setStatusMessage('Subscription successful!')
+        setStatusMessage('Song unlocked!')
       } else {
         console.error('[useUnlockSubscription] Transaction failed - receipt status:', receipt.status)
         throw new Error('Transaction failed')
@@ -298,9 +295,9 @@ export function useUnlockSubscription(
         else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
           userMessage = 'Network error. Please check your connection and try again.'
         }
-        // Check for already subscribed
+        // Check for already purchased
         else if (errorMsg.includes('already') || errorMsg.includes('duplicate')) {
-          userMessage = 'You may already be subscribed. Please refresh the page.'
+          userMessage = 'You may already own this song. Please refresh the page.'
         }
       }
 

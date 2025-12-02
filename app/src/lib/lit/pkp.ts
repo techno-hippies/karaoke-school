@@ -42,7 +42,7 @@ export async function registerUser(
   username: string | undefined,
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
-  onStatusUpdate(i18n.t('auth.initializingLit'))
+  onStatusUpdate(i18n.t('auth.settingUp'))
   await getLitClient()
 
   // Register new WebAuthn credential and mint PKP
@@ -59,12 +59,12 @@ export async function registerUser(
 
   // SDK v8: registerAndMintPKP only returns { pkpInfo, webAuthnPublicKey }
   // We must call authenticate() separately to get authData
-  onStatusUpdate(i18n.t('auth.authenticatingPasskey'))
+  onStatusUpdate(i18n.t('auth.verifyingPasskey'))
   const authData = await WebAuthnAuthenticator.authenticate()
   console.log('✅ Authenticated with new credential')
 
   // Create auth context (session signature)
-  onStatusUpdate(i18n.t('auth.creatingSession'))
+  onStatusUpdate(i18n.t('auth.almostDone'))
 
   // Convert PKP info to our types
   const pkpInfoTyped: PKPInfo = {
@@ -104,7 +104,7 @@ export async function registerUser(
 export async function loginUser(
   onStatusUpdate: (status: string) => void
 ): Promise<AuthFlowResult> {
-  onStatusUpdate(i18n.t('auth.initializingLit'))
+  onStatusUpdate(i18n.t('auth.settingUp'))
   const litClient = await getLitClient()
 
   // Authenticate with existing WebAuthn credential
@@ -134,7 +134,7 @@ export async function loginUser(
   console.log('✅ PKP found:', pkpInfo.ethAddress)
 
   // Create auth context (session signature)
-  onStatusUpdate(i18n.t('auth.creatingSession'))
+  onStatusUpdate(i18n.t('auth.almostDone'))
 
   // Convert PKP info to our types
   const pkpInfoTyped: PKPInfo = {

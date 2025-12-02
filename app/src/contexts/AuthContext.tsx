@@ -27,6 +27,8 @@ interface AuthState {
   pkpAuthContext: PKPAuthContext | null
   authData: AuthData | null
   isPKPReady: boolean
+  /** True while checking for stored session on initial load */
+  isCheckingSession: boolean
 
   lensSession: SessionClient | null
   lensAccount: Account | null
@@ -154,6 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pkpInfo, setPkpInfo] = useState<PKPInfo | null>(null)
   const [authData, setAuthData] = useState<AuthData | null>(null)
   const [isInitializing, setIsInitializing] = useState(false)
+  // Track initial session check to prevent UI flash - default true to avoid Sign Up flash
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
 
   // Lens State
   const [sessionClient, setSessionClient] = useState<SessionClient | null>(null)
@@ -237,51 +241,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Step 1: Cheap check without Lit
       if (!hasLikelyValidStoredSession()) {
         console.log('[Auth] No stored session, skipping Lit initialization')
+        setIsCheckingSession(false)
         return
       }
 
-      // Step 2: Now load Lit + storage helpers
-      const { getAuthStatus, clearSession } = await loadLit()
-      const status = getAuthStatus()
+      try {
+        // Step 2: Now load Lit + storage helpers
+        const { getAuthStatus, clearSession } = await loadLit()
+        const status = getAuthStatus()
 
-      if (status.isAuthenticated && status.pkpInfo && status.authData) {
-        console.log('[Auth] Auto-initializing from stored session...')
+        if (status.isAuthenticated && status.pkpInfo && status.authData) {
+          console.log('[Auth] Auto-initializing from stored session...')
 
-        try {
-          await initializePKP(status.pkpInfo, status.authData)
+          try {
+            await initializePKP(status.pkpInfo, status.authData)
 
-          const lensSession = await resumeLensSession()
+            const lensSession = await resumeLensSession()
 
-          if (lensSession) {
-            setSessionClient(lensSession)
+            if (lensSession) {
+              setSessionClient(lensSession)
 
-            const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
+              const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
 
-            if (accounts.length > 0) {
-              setAccount(accounts[0].account)
-              setLensSetupStatus('complete')
+              if (accounts.length > 0) {
+                setAccount(accounts[0].account)
+                setLensSetupStatus('complete')
+              }
+            }
+          } catch (error) {
+            console.error('[Auth] Auto-initialization failed:', error)
+
+            if (error instanceof Error) {
+              if (error.message.includes('Invalid blockhash')) {
+                console.log('[Auth] Clearing stale session data')
+                clearSession()
+              } else if (
+                error.message.includes('Failed to fetch') ||
+                error.message.includes('CORS')
+              ) {
+                console.log(
+                  '[Auth] Network error during auto-init, keeping PKP session'
+                )
+              }
             }
           }
-        } catch (error) {
-          console.error('[Auth] Auto-initialization failed:', error)
-
-          if (error instanceof Error) {
-            if (error.message.includes('Invalid blockhash')) {
-              console.log('[Auth] Clearing stale session data')
-              clearSession()
-            } else if (
-              error.message.includes('Failed to fetch') ||
-              error.message.includes('CORS')
-            ) {
-              console.log(
-                '[Auth] Network error during auto-init, keeping PKP session'
-              )
-            }
-          }
+        } else {
+          // Stored blob looked valid but Lit disagrees → clean it up
+          clearSession()
         }
-      } else {
-        // Stored blob looked valid but Lit disagrees → clean it up
-        clearSession()
+      } catch (error) {
+        console.error('[Auth] Failed to load Lit or check auth status:', error)
+      } finally {
+        setIsCheckingSession(false)
       }
     }
 
@@ -418,20 +429,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticating(true)
       setAuthMode('login')
       setAuthStep('processing')
-      setAuthStatus('Redirecting to Google...')
+      setAuthStatus('')
       setAuthError(null)
-      
+
       const { authGoogle } = await loadAuthSocial()
       const { loginLensStandalone } = await loadAuthFlows()
-      
+
       // 1. Auth with Google & Get PKP (Mint if new)
       const result = await authGoogle(
         (status) => setAuthStatus(status),
         { requireExisting: !normalized }
       )
-      
+
       // 2. Connect Lens
-      setAuthStatus('Setting up social features...')
       
       // Get PKP Wallet Client for Lens
       const litModule = await loadLit()
@@ -491,20 +501,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticating(true)
       setAuthMode('login')
       setAuthStep('processing')
-      setAuthStatus('Redirecting to Discord...')
+      setAuthStatus('')
       setAuthError(null)
-      
+
       const { authDiscord } = await loadAuthSocial()
       const { loginLensStandalone } = await loadAuthFlows()
-      
+
       // 1. Auth with Discord & Get PKP (Mint if new)
       const result = await authDiscord(
         (status) => setAuthStatus(status),
         { requireExisting: !normalized }
       )
-      
+
       // 2. Connect Lens
-      setAuthStatus('Setting up social features...')
       
       // Get PKP Wallet Client for Lens
       const litModule = await loadLit()
@@ -579,6 +588,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       pkpAuthContext: authContext,
       authData,
       isPKPReady: isConnected,
+      isCheckingSession,
 
       // Lens
       lensSession: sessionClient,
@@ -611,6 +621,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authContext,
       authData,
       isConnected,
+      isCheckingSession,
       sessionClient,
       account,
       isAuthenticating,

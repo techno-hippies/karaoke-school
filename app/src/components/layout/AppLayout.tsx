@@ -7,6 +7,7 @@ export interface AppLayoutProps {
   activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
   onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
   isConnected?: boolean
+  isCheckingSession?: boolean
   walletAddress?: string
   onConnectWallet?: () => void
   onDisconnect?: () => void
@@ -27,6 +28,7 @@ export function AppLayout({
   activeTab,
   onTabChange,
   isConnected = false,
+  isCheckingSession = false,
   walletAddress,
   onConnectWallet,
   hideMobileFooter = false
@@ -38,6 +40,7 @@ export function AppLayout({
         activeTab={activeTab}
         onTabChange={onTabChange}
         isConnected={isConnected}
+        isCheckingSession={isCheckingSession}
         walletAddress={walletAddress}
         onConnectWallet={onConnectWallet}
       />

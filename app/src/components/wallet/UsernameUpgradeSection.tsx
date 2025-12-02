@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Item } from '@/components/ui/item'
 import { Check, X } from '@phosphor-icons/react'
+import { useCurrency } from '@/contexts/CurrencyContext'
 
 export interface UsernameUpgradeSectionProps {
   currentUsername?: string
@@ -36,6 +37,7 @@ export function UsernameUpgradeSection({
   onPurchase,
   onCheckAvailability,
 }: UsernameUpgradeSectionProps) {
+  const { formatPrice } = useCurrency()
   const [username, setUsername] = useState('')
   const [isChecking, setIsChecking] = useState(false)
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
@@ -157,7 +159,7 @@ export function UsernameUpgradeSection({
         {isValid && (
           <div className="flex items-center gap-2 text-base">
             <span className="text-muted-foreground">Price:</span>
-            <span className="font-semibold text-foreground">${price} USDC</span>
+            <span className="font-semibold text-foreground">{formatPrice(price)}</span>
           </div>
         )}
 

@@ -63,7 +63,7 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
 
   // Get subscription lock by artist slug (from URL params)
   // For global sessions, we don't have an artist slug, so subscription won't apply
-  const { data: subscriptionLockData } = useCreatorSubscriptionLock(artistSlug)
+  const { data: subscriptionLockData } = useCreatorSubscriptionLock({ artistSlug })
   const {
     subscribe,
     status: subscriptionStatus,

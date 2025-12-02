@@ -361,7 +361,7 @@ export function KaraokePracticeSession({
               className="shrink-0 z-10"
             >
               <LockKey className="w-4 h-4" weight="fill" />
-              Subscribe
+              Unlock
             </Button>
           ) : (
             <span className="w-12" aria-hidden />

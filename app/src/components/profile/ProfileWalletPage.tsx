@@ -1,4 +1,5 @@
-import { Copy } from '@phosphor-icons/react'
+import { useState, useEffect, useCallback } from 'react'
+import { Copy, Check } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -54,6 +55,11 @@ export interface ProfileWalletPageProps {
   // Handlers
   onCopyAddress?: () => void
   onSettings?: () => void
+  onLoadMoreTokens?: () => void
+
+  // Loading state for other networks
+  hasLoadedOtherNetworks?: boolean
+  isLoadingOtherNetworks?: boolean
 
   className?: string
 }
@@ -159,8 +165,26 @@ export function ProfileWalletPage({
   achievements = [],
   onCopyAddress,
   onSettings,
+  onLoadMoreTokens,
+  hasLoadedOtherNetworks = false,
+  isLoadingOtherNetworks = false,
   className,
 }: ProfileWalletPageProps) {
+  const [copied, setCopied] = useState(false)
+
+  // Reset copied state after delay
+  useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => setCopied(false), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [copied])
+
+  const handleCopy = useCallback(() => {
+    onCopyAddress?.()
+    setCopied(true)
+  }, [onCopyAddress])
+
   // Categorize tokens:
   // 1. Primary tokens (Base ETH, Base USDC) - always shown
   // 2. Other tokens with non-zero balance
@@ -192,13 +216,17 @@ export function ProfileWalletPage({
 
           {/* Wallet Address */}
           <button
-            onClick={onCopyAddress}
-            className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-full hover:bg-secondary/80 transition-colors"
+            onClick={handleCopy}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-full hover:bg-secondary/80 transition-colors cursor-pointer"
           >
             <span className="font-mono text-sm text-muted-foreground">
               {truncatedAddress}
             </span>
-            <Copy className="w-4 h-4 text-muted-foreground" />
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4 text-muted-foreground" />
+            )}
           </button>
         </div>
 
@@ -221,17 +249,28 @@ export function ProfileWalletPage({
                 <TokenItem key={`other-${token.symbol}-${token.network}-${index}`} token={token} index={index} />
               ))}
 
-              {/* Zero-balance tokens in accordion */}
-              {zeroBalanceTokens.length > 0 && (
-                <Accordion type="single" collapsible className="mt-4">
-                  <AccordionItem value="zero-balances" className="border-none">
+              {/* Load more networks accordion */}
+              {!hasLoadedOtherNetworks && onLoadMoreTokens && (
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="mt-4"
+                  onValueChange={(value) => {
+                    if (value === 'other-networks') {
+                      onLoadMoreTokens()
+                    }
+                  }}
+                >
+                  <AccordionItem value="other-networks" className="border-none">
                     <AccordionTrigger className="text-sm text-muted-foreground hover:no-underline py-2">
-                      Show {zeroBalanceTokens.length} more supported tokens
+                      {isLoadingOtherNetworks ? 'Loading other networks...' : 'Show balances on other networks'}
                     </AccordionTrigger>
                     <AccordionContent className="space-y-2 pt-2">
-                      {zeroBalanceTokens.map((token, index) => (
-                        <TokenItem key={`zero-${token.symbol}-${token.network}-${index}`} token={token} index={index} />
-                      ))}
+                      {isLoadingOtherNetworks && (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>

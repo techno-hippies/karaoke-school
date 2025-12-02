@@ -17,6 +17,10 @@ export interface MediaPageProps {
   selectedLanguage?: string
   showTranslations?: boolean
   isAudioLoading?: boolean
+  /** Show unlocking indicator for subscribers waiting for full audio */
+  isUnlockingFullAudio?: boolean
+  /** Progress percentage (0-100) for unlocking */
+  unlockProgress?: number
   onBack?: () => void
   onArtistClick?: () => void
   onUnlockClick?: () => void
@@ -36,6 +40,8 @@ export function MediaPage({
   selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
   showTranslations = true,
   isAudioLoading = false,
+  isUnlockingFullAudio = false,
+  unlockProgress,
   onBack,
   onArtistClick,
   onUnlockClick,
@@ -88,7 +94,15 @@ export function MediaPage({
           <div className="flex-1 min-w-0">
             {/* Title and artist removed per user request */}
           </div>
-          {onUnlockClick && (
+          {/* Unlocking indicator for subscribers */}
+          {isUnlockingFullAudio && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+              <span>{unlockProgress ? `${unlockProgress}%` : 'Unlocking...'}</span>
+            </div>
+          )}
+          {/* Unlock button for non-subscribers */}
+          {onUnlockClick && !isUnlockingFullAudio && (
             <Button
               onClick={onUnlockClick}
               variant="destructive"

@@ -57,14 +57,30 @@ const KARAOKE_EVENTS_ABI = [
 
 /**
  * Convert text to URL-safe slug
+ * Normalizes accented characters (é → e, ñ → n, etc.)
  */
 function slugify(text: string): string {
   return text
+    .normalize('NFD') // Decompose accents (é → e + combining accent)
+    .replace(/[\u0300-\u036f]/g, '') // Remove combining accents
     .toLowerCase()
     .replace(/['']/g, '') // Remove apostrophes
     .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
     .replace(/^-+|-+$/g, '') // Trim hyphens from start/end
     .replace(/-+/g, '-'); // Collapse multiple hyphens
+}
+
+function resolveSongUnlockLock(
+  song: Song,
+  artist: Artist,
+  env: Environment
+): string | null {
+  const songLock = env === 'testnet' ? song.unlock_lock_address_testnet : song.unlock_lock_address_mainnet;
+  const artistLock = env === 'testnet' ? artist.unlock_lock_address_testnet : artist.unlock_lock_address_mainnet;
+
+  if (songLock) return songLock;
+  if (artistLock) return artistLock;
+  return null;
 }
 
 // Parse CLI arguments
@@ -237,10 +253,8 @@ async function buildClipMetadata(
     ? song.lit_network_testnet
     : song.lit_network_mainnet;
 
-  // Get artist's lock address for this environment
-  const lockAddress = env === 'testnet'
-    ? artist.unlock_lock_address_testnet
-    : artist.unlock_lock_address_mainnet;
+  // Get lock address (song-level preferred, fallback to artist)
+  const lockAddress = resolveSongUnlockLock(song, artist, env);
 
   // Group lyrics by line_index, with all language translations
   const enLyrics = lyrics.filter(l => l.language === 'en');
@@ -358,6 +372,7 @@ async function buildClipMetadata(
     artist: artist.name,
     artistSlug: artist.slug!,
     artistImageUri: artist.image_grove_url!, // Artist image from Spotify (REQUIRED - run fix-artist-images.ts if missing)
+    genres: artist.genres?.length ? artist.genres : undefined, // Spotify genres for filtering/search
 
     // Cover images - MUST be on Grove, validated by Zod
     coverUri: coverGroveUrl,
@@ -491,6 +506,9 @@ async function main() {
 
   console.log(`   Artist: ${artist.name}`);
   console.log(`   Artist Image: ${artist.image_grove_url}`);
+  if (artist.genres?.length) {
+    console.log(`   Genres: ${artist.genres.join(', ')}`);
+  }
   console.log(`   Clip: 0 → ${song.clip_end_ms}ms (${(song.clip_end_ms! / 1000).toFixed(1)}s)`);
 
   // Ensure Grove images exist (upload if --upload-images)
@@ -513,9 +531,7 @@ async function main() {
   const encryptedFullUrl = env === 'testnet'
     ? song.encrypted_full_url_testnet
     : song.encrypted_full_url_mainnet;
-  const lockAddress = env === 'testnet'
-    ? artist.unlock_lock_address_testnet
-    : artist.unlock_lock_address_mainnet;
+  const lockAddress = resolveSongUnlockLock(song, artist, env);
 
   const hasEncryption = !!encryptedFullUrl && !!lockAddress;
 

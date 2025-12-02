@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchPosts } from '@lens-protocol/client/actions'
 import { lensClient } from '@/lib/lens'
 
+const IS_DEV = import.meta.env.DEV
+
 export interface VideoPost {
   id: string
   thumbnailUrl: string
@@ -27,7 +29,7 @@ export function useSongVideos(spotifyTrackId?: string) {
     queryFn: async () => {
       if (!spotifyTrackId) return []
 
-      console.log(`[useSongVideos] Fetching videos for Spotify ID: ${spotifyTrackId}`)
+      if (IS_DEV) console.log(`[useSongVideos] Fetching for: ${spotifyTrackId}`)
 
       const allResult = await fetchPosts(lensClient, {
         filter: {
@@ -83,7 +85,7 @@ export function useSongVideos(spotifyTrackId?: string) {
         }
       })
 
-      console.log(`[useSongVideos] Found ${videos.length} videos`)
+      if (IS_DEV && videos.length > 0) console.log(`[useSongVideos] Found ${videos.length} videos`)
       return videos
     },
     enabled: !!spotifyTrackId,

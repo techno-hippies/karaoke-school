@@ -118,6 +118,8 @@ export function handleClipRegistered(event: ClipRegistered): void {
   clip.hasInstrumental = false;
   clip.hasAlignments = false;
   clip.hasEncryptedFull = false;
+  clip.studyCount = 0;
+  clip.genres = [];
   clip.save();
 
   let stats = loadOrCreateGlobalStats();
@@ -596,11 +598,14 @@ export function handleKaraokeSessionStarted(event: KaraokeSessionStarted): void 
   session.startedAt = event.params.timestamp;
   session.endedAt = null;
 
-  // Link to clip if it exists
+  // Link to clip if it exists and increment studyCount for trending
   let clipId = event.params.clipHash.toHexString();
   let clip = Clip.load(clipId);
   if (clip != null) {
     session.clip = clipId;
+    // Increment study count for trending
+    clip.studyCount = clip.studyCount + 1;
+    clip.save();
   } else {
     // Create a placeholder reference; the clip entity must exist for the relation
     session.clip = clipId;

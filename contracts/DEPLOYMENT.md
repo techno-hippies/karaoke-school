@@ -227,7 +227,7 @@ npx tsx scripts/deploy-karaoke-events.ts
 
 Update this list after each deployment:
 
-- **KaraokeEvents**: `0x51aA6987130AA7E4654218859E075D8e790f4409` (clip lifecycle + grading)
+- **KaraokeEvents**: `0x1eF06255c8e60684F79C9792bd4A66d05B38ed76` (clip lifecycle + grading)
 - **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
 - **TranslationEvents**: `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
 - **AccountEvents**: `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)

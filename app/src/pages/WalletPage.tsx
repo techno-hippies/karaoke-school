@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
  */
 export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
   const { t } = useTranslation()
-  const { pkpAddress, lensAccount, isPKPReady } = useAuth()
+  const { pkpAddress, lensAccount, isPKPReady, isCheckingSession } = useAuth()
   const { balances, error } = usePKPBalances()
 
   // Get username from lens account if available
@@ -49,7 +49,19 @@ export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }
     return true
   }
 
-  // Show loading state when PKP is not ready
+  // Show skeleton while checking for stored session
+  if (isCheckingSession) {
+    return (
+      <WalletPageView
+        tokens={[]}
+        walletAddress=""
+        onCopyAddress={() => {}}
+        isLoading={true}
+      />
+    )
+  }
+
+  // Show sign up state when PKP is not ready
   if (!isPKPReady) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">

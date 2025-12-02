@@ -35,6 +35,7 @@ export interface Artist {
   slug: string | null;
   image_url: string | null; // Original Spotify URL (for reference)
   image_grove_url: string | null; // Permanent Grove URL
+  genres: string[]; // Spotify genres (e.g., ["pop", "r&b", "dance pop"])
   // Unlock Protocol locks (per environment)
   unlock_lock_address_testnet: string | null;
   unlock_lock_deployed_at_testnet: Date | null;
@@ -70,6 +71,9 @@ export interface Song {
   clip_end_ms: number | null;
   clip_instrumental_url: string | null;
   clip_lyrics_url: string | null;
+  // Unlock Protocol (per-song purchase)
+  unlock_lock_address_testnet: string | null;
+  unlock_lock_address_mainnet: string | null;
   // Testnet encryption (naga-dev/naga-test + Base Sepolia)
   encrypted_full_url_testnet: string | null;
   encryption_manifest_url_testnet: string | null;

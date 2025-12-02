@@ -150,17 +150,19 @@ export interface CreateArtistData {
   slug?: string;
   image_url?: string;
   image_grove_url?: string;
+  genres?: string[];
 }
 
 export async function createArtist(data: CreateArtistData): Promise<Artist> {
   const result = await query<Artist>(
-    `INSERT INTO artists (spotify_artist_id, name, slug, image_url, image_grove_url)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO artists (spotify_artist_id, name, slug, image_url, image_grove_url, genres)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (spotify_artist_id) DO UPDATE SET
        name = EXCLUDED.name,
        slug = COALESCE(EXCLUDED.slug, artists.slug),
        image_url = COALESCE(EXCLUDED.image_url, artists.image_url),
-       image_grove_url = COALESCE(EXCLUDED.image_grove_url, artists.image_grove_url)
+       image_grove_url = COALESCE(EXCLUDED.image_grove_url, artists.image_grove_url),
+       genres = COALESCE(EXCLUDED.genres, artists.genres)
      RETURNING *`,
     [
       data.spotify_artist_id,
@@ -168,6 +170,7 @@ export async function createArtist(data: CreateArtistData): Promise<Artist> {
       data.slug || null,
       data.image_url || null,
       data.image_grove_url || null,
+      data.genres || [],
     ]
   );
   return result[0];
@@ -269,6 +272,13 @@ export async function getSongByISWC(iswc: string): Promise<Song | null> {
   return queryOne<Song>(
     `SELECT * FROM songs WHERE iswc = $1`,
     [iswc]
+  );
+}
+
+export async function getSongBySpotifyTrackId(spotifyTrackId: string): Promise<Song | null> {
+  return queryOne<Song>(
+    `SELECT * FROM songs WHERE spotify_track_id = $1`,
+    [spotifyTrackId]
   );
 }
 
@@ -400,6 +410,25 @@ export async function updateSongEncryption(
     RETURNING *`,
     [iswc, data.encrypted_full_url, data.encryption_manifest_url, data.lit_network]
   );
+  return result[0] || null;
+}
+
+export async function updateSongLock(
+  iswc: string,
+  env: 'testnet' | 'mainnet',
+  lockAddress: string
+): Promise<Song | null> {
+  const column = env === 'testnet' ? 'unlock_lock_address_testnet' : 'unlock_lock_address_mainnet';
+
+  const result = await query<Song>(
+    `UPDATE songs SET
+      ${column} = $2,
+      updated_at = NOW()
+    WHERE iswc = $1
+    RETURNING *`,
+    [iswc, lockAddress]
+  );
+
   return result[0] || null;
 }
 

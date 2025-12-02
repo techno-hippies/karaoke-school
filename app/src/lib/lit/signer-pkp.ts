@@ -16,7 +16,34 @@ import {
   defineChain,
 } from 'viem'
 import { getLitClient } from './client'
+import { clearAuthContext } from './auth-pkp'
 import type { PKPInfo, PKPAuthContext } from './types'
+
+/**
+ * Check if error is a Lit Protocol session expiration
+ */
+function isSessionExpiredError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    return (
+      msg.includes('encrypted payload decryption failed') ||
+      msg.includes('invalid signature') ||
+      msg.includes('session has expired') ||
+      msg.includes('auth method verification failed')
+    )
+  }
+  return false
+}
+
+/**
+ * Custom error for session expiration
+ */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('Your session has expired. Please sign in again to continue.')
+    this.name = 'SessionExpiredError'
+  }
+}
 
 /**
  * Lens Chain Testnet
@@ -113,6 +140,10 @@ function createPKPAccount(
         throw new Error('No signature returned from Lit Action')
       } catch (error) {
         console.error('[PKPSigner] Message signing failed:', error)
+        if (isSessionExpiredError(error)) {
+          clearAuthContext()
+          throw new SessionExpiredError()
+        }
         throw error
       }
     },
@@ -183,6 +214,10 @@ function createPKPAccount(
         throw new Error('No signature returned from Lit Action')
       } catch (error) {
         console.error('[PKPSigner] Transaction signing failed:', error)
+        if (isSessionExpiredError(error)) {
+          clearAuthContext()
+          throw new SessionExpiredError()
+        }
         throw error
       }
     },
@@ -229,6 +264,10 @@ function createPKPAccount(
         throw new Error('No signature returned from Lit Action')
       } catch (error) {
         console.error('[PKPSigner] Typed data signing failed:', error)
+        if (isSessionExpiredError(error)) {
+          clearAuthContext()
+          throw new SessionExpiredError()
+        }
         throw error
       }
     },

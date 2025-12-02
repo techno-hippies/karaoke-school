@@ -50,4 +50,5 @@ export {
 export {
   createPKPWalletClient,
   getPKPAddress,
+  SessionExpiredError,
 } from './signer-pkp'

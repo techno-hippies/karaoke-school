@@ -78,6 +78,10 @@ CREATE TABLE IF NOT EXISTS songs (
   clip_instrumental_url TEXT,            -- Cropped FAL instrumental for clip
   clip_lyrics_url TEXT,                  -- Grove JSON with clip lyrics
 
+  -- Unlock Protocol (per-song purchase)
+  unlock_lock_address_testnet TEXT,      -- Lock contract on Base Sepolia for this song
+  unlock_lock_address_mainnet TEXT,      -- Lock contract on Base mainnet for this song
+
   -- Encryption (for premium subscribers) - testnet
   encrypted_full_url_testnet TEXT,       -- Lit-encrypted full audio blob
   encryption_manifest_url_testnet TEXT,  -- Encryption metadata JSON

@@ -57,7 +57,7 @@ export function AccountPageContainer() {
   const {
     data: subscriptionLockData,
     isLoading: isLoadingLock,
-  } = useCreatorSubscriptionLock(artistSlug)
+  } = useCreatorSubscriptionLock({ artistSlug })
 
   // Fetch follow state and follower counts
   const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({

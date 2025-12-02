@@ -7,6 +7,7 @@ interface DesktopSidebarProps {
   activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
   onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
   isConnected?: boolean
+  isCheckingSession?: boolean
   walletAddress?: string
   onConnectWallet?: () => void
 }
@@ -15,6 +16,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   activeTab,
   onTabChange,
   isConnected,
+  isCheckingSession,
   walletAddress,
   onConnectWallet
 }) => {
@@ -98,7 +100,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
         {/* Auth section */}
         <div className="px-4 pt-8 pb-6 border-t border-border">
-          {isConnected && walletAddress ? (
+          {isCheckingSession ? (
+            <div className="w-full justify-start gap-4 px-6 py-4 h-auto flex items-center">
+              <div className="w-12 h-12 bg-secondary rounded-lg flex-shrink-0 animate-pulse" />
+              <div className="h-5 w-24 bg-secondary rounded animate-pulse" />
+            </div>
+          ) : isConnected && walletAddress ? (
             <Button
               onClick={() => onTabChange('wallet')}
               variant="ghost"

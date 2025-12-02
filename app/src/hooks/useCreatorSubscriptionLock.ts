@@ -1,39 +1,65 @@
 import { useMemo } from 'react'
 import type { Address } from 'viem'
-import { ARTIST_SUBSCRIPTION_LOCKS } from '@/lib/contracts/addresses'
+import { ARTIST_SUBSCRIPTION_LOCKS, SONG_PURCHASE_LOCKS } from '@/lib/contracts/addresses'
 
 export interface SubscriptionLockData {
   unlockLockAddress?: Address
   unlockChainId?: number
 }
 
+interface UseCreatorSubscriptionLockArgs {
+  spotifyTrackId?: string
+  artistSlug?: string
+  metadataLockAddress?: string
+  metadataLockChainId?: number
+}
+
 /**
- * Get subscription lock address for an artist
- * Uses static config mapping artist slugs to their Unlock Protocol lock addresses
- *
- * @param artistSlug - The artist's slug (e.g., 'queen', 'britney-spears')
- * @returns Lock address and chain ID if available
+ * Resolve subscription/purchase lock for a song (song-level preferred, artist fallback)
+ * Uses static config mapping and optional metadata override.
  */
-export function useCreatorSubscriptionLock(artistSlug?: string) {
+export function useCreatorSubscriptionLock(params?: UseCreatorSubscriptionLockArgs) {
+  const spotifyTrackId = params?.spotifyTrackId
+  const artistSlug = params?.artistSlug
+  const metadataLockAddress = params?.metadataLockAddress
+  const metadataLockChainId = params?.metadataLockChainId
+
   return useMemo(() => {
-    if (!artistSlug) {
+    if (!spotifyTrackId && !artistSlug && !metadataLockAddress) {
       return {
         data: { unlockLockAddress: undefined, unlockChainId: undefined },
         isLoading: false,
       }
     }
 
-    const lockConfig = ARTIST_SUBSCRIPTION_LOCKS[artistSlug.toLowerCase()]
+    const lockFromMetadata = metadataLockAddress && metadataLockChainId
+      ? { lockAddress: metadataLockAddress, chainId: metadataLockChainId }
+      : undefined
+
+    const lockFromSong = spotifyTrackId
+      ? SONG_PURCHASE_LOCKS[spotifyTrackId]
+      : undefined
+
+    const lockFromArtist = artistSlug
+      ? ARTIST_SUBSCRIPTION_LOCKS[artistSlug.toLowerCase()]
+      : undefined
+
+    const lockConfig = lockFromMetadata || lockFromSong || lockFromArtist
 
     if (!lockConfig) {
-      console.log('[useCreatorSubscriptionLock] No subscription lock configured for artist:', artistSlug)
+      console.log('[useCreatorSubscriptionLock] No subscription lock configured for song/artist:', {
+        spotifyTrackId,
+        artistSlug,
+      })
       return {
         data: { unlockLockAddress: undefined, unlockChainId: undefined },
         isLoading: false,
       }
     }
 
-    console.log('[useCreatorSubscriptionLock] Found subscription lock for', artistSlug, ':', {
+    console.log('[useCreatorSubscriptionLock] Found subscription lock:', {
+      spotifyTrackId,
+      artistSlug,
       unlockLockAddress: lockConfig.lockAddress,
       unlockChainId: lockConfig.chainId,
     })
@@ -45,5 +71,5 @@ export function useCreatorSubscriptionLock(artistSlug?: string) {
       },
       isLoading: false,
     }
-  }, [artistSlug])
+  }, [artistSlug, metadataLockAddress, metadataLockChainId, spotifyTrackId])
 }

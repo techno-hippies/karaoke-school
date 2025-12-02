@@ -65,7 +65,7 @@ LIT_NETWORK          # naga-dev | naga-test | mainnet
 
 ```
 ExerciseEvents: 0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832
-KaraokeEvents:  0x51aA6987130AA7E4654218859E075D8e790f4409
+KaraokeEvents:  0x1eF06255c8e60684F79C9792bd4A66d05B38ed76
 PKP (dev):      0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379
 ```
 

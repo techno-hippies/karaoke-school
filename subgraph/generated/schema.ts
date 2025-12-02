@@ -466,6 +466,32 @@ export class Clip extends Entity {
   set hasEncryptedFull(value: boolean) {
     this.set("hasEncryptedFull", Value.fromBoolean(value));
   }
+
+  get studyCount(): i32 {
+    let value = this.get("studyCount");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set studyCount(value: i32) {
+    this.set("studyCount", Value.fromI32(value));
+  }
+
+  get genres(): Array<string> {
+    let value = this.get("genres");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toStringArray();
+    }
+  }
+
+  set genres(value: Array<string>) {
+    this.set("genres", Value.fromStringArray(value));
+  }
 }
 
 export class Translation extends Entity {
