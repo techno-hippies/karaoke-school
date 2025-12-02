@@ -142,24 +142,27 @@ const assetsSchema = z.object({
 });
 
 /**
- * Encryption Schema v2 - Hybrid AES-GCM + Lit Protocol
+ * Encryption Schema v2.1 - Hybrid AES-GCM + Lit Protocol
  *
  * Uses hybrid encryption to avoid 413 errors:
  * - Audio encrypted locally with AES-256-GCM
  * - Only the 32-byte symmetric key is encrypted with Lit Protocol
  * - Frontend fetches encryptionMetadataUri to get all decryption params
+ *
+ * Access control: SongAccess ERC-721 (single contract for all songs)
  */
 const encryptionSchema = z.object({
-  version: z.enum(['1.0.0', '2.0.0']).default('2.0.0'),
+  version: z.enum(['1.0.0', '2.0.0', '2.1.0']).default('2.1.0'),
   environment: z.enum(['testnet', 'mainnet']),
-  // v2: Points to encryption metadata JSON (contains encrypted key + audio URL)
+  // v2+: Points to encryption metadata JSON (contains encrypted key + audio URL + access control)
   encryptionMetadataUri: groveUrlSchema,
   // v1 (deprecated): Points to encrypted audio blob
   encryptedFullUri: optionalGroveUrlSchema,
   manifestUri: optionalGroveUrlSchema,
   litNetwork: z.string().min(1),
-  unlockLockAddress: addressSchema,
-  unlockChainId: z.number().int().positive(),
+  // SongAccess ERC-721: Single contract for all songs (per-song USDC purchase)
+  songAccessAddress: addressSchema,
+  songAccessChainId: z.number().int().positive(),
 }).nullable();
 
 /**

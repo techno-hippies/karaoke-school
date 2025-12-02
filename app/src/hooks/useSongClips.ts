@@ -4,8 +4,6 @@ import { graphClient } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { generateSlug } from './useSongSlug'
 
-const IS_DEV = import.meta.env.DEV
-
 export interface Clip {
   id: string
   clipHash: string
@@ -21,8 +19,7 @@ export interface Clip {
   registeredAt: string
   processedAt?: string
   encryptedFullUri?: string
-  unlockLockAddress?: string
-  unlockChainId?: number
+  // Access control now read from clip metadata.encryption (SongAccess or Unlock)
   performances: Array<{
     id: string
     score: number
@@ -79,8 +76,6 @@ const CLIPS_QUERY = gql`
       registeredAt
       processedAt
       encryptedFullUri
-      unlockLockAddress
-      unlockChainId
       performances(first: 5, orderBy: gradedAt, orderDirection: desc) {
         id
         score
@@ -108,7 +103,6 @@ export function useSongClips(spotifyTrackId?: string) {
       if (!spotifyTrackId) throw new Error('Spotify track ID required')
 
       const data = await graphClient.request<{ clips: Clip[] }>(CLIPS_QUERY, { spotifyTrackId })
-      if (IS_DEV) console.log('[useSongClips] Found', data.clips?.length ?? 0, 'clips')
       if (!data.clips?.length) throw new Error('No clips found')
 
       return { spotifyTrackId, clips: data.clips } as SongClips
@@ -132,7 +126,6 @@ export function useSongClips(spotifyTrackId?: string) {
       if (!metadata.artistSlug && metadata.artist) {
         metadata.artistSlug = generateSlug(metadata.artist)
       }
-      if (IS_DEV) console.log('[useSongClips] Loaded metadata:', metadata.title)
       return metadata
     },
     enabled: !!firstClip?.metadataUri,

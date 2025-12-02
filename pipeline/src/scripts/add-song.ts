@@ -2,20 +2,21 @@
 /**
  * Add Song Script
  *
- * Adds a song from a prepared folder with lyrics files.
+ * Adds a song by fetching lyrics from LRCLIB and auto-translating to Chinese.
  *
- * Expected folder structure:
- *   songs/{iswc}/
- *     en-lyrics.txt    - English lyrics with section markers (required)
- *     zh-lyrics.txt    - Chinese lyrics (optional - add before generate-video)
- *     background.mp4   - Optional background video for snippets
+ * Workflow:
+ *   1. Fetch track metadata from Spotify (required)
+ *   2. Search LRCLIB for lyrics using track/artist name
+ *   3. Auto-translate to Chinese via Gemini
+ *   4. Save song + artist + lyrics to database
  *
  * Usage:
  *   bun src/scripts/add-song.ts --iswc=T0704563291 --title="Single Ladies" --spotify-id=5R5GLTYa1CS5TRA2mVu9Tf
+ *
+ * Note: Fails immediately if LRCLIB doesn't have lyrics for the song.
  */
 
 import { parseArgs } from 'util';
-import path from 'path';
 import {
   createArtist,
   createSong,
@@ -24,16 +25,15 @@ import {
   type CreateLyricData,
 } from '../db/queries';
 import {
-  readAndValidateLyrics,
-  printValidationResult,
   validateISWC,
   normalizeISWC,
-  parseLyrics,
 } from '../lib/lyrics-parser';
 import { slugify } from '../lib/slugify';
 import { downloadAndUploadImageToGrove } from '../services/grove';
 import { searchGenius } from '../services/genius';
-import { validateEnv, GENIUS_API_KEY } from '../config';
+import { searchLyrics } from '../services/lrclib';
+import { translateLyrics, LANGUAGES } from '../services/openrouter';
+import { validateEnv, GENIUS_API_KEY, OPENROUTER_API_KEY } from '../config';
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -44,8 +44,7 @@ const { values } = parseArgs({
     'spotify-id': { type: 'string' },
     'genius-id': { type: 'string' },
     'genius-url': { type: 'string' },
-    'songs-dir': { type: 'string', default: './songs' },
-    'skip-validation': { type: 'boolean', default: false },
+    'skip-translate': { type: 'boolean', default: false },
   },
   strict: true,
 });
@@ -116,9 +115,20 @@ async function fetchSpotifyArtist(artistId: string, token: string): Promise<Spot
   return response.json();
 }
 
+/**
+ * Parse LRCLIB plain lyrics into lines
+ * Filters empty lines, preserves all lyrics
+ */
+function parsePlainLyrics(plainLyrics: string): string[] {
+  return plainLyrics
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
 async function main() {
   // Validate required env
-  validateEnv(['DATABASE_URL']);
+  validateEnv(['DATABASE_URL', 'SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET']);
 
   // Validate required args
   if (!values.iswc) {
@@ -130,6 +140,12 @@ async function main() {
 
   if (!values.title) {
     console.error('❌ Missing required argument: --title');
+    process.exit(1);
+  }
+
+  if (!values['spotify-id']) {
+    console.error('❌ Missing required argument: --spotify-id');
+    console.log('   Spotify ID is required to fetch metadata and search LRCLIB');
     process.exit(1);
   }
 
@@ -155,100 +171,98 @@ async function main() {
     process.exit(0);
   }
 
-  // Check for lyrics files
-  const songsDir = values['songs-dir'];
-  const songDir = path.join(songsDir, iswc);
-  const enPath = path.join(songDir, 'en-lyrics.txt');
-  const zhPath = path.join(songDir, 'zh-lyrics.txt');
+  // Fetch Spotify data (required)
+  console.log('\n🎧 Fetching Spotify data...');
+  const token = await getSpotifyToken();
+  const spotifyTrack = await fetchSpotifyTrack(values['spotify-id'], token);
+  let artistId: string | undefined;
 
-  const enExists = await Bun.file(enPath).exists();
-  const zhExists = await Bun.file(zhPath).exists();
+  console.log(`   Track: ${spotifyTrack.name}`);
+  console.log(`   Artist: ${spotifyTrack.artists[0]?.name}`);
+  console.log(`   Duration: ${Math.round(spotifyTrack.duration_ms / 1000)}s`);
 
-  if (!enExists) {
-    console.log(`\n📁 Song directory: ${songDir}`);
-    console.log('   ❌ Missing: en-lyrics.txt (required)');
-    console.log('\n   Create en-lyrics.txt first, then run this script again.');
+  const artistName = spotifyTrack.artists[0]?.name || 'Unknown Artist';
+
+  // Fetch lyrics from LRCLIB (fail fast if not found)
+  console.log('\n📝 Fetching lyrics from LRCLIB...');
+  const lrcResult = await searchLyrics(spotifyTrack.name, artistName);
+
+  if (!lrcResult || !lrcResult.plainLyrics) {
+    console.error(`\n❌ Lyrics not found on LRCLIB`);
+    console.error(`   Track: "${spotifyTrack.name}"`);
+    console.error(`   Artist: "${artistName}"`);
+    console.error(`\n   LRCLIB doesn't have this song. You'll need to add lyrics manually.`);
     process.exit(1);
   }
 
-  if (!zhExists) {
-    console.log(`\n⚠️  zh-lyrics.txt not found - will store EN only`);
-    console.log('   Add zh-lyrics.txt later before generate-video.ts');
-  }
+  console.log(`   ✅ Found lyrics (${lrcResult.plainLyrics.split('\n').length} lines)`);
 
-  // Parse and validate lyrics
-  console.log('\n📋 Validating lyrics...');
-  const { en, zh, validation } = zhExists
-    ? await readAndValidateLyrics(enPath, zhPath)
-    : { en: parseLyrics(await Bun.file(enPath).text()), zh: { lines: [], sectionMarkers: [] }, validation: { valid: true, warnings: [], errors: [], enLineCount: 0, zhLineCount: 0 } };
+  // Parse lyrics into lines
+  const enLines = parsePlainLyrics(lrcResult.plainLyrics);
+  console.log(`   EN lines (cleaned): ${enLines.length}`);
 
-  if (zhExists) {
-    printValidationResult(validation);
-    if (!validation.valid && !values['skip-validation']) {
-      console.log('\n❌ Lyrics validation failed. Fix errors and try again.');
-      console.log('   Use --skip-validation to ignore warnings.');
-      process.exit(1);
+  // Translate to Chinese via Gemini
+  let zhLines: string[] = [];
+  if (!values['skip-translate']) {
+    if (!OPENROUTER_API_KEY) {
+      console.log('\n⚠️  OPENROUTER_API_KEY not set - skipping translation');
+    } else {
+      console.log('\n🌐 Translating to Chinese via Gemini...');
+      try {
+        zhLines = await translateLyrics(enLines, 'zh', LANGUAGES.zh.name);
+        console.log(`   ✅ Translated ${zhLines.length} lines`);
+
+        if (zhLines.length !== enLines.length) {
+          console.log(`   ⚠️  Line count mismatch: EN=${enLines.length}, ZH=${zhLines.length}`);
+        }
+      } catch (error: any) {
+        console.log(`   ⚠️  Translation failed: ${error.message}`);
+        console.log('   Continuing with EN only...');
+      }
     }
   } else {
-    console.log(`   EN lines: ${en.lines.length}`);
-    console.log('   ZH lines: (not provided yet)');
+    console.log('\n⏭️  Skipping translation (--skip-translate)');
   }
 
-  // Fetch Spotify data if provided
-  let spotifyTrack: SpotifyTrack | null = null;
-  let artistId: string | undefined;
+  // Create artist if we have Spotify data
+  if (spotifyTrack.artists[0]) {
+    const primaryArtist = spotifyTrack.artists[0];
+    const artistSlug = slugify(primaryArtist.name);
 
-  if (values['spotify-id']) {
-    console.log('\n🎧 Fetching Spotify data...');
-    validateEnv(['SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET']);
+    // Fetch actual artist data to get artist photo (not album cover)
+    console.log('\n👤 Fetching artist details...');
+    const spotifyArtist = await fetchSpotifyArtist(primaryArtist.id, token);
+    const artistImageUrl = spotifyArtist.images[0]?.url; // Artist photo, not album cover
 
-    const token = await getSpotifyToken();
-    spotifyTrack = await fetchSpotifyTrack(values['spotify-id'], token);
-
-    console.log(`   Track: ${spotifyTrack.name}`);
-    console.log(`   Artist: ${spotifyTrack.artists[0]?.name}`);
-    console.log(`   Duration: ${Math.round(spotifyTrack.duration_ms / 1000)}s`);
-
-    // Create artist if we have Spotify data
-    if (spotifyTrack.artists[0]) {
-      const primaryArtist = spotifyTrack.artists[0];
-      const artistSlug = slugify(primaryArtist.name);
-
-      // Fetch actual artist data to get artist photo (not album cover)
-      console.log(`   Fetching artist details...`);
-      const spotifyArtist = await fetchSpotifyArtist(primaryArtist.id, token);
-      const artistImageUrl = spotifyArtist.images[0]?.url; // Artist photo, not album cover
-
-      // Upload artist image to Grove for permanence
-      let imageGroveUrl: string | undefined;
-      if (artistImageUrl) {
-        console.log(`   Uploading artist image to Grove...`);
-        try {
-          const groveResult = await downloadAndUploadImageToGrove(
-            artistImageUrl,
-            `artist-${artistSlug}.jpg`
-          );
-          imageGroveUrl = groveResult.url;
-          console.log(`   Artist Image Grove URL: ${imageGroveUrl}`);
-        } catch (error: any) {
-          console.log(`   ⚠️  Failed to upload artist image: ${error.message}`);
-        }
+    // Upload artist image to Grove for permanence
+    let imageGroveUrl: string | undefined;
+    if (artistImageUrl) {
+      console.log(`   Uploading artist image to Grove...`);
+      try {
+        const groveResult = await downloadAndUploadImageToGrove(
+          artistImageUrl,
+          `artist-${artistSlug}.jpg`
+        );
+        imageGroveUrl = groveResult.url;
+        console.log(`   Artist Image Grove URL: ${imageGroveUrl}`);
+      } catch (error: any) {
+        console.log(`   ⚠️  Failed to upload artist image: ${error.message}`);
       }
+    }
 
-      const artist = await createArtist({
-        spotify_artist_id: primaryArtist.id,
-        name: primaryArtist.name,
-        slug: artistSlug,
-        image_url: artistImageUrl,
-        image_grove_url: imageGroveUrl,
-        genres: spotifyArtist.genres || [],
-      });
-      artistId = artist.id;
-      console.log(`   Artist ID: ${artistId}`);
-      console.log(`   Artist Slug: ${artistSlug}`);
-      if (spotifyArtist.genres?.length) {
-        console.log(`   Genres: ${spotifyArtist.genres.join(', ')}`);
-      }
+    const artist = await createArtist({
+      spotify_artist_id: primaryArtist.id,
+      name: primaryArtist.name,
+      slug: artistSlug,
+      image_url: artistImageUrl,
+      image_grove_url: imageGroveUrl,
+      genres: spotifyArtist.genres || [],
+    });
+    artistId = artist.id;
+    console.log(`   Artist ID: ${artistId}`);
+    console.log(`   Artist Slug: ${artistSlug}`);
+    if (spotifyArtist.genres?.length) {
+      console.log(`   Genres: ${spotifyArtist.genres.join(', ')}`);
     }
   }
 
@@ -295,8 +309,7 @@ async function main() {
 
   if (!geniusSongId && GENIUS_API_KEY) {
     console.log('\n🔍 Searching Genius...');
-    const artistName = spotifyTrack?.artists[0]?.name;
-    const searchQuery = artistName ? `${values.title} ${artistName}` : values.title;
+    const searchQuery = `${values.title} ${artistName}`;
 
     try {
       const geniusResult = await searchGenius(searchQuery);
@@ -339,29 +352,27 @@ async function main() {
   const lyricsData: CreateLyricData[] = [];
 
   // English lyrics
-  for (const line of en.lines) {
+  enLines.forEach((text, index) => {
     lyricsData.push({
       song_id: song.id,
-      line_index: line.index,
+      line_index: index,
       language: 'en',
-      text: line.text,
-      section_marker: line.sectionMarker || undefined,
+      text,
     });
-  }
+  });
 
-  // Chinese lyrics
-  for (const line of zh.lines) {
+  // Chinese lyrics (if translated)
+  zhLines.forEach((text, index) => {
     lyricsData.push({
       song_id: song.id,
-      line_index: line.index,
+      line_index: index,
       language: 'zh',
-      text: line.text,
-      section_marker: line.sectionMarker || undefined,
+      text,
     });
-  }
+  });
 
   const lyrics = await createLyrics(lyricsData);
-  console.log(`   Created ${lyrics.length} lyric entries (${en.lines.length} EN + ${zh.lines.length} ZH)`);
+  console.log(`   Created ${lyrics.length} lyric entries (${enLines.length} EN + ${zhLines.length} ZH)`);
 
   // Summary
   console.log('\n✅ Song added successfully');
@@ -370,32 +381,10 @@ async function main() {
   console.log(`   Title: ${song.title}`);
   console.log(`   Stage: ${song.stage}`);
 
-  // Check for additional files
-  const bgVideoPath = path.join(songDir, 'background.mp4');
-  const bgVideoExists = await Bun.file(bgVideoPath).exists();
-
-  console.log('\n📁 Files detected:');
-  console.log(`   en-lyrics.txt: ✅`);
-  console.log(`   zh-lyrics.txt: ✅`);
-  console.log(`   background.mp4: ${bgVideoExists ? '✅' : '❌ (optional)'}`);
-
-  // Check for clip files
-  let clipCount = 0;
-  for (let i = 1; i <= 20; i++) {
-    const clipPath = path.join(songDir, `clip-${i}.mp3`);
-    if (await Bun.file(clipPath).exists()) {
-      clipCount++;
-    } else {
-      break;
-    }
-  }
-  if (clipCount > 0) {
-    console.log(`   clip-*.mp3: ${clipCount} files`);
-  }
-
   console.log('\n💡 Next steps:');
-  console.log(`   • Align lyrics: bun src/scripts/align-lyrics.ts --iswc=${iswc}`);
+  console.log(`   • Add original.mp3 to songs/${iswc}/ folder`);
   console.log(`   • Process audio: bun src/scripts/process-audio.ts --iswc=${iswc}`);
+  console.log(`   • Align lyrics: bun src/scripts/align-lyrics.ts --iswc=${iswc}`);
 }
 
 main().catch((error) => {

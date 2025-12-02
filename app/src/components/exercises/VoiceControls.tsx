@@ -57,10 +57,7 @@ export function VoiceControls({
       onClick={handleRecordToggle}
       variant={isRecording ? 'destructive' : 'default'}
       size="lg"
-      className={cn(
-        'w-full h-12',
-        isRecording && 'animate-pulse'
-      )}
+      className="w-full h-12"
     >
       {isRecording ? (
         <>

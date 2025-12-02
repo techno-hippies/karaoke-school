@@ -2,10 +2,11 @@
 /**
  * Emit Exercises Script
  *
- * Emits TranslationQuestionRegistered events to ExerciseEvents contract.
+ * Emits exercise events (translation, trivia) to ExerciseEvents contract.
  *
  * Usage:
  *   bun src/scripts/emit-exercises.ts --iswc=T0112199333
+ *   bun src/scripts/emit-exercises.ts --iswc=T0112199333 --type=trivia
  *   bun src/scripts/emit-exercises.ts --iswc=T0112199333 --limit=5
  *   bun src/scripts/emit-exercises.ts --iswc=T0112199333 --dry-run
  */
@@ -21,6 +22,7 @@ const { values } = parseArgs({
   args: Bun.argv.slice(2),
   options: {
     iswc: { type: 'string' },
+    type: { type: 'string' }, // 'translation', 'trivia', or 'all' (default)
     limit: { type: 'string', default: '100' },
     'dry-run': { type: 'boolean', default: false },
   },
@@ -33,6 +35,7 @@ const RPC_URL = 'https://rpc.testnet.lens.xyz';
 
 const EXERCISE_EVENTS_ABI = [
   'function emitTranslationQuestionRegistered(bytes32 questionId, bytes32 lineId, bytes32 segmentHash, string spotifyTrackId, uint16 lineIndex, string languageCode, string metadataUri, uint16 distractorPoolSize) external',
+  'function emitTriviaQuestionRegistered(bytes32 questionId, string spotifyTrackId, string languageCode, string metadataUri, uint16 distractorPoolSize) external',
 ];
 
 interface ExerciseData {
@@ -65,17 +68,33 @@ async function main() {
 
   if (!values.iswc) {
     console.error('Usage: bun src/scripts/emit-exercises.ts --iswc=T0112199333');
+    console.error('       bun src/scripts/emit-exercises.ts --iswc=T0112199333 --type=trivia');
     process.exit(1);
   }
 
   const iswc = normalizeISWC(values.iswc);
+  const exerciseType = values.type || 'all'; // 'translation', 'trivia', or 'all'
   const limit = parseInt(values.limit!);
   const dryRun = values['dry-run'];
 
   console.log('\n📤 Emitting Exercises');
   console.log(`   ISWC: ${iswc}`);
+  console.log(`   Type: ${exerciseType}`);
   console.log(`   Limit: ${limit}`);
   if (dryRun) console.log('   Mode: DRY RUN');
+
+  // Build type filter
+  const supportedTypes = ['translation', 'trivia'];
+  let typeFilter: string;
+  if (exerciseType === 'all') {
+    typeFilter = `e.exercise_type IN ('translation', 'trivia')`;
+  } else if (supportedTypes.includes(exerciseType)) {
+    typeFilter = `e.exercise_type = '${exerciseType}'`;
+  } else {
+    console.error(`❌ Unsupported exercise type: ${exerciseType}`);
+    console.error(`   Supported types: ${supportedTypes.join(', ')}, all`);
+    process.exit(1);
+  }
 
   // Get exercises that haven't been emitted yet
   const exercises = await query<ExerciseData>(`
@@ -88,7 +107,7 @@ async function main() {
     LEFT JOIN lyrics l ON e.lyric_id = l.id
     LEFT JOIN clips c ON e.clip_id = c.id
     WHERE s.iswc = $1
-      AND e.exercise_type = 'translation'
+      AND ${typeFilter}
       AND e.emitted_at IS NULL
     ORDER BY e.created_at
     LIMIT $2
@@ -99,7 +118,16 @@ async function main() {
     return;
   }
 
-  console.log(`\n📋 Found ${exercises.length} translation exercises to emit`);
+  // Count by type
+  const byType = exercises.reduce((acc, e) => {
+    acc[e.exercise_type] = (acc[e.exercise_type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log(`\n📋 Found ${exercises.length} exercises to emit`);
+  for (const [type, count] of Object.entries(byType)) {
+    console.log(`   ${type}: ${count}`);
+  }
 
   // Connect to Lens testnet
   console.log('\n🔗 Connecting to Lens testnet...');
@@ -154,31 +182,46 @@ async function main() {
 
       // Prepare contract params
       const questionId = uuidToBytes32(exercise.id);
-      const lineId = exercise.lyric_id ? uuidToBytes32(exercise.lyric_id) : ethers.ZeroHash;
-
-      // Calculate segment hash (use clip start if available, otherwise 0)
-      const clipStartMs = exercise.clip_start_ms || 0;
-      const segmentHash = ethers.keccak256(
-        ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'uint32'],
-          [exercise.spotify_track_id, clipStartMs]
-        )
-      );
-
-      const lineIndex = exercise.line_index || 0;
       const distractorPoolSize = exercise.question_data.distractors.length + 1; // +1 for correct answer
 
-      console.log('   Emitting TranslationQuestionRegistered...');
-      const tx = await contract.emitTranslationQuestionRegistered(
-        questionId,
-        lineId,
-        segmentHash,
-        exercise.spotify_track_id,
-        lineIndex,
-        exercise.language_code,
-        metadataUri,
-        distractorPoolSize
-      );
+      let tx;
+      if (exercise.exercise_type === 'trivia') {
+        // Trivia questions are song-level (no line/segment reference)
+        console.log('   Emitting TriviaQuestionRegistered...');
+        tx = await contract.emitTriviaQuestionRegistered(
+          questionId,
+          exercise.spotify_track_id,
+          exercise.language_code,
+          metadataUri,
+          distractorPoolSize
+        );
+      } else {
+        // Translation questions are linked to specific lines
+        const lineId = exercise.lyric_id ? uuidToBytes32(exercise.lyric_id) : ethers.ZeroHash;
+
+        // Calculate segment hash (use clip start if available, otherwise 0)
+        const clipStartMs = exercise.clip_start_ms || 0;
+        const segmentHash = ethers.keccak256(
+          ethers.AbiCoder.defaultAbiCoder().encode(
+            ['string', 'uint32'],
+            [exercise.spotify_track_id, clipStartMs]
+          )
+        );
+
+        const lineIndex = exercise.line_index || 0;
+
+        console.log('   Emitting TranslationQuestionRegistered...');
+        tx = await contract.emitTranslationQuestionRegistered(
+          questionId,
+          lineId,
+          segmentHash,
+          exercise.spotify_track_id,
+          lineIndex,
+          exercise.language_code,
+          metadataUri,
+          distractorPoolSize
+        );
+      }
 
       console.log(`   Transaction: ${tx.hash}`);
       const receipt = await tx.wait();

@@ -116,6 +116,16 @@ export interface GeniusReferent {
   created_at: Date;
 }
 
+export interface SongFactRecord {
+  id: string;
+  song_id: string;
+  fact_index: number;
+  text: string;
+  html: string | null;
+  source_url: string | null;
+  created_at: Date;
+}
+
 export interface Clip {
   id: string;
   song_id: string;

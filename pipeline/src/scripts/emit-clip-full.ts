@@ -25,7 +25,7 @@ import { ethers } from 'ethers';
 import { getSongByISWC, getArtistById, getLyricsBySong } from '../db/queries';
 import { query } from '../db/connection';
 import { uploadToGrove, downloadAndUploadImageToGrove } from '../services/grove';
-import { getEnvironment, getNetworkConfig, type Environment } from '../config/networks';
+import { getEnvironment, type Environment } from '../config/networks';
 import { ClipMetadataSchema, formatZodErrors, type ClipMetadata } from '../lib/schemas';
 import { callOpenRouter } from '../services/openrouter';
 import type { Song, Artist, Lyric } from '../types';
@@ -39,18 +39,39 @@ import type { Song, Artist, Lyric } from '../types';
  * "I'm just a poor boy (Ooh, poor boy)" → "I'm just a poor boy"
  */
 function stripTrailingAdLibs(text: string): string {
-  return text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const stripped = text.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  // If stripping leaves nothing, return original text (minus outer parens if that's all there is)
+  if (!stripped) {
+    // Check if entire line is just parenthetical - extract content
+    const match = text.match(/^\(([^)]+)\)$/);
+    return match ? match[1] : text;
+  }
+  return stripped;
 }
 
 // Contract config - KaraokeEvents handles both clip lifecycle and grading
-const KARAOKE_EVENTS_ADDRESS = '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76';
+// V3: Removed unlock params from SongEncrypted event (access control via metadata)
+const KARAOKE_EVENTS_ADDRESS = '0x8f97C17e599bb823e42d936309706628A93B33B8';
 const LENS_RPC = 'https://rpc.testnet.lens.xyz';
+
+// SongAccess contract addresses (per-song USDC purchase - single contract for all songs)
+const SONG_ACCESS_CONTRACT = {
+  testnet: {
+    address: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545',
+    chainId: 84532, // Base Sepolia
+  },
+  mainnet: {
+    address: '0x0000000000000000000000000000000000000000', // TODO: Deploy to Base
+    chainId: 8453,
+  },
+};
 
 const KARAOKE_EVENTS_ABI = [
   // Clip lifecycle events - updated with slug fields for direct subgraph indexing
   'function emitClipRegistered(bytes32 clipHash, string spotifyTrackId, string iswc, string title, string artist, string artistSlug, string songSlug, string coverUri, string thumbnailUri, uint32 clipStartMs, uint32 clipEndMs, string metadataUri) external',
   'function emitClipProcessed(bytes32 clipHash, string instrumentalUri, string alignmentUri, uint8 translationCount, string metadataUri) external',
-  'function emitSongEncrypted(bytes32 clipHash, string spotifyTrackId, string encryptedFullUri, string encryptedManifestUri, address unlockLockAddress, uint32 unlockChainId, string metadataUri) external',
+  // V3: Removed unlock params - access control now stored in encryption manifest metadata
+  'function emitSongEncrypted(bytes32 clipHash, string spotifyTrackId, string encryptedFullUri, string encryptedManifestUri, string metadataUri) external',
   // Karaoke session grading
   'function emitKaraokeSessionStarted(bytes32 sessionId, bytes32 clipHash, address performer) external',
 ];
@@ -70,18 +91,6 @@ function slugify(text: string): string {
     .replace(/-+/g, '-'); // Collapse multiple hyphens
 }
 
-function resolveSongUnlockLock(
-  song: Song,
-  artist: Artist,
-  env: Environment
-): string | null {
-  const songLock = env === 'testnet' ? song.unlock_lock_address_testnet : song.unlock_lock_address_mainnet;
-  const artistLock = env === 'testnet' ? artist.unlock_lock_address_testnet : artist.unlock_lock_address_mainnet;
-
-  if (songLock) return songLock;
-  if (artistLock) return artistLock;
-  return null;
-}
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -240,8 +249,6 @@ async function buildClipMetadata(
   thumbnailGroveUrl: string,
   env: Environment
 ): Promise<ClipMetadata> {
-  const networkConfig = getNetworkConfig(env);
-
   // Get encryption info for this environment
   const encryptedFullUrl = env === 'testnet'
     ? song.encrypted_full_url_testnet
@@ -252,9 +259,6 @@ async function buildClipMetadata(
   const litNetwork = env === 'testnet'
     ? song.lit_network_testnet
     : song.lit_network_mainnet;
-
-  // Get lock address (song-level preferred, fallback to artist)
-  const lockAddress = resolveSongUnlockLock(song, artist, env);
 
   // Group lyrics by line_index, with all language translations
   const enLyrics = lyrics.filter(l => l.language === 'en');
@@ -394,18 +398,20 @@ async function buildClipMetadata(
       alignment: null,
     },
 
-    // Encryption v2 - Premium tier (hybrid AES-GCM + Lit Protocol)
-    // encryptionMetadataUri points to JSON with encrypted key + audio URL
+    // Encryption v2.1 - Premium tier (hybrid AES-GCM + Lit Protocol)
+    // encryptionMetadataUri points to JSON with encrypted key + audio URL + access control
     // Frontend decrypts key with Lit (32 bytes - no 413!), then decrypts audio locally
+    // Access control: SongAccess ERC-721 (single contract for all songs)
     encryption: encryptionManifestUrl ? {
-      version: '2.0.0' as const,
+      version: '2.1.0' as const,
       environment: env,
-      encryptionMetadataUri: encryptionManifestUrl!, // v2: Points to encryption metadata
+      encryptionMetadataUri: encryptionManifestUrl!, // v2+: Points to encryption metadata
       encryptedFullUri: encryptedFullUrl || null, // v1 (deprecated): encrypted blob
-      manifestUri: null, // Deprecated in v2
+      manifestUri: null, // Deprecated in v2+
       litNetwork: litNetwork!,
-      unlockLockAddress: lockAddress!,
-      unlockChainId: networkConfig.unlock.chainId,
+      // SongAccess ERC-721: Single contract for all songs (per-song USDC purchase)
+      songAccessAddress: SONG_ACCESS_CONTRACT[env].address,
+      songAccessChainId: SONG_ACCESS_CONTRACT[env].chainId,
     } : null,
 
     // Lyrics preview (first few lines for list display)
@@ -447,7 +453,6 @@ async function main() {
   const dryRun = values['dry-run'];
   const skipEncryption = values['skip-encryption'];
   const uploadImages = values['upload-images'];
-  const networkConfig = getNetworkConfig(env);
 
   if (!iswc) {
     console.error('❌ Must specify --iswc');
@@ -531,9 +536,14 @@ async function main() {
   const encryptedFullUrl = env === 'testnet'
     ? song.encrypted_full_url_testnet
     : song.encrypted_full_url_mainnet;
-  const lockAddress = resolveSongUnlockLock(song, artist, env);
+  const encryptionManifestUrl = env === 'testnet'
+    ? song.encryption_manifest_url_testnet
+    : song.encryption_manifest_url_mainnet;
 
-  const hasEncryption = !!encryptedFullUrl && !!lockAddress;
+  // SongAccess ERC-721 is the access control model
+  const songAccessAddress = SONG_ACCESS_CONTRACT[env].address;
+  const hasSongAccess = songAccessAddress !== '0x0000000000000000000000000000000000000000';
+  const hasEncryption = !!encryptionManifestUrl && hasSongAccess;
 
   if (!hasEncryption && !skipEncryption) {
     console.warn(`\n⚠️  No encryption for ${env} environment`);
@@ -627,9 +637,10 @@ async function main() {
   console.log(`   Confirmed in block ${receipt2.blockNumber}`);
 
   // 3. Emit SongEncrypted (if encryption available)
+  // V3: Access control info is stored in the encryption manifest, not on-chain
   if (hasEncryption && !skipEncryption) {
     console.log('\n📤 Emitting SongEncrypted...');
-    const encryptionManifestUrl = env === 'testnet'
+    const encryptionManifestUrlForTx = env === 'testnet'
       ? song.encryption_manifest_url_testnet
       : song.encryption_manifest_url_mainnet;
 
@@ -637,9 +648,7 @@ async function main() {
       clipHash,
       song.spotify_track_id,
       encryptedFullUrl!,
-      encryptionManifestUrl || '',
-      lockAddress!,
-      networkConfig.unlock.chainId,
+      encryptionManifestUrlForTx || '',
       metadataUpload.url
     );
     console.log(`   TX: ${tx3.hash}`);

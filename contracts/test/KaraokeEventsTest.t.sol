@@ -51,8 +51,6 @@ contract KaraokeEventsTest is Test {
         string spotifyTrackId,
         string encryptedFullUri,
         string encryptedManifestUri,
-        address unlockLockAddress,
-        uint32 unlockChainId,
         string metadataUri,
         uint64 timestamp
     );
@@ -151,8 +149,6 @@ contract KaraokeEventsTest is Test {
             TRACK_ID,
             "grove://full-encrypted",
             "grove://manifest",
-            address(0xabc),
-            84532,
             "grove://song-metadata",
             uint64(block.timestamp)
         );
@@ -162,8 +158,6 @@ contract KaraokeEventsTest is Test {
             TRACK_ID,
             "grove://full-encrypted",
             "grove://manifest",
-            address(0xabc),
-            84532,
             "grove://song-metadata"
         );
     }

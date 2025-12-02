@@ -31,7 +31,8 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 | `clips` | Clip segments with start/end ms, emission status |
 | `exercises` | Translation, trivia, sayitback questions |
 | `accounts` | Posting accounts (scarlett) |
-| `genius_referents` | Song annotations for trivia generation |
+| `genius_referents` | Song annotations for trivia generation (interpretive) |
+| `songfacts` | Curated song trivia from songfacts.com (factual) |
 
 ### Key Song Columns
 
@@ -115,8 +116,12 @@ bun src/scripts/align-lyrics.ts --iswc=T0112199333
 # 5. Add ZH lyrics
 bun src/scripts/add-lyrics.ts --iswc=T0112199333 --language=zh
 
-# 6. Generate exercises
+# 6. Generate exercises (translation + sayitback)
 bun src/scripts/generate-exercises.ts --iswc=T0112199333
+
+# 6b. Generate trivia (fetch facts first, then generate)
+bun src/scripts/fetch-songfacts.ts --iswc=T0112199333
+bun src/scripts/generate-trivia.ts --iswc=T0112199333
 
 # 7. Select clip boundary (~60s, auto-finds section break)
 bun src/scripts/select-clip.ts --iswc=T0112199333
@@ -142,7 +147,9 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | `fetch-and-translate.ts` | Auto-fetch from LRCLIB + translate | `--iswc` |
 | `align-lyrics.ts` | ElevenLabs word alignment | `--iswc` |
 | `process-audio.ts` | Demucs + FAL (supports .mp3/.flac/.wav/.m4a, auto-converts to MP3) | `--iswc` |
-| `generate-exercises.ts` | Translation/trivia/sayitback | `--iswc` |
+| `generate-exercises.ts` | Translation/sayitback exercises | `--iswc`, `--type`, `--limit` |
+| `fetch-songfacts.ts` | Scrape trivia from songfacts.com | `--iswc`, `--all`, `--dry-run` |
+| `generate-trivia.ts` | Generate trivia from SongFacts + Genius | `--iswc`, `--all`, `--limit`, `--dry-run` |
 | `select-clip.ts` | Auto-select ~60s clip boundary | `--iswc`, `--dry-run` |
 | `create-clip.ts` | Crop enhanced instrumental to clip | `--iswc`, `--dry-run` |
 | `emit-clip-full.ts` | Full emit with Zod validation | `--iswc`, `--upload-images`, `--dry-run` |
@@ -178,38 +185,21 @@ bun src/scripts/create-lens-account.ts --handle=newaccount
 # Result: Lens account newaccount-ks in kschool2 namespace
 ```
 
-### Purchase/Subscription Locks
+### Song Purchase (SongAccess Contract)
 
-| Script | Purpose | Args |
-|--------|---------|------|
-| `deploy-song-lock.ts` | Deploy per-song purchase lock (~$0.15) | `--iswc` or `--spotify-id` |
-| `deploy-artist-lock.ts` | Deploy artist subscription lock (~$1.80/month) | `--artist-id` or `--spotify-id` |
-| `sync-lock-config.ts` | Sync lock addresses from DB → frontend config | (none) |
+Songs are purchased via the **SongAccess** custom ERC-721 contract on Base Sepolia.
+- Price: ~$0.10 USDC (one-time purchase)
+- Contract: `0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545`
+- Lit Protocol checks `ownsSongByTrackId()` for decryption access
 
-**Per-Song Purchase Model (Recommended):**
+No deployment scripts needed - the contract is already deployed and handles all songs.
 
-```bash
-# 1. Deploy lock for a song (~$0.15 one-time purchase, 10-year validity)
-bun src/scripts/deploy-song-lock.ts --iswc=T0112199333
+### AI Chat Premium (Global Lock)
 
-# 2. Sync to frontend config (auto-updates addresses.ts)
-bun src/scripts/sync-lock-config.ts
-
-# 3. Rebuild frontend if needed
-cd ../app && bun run build
-```
-
-**Artist Subscription Model (Legacy):**
-
-```bash
-# 1. Deploy lock (updates database automatically)
-bun src/scripts/deploy-artist-lock.ts --artist-id=<uuid>
-
-# 2. Sync to frontend config (auto-updates addresses.ts)
-bun src/scripts/sync-lock-config.ts
-```
-
-The `sync-lock-config.ts` script syncs both song and artist lock addresses to `app/src/lib/contracts/addresses.ts`. The frontend checks locks in priority order: **song-level → artist-level → clip metadata**.
+AI tutor chat premium (better model, better TTS) uses a global Unlock Protocol lock on Base Sepolia.
+- Lock: `0xfec85fbc62ca614097b0952b2088442295b269af`
+- Price: 0.001 ETH / 30 days
+- Used by: ChatContainer.tsx (`PREMIUM_AI_LOCK`)
 
 ### Utilities
 
@@ -248,7 +238,7 @@ Rules:
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
-| KaraokeEvents | `0x1eF06255c8e60684F79C9792bd4A66d05B38ed76` | Clip lifecycle + karaoke grading |
+| KaraokeEvents | `0x8f97C17e599bb823e42d936309706628A93B33B8` | Clip lifecycle + karaoke grading (V3) |
 | ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
 | TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |
@@ -326,6 +316,10 @@ bun src/scripts/add-lyrics.ts --iswc=T0123456789 --language=zh
 
 # 4. Generate exercises
 bun src/scripts/generate-exercises.ts --iswc=T0123456789
+
+# 5. Generate trivia
+bun src/scripts/fetch-songfacts.ts --iswc=T0123456789
+bun src/scripts/generate-trivia.ts --iswc=T0123456789
 ```
 
 ### Create and Emit a Clip
@@ -364,7 +358,7 @@ bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 
 ## Subgraph
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12`
 
 ```graphql
 query {
@@ -432,9 +426,9 @@ Clip metadata is validated with Zod (`pipeline/src/lib/schemas.ts`) before uploa
 | Lyrics | `karaoke_lines` (clip only) | `full_karaoke_lines` (all lines) |
 | Karaoke Practice | Clip portion only | Full song |
 
-The frontend (`MediaPageContainer.tsx`) automatically selects the right lyrics based on subscription status:
-- Checks NFT balance via Unlock Protocol on Base Sepolia
-- Uses `full_karaoke_lines` if subscriber, `karaoke_lines` otherwise
+The frontend (`MediaPageContainer.tsx`) automatically selects the right lyrics based on purchase status:
+- Checks ownership via SongAccess contract on Base Sepolia
+- Uses `full_karaoke_lines` if purchased, `karaoke_lines` otherwise
 
 ### Validation
 

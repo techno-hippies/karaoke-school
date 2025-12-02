@@ -10,9 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { convertGroveUri } from '@/lib/lens/utils'
 import { getPreferredLanguage } from '@/lib/language'
 import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
-import { useSongPurchase } from '@/hooks/useSongPurchase'
-import { useHybridDecrypt } from '@/hooks/useHybridDecrypt'
-import { useSubscriptionCheck } from '@/hooks/useSubscriptionCheck'
+import { useSongAccess } from '@/hooks/useSongAccess'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLineKaraokeGrader } from '@/hooks/useLineKaraokeGrader'
 
@@ -22,6 +20,11 @@ interface MediaPageContainerProps {
 
 /**
  * Media Page Container - Karaoke player or practice session
+ *
+ * Uses unified useSongAccess state machine for:
+ * - Ownership checking (SongAccess contract only)
+ * - Purchase flow (USDC permit)
+ * - Audio decryption (Lit Protocol)
  *
  * Routes:
  * - /song/:workId/play (MediaPage)
@@ -40,8 +43,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   // Subscription dialog state
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false)
-  // Trigger to re-check subscription after purchase
-  const [subscriptionRecheckTrigger, setSubscriptionRecheckTrigger] = useState(0)
 
   // Resolve slug to Spotify track ID if using slug-based route
   const { data: slugData, isLoading: isLoadingSlug } = useSongSlug(artistSlug, songSlug)
@@ -55,25 +56,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   // Get first clip from work
   const firstClip = workData?.clips?.[0]
 
-  // Get artist slug from URL params or clip metadata
-  const resolvedArtistSlug = artistSlug || firstClip?.metadata?.artistSlug
-
-  const {
-    purchase,
-    status: subscriptionStatus,
-    statusMessage: subscriptionStatusMessage,
-    errorMessage: subscriptionErrorMessage,
-    reset: resetSubscription,
-  } = useSongPurchase(
-    spotifyTrackId,
-    pkpAddress ?? undefined,
-    { walletClient: pkpWalletClient }
-  )
-
-
-  const isSubscriptionProcessing =
-    subscriptionStatus === 'checking' || subscriptionStatus === 'signing' || subscriptionStatus === 'purchasing'
-
   // Fetch clip metadata (includes lyrics and alignment)
   const { data: clipMetadata, isLoading: isLoadingClip } = useSegmentMetadata(
     firstClip?.metadataUri
@@ -82,26 +64,55 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   // Get encryption metadata URI for v2 hybrid decryption
   const encryptionMetadataUri = (clipMetadata as any)?.encryption?.encryptionMetadataUri
 
-  // Check if user owns song (SongAccess contract) or has legacy Unlock subscription
-  const { hasSubscription } = useSubscriptionCheck({
+  // ============ Unified Song Access State Machine ============
+  const {
+    state: accessState,
+    isOwned,
+    isPurchasing,
+    isDecrypting,
+    decryptedAudioUrl,
+    decryptProgress,
+    error: accessError,
+    statusMessage,
+    purchase,
+    retryDecrypt,
+    reset: resetAccess,
+    purchaseSubState,
+  } = useSongAccess({
     spotifyTrackId,
-    artistSlug: resolvedArtistSlug,
-    recheckTrigger: subscriptionRecheckTrigger,
+    encryptionMetadataUrl: encryptionMetadataUri,
+    walletClient: pkpWalletClient,
   })
 
-  // Decrypt full audio using v2 hybrid encryption (only for v2 clips with encryptionMetadataUri)
-  const {
-    decryptedAudioUrl,
-    isDecrypting,
-    error: decryptError,
-    isLoading: isDecryptLoading,
-    progress: decryptProgress,
-  } = useHybridDecrypt(
-    hasSubscription ? encryptionMetadataUri : undefined, // Only attempt decrypt if subscribed
-    firstClip?.spotifyTrackId,
-    subscriptionRecheckTrigger
-  )
-
+  // Map state machine to dialog step
+  const getDialogStep = (): 'idle' | 'checking' | 'signing' | 'purchasing' | 'complete' | 'error' => {
+    if (!isPurchasing && accessState === 'not-owned') {
+      // Check if we have an error from a failed purchase
+      if (accessError) return 'error'
+      return 'idle'
+    }
+    if (isPurchasing) {
+      switch (purchaseSubState) {
+        case 'checking-balance':
+          return 'checking'
+        case 'signing':
+          return 'signing'
+        case 'confirming':
+          return 'purchasing'
+        default:
+          return 'checking'
+      }
+    }
+    // After purchase success, state transitions to owned-pending-decrypt
+    if (accessState === 'owned-pending-decrypt' && showSubscriptionDialog) {
+      return 'complete'
+    }
+    // Also show complete for other owned states if dialog is still open
+    if (isOwned && showSubscriptionDialog) {
+      return 'complete'
+    }
+    return 'idle'
+  }
 
   // Load translations and alignment from NEW format (separate Grove files)
   useEffect(() => {
@@ -110,14 +121,13 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     }
 
   // Choose karaoke lines based on subscription status:
-  // - Subscribers get full_karaoke_lines (all lyrics) if available
-  // - Non-subscribers get karaoke_lines (clip portion only)
-  const karaokeLinesToUse = hasSubscription && clipMetadata.full_karaoke_lines?.length
+  // - Owners get full_karaoke_lines (all lyrics) if available
+  // - Non-owners get karaoke_lines (clip portion only)
+  const karaokeLinesToUse = isOwned && clipMetadata.full_karaoke_lines?.length
     ? clipMetadata.full_karaoke_lines
     : clipMetadata.karaoke_lines
 
   if (karaokeLinesToUse && Array.isArray(karaokeLinesToUse) && karaokeLinesToUse.length > 0) {
-      console.log(`[MediaPageContainer] Using ${karaokeLinesToUse.length} karaoke lines (subscriber: ${hasSubscription}, full available: ${!!clipMetadata.full_karaoke_lines?.length})`)
 
       const lyricsLines = karaokeLinesToUse.map((line: any) => ({
           start: Number(line.start_ms) / 1000,
@@ -131,7 +141,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           })) : [],
           originalText: line.text || line.original_text || '',
       }))
-      
+
       setOriginalLyricsLines(lyricsLines)
   }
 
@@ -150,23 +160,19 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       return
     }
 
-    // Choose translation URLs based on subscription status
-    // Non-subscribed: Use clip_grove_url (40-60s clip only)
-    // Subscribed: Use grove_url (full song)
-    // console.log('[MediaPageContainer] Loading translations - hasSubscription:', hasSubscription)
+    // Choose translation URLs based on ownership status
+    // Non-owners: Use clip_grove_url (40-60s clip only)
+    // Owners: Use grove_url (full song)
     Promise.all<[string, any] | null>(
     // @ts-expect-error - Promise.all type inference
       clipMetadata.translations.map(async (t: any) => {
         try {
-          const translationUrl = hasSubscription ? t.grove_url : (t.clip_grove_url || t.grove_url)
-          console.log(`[MediaPageContainer] Loading ${t.language_code} from:`, translationUrl, '(subscription:', hasSubscription, ')')
+          const translationUrl = isOwned ? t.grove_url : (t.clip_grove_url || t.grove_url)
           const url = convertGroveUri(translationUrl)
           const response = await fetch(url)
           const data = await response.json()
-          console.log(`[MediaPageContainer] Loaded ${t.language_code} with ${data.lines?.length || 0} lines`)
           return [t.language_code, data]
-        } catch (e) {
-          console.error(`[MediaPageContainer] Failed to load ${t.language_code}:`, e)
+        } catch {
           return null
         }
       })
@@ -208,11 +214,11 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
         setOriginalLyricsLines(lyricsLines)
       }
-      
+
       // Always update translations map
       setLoadedTranslations(translations)
     })
-  }, [clipMetadata, hasSubscription]) // Removed originalLyricsLines from dep array to avoid loops
+  }, [clipMetadata, isOwned]) // Removed originalLyricsLines from dep array to avoid loops
 
   // Loading state - check both loading AND data completeness to prevent placeholder flash
   if (isLoadingSlug || isLoadingWork || isLoadingClip || !clipMetadata?.title || !clipMetadata?.artist) {
@@ -257,14 +263,20 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const audioUrl = decryptedAudioUrl || clipAudioUrl
 
   // Track if we're upgrading from clip to full audio
-  const isUpgradingToFullAudio = hasSubscription && !decryptedAudioUrl && (isDecrypting || isDecryptLoading)
+  // Show progress only during actual decryption (after Lit auth succeeds)
+  const isUpgradingToFullAudio = isDecrypting || (accessState === 'owned-pending-decrypt' && encryptionMetadataUri)
+
+  // Show unlock button if:
+  // 1. User hasn't purchased the song (!isOwned), OR
+  // 2. Decryption failed with ACC error (state === 'owned-decrypt-failed')
+  const shouldShowUnlockButton = !isOwned || accessState === 'owned-decrypt-failed'
 
   // Show error only if we have no audio at all
   if (!audioUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
         <h1 className="text-xl sm:text-2xl font-bold text-center">{t('song.unableToLoad')}</h1>
-        <p className="text-muted-foreground">{decryptError || t('song.instrumentalNotAvailable')}</p>
+        <p className="text-muted-foreground">{accessError || t('song.instrumentalNotAvailable')}</p>
         <button onClick={() => navigate(-1)} className="text-primary hover:underline">
           {t('common.back')}
         </button>
@@ -295,8 +307,8 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const inlineTranslations = clipMetadata.lyrics.translations || {}
   const allTranslations = { ...inlineTranslations, ...loadedTranslations }
 
-  // Determine which karaoke lines to use for translations based on subscription
-  const activeKaraokeLines = hasSubscription && clipMetadata?.full_karaoke_lines?.length
+  // Determine which karaoke lines to use for translations based on ownership
+  const activeKaraokeLines = isOwned && clipMetadata?.full_karaoke_lines?.length
     ? clipMetadata.full_karaoke_lines
     : clipMetadata?.karaoke_lines
 
@@ -317,7 +329,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
     const translations: Record<string, string> = {}
 
     // NEW: Check for inline translations in karaoke_lines (zh_text, vi_text, id_text)
-    // Use activeKaraokeLines which is full_karaoke_lines for subscribers, karaoke_lines otherwise
+    // Use activeKaraokeLines which is full_karaoke_lines for owners, karaoke_lines otherwise
     const karaokeLineSource = activeKaraokeLines?.[index] as Record<string, any> | undefined
     if (karaokeLineSource?.zh_text) translations['zh'] = karaokeLineSource.zh_text as string
     if (karaokeLineSource?.vi_text) translations['vi'] = karaokeLineSource.vi_text as string
@@ -332,12 +344,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
         translations[lang] = text
       }
     })
-
-    if (index === 0) {
-      // console.log('[MediaPageContainer] First line - allTranslations keys:', Object.keys(allTranslations))
-      // console.log('[MediaPageContainer] First line - zh sample:', allTranslations.zh?.lines?.[0])
-      // console.log('[MediaPageContainer] Translations built for first line:', translations)
-    }
 
     const builtLine = {
       lineIndex: index,
@@ -354,21 +360,18 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
       })),
     }
 
-    if (index === 0) {
-      // console.log('[MediaPageContainer] First built line:', builtLine)
-      // Log FULL word timing for debugging - show actual values
-      const wordTiming = builtLine.words.map((w: any) => `"${w.text}" [${w.start?.toFixed?.(2) ?? w.start ?? 'undefined'}-${w.end?.toFixed?.(2) ?? w.end ?? 'undefined'}]`)
-      // console.log('[MediaPageContainer] 🎯 WORD TIMING:', wordTiming.join(', '))
-      // console.log('[MediaPageContainer] 🎯 LINE TIMING: start=', builtLine.start, 'end=', builtLine.end)
-    }
-
     return builtLine
   })
 
   const handleUnlockClick = () => {
     if (!pkpAddress || !pkpWalletClient) {
-      console.warn('[MediaPageContainer] 🔐 No PKP wallet available')
       alert('Please sign in to unlock this song.')
+      return
+    }
+
+    // If decrypt failed, retry instead of showing dialog
+    if (accessState === 'owned-decrypt-failed') {
+      retryDecrypt()
       return
     }
 
@@ -377,7 +380,6 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const handleSubscriptionConfirm = async () => {
     if (!pkpAddress || !pkpWalletClient) {
-      console.error('[MediaPageContainer] 🔐 No PKP wallet available for purchase')
       alert('Please sign in to unlock this song.')
       return
     }
@@ -387,24 +389,18 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const handleSubscriptionRetry = async () => {
     if (!pkpAddress || !pkpWalletClient) {
-      console.error('[MediaPageContainer] 🔐 No PKP wallet available for retry')
       alert('Please sign in to unlock this song.')
       return
     }
-    resetSubscription()
-    await purchase()
+    resetAccess()
+    setShowSubscriptionDialog(true)
   }
 
   const handleSubscriptionDialogClose = (open: boolean) => {
-    // console.log('[MediaPageContainer] 🔐 handleSubscriptionDialogClose called, open:', open)
-    // console.log('[MediaPageContainer] 🔐 Current subscription status:', subscriptionStatus)
     setShowSubscriptionDialog(open)
-    if (!open && subscriptionStatus === 'complete') {
-      // console.log('[MediaPageContainer] 🔐 Resetting subscription after completion')
-      resetSubscription()
-      // Trigger re-check of subscription to unlock full audio
-      setSubscriptionRecheckTrigger(prev => prev + 1)
-    }
+    // No need to reset or trigger recheck - state machine handles it all!
+    // After purchase success, state is already owned-pending-decrypt
+    // Closing dialog just hides the UI, decryption continues/starts automatically
   }
 
 
@@ -417,9 +413,9 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           lyrics={lyrics}
           clipHash={firstClip.clipHash}
           metadataUri={firstClip.metadataUri}
-          isSubscriber={hasSubscription}
+          isSubscriber={isOwned && accessState !== 'owned-decrypt-failed'}
           onClose={() => navigate(-1)}
-          onSubscribe={hasSubscription ? undefined : handleUnlockClick}
+          onSubscribe={shouldShowUnlockButton ? handleUnlockClick : undefined}
           gradeLine={gradeLine}
         />
       )
@@ -441,7 +437,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
               ? () => navigate(`/u/${(clipMetadata as any).artistLensHandle}`)
               : undefined
           }
-          onUnlockClick={hasSubscription ? undefined : handleUnlockClick}
+          onUnlockClick={shouldShowUnlockButton ? handleUnlockClick : undefined}
         />
       )
 
@@ -453,10 +449,10 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
         open={showSubscriptionDialog}
         onOpenChange={handleSubscriptionDialogClose}
         displayName={title}
-        currentStep={subscriptionStatus}
-        isProcessing={isSubscriptionProcessing}
-        statusMessage={subscriptionStatusMessage}
-        errorMessage={subscriptionErrorMessage}
+        currentStep={getDialogStep()}
+        isProcessing={isPurchasing}
+        statusMessage={statusMessage}
+        errorMessage={accessError}
         onSubscribe={handleSubscriptionConfirm}
         onRetry={handleSubscriptionRetry}
       />

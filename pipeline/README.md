@@ -76,5 +76,5 @@ pipeline-new/
 
 ## Contracts (Lens Testnet)
 
-- **KaraokeEvents**: `0x1eF06255c8e60684F79C9792bd4A66d05B38ed76`
+- **KaraokeEvents**: `0x8f97C17e599bb823e42d936309706628A93B33B8`
 - **ExerciseEvents**: `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832`

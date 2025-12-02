@@ -14,18 +14,15 @@
  */
 
 import { parseArgs } from 'util';
-import { query, queryOne } from '../db/connection';
 import {
   getSongByISWC,
   getLyricsBySong,
-  createReferents,
   createExercises,
   type CreateExerciseData,
-  type CreateReferentData,
 } from '../db/queries';
 import { normalizeISWC } from '../lib/lyrics-parser';
-import { validateEnv, GENIUS_API_KEY, OPENROUTER_API_KEY } from '../config';
-import type { Lyric, QuestionData, GeniusReferent } from '../types';
+import { validateEnv, OPENROUTER_API_KEY } from '../config';
+import type { Lyric, QuestionData } from '../types';
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -61,61 +58,6 @@ function stripTrailingAdLibs(text: string): string {
 }
 
 // ============================================================================
-// GENIUS API
-// ============================================================================
-
-interface GeniusReferentResponse {
-  referent: {
-    id: number;
-    fragment: string;
-    classification: string;
-    annotator_id: number;
-    annotations: Array<{
-      id: number;
-      body: {
-        plain: string;
-      };
-      verified: boolean;
-      votes_total: number;
-    }>;
-  };
-}
-
-interface GeniusReferentsResponse {
-  referents: Array<{
-    id: number;
-    fragment: string;
-    classification: string;
-    annotations: Array<{
-      id: number;
-      body: {
-        plain: string;
-      };
-      verified: boolean;
-      votes_total: number;
-    }>;
-  }>;
-}
-
-async function fetchGeniusReferents(songId: number): Promise<GeniusReferentsResponse['referents']> {
-  const response = await fetch(
-    `https://api.genius.com/referents?song_id=${songId}&per_page=50&text_format=plain`,
-    {
-      headers: {
-        Authorization: `Bearer ${GENIUS_API_KEY}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Genius API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.response.referents;
-}
-
-// ============================================================================
 // OPENROUTER AI
 // ============================================================================
 
@@ -147,53 +89,6 @@ async function callOpenRouter(
 
   const data = await response.json();
   return data.choices[0].message.content;
-}
-
-// ============================================================================
-// TRIVIA GENERATION
-// ============================================================================
-
-async function generateTriviaFromReferent(
-  referent: GeniusReferent,
-  songTitle: string
-): Promise<QuestionData | null> {
-  const annotation = referent.annotations as { plain?: string } | undefined;
-  if (!annotation?.plain) return null;
-
-  const prompt = `Generate a trivia question about this song lyric and its meaning.
-
-Song: ${songTitle}
-Lyric fragment: "${referent.fragment}"
-Annotation: ${annotation.plain}
-
-Create a multiple-choice question with:
-1. A clear question about the lyric's meaning, cultural reference, or background
-2. One correct answer
-3. Three plausible but incorrect distractors
-
-Respond in JSON format:
-{
-  "prompt": "The question text",
-  "correct_answer": "The correct answer",
-  "distractors": ["Wrong answer 1", "Wrong answer 2", "Wrong answer 3"],
-  "explanation": "Brief explanation of why this is correct"
-}`;
-
-  try {
-    const response = await callOpenRouter([
-      { role: 'system', content: 'You are a music trivia expert. Generate educational trivia questions about song lyrics.' },
-      { role: 'user', content: prompt },
-    ]);
-
-    // Extract JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    return JSON.parse(jsonMatch[0]) as QuestionData;
-  } catch (error) {
-    console.error(`   Failed to generate trivia for referent ${referent.referent_id}:`, error);
-    return null;
-  }
 }
 
 // ============================================================================
@@ -414,69 +309,15 @@ async function main() {
   const exercises: CreateExerciseData[] = [];
 
   // -------------------------------------------------------------------------
-  // TRIVIA (from Genius)
+  // TRIVIA - DEPRECATED: Use generate-trivia.ts instead
   // -------------------------------------------------------------------------
-  if (exerciseType === 'all' || exerciseType === 'trivia') {
-    console.log('\n🎯 Generating trivia exercises...');
-
-    // Check if we have Genius ID
-    const geniusId = values['genius-id'] ? parseInt(values['genius-id']) : song.genius_song_id;
-
-    if (!geniusId) {
-      console.log('   ⚠️  No Genius ID provided. Skipping trivia.');
-    } else {
-      validateEnv(['GENIUS_API_KEY', 'OPENROUTER_API_KEY']);
-
-      // Fetch referents
-      console.log(`   Fetching Genius referents for song ${geniusId}...`);
-      const referents = await fetchGeniusReferents(geniusId);
-      console.log(`   Found ${referents.length} referents`);
-
-      // Store referents
-      const referentData: CreateReferentData[] = referents.map((r) => ({
-        song_id: song.id,
-        referent_id: r.id,
-        genius_song_id: geniusId,
-        fragment: r.fragment,
-        classification: r.classification,
-        annotations: r.annotations[0]?.body || null,
-        votes_total: r.annotations[0]?.votes_total || 0,
-        is_verified: r.annotations[0]?.verified || false,
-      }));
-
-      if (referentData.length > 0) {
-        await createReferents(referentData);
-        console.log(`   Stored ${referentData.length} referents`);
-      }
-
-      // Get stored referents (all of them, sorted by votes)
-      const storedReferents = await query<GeniusReferent>(
-        `SELECT * FROM genius_referents WHERE song_id = $1 ORDER BY votes_total DESC`,
-        [song.id]
-      );
-
-      // Generate trivia for referents (up to limit if specified)
-      const triviaLimit = limit === Infinity ? storedReferents.length : limit;
-      let triviaCount = 0;
-      for (const ref of storedReferents) {
-        if (triviaCount >= triviaLimit) break;
-
-        const questionData = await generateTriviaFromReferent(ref, song.title);
-        if (questionData) {
-          exercises.push({
-            song_id: song.id,
-            exercise_type: 'trivia',
-            language_code: 'en',
-            question_data: questionData,
-            referent_id: ref.referent_id,
-          });
-          triviaCount++;
-          console.log(`   ✅ Trivia ${triviaCount}: ${questionData.prompt.slice(0, 50)}...`);
-        }
-      }
-
-      console.log(`   Generated ${triviaCount} trivia exercises`);
-    }
+  if (exerciseType === 'trivia') {
+    console.log('\n⚠️  Trivia generation has moved to generate-trivia.ts');
+    console.log('   This script now uses improved pedagogy with SongFacts + Genius.');
+    console.log('\n   Run instead:');
+    console.log(`   bun src/scripts/fetch-songfacts.ts --iswc=${iswc}`);
+    console.log(`   bun src/scripts/generate-trivia.ts --iswc=${iswc}`);
+    process.exit(0);
   }
 
   // -------------------------------------------------------------------------
@@ -487,6 +328,8 @@ async function main() {
     validateEnv(['OPENROUTER_API_KEY']);
 
     let translationCount = 0;
+    let skippedDuplicates = 0;
+    const seenTranslationText = new Set<string>();
 
     for (const enLine of enLyrics) {
       if (translationCount >= limit) break;
@@ -503,6 +346,14 @@ async function main() {
       // Skip very short lines (less than 3 words after stripping)
       const wordCount = cleanText.split(/\s+/).length;
       if (wordCount < 3) continue;
+
+      // Skip duplicate text (same lyrics repeated in song)
+      const normalizedText = cleanText.toLowerCase().trim();
+      if (seenTranslationText.has(normalizedText)) {
+        skippedDuplicates++;
+        continue;
+      }
+      seenTranslationText.add(normalizedText);
 
       console.log(`   📝 Line ${translationCount + 1}: "${cleanText.slice(0, 40)}..."`);
 
@@ -536,6 +387,9 @@ async function main() {
     }
 
     console.log(`   Generated ${translationCount} translation exercises`);
+    if (skippedDuplicates > 0) {
+      console.log(`   Skipped ${skippedDuplicates} duplicate lines`);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -546,6 +400,8 @@ async function main() {
 
     // Create sayitback exercises for lines with timing
     let sayitbackCount = 0;
+    let skippedDuplicates = 0;
+    const seenSayitbackText = new Set<string>();
 
     for (const enLine of enLyrics) {
       if (sayitbackCount >= limit) break;
@@ -563,6 +419,14 @@ async function main() {
       const wordCount = cleanText.split(/\s+/).length;
       if (wordCount < 2) continue;
 
+      // Skip duplicate text (same lyrics repeated in song)
+      const normalizedText = cleanText.toLowerCase().trim();
+      if (seenSayitbackText.has(normalizedText)) {
+        skippedDuplicates++;
+        continue;
+      }
+      seenSayitbackText.add(normalizedText);
+
       // Use cleaned text for sayitback
       const cleanedLine = { ...enLine, text: cleanText };
       const questionData = generateSayItBackExercise(cleanedLine);
@@ -579,6 +443,9 @@ async function main() {
     }
 
     console.log(`   Generated ${sayitbackCount} sayitback exercises`);
+    if (skippedDuplicates > 0) {
+      console.log(`   Skipped ${skippedDuplicates} duplicate lines`);
+    }
   }
 
   // -------------------------------------------------------------------------

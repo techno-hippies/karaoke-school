@@ -28,7 +28,7 @@ const { values } = parseArgs({
 // Contract config
 const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';
 const RPC_URL = 'https://rpc.testnet.lens.xyz';
-const SUBGRAPH_URL = 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.8';
+const SUBGRAPH_URL = 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12';
 
 const EXERCISE_EVENTS_ABI = [
   'function toggleQuestion(bytes32 questionId, bool enabled) external',

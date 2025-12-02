@@ -50,6 +50,17 @@ export type ExerciseData = SayItBackData | MultipleChoiceData | LoadingExerciseD
 export function useExerciseData(card?: StudyCard): ExerciseData {
   const isSayItBack = card?.exerciseType === 'SAY_IT_BACK'
 
+  // Debug: log card details to diagnose blank exercise issue
+  if (card) {
+    console.log('[useExerciseData] Card details:', {
+      id: card.id?.substring(0, 20),
+      exerciseType: card.exerciseType,
+      lineIndex: card.lineIndex,
+      metadataUri: card.metadataUri?.substring(0, 60),
+      isSayItBack,
+    })
+  }
+
   // SAY_IT_BACK data fetching
   const { data: segmentMetadata, isLoading: isLoadingSegment } = useSegmentMetadata(
     isSayItBack ? card?.metadataUri : undefined
@@ -99,7 +110,7 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
   if (isSayItBack) {
     const isLoading = isLoadingSegment || isLoadingAlignment || isLoadingTranslation
 
-    // Extract exercise text from translation or alignment
+    // Extract exercise text from translation, alignment, or karaoke_lines
     let exerciseText = ''
     const lineIndex = card.lineIndex ?? 0
 
@@ -113,12 +124,26 @@ export function useExerciseData(card?: StudyCard): ExerciseData {
       const endWord = startWord + wordsPerLine
       const lineWords = alignmentData.words.slice(startWord, endWord)
       exerciseText = lineWords.map((w: any) => w.text || w.word).join(' ')
+    } else if (segmentMetadata?.karaoke_lines?.[lineIndex]) {
+      // Fallback: extract from karaoke_lines embedded in clip metadata
+      const line = segmentMetadata.karaoke_lines[lineIndex]
+      exerciseText = line.original_text || line.text || ''
     }
+
+    // Debug: log segment metadata to diagnose instrumental issue
+    console.log('[useExerciseData] SAY_IT_BACK data:', {
+      hasSegmentMetadata: !!segmentMetadata,
+      assets: segmentMetadata?.assets,
+      instrumentalFromCard: card.instrumentalUri,
+    })
+
+    // Use instrumentalUri from card (populated from subgraph) as fallback
+    const instrumentalUri = segmentMetadata?.assets?.instrumental || card.instrumentalUri || ''
 
     const response: SayItBackData = {
       type: 'SAY_IT_BACK',
       exerciseText,
-      instrumentalUri: segmentMetadata?.assets?.instrumental || '',
+      instrumentalUri,
       segmentMetadata,
       alignmentData,
       translationData,

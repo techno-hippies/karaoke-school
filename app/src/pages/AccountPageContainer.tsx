@@ -4,21 +4,17 @@
  * with videos, songs (if artist), and stats
  */
 
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AccountPage, type ArtistSong } from '@/components/profile/AccountPage'
 import type { VideoPost } from '@/components/video/VideoGrid'
 import { useLensCreator, isVideoPost } from '@/hooks/useLensCreator'
 import type { Post } from '@/hooks/useLensCreator'
 import { useArtistSongsByLensHandle } from '@/hooks/useArtistSongsByLensHandle'
-import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
 import { useFollow } from '@/hooks/useFollow'
 import { useFollowers } from '@/hooks/useFollowers'
 import { useFollowing } from '@/hooks/useFollowing'
-import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 import { Spinner } from '@/components/ui/spinner'
-import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
-import { useAuth } from '@/contexts/AuthContext'
 import {
   convertGroveUri,
   convertLensImage,
@@ -29,8 +25,6 @@ import { LENS_CUSTOM_NAMESPACE } from '@/lib/lens/config'
 export function AccountPageContainer() {
   const { lenshandle } = useParams<{ lenshandle: string }>()
   const navigate = useNavigate()
-  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
-  const { pkpAddress, pkpWalletClient } = useAuth()
 
   // Fetch account and posts from Lens (using kschool2 custom namespace)
   const {
@@ -50,15 +44,6 @@ export function AccountPageContainer() {
     isLoading: isLoadingSongs,
   } = useArtistSongsByLensHandle(lenshandle)
 
-  // Get artist slug from the first song (all songs from same artist have same slug)
-  const artistSlug = artistSongs?.[0]?.artistSlug
-
-  // Get subscription lock by artist slug (works for all songs from same artist)
-  const {
-    data: subscriptionLockData,
-    isLoading: isLoadingLock,
-  } = useCreatorSubscriptionLock({ artistSlug })
-
   // Fetch follow state and follower counts
   const { isFollowing, canFollow, follow: handleFollowAction, isLoading: isFollowLoading } = useFollow({
     targetAccountAddress: account?.address || '',
@@ -73,55 +58,6 @@ export function AccountPageContainer() {
     accountAddress: account?.address,
     enabled: !!account,
   })
-
-  // Unlock Protocol subscription - uses lock address from subgraph
-  const {
-    subscribe,
-    status: subscriptionStatus,
-    statusMessage: subscriptionStatusMessage,
-    errorMessage: subscriptionErrorMessage,
-    reset: resetSubscription,
-  } = useUnlockSubscription(
-    pkpAddress ?? undefined,
-    subscriptionLockData?.unlockLockAddress,
-    { walletClient: pkpWalletClient }
-  )
-
-  const isSubscriptionProcessing =
-    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
-
-  // Handle subscription flow (memoized)
-  const handleSubscribe = useCallback(() => {
-    if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-    setIsSubscriptionDialogOpen(true)
-  }, [pkpAddress, pkpWalletClient])
-
-  const handleSubscriptionConfirm = useCallback(async () => {
-    if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-    await subscribe()
-  }, [pkpAddress, pkpWalletClient, subscribe])
-
-  const handleSubscriptionRetry = useCallback(async () => {
-    if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-    resetSubscription()
-    await subscribe()
-  }, [pkpAddress, pkpWalletClient, resetSubscription, subscribe])
-
-  const handleSubscriptionDialogClose = useCallback((open: boolean) => {
-    setIsSubscriptionDialogOpen(open)
-    if (!open && subscriptionStatus === 'complete') {
-      resetSubscription()
-    }
-  }, [subscriptionStatus, resetSubscription])
 
   // Handle video click - navigate to video detail page (memoized)
   const handleVideoClick = useCallback((video: VideoPost) => {
@@ -146,7 +82,7 @@ export function AccountPageContainer() {
   }, [canFollow, isFollowing, handleFollowAction])
 
   // Loading state
-  if (isLoadingAccount || isLoadingSongs || isLoadingLock) {
+  if (isLoadingAccount || isLoadingSongs) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Spinner size="lg" />
@@ -258,47 +194,23 @@ export function AccountPageContainer() {
     console.error('[CreatorPage] Posts fetch error:', postsError)
   }
 
-  // Only show subscribe button if creator has songs AND a valid lock address
-  const hasSubscription = !!subscriptionLockData?.unlockLockAddress && songs.length > 0
-
-  console.log('[CreatorPage] 🔒 Subscription check:', {
-    songsCount: songs.length,
-    subscriptionLockData,
-    hasSubscription,
-  })
-
   return (
-    <>
-      <AccountPage
-        username={lenshandle || ''}
-        displayName={displayName}
-        avatarUrl={avatarUrl}
-        isVerified={verified}
-        isOwnProfile={false} // TODO: Check if current user matches creator
-        following={followingCount}
-        followers={followersCount}
-        isFollowing={isFollowing}
-        isFollowLoading={isFollowLoading}
-        videos={videos}
-        onVideoClick={handleVideoClick}
-        isLoadingVideos={isLoadingPosts}
-        songs={songs}
-        onBack={() => navigate(-1)}
-        onFollow={handleFollow}
-        onSubscribe={hasSubscription ? handleSubscribe : undefined}
-      />
-
-      <SubscriptionDialog
-        open={isSubscriptionDialogOpen}
-        onOpenChange={handleSubscriptionDialogClose}
-        displayName={displayName}
-        currentStep={subscriptionStatus}
-        isProcessing={isSubscriptionProcessing}
-        statusMessage={subscriptionStatusMessage}
-        errorMessage={subscriptionErrorMessage}
-        onSubscribe={handleSubscriptionConfirm}
-        onRetry={handleSubscriptionRetry}
-      />
-    </>
+    <AccountPage
+      username={lenshandle || ''}
+      displayName={displayName}
+      avatarUrl={avatarUrl}
+      isVerified={verified}
+      isOwnProfile={false} // TODO: Check if current user matches creator
+      following={followingCount}
+      followers={followersCount}
+      isFollowing={isFollowing}
+      isFollowLoading={isFollowLoading}
+      videos={videos}
+      onVideoClick={handleVideoClick}
+      isLoadingVideos={isLoadingPosts}
+      songs={songs}
+      onBack={() => navigate(-1)}
+      onFollow={handleFollow}
+    />
   )
 }

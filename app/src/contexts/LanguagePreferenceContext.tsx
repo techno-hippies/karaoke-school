@@ -33,9 +33,6 @@ export function LanguagePreferenceProvider({ children }: { children: React.React
     const stored = localStorage.getItem('languagePreference')
     if (stored && SUPPORTED_LANGUAGES.includes(stored as SupportedLanguage)) {
       setPreferredLanguageState(stored as SupportedLanguage)
-      console.log('[LanguagePreference] Loaded from storage:', stored)
-    } else {
-      console.log('[LanguagePreference] Using default:', DEFAULT_LANGUAGE, '(Mandarin)')
     }
     setIsHydrated(true)
   }, [])
@@ -43,7 +40,6 @@ export function LanguagePreferenceProvider({ children }: { children: React.React
   const setPreferredLanguage = (language: SupportedLanguage) => {
     setPreferredLanguageState(language)
     localStorage.setItem('languagePreference', language)
-    console.log('[LanguagePreference] Set to:', language)
   }
 
   // Build fallback order: preferred language first, then Mandarin as fallback

@@ -343,20 +343,12 @@ export class SongEncrypted__Params {
     return this._event.parameters[3].value.toString();
   }
 
-  get unlockLockAddress(): Address {
-    return this._event.parameters[4].value.toAddress();
-  }
-
-  get unlockChainId(): BigInt {
-    return this._event.parameters[5].value.toBigInt();
-  }
-
   get metadataUri(): string {
-    return this._event.parameters[6].value.toString();
+    return this._event.parameters[4].value.toString();
   }
 
   get timestamp(): BigInt {
-    return this._event.parameters[7].value.toBigInt();
+    return this._event.parameters[5].value.toBigInt();
   }
 }
 
@@ -682,16 +674,8 @@ export class EmitSongEncryptedCall__Inputs {
     return this._call.inputValues[3].value.toString();
   }
 
-  get unlockLockAddress(): Address {
-    return this._call.inputValues[4].value.toAddress();
-  }
-
-  get unlockChainId(): BigInt {
-    return this._call.inputValues[5].value.toBigInt();
-  }
-
   get metadataUri(): string {
-    return this._call.inputValues[6].value.toString();
+    return this._call.inputValues[4].value.toString();
   }
 }
 

@@ -111,8 +111,6 @@ export function handleClipRegistered(event: ClipRegistered): void {
   clip.translationCount = 0;
   clip.encryptedFullUri = null;
   clip.encryptedManifestUri = null;
-  clip.unlockLockAddress = null;
-  clip.unlockChainId = 0;
   clip.performanceCount = 0;
   clip.averageScore = BigDecimal.zero();
   clip.hasInstrumental = false;
@@ -159,8 +157,6 @@ export function handleSongEncrypted(event: SongEncrypted): void {
   if (clip != null) {
     clip.encryptedFullUri = event.params.encryptedFullUri;
     clip.encryptedManifestUri = event.params.encryptedManifestUri;
-    clip.unlockLockAddress = event.params.unlockLockAddress;
-    clip.unlockChainId = event.params.unlockChainId.toI32();
 
     updateClipProcessingStatus(clip);
     clip.save();
@@ -282,7 +278,9 @@ export function handleTriviaQuestionRegistered(event: TriviaQuestionRegistered):
   let card = new ExerciseCard(cardId);
   card.questionId = event.params.questionId;
   card.exerciseType = "TRIVIA_MULTIPLE_CHOICE";
-  card.spotifyTrackId = event.params.spotifyTrackId; // Now a string, not indexed bytes
+  // spotifyTrackId is indexed (string -> keccak hash), so actual value must be fetched from metadata
+  // We store the hash hex for filtering, app fetches real trackId from metadataUri
+  card.spotifyTrackId = event.params.spotifyTrackId.toHexString();
   card.languageCode = event.params.languageCode;
   card.metadataUri = event.params.metadataUri;
   card.distractorPoolSize = event.params.distractorPoolSize;

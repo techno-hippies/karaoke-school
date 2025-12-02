@@ -4,8 +4,8 @@
  * Grades individual karaoke lines within a session for real-time feedback.
  * Uses Levenshtein scoring (no Gemini) for speed and determinism.
  *
- * Contract: KaraokeEvents on Lens Testnet
- * - Address: 0x1eF06255c8e60684F79C9792bd4A66d05B38ed76
+ * Contract: KaraokeEvents V3 on Lens Testnet
+ * - Address: 0x8f97C17e599bb823e42d936309706628A93B33B8
  * - Trusted PKP: 0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379
  * - Network: Lens Testnet (Chain ID: 37111)
  *
@@ -31,11 +31,11 @@ const ethers = ethersLib;
 // ============================================================
 // CONTRACT CONFIGURATION
 // ============================================================
-const KARAOKE_EVENTS_ADDRESS = "0x1eF06255c8e60684F79C9792bd4A66d05B38ed76";
+const KARAOKE_EVENTS_ADDRESS = "0x8f97C17e599bb823e42d936309706628A93B33B8";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
 const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
-const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10";
+const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12";
 
 const VOXTRAL_TIMEOUT_MS = 10000; // Keep short for real-time feedback
 const LENS_RPC_TIMEOUT_MS = 10000;

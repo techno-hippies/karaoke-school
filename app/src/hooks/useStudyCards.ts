@@ -511,6 +511,13 @@ export function useStudyCards(songId?: string) {
             }
           }
 
+          // Debug: log exercise type counts
+          console.log('[useStudyCards] Exercise type counts:', {
+            translations: translations.length,
+            trivia: trivia.length,
+            sayItBack: sayItBack.length,
+          })
+
           // Onboarding sequence: T, Tr, S, then weighted toward translation
           // Pattern after intro: T, T, Tr, T, T, S, repeat
           const interleaved: StudyCard[] = []
@@ -537,6 +544,14 @@ export function useStudyCards(songId?: string) {
           // Replace dueCards with non-new + interleaved new
           dueCards.length = 0
           dueCards.push(...nonNewCards, ...interleaved)
+
+          // Debug: log first 5 interleaved cards to diagnose exercise type issues
+          console.log('[useStudyCards] Interleaved cards (first 5):', interleaved.slice(0, 5).map((c, i) => ({
+            index: i,
+            id: c.id?.substring(0, 20),
+            exerciseType: c.exerciseType,
+            lineIndex: c.lineIndex,
+          })))
         }
 
         // Calculate daily new card limit (FSRS/Anki style)

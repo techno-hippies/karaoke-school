@@ -34,8 +34,9 @@ export const LENS_RPC_URL = 'https://rpc.testnet.lens.xyz';
 export const LENS_CHAIN_ID = 37111;
 
 // Contracts (Lens Testnet)
+// KaraokeEvents V3: Removed unlock params from SongEncrypted
 export const CONTRACTS = {
-  KaraokeEvents: '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76',
+  KaraokeEvents: '0x8f97C17e599bb823e42d936309706628A93B33B8',
   ExerciseEvents: '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832',
 } as const;
 

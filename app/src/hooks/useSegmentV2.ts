@@ -138,7 +138,6 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
 
   // Handle KARAOKE-CLIP format (v2.0.0): type='karaoke-clip', timing.clipStartMs/clipEndMs, assets.clipInstrumental
   if (groveData.type === 'karaoke-clip' && groveData.timing?.clipEndMs !== undefined) {
-    console.log('[useSegmentV2] Detected karaoke-clip v2.0.0 format')
 
     // Use actual karaoke_lines if present, otherwise fallback to lyricsPreview
     const karaoke_lines = groveData.karaoke_lines || groveData.lyricsPreview?.map((line: any) => ({

@@ -43,8 +43,10 @@ export const EXERCISE_EVENTS_PKP_PUBLIC_KEY =
  * KaraokeEvents.sol - Handles clip registration, processing, encryption, and grading
  * Events: ClipRegistered, ClipProcessed, SongEncrypted, ClipToggled,
  *         KaraokePerformanceGraded, KaraokeSessionStarted, KaraokeLineGraded, KaraokeSessionEnded
+ *
+ * V3: Removed unlock params from SongEncrypted (access control via encryption manifest)
  */
-export const KARAOKE_EVENTS_ADDRESS = '0x1eF06255c8e60684F79C9792bd4A66d05B38ed76'
+export const KARAOKE_EVENTS_ADDRESS = '0x8f97C17e599bb823e42d936309706628A93B33B8'
 
 // ============ Other Event Contracts ============
 
@@ -106,46 +108,6 @@ export const SONG_ACCESS_CONTRACT = {
     chainId: 8453, // Base
     usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`,
     price: 100_000n, // $0.10 in USDC (6 decimals)
-  },
-}
-
-// ============ Artist Subscription Locks (Unlock Protocol on Base Sepolia) ============
-
-/**
- * Maps artist slugs to their Unlock Protocol lock addresses
- * Used to check subscription status for all songs from an artist
- *
- * Chain: Base Sepolia (84532)
- */
-export const ARTIST_SUBSCRIPTION_LOCKS: Record<string, { lockAddress: `0x${string}`, chainId: number }> = {
-  'britney-spears': {
-    lockAddress: '0x8a66d2528a0271520e870bb0e98764514046574b',
-    chainId: 84532, // Base Sepolia
-  },
-  'eminem': {
-    lockAddress: '0x72f304efb7b49f0caec531a662d08d281a385a91',
-    chainId: 84532, // Base Sepolia
-  },
-  'queen': {
-    lockAddress: '0xe9b80d4e10fa11fa1fe04afcf9ab954ecb7570c9',
-    chainId: 84532, // Base Sepolia
-  },
-  'taylor-swift': {
-    lockAddress: '0x175284ff891db054ec06f044eef6cc7ad3699dbe',
-    chainId: 84532, // Base Sepolia
-  },
-}
-
-// ============ Song Purchase Locks (Unlock Protocol on Base Sepolia) ============
-
-/**
- * Maps Spotify track IDs to per-song Unlock Protocol lock addresses
- * Populated by pipeline/src/scripts/sync-lock-config.ts
- */
-export const SONG_PURCHASE_LOCKS: Record<string, { lockAddress: `0x${string}`, chainId: number }> = {
-  '717TY4sfgKQm4kFbYQIzgo': {
-    lockAddress: '0xdc7e1252a102dd40b949b10a38457604bf307744',
-    chainId: 84532, // Base Sepolia
   },
 }
 

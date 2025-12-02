@@ -24,27 +24,13 @@
 import { parseArgs } from 'util';
 import { getSongByISWC, getArtistById, updateSongEncryption } from '../db/queries';
 import { uploadToGrove } from '../services/grove';
-import { getEnvironment, getNetworkConfig, getLitNetwork, type Environment } from '../config/networks';
-import type { Song, Artist } from '../types';
+import { getEnvironment, getLitNetwork, type Environment } from '../config/networks';
 
 // SongAccess contract addresses (per-song USDC purchase)
 const SONG_ACCESS_CONTRACT = {
   testnet: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545', // Base Sepolia
   mainnet: '0x0000000000000000000000000000000000000000', // TODO: Deploy to Base
 };
-
-function resolveSongUnlockLock(
-  song: Song,
-  artist: Artist,
-  env: Environment
-): string | null {
-  const songLock = env === 'testnet' ? song.unlock_lock_address_testnet : song.unlock_lock_address_mainnet;
-  const artistLock = env === 'testnet' ? artist.unlock_lock_address_testnet : artist.unlock_lock_address_mainnet;
-
-  if (songLock) return songLock;
-  if (artistLock) return artistLock;
-  return null;
-}
 
 // Parse CLI arguments
 const { values } = parseArgs({
@@ -193,26 +179,6 @@ function buildSongAccessConditions(
   return accs;
 }
 
-/**
- * Build Access Control Conditions for Unlock NFT (legacy fallback)
- */
-function buildUnlockAccessConditions(
-  lockAddress: string,
-  chain: string
-): any {
-  const { createAccBuilder } = require('@lit-protocol/access-control-conditions');
-
-  console.log(`   Building ACC: Unlock NFT from ${lockAddress} on ${chain}`);
-
-  const builder = createAccBuilder();
-  const accs = builder
-    .requireNftOwnership(lockAddress.toLowerCase(), '1')
-    .on(chain as any)
-    .build();
-
-  console.log('   Unlock Access Control Conditions built');
-  return accs;
-}
 
 /**
  * Encrypt ONLY the symmetric key with Lit Protocol
@@ -258,7 +224,6 @@ async function main() {
   const env = (values.env as Environment) || getEnvironment();
   const dryRun = values['dry-run'];
   const force = values.force;
-  const networkConfig = getNetworkConfig(env);
   const litNetwork = getLitNetwork(env);
 
   if (!iswc) {
@@ -270,7 +235,6 @@ async function main() {
   console.log(`   ISWC: ${iswc}`);
   console.log(`   Environment: ${env}`);
   console.log(`   Lit network: ${litNetwork}`);
-  console.log(`   Unlock chain: ${networkConfig.unlock.chainName}`);
   if (dryRun) console.log('   Mode: DRY RUN');
 
   // Get song
@@ -293,7 +257,12 @@ async function main() {
     process.exit(1);
   }
 
-  // Get artist and their Unlock lock
+  if (!song.spotify_track_id) {
+    console.error('❌ No Spotify track ID - required for SongAccess contract');
+    process.exit(1);
+  }
+
+  // Get artist for logging
   const artist = await getArtistById(song.artist_id);
   if (!artist) {
     console.error('❌ Artist not found');
@@ -302,26 +271,15 @@ async function main() {
 
   console.log(`   Artist: ${artist.name}`);
 
-  // Determine access control method:
-  // 1. SongAccess contract (new - per-song USDC purchase on Base Sepolia)
-  // 2. Unlock Protocol (legacy fallback)
+  // SongAccess contract is required for access control
   const songAccessAddress = env === 'testnet' ? SONG_ACCESS_CONTRACT.testnet : SONG_ACCESS_CONTRACT.mainnet;
-  const unlockLockAddress = resolveSongUnlockLock(song as Song, artist, env);
 
-  const useSongAccess = songAccessAddress !== '0x0000000000000000000000000000000000000000';
-
-  if (!useSongAccess && !unlockLockAddress) {
-    console.error(`❌ No access control available for ${song.title} on ${env}`);
-    console.log('   Option 1: Deploy SongAccess contract (USDC purchase)');
-    console.log('   Option 2: bun src/scripts/deploy-song-lock.ts --iswc=' + song.iswc);
+  if (songAccessAddress === '0x0000000000000000000000000000000000000000') {
+    console.error(`❌ SongAccess contract not deployed for ${env}`);
     process.exit(1);
   }
 
-  if (useSongAccess) {
-    console.log(`   Access: SongAccess contract (${songAccessAddress})`);
-  } else {
-    console.log(`   Access: Unlock Protocol (${unlockLockAddress})`);
-  }
+  console.log(`   Access: SongAccess contract (${songAccessAddress})`)
 
   // Check if already encrypted for this environment
   const existingEncryption = env === 'testnet'
@@ -338,11 +296,7 @@ async function main() {
     console.log('\n✅ Dry run complete');
     console.log('   Would encrypt with hybrid approach:');
     console.log(`   - Lit network: ${litNetwork}`);
-    if (useSongAccess) {
-      console.log(`   - Access: SongAccess (${songAccessAddress}) on baseSepolia`);
-    } else {
-      console.log(`   - Access: Unlock (${unlockLockAddress}) on ${networkConfig.unlock.chainName}`);
-    }
+    console.log(`   - Access: SongAccess (${songAccessAddress}) on baseSepolia`);
     console.log('   - Method: AES-256-GCM (local) + Lit (key only)');
     process.exit(0);
   }
@@ -370,21 +324,10 @@ async function main() {
   console.log('\n🔐 Setting up Lit Protocol...');
   const litClient = await initLitClient(litNetwork);
 
-  // Build Access Control Conditions
+  // Build Access Control Conditions for SongAccess contract
   console.log('\n🔒 Building access control...');
-  let accs: any;
-  let accChain: string;
-
-  if (useSongAccess) {
-    // Use SongAccess contract on Base Sepolia
-    accChain = 'baseSepolia';
-    accs = buildSongAccessConditions(songAccessAddress, song.spotify_track_id, accChain);
-  } else {
-    // Fallback to Unlock Protocol
-    accChain = networkConfig.lit.accChain;
-    accs = buildUnlockAccessConditions(unlockLockAddress!, accChain);
-  }
-
+  const accChain = 'baseSepolia';
+  const accs = buildSongAccessConditions(songAccessAddress, song.spotify_track_id, accChain);
   const normalizedAccs = normalizeAccs(accs);
 
   // Encrypt ONLY the symmetric key with Lit
@@ -410,8 +353,8 @@ async function main() {
 
   // Build and upload encryption metadata (key + parameters)
   console.log('\n📋 Uploading encryption metadata...');
-  const encryptionMetadata: Record<string, any> = {
-    version: '2.1.0', // Bumped for SongAccess support
+  const encryptionMetadata = {
+    version: '2.1.0',
     method: 'hybrid-aes-gcm-lit',
     generatedAt: new Date().toISOString(),
     iswc,
@@ -431,28 +374,13 @@ async function main() {
       dataToEncryptHash: encryptedKey.dataToEncryptHash,
       unifiedAccessControlConditions: normalizedAccs,
     },
-    // Access control info (SongAccess or Unlock)
-    accessControl: useSongAccess
-      ? {
-          type: 'songAccess',
-          contractAddress: songAccessAddress,
-          chainId: 84532, // Base Sepolia
-          chainName: 'baseSepolia',
-        }
-      : {
-          type: 'unlock',
-          lockAddress: unlockLockAddress,
-          chainId: networkConfig.unlock.chainId,
-          chainName: networkConfig.unlock.chainName,
-        },
-    // Legacy unlock field for backwards compatibility
-    unlock: useSongAccess
-      ? undefined
-      : {
-          lockAddress: unlockLockAddress,
-          chainId: networkConfig.unlock.chainId,
-          chainName: networkConfig.unlock.chainName,
-        },
+    // Access control info (SongAccess contract)
+    accessControl: {
+      type: 'songAccess',
+      contractAddress: songAccessAddress,
+      chainId: 84532, // Base Sepolia
+      chainName: 'baseSepolia',
+    },
     // Encrypted audio location
     encryptedAudio: {
       url: encryptedAudioUpload.url,
@@ -460,11 +388,6 @@ async function main() {
       sizeBytes: ciphertext.length,
     },
   };
-
-  // Remove undefined fields
-  if (!encryptionMetadata.unlock) {
-    delete encryptionMetadata.unlock;
-  }
 
   const metadataBuffer = Buffer.from(JSON.stringify(encryptionMetadata, null, 2));
   const metadataUpload = await uploadToGrove(
@@ -488,11 +411,7 @@ async function main() {
   console.log(`   Encrypted audio: ${encryptedAudioUpload.url}`);
   console.log(`   Encryption metadata: ${metadataUpload.url}`);
   console.log(`   Lit network: ${litNetwork}`);
-  if (useSongAccess) {
-    console.log(`   Access: SongAccess (${songAccessAddress})`);
-  } else {
-    console.log(`   Access: Unlock (${unlockLockAddress})`);
-  }
+  console.log(`   Access: SongAccess (${songAccessAddress})`);
   console.log('\n   ✨ Frontend can now decrypt without 413 errors!');
 }
 

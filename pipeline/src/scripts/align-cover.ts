@@ -31,6 +31,8 @@ const { values } = parseArgs({
   options: {
     iswc: { type: 'string' },
     'songs-dir': { type: 'string', default: './songs' },
+    language: { type: 'string', default: 'zh' }, // 'zh' or 'en'
+    lyrics: { type: 'string' }, // custom lyrics file path (overrides language)
     start: { type: 'string' },
     end: { type: 'string' },
     force: { type: 'boolean', default: false },
@@ -45,14 +47,16 @@ async function main() {
     console.error('❌ Missing required argument: --iswc');
     console.log('\nUsage:');
     console.log('  bun src/scripts/align-cover.ts --iswc=T0721262607');
+    console.log('  bun src/scripts/align-cover.ts --iswc=T0721262607 --language=en');
     console.log('  bun src/scripts/align-cover.ts --iswc=T0721262607 --start=35700 --end=45700');
     process.exit(1);
   }
 
   const iswc = normalizeISWC(values.iswc);
+  const language = values.language || 'zh';
   const songDir = path.join(values['songs-dir']!, iswc);
   const coverPath = path.join(songDir, 'cover.mp3');
-  const zhLyricsPath = path.join(songDir, 'zh-lyrics.txt');
+  const lyricsPath = values.lyrics || path.join(songDir, `${language}-lyrics.txt`);
   const fullAlignmentPath = path.join(songDir, 'cover-alignment.json');
   const trimmedAlignmentPath = path.join(songDir, 'alignment.json');
 
@@ -65,8 +69,8 @@ async function main() {
     console.error(`❌ Cover audio not found: ${coverPath}`);
     process.exit(1);
   }
-  if (!fs.existsSync(zhLyricsPath)) {
-    console.error(`❌ Chinese lyrics not found: ${zhLyricsPath}`);
+  if (!fs.existsSync(lyricsPath)) {
+    console.error(`❌ Lyrics not found: ${lyricsPath}`);
     process.exit(1);
   }
 
@@ -83,9 +87,9 @@ async function main() {
     process.exit(0);
   }
 
-  // Parse Chinese lyrics
-  const { lines: zhLines } = parseLyrics(fs.readFileSync(zhLyricsPath, 'utf-8'));
-  console.log(`   ZH Lines: ${zhLines.length}`);
+  // Parse lyrics
+  const { lines: lyricsLines } = parseLyrics(fs.readFileSync(lyricsPath, 'utf-8'));
+  console.log(`   ${language.toUpperCase()} Lines: ${lyricsLines.length}`);
 
   // Upload cover to Grove for ElevenLabs
   console.log('\n☁️  Uploading cover to Grove...');
@@ -94,7 +98,7 @@ async function main() {
   console.log(`   URL: ${uploadResult.url}`);
 
   // Prepare text for alignment
-  const fullText = zhLines.map(l => l.text).join('\n');
+  const fullText = lyricsLines.map(l => l.text).join('\n');
 
   // Run alignment
   console.log('\n⏳ Running ElevenLabs forced alignment...');
@@ -108,7 +112,7 @@ async function main() {
   // Save full alignment
   const fullAlignmentData = {
     iswc,
-    language: 'zh',
+    language,
     type: 'cover',
     words: alignment.words,
     characters: alignment.characters,

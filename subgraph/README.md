@@ -7,7 +7,7 @@ The Graph subgraph for Karaoke School V2 on Lens Chain testnet. Indexes contract
 ### Production (The Graph Studio)
 
 **Current Deployment:**
-- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10`
+- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12`
 - **Status**: ✅ Deployed and synced
 - **Network**: Lens Testnet (Chain ID: 37111)
 
@@ -107,7 +107,7 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 
 ## Deployed Contracts (Lens Testnet)
 
-- **KaraokeEvents:** `0x1eF06255c8e60684F79C9792bd4A66d05B38ed76` (clip lifecycle + grading)
+- **KaraokeEvents:** `0x8f97C17e599bb823e42d936309706628A93B33B8` (clip lifecycle + grading)
 - **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
 - **TranslationEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
 - **AccountEvents:** `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)

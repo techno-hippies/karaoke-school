@@ -221,8 +221,8 @@ export class TriviaQuestionRegistered__Params {
     return this._event.parameters[0].value.toBytes();
   }
 
-  get spotifyTrackId(): string {
-    return this._event.parameters[1].value.toString();
+  get spotifyTrackId(): Bytes {
+    return this._event.parameters[1].value.toBytes();
   }
 
   get languageCode(): string {

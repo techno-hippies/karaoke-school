@@ -40,6 +40,7 @@ const { values } = parseArgs({
     height: { type: 'string', default: String(DEFAULT_VIDEO_HEIGHT) },
     'skip-upload': { type: 'boolean', default: false },
     'pretrimmed': { type: 'boolean', default: false }, // Use --start/--end for lyrics only, don't seek into media files
+    language: { type: 'string', default: 'zh' }, // 'zh' or 'en' - karaoke subtitle language
   },
   strict: true,
 });
@@ -170,8 +171,11 @@ async function main() {
   }));
 
   // Generate ASS subtitles
-  console.log('\n📄 Generating subtitles...');
-  const assContent = generateKaraokeAss(adjustedEnLyrics, adjustedZhLyrics, width, height);
+  const validLanguages = ['zh', 'en', 'en-zh'];
+  const karaokeLanguage = (validLanguages.includes(values.language!) ? values.language : 'zh') as 'zh' | 'en' | 'en-zh';
+  const langLabel = karaokeLanguage === 'en-zh' ? 'EN + ZH' : karaokeLanguage.toUpperCase();
+  console.log(`\n📄 Generating subtitles (${langLabel})...`);
+  const assContent = generateKaraokeAss(adjustedEnLyrics, adjustedZhLyrics, width, height, karaokeLanguage);
 
   // Write ASS file
   const assPath = path.join(songDir, `${iswc}-${startMs}-${endMs}.ass`);

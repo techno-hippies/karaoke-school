@@ -149,7 +149,24 @@ CREATE TABLE IF NOT EXISTS genius_referents (
 );
 
 -- ============================================================================
--- 6. CLIPS (For karaoke events)
+-- 6. SONGFACTS (Trivia from songfacts.com - alternative to Genius)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS songfacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  fact_index INT NOT NULL,              -- Order of fact on page
+  text TEXT NOT NULL,                   -- Plain text content
+  html TEXT,                            -- Original HTML with links
+  source_url TEXT,                      -- SongFacts page URL
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(song_id, fact_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_songfacts_song ON songfacts(song_id);
+
+-- ============================================================================
+-- 7. CLIPS (For karaoke events)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS clips (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -396,9 +396,9 @@ export function VideoDetail({
           </div>
         </div>
 
-        {/* Study CTA Section */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8">
-          {canStudy ? (
+        {/* Study CTA Section - only show when song data is available */}
+        {canStudy && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
             <div className="text-center space-y-4">
               <Exam className="w-16 h-16 text-primary mx-auto" weight="fill" />
               <div className="space-y-2">
@@ -413,14 +413,8 @@ export function VideoDetail({
                 {t('study.startStudying')}
               </Button>
             </div>
-          ) : (
-            <div className="text-center space-y-2">
-              <p className="text-muted-foreground text-sm">
-                {t('study.notAvailable')}
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Share Sheet (desktop) */}

@@ -50,15 +50,13 @@ export function VideoPlayer({
     const loadVideo = () => {
       // Don't load if we're in error state and the URL hasn't actually changed
       if (errorStateRef.current && videoUrl === lastLoadRef.current) {
-        console.log('[VideoPlayer] Skipping load - in error state:', videoUrl)
         return
       }
 
       // Only load if URL actually changed or we're not in error state
       if (videoUrl !== lastLoadRef.current) {
-        console.log('[VideoPlayer] Loading video:', videoUrl, priorityLoad ? '(priority load)' : '(normal load)')
         lastLoadRef.current = videoUrl
-        errorStateRef.current = false // Reset error state
+        errorStateRef.current = false
         send({ type: 'LOAD', videoUrl, thumbnailUrl })
       }
     }
@@ -69,12 +67,9 @@ export function VideoPlayer({
     }
 
     if (priorityLoad) {
-      // Priority loads: Load immediately without debounce
-      console.log('[VideoPlayer] Loading priority video immediately:', videoUrl)
       loadVideo()
     } else {
-      // Normal loads: Use much shorter debounce (100ms vs 1000ms)
-      console.log('[VideoPlayer] Scheduling normal load with 100ms debounce:', videoUrl)
+      // Normal loads: Use 100ms debounce
       timeoutRef.current = setTimeout(loadVideo, 100)
     }
 
@@ -88,9 +83,7 @@ export function VideoPlayer({
   // Track error state to prevent immediate retries
   useEffect(() => {
     if (state.matches('error')) {
-      console.log('[VideoPlayer] Entered error state, preventing retries for:', lastLoadRef.current)
       errorStateRef.current = true
-      
       // Clear error state after 5 seconds to allow retries
       setTimeout(() => {
         errorStateRef.current = false

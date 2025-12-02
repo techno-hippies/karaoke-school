@@ -11,6 +11,7 @@ import type {
   Song,
   Lyric,
   GeniusReferent,
+  SongFactRecord,
   Clip,
   Video,
   Post,
@@ -208,25 +209,6 @@ export async function getArtistById(id: string): Promise<Artist | null> {
   );
 }
 
-export async function updateArtistLock(
-  artistId: string,
-  env: 'testnet' | 'mainnet',
-  lockAddress: string
-): Promise<Artist | null> {
-  const column = env === 'testnet' ? 'unlock_lock_address_testnet' : 'unlock_lock_address_mainnet';
-  const deployedColumn = env === 'testnet' ? 'unlock_lock_deployed_at_testnet' : 'unlock_lock_deployed_at_mainnet';
-
-  const result = await query<Artist>(
-    `UPDATE artists SET
-      ${column} = $2,
-      ${deployedColumn} = NOW()
-    WHERE id = $1
-    RETURNING *`,
-    [artistId, lockAddress]
-  );
-  return result[0] || null;
-}
-
 // ============================================================================
 // SONGS
 // ============================================================================
@@ -413,24 +395,6 @@ export async function updateSongEncryption(
   return result[0] || null;
 }
 
-export async function updateSongLock(
-  iswc: string,
-  env: 'testnet' | 'mainnet',
-  lockAddress: string
-): Promise<Song | null> {
-  const column = env === 'testnet' ? 'unlock_lock_address_testnet' : 'unlock_lock_address_mainnet';
-
-  const result = await query<Song>(
-    `UPDATE songs SET
-      ${column} = $2,
-      updated_at = NOW()
-    WHERE iswc = $1
-    RETURNING *`,
-    [iswc, lockAddress]
-  );
-
-  return result[0] || null;
-}
 
 // ============================================================================
 // LYRICS
@@ -552,6 +516,63 @@ export async function createReferents(data: CreateReferentData[]): Promise<Geniu
   );
 
   return result;
+}
+
+// ============================================================================
+// SONGFACTS
+// ============================================================================
+
+export interface CreateSongFactData {
+  song_id: string;
+  fact_index: number;
+  text: string;
+  html?: string;
+  source_url?: string;
+}
+
+export async function createSongFacts(data: CreateSongFactData[]): Promise<SongFactRecord[]> {
+  if (data.length === 0) return [];
+
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+
+  data.forEach((fact, i) => {
+    const offset = i * 5;
+    placeholders.push(
+      `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`
+    );
+    values.push(
+      fact.song_id,
+      fact.fact_index,
+      fact.text,
+      fact.html || null,
+      fact.source_url || null
+    );
+  });
+
+  const result = await query<SongFactRecord>(
+    `INSERT INTO songfacts (song_id, fact_index, text, html, source_url)
+     VALUES ${placeholders.join(', ')}
+     ON CONFLICT (song_id, fact_index) DO UPDATE SET
+       text = EXCLUDED.text,
+       html = EXCLUDED.html,
+       source_url = EXCLUDED.source_url
+     RETURNING *`,
+    values
+  );
+
+  return result;
+}
+
+export async function getSongFactsBySong(songId: string): Promise<SongFactRecord[]> {
+  return query<SongFactRecord>(
+    `SELECT * FROM songfacts WHERE song_id = $1 ORDER BY fact_index`,
+    [songId]
+  );
+}
+
+export async function deleteSongFacts(songId: string): Promise<void> {
+  await query(`DELETE FROM songfacts WHERE song_id = $1`, [songId]);
 }
 
 // ============================================================================

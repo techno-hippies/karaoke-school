@@ -155,16 +155,6 @@
           "internalType": "string"
         },
         {
-          "name": "unlockLockAddress",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "unlockChainId",
-          "type": "uint32",
-          "internalType": "uint32"
-        },
-        {
           "name": "metadataUri",
           "type": "string",
           "internalType": "string"
@@ -778,18 +768,6 @@
           "type": "string",
           "indexed": false,
           "internalType": "string"
-        },
-        {
-          "name": "unlockLockAddress",
-          "type": "address",
-          "indexed": false,
-          "internalType": "address"
-        },
-        {
-          "name": "unlockChainId",
-          "type": "uint32",
-          "indexed": false,
-          "internalType": "uint32"
         },
         {
           "name": "metadataUri",

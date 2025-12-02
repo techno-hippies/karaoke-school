@@ -106,10 +106,8 @@ contract KaraokeEvents {
      * @notice Emitted when the full-length song is encrypted and linked to the clip
      * @param clipHash Unique clip identifier the full song is associated with
      * @param spotifyTrackId Spotify track identifier
-     * @param encryptedFullUri Grove or load.network URI for encrypted full-length audio
-     * @param encryptedManifestUri Grove URI for Lit ACC manifest / payload
-     * @param unlockLockAddress Unlock Protocol lock governing access
-     * @param unlockChainId Chain ID for the Unlock lock
+     * @param encryptedFullUri Grove URI for encrypted full-length audio
+     * @param encryptedManifestUri Grove URI for Lit ACC manifest (contains access control details)
      * @param metadataUri Grove URI referencing encryption metadata
      * @param timestamp Block timestamp
      */
@@ -118,8 +116,6 @@ contract KaraokeEvents {
         string spotifyTrackId,
         string encryptedFullUri,
         string encryptedManifestUri,
-        address unlockLockAddress,
-        uint32 unlockChainId,
         string metadataUri,
         uint64 timestamp
     );
@@ -277,8 +273,6 @@ contract KaraokeEvents {
         string calldata spotifyTrackId,
         string calldata encryptedFullUri,
         string calldata encryptedManifestUri,
-        address unlockLockAddress,
-        uint32 unlockChainId,
         string calldata metadataUri
     ) external {
         emit SongEncrypted(
@@ -286,8 +280,6 @@ contract KaraokeEvents {
             spotifyTrackId,
             encryptedFullUri,
             encryptedManifestUri,
-            unlockLockAddress,
-            unlockChainId,
             metadataUri,
             uint64(block.timestamp)
         );

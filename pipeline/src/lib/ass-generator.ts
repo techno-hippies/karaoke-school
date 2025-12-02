@@ -53,6 +53,49 @@ const DEFAULT_STYLES: AssStyle[] = [
   },
 ];
 
+const ENGLISH_STYLES: AssStyle[] = [
+  {
+    name: 'English',
+    fontName: 'Noto Sans',
+    fontSize: 56,
+    primaryColor: COLORS.white,
+    secondaryColor: COLORS.yellow, // Karaoke fill color
+    outlineColor: COLORS.black,
+    backColor: COLORS.shadow,
+    bold: true,
+    alignment: 8, // Top center
+    marginV: 40,
+  },
+];
+
+// Dual-language: English karaoke at top, Chinese translation below
+const DUAL_STYLES: AssStyle[] = [
+  {
+    name: 'English',
+    fontName: 'Noto Sans',
+    fontSize: 56,
+    primaryColor: COLORS.white,
+    secondaryColor: COLORS.yellow, // Karaoke fill color
+    outlineColor: COLORS.black,
+    backColor: COLORS.shadow,
+    bold: true,
+    alignment: 8, // Top center
+    marginV: 40,
+  },
+  {
+    name: 'Chinese',
+    fontName: 'Noto Sans SC',
+    fontSize: 52,
+    primaryColor: COLORS.white,
+    secondaryColor: COLORS.white, // No karaoke effect
+    outlineColor: COLORS.black,
+    backColor: COLORS.shadow,
+    bold: false,
+    alignment: 8, // Top center (below English)
+    marginV: 120, // Below the English line
+  },
+];
+
 /**
  * Format milliseconds to ASS timestamp (H:MM:SS.cc)
  */
@@ -125,14 +168,22 @@ function generateKaraokeTags(
 
 /**
  * Generate ASS subtitle file content
+ *
+ * Language modes:
+ * - 'zh': Chinese karaoke only (default)
+ * - 'en': English karaoke only
+ * - 'en-zh': English karaoke + Chinese translation below
  */
 export function generateAssSubtitles(
   events: KaraokeEvent[],
   width = 1440,
   height = 1440,
-  styles = DEFAULT_STYLES
+  styles = DEFAULT_STYLES,
+  language: 'zh' | 'en' | 'en-zh' = 'zh'
 ): string {
   const lines: string[] = [];
+  const useStyles = language === 'en-zh' ? DUAL_STYLES :
+                    language === 'en' ? ENGLISH_STYLES : styles;
 
   // Script Info
   lines.push('[Script Info]');
@@ -147,7 +198,7 @@ export function generateAssSubtitles(
   // Styles
   lines.push('[V4+ Styles]');
   lines.push('Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding');
-  for (const style of styles) {
+  for (const style of useStyles) {
     lines.push(formatStyle(style));
   }
   lines.push('');
@@ -160,13 +211,29 @@ export function generateAssSubtitles(
     const start = msToAss(event.startMs);
     const end = msToAss(event.endMs);
 
-    // Chinese line only (karaoke, bottom)
-    if (event.zhText && event.wordTimings.length > 0) {
-      const karaokeText = generateKaraokeTags(event.zhText, event.wordTimings, event.startMs);
-      lines.push(`Dialogue: 0,${start},${end},Chinese,,0,0,0,,${karaokeText}`);
-    } else if (event.zhText) {
-      // No word timings, just show static
-      lines.push(`Dialogue: 0,${start},${end},Chinese,,0,0,0,,${event.zhText}`);
+    if (language === 'en-zh') {
+      // Dual language: English karaoke + Chinese translation
+      if (event.enText && event.wordTimings.length > 0) {
+        const karaokeText = generateKaraokeTags(event.enText, event.wordTimings, event.startMs);
+        lines.push(`Dialogue: 0,${start},${end},English,,0,0,0,,${karaokeText}`);
+      } else if (event.enText) {
+        lines.push(`Dialogue: 0,${start},${end},English,,0,0,0,,${event.enText}`);
+      }
+      // Chinese translation (static, below English)
+      if (event.zhText) {
+        lines.push(`Dialogue: 0,${start},${end},Chinese,,0,0,0,,${event.zhText}`);
+      }
+    } else {
+      // Single language mode
+      const text = language === 'en' ? event.enText : event.zhText;
+      const styleName = language === 'en' ? 'English' : 'Chinese';
+
+      if (text && event.wordTimings.length > 0) {
+        const karaokeText = generateKaraokeTags(text, event.wordTimings, event.startMs);
+        lines.push(`Dialogue: 0,${start},${end},${styleName},,0,0,0,,${karaokeText}`);
+      } else if (text) {
+        lines.push(`Dialogue: 0,${start},${end},${styleName},,0,0,0,,${text}`);
+      }
     }
   }
 
@@ -210,13 +277,19 @@ export function lyricsToKaraokeEvents(
 
 /**
  * Generate complete ASS file from lyrics
+ *
+ * Language modes:
+ * - 'zh': Chinese karaoke only (default)
+ * - 'en': English karaoke only
+ * - 'en-zh': English karaoke + Chinese translation below
  */
 export function generateKaraokeAss(
   enLyrics: Lyric[],
   zhLyrics: Lyric[],
   width = 1440,
-  height = 1440
+  height = 1440,
+  language: 'zh' | 'en' | 'en-zh' = 'zh'
 ): string {
   const events = lyricsToKaraokeEvents(enLyrics, zhLyrics);
-  return generateAssSubtitles(events, width, height);
+  return generateAssSubtitles(events, width, height, DEFAULT_STYLES, language);
 }

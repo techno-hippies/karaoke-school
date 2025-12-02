@@ -11,7 +11,8 @@ const SUBGRAPH_ENDPOINTS = {
   // Local Graph Node Dev Mode (for development) - use 127.0.0.1 for IPv4
   local: 'http://127.0.0.1:8000/subgraphs/name/subgraph-0/',
   // The Graph Studio endpoint (deployed on Lens testnet)
-  studio: 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.10',
+  // v0.0.12: Removed unlockLockAddress/unlockChainId from Clip entity
+  studio: 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12',
 }
 
 // Allow override via env var: VITE_SUBGRAPH_MODE=local to use local GND
@@ -25,5 +26,3 @@ export const graphClient = new GraphQLClient(SUBGRAPH_URL, {
     'Content-Type': 'application/json',
   },
 })
-
-console.log('📊 Subgraph URL:', SUBGRAPH_URL, `(mode: ${SUBGRAPH_MODE || 'studio (default)'})`)

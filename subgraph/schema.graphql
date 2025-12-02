@@ -37,8 +37,6 @@ type Clip @entity(immutable: false) {
   translationCount: Int!
   encryptedFullUri: String
   encryptedManifestUri: String
-  unlockLockAddress: Bytes
-  unlockChainId: Int
 
   # Relations
   performances: [Performance!]! @derivedFrom(field: "clip")

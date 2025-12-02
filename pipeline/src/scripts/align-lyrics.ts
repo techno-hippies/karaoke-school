@@ -21,6 +21,11 @@ import { normalizeISWC } from '../lib/lyrics-parser';
 import { validateEnv } from '../config';
 import type { Lyric } from '../types';
 
+// Thresholds for detecting intro-stretched words
+const MAX_REASONABLE_WORD_DURATION_S = 3; // No single word should be >3 seconds
+const TYPICAL_SHORT_WORD_DURATION_S = 0.4; // "I", "a", "the" etc typically ~0.3-0.5s
+const GAP_BEFORE_WORD_S = 0.15; // Small gap before adjusted word start
+
 // Parse CLI arguments
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -30,6 +35,91 @@ const { values } = parseArgs({
   },
   strict: true,
 });
+
+/**
+ * Fix intro-stretched words in alignment data.
+ *
+ * ElevenLabs anchors the first word at 0s even when there's an instrumental intro,
+ * stretching short words like "I" to 10+ seconds. This detects and corrects that.
+ *
+ * Strategy: For each line, if the first content word has abnormal duration,
+ * use the next content word's start time as an anchor and adjust.
+ */
+function fixIntroStretchedWords(words: ElevenLabsWord[]): { words: ElevenLabsWord[]; fixes: number } {
+  const fixed = [...words];
+  let fixes = 0;
+  let currentLineStart = 0;
+
+  for (let i = 0; i < fixed.length; i++) {
+    const word = fixed[i];
+
+    // Track line boundaries
+    if (word.text === '\n') {
+      currentLineStart = i + 1;
+      continue;
+    }
+
+    // Only check first content word of each line
+    if (i !== currentLineStart) continue;
+
+    // Skip whitespace to find first content word
+    let firstContentIdx = i;
+    while (firstContentIdx < fixed.length && fixed[firstContentIdx].text.trim() === '') {
+      firstContentIdx++;
+    }
+    if (firstContentIdx >= fixed.length || fixed[firstContentIdx].text === '\n') continue;
+
+    const firstWord = fixed[firstContentIdx];
+    const duration = firstWord.end - firstWord.start;
+
+    // Check if this word has abnormal duration
+    if (duration <= MAX_REASONABLE_WORD_DURATION_S) continue;
+
+    // Find next content word (skip whitespace)
+    let nextContentIdx = firstContentIdx + 1;
+    while (nextContentIdx < fixed.length &&
+           fixed[nextContentIdx].text.trim() === '' &&
+           fixed[nextContentIdx].text !== '\n') {
+      nextContentIdx++;
+    }
+
+    // Calculate adjusted start time
+    let adjustedStart: number;
+
+    if (nextContentIdx < fixed.length && fixed[nextContentIdx].text !== '\n') {
+      // Use next word's start as anchor
+      const nextWord = fixed[nextContentIdx];
+      // Estimate: first word should start shortly before the next word
+      // Account for typical word duration + small gap
+      adjustedStart = Math.max(0, nextWord.start - TYPICAL_SHORT_WORD_DURATION_S - GAP_BEFORE_WORD_S);
+    } else {
+      // No next word - use end time minus typical duration
+      adjustedStart = Math.max(0, firstWord.end - TYPICAL_SHORT_WORD_DURATION_S);
+    }
+
+    // Only fix if the adjustment is significant (>1s change)
+    if (firstWord.start < adjustedStart - 1) {
+      const oldStart = firstWord.start;
+      fixed[firstContentIdx] = { ...firstWord, start: adjustedStart };
+
+      // Also adjust any leading whitespace to fill the gap properly
+      for (let j = i; j < firstContentIdx; j++) {
+        if (fixed[j].text.trim() === '') {
+          const wsWord = fixed[j];
+          // Compress whitespace to just before the first word
+          const wsStart = Math.max(0, adjustedStart - 0.05 * (firstContentIdx - j));
+          const wsEnd = j === firstContentIdx - 1 ? adjustedStart : wsStart + 0.01;
+          fixed[j] = { ...wsWord, start: wsStart, end: wsEnd };
+        }
+      }
+
+      console.log(`   🔧 Fixed intro stretch: "${firstWord.text}" ${oldStart.toFixed(2)}s → ${adjustedStart.toFixed(2)}s (was ${duration.toFixed(1)}s long)`);
+      fixes++;
+    }
+  }
+
+  return { words: fixed, fixes };
+}
 
 /**
  * Parse lines from ElevenLabs alignment using \n tokens as line delimiters.
@@ -169,9 +259,18 @@ async function main() {
 
   console.log(`   Words: ${alignment.totalWords}`);
 
+  // Fix intro-stretched words (ElevenLabs anchors at 0 even with instrumental intros)
+  console.log('\n🔍 Checking for intro-stretched words...');
+  const { words: fixedWords, fixes: introFixes } = fixIntroStretchedWords(alignment.words);
+  if (introFixes === 0) {
+    console.log('   No fixes needed');
+  } else {
+    console.log(`   Applied ${introFixes} fix(es)`);
+  }
+
   // Map timings to lines
   console.log('\n📝 Mapping timings to lines...');
-  const lineTimings = mapTimingsToLines(alignment.words, enLyrics);
+  const lineTimings = mapTimingsToLines(fixedWords, enLyrics);
 
   // Update lyrics with timing
   let updatedCount = 0;
@@ -189,18 +288,18 @@ async function main() {
 
   console.log(`   Updated ${updatedCount} lyric lines`);
 
-  // Update song alignment data
+  // Update song alignment data (use fixed words)
   await updateSongAlignment(iswc, {
     alignment_data: {
-      words: alignment.words,
+      words: fixedWords,
       characters: alignment.characters,
     },
-    alignment_version: 'elevenlabs-forced-v1',
+    alignment_version: 'elevenlabs-forced-v2', // v2 = with intro-stretch fix
     alignment_loss: alignment.overallLoss,
   });
 
   console.log('\n✅ Alignment saved');
-  console.log(`   Version: elevenlabs-forced-v1`);
+  console.log(`   Version: elevenlabs-forced-v2`);
   console.log(`   Loss: ${alignment.overallLoss.toFixed(4)}`);
   console.log(`   Duration: ${(alignment.alignmentDurationMs / 1000).toFixed(1)}s`);
 

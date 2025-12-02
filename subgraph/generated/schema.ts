@@ -348,36 +348,6 @@ export class Clip extends Entity {
     }
   }
 
-  get unlockLockAddress(): Bytes | null {
-    let value = this.get("unlockLockAddress");
-    if (!value || value.kind == ValueKind.NULL) {
-      return null;
-    } else {
-      return value.toBytes();
-    }
-  }
-
-  set unlockLockAddress(value: Bytes | null) {
-    if (!value) {
-      this.unset("unlockLockAddress");
-    } else {
-      this.set("unlockLockAddress", Value.fromBytes(<Bytes>value));
-    }
-  }
-
-  get unlockChainId(): i32 {
-    let value = this.get("unlockChainId");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set unlockChainId(value: i32) {
-    this.set("unlockChainId", Value.fromI32(value));
-  }
-
   get performances(): PerformanceLoader {
     return new PerformanceLoader(
       "Clip",

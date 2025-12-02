@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { gql } from 'graphql-request'
-import { graphClient, SUBGRAPH_URL } from '@/lib/graphql/client'
+import { graphClient } from '@/lib/graphql/client'
 import { convertGroveUri } from '@/lib/lens/utils'
 
 /**
@@ -115,19 +115,12 @@ async function getKaraokeSongs(options: SearchOptions = {}): Promise<KaraokeSong
     skip = 0
   } = options
 
-  console.log('[useKaraokeSongsSearch] Fetching trending songs from:', SUBGRAPH_URL, { hasInstrumental, first, skip })
-
   const data = await graphClient.request<{ clips: any[] }>(
     GET_KARAOKE_SONGS_QUERY,
     { hasInstrumental, first, skip }
   )
 
-  console.log('[useKaraokeSongsSearch] Got clips:', data.clips.length)
-
   const songs = groupClipsBySpotifyTrack(data.clips)
-  console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
-
-  // For trending/default view: Show recent songs even with incomplete metadata
   return filterSongsByQuality(songs, false)
 }
 
@@ -144,23 +137,13 @@ async function searchKaraokeSongs(
     skip = 0
   } = options
 
-  console.log('[useKaraokeSongsSearch] Searching from:', SUBGRAPH_URL, { searchTerm, hasInstrumental, first, skip })
-
   const data = await graphClient.request<{ clips: any[] }>(
     SEARCH_KARAOKE_SONGS_QUERY,
     { searchTerm, hasInstrumental, first, skip }
   )
 
-  console.log('[useKaraokeSongsSearch] Search found clips:', data.clips.length)
-
   const songs = groupClipsBySpotifyTrack(data.clips)
-  console.log('[useKaraokeSongsSearch] Grouped into songs:', songs.length)
-
-  // For search: Be more strict to filter out poor quality results
-  const filtered = filterSongsByQuality(songs, true)
-  console.log('[useKaraokeSongsSearch] After quality filter:', filtered.length)
-
-  return filtered
+  return filterSongsByQuality(songs, true)
 }
 
 /**
@@ -257,24 +240,19 @@ async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
 
   try {
     const httpUrl = convertGroveUri((song as any).metadataUri)
-    console.log('[useKaraokeSongsSearch] Fetching Grove metadata from:', httpUrl)
-
     const response = await fetch(httpUrl)
     if (!response.ok) {
       throw new Error(`Failed to fetch metadata: ${response.status}`)
     }
 
     const metadata = await response.json()
-    console.log('[useKaraokeSongsSearch] Grove metadata:', metadata)
-
     return {
       ...song,
       title: metadata.title || song.title,
       artist: metadata.artist || song.artist,
       artworkUrl: metadata.coverUri ? convertGroveUri(metadata.coverUri) : undefined
     }
-  } catch (error) {
-    console.error('[useKaraokeSongsSearch] Failed to fetch metadata:', error)
+  } catch {
     return song // Return original song if metadata fetch fails
   }
 }

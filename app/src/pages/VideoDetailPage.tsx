@@ -33,6 +33,9 @@ export function VideoDetailPage() {
   const songSlugParam = searchParams.get('song') // e.g., "britney-spears/toxic"
   const spotifyTrackIdParam = searchParams.get('spotifyTrackId')
 
+  // Parse song slug into artist and song components for study navigation
+  const [artistSlug, songSlug] = songSlugParam?.split('/') ?? [undefined, undefined]
+
   // Fetch the account to get the address
   const { data: account } = useAccount({ username: { localName: lenshandle! } })
 
@@ -356,6 +359,8 @@ export function VideoDetailPage() {
         musicTitle={songName}
         musicAuthor={artistName}
         musicImageUrl={musicImageUrl}
+        artistSlug={artistSlug}
+        songSlug={songSlug}
         createdAt={createdAt}
         likes={likes}
         shares={shares}

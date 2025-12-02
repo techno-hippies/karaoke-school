@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,9 +12,6 @@ import { ExerciseSkeleton } from '@/components/study/ExerciseSkeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { SubscriptionDialog } from '@/components/subscription/SubscriptionDialog'
-import { useCreatorSubscriptionLock } from '@/hooks/useCreatorSubscriptionLock'
-import { useUnlockSubscription } from '@/hooks/useUnlockSubscription'
 
 /**
  * Study Session Page - Refactored with persistent layout
@@ -37,9 +34,8 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
     artistSlug?: string
     songSlug?: string
   }>()
-  const { isPKPReady, isAuthenticating, pkpAddress, pkpWalletClient } = useAuth()
+  const { isPKPReady, isAuthenticating } = useAuth()
   const navigate = useNavigate()
-  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false)
 
   // Resolve slug to spotifyTrackId (instant from static map, or async from subgraph)
   const { data: slugData, isLoading: isLoadingSlug } = useSongSlug(artistSlug, songSlug)
@@ -60,67 +56,6 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
   // Main orchestration hook handles all state and logic
   // Pass spotifyTrackId for slug routes, workId for legacy routes
   const session = useStudySession(songId, { exitPath: returnPath })
-
-  // Get subscription lock by artist slug (from URL params)
-  // For global sessions, we don't have an artist slug, so subscription won't apply
-  const { data: subscriptionLockData } = useCreatorSubscriptionLock({ artistSlug })
-  const {
-    subscribe,
-    status: subscriptionStatus,
-    statusMessage: subscriptionStatusMessage,
-    errorMessage: subscriptionErrorMessage,
-    reset: resetSubscription,
-  } = useUnlockSubscription(
-    pkpAddress ?? undefined,
-    subscriptionLockData?.unlockLockAddress,
-    { walletClient: pkpWalletClient }
-  )
-
-  const isSubscriptionProcessing =
-    subscriptionStatus === 'approving' || subscriptionStatus === 'purchasing'
-
-  const handleSubscriptionClick = () => {
-    if (!subscriptionLockData?.unlockLockAddress) {
-      alert('Subscription is not available for this song yet.')
-      return
-    }
-
-    if (!pkpAddress || !pkpWalletClient) {
-      onConnectWallet?.()
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-
-    setIsSubscriptionDialogOpen(true)
-  }
-
-  const handleSubscriptionConfirm = async () => {
-    if (!pkpAddress || !pkpWalletClient) {
-      onConnectWallet?.()
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-
-    await subscribe()
-  }
-
-  const handleSubscriptionRetry = async () => {
-    if (!pkpAddress || !pkpWalletClient) {
-      onConnectWallet?.()
-      alert('Please sign in to subscribe to this creator.')
-      return
-    }
-
-    resetSubscription()
-    await subscribe()
-  }
-
-  const handleSubscriptionDialogClose = (open: boolean) => {
-    setIsSubscriptionDialogOpen(open)
-    if (!open && subscriptionStatus === 'complete') {
-      resetSubscription()
-    }
-  }
 
   const cardsCompleted = session.initialTotalCards > 0 ? session.initialTotalCards : session.totalCards
   const completionTitle = session.songTitle
@@ -207,27 +142,6 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
               <p className="text-base text-muted-foreground">{t('study.cardsCompleted')}</p>
               <p className="text-6xl font-semibold tracking-tight">{cardsCompleted}</p>
             </Card>
-
-            {session.artistName && (
-              <Card className="w-full max-w-xl border border-primary/30 bg-primary/5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center p-6 text-left sm:text-left">
-                  <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wide text-primary font-semibold">
-                      {t('study.supportArtist')}
-                    </p>
-                    <h2 className="text-2xl font-semibold mt-1">
-                      {t('study.subscribeTo', { name: session.artistName })}
-                    </h2>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {t('study.unlockContent')}
-                    </p>
-                  </div>
-                  <Button size="lg" className="w-full sm:w-auto" onClick={handleSubscriptionClick}>
-                    {t('study.subscribe')}
-                  </Button>
-                </div>
-              </Card>
-            )}
           </div>
 
           <div className="border-t border-border bg-background/95 backdrop-blur-sm">
@@ -238,18 +152,6 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
             </div>
           </div>
         </div>
-
-        <SubscriptionDialog
-          open={isSubscriptionDialogOpen}
-          onOpenChange={handleSubscriptionDialogClose}
-          displayName={session.artistName || 'this artist'}
-          currentStep={subscriptionStatus}
-          isProcessing={isSubscriptionProcessing}
-          statusMessage={subscriptionStatusMessage}
-          errorMessage={subscriptionErrorMessage}
-          onSubscribe={handleSubscriptionConfirm}
-          onRetry={handleSubscriptionRetry}
-        />
       </>
     )
   }
