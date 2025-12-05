@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 export interface SurveyOption {
   id: string
   label: string
+  /** Optional i18n key for saving the response */
+  labelKey?: string
 }
 
 export interface ChatSurveyMessageProps {

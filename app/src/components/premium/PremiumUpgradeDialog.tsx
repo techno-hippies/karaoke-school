@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function PremiumUpgradeDialog({
   onUpgrade,
   onRetry,
 }: PremiumUpgradeDialogProps) {
+  const { t } = useTranslation()
   const isComplete = currentStep === 'complete'
   const isError = currentStep === 'error'
   const isIdle = currentStep === 'idle'
@@ -80,12 +82,12 @@ export function PremiumUpgradeDialog({
         <DialogHeader className="text-left">
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Sparkle className="w-6 h-6 text-yellow-500" weight="fill" />
-            Premium AI
+            {t('premium.title')}
           </DialogTitle>
           <p className="text-base text-muted-foreground">
             {isComplete
-              ? 'Welcome to Premium!'
-              : 'Unlock smarter AI and natural voices.'}
+              ? t('premium.welcomeMessage')
+              : t('premium.subtitle')}
           </p>
         </DialogHeader>
 
@@ -98,9 +100,9 @@ export function PremiumUpgradeDialog({
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border">
                   <Brain className="w-6 h-6 text-purple-500 flex-shrink-0 mt-0.5" weight="duotone" />
                   <div>
-                    <p className="font-medium">Smarter AI Model</p>
+                    <p className="font-medium">{t('premium.smarterAI')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Advanced reasoning and more natural conversations
+                      {t('premium.smarterAIDescription')}
                     </p>
                   </div>
                 </div>
@@ -108,9 +110,9 @@ export function PremiumUpgradeDialog({
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border">
                   <SpeakerHigh className="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" weight="duotone" />
                   <div className="flex-1">
-                    <p className="font-medium">Premium Voice</p>
+                    <p className="font-medium">{t('premium.premiumVoice')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Expressive voice with realistic emotions
+                      {t('premium.premiumVoiceDescription')}
                     </p>
                     <Button
                       variant="outline"
@@ -121,12 +123,12 @@ export function PremiumUpgradeDialog({
                       {isPlayingPreview ? (
                         <>
                           <Stop className="w-4 h-4" weight="fill" />
-                          Stop
+                          {t('premium.stop')}
                         </>
                       ) : (
                         <>
                           <Play className="w-4 h-4" weight="fill" />
-                          Preview
+                          {t('premium.preview')}
                         </>
                       )}
                     </Button>
@@ -139,7 +141,7 @@ export function PremiumUpgradeDialog({
                 <div className="text-center">
                   <div className="flex items-baseline gap-2 justify-center">
                     <span className="text-4xl font-bold">0.001 ETH</span>
-                    <span className="text-sm text-muted-foreground">/mo</span>
+                    <span className="text-sm text-muted-foreground">{t('premium.perMonth')}</span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">
                     Base Sepolia
@@ -156,7 +158,7 @@ export function PremiumUpgradeDialog({
                 size="lg"
               >
                 {isProcessing && <Spinner size="sm" />}
-                Upgrade
+                {t('premium.upgrade')}
               </Button>
             </div>
           )}
@@ -179,7 +181,7 @@ export function PremiumUpgradeDialog({
           {isError && (
             <div className="space-y-4">
               <div className="text-base text-center p-4 bg-destructive/10 text-destructive rounded-lg break-words" style={{ overflowWrap: 'anywhere' }}>
-                {errorMessage || 'Transaction failed. Please try again.'}
+                {errorMessage || t('premium.transactionFailed')}
               </div>
 
               <Button
@@ -188,7 +190,7 @@ export function PremiumUpgradeDialog({
                 variant="default"
                 size="lg"
               >
-                Retry
+                {t('premium.retry')}
               </Button>
             </div>
           )}
@@ -199,7 +201,7 @@ export function PremiumUpgradeDialog({
               <div className="text-center py-4">
                 <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" weight="fill" />
                 <p className="text-base text-muted-foreground">
-                  You now have access to premium AI features!
+                  {t('premium.accessGranted')}
                 </p>
               </div>
 
@@ -209,7 +211,7 @@ export function PremiumUpgradeDialog({
                 variant="default"
                 size="lg"
               >
-                Done
+                {t('premium.done')}
               </Button>
             </div>
           )}

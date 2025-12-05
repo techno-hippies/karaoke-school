@@ -1,7 +1,12 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
+import { KaraokeLyrics3Line } from '@/components/karaoke/KaraokeLyrics3Line'
+import { ScoreCounter } from '@/components/karaoke/ScoreCounter'
+import { ComboCounter } from '@/components/karaoke/ComboCounter'
+import { FloatingHearts, getHeartsRate } from '@/components/karaoke/FloatingHearts'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { BackButton } from '@/components/ui/back-button'
 import { LockKey, Warning } from '@phosphor-icons/react'
@@ -12,6 +17,26 @@ import type { LineResult, LineSessionSummary, GradeLineParams, GradeLineResult }
 import { useLineKaraokeGrader } from '@/hooks/useLineKaraokeGrader'
 import { useAuth } from '@/contexts/AuthContext'
 import { preloadFFmpeg } from '@/lib/audio-converter'
+
+/** Combo behavior types: advance (increase), freeze (maintain), reset (back to 1) */
+type ComboAction = 'advance' | 'freeze' | 'reset'
+
+/** Map rating to base points and combo behavior */
+const ratingConfig = {
+  Easy: { basePoints: 100, comboAction: 'advance' as ComboAction },
+  Good: { basePoints: 75, comboAction: 'advance' as ComboAction },
+  Hard: { basePoints: 50, comboAction: 'freeze' as ComboAction },
+  Again: { basePoints: 0, comboAction: 'reset' as ComboAction },
+} as const
+
+/** Get multiplier based on combo level (tiered) */
+function getComboMultiplier(combo: number): number {
+  if (combo >= 20) return 3.0
+  if (combo >= 10) return 2.5
+  if (combo >= 5) return 2.0
+  if (combo >= 3) return 1.5
+  return 1.0
+}
 
 export type PracticePhase = 'idle' | 'recording' | 'processing' | 'result'
 export type PracticeGrade = 'A' | 'B' | 'C' | 'D' | 'F'
@@ -36,26 +61,35 @@ export interface KaraokePracticeSessionProps {
   lyrics: LyricLine[]
   clipHash: string
   metadataUri?: string
-  isSubscriber?: boolean
-  previewLineCount?: number
-  /** Whether to emit blockchain transactions (default: false for dev) */
+  /**
+   * Whether to emit blockchain transactions (default: true for production)
+   * Set to false in Storybook to test UI without real blockchain calls
+   */
   emitTransactions?: boolean
   onClose?: () => void
   /** Optional custom grading function (overrides built-in Lit Action grader) */
   gradeLine?: (params: GradeLineParams) => Promise<GradeLineResult | null>
   onSubscribe?: () => void
+  /** Called when user needs to authenticate */
+  onNeedAuth?: () => void
   className?: string
 }
 
-const gradeMeta: Record<PracticeGrade, { title: string; description: string; className: string }> = {
-  A: { title: 'Excellent', description: 'Pitch perfect. Keep flexing.', className: 'text-emerald-400' },
-  B: { title: 'Great', description: 'Strong delivery with minor slips.', className: 'text-green-300' },
-  C: { title: 'Good', description: 'Solid attempt. Keep practicing.', className: 'text-yellow-300' },
-  D: { title: 'Okay', description: 'On the right track. Watch timing.', className: 'text-orange-300' },
-  F: { title: 'Keep Going', description: 'Start over and lock in.', className: 'text-red-300' },
+const gradeStyles: Record<PracticeGrade, string> = {
+  A: 'text-emerald-400',
+  B: 'text-green-300',
+  C: 'text-yellow-300',
+  D: 'text-orange-300',
+  F: 'text-red-400',
 }
 
-const DEFAULT_PREVIEW_LINES = 4
+const gradeKeys: Record<PracticeGrade, string> = {
+  A: 'study.gradeExcellent',
+  B: 'study.gradeGreat',
+  C: 'study.gradeGood',
+  D: 'study.gradeOkay',
+  F: 'study.gradeFail',
+}
 
 /**
  * Fullscreen karaoke practice component for sticky-footer exercise flows.
@@ -76,14 +110,14 @@ export function KaraokePracticeSession({
   lyrics,
   clipHash,
   metadataUri,
-  isSubscriber = false,
-  previewLineCount = DEFAULT_PREVIEW_LINES,
-  emitTransactions = false,
+  emitTransactions = true,
   onClose,
   gradeLine: customGradeLine,
   onSubscribe,
+  onNeedAuth,
   className,
 }: KaraokePracticeSessionProps) {
+  const { t } = useTranslation()
   const { pkpInfo } = useAuth()
   const performer = pkpInfo?.ethAddress || ''
 
@@ -98,18 +132,25 @@ export function KaraokePracticeSession({
     }))
   }, [lyrics])
 
+  // Note: Lyrics are already pre-filtered by MediaPageContainer:
+  // - Free users receive karaoke_lines (clip window ~60s)
+  // - Subscribers receive full_karaoke_lines (entire song)
+  // No additional filtering needed here.
   const displayLyrics = useMemo(() => {
-    if (isSubscriber) {
-      return englishLyrics
-    }
-    return englishLyrics.slice(0, previewLineCount)
-  }, [englishLyrics, isSubscriber, previewLineCount])
+    return englishLyrics
+  }, [englishLyrics])
 
   const [phase, setPhase] = useState<PracticePhase>('idle')
   const [result, setResult] = useState<PracticeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lineResults, setLineResults] = useState<LineResult[]>([])
   const [sessionSummary, setSessionSummary] = useState<LineSessionSummary | null>(null)
+
+  // Game feedback state
+  const [runningScore, setRunningScore] = useState(0)
+  const [combo, setCombo] = useState(1)
+  const [performanceLevel, setPerformanceLevel] = useState(0) // Start at 0, earn hearts
+  const prevCompletedCountRef = useRef(0)
 
   // Preload FFmpeg.wasm for audio conversion (WebM → WAV)
   useEffect(() => {
@@ -176,6 +217,53 @@ export function KaraokePracticeSession({
     setLineResults(sessionLineResults)
   }, [sessionLineResults])
 
+  // Update score, combo, and performance level when a line completes or errors
+  useEffect(() => {
+    const processedResults = lineResults.filter(r => r.status === 'done' || r.status === 'error')
+    const newCount = processedResults.length
+
+    if (newCount > prevCompletedCountRef.current) {
+      // Get the most recently processed line
+      const latestResult = processedResults[processedResults.length - 1]
+
+      // Errors are treated as "Again" (0 points, combo reset)
+      const effectiveRating = latestResult?.status === 'error'
+        ? 'Again'
+        : (latestResult?.rating as keyof typeof ratingConfig)
+
+      const config = ratingConfig[effectiveRating] || ratingConfig.Again
+
+      // Update performance level based on rating
+      // Hard is neutral (you passed), Easy/Good build up, Again drops
+      const levelDelta =
+        effectiveRating === 'Easy' ? 0.25
+        : effectiveRating === 'Good' ? 0.12
+        : effectiveRating === 'Hard' ? 0.03 // Still a pass, small gain
+        : -0.15 // Again - less punishing
+      setPerformanceLevel(prev => Math.max(0, Math.min(1, prev + levelDelta)))
+
+      // Apply combo multiplier to points
+      setCombo(prevCombo => {
+        const multiplier = getComboMultiplier(prevCombo)
+        const points = Math.round(config.basePoints * multiplier)
+        setRunningScore(prev => prev + points)
+
+        // Handle combo based on action type
+        switch (config.comboAction) {
+          case 'advance':
+            return prevCombo + 1
+          case 'freeze':
+            return prevCombo
+          case 'reset':
+            return 1
+          default:
+            return prevCombo
+        }
+      })
+    }
+    prevCompletedCountRef.current = newCount
+  }, [lineResults])
+
   // Convert summary to practice result
   useEffect(() => {
     if (summary) {
@@ -206,8 +294,13 @@ export function KaraokePracticeSession({
   }, [audioRef, pause, seek])
 
   const handleStart = useCallback(async () => {
-    // Validate prerequisites
-    if (!performer) {
+    // Validate prerequisites (skip auth check if custom gradeLine provided for testing)
+    if (!customGradeLine && !performer) {
+      // Trigger auth dialog instead of showing error
+      if (onNeedAuth) {
+        onNeedAuth()
+        return
+      }
       setError('Please connect your wallet to practice')
       return
     }
@@ -222,6 +315,10 @@ export function KaraokePracticeSession({
       setResult(null)
       setLineResults([])
       setSessionSummary(null)
+      setRunningScore(0)
+      setCombo(1)
+      setPerformanceLevel(0)
+      prevCompletedCountRef.current = 0
 
       // Reset playback
       if (audioRef.current) {
@@ -235,7 +332,7 @@ export function KaraokePracticeSession({
       setError(message)
       setPhase('idle')
     }
-  }, [audioRef, customGradeLine, graderConfigError, isGraderReady, performer, startSession])
+  }, [audioRef, customGradeLine, graderConfigError, isGraderReady, performer, startSession, onNeedAuth])
 
   const handleRestart = useCallback(() => {
     resetAudio()
@@ -256,10 +353,9 @@ export function KaraokePracticeSession({
   const completedLineCount = lineResults.filter(r => r.status === 'done').length
   const errorLineCount = lineResults.filter(r => r.status === 'error').length
 
-  // Calculate time offset - the clip starts at 0 but lyrics have original song timing
-  // We need to offset currentTime to match the lyrics' expected timestamps
-  const lyricsStartTime = displayLyrics[0]?.start ?? 0
-  const adjustedCurrentTime = currentTime + lyricsStartTime
+  // Clips are cropped from position 0 of the original song (including intro),
+  // so currentTime directly matches the lyrics' absolute timestamps - no adjustment needed.
+  const adjustedCurrentTime = currentTime
 
   const renderMainContent = () => {
     // Show config error if grader not ready
@@ -288,7 +384,6 @@ export function KaraokePracticeSession({
     }
 
     if (phase === 'result' && result) {
-      const grade = gradeMeta[result.grade]
       const gradeGlow = {
         A: 'drop-shadow-[0_0_40px_rgba(52,211,153,0.6)]',
         B: 'drop-shadow-[0_0_35px_rgba(134,239,172,0.5)]',
@@ -299,11 +394,10 @@ export function KaraokePracticeSession({
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center gap-6 px-6">
           <div className="space-y-2">
-            <p className="text-sm uppercase tracking-wider text-white/60">Score</p>
-            <p className={cn('text-8xl font-black tracking-tight animate-grade-reveal', grade.className, gradeGlow[result.grade])}>{result.grade}</p>
-            <p className="text-2xl font-semibold animate-bounce-in" style={{ animationDelay: '0.3s' }}>{grade.title}</p>
-            <p className="text-white/70 animate-bounce-in" style={{ animationDelay: '0.5s' }}>{result.feedback || grade.description}</p>
-            {result.sessionId && emitTransactions && (
+            <p className="text-sm uppercase tracking-wider text-white/60">{t('study.score')}</p>
+            <p className={cn('text-8xl font-black tracking-tight animate-grade-reveal', gradeStyles[result.grade], gradeGlow[result.grade])}>{result.grade}</p>
+            <p className="text-2xl font-semibold animate-bounce-in" style={{ animationDelay: '0.3s' }}>{t(gradeKeys[result.grade])}</p>
+            {result.sessionId && (
               <p className="text-xs text-white/40 mt-4 font-mono">
                 Session: {result.sessionId.slice(0, 10)}...
               </p>
@@ -313,6 +407,18 @@ export function KaraokePracticeSession({
       )
     }
 
+    // During recording, show simplified 3-line karaoke display
+    if (phase === 'recording') {
+      return (
+        <KaraokeLyrics3Line
+          lyrics={displayLyrics}
+          currentTime={adjustedCurrentTime}
+          className="absolute inset-0"
+        />
+      )
+    }
+
+    // Idle state - show full scrollable lyrics
     return (
       <LyricsDisplay
         lyrics={displayLyrics}
@@ -326,15 +432,24 @@ export function KaraokePracticeSession({
 
   // Determine button state
   const isStartDisabled = phase === 'recording' || phase === 'processing' || (!customGradeLine && !isGraderReady)
-  const buttonText = phase === 'idle' ? 'Start'
-    : phase === 'recording' ? `Recording... (${completedLineCount}/${displayLyrics.length})`
-    : phase === 'processing' ? 'Submitting...'
-    : 'Try Again'
+  const buttonText = phase === 'idle' ? t('study.startSession')
+    : phase === 'recording' ? t('study.recording')
+    : phase === 'processing' ? t('study.processing')
+    : t('study.playAgain')
 
   return (
     <div className={cn('relative w-full h-screen text-white flex items-center justify-center', className)}>
       <div className="relative w-full h-full md:max-w-2xl flex flex-col">
         <audio ref={audioRef} src={audioUrl} preload="auto" className="hidden" />
+
+        {/* Floating hearts feedback - only during recording */}
+        {phase === 'recording' && (
+          <FloatingHearts
+            heartsPerSecond={getHeartsRate(performanceLevel, combo)}
+            performanceLevel={performanceLevel}
+            combo={combo}
+          />
+        )}
 
         <div className="flex-none px-4 h-16 border-b border-border flex items-center justify-between bg-background/95 backdrop-blur relative">
           <BackButton
@@ -343,17 +458,16 @@ export function KaraokePracticeSession({
             className="text-white/90 hover:text-white z-10"
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center px-16">
-              {/* Title removed per user request */}
-              {phase === 'recording' && (
-                <p className="text-xs text-white/50">
-                  {activeLineCount > 0 ? 'Grading...' : 'Listening...'}
-                  {errorLineCount > 0 && ` (${errorLineCount} errors)`}
-                </p>
+            <div className="flex items-center gap-4 px-16">
+              {phase !== 'result' && (
+                <>
+                  <ScoreCounter score={runningScore} size="sm" label="" />
+                  <ComboCounter combo={combo} />
+                </>
               )}
             </div>
           </div>
-          {(!isSubscriber && onSubscribe) ? (
+          {onSubscribe ? (
             <Button
               onClick={onSubscribe}
               variant="destructive"
@@ -361,7 +475,7 @@ export function KaraokePracticeSession({
               className="shrink-0 z-10"
             >
               <LockKey className="w-4 h-4" weight="fill" />
-              Unlock
+              {t('study.unlock')}
             </Button>
           ) : (
             <span className="w-12" aria-hidden />
@@ -372,38 +486,28 @@ export function KaraokePracticeSession({
           {renderMainContent()}
         </div>
 
-        <div className="flex-none border-t border-white/10 backdrop-blur">
-          <div className="w-full px-4 py-4 space-y-3">
-            {error && (
-              <p className="text-sm text-red-300 flex items-center gap-2">
-                <Warning className="w-4 h-4" weight="fill" />
-                {error}
-              </p>
-            )}
+        {phase !== 'recording' && (
+          <div className="flex-none border-t border-white/10 backdrop-blur">
+            <div className="w-full px-4 py-4 space-y-3">
+              {error && (
+                <p className="text-sm text-red-300 flex items-center gap-2">
+                  <Warning className="w-4 h-4" weight="fill" />
+                  {error}
+                </p>
+              )}
 
-            {!performer && phase === 'idle' && (
-              <p className="text-sm text-yellow-300/80">
-                Connect wallet to enable practice
-              </p>
-            )}
-
-            <Button
-              size="lg"
-              variant={phase === 'recording' ? 'recording' : phase === 'result' ? 'gradient-success' : 'gradient'}
-              className="w-full text-lg font-semibold tracking-wide"
-              disabled={isStartDisabled}
-              onClick={phase === 'result' ? handleRestart : handleStart}
-            >
-              {buttonText}
-            </Button>
-
-            {emitTransactions && phase === 'idle' && (
-              <p className="text-xs text-center text-white/40">
-                Blockchain transactions enabled
-              </p>
-            )}
+              <Button
+                size="lg"
+                variant="gradient"
+                className="w-full text-lg font-semibold tracking-wide"
+                disabled={isStartDisabled}
+                onClick={phase === 'result' ? handleRestart : handleStart}
+              >
+                {buttonText}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

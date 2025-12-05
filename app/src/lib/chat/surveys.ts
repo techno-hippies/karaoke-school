@@ -9,12 +9,14 @@ import type { PersonalityId } from './types'
 
 export interface SurveyOption {
   id: string
-  label: string
+  /** i18n key for the option label */
+  labelKey: string
 }
 
 export interface SurveyConfig {
   id: string
-  question: string
+  /** i18n key for the question text */
+  questionKey: string
   options: SurveyOption[]
   /** Path in UserProfile to save response (dot notation) */
   saveTo: string
@@ -30,13 +32,13 @@ export interface SurveyConfig {
 const SCARLETT_SURVEYS: SurveyConfig[] = [
   {
     id: 'favoriteMusician',
-    question: "Of these musicians, who is your favorite?",
+    questionKey: 'survey.scarlett.favoriteMusician.question',
     options: [
-      { id: 'beyonce', label: 'Beyoncé' },
-      { id: 'blackpink', label: 'BLACKPINK' },
-      { id: 'jay-chou', label: 'Jay Chou' },
-      { id: 'taylor', label: 'Taylor Swift' },
-      { id: 'none', label: 'None of these' },
+      { id: 'beyonce', labelKey: 'survey.scarlett.favoriteMusician.beyonce' },
+      { id: 'blackpink', labelKey: 'survey.scarlett.favoriteMusician.blackpink' },
+      { id: 'jay-chou', labelKey: 'survey.scarlett.favoriteMusician.jayChou' },
+      { id: 'taylor', labelKey: 'survey.scarlett.favoriteMusician.taylor' },
+      { id: 'none', labelKey: 'survey.scarlett.favoriteMusician.none' },
     ],
     saveTo: 'learning.favoriteArtists',
     isArray: true,
@@ -44,23 +46,24 @@ const SCARLETT_SURVEYS: SurveyConfig[] = [
   },
   {
     id: 'englishLevel',
-    question: "How would you describe your English level?",
+    questionKey: 'survey.scarlett.englishLevel.question',
     options: [
-      { id: 'beginner', label: 'Beginner - I know basics' },
-      { id: 'intermediate', label: 'Intermediate - I can hold conversations' },
-      { id: 'advanced', label: 'Advanced - I want to polish my skills' },
+      { id: 'beginner', labelKey: 'survey.scarlett.englishLevel.beginner' },
+      { id: 'intermediate', labelKey: 'survey.scarlett.englishLevel.intermediate' },
+      { id: 'advanced', labelKey: 'survey.scarlett.englishLevel.advanced' },
     ],
     saveTo: 'level',
     isArray: false,
   },
   {
-    id: 'karaokeGoal',
-    question: "What's your main learning goal?",
+    id: 'learningGoal',
+    questionKey: 'survey.scarlett.learningGoal.question',
     options: [
-      { id: 'pronunciation', label: 'Better pronunciation' },
-      { id: 'vocabulary', label: 'Learn new vocabulary' },
-      { id: 'confidence', label: 'Build speaking confidence' },
-      { id: 'fun', label: 'Just for fun!' },
+      { id: 'travel', labelKey: 'survey.scarlett.learningGoal.travel' },
+      { id: 'dating', labelKey: 'survey.scarlett.learningGoal.dating' },
+      { id: 'test', labelKey: 'survey.scarlett.learningGoal.test' },
+      { id: 'job', labelKey: 'survey.scarlett.learningGoal.job' },
+      { id: 'other', labelKey: 'survey.scarlett.learningGoal.other' },
     ],
     saveTo: 'learning.goals',
     isArray: true,
@@ -73,13 +76,13 @@ const SCARLETT_SURVEYS: SurveyConfig[] = [
 const VIOLET_SURVEYS: SurveyConfig[] = [
   {
     id: 'favoriteAnime',
-    question: "What anime are you into?",
+    questionKey: 'survey.violet.favoriteAnime.question',
     options: [
-      { id: 'aot', label: 'Attack on Titan' },
-      { id: 'jjk', label: 'Jujutsu Kaisen' },
-      { id: 'spy-family', label: 'Spy x Family' },
-      { id: 'one-piece', label: 'One Piece' },
-      { id: 'none', label: 'Not really into anime' },
+      { id: 'aot', labelKey: 'survey.violet.favoriteAnime.aot' },
+      { id: 'jjk', labelKey: 'survey.violet.favoriteAnime.jjk' },
+      { id: 'spy-family', labelKey: 'survey.violet.favoriteAnime.spyFamily' },
+      { id: 'one-piece', labelKey: 'survey.violet.favoriteAnime.onePiece' },
+      { id: 'none', labelKey: 'survey.violet.favoriteAnime.none' },
     ],
     saveTo: 'learning.favoriteAnime',
     isArray: true,
@@ -87,13 +90,13 @@ const VIOLET_SURVEYS: SurveyConfig[] = [
   },
   {
     id: 'favoriteGame',
-    question: "What games do you play?",
+    questionKey: 'survey.violet.favoriteGame.question',
     options: [
-      { id: 'valorant', label: 'Valorant' },
-      { id: 'genshin', label: 'Genshin Impact' },
-      { id: 'lol', label: 'League of Legends' },
-      { id: 'rhythm', label: 'Rhythm games (osu!, etc.)' },
-      { id: 'none', label: "Don't game much" },
+      { id: 'valorant', labelKey: 'survey.violet.favoriteGame.valorant' },
+      { id: 'genshin', labelKey: 'survey.violet.favoriteGame.genshin' },
+      { id: 'lol', labelKey: 'survey.violet.favoriteGame.lol' },
+      { id: 'rhythm', labelKey: 'survey.violet.favoriteGame.rhythm' },
+      { id: 'none', labelKey: 'survey.violet.favoriteGame.none' },
     ],
     saveTo: 'learning.favoriteGames',
     isArray: true,
@@ -101,11 +104,11 @@ const VIOLET_SURVEYS: SurveyConfig[] = [
   },
   {
     id: 'musicProduction',
-    question: "Interested in making music?",
+    questionKey: 'survey.violet.musicProduction.question',
     options: [
-      { id: 'yes-daw', label: 'Yes, I use a DAW' },
-      { id: 'curious', label: 'Curious to learn' },
-      { id: 'listener', label: 'Just a listener' },
+      { id: 'yes-daw', labelKey: 'survey.violet.musicProduction.yesDaw' },
+      { id: 'curious', labelKey: 'survey.violet.musicProduction.curious' },
+      { id: 'listener', labelKey: 'survey.violet.musicProduction.listener' },
     ],
     saveTo: 'learning.musicProductionInterest',
     isArray: false,
@@ -153,70 +156,8 @@ export function allSurveysCompleted(
 }
 
 /**
- * Get welcome message for a personality
+ * Get welcome message i18n key for a personality
  */
-export function getWelcomeMessage(personalityId: PersonalityId, name: string): string {
-  switch (personalityId) {
-    case 'scarlett':
-      return `Hey! I'm ${name}. Let me get to know you a bit first so I can help you learn English through music!`
-    case 'violet':
-      return `Yo, ${name} here. Quick vibe check before we chat - what are you into?`
-    default:
-      return `Welcome! I'm ${name}. Let me get to know you first.`
-  }
-}
-
-/**
- * Get follow-up message after survey completion
- */
-export function getSurveyFollowUp(
-  personalityId: PersonalityId,
-  surveyId: string,
-  selectedOption: SurveyOption
-): string {
-  // Scarlett follow-ups
-  if (personalityId === 'scarlett') {
-    if (surveyId === 'favoriteMusician') {
-      if (selectedOption.id === 'none') {
-        return "No worries! We can explore all kinds of music together. What genres do you enjoy?"
-      }
-      return `${selectedOption.label}! Great taste. Their songs are perfect for learning English.`
-    }
-    if (surveyId === 'englishLevel') {
-      return `Got it! I'll tailor our practice to your ${selectedOption.label.toLowerCase().split(' ')[0]} level.`
-    }
-    if (surveyId === 'karaokeGoal') {
-      return "Perfect, I'll keep that in mind. Let's start learning!"
-    }
-  }
-
-  // Violet follow-ups
-  if (personalityId === 'violet') {
-    if (surveyId === 'favoriteAnime') {
-      if (selectedOption.id === 'none') {
-        return "Fair enough, anime isn't for everyone. What about music or games?"
-      }
-      return `${selectedOption.label}? Nice, that soundtrack slaps. Good taste.`
-    }
-    if (surveyId === 'favoriteGame') {
-      if (selectedOption.id === 'none') {
-        return "All good, more time for music then."
-      }
-      if (selectedOption.id === 'rhythm') {
-        return "Rhythm games? Respect. That's basically musical training."
-      }
-      return `${selectedOption.label} player, huh? Solid choice.`
-    }
-    if (surveyId === 'musicProduction') {
-      if (selectedOption.id === 'yes-daw') {
-        return "Nice! What DAW? I'm an Ableton person myself."
-      }
-      if (selectedOption.id === 'curious') {
-        return "I can teach you some basics. It's easier than people think."
-      }
-      return "That's cool, nothing wrong with just vibing to music."
-    }
-  }
-
-  return "Thanks! Let's continue."
+export function getWelcomeMessageKey(personalityId: PersonalityId): string {
+  return `personalities.${personalityId}.welcomeIntro`
 }

@@ -168,9 +168,8 @@ export const ClipPreview: Story = {
     title: 'Say It Back',
     artist: 'Karaoke School',
     audioUrl: mockAudioUrl,
-    lyrics: englishLyrics,
+    lyrics: englishLyrics.slice(0, 4), // Preview: first 4 lines (~60s clip)
     clipHash: '0x' + '11'.repeat(32),
-    isSubscriber: false,
     emitTransactions: false,
     onSubscribe: () => console.log('subscribe clicked'),
     gradeLine: mockGradeLine,
@@ -182,9 +181,8 @@ export const FullAccess: Story = {
     title: 'Say It Back',
     artist: 'Karaoke School',
     audioUrl: mockAudioUrl,
-    lyrics: englishLyrics,
+    lyrics: englishLyrics, // Full song
     clipHash: '0x' + '11'.repeat(32),
-    isSubscriber: true,
     emitTransactions: false,
     gradeLine: mockGradeLine,
   },
@@ -195,9 +193,8 @@ export const WithTransactions: Story = {
     title: 'Say It Back',
     artist: 'Karaoke School',
     audioUrl: mockAudioUrl,
-    lyrics: englishLyrics,
+    lyrics: englishLyrics, // Full song
     clipHash: '0x' + '11'.repeat(32),
-    isSubscriber: true,
     emitTransactions: true,
     gradeLine: mockGradeLine,
   },

@@ -37,8 +37,8 @@ const ACTIONS: Record<string, { path: string; name: string }> = {
     name: 'Exercise Grader v1'
   },
   chat: {
-    path: 'actions/chat/scarlett-chat-v1.js',
-    name: 'Scarlett Chat v1'
+    path: 'actions/chat/multi-personality-chat-v1.js',
+    name: 'Multi-Personality Chat v1'
   },
   translate: {
     path: 'actions/chat/translate-v1.js',

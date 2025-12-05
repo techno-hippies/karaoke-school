@@ -20,6 +20,7 @@ import {
 // 🔁 NEW: dynamic loaders for Lit + Lit auth-flow
 type LitModule = typeof import('@/lib/lit')
 type LitAuthFlowModule = typeof import('@/lib/lit/auth-flow')
+type LitEoaModule = typeof import('@/lib/lit/auth-eoa')
 
 function loadLit(): Promise<LitModule> {
   return import('@/lib/lit')
@@ -27,6 +28,10 @@ function loadLit(): Promise<LitModule> {
 
 function loadLitAuthFlow(): Promise<LitAuthFlowModule> {
   return import('@/lib/lit/auth-flow')
+}
+
+function loadLitEoa(): Promise<LitEoaModule> {
+  return import('@/lib/lit/auth-eoa')
 }
 
 export interface AuthFlowResult {
@@ -200,6 +205,71 @@ export async function signInWithPasskeyFlow(
   return {
     pkpInfo: result.pkpInfo,
     authData: result.authData,
+    pkpAuthContext,
+    walletClient,
+    lensSession: lensResult.session,
+    lensAccount: lensResult.account,
+    lensSetupStatus: 'complete',
+  }
+}
+
+// ---------------- EOA flow (Metamask, Rabby, Farcaster wallet) ----------------
+
+export async function connectWithEoaFlow(
+  externalWalletClient: WalletClient,
+  username: string | undefined,
+  statusCallback: StatusCallback
+): Promise<AuthFlowResult> {
+  statusCallback(i18n.t('auth.settingUp'))
+
+  const { hasExistingPkpForEoa, registerWithEoa, loginWithEoa } = await loadLitEoa()
+  const address = externalWalletClient.account?.address
+
+  if (!address) {
+    throw new Error('No account address in wallet client')
+  }
+
+  // Check if user already has a PKP for this wallet
+  statusCallback(i18n.t('auth.checkingAccount'))
+  const hasExisting = await hasExistingPkpForEoa(address)
+
+  let pkpInfo: PKPInfo
+  let authData: AuthData
+
+  if (hasExisting) {
+    statusCallback(i18n.t('auth.fetchingAccount'))
+    console.log('[Auth Flow] EOA has existing PKP, logging in...')
+    const result = await loginWithEoa(externalWalletClient)
+    pkpInfo = result.pkpInfo
+    authData = result.authData
+  } else {
+    statusCallback(i18n.t('auth.creatingAccount'))
+    console.log('[Auth Flow] EOA has no PKP, minting new one...')
+    const result = await registerWithEoa(externalWalletClient)
+    pkpInfo = result.pkpInfo
+    authData = result.authData
+  }
+
+  // Create PKP auth context + wallet client
+  statusCallback(i18n.t('auth.almostDone'))
+  const { createPKPAuthContext, createPKPWalletClient } = await loadLit()
+  const pkpAuthContext = await createPKPAuthContext(pkpInfo, authData)
+  const walletClient = await createPKPWalletClient(pkpInfo, pkpAuthContext)
+
+  // Connect Lens
+  statusCallback(i18n.t('auth.finishingSetup'))
+  const lensResult = await connectLensSession(
+    walletClient,
+    pkpInfo.ethAddress,
+    username,
+    statusCallback
+  )
+
+  statusCallback(i18n.t('auth.allSet'))
+
+  return {
+    pkpInfo,
+    authData,
     pkpAuthContext,
     walletClient,
     lensSession: lensResult.session,

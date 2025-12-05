@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sparkle } from '@phosphor-icons/react'
 import { ChatMessage, type ChatMessageProps } from './ChatMessage'
 import { ChatSurveyMessage, type ChatSurveyMessageProps } from './ChatSurveyMessage'
@@ -56,6 +57,7 @@ export function ChatPage({
   onUpgrade,
   className,
 }: ChatPageProps) {
+  const { t } = useTranslation()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -91,7 +93,7 @@ export function ChatPage({
                 onClick={onUpgrade}
               >
                 <Sparkle className="w-4 h-4" weight="fill" />
-                Upgrade
+                {t('premium.upgrade')}
               </Button>
             )}
           </div>

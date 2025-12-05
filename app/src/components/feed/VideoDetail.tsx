@@ -360,24 +360,6 @@ export function VideoDetail({
               </span>
             </button>
 
-            {/* Study - only show when song data is available */}
-            {canStudy && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleStudyClick()
-                }}
-                className="flex items-center gap-2 group"
-              >
-                <div className="rounded-full p-2 bg-muted/50 group-hover:bg-accent/50 transition-colors">
-                  <Exam className="w-6 h-6 text-foreground" weight="fill" />
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  {t('nav.study')}
-                </span>
-              </button>
-            )}
-
             {/* Share */}
             <button
               onClick={(e) => {
@@ -400,7 +382,7 @@ export function VideoDetail({
         {canStudy && (
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <div className="text-center space-y-4">
-              <Exam className="w-16 h-16 text-primary mx-auto" weight="fill" />
+              <Exam className="w-16 h-16 text-white mx-auto" weight="fill" />
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold text-foreground">
                   {t('study.learnThisSong')}

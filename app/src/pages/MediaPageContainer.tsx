@@ -38,7 +38,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
   const navigate = useNavigate()
   const [loadedTranslations, setLoadedTranslations] = useState<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = useState<any[]>([])
-  const { pkpAddress, pkpWalletClient } = useAuth()
+  const { pkpAddress, pkpWalletClient, openAuthDialog } = useAuth()
   const { gradeLine } = useLineKaraokeGrader()
 
   // Subscription dialog state
@@ -365,7 +365,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const handleUnlockClick = () => {
     if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to unlock this song.')
+      openAuthDialog()
       return
     }
 
@@ -380,7 +380,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const handleSubscriptionConfirm = async () => {
     if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to unlock this song.')
+      openAuthDialog()
       return
     }
 
@@ -389,7 +389,7 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
 
   const handleSubscriptionRetry = async () => {
     if (!pkpAddress || !pkpWalletClient) {
-      alert('Please sign in to unlock this song.')
+      openAuthDialog()
       return
     }
     resetAccess()
@@ -413,9 +413,9 @@ export function MediaPageContainer({ variant = 'media' }: MediaPageContainerProp
           lyrics={lyrics}
           clipHash={firstClip.clipHash}
           metadataUri={firstClip.metadataUri}
-          isSubscriber={isOwned && accessState !== 'owned-decrypt-failed'}
           onClose={() => navigate(-1)}
           onSubscribe={shouldShowUnlockButton ? handleUnlockClick : undefined}
+          onNeedAuth={openAuthDialog}
           gradeLine={gradeLine}
         />
       )

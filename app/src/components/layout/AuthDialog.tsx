@@ -18,7 +18,33 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { CheckCircle, Wallet, Fingerprint, CaretLeft, GoogleLogo, DiscordLogo } from '@phosphor-icons/react'
+import { CheckCircle, Wallet, Fingerprint, CaretLeft, GoogleLogo, DiscordLogo, CaretDown, CaretUp, Warning } from '@phosphor-icons/react'
+
+// Helper to extract a user-friendly message key from technical errors
+function getErrorMessageKey(error: string): { key: string; hasTechnicalDetails: boolean } {
+  // Check for common error patterns and provide friendly message keys
+  if (error.includes('HTTP request failed') || error.includes('Failed to fetch')) {
+    return { key: 'auth.errors.connectionFailed', hasTechnicalDetails: true }
+  }
+  if (error.includes('User rejected') || error.includes('user rejected')) {
+    return { key: 'auth.errors.cancelled', hasTechnicalDetails: false }
+  }
+  if (error.includes('timeout') || error.includes('Timeout')) {
+    return { key: 'auth.errors.timeout', hasTechnicalDetails: true }
+  }
+  if (error.includes('already registered') || error.includes('already exists')) {
+    return { key: 'auth.errors.accountExists', hasTechnicalDetails: false }
+  }
+  if (error.includes('not found') || error.includes('No credential')) {
+    return { key: 'auth.errors.accountNotFound', hasTechnicalDetails: false }
+  }
+  // For short, already-friendly messages, just return as-is (no i18n key)
+  if (error.length < 100 && !error.includes('0x') && !error.includes('http')) {
+    return { key: '', hasTechnicalDetails: false }
+  }
+  // Default: hide technical details
+  return { key: 'auth.errors.generic', hasTechnicalDetails: true }
+}
 
 // ---------------- Types ----------------
 
@@ -105,6 +131,7 @@ export function AuthDialog({
   const [view, setView] = useState<AuthStep>('select-method')
   const [username, setUsername] = useState('')
   const [pendingProvider, setPendingProvider] = useState<'passkey' | 'google' | 'discord' | null>(null)
+  const [showErrorDetails, setShowErrorDetails] = useState(false)
 
   // Sync context step to view if needed
   useEffect(() => {
@@ -137,6 +164,7 @@ export function AuthDialog({
         setView('select-method')
         setUsername('')
         setPendingProvider(null)
+        setShowErrorDetails(false)
         onWalletDisconnect?.()
       }, 300)
     }
@@ -203,11 +231,44 @@ export function AuthDialog({
 
         <div className="py-4">
           {/* ERROR DISPLAY */}
-          {displayError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 break-words">
-              {displayError}
-            </div>
-          )}
+          {displayError && (() => {
+            const { key, hasTechnicalDetails } = getErrorMessageKey(displayError)
+            const friendlyMessage = key ? t(key) : displayError
+            return (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
+                <div className="flex items-start gap-2">
+                  <Warning className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" weight="fill" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-red-700">{friendlyMessage}</p>
+                    {hasTechnicalDetails && (
+                      <button
+                        type="button"
+                        onClick={() => setShowErrorDetails(!showErrorDetails)}
+                        className="mt-2 text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                      >
+                        {showErrorDetails ? (
+                          <>
+                            <CaretUp className="w-3 h-3" />
+                            {t('auth.errors.hideDetails')}
+                          </>
+                        ) : (
+                          <>
+                            <CaretDown className="w-3 h-3" />
+                            {t('auth.errors.showDetails')}
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {showErrorDetails && hasTechnicalDetails && (
+                      <pre className="mt-2 p-2 bg-red-100 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+                        {displayError}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* STEP 1: METHOD SELECTION */}
           {view === 'select-method' && (

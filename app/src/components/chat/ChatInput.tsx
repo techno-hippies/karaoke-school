@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { PaperPlaneRight, Waveform, Stop } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 export interface ChatInputProps {
@@ -45,17 +46,21 @@ export function ChatInput({
   onStartRecording,
   onStopRecording,
   onFocus,
-  placeholder = 'Type a message...',
+  placeholder,
   disabled = false,
   isRecording = false,
   recordingDuration = 0,
   isProcessing = false,
   className,
 }: ChatInputProps) {
+  const { t } = useTranslation()
   const [message, setMessage] = useState('')
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Use translation for default placeholder
+  const inputPlaceholder = placeholder ?? t('chatInput.placeholder')
 
   // Handle mobile keyboard visibility
   useEffect(() => {
@@ -139,7 +144,7 @@ export function ChatInput({
       >
         <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 h-11">
           <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-muted-foreground">Transcribing...</span>
+          <span className="text-sm text-muted-foreground">{t('chatInput.transcribing')}</span>
         </div>
       </div>
     )
@@ -231,7 +236,7 @@ export function ChatInput({
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={onFocus}
-          placeholder={placeholder}
+          placeholder={inputPlaceholder}
           disabled={disabled}
           rows={1}
           className={cn(

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import type { LyricLine } from '@/types/karaoke'
 import { keccak256, encodeAbiParameters } from 'viem'
-import { webmToWav } from '@/lib/audio-converter'
+import { sliceAndEncodeToWav } from '@/lib/audio-converter'
 
 type LineStatus = 'pending' | 'processing' | 'done' | 'error'
 
@@ -146,28 +146,9 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
   }, [stopRecorder])
 
   /**
-   * Convert audio blob to base64, converting to WAV first.
-   * Voxtral STT only accepts MP3/WAV, not WebM or MP4.
+   * Convert audio blob to base64 string.
    */
   const blobToBase64 = useCallback(async (blob: Blob): Promise<string> => {
-    console.log(`[useKaraokeLineSession] Input blob: ${blob.type}, ${(blob.size / 1024).toFixed(1)} KB`)
-
-    // Convert WebM/MP4 to WAV for Voxtral compatibility
-    let audioBlob = blob
-    if (blob.type.includes('webm') || blob.type.includes('mp4')) {
-      try {
-        audioBlob = await webmToWav(blob, 16000)
-        // Verify WAV header
-        const headerBytes = new Uint8Array(await audioBlob.slice(0, 12).arrayBuffer())
-        const header = String.fromCharCode(...headerBytes.slice(0, 4)) + '...' + String.fromCharCode(...headerBytes.slice(8, 12))
-        console.log(`[useKaraokeLineSession] Converted to WAV: ${audioBlob.type}, ${(audioBlob.size / 1024).toFixed(1)} KB, header: ${header}`)
-      } catch (err) {
-        console.error('[useKaraokeLineSession] ❌ Audio→WAV conversion FAILED:', err)
-        // This will cause Voxtral to fail - WebM is not supported
-        throw new Error(`WAV conversion failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      }
-    }
-
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onerror = () => reject(reader.error || new Error('FileReader error'))
@@ -180,7 +161,7 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
           reject(new Error('Unexpected FileReader result'))
         }
       }
-      reader.readAsDataURL(audioBlob)
+      reader.readAsDataURL(blob)
     })
   }, [])
 
@@ -192,42 +173,37 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     })
   }, [])
 
-  const getSlice = useCallback((windowStart: number, windowEnd: number): Blob | null => {
-    // WebM requires the header from the first chunk to be valid.
-    // MediaRecorder chunks are NOT self-contained - only the first has the EBML header.
-    // We must always include chunk 0 (the header) + the overlapping chunks.
+  /**
+   * Get the full recording as a single blob (all chunks merged).
+   * We decode the full recording and slice by timestamp in PCM space
+   * to avoid WebM container issues with chunk boundaries.
+   */
+  const getFullRecordingBlob = useCallback((): Blob | null => {
     const chunks = chunksRef.current
     if (!chunks.length) return null
 
-    const overlapping = chunks.filter(
-      (c) => c.end > windowStart && c.start < windowEnd
-    )
-    if (!overlapping.length) return null
-
-    // Always include the first chunk (header) if not already included
-    const hasHeader = overlapping.includes(chunks[0])
-    const blobsToMerge = hasHeader ? overlapping : [chunks[0], ...overlapping]
-
     const type = chunks[0]?.blob?.type || 'audio/webm'
-    return new Blob(blobsToMerge.map((c) => c.blob), { type })
+    return new Blob(chunks.map((c) => c.blob), { type })
   }, [])
 
-  const pruneChunks = useCallback((nowMs: number) => {
-    const cutoff = nowMs - maxWindowMs
-    // Never prune the first chunk (WebM header) - it's needed for all slices
-    const chunks = chunksRef.current
-    if (chunks.length <= 1) return
-    const [header, ...rest] = chunks
-    chunksRef.current = [header, ...rest.filter((c) => c.end >= cutoff)]
-  }, [maxWindowMs])
+  // Note: With PCM-based slicing, we need ALL chunks to decode the full recording.
+  // Chunk pruning is disabled - memory usage is acceptable for typical karaoke clips (<60s).
+  // If memory becomes an issue for very long recordings, we could implement incremental
+  // decoding or keep a decoded AudioBuffer cache.
 
   const processLine = useCallback(async (lineIndex: number, attempt = 0) => {
     const line = lines[lineIndex]
     // Convert absolute lyrics time to clip-relative time using offset
     const clipRelativeStart = (line.start - lyricsOffsetRef.current) * 1000
     const clipRelativeEnd = (line.end - lyricsOffsetRef.current) * 1000
-    const startMs = tPlaybackStartRef.current + clipRelativeStart - padBeforeMs
-    const endMs = tPlaybackStartRef.current + clipRelativeEnd + padAfterMs
+
+    // Calculate time window in recording timebase
+    // playbackStart and recordStart are both in performance.now() timebase
+    // The difference accounts for any delay between recording and playback start
+    const recordingOffset = tPlaybackStartRef.current - tRecordStartRef.current
+    const sliceStartMs = recordingOffset + clipRelativeStart - padBeforeMs
+    const sliceEndMs = recordingOffset + clipRelativeEnd + padAfterMs
+
     const currentSessionId = sessionIdRef.current
 
     if (!currentSessionId) {
@@ -245,11 +221,11 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       return next
     })
 
-    const sliceBlob = getSlice(startMs, endMs)
-    if (!sliceBlob) {
+    const fullRecording = getFullRecordingBlob()
+    if (!fullRecording) {
       updateLineResults((prev) => {
         const next = [...prev]
-        next[lineIndex] = { status: 'error', error: 'No audio captured for line window' }
+        next[lineIndex] = { status: 'error', error: 'No audio captured' }
         return next
       })
       return
@@ -259,7 +235,11 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     const isLastLine = lineIndex === lines.length - 1
 
     try {
-      const base64 = await blobToBase64(sliceBlob)
+      // Decode full recording, slice by timestamp window, encode to WAV
+      const wavBlob = await sliceAndEncodeToWav(fullRecording, sliceStartMs, sliceEndMs, 16000)
+      console.log(`[useKaraokeLineSession] Line ${lineIndex}: ${sliceStartMs.toFixed(0)}-${sliceEndMs.toFixed(0)}ms, ${(wavBlob.size / 1024).toFixed(1)} KB`)
+
+      const base64 = await blobToBase64(wavBlob)
       const result = await gradeLine({
         clipHash,
         lineIndex,
@@ -316,14 +296,11 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       })
       onError?.(err)
     }
-  }, [clipHash, getSlice, gradeLine, lines, metadataUriOverride, onError, padAfterMs, padBeforeMs, blobToBase64, skipTx, updateLineResults, maxRetries])
+  }, [clipHash, getFullRecordingBlob, gradeLine, lines, metadataUriOverride, onError, padAfterMs, padBeforeMs, blobToBase64, skipTx, updateLineResults, maxRetries])
 
   const tick = useCallback(() => {
     if (!isRunningRef.current) return
     const now = performance.now()
-
-    // Prune old chunks to cap memory
-    pruneChunks(now)
 
     const idx = currentLineRef.current
     if (idx >= lines.length) {
@@ -361,21 +338,23 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     }
 
     rafRef.current = requestAnimationFrame(tick)
-  }, [cleanup, lines, onComplete, padAfterMs, pruneChunks, processLine])
+  }, [cleanup, lines, onComplete, padAfterMs, processLine])
 
   const startSession = useCallback(async () => {
     if (!audioRef.current) {
       throw new Error('Audio element not ready')
     }
-    if (!performer) {
+    // Allow empty performer when skipTx is true (testing mode)
+    if (!performer && !skipTx) {
       throw new Error('Performer address required')
     }
     if (isRunningRef.current) return
 
     try {
-      // Generate session ID once at start
+      // Generate session ID once at start (use mock address for testing)
+      const effectivePerformer = performer || '0x0000000000000000000000000000000000000001'
       sessionNonceRef.current = BigInt(Date.now())
-      const newSessionId = generateSessionId(performer, clipHash, sessionNonceRef.current)
+      const newSessionId = generateSessionId(effectivePerformer, clipHash, sessionNonceRef.current)
       sessionIdRef.current = newSessionId
       setSessionId(newSessionId)
 
@@ -386,9 +365,10 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       currentLineRef.current = 0
       setSummary(null)
 
-      // Calculate lyrics offset - the first line's start time represents where the clip begins
-      // in the original song. We need to subtract this to get clip-relative times.
-      lyricsOffsetRef.current = lines[0]?.start ?? 0
+      // Clips always start at position 0 of the original song (including intro).
+      // Lyrics use absolute timing from the original song, no offset needed.
+      // The create-clip.ts script crops from 0 to clip_end_ms, preserving original timing.
+      lyricsOffsetRef.current = 0
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -445,7 +425,7 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       onError?.(err)
       throw err
     }
-  }, [audioRef, cleanup, clipHash, lines, onError, performer, tick, timesliceMs])
+  }, [audioRef, cleanup, clipHash, lines, onError, performer, skipTx, tick, timesliceMs])
 
   const stopSession = useCallback(() => {
     cleanup()

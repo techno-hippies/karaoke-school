@@ -97,19 +97,12 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         voxtralEncryptedKey: LIT_KARAOKE_LINE_VOXTRAL_KEY,
       }
 
-      // Debug: log audio data size
-      const audioSize = params.audioDataBase64?.length || 0
-      const audioSizeKB = (audioSize * 0.75 / 1024).toFixed(1) // base64 → bytes → KB
+      const sessionFlags = [
+        params.startSession && 'start',
+        params.endSession && 'end',
+      ].filter(Boolean).join('+')
 
-      console.log(`[useLineKaraokeGrader] Grading line ${params.lineIndex} in session ${params.sessionId.slice(0, 10)}...`, {
-        startSession: params.startSession,
-        endSession: params.endSession,
-        skipTx: params.skipTx,
-        audioSizeKB: `${audioSizeKB} KB`,
-        hasVoxtralKey: !!LIT_KARAOKE_LINE_VOXTRAL_KEY,
-        metadataUriOverride: params.metadataUriOverride || '(none)',
-        subgraphUrl: SUBGRAPH_URL,
-      })
+      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}${sessionFlags ? ` (${sessionFlags})` : ''} → session ${params.sessionId.slice(0, 10)}...`)
 
       const result = await withTimeout(
         litClient.executeJs({
@@ -120,9 +113,6 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         45_000, // Increased timeout for blockchain tx
         'Lit Action execution timed out'
       )
-
-      // Debug: log full result
-      console.log(`[useLineKaraokeGrader] Lit Action FULL response:`, result.response)
 
       if (!result.response) {
         throw new Error('Lit Action returned empty response')
@@ -140,11 +130,13 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       const scoreBp = Number(response.scoreBp || 0)
       const rating = ratingLabel(Number(response.rating))
 
-      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex} graded: ${scoreBp / 100}% (${rating})`, {
-        startTxHash: response.startTxHash,
-        lineTxHash: response.lineTxHash,
-        endTxHash: response.endTxHash,
-      })
+      const txs = [
+        response.startTxHash && 'start',
+        response.lineTxHash && 'line',
+        response.endTxHash && 'end',
+      ].filter(Boolean).join('+')
+
+      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}: ${scoreBp / 100}% (${rating})${txs ? ` [tx: ${txs}]` : ''}`)
 
       return {
         score: Math.round(scoreBp / 100),

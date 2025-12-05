@@ -34,7 +34,7 @@ export function VideoGrid({
     return (
       <div className={cn(className)}>
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1 md:gap-2">
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
               className="aspect-[9/16] bg-neutral-800 rounded-md animate-pulse"

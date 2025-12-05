@@ -138,9 +138,9 @@ export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => 
               </p>
             </div>
 
-            <Card className="w-full max-w-sm border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-2">
-              <p className="text-base text-muted-foreground">{t('study.cardsCompleted')}</p>
-              <p className="text-6xl font-semibold tracking-tight">{cardsCompleted}</p>
+            <Card className="w-full max-w-sm border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-3">
+              <p className="text-lg text-muted-foreground">{t('study.cardsCompleted')}</p>
+              <p className="text-7xl font-bold tracking-tight">{cardsCompleted}</p>
             </Card>
           </div>
 

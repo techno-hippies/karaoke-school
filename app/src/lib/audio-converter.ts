@@ -173,3 +173,73 @@ export async function webmToWav(
 export async function preloadFFmpeg(): Promise<void> {
   // No preloading needed for Web Audio API approach
 }
+
+/**
+ * Slice an audio blob by timestamp window and encode to WAV.
+ * This decodes the full audio, extracts the target time window from PCM,
+ * and re-encodes just that window to WAV.
+ *
+ * @param audioBlob - Full recording blob (WebM/MP4)
+ * @param startMs - Start time in milliseconds (relative to recording start)
+ * @param endMs - End time in milliseconds (relative to recording start)
+ * @param targetSampleRate - Output sample rate (default 16000 for Voxtral)
+ * @returns WAV blob containing only the target time window
+ */
+export async function sliceAndEncodeToWav(
+  audioBlob: Blob,
+  startMs: number,
+  endMs: number,
+  targetSampleRate = 16000
+): Promise<Blob> {
+  const audioData = await audioBlob.arrayBuffer()
+
+  // Decode full audio to AudioBuffer
+  const audioBuffer = await decodeWithWebAudio(audioData)
+  if (!audioBuffer) {
+    throw new Error('Failed to decode audio for slicing')
+  }
+
+  const sourceSampleRate = audioBuffer.sampleRate
+  const totalDurationMs = (audioBuffer.length / sourceSampleRate) * 1000
+
+  // Clamp timestamps to valid range
+  const clampedStartMs = Math.max(0, startMs)
+  const clampedEndMs = Math.min(totalDurationMs, endMs)
+
+  if (clampedEndMs <= clampedStartMs) {
+    throw new Error(`Invalid time window: ${startMs}ms - ${endMs}ms (audio duration: ${totalDurationMs.toFixed(0)}ms)`)
+  }
+
+  // Calculate sample indices
+  const startSample = Math.floor((clampedStartMs / 1000) * sourceSampleRate)
+  const endSample = Math.ceil((clampedEndMs / 1000) * sourceSampleRate)
+  const sliceLength = endSample - startSample
+
+  // Extract the slice from each channel and mix to mono
+  const slicedMono = new Float32Array(sliceLength)
+  const numChannels = audioBuffer.numberOfChannels
+
+  for (let ch = 0; ch < numChannels; ch++) {
+    const channelData = audioBuffer.getChannelData(ch)
+    for (let i = 0; i < sliceLength; i++) {
+      const srcIdx = startSample + i
+      if (srcIdx < channelData.length) {
+        slicedMono[i] += channelData[srcIdx]
+      }
+    }
+  }
+
+  // Average channels for mono
+  if (numChannels > 1) {
+    for (let i = 0; i < sliceLength; i++) {
+      slicedMono[i] /= numChannels
+    }
+  }
+
+  // Resample to target rate
+  const resampled = resampleAudio(slicedMono, sourceSampleRate, targetSampleRate)
+
+  // Encode as WAV
+  const wavBuffer = encodePcmToWav(resampled, targetSampleRate, 1)
+  return new Blob([wavBuffer], { type: 'audio/wav' })
+}

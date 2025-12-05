@@ -78,7 +78,9 @@ export function useThread(threadId: string | null) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
+    console.log('[useThread] refresh called', { threadId })
     if (!threadId) {
+      console.log('[useThread] No threadId, clearing state')
       setThread(null)
       setMessages([])
       setLoading(false)
@@ -89,6 +91,18 @@ export function useThread(threadId: string | null) {
       store.getThread(threadId),
       store.getMessages(threadId),
     ])
+    console.log('[useThread] Loaded from IndexedDB', {
+      threadId,
+      threadExists: !!t,
+      messageCount: t?.messageCount,
+      messagesLoaded: msgs.length,
+      messages: msgs.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content.substring(0, 30),
+        isSurvey: m.metadata?.isSurvey,
+      })),
+    })
     setThread(t)
     setMessages(msgs)
     setLoading(false)
@@ -101,10 +115,37 @@ export function useThread(threadId: string | null) {
 
   const addMessage = useCallback(
     async (role: Message['role'], content: string, metadata?: Record<string, unknown>) => {
+      console.log('[useThread] addMessage called', {
+        threadId,
+        role,
+        contentPreview: content.substring(0, 30),
+        metadata,
+      })
       if (!threadId) throw new Error('No thread selected')
       const msg = await store.addMessage(threadId, role, content, metadata)
+      console.log('[useThread] Message saved to IndexedDB', { id: msg.id, idx: msg.idx })
       await refresh()
+      console.log('[useThread] After refresh, messages.length will update on next render')
       return msg
+    },
+    [threadId, refresh]
+  )
+
+  /**
+   * Add multiple messages in a batch with a single refresh.
+   * Use this when saving multiple messages at once (e.g., survey Q&A pairs).
+   */
+  const addMessagesBatch = useCallback(
+    async (messages: Array<{ role: Message['role']; content: string; metadata?: Record<string, unknown> }>) => {
+      console.log('[useThread] addMessagesBatch called', {
+        threadId,
+        messageCount: messages.length,
+      })
+      if (!threadId) throw new Error('No thread selected')
+      const saved = await store.addMessagesBatch(threadId, messages)
+      console.log('[useThread] Batch saved to IndexedDB', { count: saved.length })
+      await refresh()
+      return saved
     },
     [threadId, refresh]
   )
@@ -138,6 +179,7 @@ export function useThread(threadId: string | null) {
     loading,
     refresh,
     addMessage,
+    addMessagesBatch,
     updateSummary,
     markRead,
     needsSummary,

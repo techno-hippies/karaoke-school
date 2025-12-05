@@ -5,7 +5,10 @@
   "type": "module",
   "overrides": {
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "playwright": "1.53.0",
+    "playwright-core": "1.53.0",
+    "@playwright/test": "1.53.0"
   },
   "scripts": {
     "dev": "vite",
@@ -78,7 +81,7 @@
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.1",
     "@eslint/js": "^9.33.0",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "1.53.0",
     "@storybook/addon-a11y": "^9.1.10",
     "@storybook/addon-docs": "^9.1.10",
     "@storybook/addon-onboarding": "^9.1.10",

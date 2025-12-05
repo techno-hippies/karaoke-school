@@ -281,11 +281,9 @@ export function useStudyCards(songId?: string) {
 
               if (response.exerciseCards?.length) {
                 selectedExerciseLanguage = languageCode
-                console.log('[useStudyCards] ✅ Loaded exercise cards for language:', languageCode)
                 break
               }
 
-              console.log('[useStudyCards] ⚠️ No exercise cards for language, trying next fallback:', languageCode)
             } catch (error) {
               lastError = error
               console.warn('[useStudyCards] ⚠️ Failed to load exercise cards for language:', languageCode, error)
@@ -315,9 +313,7 @@ export function useStudyCards(songId?: string) {
         const clipMetadataCache = new Map<string, any>()
         const metadataFailures: Array<{ metadataUri: string; error: string }> = []
 
-        console.log('[useStudyCards] Processing clips:', data.clips?.length, 'clips')
         for (const clip of data.clips) {
-          console.log('[useStudyCards] Clip:', clip.id, 'metadataUri:', clip.metadataUri?.substring(0, 60))
           if (!clip.metadataUri) continue
 
           try {
@@ -339,14 +335,11 @@ export function useStudyCards(songId?: string) {
 
             // Store title/artist/artwork for this track
             if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
-              console.log('[useStudyCards] ✅ Stored metadata for', clip.spotifyTrackId, ':', clipMetadata.title, '-', clipMetadata.artist)
               songMetadataBySpotifyId.set(clip.spotifyTrackId, {
                 title: clipMetadata.title,
                 artist: clipMetadata.artist,
                 artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
               })
-            } else {
-              console.log('[useStudyCards] ⚠️ Missing title/artist in metadata for', clip.spotifyTrackId, ':', clipMetadata)
             }
           } catch (error) {
             console.warn('[useStudyCards] ⚠️ Error fetching clip metadata', {
@@ -381,7 +374,6 @@ export function useStudyCards(songId?: string) {
           const title = songMetadata?.title
           const artist = songMetadata?.artist
           const artworkUrl = songMetadata?.artworkUrl
-          console.log('[useStudyCards] Exercise card', card.id.substring(0, 12), 'spotifyTrackId:', card.spotifyTrackId, '→', title, '-', artist)
 
           studyCards.push({
             id: card.id,
@@ -451,12 +443,18 @@ export function useStudyCards(songId?: string) {
             }
             seenCardIds.add(lineId)
 
+            // Get title/artist/artwork from the metadata map
+            const songMetadata = songMetadataBySpotifyId.get(clip.spotifyTrackId)
+
             studyCards.push({
               id: lineId, // Use lineId as primary identifier
               lineId, // Deterministic bytes32 from Grove data (no contract needed!)
               lineIndex,
               segmentHash: clip.clipHash,
               spotifyTrackId: clip.spotifyTrackId,
+              title: songMetadata?.title,
+              artist: songMetadata?.artist,
+              artworkUrl: songMetadata?.artworkUrl,
               metadataUri: clip.metadataUri,
               instrumentalUri: clip.instrumentalUri,
               alignmentUri: clip.alignmentUri,
@@ -511,12 +509,6 @@ export function useStudyCards(songId?: string) {
             }
           }
 
-          // Debug: log exercise type counts
-          console.log('[useStudyCards] Exercise type counts:', {
-            translations: translations.length,
-            trivia: trivia.length,
-            sayItBack: sayItBack.length,
-          })
 
           // Onboarding sequence: T, Tr, S, then weighted toward translation
           // Pattern after intro: T, T, Tr, T, T, S, repeat
@@ -544,14 +536,6 @@ export function useStudyCards(songId?: string) {
           // Replace dueCards with non-new + interleaved new
           dueCards.length = 0
           dueCards.push(...nonNewCards, ...interleaved)
-
-          // Debug: log first 5 interleaved cards to diagnose exercise type issues
-          console.log('[useStudyCards] Interleaved cards (first 5):', interleaved.slice(0, 5).map((c, i) => ({
-            index: i,
-            id: c.id?.substring(0, 20),
-            exerciseType: c.exerciseType,
-            lineIndex: c.lineIndex,
-          })))
         }
 
         // Calculate daily new card limit (FSRS/Anki style)
@@ -624,7 +608,6 @@ export function useStudyCards(songId?: string) {
           dueToday: dailyCards.length, // Cards to study today (after daily limit applied)
         }
 
-        console.log('[useStudyCards] ✓ Loaded', dailyCards.length, 'cards for study session')
         if (metadataFailures.length > 0) {
           console.warn('[useStudyCards] ⚠️ Metadata fetch issues:', metadataFailures)
         }

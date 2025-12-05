@@ -1,13 +1,38 @@
+import { parseArgs } from 'util';
 import { fetchReferents } from '../services/genius';
 import { neon } from '@neondatabase/serverless';
 import { DATABASE_URL } from '../config';
+import { getSongByISWC } from '../db/queries';
+import { normalizeISWC } from '../lib/lyrics-parser';
+
+const { values } = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    iswc: { type: 'string' },
+    'genius-id': { type: 'string' },
+  },
+  strict: true,
+});
+
+if (!values.iswc || !values['genius-id']) {
+  console.error('Usage: bun src/scripts/insert-referents.ts --iswc=T0123456789 --genius-id=12345');
+  process.exit(1);
+}
+
+const iswc = normalizeISWC(values.iswc);
+const geniusSongId = parseInt(values['genius-id'], 10);
+
+const song = await getSongByISWC(iswc);
+if (!song) {
+  console.error(`Song not found: ${iswc}`);
+  process.exit(1);
+}
 
 const sql = neon(DATABASE_URL);
-const songId = '31cb8fc3-2887-424d-8d6a-3091408e972f';
-const geniusSongId = 207;
+const songId = song.id;
 
 const refs = await fetchReferents(geniusSongId);
-console.log('Fetched', refs.length, 'referents');
+console.log(`Fetched ${refs.length} referents for "${song.title}"`);
 
 let inserted = 0;
 for (const ref of refs) {

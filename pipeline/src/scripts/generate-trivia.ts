@@ -173,8 +173,10 @@ async function generateTriviaFromGenius(
   songTitle: string,
   artistName: string
 ): Promise<TriviaQuestion | null> {
-  const annotation = referent.annotations as { plain?: string } | undefined;
-  if (!annotation?.plain || annotation.plain.length < 50) return null;
+  // Annotations is an array of annotation objects with body.plain
+  const annotations = referent.annotations as Array<{ body?: { plain?: string } }> | undefined;
+  const annotationText = annotations?.[0]?.body?.plain;
+  if (!annotationText || annotationText.length < 50) return null;
 
   const systemPrompt = `You are creating music trivia for a karaoke learning app. Focus on lyric interpretation and literary/cultural references.
 
@@ -200,7 +202,7 @@ Lyric: "${referent.fragment}"
 
 Annotation:
 """
-${annotation.plain}
+${annotationText}
 """
 
 Requirements:

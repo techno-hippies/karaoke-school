@@ -251,8 +251,9 @@ async function resolveLyricsLines({ clipHash, metadataUriOverride, lyricsOverrid
 
   const json = await fetchMetadataJson(metadataUri);
   const candidates =
+    json?.full_karaoke_lines ||  // Prefer full lyrics for subscribers
+    json?.karaoke_lines ||       // Fallback to clip-only lyrics
     json?.clip_lines ||
-    json?.karaoke_lines ||
     json?.lines ||
     json?.lyrics;
 
@@ -610,7 +611,7 @@ async function submitZkSyncTransaction(txData, provider, sigName, txDebugStage) 
     return 'DEBUG_SIMULATION_OK';
   }
 
-  const nonce = await provider.getTransactionCount(pkpEthAddress);
+  const nonce = await provider.getTransactionCount(pkpEthAddress, 'pending');
   const feeData = await provider.getFeeData();
 
   const gasPrice = feeData.gasPrice || feeData.maxFeePerGas || ethers.BigNumber.from("3705143562");

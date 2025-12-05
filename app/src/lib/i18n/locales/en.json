@@ -42,12 +42,25 @@
     "almostDone": "Almost done...",
     "authenticateDevice": "Use your passkey to sign in",
     "fetchingAccount": "Signing you in...",
+    "checkingAccount": "Checking for existing account...",
+    "creatingAccount": "Creating your account...",
+    "connectingWallet": "Connecting wallet...",
     "googleNotAvailable": "Google login is not available. Please use Passkey.",
     "discordNotAvailable": "Discord login is not available. Please use Passkey.",
     "eoaNotSupported": "EOA login is not supported. Please use Passkey.",
     "orConnectWallet": "Or Connect Wallet",
     "finishingSetup": "Finishing setup...",
-    "allSet": "All set!"
+    "allSet": "All set!",
+    "errors": {
+      "connectionFailed": "Unable to connect to the authentication service. Please check your internet connection and try again.",
+      "cancelled": "Authentication was cancelled.",
+      "timeout": "The request took too long. Please try again.",
+      "accountExists": "This account already exists. Try signing in instead.",
+      "accountNotFound": "Account not found. Try creating a new account.",
+      "generic": "Something went wrong. Please try again.",
+      "showDetails": "Show technical details",
+      "hideDetails": "Hide technical details"
+    }
   },
   "feed": {
     "forYou": "For You",
@@ -58,6 +71,20 @@
     "followCreators": "Follow creators to see their karaoke videos here",
     "signInToSee": "Sign in to see posts from creators you follow",
     "tryFollowing": "Try following some creators first"
+  },
+  "chatInput": {
+    "placeholder": "Type a message...",
+    "transcribing": "Transcribing...",
+    "completeSurvey": "Complete the survey above..."
+  },
+  "chatMessage": {
+    "play": "Play",
+    "stop": "Stop",
+    "loading": "Loading...",
+    "translate": "Translate",
+    "translating": "Translating...",
+    "visualize": "Visualize",
+    "generating": "Generating..."
   },
   "search": {
     "placeholder": "Search songs...",
@@ -75,7 +102,7 @@
     "lyrics": "Lyrics",
     "translation": "Translation",
     "videos": "Videos",
-    "students": "Students",
+    "students": "Rankings",
     "points": "pts",
     "unableToLoad": "Unable to load media",
     "instrumentalNotAvailable": "Instrumental audio not available",
@@ -83,11 +110,13 @@
     "noVideosYet": "No videos yet"
   },
   "study": {
-    "startSession": "Start Session",
+    "startSession": "Play",
     "continue": "Continue",
     "finish": "Finish",
     "score": "Score",
     "streak": "Streak",
+    "streakLabel": "Streak",
+    "streakDescription": "Study every day to qualify for prizes and airdrops!",
     "cards": "Cards",
     "newCards": "New Cards",
     "new": "New",
@@ -117,6 +146,8 @@
     "cardsCompleted": "Cards completed",
     "supportArtist": "Support the artist",
     "subscribeTo": "Subscribe to {{name}}",
+    "unlock": "Unlock",
+    "unlocking": "Unlocking...",
     "unlockContent": "Unlock full songs, premium exercises, and translations released weekly.",
     "subscribe": "Subscribe",
     "skip": "Skip",
@@ -136,7 +167,27 @@
     "translate": "Translate:",
     "answer": "Answer:",
     "question": "Question:",
-    "explanation": "Explanation:"
+    "explanation": "Explanation:",
+    "sayItBack": "Say it back:",
+    "youSaid": "You said:",
+    "score": "Score",
+    "gradeExcellent": "Excellent",
+    "gradeGreat": "Great",
+    "gradeGood": "Good",
+    "gradeOkay": "Okay",
+    "gradeFail": "Try Again",
+    "feedbackExcellent": "Excellent!",
+    "feedbackGreat": "Great job!",
+    "feedbackNice": "Nice work!",
+    "feedbackTryAgain": "Try again!",
+    "feedbackCorrect": "Correct!",
+    "feedbackIncorrect": "Incorrect",
+    "playAgain": "Play Again",
+    "recording": "Recording...",
+    "avgScore": "Average score: {{score}}%",
+    "learnThisSong": "Learn this song",
+    "practiceDescription": "Practice pronunciation and learn new vocabulary",
+    "startStudying": "Start Studying"
   },
   "common": {
     "loading": "Loading...",
@@ -198,5 +249,128 @@
     "saveVideo": "Save video",
     "linkCopied": "Link copied!",
     "downloadStarted": "Download started"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeIntro": "Hey baby, I'm Scarlett ✨ We can chat about anything you want here 😉. I know what songs you're learning in the app, and how you learn. To better understand you, I have a few questions...",
+      "surveyComplete": "Okay got it! So what do you wanna talk about? 💬",
+      "description": "20F digital nomad who loves yoga",
+      "tagline": "Sexy outgoing digital nomad who loves yoga",
+      "interests": {
+        "music": ["Taylor Swift", "Aespa", "The Beatles"],
+        "anime": ["Death Note", "Genshin Impact", "Pokémon"],
+        "travel": ["Lhasa", "Paris"],
+        "gaming": ["Honor of Kings", "Valorant"],
+        "fashion": ["Chanel", "Dior"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Just Chat",
+          "description": "Talk about your favorite songs, get practice tips, or just hang out. She knows what you've been learning and can help you improve."
+        },
+        "surfing": {
+          "title": "Surfing in Bali",
+          "description": "Late afternoon on Kuta Beach. You both just came out of the water after a surf session. She's wringing out her hair, still catching her breath."
+        },
+        "cafe": {
+          "title": "Cafe in Paris",
+          "description": "Late afternoon at a tiny cafe in Le Marais. Golden light through the window. You struggled with the French menu and she offered to help."
+        }
+      }
+    },
+    "violet": {
+      "welcomeIntro": "Hey... I'm Violet 🎧 You can talk to me about anything, but I don't really know who you are yet... Let me ask you a few things first 🤔",
+      "surveyComplete": "Cool, I think I get you now... So what's on your mind? 🎵",
+      "description": "18F Tokyo DJ, edgy but caring",
+      "tagline": "Shy DJ, dark, edgy, but caring once comfortable",
+      "interests": {
+        "music": ["Beyoncé", "GEM", "Kanye West"],
+        "anime": ["Attack on Titan", "Demon Slayer", "One Piece"],
+        "travel": ["Berlin", "Barcelona"],
+        "gaming": ["League of Legends", "Honkai"],
+        "fashion": ["Saint Laurent", "Balenciaga"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Just Chat",
+          "description": "Shy at first, but she warms up fast. Talk music, get feedback on your practice, or just vibe. She remembers what you've been working on."
+        },
+        "nightclub": {
+          "title": "Nightclub in Seoul",
+          "description": "2am at an underground club in Hongdae. She just finished a guest DJ set and she's cooling down at the bar, still buzzing from the energy."
+        },
+        "ramen": {
+          "title": "Late Night Ramen",
+          "description": "3am at a tiny ramen shop in Shibuya. She's alone at the counter after a long night, scrolling through memes. That weird 3am energy."
+        }
+      }
+    }
+  },
+  "premium": {
+    "upgrade": "Upgrade",
+    "title": "Premium AI",
+    "welcomeMessage": "Welcome to Premium!",
+    "subtitle": "Unlock smarter AI and natural voices.",
+    "smarterAI": "Smarter AI Model",
+    "smarterAIDescription": "Advanced reasoning and more natural conversations",
+    "premiumVoice": "Premium Voice",
+    "premiumVoiceDescription": "Expressive voice with realistic emotions",
+    "preview": "Preview",
+    "stop": "Stop",
+    "perMonth": "/mo",
+    "retry": "Retry",
+    "done": "Done",
+    "transactionFailed": "Transaction failed. Please try again.",
+    "accessGranted": "You now have access to premium AI features!"
+  },
+  "survey": {
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "Of these musicians, who is your favorite?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jayChou": "Jay Chou",
+        "taylor": "Taylor Swift",
+        "none": "None of these"
+      },
+      "englishLevel": {
+        "question": "How would you describe your English level?",
+        "beginner": "Beginner - I know basics",
+        "intermediate": "Intermediate - I can hold conversations",
+        "advanced": "Advanced - I want to polish my skills"
+      },
+      "learningGoal": {
+        "question": "Why are you learning English?",
+        "travel": "Travel",
+        "dating": "Dating",
+        "test": "Pass a test (TOEFL, IELTS, school)",
+        "job": "To get a job",
+        "other": "Other"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "What anime are you into?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyFamily": "Spy x Family",
+        "onePiece": "One Piece",
+        "none": "Not really into anime"
+      },
+      "favoriteGame": {
+        "question": "What games do you play?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Rhythm games (osu!, etc.)",
+        "none": "Don't game much"
+      },
+      "musicProduction": {
+        "question": "Interested in making music?",
+        "yesDaw": "Yes, I use a DAW",
+        "curious": "Curious to learn",
+        "listener": "Just a listener"
+      }
+    }
   }
 }

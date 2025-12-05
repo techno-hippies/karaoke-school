@@ -26,6 +26,8 @@ const sampleConversation: ChatItem[] = [
       content: "Hello! I'm your English learning assistant. How can I help you today?",
       sender: 'ai',
       showTranslate: true,
+      tokensUsed: 2800,
+      maxTokens: 32000,
     },
   },
   {
@@ -43,6 +45,8 @@ const sampleConversation: ChatItem[] = [
       content: "Great choice! Song lyrics are an excellent way to learn natural English expressions. Which artist or song would you like to start with?",
       sender: 'ai',
       showTranslate: true,
+      tokensUsed: 5200,
+      maxTokens: 32000,
     },
   },
 ]
@@ -75,6 +79,8 @@ export const Empty: Story = {
           content: "Hi there! I'm here to help you learn English through music. What would you like to explore today?",
           sender: 'ai',
           showTranslate: true,
+          tokensUsed: 1200,
+          maxTokens: 32000,
         },
       },
     ],
@@ -127,6 +133,8 @@ export const WordHighlighting: Story = {
           ],
           sender: 'ai',
           showTranslate: true,
+          tokensUsed: 12500,
+          maxTokens: 32000,
         },
       },
     ],
@@ -190,6 +198,8 @@ export const WithTranslation: Story = {
           sender: 'ai',
           showTranslate: true,
           translation: "「セレンディピティ」という言葉は、偶然良いものを見つけることを意味します。美しい言葉ですね！",
+          tokensUsed: 8200,
+          maxTokens: 32000,
         },
       },
       {
@@ -394,6 +404,52 @@ export const WithUpgradeButton: Story = {
     onBack: () => console.log('Back'),
     showUpgrade: true,
     onUpgrade: () => console.log('Upgrade clicked'),
+    inputProps: {
+      onSend: (msg) => console.log('Sent:', msg),
+    },
+  },
+}
+
+/**
+ * Default Chat - 64k context window
+ */
+export const DefaultChat64k: Story = {
+  args: {
+    items: [
+      {
+        type: 'message',
+        id: '1',
+        props: {
+          content: "Hello! I'm your Default Chat assistant with a larger 64k context window for longer conversations.",
+          sender: 'ai',
+          showTranslate: true,
+          tokensUsed: 5200,
+          maxTokens: 64000,
+        },
+      },
+      {
+        type: 'message',
+        id: '2',
+        props: {
+          content: "That's great! So we can have much longer conversations?",
+          sender: 'user',
+        },
+      },
+      {
+        type: 'message',
+        id: '3',
+        props: {
+          content: "Exactly! With 64k tokens, we can maintain context from much more of our conversation history.",
+          sender: 'ai',
+          showTranslate: true,
+          tokensUsed: 9800,
+          maxTokens: 64000,
+        },
+      },
+    ],
+    title: 'Default Chat',
+    aiAvatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=default',
+    onBack: () => console.log('Back'),
     inputProps: {
       onSend: (msg) => console.log('Sent:', msg),
     },

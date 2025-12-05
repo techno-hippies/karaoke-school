@@ -1,6 +1,10 @@
-import { Translate, SpeakerHigh, Stop } from '@phosphor-icons/react'
+import { Translate, SpeakerHigh, Stop, Image as ImageIcon } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AvatarWithSkeleton } from '@/components/ui/avatar-with-skeleton'
+import { ContextIndicator } from './ContextIndicator'
+import { ImageLightbox } from './ImageLightbox'
 
 export interface ChatWord {
   text: string
@@ -32,6 +36,20 @@ export interface ChatMessageProps {
   onPlayAudio?: () => void
   /** Called when stop audio button clicked */
   onStopAudio?: () => void
+  /** Current context token count (for AI messages) */
+  tokensUsed?: number
+  /** Maximum context tokens (defaults to 32000) */
+  maxTokens?: number
+  /** Show visualize/generate image button (AI messages only) */
+  showVisualize?: boolean
+  /** Generated image URL to display */
+  imageUrl?: string
+  /** Called when visualize button clicked */
+  onVisualize?: () => void
+  /** Is image generation in progress */
+  isGeneratingImage?: boolean
+  /** Called when regenerate image is clicked */
+  onRegenerateImage?: () => void
   className?: string
 }
 
@@ -56,9 +74,18 @@ export function ChatMessage({
   isLoadingAudio = false,
   onPlayAudio,
   onStopAudio,
+  tokensUsed,
+  maxTokens = 32000,
+  showVisualize = false,
+  imageUrl,
+  onVisualize,
+  isGeneratingImage = false,
+  onRegenerateImage,
   className,
 }: ChatMessageProps) {
+  const { t } = useTranslation()
   const isAI = sender === 'ai'
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
   // Normalize content to words array
   const words: ChatWord[] = typeof content === 'string'
@@ -145,8 +172,26 @@ export function ChatMessage({
           </div>
         )}
 
+        {/* Generated image thumbnail */}
+        {imageUrl && (
+          <button
+            onClick={() => setIsLightboxOpen(true)}
+            className={cn(
+              'mt-2 rounded-xl overflow-hidden',
+              'border border-border/50 hover:border-border transition-colors',
+              'cursor-pointer group'
+            )}
+          >
+            <img
+              src={imageUrl}
+              alt="Generated visualization"
+              className="w-48 h-48 object-cover group-hover:scale-105 transition-transform duration-200"
+            />
+          </button>
+        )}
+
         {/* Action buttons row */}
-        {isAI && (showTranslate || hasAudio) && (
+        {isAI && (showTranslate || hasAudio || showVisualize || tokensUsed !== undefined) && (
           <div className="mt-1.5 flex items-center gap-1">
             {/* Play/Stop audio button */}
             {hasAudio && (
@@ -164,17 +209,17 @@ export function ChatMessage({
                 {isPlayingAudio ? (
                   <>
                     <Stop className="w-4 h-4" weight="fill" />
-                    <span>Stop</span>
+                    <span>{t('chatMessage.stop')}</span>
                   </>
                 ) : isLoadingAudio ? (
                   <>
                     <SpeakerHigh className="w-4 h-4 animate-pulse" />
-                    <span>Loading...</span>
+                    <span>{t('chatMessage.loading')}</span>
                   </>
                 ) : (
                   <>
                     <SpeakerHigh className="w-4 h-4" />
-                    <span>Play</span>
+                    <span>{t('chatMessage.play')}</span>
                   </>
                 )}
               </button>
@@ -193,12 +238,47 @@ export function ChatMessage({
                 )}
               >
                 <Translate className="w-4 h-4" />
-                <span>{isTranslating ? 'Translating...' : 'Translate'}</span>
+                <span>{isTranslating ? t('chatMessage.translating') : t('chatMessage.translate')}</span>
               </button>
+            )}
+
+            {/* Visualize button */}
+            {showVisualize && !imageUrl && (
+              <button
+                onClick={onVisualize}
+                disabled={isGeneratingImage}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+                  'text-sm text-muted-foreground hover:text-foreground',
+                  'hover:bg-muted/50 transition-colors cursor-pointer',
+                  isGeneratingImage && 'opacity-50 cursor-wait'
+                )}
+              >
+                <ImageIcon className={cn('w-4 h-4', isGeneratingImage && 'animate-pulse')} />
+                <span>{isGeneratingImage ? t('chatMessage.generating') : t('chatMessage.visualize')}</span>
+              </button>
+            )}
+
+            {/* Context indicator */}
+            {tokensUsed !== undefined && (
+              <ContextIndicator
+                tokensUsed={tokensUsed}
+                maxTokens={maxTokens}
+                className="ml-1"
+              />
             )}
           </div>
         )}
       </div>
+
+      {/* Image lightbox */}
+      {isLightboxOpen && imageUrl && (
+        <ImageLightbox
+          imageUrl={imageUrl}
+          onClose={() => setIsLightboxOpen(false)}
+          onRegenerate={onRegenerateImage}
+        />
+      )}
     </div>
   )
 }

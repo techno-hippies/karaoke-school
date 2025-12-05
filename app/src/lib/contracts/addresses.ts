@@ -10,7 +10,7 @@
 import litCids from './keys/dev.json'
 import exerciseVoxtralKey from './keys/exercise/voxtral_api_key_exercise.json'
 import karaokeLineVoxtralKey from './keys/karaoke-line/voxtral_api_key_karaoke-line.json'
-import chatVeniceKey from './keys/chat/venice_api_key_chat.json'
+import chatOpenrouterKey from './keys/chat/openrouter_api_key_chat.json'
 import chatDeepinfraKey from './keys/chat/deepinfra_api_key_chat.json'
 import ttsDeepinfraKey from './keys/tts/deepinfra_api_key_tts.json'
 
@@ -71,10 +71,10 @@ export const LIT_ACTION_VOXTRAL_KEY = exerciseVoxtralKey
 export const LIT_KARAOKE_LINE_VOXTRAL_KEY = karaokeLineVoxtralKey
 
 /** Chat Action CID (Scarlett/Violet) */
-export const LIT_CHAT_ACTION_CID = chatVeniceKey.cid || 'QmXQET5YfM7wsmY86edaWzn8ddzd1wUUyVBsdTb9iphDTa'
+export const LIT_CHAT_ACTION_CID = chatOpenrouterKey.cid || 'QmRwC8UWX1nS5Q37xoPR386vdNUdbQbFrN9Vbjtc749g6C'
 
-/** Encrypted Venice key for Chat Action */
-export const LIT_CHAT_VENICE_KEY = chatVeniceKey
+/** Encrypted OpenRouter key for Chat Action */
+export const LIT_CHAT_OPENROUTER_KEY = chatOpenrouterKey
 
 /** Encrypted DeepInfra key for Chat STT/TTS */
 export const LIT_CHAT_DEEPINFRA_KEY = chatDeepinfraKey

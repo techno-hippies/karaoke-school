@@ -48,19 +48,25 @@ function AppRouter() {
     const pathParts = location.pathname.split('/').filter(Boolean)
     const reservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
 
+    // Check if we're on a chat route (including sub-routes)
+    const isOnChatRoute = location.pathname.startsWith('/chat')
+
     if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/') ||
         // Artist pages: /:artistSlug (single segment, not reserved)
         (pathParts.length === 1 && !reservedPaths.includes(pathParts[0])) ||
         // Slug-based song routes: /:artistSlug/:songSlug
         (pathParts.length >= 2 && !reservedPaths.includes(pathParts[0]))) {
       setActiveTab('none')
+    } else if (isOnChatRoute) {
+      // All /chat/* routes should show chat tab
+      setActiveTab('chat')
     } else {
       const tab = pathToTab[location.pathname] || 'home'
       setActiveTab(tab)
     }
 
-    // Reset chat conversation state when leaving /chat
-    if (location.pathname !== '/chat') {
+    // Reset chat conversation state when leaving /chat entirely
+    if (!isOnChatRoute) {
       setInChatConversation(false)
     }
   }, [location.pathname])
@@ -80,6 +86,10 @@ function AppRouter() {
   const footerPathParts = location.pathname.split('/').filter(Boolean)
   const footerReservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
 
+  // Check if we're in a chat conversation (either via URL or state)
+  const isInChatConversation = inChatConversation ||
+    (location.pathname.startsWith('/chat/') && footerPathParts.length >= 2)
+
   const hideMobileFooter =
     location.pathname.match(/^\/song\//) ||
     location.pathname.match(/^\/u\/[^/]+\/video\//) ||
@@ -87,8 +97,8 @@ function AppRouter() {
     (footerPathParts.length === 1 && !footerReservedPaths.includes(footerPathParts[0])) ||
     // Slug-based routes: /:artistSlug/:songSlug
     (footerPathParts.length >= 2 && !footerReservedPaths.includes(footerPathParts[0])) ||
-    // Inside a chat conversation
-    inChatConversation
+    // Inside a chat conversation (via URL or state)
+    isInChatConversation
 
   return (
     <>
@@ -126,6 +136,8 @@ function AppRouter() {
           <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
 
           <Route path="/chat" element={<ChatPage onConversationChange={setInChatConversation} />} />
+          <Route path="/chat/:personalityId" element={<ChatPage onConversationChange={setInChatConversation} />} />
+          <Route path="/chat/:personalityId/:scenarioSlug" element={<ChatPage onConversationChange={setInChatConversation} />} />
           <Route path="/wallet" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

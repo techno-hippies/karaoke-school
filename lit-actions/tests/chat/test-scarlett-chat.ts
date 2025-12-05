@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * Test Script for Scarlett Chat v2 - Venice AI Chat Action with STT
+ * Test Script for Multi-Personality Chat v1 - Venice AI Chat Action with STT
  *
  * Tests CHAT, TRANSLATE, and STT modes
  *
@@ -64,7 +64,7 @@ async function loadDeepinfraEncryptedKey() {
 }
 
 async function main() {
-  console.log('🤖 Scarlett Chat v2 Test\n');
+  console.log('🤖 Multi-Personality Chat v1 Test\n');
   console.log('Network:', Env.name);
   console.log('Test mode:', TEST_MODE ? 'ON (no API calls)' : 'OFF (real Venice API calls)');
   console.log('Local code:', USE_LOCAL_CODE ? 'ON' : 'OFF');
@@ -143,7 +143,7 @@ async function main() {
 
     const chatExecParams: any = USE_LOCAL_CODE
       ? {
-          code: await readFile(join(__dirname, '../../actions/chat/scarlett-chat-v1.js'), 'utf-8'),
+          code: await readFile(join(__dirname, '../../actions/chat/multi-personality-chat-v1.js'), 'utf-8'),
           authContext: authContext,
           jsParams: chatParams,
         }
@@ -191,7 +191,7 @@ async function main() {
 
     const translateExecParams: any = USE_LOCAL_CODE
       ? {
-          code: await readFile(join(__dirname, '../../actions/chat/scarlett-chat-v1.js'), 'utf-8'),
+          code: await readFile(join(__dirname, '../../actions/chat/multi-personality-chat-v1.js'), 'utf-8'),
           authContext: authContext,
           jsParams: translateParams,
         }
@@ -244,7 +244,7 @@ async function main() {
 
     const ttsExecParams: any = USE_LOCAL_CODE
       ? {
-          code: await readFile(join(__dirname, '../../actions/chat/scarlett-chat-v1.js'), 'utf-8'),
+          code: await readFile(join(__dirname, '../../actions/chat/multi-personality-chat-v1.js'), 'utf-8'),
           authContext: authContext,
           jsParams: ttsParams,
         }
@@ -311,7 +311,7 @@ async function main() {
 
       const sttExecParams: any = USE_LOCAL_CODE
         ? {
-            code: await readFile(join(__dirname, '../../actions/chat/scarlett-chat-v1.js'), 'utf-8'),
+            code: await readFile(join(__dirname, '../../actions/chat/multi-personality-chat-v1.js'), 'utf-8'),
             authContext: authContext,
             jsParams: sttParams,
           }
@@ -372,7 +372,7 @@ async function main() {
       },
       {
         name: 'Version correct (chat)',
-        pass: chatResponse.version === 'scarlett-chat-v2',
+        pass: chatResponse.version === 'multi-personality-chat-v1',
         actual: chatResponse.version
       },
       {

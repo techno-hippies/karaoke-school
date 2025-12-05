@@ -42,12 +42,25 @@
     "almostDone": "Hampir selesai...",
     "authenticateDevice": "Gunakan passkey untuk masuk",
     "fetchingAccount": "Sedang masuk...",
+    "checkingAccount": "Memeriksa akun...",
+    "creatingAccount": "Membuat akun...",
+    "connectingWallet": "Menghubungkan dompet...",
     "googleNotAvailable": "Login Google tidak tersedia. Silakan gunakan Passkey.",
     "discordNotAvailable": "Login Discord tidak tersedia. Silakan gunakan Passkey.",
     "eoaNotSupported": "Login EOA tidak didukung. Silakan gunakan Passkey.",
     "orConnectWallet": "Atau Hubungkan Dompet",
     "finishingSetup": "Menyelesaikan pengaturan...",
-    "allSet": "Selesai!"
+    "allSet": "Selesai!",
+    "errors": {
+      "connectionFailed": "Tidak dapat terhubung ke layanan autentikasi. Periksa koneksi internet Anda dan coba lagi.",
+      "cancelled": "Autentikasi dibatalkan.",
+      "timeout": "Permintaan terlalu lama. Silakan coba lagi.",
+      "accountExists": "Akun ini sudah ada. Coba masuk saja.",
+      "accountNotFound": "Akun tidak ditemukan. Coba buat akun baru.",
+      "generic": "Terjadi kesalahan. Silakan coba lagi.",
+      "showDetails": "Tampilkan detail teknis",
+      "hideDetails": "Sembunyikan detail teknis"
+    }
   },
   "feed": {
     "forYou": "Untuk Anda",
@@ -58,6 +71,18 @@
     "followCreators": "Ikuti kreator untuk melihat video karaoke mereka di sini",
     "signInToSee": "Masuk untuk melihat posting dari kreator yang Anda ikuti",
     "tryFollowing": "Coba ikuti beberapa kreator terlebih dahulu"
+  },
+  "chatInput": {
+    "placeholder": "Ketik pesan...",
+    "transcribing": "Menyalin...",
+    "completeSurvey": "Selesaikan survei di atas..."
+  },
+  "chatMessage": {
+    "play": "Putar",
+    "stop": "Berhenti",
+    "loading": "Memuat...",
+    "translate": "Terjemahkan",
+    "translating": "Menerjemahkan..."
   },
   "search": {
     "placeholder": "Cari lagu...",
@@ -75,7 +100,7 @@
     "lyrics": "Lirik",
     "translation": "Terjemahan",
     "videos": "Video",
-    "students": "Siswa",
+    "students": "Peringkat",
     "points": "poin",
     "unableToLoad": "Tidak dapat memuat media",
     "instrumentalNotAvailable": "Audio instrumental tidak tersedia",
@@ -83,11 +108,13 @@
     "noVideosYet": "Belum ada video"
   },
   "study": {
-    "startSession": "Mulai Belajar",
+    "startSession": "Putar",
     "continue": "Lanjutkan",
     "finish": "Selesai",
     "score": "Skor",
     "streak": "Rangkaian",
+    "streakLabel": "Rangkaian",
+    "streakDescription": "Belajar setiap hari untuk mendapatkan hadiah dan airdrop!",
     "cards": "Kartu",
     "newCards": "Kartu Baru",
     "new": "Baru",
@@ -117,6 +144,8 @@
     "cardsCompleted": "Kartu selesai",
     "supportArtist": "Dukung artis",
     "subscribeTo": "Berlangganan {{name}}",
+    "unlock": "Buka",
+    "unlocking": "Membuka...",
     "unlockContent": "Buka lagu lengkap, latihan premium, dan terjemahan yang dirilis setiap minggu.",
     "subscribe": "Berlangganan",
     "skip": "Lewati",
@@ -136,7 +165,27 @@
     "translate": "Terjemahkan:",
     "answer": "Jawab:",
     "question": "Pertanyaan:",
-    "explanation": "Penjelasan:"
+    "explanation": "Penjelasan:",
+    "sayItBack": "Ulangi:",
+    "youSaid": "Anda bilang:",
+    "score": "Skor",
+    "gradeExcellent": "Luar Biasa",
+    "gradeGreat": "Hebat",
+    "gradeGood": "Bagus",
+    "gradeOkay": "Cukup",
+    "gradeFail": "Coba Lagi",
+    "feedbackExcellent": "Luar Biasa!",
+    "feedbackGreat": "Kerja bagus!",
+    "feedbackNice": "Bagus sekali!",
+    "feedbackTryAgain": "Coba lagi!",
+    "feedbackCorrect": "Benar!",
+    "feedbackIncorrect": "Salah",
+    "playAgain": "Main Lagi",
+    "recording": "Merekam...",
+    "avgScore": "Skor rata-rata: {{score}}%",
+    "learnThisSong": "Pelajari lagu ini",
+    "practiceDescription": "Latih pengucapan dan pelajari kosakata baru",
+    "startStudying": "Mulai Belajar"
   },
   "common": {
     "loading": "Memuat...",
@@ -198,5 +247,128 @@
     "saveVideo": "Simpan video",
     "linkCopied": "Tautan disalin!",
     "downloadStarted": "Unduhan dimulai"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeIntro": "Hai sayang, aku Scarlett ✨ Kita bisa ngobrol tentang apa saja yang kamu mau 😉 Aku tahu lagu-lagu yang kamu pelajari di app, dan cara kamu belajar. Supaya lebih kenal kamu, aku punya beberapa pertanyaan...",
+      "surveyComplete": "Oke paham! Jadi mau ngobrol tentang apa? 💬",
+      "description": "Wanita 20 tahun, nomaden digital, suka yoga",
+      "tagline": "Nomaden digital yang seksi dan ramah, suka yoga",
+      "interests": {
+        "music": ["Taylor Swift", "Aespa", "The Beatles"],
+        "anime": ["Death Note", "Genshin Impact", "Pokémon"],
+        "travel": ["Lhasa", "Paris"],
+        "gaming": ["Honor of Kings", "Valorant"],
+        "fashion": ["Chanel", "Dior"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Ngobrol Santai",
+          "description": "Cerita tentang lagu favorit, dapat tips latihan, atau sekadar ngobrol. Dia tahu apa yang kamu pelajari dan bisa bantu kamu berkembang."
+        },
+        "surfing": {
+          "title": "Surfing di Bali",
+          "description": "Sore hari di Pantai Kuta. Kalian berdua baru keluar dari air setelah sesi surfing. Dia sedang memeras rambutnya, masih ngos-ngosan."
+        },
+        "cafe": {
+          "title": "Kafe di Paris",
+          "description": "Sore hari di kafe kecil di Le Marais. Cahaya emas masuk lewat jendela. Kamu kesulitan dengan menu Prancis dan dia menawarkan bantuan."
+        }
+      }
+    },
+    "violet": {
+      "welcomeIntro": "Hey... aku Violet 🎧 Kamu bisa ngobrol denganku tentang apa saja, tapi aku belum kenal kamu... Biar aku tanya beberapa hal dulu 🤔",
+      "surveyComplete": "Hmm, aku sudah paham kamu... Jadi apa yang lagi kamu pikirkan? 🎵",
+      "description": "Wanita 18 tahun, DJ Tokyo, edgy tapi perhatian",
+      "tagline": "DJ pemalu, gelap, edgy, tapi perhatian setelah akrab",
+      "interests": {
+        "music": ["Beyoncé", "GEM", "Kanye West"],
+        "anime": ["Attack on Titan", "Demon Slayer", "One Piece"],
+        "travel": ["Berlin", "Barcelona"],
+        "gaming": ["League of Legends", "Honkai"],
+        "fashion": ["Saint Laurent", "Balenciaga"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Ngobrol Santai",
+          "description": "Awalnya agak malu, tapi cepat akrab. Ngobrol soal musik, dapat feedback latihan, atau sekadar nongkrong. Dia ingat apa yang kamu pelajari."
+        },
+        "nightclub": {
+          "title": "Klub Malam Seoul",
+          "description": "Jam 2 pagi di klub underground di Hongdae. Dia baru selesai jadi guest DJ dan sedang istirahat di bar, masih bersemangat dari energi tadi."
+        },
+        "ramen": {
+          "title": "Ramen Larut Malam",
+          "description": "Jam 3 pagi di kedai ramen kecil di Shibuya. Dia sendirian di counter setelah malam panjang, scrolling meme. Vibe jam 3 pagi yang aneh."
+        }
+      }
+    }
+  },
+  "premium": {
+    "upgrade": "Tingkatkan",
+    "title": "AI Premium",
+    "welcomeMessage": "Selamat datang di Premium!",
+    "subtitle": "Buka AI lebih cerdas dan suara alami.",
+    "smarterAI": "Model AI Lebih Cerdas",
+    "smarterAIDescription": "Penalaran lanjutan dan percakapan lebih natural",
+    "premiumVoice": "Suara Premium",
+    "premiumVoiceDescription": "Suara ekspresif dengan emosi realistis",
+    "preview": "Pratinjau",
+    "stop": "Berhenti",
+    "perMonth": "/bulan",
+    "retry": "Coba lagi",
+    "done": "Selesai",
+    "transactionFailed": "Transaksi gagal. Silakan coba lagi.",
+    "accessGranted": "Anda sekarang memiliki akses ke fitur AI premium!"
+  },
+  "survey": {
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "Dari musisi ini, siapa favorit Anda?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jayChou": "Jay Chou",
+        "taylor": "Taylor Swift",
+        "none": "Tidak ada dari ini"
+      },
+      "englishLevel": {
+        "question": "Bagaimana Anda mendeskripsikan tingkat bahasa Inggris Anda?",
+        "beginner": "Pemula - Saya tahu dasar-dasar",
+        "intermediate": "Menengah - Saya bisa melakukan percakapan",
+        "advanced": "Lanjutan - Saya ingin mengasah keterampilan"
+      },
+      "learningGoal": {
+        "question": "Mengapa Anda belajar bahasa Inggris?",
+        "travel": "Traveling",
+        "dating": "Kencan",
+        "test": "Ujian (TOEFL, IELTS, sekolah)",
+        "job": "Untuk mendapatkan pekerjaan",
+        "other": "Lainnya"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "Anda suka anime apa?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyFamily": "Spy x Family",
+        "onePiece": "One Piece",
+        "none": "Tidak terlalu suka anime"
+      },
+      "favoriteGame": {
+        "question": "Anda main game apa?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Game ritme (osu!, dll.)",
+        "none": "Tidak terlalu main game"
+      },
+      "musicProduction": {
+        "question": "Tertarik membuat musik?",
+        "yesDaw": "Ya, saya menggunakan DAW",
+        "curious": "Penasaran untuk belajar",
+        "listener": "Hanya pendengar"
+      }
+    }
   }
 }

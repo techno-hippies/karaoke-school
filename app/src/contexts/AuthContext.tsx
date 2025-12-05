@@ -12,6 +12,7 @@ import {
 } from 'react'
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
+import { useAccount, useDisconnect, useWalletClient } from 'wagmi'
 
 import type { PKPInfo, AuthData, PKPAuthContext } from '@/lib/lit'
 import { LIT_SESSION_STORAGE_KEY } from '@/lib/lit/constants'
@@ -98,6 +99,17 @@ function loadAuthSocial(): Promise<AuthSocialModule> {
     authSocialPromise = import('@/lib/lit/auth-social')
   }
   return authSocialPromise
+}
+
+// EOA flow loader
+type EoaFlowModule = typeof import('@/lib/auth/flows')
+let eoaFlowPromise: Promise<EoaFlowModule> | null = null
+
+function loadEoaFlow(): Promise<EoaFlowModule> {
+  if (!eoaFlowPromise) {
+    eoaFlowPromise = import('@/lib/auth/flows')
+  }
+  return eoaFlowPromise
 }
 
 
@@ -298,6 +310,103 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void autoInitialize()
   }, [walletClient, isInitializing, initializePKP])
+
+  // --------- EOA wallet connection (Metamask, Rabby) ---------
+
+  const {
+    address: eoaAddress,
+    isConnected: isEoaConnected,
+  } = useAccount()
+  const { data: wagmiWalletClient } = useWalletClient()
+  const { disconnect: disconnectEoa } = useDisconnect()
+
+  // Track if we've processed this EOA connection to prevent duplicate runs
+  const processedEoaRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    // Skip if not connected or no wagmi wallet client
+    if (!isEoaConnected || !eoaAddress || !wagmiWalletClient) {
+      return
+    }
+
+    // Skip if already have PKP wallet (from passkey, stored session, or previous EOA flow)
+    if (walletClient) {
+      return
+    }
+
+    // Skip if already processing
+    if (isAuthenticating || isInitializing) {
+      return
+    }
+
+    // Skip if we've already processed this address
+    if (processedEoaRef.current === eoaAddress) {
+      return
+    }
+
+    // Mark as processed
+    processedEoaRef.current = eoaAddress
+
+    console.log('[Auth] EOA connected, starting PKP flow:', eoaAddress)
+
+    const runEoaFlow = async () => {
+      try {
+        setIsAuthenticating(true)
+        setAuthStep('processing')
+        setAuthError(null)
+
+        const { connectWithEoaFlow } = await loadEoaFlow()
+
+        const result = await connectWithEoaFlow(
+          wagmiWalletClient,
+          undefined, // username - will be prompted if new user needs Lens account
+          (status) => setAuthStatus(status)
+        )
+
+        // Set all state from result
+        setAuthContext(result.pkpAuthContext)
+        setWalletClient(result.walletClient)
+        setPkpInfo(result.pkpInfo)
+        setAuthData(result.authData)
+        setSessionClient(result.lensSession)
+        setAccount(result.lensAccount)
+        setLensSetupStatus(result.lensSetupStatus)
+
+        setAuthStep('complete')
+        console.log('[Auth] ✓ EOA flow complete, PKP ready:', result.pkpInfo.ethAddress)
+      } catch (error) {
+        console.error('[Auth] EOA flow error:', error)
+        setAuthError(error as Error)
+        setAuthStep('idle')
+
+        // Reset processed ref so user can retry
+        processedEoaRef.current = null
+
+        // Disconnect the EOA wallet on error
+        disconnectEoa()
+      } finally {
+        setIsAuthenticating(false)
+        setAuthStatus('')
+      }
+    }
+
+    void runEoaFlow()
+  }, [
+    eoaAddress,
+    isEoaConnected,
+    wagmiWalletClient,
+    walletClient,
+    isAuthenticating,
+    isInitializing,
+    disconnectEoa,
+  ])
+
+  // Reset EOA tracking on logout
+  useEffect(() => {
+    if (!walletClient && !isCheckingSession) {
+      processedEoaRef.current = null
+    }
+  }, [walletClient, isCheckingSession])
 
   // --------- Flow helpers ---------
 
@@ -566,6 +675,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[Auth] Failed to clear session via Lit:', err)
       )
 
+    // Disconnect EOA wallet if connected
+    disconnectEoa()
+
+    // Reset EOA tracking
+    processedEoaRef.current = null
+
     setWalletClient(null)
     setAuthContext(null)
     setPkpInfo(null)
@@ -577,7 +692,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null)
     setAuthStatus('')
     setLensSetupStatus('pending')
-  }, [])
+  }, [disconnectEoa])
 
   const value: AuthContextType = useMemo(
     () => ({

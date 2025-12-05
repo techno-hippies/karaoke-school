@@ -1,25 +1,35 @@
 /**
- * Scarlett Chat v2 - Multi-Personality AI Chat Action with STT
+ * Multi-Personality Chat v1 - AI Chat Action with STT
  *
  * Features:
- * 1. Multi-personality support - Fetch AI personality from subgraph/Grove by username
+ * 1. Multi-personality support - Scarlett, Violet, and future personalities
  * 2. STT support - Optional audio input transcribed via Voxtral
  * 3. Chat - Conversation with AI tutor
- * 4. Translate - English ↔ Chinese translation
+ * 4. Translate - English ↔ Chinese/Vietnamese/Indonesian translation
  *
- * Powered by Venice AI (qwen3-4b model) and Voxtral STT
+ * Powered by OpenRouter (GLM 4.5 Air) and DeepInfra STT/TTS
  *
  * Usage:
  * - Pass `username` (e.g., "scarlett-ks") to use that personality's system prompt
  * - Pass `audioDataBase64` to transcribe audio before chat
  * - Falls back to default Scarlett personality if username not found
+ *
+ * Security:
+ * - Input validation: 64k token max for conversation history
+ * - Audio size limit: 2MB (~2 minutes)
+ * - Rate limiting should be handled at frontend/PKP level
  */
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
-const VENICE_API_URL = 'https://api.venice.ai/api/v1/chat/completions';
-const VENICE_MODEL = 'qwen3-4b';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const CHAT_MODEL = 'z-ai/glm-4.5-air';  // GLM 4.5 Air via OpenRouter
+
+// Input validation limits
+const MAX_CONVERSATION_TOKENS = 64000;  // Match frontend 64k context limit
+const MAX_CONVERSATION_MESSAGES = 150;  // Reasonable message limit
+const MAX_AUDIO_SIZE_BYTES = 2000000;   // 2MB (~2 minutes of audio)
 
 // DeepInfra endpoints for STT and TTS
 const DEEPINFRA_STT_URL = 'https://api.deepinfra.com/v1/inference/mistralai/Voxtral-Small-24B-2507';
@@ -158,7 +168,7 @@ const go = async () => {
     targetLanguage,       // Target language code: 'zh' | 'vi' | 'id' (default: 'zh')
     conversationHistory,  // Previous messages for context
     userContext,          // User context for personalization (survey responses, study stats)
-    veniceEncryptedKey,   // Encrypted Venice API key
+    openrouterEncryptedKey,   // Encrypted OpenRouter API key
     deepinfraEncryptedKey, // Encrypted DeepInfra API key (for STT + TTS)
     returnAudio,          // Return TTS audio of AI response (default: false)
     testMode              // Skip API calls for testing
@@ -176,7 +186,7 @@ const go = async () => {
       await handleTranslate({
         textToTranslate,
         targetLanguage: targetLanguage || 'zh',
-        veniceEncryptedKey,
+        openrouterEncryptedKey,
         testMode,
         startTime
       });
@@ -187,7 +197,7 @@ const go = async () => {
         audioDataBase64,
         conversationHistory,
         userContext,
-        veniceEncryptedKey,
+        openrouterEncryptedKey,
         deepinfraEncryptedKey,
         returnAudio,
         testMode,
@@ -200,7 +210,7 @@ const go = async () => {
       response: JSON.stringify({
         success: false,
         error: error.message,
-        version: 'scarlett-chat-v2',
+        version: 'multi-personality-chat-v1',
         executionTime: Date.now() - startTime
       })
     });
@@ -216,7 +226,7 @@ async function handleChat({
   audioDataBase64,
   conversationHistory,
   userContext,
-  veniceEncryptedKey,
+  openrouterEncryptedKey,
   deepinfraEncryptedKey,
   returnAudio,
   testMode,
@@ -238,7 +248,7 @@ async function handleChat({
         replyAudio: returnAudio ? 'dGVzdC1hdWRpby1iYXNlNjQ=' : null, // mock base64
         transcript: audioDataBase64 ? 'Test transcription from audio' : null,
         personality: { name: personalityName, username: personalityUsername },
-        version: 'scarlett-chat-v2',
+        version: 'multi-personality-chat-v1',
         executionTime: Date.now() - startTime,
         testMode: true
       })
@@ -251,15 +261,38 @@ async function handleChat({
     throw new Error('Missing required parameter: userMessage or audioDataBase64');
   }
 
-  if (!veniceEncryptedKey) {
-    throw new Error('Missing veniceEncryptedKey');
+  // INPUT VALIDATION: Audio size limit (prevent abuse)
+  if (audioDataBase64 && audioDataBase64.length > MAX_AUDIO_SIZE_BYTES) {
+    throw new Error(`Audio file too large: ${Math.round(audioDataBase64.length / 1024)}KB (max ${Math.round(MAX_AUDIO_SIZE_BYTES / 1024)}KB = ~2 minutes)`);
   }
 
-  // Decrypt Venice API key
-  const veniceApiKey = await Lit.Actions.decryptAndCombine({
-    accessControlConditions: veniceEncryptedKey.accessControlConditions,
-    ciphertext: veniceEncryptedKey.ciphertext,
-    dataToEncryptHash: veniceEncryptedKey.dataToEncryptHash,
+  // INPUT VALIDATION: Conversation history limits (prevent context bombing)
+  if (conversationHistory && Array.isArray(conversationHistory)) {
+    // Check message count
+    if (conversationHistory.length > MAX_CONVERSATION_MESSAGES) {
+      throw new Error(`Too many messages: ${conversationHistory.length} (max ${MAX_CONVERSATION_MESSAGES})`);
+    }
+
+    // Estimate token count (rough: 4 chars per token)
+    const totalChars = conversationHistory.reduce((sum, msg) =>
+      sum + (msg.content?.length || 0), 0
+    );
+    const estimatedTokens = Math.ceil(totalChars / 4);
+
+    if (estimatedTokens > MAX_CONVERSATION_TOKENS) {
+      throw new Error(`Conversation history too large: ~${estimatedTokens} tokens (max ${MAX_CONVERSATION_TOKENS}). Consider starting a new chat.`);
+    }
+  }
+
+  if (!openrouterEncryptedKey) {
+    throw new Error('Missing openrouterEncryptedKey');
+  }
+
+  // Decrypt OpenRouter API key
+  const openrouterApiKey = await Lit.Actions.decryptAndCombine({
+    accessControlConditions: openrouterEncryptedKey.accessControlConditions,
+    ciphertext: openrouterEncryptedKey.ciphertext,
+    dataToEncryptHash: openrouterEncryptedKey.dataToEncryptHash,
     authSig: null,
     chain: 'ethereum'
   });
@@ -326,35 +359,30 @@ async function handleChat({
   // Add current user message
   messages.push({ role: 'user', content: finalMessage });
 
-  // Call Venice API
-  const response = await fetch(VENICE_API_URL, {
+  // Call OpenRouter API
+  const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${veniceApiKey}`,
+      'Authorization': `Bearer ${openrouterApiKey}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: VENICE_MODEL,
+      model: CHAT_MODEL,
       messages: messages,
       max_tokens: 1024,
-      temperature: 0.7,
-      venice_parameters: {
-        include_venice_system_prompt: false,
-        strip_thinking_response: true,
-        disable_thinking: true
-      }
+      temperature: 0.8  // Slightly higher for creative chat
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Venice API error: ${response.status} - ${errorText.substring(0, 200)}`);
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText.substring(0, 200)}`);
   }
 
   const data = await response.json();
 
   if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error('Venice API returned invalid response structure');
+    throw new Error('OpenRouter API returned invalid response structure');
   }
 
   const reply = data.choices[0].message.content;
@@ -395,7 +423,7 @@ async function handleChat({
       userMessage: finalMessage,
       personality: { name: personalityName, username: personalityUsername },
       usage: data.usage,
-      version: 'scarlett-chat-v2',
+      version: 'multi-personality-chat-v1',
       executionTime: Date.now() - startTime
     })
   });
@@ -407,7 +435,7 @@ async function handleChat({
 async function handleTranslate({
   textToTranslate,
   targetLanguage,
-  veniceEncryptedKey,
+  openrouterEncryptedKey,
   testMode,
   startTime
 }) {
@@ -433,7 +461,7 @@ async function handleTranslate({
         original: textToTranslate,
         translation: mockTranslations[targetLanguage] || mockTranslations.zh,
         targetLanguage: targetLanguage,
-        version: 'scarlett-chat-v2',
+        version: 'multi-personality-chat-v1',
         executionTime: Date.now() - startTime,
         testMode: true
       })
@@ -441,15 +469,15 @@ async function handleTranslate({
     return;
   }
 
-  if (!veniceEncryptedKey) {
-    throw new Error('Missing veniceEncryptedKey');
+  if (!openrouterEncryptedKey) {
+    throw new Error('Missing openrouterEncryptedKey');
   }
 
-  // Decrypt Venice API key
-  const veniceApiKey = await Lit.Actions.decryptAndCombine({
-    accessControlConditions: veniceEncryptedKey.accessControlConditions,
-    ciphertext: veniceEncryptedKey.ciphertext,
-    dataToEncryptHash: veniceEncryptedKey.dataToEncryptHash,
+  // Decrypt OpenRouter API key
+  const openrouterApiKey = await Lit.Actions.decryptAndCombine({
+    accessControlConditions: openrouterEncryptedKey.accessControlConditions,
+    ciphertext: openrouterEncryptedKey.ciphertext,
+    dataToEncryptHash: openrouterEncryptedKey.dataToEncryptHash,
     authSig: null,
     chain: 'ethereum'
   });
@@ -457,15 +485,15 @@ async function handleTranslate({
   // Build translation prompt using language config
   const translatePrompt = `${langConfig.userPromptPrefix}${textToTranslate}${langConfig.userPromptSuffix}`;
 
-  // Call Venice API
-  const response = await fetch(VENICE_API_URL, {
+  // Call OpenRouter API
+  const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${veniceApiKey}`,
+      'Authorization': `Bearer ${openrouterApiKey}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: VENICE_MODEL,
+      model: CHAT_MODEL,
       messages: [
         {
           role: 'system',
@@ -477,24 +505,19 @@ async function handleTranslate({
         }
       ],
       max_tokens: 512,
-      temperature: 0.3,
-      venice_parameters: {
-        include_venice_system_prompt: false,
-        strip_thinking_response: true,
-        disable_thinking: true
-      }
+      temperature: 0.3
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Venice API error: ${response.status} - ${errorText.substring(0, 200)}`);
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText.substring(0, 200)}`);
   }
 
   const data = await response.json();
 
   if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error('Venice API returned invalid response structure');
+    throw new Error('OpenRouter API returned invalid response structure');
   }
 
   const translation = data.choices[0].message.content.trim();
@@ -507,7 +530,7 @@ async function handleTranslate({
       translation: translation,
       targetLanguage: targetLanguage,
       usage: data.usage,
-      version: 'scarlett-chat-v2',
+      version: 'multi-personality-chat-v1',
       executionTime: Date.now() - startTime
     })
   });
@@ -657,7 +680,7 @@ go().catch(error => {
     response: JSON.stringify({
       success: false,
       error: error.message,
-      version: 'scarlett-chat-v2'
+      version: 'multi-personality-chat-v1'
     })
   });
 });

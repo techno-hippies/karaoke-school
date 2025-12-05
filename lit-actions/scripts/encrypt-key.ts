@@ -68,7 +68,7 @@ const ALL_TASKS: Task[] = [
     action: 'chat',
     cid: Env.cids.chat || 'placeholder-chat-cid',
     keys: [
-      { name: 'venice_api_key', envVar: 'VENICE_API_KEY' },
+      { name: 'openrouter_api_key', envVar: 'OPENROUTER_API_KEY' },
       { name: 'deepinfra_api_key', envVar: 'DEEPINFRA_API_KEY' }
     ]
   },

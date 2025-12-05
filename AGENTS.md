@@ -341,7 +341,7 @@ bun src/scripts/emit-exercises.ts --iswc=T0123456789 --limit=5
 bun src/scripts/emit-exercises.ts --iswc=T0123456789 --dry-run
 ```
 
-### Generate Karaoke Video
+### Generate Karaoke Video (Chinese covers with char-level alignment)
 ```bash
 # Requires in songs/{ISWC}/:
 #   - background.mp4   (raw video)
@@ -355,6 +355,61 @@ bun src/scripts/generate-karaoke-video.ts --iswc=T0123456789
 #   - clip.ass   (subtitle file)
 #   - clip.mp4   (final video)
 ```
+
+### Generate Cover Video (English covers from DB word timing)
+
+Use `generate-video.ts` when you have:
+- A cover video file (with embedded audio or separate audio)
+- Word-level timing already in the database (from `align-lyrics.ts`)
+- A timestamp range indicating which portion of the song the video covers
+
+**Language modes:**
+| Mode | Description |
+|------|-------------|
+| `--language=zh` | Chinese karaoke only (default) |
+| `--language=en` | English karaoke only |
+| `--language=en-zh` | English karaoke + Chinese translation below |
+
+**Workflow:**
+
+```bash
+# 1. Name your audio clip file with the timestamp range (e.g., 46.379-56.379.mp3)
+#    This tells you which lyrics to pull from the DB
+
+# 2. If video has embedded audio, extract it:
+ffmpeg -i video.mp4 -vn -acodec libmp3lame -q:a 2 cover.mp3
+
+# 3. Check which lyrics fall in your time range:
+#    SELECT text, start_ms, end_ms FROM lyrics
+#    WHERE song_id = '<uuid>' AND language = 'en'
+#    AND start_ms >= 46379 AND start_ms < 56379;
+
+# 4. Generate video with karaoke subtitles from DB timing:
+bun src/scripts/generate-video.ts \
+  --iswc=T0123456789 \
+  --start=46379 \
+  --end=55000 \
+  --background=songs/T0123456789/cover-video.mp4 \
+  --instrumental=songs/T0123456789/cover.mp3 \
+  --pretrimmed \
+  --language=en-zh \
+  --width=1080 \
+  --height=1920
+
+# Key flags:
+#   --start/--end    Time range in ms (from original song timing)
+#   --pretrimmed     Video/audio already trimmed, only offset lyrics
+#   --language       zh | en | en-zh
+#   --width/--height Match your video dimensions (check with ffprobe)
+```
+
+**Important notes:**
+- The `--start` and `--end` values come from the **original song timing** in the DB
+- Use `--pretrimmed` when your video/audio is already the clip length
+- The script queries `lyrics` table for lines where `start_ms` falls in range
+- Lyrics timing is offset to start at 0 for the clip
+- Subtitles appear at TOP of screen (alignment 8)
+- For `en-zh` mode: English has karaoke fill effect, Chinese is static translation below
 
 ## Subgraph
 

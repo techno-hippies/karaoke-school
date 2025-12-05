@@ -12,7 +12,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChatListPage } from './ChatListPage'
+import { ScenarioCard } from './PersonalityCard'
+import type { Scenario } from './PersonalityPicker'
 import { ChatPage, type ChatItem } from './ChatPage'
 import { PremiumUpgradeDialog } from '@/components/premium/PremiumUpgradeDialog'
 import { useAIPersonalities } from '@/lib/chat/useAIPersonalities'
@@ -23,12 +24,64 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import { translateText, synthesizeSpeech, type TTSWord } from '@/lib/chat/service'
 import { useAudioWithHighlight } from '@/lib/chat/useAudioWithHighlight'
 import { useChatContext } from '@/lib/chat/useChatContext'
-import { getWelcomeMessage, getSurveyFollowUp, PERSONALITY_SURVEYS } from '@/lib/chat/surveys'
+import { getWelcomeMessageKey, PERSONALITY_SURVEYS } from '@/lib/chat/surveys'
 import * as store from '@/lib/chat/store'
-import type { ChatConversation } from './ChatList'
 import type { Thread, PersonalityId, UserContext } from '@/lib/chat/types'
 import type { SurveyOption } from './ChatSurveyMessage'
 import type { PKPAuthContext } from '@/lib/lit/types'
+import { cn } from '@/lib/utils'
+
+// Scenario definitions with i18n keys
+interface ScenarioDef {
+  id: string
+  titleKey: string
+  descriptionKey: string
+  image: string
+  isAdult?: boolean
+}
+
+const SCARLETT_SCENARIO_DEFS: ScenarioDef[] = [
+  {
+    id: 'scarlett-chat',
+    titleKey: 'personalities.scarlett.scenarios.chat.title',
+    descriptionKey: 'personalities.scarlett.scenarios.chat.description',
+    image: '/images/scarlett/default.webp',
+  },
+  {
+    id: 'scarlett-surfing',
+    titleKey: 'personalities.scarlett.scenarios.surfing.title',
+    descriptionKey: 'personalities.scarlett.scenarios.surfing.description',
+    image: '/images/scarlett/beach.webp',
+  },
+  {
+    id: 'scarlett-cafe',
+    titleKey: 'personalities.scarlett.scenarios.cafe.title',
+    descriptionKey: 'personalities.scarlett.scenarios.cafe.description',
+    image: '/images/scarlett/cafe.webp',
+  },
+]
+
+const VIOLET_SCENARIO_DEFS: ScenarioDef[] = [
+  {
+    id: 'violet-chat',
+    titleKey: 'personalities.violet.scenarios.chat.title',
+    descriptionKey: 'personalities.violet.scenarios.chat.description',
+    image: '/images/violet/default.webp',
+  },
+  {
+    id: 'violet-nightclub',
+    titleKey: 'personalities.violet.scenarios.nightclub.title',
+    descriptionKey: 'personalities.violet.scenarios.nightclub.description',
+    image: '/images/violet/nightclub.webp',
+    isAdult: true,
+  },
+  {
+    id: 'violet-ramen',
+    titleKey: 'personalities.violet.scenarios.ramen.title',
+    descriptionKey: 'personalities.violet.scenarios.ramen.description',
+    image: '/images/violet/ramen.webp',
+  },
+]
 
 /** Audio data stored per message */
 interface MessageAudioData {
@@ -58,6 +111,12 @@ export interface ChatContainerProps {
   onAuthRequired?: () => void
   /** Called when conversation view changes (true = in conversation, false = in list) */
   onConversationChange?: (inConversation: boolean) => void
+  /** Initial scenario ID from URL (e.g., "scarlett-surfing") */
+  initialScenarioId?: string
+  /** Called when a scenario is selected (for URL navigation) */
+  onScenarioSelect?: (scenarioId: string) => void
+  /** Called when user wants to go back to scenario list */
+  onBackToList?: () => void
 }
 
 /**
@@ -70,9 +129,16 @@ export function ChatContainer({
   authContext,
   onAuthRequired,
   onConversationChange,
+  initialScenarioId,
+  onScenarioSelect,
+  onBackToList,
 }: ChatContainerProps) {
-  const { i18n } = useTranslation()
-  const [currentPersonalityId, setCurrentPersonalityId] = useState<string | null>(null)
+  const { i18n, t } = useTranslation()
+
+  // Parse initialScenarioId to get personality (e.g., "scarlett-surfing" -> "scarlett")
+  const initialPersonalityId = initialScenarioId?.split('-')[0] || null
+
+  const [currentPersonalityId, setCurrentPersonalityId] = useState<string | null>(initialPersonalityId)
   const [threads, setThreads] = useState<Map<string, Thread>>(new Map())
   const [isTyping, setIsTyping] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
@@ -109,8 +175,8 @@ export function ChatContainer({
     option: SurveyOption
   }>>([])
 
-  // Track if user just answered (to show next survey after a brief moment)
-  const [justAnswered, setJustAnswered] = useState(false)
+  // Track if survey is being processed (disable clicking during save)
+  const [isProcessingSurvey, setIsProcessingSurvey] = useState(false)
 
   // Translation state: messageId -> translation text
   const [translations, setTranslations] = useState<Map<string, string>>(new Map())
@@ -176,13 +242,27 @@ export function ChatContainer({
     thread: currentThread,
     messages,
     addMessage,
+    addMessagesBatch,
     refresh: refreshThread,
   } = useThread(currentPersonalityId)
+
+  // Debug: Log when messages state changes
+  useEffect(() => {
+    console.log('[ChatContainer] Messages state updated', {
+      messagesCount: messages.length,
+      currentPersonalityId,
+      hasThread: !!currentThread,
+    })
+  }, [messages, currentPersonalityId, currentThread])
 
   // Load existing threads for all personalities
   useEffect(() => {
     async function loadThreads() {
       const allThreads = await store.getThreads()
+      console.log('[ChatContainer] Loaded threads on mount', {
+        threadsCount: allThreads.length,
+        threadIds: allThreads.map(t => t.id),
+      })
       const threadMap = new Map<string, Thread>()
       for (const t of allThreads) {
         threadMap.set(t.tutorId, t)
@@ -192,26 +272,21 @@ export function ChatContainer({
     loadThreads()
   }, [])
 
+  // Sync state with URL when initialScenarioId changes (browser back/forward)
+  useEffect(() => {
+    const newPersonalityId = initialScenarioId?.split('-')[0] || null
+    if (newPersonalityId !== currentPersonalityId) {
+      setCurrentPersonalityId(newPersonalityId)
+      // Reset survey state when switching personalities
+      setSurveyAnswers([])
+      setIsProcessingSurvey(false)
+    }
+  }, [initialScenarioId]) // Only react to URL changes, not internal state
+
   // Notify parent when conversation view changes
   useEffect(() => {
     onConversationChange?.(currentPersonalityId !== null)
   }, [currentPersonalityId, onConversationChange])
-
-  // Convert personalities to ChatConversation format
-  const conversations: ChatConversation[] = useMemo(
-    () =>
-      personalities.map((p) => {
-        const thread = threads.get(p.id)
-        return {
-          id: p.id,
-          name: p.name,
-          avatarUrl: p.avatarUrl,
-          lastMessage: thread?.lastMessagePreview ?? p.description,
-          unreadCount: thread?.unreadCount ?? 0,
-        }
-      }),
-    [threads, personalities]
-  )
 
   // Get current personality
   const currentPersonality = useMemo(
@@ -229,18 +304,115 @@ export function ChatContainer({
 
   // Handle survey option selection
   const handleSurveySelect = useCallback(async (opt: SurveyOption) => {
-    if (!nextSurvey) return
+    // Prevent double-clicking while processing
+    if (isProcessingSurvey) return
 
-    // Save response to IDB
-    await saveSurveyResponse(nextSurvey.id, opt.id, opt.label)
+    console.log('[Survey] handleSurveySelect START', {
+      surveyId: nextSurvey?.id,
+      option: opt.id,
+      currentPersonalityId,
+      personalityId: currentPersonality?.id,
+      hasThread: !!currentThread,
+      messagesCount: messages.length,
+    })
 
-    // Add to answered surveys list
-    setSurveyAnswers(prev => [...prev, { surveyId: nextSurvey.id, option: opt }])
+    if (!nextSurvey || !currentPersonality) {
+      console.warn('[Survey] Bailing: missing nextSurvey or currentPersonality')
+      return
+    }
 
-    // Brief pause before showing next survey
-    setJustAnswered(true)
-    setTimeout(() => setJustAnswered(false), 300)
-  }, [nextSurvey, saveSurveyResponse])
+    setIsProcessingSurvey(true)
+
+    try {
+      // Ensure conversation exists before saving messages
+      console.log('[Survey] Creating/getting conversation...')
+      const thread = await store.getOrCreateConversation(
+        currentPersonality.id,
+        currentPersonality.name,
+        currentPersonality.avatarUrl
+      )
+      console.log('[Survey] Got thread:', { id: thread.id, messageCount: thread.messageCount })
+
+      // Collect all messages to save in one batch
+      const messagesToSave: Array<{
+        role: 'user' | 'assistant'
+        content: string
+        metadata?: Record<string, unknown>
+      }> = []
+
+      // If brand new thread, include welcome intro as first message
+      if (thread.messageCount === 0) {
+        const welcomeIntroKey = `personalities.${currentPersonality.id}.welcomeIntro`
+        const welcomeIntro = t(welcomeIntroKey)
+        console.log('[Survey] Including welcome intro in batch', { welcomeIntro: welcomeIntro.substring(0, 50) })
+        messagesToSave.push({
+          role: 'assistant',
+          content: welcomeIntro,
+          metadata: { isWelcome: true },
+        })
+      }
+
+      // Get translated question and answer
+      const questionText = t(nextSurvey.questionKey)
+      const translatedLabel = t(opt.labelKey)
+
+      // Add question
+      messagesToSave.push({
+        role: 'assistant',
+        content: questionText,
+        metadata: { isSurvey: true, surveyId: nextSurvey.id },
+      })
+
+      // Add answer
+      messagesToSave.push({
+        role: 'user',
+        content: translatedLabel,
+        metadata: { isSurvey: true, surveyId: nextSurvey.id, optionId: opt.id },
+      })
+
+      // Check if this is the last survey
+      const personalitySurveys = PERSONALITY_SURVEYS[currentPersonality.id as PersonalityId]
+      const totalSurveys = personalitySurveys?.length || 0
+      const answeredCount = surveyAnswers.length + 1 // including current answer
+      const isLastSurvey = answeredCount >= totalSurveys
+
+      console.log('[Survey] Checking if surveys complete', {
+        totalSurveys,
+        answeredCount,
+        isLastSurvey,
+      })
+
+      // If last survey, include completion message
+      if (isLastSurvey) {
+        const completionKey = `personalities.${currentPersonality.id}.surveyComplete`
+        const completionText = t(completionKey)
+        console.log('[Survey] Including completion message in batch:', completionText.substring(0, 50))
+        messagesToSave.push({
+          role: 'assistant',
+          content: completionText,
+        })
+      }
+
+      // Save all messages in one batch (single refresh)
+      console.log('[Survey] Saving batch of', messagesToSave.length, 'messages')
+      await addMessagesBatch(messagesToSave)
+
+      // Save response to UserProfile (for AI personalization context)
+      console.log('[Survey] Saving to UserProfile...')
+      await saveSurveyResponse(nextSurvey.id, opt.id, translatedLabel)
+      console.log('[Survey] UserProfile updated')
+
+      // Add to answered surveys list
+      setSurveyAnswers(prev => [...prev, { surveyId: nextSurvey.id, option: opt }])
+
+      console.log('[Survey] handleSurveySelect END', {
+        messagesCount: messages.length,
+        nextSurvey: nextSurvey.id,
+      })
+    } finally {
+      setIsProcessingSurvey(false)
+    }
+  }, [isProcessingSurvey, nextSurvey, saveSurveyResponse, t, currentPersonality, addMessagesBatch, currentPersonalityId, currentThread, messages.length, surveyAnswers.length])
 
   // Handle translate button click
   const handleTranslate = useCallback(
@@ -457,13 +629,34 @@ export function ChatContainer({
     const isNewConversation = messages.length === 0
     const items: ChatItem[] = []
 
-    // For new conversations, show welcome message and surveys as sequential chat
+    // Token tracking: estimate ~4 chars per token (same as lit action)
+    const MAX_TOKENS = 64000 // GLM 4.5 Air context limit
+    let cumulativeTokens = 0
+
+    // Include system prompt in token count (roughly ~500 tokens for personality prompt)
+    cumulativeTokens += 500
+
+    console.log('[ChatItems] Building chat items', {
+      messagesCount: messages.length,
+      isNewConversation,
+      currentPersonalityId,
+      nextSurveyId: nextSurvey?.id,
+      surveysComplete,
+      isProcessingSurvey,
+    })
+
+    // For brand new conversations, show welcome message
     if (isNewConversation && currentPersonality && currentPersonalityId) {
       const personalityId = currentPersonalityId as PersonalityId
-      const surveys = PERSONALITY_SURVEYS[personalityId] || []
 
-      // 1. Welcome message
-      const welcomeText = getWelcomeMessage(personalityId, currentPersonality.name)
+      // Welcome message only (surveys will be saved as messages after answering)
+      const welcomeKey = getWelcomeMessageKey(personalityId)
+      const welcomeText = t(welcomeKey, { name: currentPersonality.name })
+
+      // Add welcome message tokens
+      cumulativeTokens += Math.ceil(welcomeText.length / 4)
+
+      console.log('[ChatItems] Adding welcome message')
       items.push({
         type: 'message',
         id: 'welcome',
@@ -474,113 +667,106 @@ export function ChatContainer({
           translation: translations.get('welcome'),
           isTranslating: translatingIds.has('welcome'),
           onTranslate: () => handleTranslate('welcome', welcomeText),
+          tokensUsed: cumulativeTokens,
+          maxTokens: MAX_TOKENS,
         },
       })
-
-      // 2. Show completed surveys as conversation history
-      for (const answer of surveyAnswers) {
-        const survey = surveys.find(s => s.id === answer.surveyId)
-        if (!survey) continue
-
-        // AI asks the survey question (as a message, not interactive survey)
-        items.push({
-          type: 'message',
-          id: `survey-q-${answer.surveyId}`,
-          props: {
-            content: survey.question,
-            sender: 'ai',
-            showTranslate: true,
-            translation: translations.get(`survey-q-${answer.surveyId}`),
-            isTranslating: translatingIds.has(`survey-q-${answer.surveyId}`),
-            onTranslate: () => handleTranslate(`survey-q-${answer.surveyId}`, survey.question),
-          },
-        })
-
-        // User's answer (as a user message)
-        items.push({
-          type: 'message',
-          id: `survey-a-${answer.surveyId}`,
-          props: {
-            content: answer.option.label,
-            sender: 'user',
-          },
-        })
-
-        // AI's follow-up response
-        const responseText = getSurveyFollowUp(personalityId, answer.surveyId, answer.option)
-        items.push({
-          type: 'message',
-          id: `survey-response-${answer.surveyId}`,
-          props: {
-            content: responseText,
-            sender: 'ai',
-            showTranslate: true,
-            translation: translations.get(`survey-response-${answer.surveyId}`),
-            isTranslating: translatingIds.has(`survey-response-${answer.surveyId}`),
-            onTranslate: () => handleTranslate(`survey-response-${answer.surveyId}`, responseText),
-          },
-        })
-      }
-
-      // 3. Show next unanswered survey (if any and not in brief pause after answering)
-      if (nextSurvey && !justAnswered) {
-        items.push({
-          type: 'survey',
-          id: `survey-${nextSurvey.id}`,
-          props: {
-            question: nextSurvey.question,
-            options: nextSurvey.options,
-            onSelect: handleSurveySelect,
-          },
-        })
-      }
     }
 
-    // Add actual conversation messages
-    items.push(
-      ...messages.map((m) => {
-        const isAssistant = m.role === 'assistant'
-        const audioData = audioDataMap.get(m.id)
-        const isThisMessagePlaying = playingMessageId === m.id && isPlaying
-        const isLoadingTts = loadingTtsIds.has(m.id)
+    // Add actual conversation messages (use for loop to track cumulative tokens)
+    console.log('[ChatItems] Adding messages from state:', messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content.substring(0, 30),
+      isSurvey: m.metadata?.isSurvey,
+      surveyId: m.metadata?.surveyId,
+      isWelcome: m.metadata?.isWelcome,
+    })))
 
-        // Build content - use word array with highlighting if this message is playing
-        let content: string | Array<{ text: string; isHighlighted: boolean }>
-        if (isThisMessagePlaying && audioData?.words) {
-          // Map TTS words to ChatWord format with highlighting
-          // Trim each word to remove any embedded whitespace from Kokoro
-          // Don't filter - preserve index alignment for highlighting
-          content = audioData.words.map((word, idx) => ({
-            text: word.text.trim(),
-            isHighlighted: idx === currentWordIndex,
-          }))
-        } else {
-          content = m.content
-        }
+    for (let index = 0; index < messages.length; index++) {
+      const m = messages[index]
+      const isAssistant = m.role === 'assistant'
+      const audioData = audioDataMap.get(m.id)
+      const isThisMessagePlaying = playingMessageId === m.id && isPlaying
+      const isLoadingTts = loadingTtsIds.has(m.id)
 
-        return {
-          type: 'message' as const,
-          id: m.id,
-          props: {
-            content,
-            sender: m.role === 'user' ? ('user' as const) : ('ai' as const),
-            showTranslate: isAssistant,
-            translation: translations.get(m.id),
-            isTranslating: translatingIds.has(m.id),
-            onTranslate: isAssistant ? () => handleTranslate(m.id, m.content) : undefined,
-            // All AI messages can have TTS (on-demand)
-            hasAudio: isAssistant,
-            isPlayingAudio: isThisMessagePlaying,
-            isLoadingAudio: isLoadingTts,
-            onPlayAudio: isAssistant ? () => handlePlayAudio(m.id, m.content) : undefined,
-            onStopAudio: handleStopAudio,
-          },
-        }
+      // Track cumulative tokens (~4 chars per token)
+      cumulativeTokens += Math.ceil(m.content.length / 4)
+
+      // Use stable key 'welcome' for the first message if it has isWelcome metadata
+      // This prevents React unmount/mount flash when transitioning from ephemeral to persisted
+      const itemKey = (index === 0 && m.metadata?.isWelcome) ? 'welcome' : m.id
+
+      // Build content - use word array with highlighting if this message is playing
+      let content: string | Array<{ text: string; isHighlighted: boolean }>
+      if (isThisMessagePlaying && audioData?.words) {
+        // Map TTS words to ChatWord format with highlighting
+        // Trim each word to remove any embedded whitespace from Kokoro
+        // Don't filter - preserve index alignment for highlighting
+        content = audioData.words.map((word, idx) => ({
+          text: word.text.trim(),
+          isHighlighted: idx === currentWordIndex,
+        }))
+      } else {
+        content = m.content
+      }
+
+      items.push({
+        type: 'message' as const,
+        id: itemKey,
+        props: {
+          content,
+          sender: m.role === 'user' ? ('user' as const) : ('ai' as const),
+          showTranslate: isAssistant,
+          translation: translations.get(m.id),
+          isTranslating: translatingIds.has(m.id),
+          onTranslate: isAssistant ? () => handleTranslate(m.id, m.content) : undefined,
+          // All AI messages can have TTS (on-demand)
+          hasAudio: isAssistant,
+          isPlayingAudio: isThisMessagePlaying,
+          isLoadingAudio: isLoadingTts,
+          onPlayAudio: isAssistant ? () => handlePlayAudio(m.id, m.content) : undefined,
+          onStopAudio: handleStopAudio,
+          // Only show context indicator on AI messages
+          tokensUsed: isAssistant ? cumulativeTokens : undefined,
+          maxTokens: isAssistant ? MAX_TOKENS : undefined,
+        },
       })
-    )
+    }
 
+    // Show next unanswered survey (if any)
+    // Survey stays visible during processing but options are disabled
+    if (currentPersonalityId && nextSurvey && !surveysComplete) {
+      // Translate question and options for display
+      const translatedQuestion = t(nextSurvey.questionKey)
+      const translatedOptions = nextSurvey.options.map(opt => ({
+        id: opt.id,
+        label: t(opt.labelKey),
+        labelKey: opt.labelKey, // Keep labelKey for saving
+      }))
+
+      console.log('[ChatItems] Adding next survey:', nextSurvey.id, { disabled: isProcessingSurvey })
+      items.push({
+        type: 'survey',
+        id: `survey-${nextSurvey.id}`,
+        props: {
+          question: translatedQuestion,
+          options: translatedOptions,
+          onSelect: handleSurveySelect,
+          disabled: isProcessingSurvey,
+        },
+      })
+    } else {
+      console.log('[ChatItems] NOT adding survey:', {
+        hasPersonalityId: !!currentPersonalityId,
+        hasNextSurvey: !!nextSurvey,
+        surveysComplete,
+      })
+    }
+
+    console.log('[ChatItems] Final items count:', items.length, items.map(i => ({ type: i.type, id: i.id })))
     return items
-  }, [messages, currentPersonality, currentPersonalityId, nextSurvey, surveysComplete, surveyAnswers, justAnswered, handleSurveySelect, translations, translatingIds, handleTranslate, audioDataMap, playingMessageId, isPlaying, loadingTtsIds, currentWordIndex, handlePlayAudio, handleStopAudio])
+  }, [messages, currentPersonality, currentPersonalityId, nextSurvey, surveysComplete, isProcessingSurvey, handleSurveySelect, translations, translatingIds, handleTranslate, audioDataMap, playingMessageId, isPlaying, loadingTtsIds, currentWordIndex, handlePlayAudio, handleStopAudio, t])
 
   // Handle sending a message
   const handleSend = useCallback(
@@ -653,33 +839,17 @@ export function ChatContainer({
     ]
   )
 
-  // Handle selecting a personality to chat with
-  const handleSelectConversation = useCallback(
-    async (conv: ChatConversation) => {
-      const personality = personalities.find((p) => p.id === conv.id)
-      if (!personality) return
-
-      // Ensure conversation exists
-      await store.getOrCreateConversation(
-        personality.id,
-        personality.name,
-        personality.avatarUrl
-      )
-
-      // Mark as read
-      await store.markThreadRead(personality.id)
-
-      setCurrentPersonalityId(personality.id)
-    },
-    [personalities]
-  )
-
   // Go back to list
   const goBack = useCallback(async () => {
-    setCurrentPersonalityId(null)
-    // Reset survey state
-    setSurveyAnswers([])
-    setJustAnswered(false)
+    // Navigate via URL if handler provided, otherwise just update state
+    if (onBackToList) {
+      onBackToList()
+    } else {
+      setCurrentPersonalityId(null)
+      // Reset survey state
+      setSurveyAnswers([])
+      setIsProcessingSurvey(false)
+    }
     // Refresh thread list
     const allThreads = await store.getThreads()
     const threadMap = new Map<string, Thread>()
@@ -687,7 +857,7 @@ export function ChatContainer({
       threadMap.set(t.tutorId, t)
     }
     setThreads(threadMap)
-  }, [])
+  }, [onBackToList])
 
   // Handle starting voice recording
   const handleStartRecording = useCallback(() => {
@@ -793,6 +963,58 @@ export function ChatContainer({
     await purchasePremium()
   }, [purchasePremium, premiumLock.lockAddress])
 
+  // Handle scenario selection (must be before early return for hooks rules)
+  const handleScenarioSelect = useCallback(async (scenario: Scenario) => {
+    // Extract personality ID from scenario ID (e.g., 'scarlett-chat' -> 'scarlett')
+    const personalityId = scenario.id.split('-')[0]
+    const personality = personalities.find(p => p.id === personalityId)
+
+    if (!personality) {
+      console.error('[ChatContainer] Personality not found for scenario:', scenario.id)
+      return
+    }
+
+    // Ensure conversation exists
+    await store.getOrCreateConversation(
+      personality.id,
+      personality.name,
+      personality.avatarUrl
+    )
+    // Mark as read
+    await store.markThreadRead(personality.id)
+
+    // Navigate via URL if handler provided, otherwise just update state
+    if (onScenarioSelect) {
+      onScenarioSelect(scenario.id)
+    } else {
+      setCurrentPersonalityId(personality.id)
+    }
+    // TODO: Store scenario.id for roleplay context
+  }, [personalities, onScenarioSelect])
+
+  // Translate scenario definitions (must be before early return for hooks rules)
+  const scarlettScenarios: Scenario[] = useMemo(() =>
+    SCARLETT_SCENARIO_DEFS.map(def => ({
+      id: def.id,
+      title: t(def.titleKey),
+      description: t(def.descriptionKey),
+      image: def.image,
+      isAdult: def.isAdult,
+    })),
+    [t]
+  )
+
+  const violetScenarios: Scenario[] = useMemo(() =>
+    VIOLET_SCENARIO_DEFS.map(def => ({
+      id: def.id,
+      title: t(def.titleKey),
+      description: t(def.descriptionKey),
+      image: def.image,
+      isAdult: def.isAdult,
+    })),
+    [t]
+  )
+
   // If we have a current personality, show the chat
   if (currentPersonalityId && currentPersonality) {
     return (
@@ -812,7 +1034,7 @@ export function ChatContainer({
             isRecording,
             recordingDuration,
             isProcessing: isProcessingAudio,
-            placeholder: inputDisabled ? 'Complete the survey above...' : 'Type a message...',
+            placeholder: inputDisabled ? t('chatInput.completeSurvey') : t('chatInput.placeholder'),
             disabled: inputDisabled,
           }}
           className={className}
@@ -830,12 +1052,38 @@ export function ChatContainer({
     )
   }
 
-  // Otherwise show the personality list
+  // Otherwise show the grouped scenario picker
   return (
-    <ChatListPage
-      conversations={conversations}
-      onSelectConversation={handleSelectConversation}
-      className={className}
-    />
+    <div className={cn('min-h-screen bg-background p-4', className)}>
+      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Scarlett Section */}
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Scarlett</h2>
+          <div className="space-y-3">
+            {scarlettScenarios.map((scenario) => (
+              <ScenarioCard
+                key={scenario.id}
+                {...scenario}
+                onClick={() => handleScenarioSelect(scenario)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Violet Section */}
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Violet</h2>
+          <div className="space-y-3">
+            {violetScenarios.map((scenario) => (
+              <ScenarioCard
+                key={scenario.id}
+                {...scenario}
+                onClick={() => handleScenarioSelect(scenario)}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
   )
 }

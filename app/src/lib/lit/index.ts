@@ -39,6 +39,13 @@ export {
   hasExistingCredential,
 } from './auth-webauthn'
 
+// EOA Authentication (Metamask, Rabby, Farcaster wallet)
+export {
+  registerWithEoa,
+  loginWithEoa,
+  hasExistingPkpForEoa,
+} from './auth-eoa'
+
 // PKP Auth Context
 export {
   createPKPAuthContext,

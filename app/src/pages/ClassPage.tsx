@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudyCards } from '@/hooks/useStudyCards'
+import { useUserStreak } from '@/hooks/useUserStreak'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { SongItem } from '@/components/ui/SongItem'
 import { ItemGroup } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StreakCounter } from '@/components/study/StreakCounter'
 
 function ClassPageLoadingSkeleton() {
   return (
@@ -67,6 +69,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
 
   // Load study cards for this song
   const studyCardsQuery = useStudyCards(songId || undefined)
+  const { streak } = useUserStreak()
   const { data, isLoading, isInitialLoading } = studyCardsQuery
   const [hasHydratedData, setHasHydratedData] = useState(false)
   const dueCards = useMemo(() => data?.cards ?? [], [data?.cards])
@@ -116,52 +119,7 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
 
   const songsList = Object.values(cardsBySong).sort((a, b) => b.cards.length - a.cards.length)
 
-  const dueCardsSample = useMemo(() => dueCards.slice(0, 3).map((card) => ({
-    lineId: card.lineId,
-    spotifyTrackId: card.spotifyTrackId,
-    state: card.fsrs.state,
-  })), [dueCards])
 
-  useEffect(() => {
-    if (!data || isInitialLoading) return
-
-    const rawStats = {
-      new: studyStats?.new ?? 0,
-      learning: studyStats?.learning ?? 0,
-      review: studyStats?.review ?? 0,
-      total: studyStats?.total ?? 0,
-    }
-
-    const mismatch = stats.dueToday > 0 && dueCards.length === 0
-
-    console.info('[ClassPage] Study stats snapshot', {
-      rawStats,
-      computedStats: stats,
-      dueCardsCount: dueCards.length,
-      hasCards,
-      sampleCards: dueCardsSample,
-    })
-
-    if (mismatch) {
-      console.warn('[ClassPage] Stats show due cards but queue is empty', {
-        rawStats,
-        computedStats: stats,
-        dueCardsCount: dueCards.length,
-      })
-    }
-  }, [
-    data,
-    studyStats,
-    stats,
-    stats.new,
-    stats.learning,
-    stats.dueToday,
-    stats.total,
-    dueCards.length,
-    hasCards,
-    dueCardsSample,
-    isInitialLoading,
-  ])
 
   useEffect(() => setHasHydratedData(false), [songId])
 
@@ -244,6 +202,9 @@ export function ClassPage({ onConnectWallet }: { onConnectWallet?: () => void })
             {hasCards ? 'Complete all due cards to maintain your streak' : 'No cards due today. Great job!'}
           </p>
         </Card> */}
+
+        {/* Streak Counter */}
+        <StreakCounter streak={streak} />
 
         {/* Statistics Grid - 3 Box Model */}
         <div className="grid grid-cols-3 gap-4">

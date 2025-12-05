@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { AudioButton } from '@/components/media/AudioButton'
 
 export interface SayItBackExerciseProps {
@@ -30,6 +31,7 @@ export function SayItBackExercise({
   transcript,
   ttsAudioUrl,
 }: SayItBackExerciseProps) {
+  const { t } = useTranslation()
   const showResults = transcript !== undefined
   const audioRef = React.useRef<HTMLAudioElement>(null)
 
@@ -47,7 +49,7 @@ export function SayItBackExercise({
       {/* Target text section */}
       <div className="text-left space-y-3">
         <div className="text-muted-foreground text-lg sm:text-xl font-medium">
-          Say it back:
+          {t('study.sayItBack')}
         </div>
         <div className="flex items-start gap-4">
           {/* Play button - only show if we have audio */}
@@ -69,7 +71,7 @@ export function SayItBackExercise({
       {showResults && (
         <div className="text-left space-y-3">
           <div className="text-muted-foreground text-lg sm:text-xl font-medium">
-            You said:
+            {t('study.youSaid')}
           </div>
           <div className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground leading-relaxed break-words">
             {transcript}

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useLitActionGrader, type GradingParams } from './useLitActionGrader'
 
@@ -25,6 +26,7 @@ export interface SubmissionResult {
 export function useExerciseSubmission() {
   const { grade } = useLitActionGrader()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
 
   const submitSayItBack = useCallback(async (
     params: GradingParams
@@ -60,13 +62,13 @@ export function useExerciseSubmission() {
 
     // Map rating to feedback
     const ratingMessages: Record<string, string> = {
-      Easy: 'Excellent!',
-      Good: 'Great job!',
-      Hard: 'Nice work!',
-      Again: 'Try again!',
+      Easy: t('study.feedbackExcellent'),
+      Good: t('study.feedbackGreat'),
+      Hard: t('study.feedbackNice'),
+      Again: t('study.feedbackTryAgain'),
     }
     const isCorrect = gradingResult.rating !== 'Again'
-    const message = ratingMessages[gradingResult.rating] ?? 'Nice work!'
+    const message = ratingMessages[gradingResult.rating] ?? t('study.feedbackNice')
 
     return {
       transcript: gradingResult.transcript,
@@ -74,7 +76,7 @@ export function useExerciseSubmission() {
       feedback: { isCorrect, message },
       canAdvance: true,
     }
-  }, [grade, queryClient])
+  }, [grade, queryClient, t])
 
   const submitMultipleChoice = useCallback(async (
     params: GradingParams,
@@ -85,7 +87,7 @@ export function useExerciseSubmission() {
     // Optimistic: Show immediate feedback (frontend already knows if correct)
     const optimisticFeedback = {
       isCorrect: isCorrectAnswer,
-      message: isCorrectAnswer ? 'Correct!' : 'Incorrect',
+      message: isCorrectAnswer ? t('study.feedbackCorrect') : t('study.feedbackIncorrect'),
     }
 
     console.log('[useExerciseSubmission] ✅ Instant feedback shown, submitting to blockchain in background...')
@@ -114,7 +116,7 @@ export function useExerciseSubmission() {
       feedback: optimisticFeedback,
       canAdvance: true,
     }
-  }, [grade, queryClient])
+  }, [grade, queryClient, t])
 
   return {
     submitSayItBack,

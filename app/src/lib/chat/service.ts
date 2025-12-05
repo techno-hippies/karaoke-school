@@ -8,7 +8,7 @@
  */
 
 import { getLitClient } from '@/lib/lit/client'
-import { LIT_CHAT_ACTION_CID, LIT_CHAT_VENICE_KEY, LIT_CHAT_DEEPINFRA_KEY, LIT_TTS_ACTION_CID, LIT_TTS_DEEPINFRA_KEY } from '@/lib/contracts/addresses'
+import { LIT_CHAT_ACTION_CID, LIT_CHAT_OPENROUTER_KEY, LIT_CHAT_DEEPINFRA_KEY, LIT_TTS_ACTION_CID, LIT_TTS_DEEPINFRA_KEY } from '@/lib/contracts/addresses'
 import type { PersonalityId, UserContext } from './types'
 import type { PKPAuthContext } from '@/lib/lit/types'
 
@@ -111,7 +111,7 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
       })),
       // User context for personalization (survey responses, study stats, etc.)
       userContext: userContext || undefined,
-      veniceEncryptedKey: LIT_CHAT_VENICE_KEY,
+      openrouterEncryptedKey: LIT_CHAT_OPENROUTER_KEY,
       deepinfraEncryptedKey: needsDeepinfra ? LIT_CHAT_DEEPINFRA_KEY : null,
       returnAudio,
       testMode: false,
@@ -190,7 +190,7 @@ export async function translateText(request: TranslateRequest): Promise<Translat
       mode: 'TRANSLATE',
       textToTranslate: text,
       targetLanguage,
-      veniceEncryptedKey: LIT_CHAT_VENICE_KEY,
+      openrouterEncryptedKey: LIT_CHAT_OPENROUTER_KEY,
       testMode: false,
     }
 

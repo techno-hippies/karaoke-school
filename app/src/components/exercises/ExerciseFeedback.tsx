@@ -1,4 +1,5 @@
 import { CheckCircle, XCircle } from '@phosphor-icons/react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 export interface ExerciseFeedbackProps {
@@ -11,7 +12,8 @@ export interface ExerciseFeedbackProps {
 }
 
 export function ExerciseFeedback({ isCorrect, message, animated = false }: ExerciseFeedbackProps) {
-  const defaultMessage = isCorrect ? 'Correct!' : 'Try again'
+  const { t } = useTranslation()
+  const defaultMessage = isCorrect ? t('study.feedbackCorrect') : t('study.feedbackTryAgain')
   const displayMessage = message || defaultMessage
 
   return (

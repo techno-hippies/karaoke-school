@@ -269,6 +269,69 @@ export async function addMessage(
   return message
 }
 
+/**
+ * Add multiple messages in a batch, updating thread count once at the end.
+ * More efficient than calling addMessage multiple times.
+ */
+export async function addMessagesBatch(
+  threadId: string,
+  messages: Array<{
+    role: Message['role']
+    content: string
+    metadata?: Record<string, unknown>
+  }>
+): Promise<Message[]> {
+  if (messages.length === 0) return []
+
+  const db = await getDB()
+
+  // Get current message count
+  const thread = await getThread(threadId)
+  if (!thread) throw new Error(`Thread ${threadId} not found`)
+
+  const now = Date.now()
+  let currentIdx = thread.messageCount
+  const savedMessages: Message[] = []
+
+  // Save all messages
+  const tx = db.transaction('messages', 'readwrite')
+  for (const msg of messages) {
+    const message: Message = {
+      id: crypto.randomUUID(),
+      threadId,
+      idx: currentIdx,
+      role: msg.role,
+      content: msg.content,
+      metadata: msg.metadata,
+      createdAt: now,
+    }
+    tx.store.put(message)
+    savedMessages.push(message)
+    currentIdx++
+  }
+  await tx.done
+
+  // Update thread once with final count
+  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+  await updateThread(threadId, {
+    messageCount: currentIdx,
+    lastMessagePreview: lastAssistantMsg?.content.slice(0, 100) ?? thread.lastMessagePreview,
+    unreadCount: thread.unreadCount + messages.filter(m => m.role === 'assistant').length,
+  })
+
+  // Prune old messages if needed
+  const allMessages = await db.getAllFromIndex('messages', 'by-thread', threadId)
+  if (allMessages.length > MAX_MESSAGES_PER_THREAD * 1.5) {
+    allMessages.sort((a, b) => a.idx - b.idx)
+    const toDelete = allMessages.slice(0, allMessages.length - MAX_MESSAGES_PER_THREAD)
+    const pruneTx = db.transaction('messages', 'readwrite')
+    await Promise.all(toDelete.map((m) => pruneTx.store.delete(m.id)))
+    await pruneTx.done
+  }
+
+  return savedMessages
+}
+
 // ============================================================
 // Utilities
 // ============================================================

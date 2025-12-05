@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
 import { AudioButton } from '@/components/media/AudioButton'
@@ -47,6 +48,7 @@ export function MediaPage({
   onUnlockClick,
   className,
 }: MediaPageProps) {
+  const { t } = useTranslation()
   const {
     audioRef,
     isPlaying,
@@ -98,7 +100,7 @@ export function MediaPage({
           {isUnlockingFullAudio && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              <span>{unlockProgress ? `${unlockProgress}%` : 'Unlocking...'}</span>
+              <span>{unlockProgress ? `${unlockProgress}%` : t('study.unlocking')}</span>
             </div>
           )}
           {/* Unlock button for non-subscribers */}
@@ -109,7 +111,7 @@ export function MediaPage({
               size="sm"
             >
               <LockKey className="w-5 h-5" weight="fill" />
-              Unlock
+              {t('study.unlock')}
             </Button>
           )}
         </div>

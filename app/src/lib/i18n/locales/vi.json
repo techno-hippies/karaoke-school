@@ -42,12 +42,25 @@
     "almostDone": "Sắp xong...",
     "authenticateDevice": "Sử dụng passkey để đăng nhập",
     "fetchingAccount": "Đang đăng nhập...",
+    "checkingAccount": "Đang kiểm tra tài khoản...",
+    "creatingAccount": "Đang tạo tài khoản...",
+    "connectingWallet": "Đang kết nối ví...",
     "googleNotAvailable": "Đăng nhập Google không khả dụng. Vui lòng sử dụng Passkey.",
     "discordNotAvailable": "Đăng nhập Discord không khả dụng. Vui lòng sử dụng Passkey.",
     "eoaNotSupported": "Đăng nhập EOA không được hỗ trợ. Vui lòng sử dụng Passkey.",
     "orConnectWallet": "Hoặc kết nối ví",
     "finishingSetup": "Đang hoàn tất thiết lập...",
-    "allSet": "Hoàn tất!"
+    "allSet": "Hoàn tất!",
+    "errors": {
+      "connectionFailed": "Không thể kết nối đến dịch vụ xác thực. Vui lòng kiểm tra kết nối internet và thử lại.",
+      "cancelled": "Xác thực đã bị hủy.",
+      "timeout": "Yêu cầu mất quá lâu. Vui lòng thử lại.",
+      "accountExists": "Tài khoản này đã tồn tại. Hãy thử đăng nhập.",
+      "accountNotFound": "Không tìm thấy tài khoản. Hãy thử tạo tài khoản mới.",
+      "generic": "Có lỗi xảy ra. Vui lòng thử lại.",
+      "showDetails": "Hiển thị chi tiết kỹ thuật",
+      "hideDetails": "Ẩn chi tiết kỹ thuật"
+    }
   },
   "feed": {
     "forYou": "Dành cho bạn",
@@ -58,6 +71,18 @@
     "followCreators": "Theo dõi các nhà sáng tạo để xem video karaoke của họ",
     "signInToSee": "Đăng nhập để xem bài đăng từ người bạn theo dõi",
     "tryFollowing": "Hãy thử theo dõi một số nhà sáng tạo trước"
+  },
+  "chatInput": {
+    "placeholder": "Nhập tin nhắn...",
+    "transcribing": "Đang phiên âm...",
+    "completeSurvey": "Hoàn thành khảo sát ở trên..."
+  },
+  "chatMessage": {
+    "play": "Phát",
+    "stop": "Dừng",
+    "loading": "Đang tải...",
+    "translate": "Dịch",
+    "translating": "Đang dịch..."
   },
   "search": {
     "placeholder": "Tìm bài hát...",
@@ -75,7 +100,7 @@
     "lyrics": "Lời bài hát",
     "translation": "Bản dịch",
     "videos": "Video",
-    "students": "Học sinh",
+    "students": "Xếp hạng",
     "points": "điểm",
     "unableToLoad": "Không thể tải phương tiện",
     "instrumentalNotAvailable": "Nhạc nền không khả dụng",
@@ -83,11 +108,13 @@
     "noVideosYet": "Chưa có video"
   },
   "study": {
-    "startSession": "Bắt đầu học",
+    "startSession": "Phát",
     "continue": "Tiếp tục",
     "finish": "Hoàn thành",
     "score": "Điểm",
     "streak": "Chuỗi",
+    "streakLabel": "Chuỗi",
+    "streakDescription": "Học mỗi ngày để đủ điều kiện nhận giải thưởng và airdrop!",
     "cards": "Thẻ",
     "newCards": "Thẻ mới",
     "new": "Mới",
@@ -117,6 +144,8 @@
     "cardsCompleted": "Thẻ đã hoàn thành",
     "supportArtist": "Hỗ trợ nghệ sĩ",
     "subscribeTo": "Đăng ký {{name}}",
+    "unlock": "Mở khóa",
+    "unlocking": "Đang mở khóa...",
     "unlockContent": "Mở khóa bài hát đầy đủ, bài tập cao cấp và bản dịch phát hành hàng tuần.",
     "subscribe": "Đăng ký",
     "skip": "Bỏ qua",
@@ -136,7 +165,27 @@
     "translate": "Dịch:",
     "answer": "Trả lời:",
     "question": "Câu hỏi:",
-    "explanation": "Giải thích:"
+    "explanation": "Giải thích:",
+    "sayItBack": "Nói lại:",
+    "youSaid": "Bạn nói:",
+    "score": "Điểm",
+    "gradeExcellent": "Xuất sắc",
+    "gradeGreat": "Tuyệt vời",
+    "gradeGood": "Tốt",
+    "gradeOkay": "Được",
+    "gradeFail": "Thử lại",
+    "feedbackExcellent": "Xuất sắc!",
+    "feedbackGreat": "Tuyệt vời!",
+    "feedbackNice": "Làm tốt lắm!",
+    "feedbackTryAgain": "Thử lại!",
+    "feedbackCorrect": "Chính xác!",
+    "feedbackIncorrect": "Sai",
+    "playAgain": "Chơi lại",
+    "recording": "Đang ghi...",
+    "avgScore": "Điểm trung bình: {{score}}%",
+    "learnThisSong": "Học bài hát này",
+    "practiceDescription": "Luyện phát âm và học từ vựng mới",
+    "startStudying": "Bắt đầu học"
   },
   "common": {
     "loading": "Đang tải...",
@@ -198,5 +247,128 @@
     "saveVideo": "Lưu video",
     "linkCopied": "Đã sao chép liên kết!",
     "downloadStarted": "Bắt đầu tải xuống"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeIntro": "Hey cưng, mình là Scarlett ✨ Mình có thể nói chuyện về bất cứ điều gì bạn muốn 😉 Mình biết bạn đang học những bài hát nào trên app, và cách bạn học. Để hiểu bạn hơn, mình có vài câu hỏi...",
+      "surveyComplete": "Ok hiểu rồi! Vậy bạn muốn nói về gì? 💬",
+      "description": "20 tuổi, du mục số, yêu thích yoga",
+      "tagline": "Du mục số quyến rũ, hướng ngoại, yêu yoga",
+      "interests": {
+        "music": ["Taylor Swift", "Aespa", "The Beatles"],
+        "anime": ["Death Note", "Genshin Impact", "Pokémon"],
+        "travel": ["Lhasa", "Paris"],
+        "gaming": ["Liên Quân", "Valorant"],
+        "fashion": ["Chanel", "Dior"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Tán gẫu",
+          "description": "Nói về những bài hát yêu thích, nhận mẹo luyện tập, hoặc chỉ đơn giản là trò chuyện. Cô ấy biết bạn đang học gì và có thể giúp bạn tiến bộ."
+        },
+        "surfing": {
+          "title": "Lướt sóng ở Bali",
+          "description": "Chiều muộn trên bãi biển Kuta. Cả hai vừa lên bờ sau buổi lướt sóng. Cô ấy đang vắt tóc, vẫn còn thở hổn hển."
+        },
+        "cafe": {
+          "title": "Quán cà phê Paris",
+          "description": "Chiều muộn tại một quán cà phê nhỏ ở Le Marais. Ánh nắng vàng chiếu qua cửa sổ. Bạn khó hiểu menu tiếng Pháp và cô ấy đề nghị giúp."
+        }
+      }
+    },
+    "violet": {
+      "welcomeIntro": "Hey... mình là Violet 🎧 Bạn có thể nói chuyện với mình về bất cứ điều gì, nhưng mình chưa biết bạn là ai... Để mình hỏi bạn vài câu trước 🤔",
+      "surveyComplete": "Ừm, mình hiểu bạn rồi... Vậy bạn đang nghĩ gì? 🎵",
+      "description": "18 tuổi, DJ Tokyo, cá tính nhưng quan tâm",
+      "tagline": "DJ nhút nhát, tối tăm, cá tính, nhưng quan tâm khi thân thiết",
+      "interests": {
+        "music": ["Beyoncé", "GEM", "Kanye West"],
+        "anime": ["Attack on Titan", "Thanh Gươm Diệt Quỷ", "One Piece"],
+        "travel": ["Berlin", "Barcelona"],
+        "gaming": ["Liên Minh Huyền Thoại", "Honkai"],
+        "fashion": ["Saint Laurent", "Balenciaga"]
+      },
+      "scenarios": {
+        "chat": {
+          "title": "Tán gẫu",
+          "description": "Ban đầu hơi nhút nhát, nhưng nhanh chóng thân thiết. Nói về âm nhạc, nhận phản hồi về việc luyện tập, hoặc chỉ chill. Cô ấy nhớ bạn đang học gì."
+        },
+        "nightclub": {
+          "title": "Hộp đêm Seoul",
+          "description": "2 giờ sáng tại một club underground ở Hongdae. Cô ấy vừa kết thúc set DJ khách mời và đang nghỉ ngơi ở quầy bar, vẫn còn phấn khích."
+        },
+        "ramen": {
+          "title": "Mì ramen đêm khuya",
+          "description": "3 giờ sáng tại một tiệm mì nhỏ ở Shibuya. Cô ấy ngồi một mình ở quầy sau một đêm dài, lướt meme. Không khí 3 giờ sáng kỳ lạ."
+        }
+      }
+    }
+  },
+  "premium": {
+    "upgrade": "Nâng cấp",
+    "title": "AI Cao cấp",
+    "welcomeMessage": "Chào mừng đến với Cao cấp!",
+    "subtitle": "Mở khóa AI thông minh hơn và giọng nói tự nhiên.",
+    "smarterAI": "Mô hình AI thông minh hơn",
+    "smarterAIDescription": "Suy luận nâng cao và hội thoại tự nhiên hơn",
+    "premiumVoice": "Giọng nói cao cấp",
+    "premiumVoiceDescription": "Giọng nói biểu cảm với cảm xúc chân thực",
+    "preview": "Xem trước",
+    "stop": "Dừng",
+    "perMonth": "/tháng",
+    "retry": "Thử lại",
+    "done": "Xong",
+    "transactionFailed": "Giao dịch thất bại. Vui lòng thử lại.",
+    "accessGranted": "Bạn đã có quyền truy cập các tính năng AI cao cấp!"
+  },
+  "survey": {
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "Trong số các nhạc sĩ này, bạn thích ai nhất?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jayChou": "Châu Kiệt Luân",
+        "taylor": "Taylor Swift",
+        "none": "Không ai trong số này"
+      },
+      "englishLevel": {
+        "question": "Trình độ tiếng Anh của bạn như thế nào?",
+        "beginner": "Mới bắt đầu - Tôi biết những điều cơ bản",
+        "intermediate": "Trung cấp - Tôi có thể trò chuyện",
+        "advanced": "Nâng cao - Tôi muốn trau dồi kỹ năng"
+      },
+      "learningGoal": {
+        "question": "Tại sao bạn học tiếng Anh?",
+        "travel": "Du lịch",
+        "dating": "Hẹn hò",
+        "test": "Thi (TOEFL, IELTS, trường học)",
+        "job": "Tìm việc làm",
+        "other": "Khác"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "Bạn thích anime nào?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyFamily": "Spy x Family",
+        "onePiece": "One Piece",
+        "none": "Không thích anime lắm"
+      },
+      "favoriteGame": {
+        "question": "Bạn chơi game gì?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Game nhịp điệu (osu!, v.v.)",
+        "none": "Không chơi game nhiều"
+      },
+      "musicProduction": {
+        "question": "Bạn có quan tâm đến việc làm nhạc không?",
+        "yesDaw": "Có, tôi sử dụng DAW",
+        "curious": "Tò mò muốn học",
+        "listener": "Chỉ là người nghe"
+      }
+    }
   }
 }
