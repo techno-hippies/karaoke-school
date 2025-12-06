@@ -6,7 +6,7 @@
 
 import { Show, type Component } from 'solid-js'
 import { PurchaseDialog } from './PurchaseDialog'
-import { MusicNote } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import type { PurchaseStep } from './types'
 
@@ -55,7 +55,7 @@ export const SongPurchaseDialog: Component<SongPurchaseDialogProps> = (props) =>
           />
         ) : (
           <div class="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-            <MusicNote class="w-8 h-8 text-muted-foreground" />
+            <Icon name="music-note" class="text-3xl text-muted-foreground" />
           </div>
         )}
         <div class="flex-1 min-w-0">
@@ -106,7 +106,7 @@ export const SongPurchaseDialog: Component<SongPurchaseDialogProps> = (props) =>
       idleContent={idleContent}
       actionText="Purchase"
       successMessage={`${props.songTitle} purchased! Start practicing now.`}
-      headerIcon={<MusicNote class="w-6 h-6 text-primary" />}
+      headerIcon={<Icon name="music-note" class="text-2xl text-primary" />}
     />
   )
 }

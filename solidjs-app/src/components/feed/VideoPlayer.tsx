@@ -1,5 +1,5 @@
 import { createSignal, createEffect, onMount, onCleanup, Show, type Component } from 'solid-js'
-import { Play } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import type { VideoPlayerProps } from './types'
 
 /**
@@ -16,22 +16,11 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
 
   // Handle play/pause toggle - play directly in click handler for browser autoplay policy
   const handlePlayPause = () => {
-    console.log('[VideoPlayer] handlePlayPause', {
-      hasVideoRef: !!videoRef,
-      videoUrl: props.videoUrl,
-      isLoaded: isLoaded(),
-      isPlaying: props.isPlaying,
-      videoPaused: videoRef?.paused,
-      readyState: videoRef?.readyState,
-    })
-
     if (!videoRef || !props.videoUrl) return
 
     // Play/pause directly in click handler for browser autoplay policy compliance
     if (videoRef.paused) {
-      console.log('[VideoPlayer] Calling play() directly in click handler')
       videoRef.play().catch((e) => {
-        console.log('[VideoPlayer] play() failed:', e.name, e.message)
         if (e.name === 'NotAllowedError') {
           props.onPlayFailed?.()
         }
@@ -96,20 +85,13 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
   createEffect(() => {
     if (!videoRef || !isLoaded()) return
 
-    console.log('[VideoPlayer] Sync effect', {
-      isPlaying: props.isPlaying,
-      videoPaused: videoRef.paused,
-    })
-
     if (props.isPlaying && videoRef.paused) {
-      console.log('[VideoPlayer] Effect: calling play()')
       videoRef.play().catch((e) => {
         if (e.name === 'NotAllowedError') {
           props.onPlayFailed?.()
         }
       })
     } else if (!props.isPlaying && !videoRef.paused) {
-      console.log('[VideoPlayer] Effect: calling pause()')
       videoRef.pause()
     }
   })
@@ -134,6 +116,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
           src={props.thumbnailUrl}
           alt="Video thumbnail"
           class="absolute inset-0 w-full h-full object-cover z-10"
+          loading={props.priorityLoad ? 'eager' : 'lazy'}
         />
       </Show>
 
@@ -147,7 +130,7 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
           }}
           loop
           playsinline
-          preload="auto"
+          preload={props.priorityLoad ? 'auto' : 'metadata'}
           muted={props.isMuted}
           onClick={(e) => {
             e.stopPropagation()
@@ -189,8 +172,8 @@ export const VideoPlayer: Component<VideoPlayerProps> = (props) => {
             handlePlayPause()
           }}
         >
-          <div class="w-20 h-20 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/60 transition-colors">
-            <Play class="w-10 h-10 text-foreground fill-white ml-1" />
+          <div class="w-20 h-20 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-black/50 transition-colors">
+            <Icon name="play" class="text-4xl text-foreground fill-white ml-1" />
           </div>
         </div>
       </Show>

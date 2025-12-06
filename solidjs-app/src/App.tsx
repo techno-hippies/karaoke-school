@@ -5,6 +5,7 @@ import { preloadChatImages } from '@/hooks/usePrefetch'
 // Providers
 import { QueryProvider } from '@/providers/QueryProvider'
 import { LensProvider } from '@/providers/LensProvider'
+import { Web3Provider } from '@/providers/Web3Provider'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
@@ -13,7 +14,7 @@ import { I18nProvider } from '@/lib/i18n'
 
 // Layout
 import { AppLayout } from '@/components/layout/AppLayout'
-import { AuthDialog } from '@/components/layout/AuthDialog'
+import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
 import { Toaster } from '@/components/ui/sonner'
 
 // Pages
@@ -27,6 +28,7 @@ import { SongDetailPage } from '@/pages/SongDetailPage'
 import { SongPlayPage } from '@/pages/SongPlayPage'
 import { ArtistPage } from '@/pages/ArtistPage'
 import { FeedPage } from '@/pages/FeedPage'
+import { UserProfilePage } from '@/pages/UserProfilePage'
 
 const AppShell: ParentComponent = (props) => {
   const location = useLocation()
@@ -109,18 +111,9 @@ const AppShell: ParentComponent = (props) => {
         {props.children}
       </AppLayout>
 
-      <AuthDialog
+      <ConnectedAuthDialog
         open={showAuthDialog()}
         onOpenChange={setShowAuthDialog}
-        currentStep={auth.authStep()}
-        authMode={auth.authMode()}
-        isAuthenticating={auth.isAuthenticating()}
-        statusMessage={auth.authStatus()}
-        errorMessage={auth.authError()?.message || ''}
-        onRegister={() => auth.showUsernameInput()}
-        onRegisterWithUsername={(username) => auth.register(username)}
-        onLogin={() => auth.signIn()}
-        onUsernameBack={() => auth.resetAuthFlow()}
       />
 
       <Toaster />
@@ -132,40 +125,44 @@ const App: Component = () => {
   return (
     <QueryProvider>
       <LensProvider>
-        <CurrencyProvider>
-          <I18nProvider>
-            <AuthProvider>
-              <LanguagePreferenceProvider>
-                <VideoPlaybackProvider>
-                  <Router root={AppShell}>
-                  <Route path="/" component={FeedPage} />
-                  <Route path="/library" component={HomePage} />
-                  <Route path="/songs" component={SearchPage} />
-                  <Route path="/study" component={StudyPage} />
-                  <Route path="/study/session" component={StudySessionPage} />
-                  <Route path="/chat" component={ChatPage} />
-                  <Route path="/chat/:scenarioId" component={ChatPage} />
-                  <Route path="/wallet" component={WalletPage} />
-                  {/* Artist page (e.g., /queen, /eminem) */}
-                  <Route path="/:artistSlug" component={ArtistPage} />
-                  {/* Song detail pages (shows info + Study/Karaoke buttons) */}
-                  <Route path="/song/:spotifyTrackId" component={SongDetailPage} />
-                  <Route path="/:artistSlug/:songSlug" component={SongDetailPage} />
-                  {/* Song study pages (exercise session) */}
-                  <Route path="/song/:workId/study" component={StudySessionPage} />
-                  <Route path="/:artistSlug/:songSlug/study" component={StudySessionPage} />
-                  {/* Song play pages (karaoke player with lyrics) */}
-                  <Route path="/song/:spotifyTrackId/play" component={SongPlayPage} />
-                  <Route path="/song/:spotifyTrackId/karaoke" component={SongPlayPage} />
-                  <Route path="/:artistSlug/:songSlug/play" component={SongPlayPage} />
-                  <Route path="/:artistSlug/:songSlug/karaoke" component={SongPlayPage} />
-                    <Route path="*" component={FeedPage} />
-                  </Router>
-                </VideoPlaybackProvider>
-              </LanguagePreferenceProvider>
-            </AuthProvider>
-          </I18nProvider>
-        </CurrencyProvider>
+        <Web3Provider>
+          <CurrencyProvider>
+            <I18nProvider>
+              <AuthProvider>
+                <LanguagePreferenceProvider>
+                  <VideoPlaybackProvider>
+                    <Router root={AppShell}>
+                      <Route path="/" component={FeedPage} />
+                      <Route path="/library" component={HomePage} />
+                      <Route path="/songs" component={SearchPage} />
+                      <Route path="/study" component={StudyPage} />
+                      <Route path="/study/session" component={StudySessionPage} />
+                      <Route path="/chat" component={ChatPage} />
+                      <Route path="/chat/:scenarioId" component={ChatPage} />
+                      <Route path="/wallet" component={WalletPage} />
+                      {/* User profile page (e.g., /u/scarlett-ks) */}
+                      <Route path="/u/:handle" component={UserProfilePage} />
+                      {/* Artist page (e.g., /queen, /eminem) */}
+                      <Route path="/:artistSlug" component={ArtistPage} />
+                      {/* Song detail pages (shows info + Study/Karaoke buttons) */}
+                      <Route path="/song/:spotifyTrackId" component={SongDetailPage} />
+                      <Route path="/:artistSlug/:songSlug" component={SongDetailPage} />
+                      {/* Song study pages (exercise session) */}
+                      <Route path="/song/:workId/study" component={StudySessionPage} />
+                      <Route path="/:artistSlug/:songSlug/study" component={StudySessionPage} />
+                      {/* Song play pages (karaoke player with lyrics) */}
+                      <Route path="/song/:spotifyTrackId/play" component={SongPlayPage} />
+                      <Route path="/song/:spotifyTrackId/karaoke" component={SongPlayPage} />
+                      <Route path="/:artistSlug/:songSlug/play" component={SongPlayPage} />
+                      <Route path="/:artistSlug/:songSlug/karaoke" component={SongPlayPage} />
+                      <Route path="*" component={FeedPage} />
+                    </Router>
+                  </VideoPlaybackProvider>
+                </LanguagePreferenceProvider>
+              </AuthProvider>
+            </I18nProvider>
+          </CurrencyProvider>
+        </Web3Provider>
       </LensProvider>
     </QueryProvider>
   )

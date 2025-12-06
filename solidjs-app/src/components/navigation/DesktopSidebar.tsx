@@ -28,7 +28,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
           <Button
             onClick={() => props.onTabChange('home')}
             variant="ghost"
-            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl hover:bg-secondary/50 ${
+            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
               props.activeTab === 'home'
                 ? 'text-foreground'
                 : 'text-muted-foreground'
@@ -41,7 +41,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
           <Button
             onClick={() => props.onTabChange('songs')}
             variant="ghost"
-            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl hover:bg-secondary/50 ${
+            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
               props.activeTab === 'songs'
                 ? 'text-foreground'
                 : 'text-muted-foreground'
@@ -54,7 +54,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
           <Button
             onClick={() => props.onTabChange('study')}
             variant="ghost"
-            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl hover:bg-secondary/50 ${
+            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
               props.activeTab === 'study'
                 ? 'text-foreground'
                 : 'text-muted-foreground'
@@ -67,7 +67,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
           <Button
             onClick={() => props.onTabChange('chat')}
             variant="ghost"
-            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl hover:bg-secondary/50 ${
+            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
               props.activeTab === 'chat'
                 ? 'text-foreground'
                 : 'text-muted-foreground'
@@ -80,7 +80,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
           <Button
             onClick={() => props.onTabChange('wallet')}
             variant="ghost"
-            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl hover:bg-secondary/50 ${
+            class={`w-full justify-start gap-4 px-6 py-4 h-auto text-xl ${
               props.activeTab === 'wallet'
                 ? 'text-foreground'
                 : 'text-muted-foreground'
@@ -102,7 +102,7 @@ export const DesktopSidebar: Component<DesktopSidebarProps> = (props) => {
             <Button
               onClick={() => props.onTabChange('wallet')}
               variant="ghost"
-              class="w-full justify-start gap-4 px-6 py-4 h-auto hover:bg-secondary"
+              class="w-full justify-start gap-4 px-6 py-4 h-auto"
             >
               <div class="w-12 h-12 bg-primary rounded-lg flex-shrink-0" />
               <p class="text-foreground text-lg font-medium truncate flex-1 text-left">

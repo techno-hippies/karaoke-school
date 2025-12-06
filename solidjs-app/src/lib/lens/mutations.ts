@@ -178,9 +178,7 @@ export const ACCOUNT_QUERY = gql`
       username {
         value
         localName
-        namespace {
-          address
-        }
+        namespace
       }
       metadata {
         ... on AccountMetadata {
@@ -283,9 +281,7 @@ export interface AccountResponse {
   username?: {
     value: string
     localName: string
-    namespace: {
-      address: string
-    }
+    namespace: string // EvmAddress (string)
   }
   metadata?: {
     name?: string

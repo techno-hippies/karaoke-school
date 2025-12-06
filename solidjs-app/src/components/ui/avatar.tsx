@@ -6,7 +6,7 @@ import { Show, type Component, type JSX } from 'solid-js'
 import { splitProps } from 'solid-js'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
-import { User } from '@/components/icons'
+import { Icon } from '@/components/icons'
 
 const avatarVariants = cva(
   'relative flex shrink-0 overflow-hidden rounded-full bg-muted',
@@ -50,7 +50,7 @@ export const Avatar: Component<AvatarProps> = (props) => {
           <div class="flex h-full w-full items-center justify-center bg-muted">
             <Show
               when={getFallbackInitial()}
-              fallback={<User class="h-1/2 w-1/2 text-muted-foreground" />}
+              fallback={<Icon name="user" class="text-[50%] text-muted-foreground" />}
             >
               <span class="text-sm font-medium text-muted-foreground">
                 {getFallbackInitial()}

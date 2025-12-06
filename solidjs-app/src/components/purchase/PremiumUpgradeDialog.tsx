@@ -7,7 +7,7 @@
 
 import { createSignal, onCleanup, type Component } from 'solid-js'
 import { PurchaseDialog } from './PurchaseDialog'
-import { Sparkle, SpeakerHigh, Play, Stop } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import type { PurchaseStep } from './types'
 
 export interface PremiumUpgradeDialogProps {
@@ -71,7 +71,7 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
       {/* Features */}
       <div class="space-y-3">
         <div class="flex items-start gap-3 p-4 rounded-2xl bg-muted/30">
-          <Sparkle class="w-6 h-6 text-purple-500 flex-shrink-0 mt-0.5" weight="fill" />
+          <Icon name="sparkle" class="text-2xl text-purple-500 flex-shrink-0 mt-0.5" weight="fill" />
           <div>
             <p class="font-medium">Smarter AI Tutor</p>
             <p class="text-sm text-muted-foreground">
@@ -81,7 +81,7 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
         </div>
 
         <div class="flex items-start gap-3 p-4 rounded-2xl bg-muted/30">
-          <SpeakerHigh class="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" />
+          <Icon name="speaker-high" class="text-2xl text-blue-500 flex-shrink-0 mt-0.5" />
           <div class="flex-1">
             <p class="font-medium">Premium Voice</p>
             <p class="text-sm text-muted-foreground">
@@ -91,16 +91,16 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
               <button
                 type="button"
                 onClick={handlePreviewClick}
-                class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full bg-secondary/50 hover:bg-secondary/70 transition-colors"
+                class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full bg-secondary/50 hover:bg-secondary/60 transition-colors"
               >
                 {isPlaying() ? (
                   <>
-                    <Stop class="w-4 h-4" weight="fill" />
+                    <Icon name="stop" class="text-base" weight="fill" />
                     Stop
                   </>
                 ) : (
                   <>
-                    <Play class="w-4 h-4" weight="fill" />
+                    <Icon name="play" class="text-base" weight="fill" />
                     Preview
                   </>
                 )}
@@ -135,7 +135,7 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
       idleContent={idleContent}
       actionText="Subscribe"
       successMessage="Welcome to Premium! Enjoy your enhanced AI tutor."
-      headerIcon={<Sparkle class="w-6 h-6 text-yellow-500" weight="fill" />}
+      headerIcon={<Icon name="sparkle" class="text-2xl text-yellow-500" weight="fill" />}
     />
   )
 }

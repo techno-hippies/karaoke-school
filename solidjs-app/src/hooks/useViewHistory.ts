@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb'
-import { createSignal, onMount } from 'solid-js'
+import { createSignal, onMount, createEffect, type Accessor } from 'solid-js'
 
 const DB_NAME = 'karaoke-school'
 const STORE_NAME = 'view-history'

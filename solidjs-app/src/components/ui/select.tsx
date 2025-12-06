@@ -4,7 +4,7 @@
  */
 
 import { Select as KobalteSelect } from '@kobalte/core/select'
-import { type Component, type JSX, splitProps } from 'solid-js'
+import { type Component, splitProps } from 'solid-js'
 import { Icon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
@@ -37,7 +37,7 @@ export const Select: Component<SelectProps> = (props) => {
       itemComponent={(itemProps) => (
         <KobalteSelect.Item
           item={itemProps.item}
-          class="flex items-center justify-between px-3 py-2 text-sm cursor-pointer outline-none hover:bg-muted focus:bg-muted rounded-md data-[highlighted]:bg-muted"
+          class="flex items-center justify-between px-3 py-2 text-sm cursor-pointer outline-none hover:bg-white/5 focus:bg-white/5 rounded-md data-[highlighted]:bg-white/5"
         >
           <KobalteSelect.ItemLabel>{itemProps.item.rawValue.label}</KobalteSelect.ItemLabel>
           <KobalteSelect.ItemIndicator>
@@ -51,7 +51,7 @@ export const Select: Component<SelectProps> = (props) => {
         class={cn(
           'inline-flex items-center justify-between gap-2 px-4 py-2 min-w-[140px] rounded-lg cursor-pointer',
           'bg-secondary text-foreground text-sm font-medium',
-          'border border-border hover:bg-muted transition-colors',
+          'border border-border hover:bg-white/5 transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           local.class

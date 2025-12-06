@@ -20,7 +20,9 @@
     "@lit-protocol/networks": "8.3.2",
     "@phosphor-icons/web": "2.1.2",
     "@solidjs/router": "^0.15.3",
-    "@tanstack/solid-query": "^5.62.0",
+    "@tanstack/solid-query": "^5.90.15",
+    "@wagmi/core": "^3.0.0",
+    "@walletconnect/modal": "^2.7.0",
     "buffer": "6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -32,7 +34,8 @@
     "solid-sonner": "^0.2.8",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
-    "viem": "^2.21.0"
+    "viem": "^2.41.2",
+    "wagmi": "^3.1.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.12",

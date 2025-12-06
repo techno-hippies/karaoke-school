@@ -35,7 +35,15 @@
     "verifyingPasskey": "Verifying passkey...",
     "almostDone": "Almost done...",
     "authenticateDevice": "Authenticate with your device",
-    "fetchingAccount": "Fetching account..."
+    "fetchingAccount": "Fetching account...",
+    "orSocialLogin": "or social login",
+    "orConnectWallet": "or connect wallet",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithDiscord": "Continue with Discord",
+    "createWithGoogle": "Create with Google",
+    "createWithDiscord": "Create with Discord",
+    "signInWithGoogle": "Sign in with Google",
+    "signInWithDiscord": "Sign in with Discord"
   },
   "wallet": {
     "walletAddress": "Wallet Address",

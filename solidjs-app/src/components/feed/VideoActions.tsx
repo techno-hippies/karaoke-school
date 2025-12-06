@@ -1,15 +1,6 @@
 import { Show, type Component } from 'solid-js'
 import { cn } from '@/lib/utils'
-import {
-  Heart,
-  ShareNetwork,
-  SpeakerHigh,
-  SpeakerSlash,
-  Exam,
-  MusicNote,
-  Plus,
-  Check,
-} from '@/components/icons'
+import { Icon } from '@/components/icons'
 import type { VideoActionsProps } from './types'
 
 /**
@@ -27,12 +18,12 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
         }}
         class="flex flex-col items-center cursor-pointer"
       >
-        <div class="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
+        <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
           <Show
             when={!props.isMuted}
-            fallback={<SpeakerSlash class="w-10 h-10 md:w-7 md:h-7 text-foreground" />}
+            fallback={<Icon name="speaker-slash" class="text-4xl md:text-3xl text-foreground" />}
           >
-            <SpeakerHigh class="w-10 h-10 md:w-7 md:h-7 text-foreground" />
+            <Icon name="speaker-high" class="text-4xl md:text-3xl text-foreground" />
           </Show>
         </div>
       </button>
@@ -72,7 +63,7 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
           class={cn(
             'absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200',
             props.isFollowing && !props.isFollowLoading
-              ? 'bg-neutral-800 hover:bg-neutral-700'
+              ? 'bg-black/50 hover:bg-black/60'
               : 'bg-primary hover:bg-primary/90',
             (!props.canFollow || props.isFollowLoading) && 'opacity-50 cursor-not-allowed'
           )}
@@ -81,10 +72,10 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
             <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </Show>
           <Show when={!props.isFollowLoading && props.isFollowing}>
-            <Check class="w-4 h-4 text-primary" />
+            <Icon name="check" class="text-base text-primary" />
           </Show>
           <Show when={!props.isFollowLoading && !props.isFollowing}>
-            <Plus class="w-4 h-4 text-foreground" />
+            <Icon name="plus" class="text-base text-foreground" />
           </Show>
         </button>
       </div>
@@ -102,13 +93,14 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
             'rounded-full p-3 transition-colors',
             'max-md:bg-transparent',
             props.isLiked
-              ? 'md:bg-red-500/20 md:hover:bg-red-500/30'
-              : 'md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50'
+              ? 'md:bg-red-500/15 md:hover:bg-red-500/20'
+              : 'md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40'
           )}
         >
-          <Heart
+          <Icon
+            name="heart"
             class={cn(
-              'w-10 h-10 md:w-7 md:h-7 transition-colors',
+              'text-4xl md:text-3xl transition-colors',
               props.isLiked ? 'text-red-500' : 'text-foreground'
             )}
             weight="fill"
@@ -124,8 +116,8 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
         }}
         class="flex flex-col items-center cursor-pointer"
       >
-        <div class="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-          <ShareNetwork class="w-10 h-10 md:w-7 md:h-7 text-foreground" weight="fill" />
+        <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
+          <Icon name="share-network" class="text-4xl md:text-3xl text-foreground" weight="fill" />
         </div>
       </button>
 
@@ -138,8 +130,8 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
           }}
           class="flex flex-col items-center cursor-pointer"
         >
-          <div class="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-            <Exam class="w-10 h-10 md:w-7 md:h-7 text-foreground" weight="fill" />
+          <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
+            <Icon name="exam" class="text-4xl md:text-3xl text-foreground" weight="fill" />
           </div>
         </button>
       </Show>
@@ -156,7 +148,7 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
           <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center overflow-hidden">
             <Show
               when={props.musicImageUrl}
-              fallback={<MusicNote class="w-6 h-6 text-foreground" weight="fill" />}
+              fallback={<Icon name="music-note" class="text-2xl text-foreground" weight="fill" />}
             >
               <img
                 src={props.musicImageUrl}

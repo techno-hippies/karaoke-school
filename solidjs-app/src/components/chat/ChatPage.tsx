@@ -26,7 +26,8 @@ import { Button } from '@/components/ui/button'
 import { ChatMessage, type ChatMessageProps } from './ChatMessage'
 import { ChatSurveyMessage, type ChatSurveyMessageProps } from './ChatSurveyMessage'
 import { ChatInput, type ChatInputProps } from './ChatInput'
-import { ChevronLeft, Sparkle } from '@/components/icons'
+import { Icon } from '@/components/icons'
+import { BackButton } from '@/components/ui/back-button'
 import { useTranslation } from '@/lib/i18n'
 
 export type ChatItem =
@@ -148,18 +149,13 @@ export const ChatPage: Component<ChatPageProps> = (props) => {
       {...others}
     >
       {/* Centered container for desktop */}
-      <div class="flex-1 flex flex-col max-w-3xl mx-auto w-full min-h-0">
+      <div class="flex-1 flex flex-col max-w-4xl mx-auto px-4 sm:px-6 md:px-8 w-full min-h-0">
         {/* Header */}
         <Show when={showHeader()}>
-          <div class="flex-shrink-0 relative flex items-center justify-between h-16 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div class="flex-shrink-0 relative flex items-center justify-between h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div class="flex justify-start z-10">
               <Show when={local.onBack}>
-                <button
-                  onClick={local.onBack}
-                  class="flex items-center justify-center w-10 h-10 -ml-2 rounded-full hover:bg-secondary transition-colors cursor-pointer"
-                >
-                  <ChevronLeft class="w-6 h-6" />
-                </button>
+                <BackButton onClick={local.onBack} class="-ml-2" />
               </Show>
             </div>
             <h1 class="absolute inset-0 flex items-center justify-center text-lg font-semibold pointer-events-none">
@@ -168,7 +164,7 @@ export const ChatPage: Component<ChatPageProps> = (props) => {
             <div class="flex justify-end z-10">
               <Show when={local.showUpgrade}>
                 <Button variant="destructive" size="sm" onClick={local.onUpgrade}>
-                  <Sparkle class="w-4 h-4" weight="fill" />
+                  <Icon name="sparkle" class="text-base" weight="fill" />
                   {t('chat.upgrade')}
                 </Button>
               </Show>
@@ -181,7 +177,7 @@ export const ChatPage: Component<ChatPageProps> = (props) => {
           ref={scrollContainerRef}
           class="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide"
         >
-          <div class="max-w-3xl mx-auto px-4 py-4 space-y-4">
+          <div class="py-4 space-y-4">
             <For each={local.items}>
               {(item) => {
                 if (item.type === 'message') {

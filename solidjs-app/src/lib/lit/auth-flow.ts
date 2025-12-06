@@ -12,6 +12,7 @@ import { createPKPAuthContext } from './auth-pkp'
 import type { PKPInfo, AuthData, PKPAuthContext } from './types'
 
 const AUTH_SERVICE_URL = LIT_WEBAUTHN_CONFIG.authServiceUrl
+const IS_DEV = import.meta.env.DEV
 
 export interface AuthFlowResult {
   pkpInfo: PKPInfo
@@ -42,7 +43,7 @@ export async function registerUser(
     scopes: ['sign-anything'],
   })
 
-  console.log('✅ Registered new credential and minted PKP')
+  if (IS_DEV) console.log('✅ Registered new credential and minted PKP')
 
   const pkpInfo = registerResult.pkpInfo
 
@@ -50,7 +51,7 @@ export async function registerUser(
   // We must call authenticate() separately to get authData
   onStatusUpdate(i18n.t('auth.verifyingPasskey'))
   const authData = await WebAuthnAuthenticator.authenticate()
-  console.log('✅ Authenticated with new credential')
+  if (IS_DEV) console.log('✅ Authenticated with new credential')
 
   // Create auth context (session signature)
   onStatusUpdate(i18n.t('auth.almostDone'))
@@ -71,7 +72,7 @@ export async function registerUser(
   // Use centralized auth context creation
   const authContext = await createPKPAuthContext(pkpInfoTyped, authDataTyped)
 
-  console.log('✅ Auth context created')
+  if (IS_DEV) console.log('✅ Auth context created')
 
   // Build result
   const result: AuthFlowResult = {
@@ -101,7 +102,7 @@ export async function loginUser(
   onStatusUpdate(i18n.t('auth.authenticateDevice'))
   const authData = await WebAuthnAuthenticator.authenticate()
 
-  console.log('✅ Authenticated with existing credential')
+  if (IS_DEV) console.log('✅ Authenticated with existing credential')
 
   // Get PKP for this credential
   onStatusUpdate(i18n.t('auth.fetchingAccount'))
@@ -121,7 +122,7 @@ export async function loginUser(
   }
 
   const pkpInfo = pkpsResult.pkps[0]
-  console.log('✅ PKP found:', pkpInfo.ethAddress)
+  if (IS_DEV) console.log('✅ PKP found:', pkpInfo.ethAddress)
 
   // Create auth context (session signature)
   onStatusUpdate(i18n.t('auth.almostDone'))
@@ -142,7 +143,7 @@ export async function loginUser(
   // Use centralized auth context creation
   const authContext = await createPKPAuthContext(pkpInfoTyped, authDataTyped)
 
-  console.log('✅ Auth context created')
+  if (IS_DEV) console.log('✅ Auth context created')
 
   // Build result
   const result: AuthFlowResult = {

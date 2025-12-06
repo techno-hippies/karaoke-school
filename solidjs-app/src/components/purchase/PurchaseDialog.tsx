@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { CheckCircle, AlertCircle } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import type { PurchaseStep } from './types'
 
 export interface PurchaseDialogProps {
@@ -113,7 +113,7 @@ export const PurchaseDialog: Component<PurchaseDialogProps> = (props) => {
           <Show when={isError()}>
             <div class="space-y-4">
               <div class="flex items-start gap-3 p-4 bg-destructive/10 rounded-lg">
-                <AlertCircle class="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                <Icon name="warning-circle" class="text-xl text-destructive flex-shrink-0 mt-0.5" />
                 <p
                   class="text-sm text-destructive break-words"
                   style={{ 'overflow-wrap': 'anywhere' }}
@@ -137,7 +137,7 @@ export const PurchaseDialog: Component<PurchaseDialogProps> = (props) => {
           <Show when={isComplete()}>
             <div class="space-y-4">
               <div class="flex flex-col items-center py-4">
-                <CheckCircle class="w-16 h-16 text-green-500" weight="fill" />
+                <Icon name="check-circle" class="text-7xl text-green-500" weight="fill" />
               </div>
 
               <Button

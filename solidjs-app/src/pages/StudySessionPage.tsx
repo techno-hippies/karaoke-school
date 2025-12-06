@@ -19,7 +19,7 @@ const StudyPageSkeleton: Component<{ onClose?: () => void }> = (props) => {
     <div class="flex flex-col h-screen">
       {/* Header skeleton */}
       <div class="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
-        <div class="max-w-3xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center gap-3">
+        <div class="max-w-4xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center gap-3">
           <Show
             when={props.onClose}
             fallback={
@@ -36,7 +36,7 @@ const StudyPageSkeleton: Component<{ onClose?: () => void }> = (props) => {
 
       {/* Content skeleton */}
       <div class="flex-1 overflow-y-auto">
-        <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
+        <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
           <ExerciseSkeleton />
         </div>
       </div>
@@ -234,7 +234,7 @@ export const StudySessionPage: Component = () => {
           </div>
 
           <div class="border-t border-border bg-background/95 backdrop-blur-sm">
-            <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
+            <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
               <Button size="lg" class="w-full" onClick={() => navigate(returnPath(), { replace: true })}>
                 Finish
               </Button>
@@ -248,7 +248,7 @@ export const StudySessionPage: Component = () => {
         <div class="flex flex-col h-screen">
           {/* Header - PERSISTENT */}
           <div class="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
-            <div class="max-w-3xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
+            <div class="max-w-4xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
               <ExerciseHeader
                 progress={session.progress()}
                 onClose={session.handleClose}
@@ -259,7 +259,7 @@ export const StudySessionPage: Component = () => {
 
           {/* Exercise Content - TRANSITIONS SMOOTHLY */}
           <div class="flex-1 overflow-y-auto">
-            <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
+            <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
               <Show when={session.isLoadingExercise()}>
                 <ExerciseSkeleton />
               </Show>

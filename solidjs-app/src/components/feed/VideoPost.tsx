@@ -35,7 +35,6 @@ export const VideoPost: Component<VideoPostProps> = (props) => {
   const navigate = useNavigate()
 
   // Pass autoplay as getter for reactivity - critical for scroll behavior
-  const videoId = () => props.id?.slice(0, 8) || 'unknown'
   const {
     isPlaying,
     isMuted,
@@ -45,11 +44,7 @@ export const VideoPost: Component<VideoPostProps> = (props) => {
     handlePlayFailed,
     handleTimeUpdate,
   } = useVideoPlayback({
-    autoplay: () => {
-      const val = props.autoplay ?? true
-      console.log(`[VideoPost ${videoId()}] autoplay getter:`, val)
-      return val
-    }
+    autoplay: () => props.autoplay ?? true
   })
 
   // Track view: call onViewed after 3 seconds of watch time
@@ -130,7 +125,7 @@ export const VideoPost: Component<VideoPostProps> = (props) => {
       <Show when={props.showBackButton}>
         <button
           onClick={() => props.onBack?.()}
-          class="absolute top-4 left-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors"
+          class="absolute top-4 left-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
         >
           <Icon name="caret-left" class="text-2xl text-white" />
         </button>

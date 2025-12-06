@@ -1,10 +1,11 @@
-import { type Component, Show, createSignal, onMount } from 'solid-js'
+import { type Component, Show } from 'solid-js'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { AudioScrobbleBar } from '@/components/audio/AudioScrobbleBar'
 import { Button } from '@/components/ui/button'
-import { Icon, LockSimple } from '@/components/icons'
+import { Icon } from '@/components/icons'
+import { BackButton } from '@/components/ui/back-button'
 import type { LyricLine } from '@/components/karaoke/types'
 import { cn } from '@/lib/utils'
 
@@ -43,7 +44,7 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
 
   return (
     <div class={cn('relative w-full h-screen bg-background flex items-center justify-center', props.class)}>
-      <div class="relative w-full h-full md:max-w-2xl flex flex-col">
+      <div class="relative w-full h-full md:max-w-4xl flex flex-col">
         <audio ref={setAudioRef} src={props.audioUrl} preload="metadata" />
 
         {/* Header with optional artwork */}
@@ -65,12 +66,10 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
               />
               {/* Back button on top of artwork */}
               <div class="absolute top-4 left-4 z-10">
-                <button
+                <BackButton
                   onClick={() => props.onBack?.()}
-                  class="p-2 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
-                >
-                  <Icon name="caret-left" class="text-2xl text-white" />
-                </button>
+                  class="bg-black/30 hover:bg-black/40"
+                />
               </div>
             </div>
           </Show>
@@ -81,12 +80,7 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
             props.artworkUrl ? 'h-16 bg-background/95 backdrop-blur' : 'h-16'
           )}>
             <Show when={!props.artworkUrl}>
-              <button
-                onClick={() => props.onBack?.()}
-                class="p-2 rounded-full hover:bg-muted transition-colors"
-              >
-                <Icon name="caret-left" class="text-2xl text-foreground" />
-              </button>
+              <BackButton onClick={() => props.onBack?.()} />
             </Show>
             <div class="flex-1 min-w-0">
               {/* Title and artist removed per design */}
@@ -104,7 +98,7 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
                 onClick={() => props.onUnlockClick?.()}
                 size="sm"
               >
-                <LockSimple class="w-4 h-4" />
+                <Icon name="lock-simple" class="text-base" />
                 Unlock
               </Button>
             </Show>

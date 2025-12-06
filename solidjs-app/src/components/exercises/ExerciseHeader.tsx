@@ -1,6 +1,6 @@
-import { type Component, createEffect } from 'solid-js'
+import { type Component, createEffect, Show } from 'solid-js'
 import { Progress } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
 import { cn } from '@/lib/utils'
 
 export interface ExerciseHeaderProps {
@@ -45,19 +45,13 @@ export const ExerciseHeader: Component<ExerciseHeaderProps> = (props) => {
       )}
     >
       {/* Close button */}
-      {(props.showCloseButton ?? true) && (
-        <Button
-          variant="ghost"
-          size="icon"
+      <Show when={props.showCloseButton ?? true}>
+        <BackButton
+          variant="close"
           onClick={props.onClose}
-          class="text-muted-foreground hover:text-foreground shrink-0"
-          aria-label="Close"
-        >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </Button>
-      )}
+          class="shrink-0"
+        />
+      </Show>
 
       {/* Progress bar */}
       <div class="flex-1">

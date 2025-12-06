@@ -11,7 +11,7 @@ import { convertGroveUri } from '@/lib/lens/utils'
  * Skeleton for StudyPage loading state
  */
 const StudyPageSkeleton: Component = () => (
-  <div class="p-6 max-w-2xl mx-auto space-y-6">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 space-y-6">
     {/* Stats grid */}
     <div class="grid grid-cols-3 gap-4">
       <For each={[1, 2, 3]}>
@@ -121,7 +121,7 @@ export const StudyPage: Component = () => {
       </Show>
 
       <Show when={!isLoading()}>
-        <div class="p-6 max-w-2xl mx-auto space-y-6">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6 space-y-6">
           {/* 3-box Stats */}
           <div class="grid grid-cols-3 gap-4">
             <div class="p-4 bg-card rounded-lg text-center">

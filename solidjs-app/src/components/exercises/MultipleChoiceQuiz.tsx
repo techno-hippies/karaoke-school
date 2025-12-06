@@ -71,7 +71,7 @@ export const MultipleChoiceQuiz: Component<MultipleChoiceQuizProps> = (props) =>
       // Not answered yet - normal hover states (matches button outline variant)
       return cn(
         baseStyles,
-        "bg-secondary/30 hover:bg-secondary/50 text-foreground"
+        "bg-secondary/30 hover:bg-secondary/40 text-foreground"
       )
     }
 

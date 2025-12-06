@@ -45,8 +45,8 @@ export const ScenarioPicker: Component<ScenarioPickerProps> = (props) => {
   const [local, others] = splitProps(props, ['groups', 'onSelect', 'class'])
 
   return (
-    <div class={cn('min-h-screen bg-background p-4', local.class)} {...others}>
-      <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class={cn('min-h-screen bg-background', local.class)} {...others}>
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
         <For each={local.groups}>
           {(group) => (
             <section>

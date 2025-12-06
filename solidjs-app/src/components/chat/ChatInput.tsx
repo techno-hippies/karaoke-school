@@ -10,7 +10,7 @@
 
 import { Component, createSignal, createEffect, splitProps, Show, For } from 'solid-js'
 import { cn } from '@/lib/utils'
-import { PaperPlaneRight, Waveform, Stop } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import { formatDuration } from '@/lib/chat/audio'
 
 export interface ChatInputProps {
@@ -103,7 +103,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
     return (
       <div
         class={cn(
-          'flex-shrink-0 bg-background border-t border-border px-4',
+          'flex-shrink-0 bg-background border-t border-border',
           local.class
         )}
         style={{
@@ -111,7 +111,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
           'padding-bottom': 'calc(env(safe-area-inset-bottom) + 14px)',
         }}
       >
-        <div class="max-w-3xl mx-auto flex items-center justify-center gap-3 h-11">
+        <div class="flex items-center justify-center gap-3 h-11">
           <div class="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
           <span class="text-sm text-muted-foreground">Transcribing...</span>
         </div>
@@ -124,7 +124,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
     return (
       <div
         class={cn(
-          'flex-shrink-0 bg-background border-t border-border px-4',
+          'flex-shrink-0 bg-background border-t border-border',
           local.class
         )}
         style={{
@@ -132,7 +132,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
           'padding-bottom': 'calc(env(safe-area-inset-bottom) + 14px)',
         }}
       >
-        <div class="max-w-3xl mx-auto flex items-center gap-2">
+        <div class="flex items-center gap-2">
           {/* Recording indicator */}
           <div class="flex-1 flex items-center gap-3 rounded-full bg-secondary px-4 h-11">
             {/* Pulsing dot */}
@@ -166,12 +166,12 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
             disabled={local.disabled}
             class={cn(
               'flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer',
-              'bg-secondary text-foreground hover:bg-secondary/80',
+              'bg-secondary text-foreground hover:bg-secondary/90',
               'transition-all duration-200',
               local.disabled && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <Stop class="w-5 h-5" weight="fill" />
+            <Icon name="stop" class="text-xl" weight="fill" />
           </button>
         </div>
       </div>
@@ -182,7 +182,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
   return (
     <div
       class={cn(
-        'flex-shrink-0 bg-background border-t border-border px-4',
+        'flex-shrink-0 bg-background border-t border-border',
         local.class
       )}
       style={{
@@ -191,7 +191,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
       }}
       {...others}
     >
-      <div class="max-w-3xl mx-auto flex items-end gap-2">
+      <div class="flex items-end gap-2">
         {/* Text input */}
         <textarea
           ref={textareaRef}
@@ -220,15 +220,15 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
             'transition-all duration-200',
             hasText()
               ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-              : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80',
+              : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/90',
             local.disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
           <Show
             when={hasText()}
-            fallback={<Waveform class="w-5 h-5" />}
+            fallback={<Icon name="waveform" class="text-xl" />}
           >
-            <PaperPlaneRight class="w-5 h-5" weight="fill" />
+            <Icon name="paper-plane-right" class="text-xl" weight="fill" />
           </Show>
         </button>
       </div>

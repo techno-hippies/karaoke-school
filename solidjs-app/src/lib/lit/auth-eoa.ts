@@ -15,6 +15,8 @@ import type { PKPInfo, AuthData } from './types'
 const LIT_SPONSORSHIP_API_URL =
   import.meta.env.VITE_LIT_SPONSORSHIP_API_URL || 'https://lit-sponsorship-api.vercel.app'
 
+const IS_DEV = import.meta.env.DEV
+
 /**
  * Register new PKP with EOA wallet via relayer
  * Relayer pays gas, user's EOA is added as auth method
@@ -25,7 +27,7 @@ const LIT_SPONSORSHIP_API_URL =
 export async function registerWithEoa(
   walletClient: WalletClient
 ): Promise<{ pkpInfo: PKPInfo; authData: AuthData }> {
-  console.log('[LitEoa] Starting EOA registration via relayer...')
+  if (IS_DEV) console.log('[LitEoa] Starting EOA registration via relayer...')
 
   const address = walletClient.account?.address
 
@@ -33,8 +35,10 @@ export async function registerWithEoa(
     throw new Error('No account address in wallet client')
   }
 
-  console.log('[LitEoa] Requesting PKP mint for EOA:', address)
-  console.log('[LitEoa] Relayer URL:', LIT_SPONSORSHIP_API_URL)
+  if (IS_DEV) {
+    console.log('[LitEoa] Requesting PKP mint for EOA:', address)
+    console.log('[LitEoa] Relayer URL:', LIT_SPONSORSHIP_API_URL)
+  }
 
   // Call relayer API to mint PKP (relayer pays gas)
   const response = await fetch(`${LIT_SPONSORSHIP_API_URL}/api/mint-user-pkp`, {
@@ -43,7 +47,7 @@ export async function registerWithEoa(
     body: JSON.stringify({ userAddress: address }),
   })
 
-  console.log('[LitEoa] Relayer response status:', response.status)
+  if (IS_DEV) console.log('[LitEoa] Relayer response status:', response.status)
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
@@ -52,10 +56,12 @@ export async function registerWithEoa(
   }
 
   const data = await response.json()
-  console.log('[LitEoa] PKP minted via relayer:', {
-    existing: data.existing,
-    pkpEthAddress: data.pkpEthAddress,
-  })
+  if (IS_DEV) {
+    console.log('[LitEoa] PKP minted via relayer:', {
+      existing: data.existing,
+      pkpEthAddress: data.pkpEthAddress,
+    })
+  }
 
   const pkpInfo: PKPInfo = {
     publicKey: data.pkpPublicKey,
@@ -65,11 +71,12 @@ export async function registerWithEoa(
 
   // Use WalletClientAuthenticator to generate proper authData with SIWE signature
   // This prompts the user to sign a message proving wallet ownership
-  console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
+  if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
   const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
-
-  console.log('[LitEoa] ✓ PKP registration complete')
+  if (IS_DEV) {
+    console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+    console.log('[LitEoa] ✓ PKP registration complete')
+  }
 
   saveSession(pkpInfo, authData as AuthData)
 
@@ -86,7 +93,7 @@ export async function registerWithEoa(
 export async function loginWithEoa(
   walletClient: WalletClient
 ): Promise<{ pkpInfo: PKPInfo; authData: AuthData }> {
-  console.log('[LitEoa] Starting EOA login...')
+  if (IS_DEV) console.log('[LitEoa] Starting EOA login...')
 
   const litClient = await getLitClient()
   const address = walletClient.account?.address
@@ -95,7 +102,7 @@ export async function loginWithEoa(
     throw new Error('No account address in wallet client')
   }
 
-  console.log('[LitEoa] Looking up PKPs for EOA:', address)
+  if (IS_DEV) console.log('[LitEoa] Looking up PKPs for EOA:', address)
 
   // Find PKPs associated with this EOA
   const pkpsResult = await litClient.viewPKPsByAuthData({
@@ -106,17 +113,19 @@ export async function loginWithEoa(
     pagination: { limit: 5, offset: 0 },
   })
 
-  console.log('[LitEoa] PKP query result:', pkpsResult)
+  if (IS_DEV) console.log('[LitEoa] PKP query result:', pkpsResult)
 
   if (!pkpsResult?.pkps?.length) {
     throw new Error('No PKP found for this wallet. Please create an account first.')
   }
 
   const pkp = pkpsResult.pkps[0]
-  console.log('[LitEoa] PKP found:', {
-    ethAddress: pkp.ethAddress,
-    publicKey: pkp.pubkey?.slice(0, 20) + '...',
-  })
+  if (IS_DEV) {
+    console.log('[LitEoa] PKP found:', {
+      ethAddress: pkp.ethAddress,
+      publicKey: pkp.pubkey?.slice(0, 20) + '...',
+    })
+  }
 
   const pkpInfo: PKPInfo = {
     publicKey: pkp.pubkey,
@@ -126,11 +135,12 @@ export async function loginWithEoa(
 
   // Use WalletClientAuthenticator to generate proper authData with SIWE signature
   // This prompts the user to sign a message proving wallet ownership
-  console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
+  if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
   const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
-
-  console.log('[LitEoa] ✓ PKP login complete')
+  if (IS_DEV) {
+    console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+    console.log('[LitEoa] ✓ PKP login complete')
+  }
 
   saveSession(pkpInfo, authData as AuthData)
 
@@ -145,11 +155,9 @@ export async function loginWithEoa(
  * @returns PKP info if exists, null otherwise
  */
 export async function getExistingPkpForEoa(address: string): Promise<{ ethAddress: string; publicKey: string } | null> {
-  console.log('[LitEoa] Checking for existing PKP:', address)
+  if (IS_DEV) console.log('[LitEoa] Checking for existing PKP:', address)
 
-  console.log('[LitEoa] Getting Lit client...')
   const litClient = await getLitClient()
-  console.log('[LitEoa] Lit client ready, querying PKPs...')
 
   const pkpsResult = await litClient.viewPKPsByAuthData({
     authData: {
@@ -161,7 +169,7 @@ export async function getExistingPkpForEoa(address: string): Promise<{ ethAddres
 
   const hasExisting = (pkpsResult?.pkps?.length ?? 0) > 0
 
-  console.log('[LitEoa] Has existing PKP:', hasExisting, pkpsResult)
+  if (IS_DEV) console.log('[LitEoa] Has existing PKP:', hasExisting, pkpsResult)
 
   if (hasExisting && pkpsResult.pkps[0]) {
     return {

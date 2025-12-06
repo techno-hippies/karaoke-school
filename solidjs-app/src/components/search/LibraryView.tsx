@@ -136,7 +136,7 @@ export const LibraryView: Component<LibraryViewProps> = (props) => {
       when={!local.isLoading}
       fallback={
         <div class={cn('min-h-screen bg-background py-4', local.class)} {...others}>
-          <div class="max-w-6xl mx-auto w-full space-y-6">
+          <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 space-y-6">
             <SectionSkeleton />
             <SectionSkeleton />
             <SectionSkeleton />
@@ -145,7 +145,7 @@ export const LibraryView: Component<LibraryViewProps> = (props) => {
       }
     >
       <div class={cn('min-h-screen bg-background py-4', local.class)} {...others}>
-        <div class="max-w-6xl mx-auto w-full space-y-6">
+        <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 space-y-6">
           <For each={local.sections}>
             {(section) => (
               <LibrarySectionRow

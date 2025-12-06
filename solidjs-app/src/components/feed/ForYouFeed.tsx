@@ -36,12 +36,15 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
 
   // Capture initial view history snapshot (won't change during session)
   // This prevents re-sorting when new videos are marked as viewed
-  const [initialViewedIds, setInitialViewedIds] = createSignal<Set<string> | null>(null)
+  // Start with empty set to allow immediate render, update when IDB loads
+  const [initialViewedIds, setInitialViewedIds] = createSignal<Set<string>>(new Set())
+  const [viewHistoryApplied, setViewHistoryApplied] = createSignal(false)
 
   // Set the initial snapshot once when view history loads
   createMemo(() => {
-    if (viewHistoryLoaded() && initialViewedIds() === null) {
+    if (viewHistoryLoaded() && !viewHistoryApplied()) {
       setInitialViewedIds(new Set(viewedPostIds()))
+      setViewHistoryApplied(true)
     }
   })
 
@@ -64,8 +67,9 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
     }))
 
     // Sort: unseen videos first using initial snapshot (not reactive to new views)
+    // Only sort if view history has loaded - otherwise show in API order
     const snapshot = initialViewedIds()
-    if (snapshot) {
+    if (viewHistoryApplied() && snapshot.size > 0) {
       return sortByViewStatus(merged, (id) => snapshot.has(id))
     }
     return merged
@@ -108,8 +112,8 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
     navigate(`/u/${username}`)
   }
 
-  // Wait for view history snapshot before showing feed (prevents flash of wrong order)
-  const feedIsLoading = () => isLoading() || initialViewedIds() === null
+  // Only block on network loading, not view history (renders immediately, reorders when ready)
+  const feedIsLoading = () => isLoading()
 
   return (
     <Show

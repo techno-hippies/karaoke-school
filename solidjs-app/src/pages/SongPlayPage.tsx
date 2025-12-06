@@ -3,7 +3,7 @@ import { useParams, useNavigate } from '@solidjs/router'
 import { useSongClips } from '@/hooks/useSongClips'
 import { useSongSlug } from '@/hooks/useSongSlug'
 import { useSegmentMetadata } from '@/hooks/useSegmentMetadata'
-import { useSongAccess, type PurchaseSubState } from '@/hooks/useSongAccess'
+import { useSongAccess } from '@/hooks/useSongAccess'
 import { useAuth } from '@/contexts/AuthContext'
 import { MediaPage } from '@/components/media/MediaPage'
 import { SongPurchaseDialog } from '@/components/purchase/SongPurchaseDialog'
@@ -31,10 +31,6 @@ function getPreferredLanguage(availableLanguages: string[]): string {
   return availableLanguages[0] || 'zh'
 }
 
-interface SongPlayPageProps {
-  variant?: 'media' | 'practice'
-}
-
 /**
  * Song Play Page - Karaoke player (SolidJS)
  *
@@ -48,7 +44,7 @@ interface SongPlayPageProps {
  * - Non-owners see clip audio (~60s) with "Unlock" button
  * - Owners see full decrypted audio (if encrypted) or full lyrics
  */
-export const SongPlayPage: Component<SongPlayPageProps> = (props) => {
+export const SongPlayPage: Component = () => {
   const params = useParams<{ spotifyTrackId?: string; artistSlug?: string; songSlug?: string }>()
   const navigate = useNavigate()
   const auth = useAuth()
@@ -422,8 +418,8 @@ export const SongPlayPage: Component<SongPlayPageProps> = (props) => {
       {/* Media Page */}
       <Show when={!isLoading() && clipMetadata.data && audioUrl()}>
         <MediaPage
-          title={clipMetadata.data!.title}
-          artist={clipMetadata.data!.artist}
+          title={clipMetadata.data!.title || 'Untitled'}
+          artist={clipMetadata.data!.artist || 'Unknown Artist'}
           audioUrl={audioUrl()!}
           lyrics={lyrics()}
           selectedLanguage={preferredLanguage()}

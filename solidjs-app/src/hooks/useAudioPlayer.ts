@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, type Accessor } from 'solid-js'
+import { createSignal, onCleanup, type Accessor } from 'solid-js'
 
 export interface UseAudioPlayerOptions {
   autoplay?: boolean

@@ -5,7 +5,7 @@
 
 import { Show, type Component } from 'solid-js'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
-import { MusicNote } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
 export interface SongItemProps {
@@ -28,7 +28,7 @@ export interface SongItemProps {
 export const SongItem: Component<SongItemProps> = (props) => {
   return (
     <Item
-      class={cn('gap-3 p-2 cursor-pointer hover:bg-secondary/50 transition-colors', props.class)}
+      class={cn('gap-3 p-2 cursor-pointer hover:bg-white/5 transition-colors', props.class)}
       onClick={props.onClick}
     >
       {/* Rank */}
@@ -45,7 +45,7 @@ export const SongItem: Component<SongItemProps> = (props) => {
           when={props.artworkUrl}
           fallback={
             <div class="w-full h-full rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
-              <MusicNote class="w-6 h-6 text-foreground/80" weight="fill" />
+              <Icon name="music-note" class="text-2xl text-foreground/80" weight="fill" />
             </div>
           }
         >

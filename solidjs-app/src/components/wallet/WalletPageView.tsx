@@ -4,7 +4,7 @@
  */
 
 import { For, Show, createMemo, type Component } from 'solid-js'
-import { Copy } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -143,7 +143,7 @@ export const WalletPageView: Component<WalletPageViewProps> = (props) => {
             variant="secondary"
             size="icon"
           >
-            <Copy class="h-5 w-5" />
+            <Icon name="copy" class="text-xl" />
           </Button>
         </div>
       </div>

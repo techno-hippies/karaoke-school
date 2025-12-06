@@ -25,6 +25,8 @@ import {
 import { switchToAccountOwner } from './auth'
 import { LENS_CUSTOM_NAMESPACE } from './config'
 
+const IS_DEV = import.meta.env.DEV
+
 /**
  * Send raw transaction using wallet client
  */
@@ -55,16 +57,16 @@ async function waitForAccountIndexing(
   maxRetries: number = 10,
   delayMs: number = 2000
 ): Promise<Account> {
-  console.log('[Account Creation] Waiting for account to be indexed...')
+  if (IS_DEV) console.log('[Account Creation] Waiting for account to be indexed...')
 
   for (let i = 0; i < maxRetries; i++) {
-    console.log(`[Account Creation] Retry ${i + 1}/${maxRetries}: Fetching account...`)
+    if (IS_DEV) console.log(`[Account Creation] Retry ${i + 1}/${maxRetries}: Fetching account...`)
     await new Promise(resolve => setTimeout(resolve, delayMs))
 
     const accountResult = await fetchAccount(sessionClient, { txHash }).map(nonNullable)
 
     if (accountResult.isOk()) {
-      console.log('[Account Creation] ✓ Account fetched:', accountResult.value.address)
+      if (IS_DEV) console.log('[Account Creation] ✓ Account fetched:', accountResult.value.address)
       return accountResult.value
     }
   }
@@ -91,9 +93,11 @@ export async function createAccountInCustomNamespace(
   username: string,
   metadataUri: string
 ): Promise<Account> {
-  console.log('[Account Creation] ===== Starting global namespace account creation =====')
-  console.log('[Account Creation] Username:', username)
-  console.log('[Account Creation] Metadata URI:', metadataUri)
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Starting global namespace account creation =====')
+    console.log('[Account Creation] Username:', username)
+    console.log('[Account Creation] Metadata URI:', metadataUri)
+  }
 
   // Use SessionClient's internal urql client which is already authenticated
   const urqlClient = (sessionClient as any).urql
@@ -101,20 +105,20 @@ export async function createAccountInCustomNamespace(
     throw new Error('SessionClient does not have urql client')
   }
 
-  console.log('[Account Creation] Using SessionClient authenticated urql client')
+  if (IS_DEV) console.log('[Account Creation] Using SessionClient authenticated urql client')
 
   // Helper to execute mutations using SessionClient's urql
   const executeMutationWithSession = async <T,>(mutation: string, variables: any): Promise<T> => {
     const result = await urqlClient.mutation(mutation, variables).toPromise()
     if (result.error) {
-      console.error('[Account Creation] Mutation error:', result.error)
+      if (IS_DEV) console.error('[Account Creation] Mutation error:', result.error)
       throw new Error(result.error.message || 'Mutation failed')
     }
     return result.data as T
   }
 
   // ============ STEP 1: Create Account (No Username) ============
-  console.log('[Account Creation] Step 1/3: Creating account without username...')
+  if (IS_DEV) console.log('[Account Creation] Step 1/3: Creating account without username...')
 
   const createAccountResult = await executeMutationWithSession<{ createAccount: CreateAccountResponse }>(
     CREATE_ACCOUNT_MUTATION,
@@ -133,14 +137,16 @@ export async function createAccountInCustomNamespace(
   if (createAccountData.hash) {
     // Sponsored transaction - already has hash
     accountTxHash = createAccountData.hash as Hex
-    console.log('[Account Creation] ✓ Sponsored transaction, hash:', accountTxHash)
+    if (IS_DEV) console.log('[Account Creation] ✓ Sponsored transaction, hash:', accountTxHash)
   } else if (createAccountData.raw) {
     // Self-funded transaction - need to sign and send
-    console.log('[Account Creation] Self-funded transaction required')
-    console.log('[Account Creation] Reason:', createAccountData.reason)
+    if (IS_DEV) {
+      console.log('[Account Creation] Self-funded transaction required')
+      console.log('[Account Creation] Reason:', createAccountData.reason)
+    }
 
     accountTxHash = await sendRawTransaction(walletClient, createAccountData.raw)
-    console.log('[Account Creation] ✓ Transaction sent:', accountTxHash)
+    if (IS_DEV) console.log('[Account Creation] ✓ Transaction sent:', accountTxHash)
   } else if (createAccountData.reason) {
     // Transaction will fail
     throw new Error(`Account creation will fail: ${createAccountData.reason}`)
@@ -150,18 +156,20 @@ export async function createAccountInCustomNamespace(
 
   // Wait for account to be indexed
   const account = await waitForAccountIndexing(sessionClient, accountTxHash)
-  console.log('[Account Creation] ✓ Account created:', account.address)
+  if (IS_DEV) console.log('[Account Creation] ✓ Account created:', account.address)
 
   // ============ STEP 2: Switch to Account Owner ============
-  console.log('[Account Creation] Step 2/3: Switching to account owner role...')
+  if (IS_DEV) console.log('[Account Creation] Step 2/3: Switching to account owner role...')
 
   await switchToAccountOwner(sessionClient, account.address)
-  console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
+  if (IS_DEV) console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
 
   // ============ STEP 3: Create Username in Custom Namespace ============
-  console.log('[Account Creation] Step 3/3: Creating username in kschool2 custom namespace...')
-  console.log('[Account Creation] Namespace address:', LENS_CUSTOM_NAMESPACE)
-  console.log('[Account Creation] Username to create:', username)
+  if (IS_DEV) {
+    console.log('[Account Creation] Step 3/3: Creating username in kschool2 custom namespace...')
+    console.log('[Account Creation] Namespace address:', LENS_CUSTOM_NAMESPACE)
+    console.log('[Account Creation] Username to create:', username)
+  }
 
   let createUsernameResult: { createUsername: CreateUsernameResponse }
   try {
@@ -176,14 +184,14 @@ export async function createAccountInCustomNamespace(
         },
       }
     )
-    console.log('[Account Creation] Username mutation response:', JSON.stringify(createUsernameResult, null, 2))
+    if (IS_DEV) console.log('[Account Creation] Username mutation response:', JSON.stringify(createUsernameResult, null, 2))
   } catch (mutationError) {
-    console.error('[Account Creation] Username mutation failed:', mutationError)
+    if (IS_DEV) console.error('[Account Creation] Username mutation failed:', mutationError)
     throw mutationError
   }
 
   const createUsernameData = createUsernameResult.createUsername
-  console.log('[Account Creation] createUsernameData:', JSON.stringify(createUsernameData, null, 2))
+  if (IS_DEV) console.log('[Account Creation] createUsernameData:', JSON.stringify(createUsernameData, null, 2))
 
   // Handle transaction response
   let usernameTxHash: Hex
@@ -191,11 +199,13 @@ export async function createAccountInCustomNamespace(
   if (createUsernameData.hash) {
     // Direct hash response (fully sponsored without signature)
     usernameTxHash = createUsernameData.hash as Hex
-    console.log('[Account Creation] ✓ Username created, hash:', usernameTxHash)
+    if (IS_DEV) console.log('[Account Creation] ✓ Username created, hash:', usernameTxHash)
   } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.typedData) {
     // Sponsored with typedData - sign and broadcast via Lens API (gasless!)
-    console.log('[Account Creation] Sponsored transaction with typedData')
-    console.log('[Account Creation] Signing typedData and broadcasting via Lens API...')
+    if (IS_DEV) {
+      console.log('[Account Creation] Sponsored transaction with typedData')
+      console.log('[Account Creation] Signing typedData and broadcasting via Lens API...')
+    }
 
     // Sign the typed data with PKP
     if (!walletClient.account) {
@@ -222,15 +232,17 @@ export async function createAccountInCustomNamespace(
 
     if (broadcastResult.isOk()) {
       usernameTxHash = broadcastResult.value as Hex
-      console.log('[Account Creation] ✓ Transaction broadcast via Lens API:', usernameTxHash)
+      if (IS_DEV) console.log('[Account Creation] ✓ Transaction broadcast via Lens API:', usernameTxHash)
     } else {
       throw new Error(`Broadcast failed: ${broadcastResult.error?.message}`)
     }
   } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.raw) {
     // Sponsored with raw only (fallback - requires PKP to have funds)
-    console.log('[Account Creation] ⚠️  Sponsored transaction returns raw only (not typedData)')
-    console.log('[Account Creation] This requires PKP to have gas funds - registration will likely fail')
-    console.log('[Account Creation] Reason:', createUsernameData.reason)
+    if (IS_DEV) {
+      console.log('[Account Creation] ⚠️  Sponsored transaction returns raw only (not typedData)')
+      console.log('[Account Creation] This requires PKP to have gas funds - registration will likely fail')
+      console.log('[Account Creation] Reason:', createUsernameData.reason)
+    }
 
     throw new Error(
       'Username creation returned raw transaction instead of typedData. ' +
@@ -239,21 +251,23 @@ export async function createAccountInCustomNamespace(
     )
   } else if (createUsernameData.sponsoredReason !== undefined && !createUsernameData.raw) {
     // Fully sponsored without signature - will poll in waitForUsernameIndexing below
-    console.log('[Account Creation] ✓ Fully sponsored username creation (no signature needed)')
+    if (IS_DEV) console.log('[Account Creation] ✓ Fully sponsored username creation (no signature needed)')
     usernameTxHash = '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex
   } else if (createUsernameData.raw) {
     // Self-funded transaction (payment required for short usernames)
     const paymentValue = BigInt(createUsernameData.raw.value || '0')
 
-    if (paymentValue > 0n) {
-      console.log('[Account Creation] Payment required:', paymentValue.toString(), 'wei')
-    } else {
-      console.log('[Account Creation] Free username (6+ characters)')
+    if (IS_DEV) {
+      if (paymentValue > 0n) {
+        console.log('[Account Creation] Payment required:', paymentValue.toString(), 'wei')
+      } else {
+        console.log('[Account Creation] Free username (6+ characters)')
+      }
+      console.log('[Account Creation] Reason:', createUsernameData.reason)
     }
-    console.log('[Account Creation] Reason:', createUsernameData.reason)
 
     usernameTxHash = await sendRawTransaction(walletClient, createUsernameData.raw)
-    console.log('[Account Creation] ✓ Transaction sent:', usernameTxHash)
+    if (IS_DEV) console.log('[Account Creation] ✓ Transaction sent:', usernameTxHash)
   } else if (createUsernameData.reason) {
     // Transaction will fail
     throw new Error(`Username creation will fail: ${createUsernameData.reason}`)
@@ -263,8 +277,10 @@ export async function createAccountInCustomNamespace(
 
   // Username transaction succeeded - return optimistically
   // Don't wait for indexing - the tx hash proves it will be indexed eventually
-  console.log('[Account Creation] ✓ Username transaction confirmed on-chain')
-  console.log('[Account Creation] Returning account optimistically (indexing happens in background)')
+  if (IS_DEV) {
+    console.log('[Account Creation] ✓ Username transaction confirmed on-chain')
+    console.log('[Account Creation] Returning account optimistically (indexing happens in background)')
+  }
 
   // Construct account with the expected username
   const optimisticAccount = {
@@ -276,10 +292,12 @@ export async function createAccountInCustomNamespace(
     },
   } as Account
 
-  console.log('[Account Creation] ===== Account creation complete =====')
-  console.log('[Account Creation] Address:', optimisticAccount.address)
-  console.log('[Account Creation] Owner:', optimisticAccount.owner)
-  console.log('[Account Creation] Username:', username)
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Account creation complete =====')
+    console.log('[Account Creation] Address:', optimisticAccount.address)
+    console.log('[Account Creation] Owner:', optimisticAccount.owner)
+    console.log('[Account Creation] Username:', username)
+  }
 
   return optimisticAccount
 }
@@ -314,7 +332,7 @@ export async function checkUsernameAvailability(
 
     const response = result.canCreateUsername
 
-    console.log('[Account Creation] canCreateUsername response:', response)
+    if (IS_DEV) console.log('[Account Creation] canCreateUsername response:', response)
 
     // Handle different response types
     switch (response.__typename) {
@@ -358,7 +376,7 @@ export async function checkUsernameAvailability(
         }
     }
   } catch (error) {
-    console.error('[Account Creation] Username availability check failed:', error)
+    if (IS_DEV) console.error('[Account Creation] Username availability check failed:', error)
     return {
       available: false,
       paymentRequired: false,

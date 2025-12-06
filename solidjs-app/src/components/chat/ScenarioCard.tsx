@@ -7,7 +7,7 @@
 
 import { Component, Show, splitProps } from 'solid-js'
 import { cn } from '@/lib/utils'
-import { Warning } from '@/components/icons'
+import { Icon } from '@/components/icons'
 
 export interface ScenarioCardProps {
   /** Scenario ID */
@@ -84,7 +84,7 @@ export const ScenarioCard: Component<ScenarioCardProps> = (props) => {
             </Show>
             <Show when={local.isAdult}>
               <span class="text-orange-400 ml-2 inline-flex items-center gap-1">
-                <Warning class="w-4 h-4" />
+                <Icon name="warning" class="text-base" />
                 18+
               </span>
             </Show>

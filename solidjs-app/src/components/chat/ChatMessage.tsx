@@ -11,7 +11,7 @@
 import { Component, For, Show, splitProps, createMemo } from 'solid-js'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/ui/avatar'
-import { Translate, SpeakerHigh, Stop } from '@/components/icons'
+import { Icon } from '@/components/icons'
 import type { ChatWord, MessageContent } from '@/lib/chat/types'
 
 export interface ChatMessageProps {
@@ -96,7 +96,7 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
     >
       {/* AI Avatar */}
       <Show when={isAI()}>
-        <Avatar src={local.avatarUrl} fallback="AI" size="sm" />
+        <Avatar src={local.avatarUrl} fallback="AI" size="md" />
       </Show>
 
       {/* Message content */}
@@ -182,7 +182,7 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                 class={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
                   'text-sm text-muted-foreground hover:text-foreground',
-                  'hover:bg-muted/50 transition-colors cursor-pointer',
+                  'hover:bg-white/5 transition-colors cursor-pointer',
                   local.isPlayingAudio && 'text-primary',
                   local.isLoadingAudio && 'opacity-50 cursor-wait'
                 )}
@@ -194,17 +194,17 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                       when={local.isLoadingAudio}
                       fallback={
                         <>
-                          <SpeakerHigh class="w-4 h-4" />
+                          <Icon name="speaker-high" class="text-base" />
                           <span>Play</span>
                         </>
                       }
                     >
-                      <SpeakerHigh class="w-4 h-4 animate-pulse" />
+                      <Icon name="speaker-high" class="text-base animate-pulse" />
                       <span>Loading...</span>
                     </Show>
                   }
                 >
-                  <Stop class="w-4 h-4" weight="fill" />
+                  <Icon name="stop" class="text-base" weight="fill" />
                   <span>Stop</span>
                 </Show>
               </button>
@@ -218,11 +218,11 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                 class={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
                   'text-sm text-muted-foreground hover:text-foreground',
-                  'hover:bg-muted/50 transition-colors cursor-pointer',
+                  'hover:bg-white/5 transition-colors cursor-pointer',
                   local.isTranslating && 'opacity-50 cursor-wait'
                 )}
               >
-                <Translate class="w-4 h-4" />
+                <Icon name="translate" class="text-base" />
                 <span>{local.isTranslating ? 'Translating...' : 'Translate'}</span>
               </button>
             </Show>

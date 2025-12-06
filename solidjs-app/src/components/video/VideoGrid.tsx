@@ -6,7 +6,7 @@
 import { type Component, Show, For } from 'solid-js'
 import { cn } from '@/lib/utils'
 import { VideoThumbnail } from '@/components/ui/video-thumbnail'
-import { Play } from '@/components/icons'
+import { Icon } from '@/components/icons'
 
 export interface VideoPost {
   id: string
@@ -49,7 +49,7 @@ export const VideoGrid: Component<VideoGridProps> = (props) => {
         <div class={cn(props.class)}>
           <div class="flex flex-col items-center justify-center py-16 text-center">
             <div class="w-24 h-24 bg-neutral-800 rounded-full flex items-center justify-center mb-4">
-              <Play class="w-12 h-12 text-neutral-600" />
+              <Icon name="play" class="text-5xl text-neutral-600" />
             </div>
             <p class="text-neutral-400 text-base">No videos yet</p>
           </div>

@@ -52,7 +52,6 @@ export function useFeedPosts(options: UseFeedPostsOptions = {}): UseFeedPostsRes
   }
 
   const fetchFeed = async (pageCursor?: string) => {
-    console.log('[useFeedPosts] Fetching feed...', { pageCursor, appAddress: LENS_APP_ADDRESS })
     try {
       if (!pageCursor) {
         setIsLoading(true)
@@ -69,20 +68,15 @@ export function useFeedPosts(options: UseFeedPostsOptions = {}): UseFeedPostsRes
         ...(pageCursor && { cursor: pageCursor }),
       })
 
-      console.log('[useFeedPosts] Result:', result)
-
       if (result.isErr()) {
-        console.error('[useFeedPosts] API Error:', result.error)
         throw new Error(`Failed to fetch posts: ${result.error.message}`)
       }
 
       const data = result.value
-      console.log('[useFeedPosts] Data:', data)
 
       const items = Array.from(data.items || []).filter(
         (post: any) => post.__typename === 'Post'
       )
-      console.log('[useFeedPosts] Filtered items:', items.length)
 
       if (pageCursor) {
         // Append for pagination
@@ -95,7 +89,6 @@ export function useFeedPosts(options: UseFeedPostsOptions = {}): UseFeedPostsRes
       setHasMore(!!data.pageInfo?.next)
       setCursor(data.pageInfo?.next ?? undefined)
     } catch (err) {
-      console.error('[useFeedPosts] Error:', err)
       setError(err as Error)
     } finally {
       setIsLoading(false)

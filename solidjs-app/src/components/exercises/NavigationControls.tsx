@@ -50,7 +50,7 @@ export const NavigationControls: Component<NavigationControlsProps> = (props) =>
               {(reason) => (
                 <button
                   onClick={() => handleReport(reason.id)}
-                  class="w-full p-3 text-left bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-colors text-base"
+                  class="w-full p-3 text-left bg-secondary hover:bg-secondary/90 text-foreground rounded-lg transition-colors text-base"
                 >
                   {reason.label}
                 </button>

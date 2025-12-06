@@ -17,7 +17,7 @@ import { useTranslation } from '@/lib/i18n'
 export const ArtistPageSkeleton: Component<{ class?: string }> = (props) => {
   return (
     <div class={cn('relative w-full h-screen bg-background flex items-center justify-center', props.class)}>
-      <div class="relative w-full h-full md:max-w-6xl flex flex-col">
+      <div class="relative w-full h-full md:max-w-4xl flex flex-col">
         {/* Header skeleton */}
         <div class="absolute top-0 left-0 right-0 z-50">
           <div class="flex items-center justify-between h-12 px-4">
@@ -122,6 +122,14 @@ export const ArtistPage: Component = () => {
     navigate(`/${song.artistSlug}/${song.songSlug}`)
   }
 
+  const handleUserClick = (entry: { username: string; handle?: string }) => {
+    // Navigate to user profile - prefer handle if available, otherwise use username
+    const profileHandle = entry.handle || entry.username
+    if (profileHandle) {
+      navigate(`/u/${profileHandle}`)
+    }
+  }
+
   return (
     <>
       {/* Loading */}
@@ -145,7 +153,7 @@ export const ArtistPage: Component = () => {
       {/* Artist Page */}
       <Show when={!artist.isLoading && artist.data}>
         <div class="relative w-full h-screen bg-background flex items-center justify-center">
-          <div class="relative w-full h-full md:max-w-6xl flex flex-col">
+          <div class="relative w-full h-full md:max-w-4xl flex flex-col">
             {/* Header */}
             <div class="absolute top-0 left-0 right-0 z-50 pt-safe">
               <div class="flex items-center justify-between p-4">
@@ -258,6 +266,7 @@ export const ArtistPage: Component = () => {
                       isLoading={isLoadingLeaderboard()}
                       showTitle={false}
                       emptyMessage="No students yet. Be the first to practice!"
+                      onUserClick={handleUserClick}
                     />
                   </TabsContent>
                 </Tabs>

@@ -15,6 +15,8 @@ export interface LeaderboardEntry {
   score: number
   avatarUrl?: string
   isCurrentUser?: boolean
+  /** Lens handle for profile linking (e.g., "scarlett-ks") */
+  handle?: string
 }
 
 export interface LeaderboardProps {
@@ -24,6 +26,8 @@ export interface LeaderboardProps {
   emptyMessage?: string
   class?: string
   showTitle?: boolean
+  /** Called when a user entry is clicked */
+  onUserClick?: (entry: LeaderboardEntry) => void
 }
 
 /**
@@ -70,56 +74,85 @@ export const Leaderboard: Component<LeaderboardProps> = (props) => {
           </Show>
           <div class="space-y-2">
             <For each={props.entries}>
-              {(entry) => (
-                <div
-                  class={cn(
-                    'flex items-center gap-4 px-5 py-4 rounded-2xl',
-                    entry.isCurrentUser ? 'bg-muted/50' : 'bg-muted/30'
-                  )}
-                >
-                  <div class="w-10 text-center text-lg font-bold text-muted-foreground">
-                    #{entry.rank}
+              {(entry) => {
+                const isClickable = () => props.onUserClick && (entry.handle || entry.username)
+                const handleClick = () => {
+                  if (isClickable()) {
+                    props.onUserClick?.(entry)
+                  }
+                }
+
+                return (
+                  <div
+                    class={cn(
+                      'flex items-center gap-4 px-5 py-4 rounded-2xl',
+                      entry.isCurrentUser ? 'bg-muted/50' : 'bg-muted/30',
+                      isClickable() && 'cursor-pointer hover:bg-muted/60 transition-colors'
+                    )}
+                    onClick={handleClick}
+                  >
+                    <div class="w-10 text-center text-lg font-bold text-muted-foreground">
+                      #{entry.rank}
+                    </div>
+                    <Show when={entry.avatarUrl}>
+                      <img
+                        src={entry.avatarUrl}
+                        alt={entry.username}
+                        class="w-12 h-12 rounded-full object-cover"
+                      />
+                    </Show>
+                    <p class="flex-1 min-w-0 text-lg font-semibold truncate">
+                      {entry.username}
+                    </p>
+                    <p class="text-lg font-bold tabular-nums">
+                      {entry.score.toLocaleString()}
+                    </p>
                   </div>
-                  <Show when={entry.avatarUrl}>
-                    <img
-                      src={entry.avatarUrl}
-                      alt={entry.username}
-                      class="w-12 h-12 rounded-full object-cover"
-                    />
-                  </Show>
-                  <p class="flex-1 min-w-0 text-lg font-semibold truncate">
-                    {entry.username}
-                  </p>
-                  <p class="text-lg font-bold tabular-nums">
-                    {entry.score.toLocaleString()}
-                  </p>
-                </div>
-              )}
+                )
+              }}
             </For>
           </div>
 
           {/* Current user (if not in top 10) */}
           <Show when={props.currentUser && !props.entries.some((e) => e.isCurrentUser)}>
-            <div class="mt-4 pt-4 border-t border-border">
-              <div class="flex items-center gap-4 px-5 py-4 rounded-2xl bg-primary/10">
-                <div class="w-10 text-center text-lg font-bold text-muted-foreground">
-                  #{props.currentUser!.rank}
+            {(() => {
+              const currentUserEntry = props.currentUser!
+              const isClickable = () => props.onUserClick && (currentUserEntry.handle || currentUserEntry.username)
+              const handleClick = () => {
+                if (isClickable()) {
+                  props.onUserClick?.(currentUserEntry)
+                }
+              }
+
+              return (
+                <div class="mt-4 pt-4 border-t border-border">
+                  <div
+                    class={cn(
+                      'flex items-center gap-4 px-5 py-4 rounded-2xl bg-primary/10',
+                      isClickable() && 'cursor-pointer hover:bg-primary/20 transition-colors'
+                    )}
+                    onClick={handleClick}
+                  >
+                    <div class="w-10 text-center text-lg font-bold text-muted-foreground">
+                      #{currentUserEntry.rank}
+                    </div>
+                    <Show when={currentUserEntry.avatarUrl}>
+                      <img
+                        src={currentUserEntry.avatarUrl}
+                        alt={currentUserEntry.username}
+                        class="w-12 h-12 rounded-full object-cover"
+                      />
+                    </Show>
+                    <p class="flex-1 min-w-0 text-lg font-semibold truncate">
+                      {currentUserEntry.username}
+                    </p>
+                    <p class="text-lg font-bold tabular-nums">
+                      {currentUserEntry.score.toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <Show when={props.currentUser!.avatarUrl}>
-                  <img
-                    src={props.currentUser!.avatarUrl}
-                    alt={props.currentUser!.username}
-                    class="w-12 h-12 rounded-full object-cover"
-                  />
-                </Show>
-                <p class="flex-1 min-w-0 text-lg font-semibold truncate">
-                  {props.currentUser!.username}
-                </p>
-                <p class="text-lg font-bold tabular-nums">
-                  {props.currentUser!.score.toLocaleString()}
-                </p>
-              </div>
-            </div>
+              )
+            })()}
           </Show>
         </div>
       </Show>

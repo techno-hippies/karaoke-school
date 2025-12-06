@@ -122,6 +122,12 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
           {(video, index) => {
             // Determine if this video should autoplay
             const isActive = () => index() === activeIndex()
+            // Priority load for active video and adjacent ones (prev/next)
+            const shouldPriorityLoad = () => {
+              const current = activeIndex()
+              const i = index()
+              return i === current || i === current - 1 || i === current + 1
+            }
 
             return (
               <div class="h-vh-screen md:h-screen w-full snap-start snap-always">
@@ -145,7 +151,7 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
                   isFollowing={video.isFollowing}
                   canInteract={video.canInteract}
                   autoplay={isActive()}
-                  priorityLoad={index() === 0}
+                  priorityLoad={shouldPriorityLoad()}
                   hasMobileFooter={props.hasMobileFooter}
                   showBackButton={props.showBackButton}
                   onBack={props.onBack}

@@ -1,14 +1,14 @@
 /**
- * WalletPage - Container component for wallet functionality
- * Handles data fetching and connects to presentational components
+ * WalletPage - Container component for wallet/profile functionality
+ * Shows the current user's unified profile with wallet info
  */
 
-import { type Component, Show, Switch, Match } from 'solid-js'
+import { type Component, Switch, Match } from 'solid-js'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePKPBalances } from '@/hooks/usePKPBalances'
-import { WalletPageView } from '@/components/wallet/WalletPageView'
+import { ProfilePageView } from '@/components/profile/ProfilePageView'
 import { Button } from '@/components/ui/button'
-import { SignOut } from '@/components/icons'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export const WalletPage: Component = () => {
   const auth = useAuth()
@@ -26,16 +26,37 @@ export const WalletPage: Component = () => {
     }
   }
 
+  // Get username handle from Lens account
+  const username = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.username?.localName || undefined
+  }
+
+  const avatarUrl = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.metadata?.picture || undefined
+  }
+
+  const bio = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.metadata?.bio || undefined
+  }
+
   return (
     <Switch>
       {/* Loading skeleton while checking stored session */}
       <Match when={auth.isCheckingSession()}>
-        <WalletPageView
-          tokens={[]}
-          walletAddress=""
-          onCopyAddress={() => {}}
-          isLoading={true}
-        />
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+          <div class="flex flex-col items-center gap-4 mb-6">
+            <Skeleton class="w-28 h-28 md:w-36 md:h-36 rounded-full" />
+            <Skeleton class="h-6 w-32" />
+            <Skeleton class="h-10 w-48 rounded-full" />
+          </div>
+          <div class="space-y-4">
+            <Skeleton class="h-12 w-full rounded-full" />
+            <Skeleton class="h-40 w-full rounded-xl" />
+          </div>
+        </div>
       </Match>
 
       {/* Not connected state */}
@@ -53,7 +74,7 @@ export const WalletPage: Component = () => {
 
       {/* Error state */}
       <Match when={error()}>
-        <div class="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
           <div class="text-center">
             <h2 class="text-xl font-semibold mb-4 text-destructive">
               Error Loading Balances
@@ -66,28 +87,19 @@ export const WalletPage: Component = () => {
         </div>
       </Match>
 
-      {/* Connected state */}
+      {/* Connected state - Show unified profile */}
       <Match when={auth.isPKPReady()}>
-        <div>
-          <WalletPageView
-            tokens={balances()}
-            walletAddress={auth.pkpAddress() || ''}
-            onCopyAddress={handleCopyAddress}
-            isLoading={isLoading()}
-          />
-
-          {/* Disconnect Button */}
-          <div class="max-w-2xl mx-auto px-4 md:px-8 pb-8">
-            <Button
-              onClick={() => auth.logout()}
-              variant="outline"
-              class="w-full gap-2"
-            >
-              <SignOut class="h-5 w-5" />
-              Disconnect
-            </Button>
-          </div>
-        </div>
+        <ProfilePageView
+          username={username()}
+          avatarUrl={avatarUrl()}
+          bio={bio()}
+          walletAddress={auth.pkpAddress() || ''}
+          tokens={balances()}
+          isLoadingTokens={isLoading()}
+          isOwnProfile={true}
+          onCopyAddress={handleCopyAddress}
+          onDisconnect={() => auth.logout()}
+        />
       </Match>
     </Switch>
   )
