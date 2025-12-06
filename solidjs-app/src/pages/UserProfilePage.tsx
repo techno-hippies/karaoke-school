@@ -72,14 +72,12 @@ export const UserProfilePage: Component = () => {
       {/* Profile view */}
       <Show when={account() && !isLoading()}>
         <ProfilePageView
-          username={account()?.username}
+          username={account()?.username || handle()}
           avatarUrl={account()?.avatarUrl}
-          bio={account()?.bio}
+          bio={account()?.bio !== handle() ? account()?.bio : undefined}
           walletAddress={account()?.address}
           isOwnProfile={isOwnProfile()}
           isVerified={false}
-          following={0}
-          followers={0}
           onBack={handleBack}
         />
       </Show>

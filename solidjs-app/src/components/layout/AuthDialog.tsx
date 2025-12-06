@@ -196,14 +196,6 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
 
   const getTitle = () => {
     switch (view()) {
-      case 'passkey-intro':
-        return pendingProvider() === 'google'
-          ? t('auth.continueWithGoogle')
-          : pendingProvider() === 'discord'
-            ? t('auth.continueWithDiscord')
-            : t('auth.usePasskey')
-      case 'username':
-        return t('auth.chooseUsername')
       case 'processing':
         return t('auth.authenticating')
       case 'complete':
@@ -212,6 +204,8 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
         return t('auth.signIn')
     }
   }
+
+  const showBackButton = () => view() === 'passkey-intro' || view() === 'username'
 
   const getCreateButtonText = () => {
     if (pendingProvider() === 'google') return t('auth.createWithGoogle')
@@ -227,12 +221,13 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent class="sm:max-w-[400px]">
+      <DialogContent class="sm:max-w-[450px]" onBack={showBackButton() ? handleBack : undefined}>
         <DialogHeader>
-          <DialogTitle class="text-2xl text-center">{getTitle()}</DialogTitle>
+          <DialogTitle class="text-3xl text-center">{getTitle()}</DialogTitle>
         </DialogHeader>
 
-        <div class="py-4">
+        {/* Fixed height content area to prevent layout shifts */}
+        <div class="py-6 min-h-[320px] flex flex-col">
           {/* ERROR DISPLAY */}
           <Show when={props.errorMessage}>
             {(error) => {
@@ -269,84 +264,54 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
           <Switch>
             {/* STEP 1: METHOD SELECTION */}
             <Match when={view() === 'select-method'}>
-              <div class="space-y-3">
-                {/* Passkey (Recommended) */}
+              <div class="space-y-4 flex-1 flex flex-col justify-center">
+                {/* Passkey */}
                 <Button
                   onClick={() => handleProviderSelect('passkey')}
                   variant="outline"
-                  class="w-full h-14 justify-start px-4 text-base font-medium gap-3"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
                 >
-                  <Icon name="key" class="text-2xl text-orange-500" />
-                  <div class="flex flex-col items-start">
-                    <span>{t('auth.passkeyRecommended')}</span>
-                    <span class="text-xs text-muted-foreground font-normal">
-                      {t('auth.noPasswordSecure')}
-                    </span>
-                  </div>
+                  <Icon name="key" weight="fill" class="text-3xl" />
+                  <span>{t('auth.passkeyRecommended')}</span>
                 </Button>
 
-                {/* Social login divider */}
-                <div class="relative py-2">
-                  <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-border" />
-                  </div>
-                  <div class="relative flex justify-center text-xs uppercase">
-                    <span class="bg-background px-2 text-muted-foreground">
-                      {t('auth.orSocialLogin')}
-                    </span>
-                  </div>
-                </div>
+                {/* Wallet */}
+                <Show when={props.onConnectWallet}>
+                  <Button
+                    onClick={() => handleProviderSelect('wallet')}
+                    variant="outline"
+                    class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
+                  >
+                    <Icon name="wallet" weight="fill" class="text-3xl" />
+                    <span>{t('auth.connectWallet')}</span>
+                  </Button>
+                </Show>
 
                 {/* Google */}
                 <Button
                   onClick={() => handleProviderSelect('google')}
                   variant="outline"
-                  class="w-full h-12 justify-start px-4 text-base font-medium gap-3"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
                 >
-                  <Icon name="google-logo" class="text-2xl text-red-500" />
-                  <span>{t('auth.continueWithGoogle')}</span>
+                  <Icon name="google-logo" weight="fill" class="text-3xl" />
+                  <span>{t('auth.google')}</span>
                 </Button>
 
                 {/* Discord */}
                 <Button
                   onClick={() => handleProviderSelect('discord')}
                   variant="outline"
-                  class="w-full h-12 justify-start px-4 text-base font-medium gap-3"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
                 >
-                  <Icon name="discord-logo" class="text-2xl text-indigo-500" />
-                  <span>{t('auth.continueWithDiscord')}</span>
+                  <Icon name="discord-logo" weight="fill" class="text-3xl" />
+                  <span>{t('auth.discord')}</span>
                 </Button>
-
-                {/* Wallet connection */}
-                <Show when={props.onConnectWallet}>
-                  <>
-                    <div class="relative py-2">
-                      <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-border" />
-                      </div>
-                      <div class="relative flex justify-center text-xs uppercase">
-                        <span class="bg-background px-2 text-muted-foreground">
-                          {t('auth.orConnectWallet')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={() => handleProviderSelect('wallet')}
-                      variant="outline"
-                      class="w-full h-12 justify-start px-4 text-base font-medium gap-3"
-                    >
-                      <Icon name="wallet" class="text-2xl text-blue-500" />
-                      <span>{t('auth.connectWallet')}</span>
-                    </Button>
-                  </>
-                </Show>
               </div>
             </Match>
 
             {/* STEP 2A: CREATE / SIGN IN CHOICE */}
             <Match when={view() === 'passkey-intro'}>
-              <div class="space-y-4">
+              <div class="space-y-5 flex-1 flex flex-col justify-center">
                 <Button
                   onClick={() => {
                     if (pendingProvider() === 'google' || pendingProvider() === 'discord') {
@@ -357,19 +322,14 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
                       props.onRegister()
                     }
                   }}
-                  class="w-full h-12"
+                  class="w-full h-14 text-lg"
                   size="lg"
                 >
                   {getCreateButtonText()}
                 </Button>
 
-                <div class="relative">
-                  <div class="absolute inset-0 flex items-center">
-                    <div class="w-full border-t border-border" />
-                  </div>
-                  <div class="relative flex justify-center text-xs uppercase">
-                    <span class="bg-background px-2 text-muted-foreground">{t('auth.or')}</span>
-                  </div>
+                <div class="flex justify-center">
+                  <span class="text-sm uppercase text-muted-foreground">{t('auth.or')}</span>
                 </div>
 
                 <Button
@@ -385,62 +345,48 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
                     }
                   }}
                   variant="outline"
-                  class="w-full h-12"
+                  class="w-full h-14 text-lg"
                 >
                   {getSignInButtonText()}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  class="w-full text-muted-foreground"
-                >
-                  <Icon name="caret-left" class="mr-2 text-base" /> {t('auth.back')}
                 </Button>
               </div>
             </Match>
 
             {/* STEP 2B: USERNAME INPUT */}
             <Match when={view() === 'username'}>
-              <form onSubmit={handleUsernameSubmit} class="space-y-4">
-                <div class="space-y-2">
+              <form onSubmit={handleUsernameSubmit} class="space-y-5 flex-1 flex flex-col justify-center">
+                <div class="space-y-3">
                   <Input
                     placeholder={t('auth.usernamePlaceholder')}
                     value={username()}
                     onInput={(e) => handleUsernameInput(e.currentTarget.value)}
                     minLength={6}
-                    class="h-12"
+                    class="h-14 text-lg px-4"
                     autofocus
                   />
                   <Show when={username().length >= 6}>
-                    <span class="text-xs text-green-600 flex items-center gap-1">
-                      <Icon name="check-circle" class="text-base" /> {t('auth.validFormat')}
+                    <span class="text-sm text-green-600 flex items-center gap-1">
+                      <Icon name="check-circle" class="text-lg" /> {t('auth.validFormat')}
                     </span>
                   </Show>
                 </div>
 
-                <div class="flex gap-3">
-                  <Button type="button" variant="outline" onClick={handleBack} class="flex-1">
-                    {t('auth.back')}
-                  </Button>
-                  <Button type="submit" class="flex-1" disabled={username().length < 6}>
-                    {t('auth.next')}
-                  </Button>
-                </div>
+                <Button type="submit" class="w-full h-14 text-lg" disabled={username().length < 6}>
+                  {t('auth.next')}
+                </Button>
               </form>
             </Match>
 
             {/* PROCESSING STATE */}
             <Match when={view() === 'processing'}>
-              <div class="flex flex-col items-center py-8 space-y-4 text-center">
+              <div class="flex-1 flex flex-col items-center justify-center space-y-5 text-center">
                 <Spinner size="lg" />
-                <p class="text-muted-foreground animate-pulse">
+                <p class="text-lg text-muted-foreground animate-pulse">
                   {props.statusMessage || t('auth.processing')}
                 </p>
                 {/* Show wallet address if connected during processing */}
                 <Show when={props.isWalletConnected && props.walletAddress}>
-                  <div class="text-xs font-mono bg-muted px-2 py-1 rounded">
+                  <div class="text-sm font-mono bg-muted px-3 py-2 rounded">
                     {props.walletAddress?.slice(0, 6)}...{props.walletAddress?.slice(-4)}
                   </div>
                 </Show>
@@ -449,11 +395,10 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
 
             {/* COMPLETE STATE */}
             <Match when={view() === 'complete'}>
-              <div class="flex flex-col items-center py-6 space-y-4">
-                <Icon name="check-circle" class="text-7xl text-green-500" />
-                <p class="text-center text-muted-foreground">{t('auth.allSet')}</p>
-                <Button onClick={() => props.onOpenChange(false)} class="w-full">
-                  {t('auth.startLearning')}
+              <div class="flex-1 flex flex-col items-center justify-center space-y-8">
+                <Icon name="check-circle" class="text-8xl text-green-500" />
+                <Button onClick={() => props.onOpenChange(false)} class="w-full h-14 text-lg">
+                  {t('common.close')}
                 </Button>
               </div>
             </Match>

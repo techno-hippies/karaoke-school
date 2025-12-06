@@ -29,13 +29,11 @@ export async function registerWithWebAuthn(): Promise<RegisterResult> {
       scopes: ['sign-anything'],
     }) as { pkpInfo: any; webAuthnPublicKey: string; authData?: any }
 
-    if (IS_DEV) {
-      console.log('[LitWebAuthn] Registration successful:', {
-        ethAddress: result.pkpInfo.ethAddress,
-        publicKey: result.pkpInfo.pubkey.slice(0, 20) + '...',
-        hasAuthData: !!result.authData,
-      })
-    }
+    if (IS_DEV) console.log('[LitWebAuthn] Registration successful:', {
+      ethAddress: result.pkpInfo.ethAddress,
+      publicKey: result.pkpInfo.pubkey.slice(0, 20) + '...',
+      hasAuthData: !!result.authData,
+    })
 
     // Extract PKP info
     const pkpInfo: PKPInfo = {
@@ -85,12 +83,10 @@ export async function authenticateWithWebAuthn(): Promise<{ pkpInfo: PKPInfo; au
     // Authenticate with WebAuthn
     const authData = await WebAuthnAuthenticator.authenticate()
 
-    if (IS_DEV) {
-      console.log('[LitWebAuthn] Authentication successful:', {
-        authMethodType: authData.authMethodType,
-        authMethodId: authData.authMethodId.slice(0, 20) + '...',
-      })
-    }
+    if (IS_DEV) console.log('[LitWebAuthn] Authentication successful:', {
+      authMethodType: authData.authMethodType,
+      authMethodId: authData.authMethodId.slice(0, 20) + '...',
+    })
 
     // Get PKP for this credential
     const litClient = await getLitClient()
@@ -118,12 +114,10 @@ export async function authenticateWithWebAuthn(): Promise<{ pkpInfo: PKPInfo; au
       tokenId: pkp.tokenId.toString(),
     }
 
-    if (IS_DEV) {
-      console.log('[LitWebAuthn] PKP found:', {
-        ethAddress: pkpInfo.ethAddress,
-        publicKey: pkpInfo.publicKey.slice(0, 20) + '...',
-      })
-    }
+    if (IS_DEV) console.log('[LitWebAuthn] PKP found:', {
+      ethAddress: pkpInfo.ethAddress,
+      publicKey: pkpInfo.publicKey.slice(0, 20) + '...',
+    })
 
     // Save session
     saveSession(pkpInfo, {

@@ -26,12 +26,10 @@ export function saveSession(pkpInfo: PKPInfo, authData: AuthData): void {
       JSON.stringify(session)
     )
 
-    if (IS_DEV) {
-      console.log('[LitWebAuthn] Session saved:', {
-        address: pkpInfo.ethAddress,
-        expiresAt: new Date(expiresAt).toISOString(),
-      })
-    }
+    if (IS_DEV) console.log('[LitWebAuthn] Session saved:', {
+      address: pkpInfo.ethAddress,
+      expiresAt: new Date(expiresAt).toISOString(),
+    })
   } catch (error) {
     console.error('[LitWebAuthn] Failed to save session:', error)
   }
@@ -58,12 +56,10 @@ export function loadSession(): SessionData | null {
       return null
     }
 
-    if (IS_DEV) {
-      console.log('[LitWebAuthn] Session loaded:', {
-        address: session.pkpInfo.ethAddress,
-        expiresAt: new Date(session.expiresAt).toISOString(),
-      })
-    }
+    if (IS_DEV) console.log('[LitWebAuthn] Session loaded:', {
+      address: session.pkpInfo.ethAddress,
+      expiresAt: new Date(session.expiresAt).toISOString(),
+    })
 
     return session
   } catch (error) {

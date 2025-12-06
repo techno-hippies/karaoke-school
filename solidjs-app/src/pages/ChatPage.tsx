@@ -7,6 +7,8 @@
  * - Lit Action message sending
  */
 
+const IS_DEV = import.meta.env.DEV
+
 import { Component, createMemo } from 'solid-js'
 import { useParams, useNavigate, useLocation } from '@solidjs/router'
 import { ChatContainer } from '@/components/chat'
@@ -42,7 +44,9 @@ export const ChatPage: Component = () => {
 
   // Handle conversation view change (for analytics, etc.)
   const handleConversationChange = (inConversation: boolean) => {
-    console.log('[ChatPage] In conversation:', inConversation)
+    if (IS_DEV) {
+      console.log('[ChatPage] In conversation:', inConversation)
+    }
   }
 
   // Handle auth required

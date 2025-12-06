@@ -52,13 +52,11 @@ const GET_ARTIST_LEADERBOARD = gql`
   }
 `
 
-export interface LeaderboardEntry {
-  rank: number
-  address: string
-  username: string
-  totalPoints: number
-  currentStreak: number
-}
+// Re-export for backwards compatibility
+export type { ArtistLeaderboardEntry as LeaderboardEntry } from '@/types/leaderboard'
+import type { ArtistLeaderboardEntry } from '@/types/leaderboard'
+
+type LeaderboardEntry = ArtistLeaderboardEntry
 
 interface PerformerData {
   scores: number[]

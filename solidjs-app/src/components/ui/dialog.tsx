@@ -5,7 +5,7 @@
 
 import { Dialog as KobalteDialog } from '@kobalte/core/dialog'
 import { Icon } from '@/components/icons'
-import { splitProps, type ParentComponent, type Component } from 'solid-js'
+import { splitProps, type ParentComponent, type Component, type JSX } from 'solid-js'
 import { cn } from '@/lib/utils'
 
 const Dialog = KobalteDialog
@@ -25,8 +25,22 @@ const DialogOverlay: Component<{ class?: string }> = (props) => {
   )
 }
 
-const DialogContent: ParentComponent<{ class?: string }> = (props) => {
-  const [local, others] = splitProps(props, ['class', 'children'])
+/** Shared button styles for dialog navigation (back/close) */
+const dialogNavButtonClass = cn(
+  'flex items-center justify-center w-10 h-10 rounded-full',
+  'hover:bg-foreground/10 transition-colors cursor-pointer',
+  'text-foreground'
+)
+
+interface DialogContentProps {
+  class?: string
+  children?: JSX.Element
+  /** Optional back button handler - shows caret-left in top-left */
+  onBack?: () => void
+}
+
+const DialogContent: ParentComponent<DialogContentProps> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children', 'onBack'])
 
   return (
     <DialogPortal>
@@ -38,10 +52,24 @@ const DialogContent: ParentComponent<{ class?: string }> = (props) => {
         )}
         {...others}
       >
+        {/* Back button - top left (conditionally rendered) */}
+        {local.onBack && (
+          <button
+            type="button"
+            onClick={local.onBack}
+            class={cn(dialogNavButtonClass, 'absolute left-3 top-3')}
+            aria-label="Go back"
+          >
+            <Icon name="caret-left" class="text-2xl" />
+          </button>
+        )}
         {local.children}
-        <KobalteDialog.CloseButton class="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-          <Icon name="x" class="text-base" />
-          <span class="sr-only">Close</span>
+        {/* Close button - top right */}
+        <KobalteDialog.CloseButton
+          class={cn(dialogNavButtonClass, 'absolute right-3 top-3')}
+          aria-label="Close"
+        >
+          <Icon name="x" class="text-2xl" />
         </KobalteDialog.CloseButton>
       </KobalteDialog.Content>
     </DialogPortal>

@@ -1,181 +1,20 @@
 import { createQuery } from '@tanstack/solid-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguagePreference } from '@/contexts/LanguagePreferenceContext'
-import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
+import {
+  GET_CLIPS_WITH_PERFORMANCES,
+  GET_ALL_CLIPS_WITH_PERFORMANCES,
+  GET_EXERCISE_CARDS,
+} from '@/lib/graphql/study-queries'
 import { convertGroveUri } from '@/lib/lens/utils'
-import { Rating, type StudyCard, type StudyCardsResult } from '@/types/study'
+import {
+  calculateFSRSState,
+  getTodayStartTimestamp,
+  generateLineId,
+} from '@/lib/fsrs/calculate-state'
+import type { StudyCard, StudyCardsResult } from '@/types/study'
 import type { Accessor } from 'solid-js'
-
-// Helper: Get today's start timestamp (midnight local time)
-function getTodayStartTimestamp(): number {
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return Math.floor(todayStart.getTime() / 1000) // Unix timestamp
-}
-
-// Helper: Generate deterministic lineId using Web Crypto API
-async function generateLineId(spotifyTrackId: string, lineIndex: number): Promise<string> {
-  const input = `${spotifyTrackId}-${lineIndex}`
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return '0x' + hashHex
-}
-
-const GET_CLIPS_WITH_PERFORMANCES = gql`
-  query GetClipsWithPerformances($spotifyTrackId: String!, $performer: Bytes!) {
-    clips(where: { spotifyTrackId: $spotifyTrackId }, first: 1000) {
-      id
-      clipHash
-      spotifyTrackId
-      metadataUri
-      instrumentalUri
-      alignmentUri
-      clipStartMs
-      clipEndMs
-      translations {
-        languageCode
-        translationUri
-      }
-      performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
-        id
-        score
-        gradedAt
-      }
-    }
-    linePerformances(where: {
-      performerAddress: $performer
-    }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
-      id
-      lineId
-      lineIndex
-      clipHash
-      score
-      gradedAt
-    }
-  }
-`
-
-const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
-  query GetAllClipsWithPerformances($performer: Bytes!) {
-    clips(first: 1000) {
-      id
-      clipHash
-      spotifyTrackId
-      metadataUri
-      instrumentalUri
-      alignmentUri
-      clipStartMs
-      clipEndMs
-      translations {
-        languageCode
-        translationUri
-      }
-      performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
-        id
-        score
-        gradedAt
-      }
-    }
-    linePerformances(where: {
-      performerAddress: $performer
-    }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
-      id
-      lineId
-      lineIndex
-      clipHash
-      score
-      gradedAt
-    }
-  }
-`
-
-const GET_EXERCISE_CARDS = gql`
-  query GetExerciseCards($spotifyTrackIds: [String!]!, $performer: Bytes!, $languageCode: String) {
-    exerciseCards(where: {
-      spotifyTrackId_in: $spotifyTrackIds
-      enabled: true
-      languageCode: $languageCode
-    }) {
-      id
-      questionId
-      exerciseType
-      spotifyTrackId
-      languageCode
-      metadataUri
-      distractorPoolSize
-      lineId
-      lineIndex
-      clipHash
-      clip {
-        clipHash
-      }
-      attempts(
-        where: { performerAddress: $performer }
-        orderBy: gradedAt
-        orderDirection: desc
-        first: 100
-      ) {
-        id
-        score
-        gradedAt
-      }
-    }
-  }
-`
-
-/**
- * Helper to calculate FSRS state from performance history
- */
-function calculateFSRSState(performanceHistory: any[]) {
-  // If no history, card is New and due immediately
-  if (!performanceHistory || performanceHistory.length === 0) {
-    return {
-      due: Math.floor(Date.now() / 1000), // Due immediately
-      stability: 0,
-      difficulty: 5,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      state: 0 as const, // New
-      lastReview: null,
-    }
-  }
-
-  // Last performance determines next review time
-  const lastPerformance = performanceHistory[0]
-  const lastReviewTime = parseInt(lastPerformance.gradedAt)
-  const score = Math.round((lastPerformance.score || 0) / 25) // 0-100 → 0-4
-  const rating = Math.min(3, Math.max(0, score))
-
-  // Simple interval scheduling based on rating and reps
-  let dayInterval = 1
-  if (rating >= Rating.Good) {
-    // Good or Easy ratings increase interval exponentially
-    dayInterval = Math.min(
-      36500, // Max interval
-      Math.pow(2, performanceHistory.length) // Exponential backoff
-    )
-  }
-
-  const nextDueTime = lastReviewTime + (dayInterval * 86400)
-
-  return {
-    due: nextDueTime,
-    stability: dayInterval,
-    difficulty: 5 + (3 - rating), // Adjust based on rating
-    elapsedDays: Math.floor((Date.now() / 1000 - lastReviewTime) / 86400),
-    scheduledDays: dayInterval,
-    reps: performanceHistory.length,
-    lapses: rating === Rating.Again ? 1 : 0,
-    state: (performanceHistory.length === 1 ? 1 : 2) as 0 | 1 | 2 | 3, // Learning if 1 rep, Review otherwise
-    lastReview: lastReviewTime,
-  }
-}
 
 /**
  * Load FSRS study cards for a song (or all songs)

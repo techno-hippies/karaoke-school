@@ -3,6 +3,8 @@
  * Orchestrates Lit Protocol (PKP) + Lens Protocol authentication
  */
 
+const IS_DEV = import.meta.env.DEV
+
 import type { WalletClient, Address } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
 import {
@@ -52,7 +54,9 @@ export async function registerWithPasskeyFlow(
   onStatus?: (status: string) => void
 ): Promise<AuthFlowResult> {
   const updateStatus = (status: string) => {
-    console.log('[AuthFlow]', status)
+    if (IS_DEV) {
+      console.log('[AuthFlow]', status)
+    }
     onStatus?.(status)
   }
 
@@ -114,7 +118,9 @@ export async function registerWithPasskeyFlow(
       lensSetupStatus = 'complete'
     } else {
       // No username provided, skip Lens setup
-      console.log('[AuthFlow] No username provided, skipping Lens account creation')
+      if (IS_DEV) {
+        console.log('[AuthFlow] No username provided, skipping Lens account creation')
+      }
       lensSetupStatus = 'pending'
     }
   } catch (lensError) {
@@ -147,7 +153,9 @@ export async function signInWithPasskeyFlow(
   onStatus?: (status: string) => void
 ): Promise<AuthFlowResult> {
   const updateStatus = (status: string) => {
-    console.log('[AuthFlow]', status)
+    if (IS_DEV) {
+      console.log('[AuthFlow]', status)
+    }
     onStatus?.(status)
   }
 
@@ -177,12 +185,16 @@ export async function signInWithPasskeyFlow(
     } else {
       // No session, check for existing accounts
       const existingAccounts = await getExistingAccounts(walletAddress)
-      console.log('[AuthFlow] Existing accounts:', existingAccounts)
+      if (IS_DEV) {
+        console.log('[AuthFlow] Existing accounts:', existingAccounts)
+      }
 
       if (existingAccounts.length > 0) {
         updateStatus('Connecting to Lens account...')
         const firstAccount = existingAccounts[0]
-        console.log('[AuthFlow] First account:', firstAccount)
+        if (IS_DEV) {
+          console.log('[AuthFlow] First account:', firstAccount)
+        }
 
         // Handle both possible structures: { account: Account } or Account directly
         const accountAddress = firstAccount.account?.address || (firstAccount as any).address
@@ -195,10 +207,14 @@ export async function signInWithPasskeyFlow(
           lensSession = await loginAsAccountOwner(walletClient, walletAddress, accountAddress)
           lensAccount = account
           lensSetupStatus = 'complete'
-          console.log('[AuthFlow] Lens login successful, account:', lensAccount)
+          if (IS_DEV) {
+            console.log('[AuthFlow] Lens login successful, account:', lensAccount)
+          }
         }
       } else {
-        console.log('[AuthFlow] No Lens account found for this wallet')
+        if (IS_DEV) {
+          console.log('[AuthFlow] No Lens account found for this wallet')
+        }
         lensSetupStatus = 'pending'
       }
     }
@@ -231,7 +247,9 @@ export async function connectWithEoaFlow(
   onStatus?: (status: string) => void
 ): Promise<AuthFlowResult> {
   const updateStatus = (status: string) => {
-    console.log('[AuthFlow]', status)
+    if (IS_DEV) {
+      console.log('[AuthFlow]', status)
+    }
     onStatus?.(status)
   }
 
@@ -317,7 +335,9 @@ export async function loginLensStandalone(
   onStatus?: (status: string) => void
 ): Promise<{ session: SessionClient; account: Account | null }> {
   const updateStatus = (status: string) => {
-    console.log('[AuthFlow]', status)
+    if (IS_DEV) {
+      console.log('[AuthFlow]', status)
+    }
     onStatus?.(status)
   }
 

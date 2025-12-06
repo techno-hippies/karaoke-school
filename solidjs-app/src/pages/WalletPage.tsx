@@ -3,6 +3,8 @@
  * Shows the current user's unified profile with wallet info
  */
 
+const IS_DEV = import.meta.env.DEV
+
 import { type Component, Switch, Match } from 'solid-js'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePKPBalances } from '@/hooks/usePKPBalances'
@@ -20,7 +22,9 @@ export const WalletPage: Component = () => {
 
     try {
       await navigator.clipboard.writeText(address)
-      console.log('PKP address copied to clipboard')
+      if (IS_DEV) {
+        console.log('PKP address copied to clipboard')
+      }
     } catch (err) {
       console.error('Failed to copy address:', err)
     }

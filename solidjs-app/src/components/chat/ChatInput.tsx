@@ -11,6 +11,7 @@
 import { Component, createSignal, createEffect, splitProps, Show, For } from 'solid-js'
 import { cn } from '@/lib/utils'
 import { Icon } from '@/components/icons'
+import { Textarea } from '@/components/ui/input'
 import { formatDuration } from '@/lib/chat/audio'
 
 export interface ChatInputProps {
@@ -193,7 +194,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
     >
       <div class="flex items-end gap-2">
         {/* Text input */}
-        <textarea
+        <Textarea
           ref={textareaRef}
           value={message()}
           onInput={(e) => setMessage(e.currentTarget.value)}
@@ -202,13 +203,8 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
           placeholder={inputPlaceholder()}
           disabled={local.disabled}
           rows={1}
-          class={cn(
-            'flex-1 min-w-0 resize-none rounded-full bg-secondary px-4 py-[10px]',
-            'text-base text-foreground placeholder:text-muted-foreground leading-6',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'scrollbar-hide'
-          )}
+          variant="chat"
+          class="flex-1 min-w-0"
         />
 
         {/* Action button: Mic (empty) / Send (has text) */}

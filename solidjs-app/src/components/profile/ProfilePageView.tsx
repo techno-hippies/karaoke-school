@@ -36,13 +36,7 @@ export interface ProfilePageViewProps {
   isOwnProfile?: boolean
 
   // Stats
-  following?: number
-  followers?: number
   totalPoints?: number
-
-  // Follow state (for other users' profiles)
-  isFollowing?: boolean
-  isFollowLoading?: boolean
 
   // Wallet (only shown for own profile)
   walletAddress?: string
@@ -54,8 +48,6 @@ export interface ProfilePageViewProps {
 
   // Handlers
   onBack?: () => void
-  onFollow?: () => void
-  onMessage?: () => void
   onEditProfile?: () => void
   onCopyAddress?: () => void
   onSettings?: () => void
@@ -196,7 +188,7 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
           <Avatar
             src={props.avatarUrl}
             alt={displayHandle()}
-            fallback={displayHandle()}
+            fallback={displayHandle().slice(0, 2).toUpperCase()}
             size="2xl"
             class="w-28 h-28 md:w-36 md:h-36"
           />
@@ -214,23 +206,13 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
             <p class="text-center text-base text-muted-foreground max-w-md">{props.bio}</p>
           </Show>
 
-          {/* Stats (for non-own profiles or always) */}
-          <Show when={!props.isOwnProfile || (props.following !== undefined || props.followers !== undefined)}>
+          {/* Stats - only show if totalPoints is provided */}
+          <Show when={props.totalPoints !== undefined}>
             <div class="flex gap-6 text-base">
               <div class="flex items-center gap-2">
-                <span class="font-bold">{formatNumber(props.following)}</span>
-                <span class="text-muted-foreground">Following</span>
+                <span class="font-bold">{formatNumber(props.totalPoints)}</span>
+                <span class="text-muted-foreground">Points</span>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="font-bold">{formatNumber(props.followers)}</span>
-                <span class="text-muted-foreground">Followers</span>
-              </div>
-              <Show when={props.totalPoints !== undefined}>
-                <div class="flex items-center gap-2">
-                  <span class="font-bold">{formatNumber(props.totalPoints)}</span>
-                  <span class="text-muted-foreground">Points</span>
-                </div>
-              </Show>
             </div>
           </Show>
 
@@ -251,35 +233,6 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
             </button>
           </Show>
 
-          {/* Action Buttons */}
-          <Show when={!props.isOwnProfile}>
-            <div class="flex gap-3">
-              <Show when={props.onFollow}>
-                <Button
-                  size="lg"
-                  variant={props.isFollowing ? 'outline' : 'default'}
-                  onClick={props.onFollow}
-                  disabled={props.isFollowLoading}
-                  class="min-w-[120px]"
-                >
-                  <Show when={props.isFollowLoading} fallback={props.isFollowing ? 'Following' : 'Follow'}>
-                    <Spinner size="sm" />
-                    <span class="ml-2">{props.isFollowing ? 'Unfollowing...' : 'Following...'}</span>
-                  </Show>
-                </Button>
-              </Show>
-              <Show when={props.onMessage}>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={props.onMessage}
-                  class="min-w-[120px]"
-                >
-                  Message
-                </Button>
-              </Show>
-            </div>
-          </Show>
         </div>
 
         {/* Tabs */}

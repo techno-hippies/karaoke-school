@@ -7,6 +7,8 @@
  * - Lazy loads other networks on demand
  */
 
+const IS_DEV = import.meta.env.DEV
+
 import { createSignal, createEffect, on } from 'solid-js'
 import { createPublicClient, http } from 'viem'
 import { useAuth } from '@/contexts/AuthContext'
@@ -88,20 +90,28 @@ export function usePKPBalances(): UsePKPBalancesReturn {
   // Fetch primary balances (Base ETH + USDC)
   const fetchPrimaryBalances = async () => {
     const pkpAddress = auth.pkpAddress()
-    console.log('[usePKPBalances] fetchPrimaryBalances called:', { pkpAddress, isPKPReady: auth.isPKPReady() })
+    if (IS_DEV) {
+      console.log('[usePKPBalances] fetchPrimaryBalances called:', { pkpAddress, isPKPReady: auth.isPKPReady() })
+    }
     if (!pkpAddress || !auth.isPKPReady()) {
-      console.log('[usePKPBalances] Early return - not ready')
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Early return - not ready')
+      }
       setBalances([])
       return
     }
 
     setIsLoading(true)
     setError(null)
-    console.log('[usePKPBalances] Starting fetch...')
+    if (IS_DEV) {
+      console.log('[usePKPBalances] Starting fetch...')
+    }
 
     try {
       const config = NETWORK_CONFIGS[PRIMARY_NETWORK]
-      console.log('[usePKPBalances] Creating client for', config.name, config.rpcUrl)
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Creating client for', config.name, config.rpcUrl)
+      }
       const client = createPublicClient({
         chain: {
           id: config.chainId,
@@ -115,12 +125,16 @@ export function usePKPBalances(): UsePKPBalancesReturn {
       const primaryBalances: TokenBalance[] = []
 
       // Fetch ETH balance
-      console.log('[usePKPBalances] Fetching ETH balance...')
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Fetching ETH balance...')
+      }
       const nativeBalanceHex = await client.request({
         method: 'eth_getBalance',
         params: [pkpAddress, 'latest'],
       }) as string
-      console.log('[usePKPBalances] ETH balance received:', nativeBalanceHex)
+      if (IS_DEV) {
+        console.log('[usePKPBalances] ETH balance received:', nativeBalanceHex)
+      }
 
       const nativeBalance = BigInt(nativeBalanceHex)
       const nativeFormatted = formatBalance(nativeBalance, 18)
@@ -285,9 +299,13 @@ export function usePKPBalances(): UsePKPBalancesReturn {
   createEffect(on(
     () => [auth.isPKPReady(), auth.pkpAddress()] as const,
     ([isReady, address]) => {
-      console.log('[usePKPBalances] Effect triggered:', { isReady, address, hasFetched: hasFetched() })
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Effect triggered:', { isReady, address, hasFetched: hasFetched() })
+      }
       if (isReady && address && !hasFetched()) {
-        console.log('[usePKPBalances] Fetching balances...')
+        if (IS_DEV) {
+          console.log('[usePKPBalances] Fetching balances...')
+        }
         setHasFetched(true)
         fetchPrimaryBalances()
       }

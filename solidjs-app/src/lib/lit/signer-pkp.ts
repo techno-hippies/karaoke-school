@@ -283,12 +283,10 @@ export async function createPKPWalletClient(
   authContext: PKPAuthContext,
   chain: Chain = lensTestnet
 ): Promise<WalletClient> {
-  if (IS_DEV) {
-    console.log('[PKPSigner] Creating PKP wallet client:', {
-      address: pkpInfo.ethAddress,
-      chain: chain.name,
-    })
-  }
+  if (IS_DEV) console.log('[PKPSigner] Creating PKP wallet client:', {
+    address: pkpInfo.ethAddress,
+    chain: chain.name,
+  })
 
   // Create PKP account
   const account = createPKPAccount(pkpInfo, authContext)

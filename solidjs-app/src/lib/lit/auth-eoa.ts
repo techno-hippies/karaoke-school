@@ -35,10 +35,8 @@ export async function registerWithEoa(
     throw new Error('No account address in wallet client')
   }
 
-  if (IS_DEV) {
-    console.log('[LitEoa] Requesting PKP mint for EOA:', address)
-    console.log('[LitEoa] Relayer URL:', LIT_SPONSORSHIP_API_URL)
-  }
+  if (IS_DEV) console.log('[LitEoa] Requesting PKP mint for EOA:', address)
+  if (IS_DEV) console.log('[LitEoa] Relayer URL:', LIT_SPONSORSHIP_API_URL)
 
   // Call relayer API to mint PKP (relayer pays gas)
   const response = await fetch(`${LIT_SPONSORSHIP_API_URL}/api/mint-user-pkp`, {
@@ -56,12 +54,10 @@ export async function registerWithEoa(
   }
 
   const data = await response.json()
-  if (IS_DEV) {
-    console.log('[LitEoa] PKP minted via relayer:', {
-      existing: data.existing,
-      pkpEthAddress: data.pkpEthAddress,
-    })
-  }
+  if (IS_DEV) console.log('[LitEoa] PKP minted via relayer:', {
+    existing: data.existing,
+    pkpEthAddress: data.pkpEthAddress,
+  })
 
   const pkpInfo: PKPInfo = {
     publicKey: data.pkpPublicKey,
@@ -73,10 +69,8 @@ export async function registerWithEoa(
   // This prompts the user to sign a message proving wallet ownership
   if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
   const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  if (IS_DEV) {
-    console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
-    console.log('[LitEoa] ✓ PKP registration complete')
-  }
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+  if (IS_DEV) console.log('[LitEoa] ✓ PKP registration complete')
 
   saveSession(pkpInfo, authData as AuthData)
 
@@ -120,12 +114,10 @@ export async function loginWithEoa(
   }
 
   const pkp = pkpsResult.pkps[0]
-  if (IS_DEV) {
-    console.log('[LitEoa] PKP found:', {
-      ethAddress: pkp.ethAddress,
-      publicKey: pkp.pubkey?.slice(0, 20) + '...',
-    })
-  }
+  if (IS_DEV) console.log('[LitEoa] PKP found:', {
+    ethAddress: pkp.ethAddress,
+    publicKey: pkp.pubkey?.slice(0, 20) + '...',
+  })
 
   const pkpInfo: PKPInfo = {
     publicKey: pkp.pubkey,
@@ -137,10 +129,8 @@ export async function loginWithEoa(
   // This prompts the user to sign a message proving wallet ownership
   if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
   const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  if (IS_DEV) {
-    console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
-    console.log('[LitEoa] ✓ PKP login complete')
-  }
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+  if (IS_DEV) console.log('[LitEoa] ✓ PKP login complete')
 
   saveSession(pkpInfo, authData as AuthData)
 

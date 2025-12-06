@@ -9,15 +9,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { useTranslation } from '@/lib/i18n'
 import { Icon } from '@/components/icons'
 
-export interface LeaderboardEntry {
-  rank: number
-  username: string
-  score: number
-  avatarUrl?: string
-  isCurrentUser?: boolean
-  /** Lens handle for profile linking (e.g., "scarlett-ks") */
-  handle?: string
-}
+// Use the shared display type
+export type { LeaderboardDisplayEntry as LeaderboardEntry } from '@/types/leaderboard'
+import type { LeaderboardDisplayEntry } from '@/types/leaderboard'
+
+type LeaderboardEntry = LeaderboardDisplayEntry
 
 export interface LeaderboardProps {
   entries: LeaderboardEntry[]

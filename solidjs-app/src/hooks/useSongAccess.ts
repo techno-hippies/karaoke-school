@@ -29,6 +29,11 @@ import {
 import { baseSepolia } from 'viem/chains'
 import { useAuth } from '@/contexts/AuthContext'
 import { SONG_ACCESS_CONTRACT } from '@/lib/contracts/addresses'
+import { SONG_ACCESS_ABI, USDC_ABI } from '@/lib/contracts/song-access-abi'
+import {
+  performLitDecryption,
+  type HybridEncryptionMetadata,
+} from '@/lib/lit/decrypt-audio'
 
 const IS_DEV = import.meta.env.DEV
 const CONTRACT = SONG_ACCESS_CONTRACT.testnet
@@ -46,103 +51,6 @@ export type SongAccessState =
   | 'owned-decrypt-failed'
 
 export type PurchaseSubState = 'checking-balance' | 'signing' | 'confirming' | null
-
-// ============ ABIs ============
-
-const SONG_ACCESS_ABI = [
-  {
-    inputs: [
-      { name: 'spotifyTrackId', type: 'string' },
-      { name: 'deadline', type: 'uint256' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
-    name: 'purchase',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: 'spotifyTrackId', type: 'string' }],
-    name: 'purchaseWithApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'user', type: 'address' },
-      { name: 'spotifyTrackId', type: 'string' },
-    ],
-    name: 'ownsSongByTrackId',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const
-
-const USDC_ABI = [
-  {
-    inputs: [{ name: 'owner', type: 'address' }],
-    name: 'nonces',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: 'account', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' },
-    ],
-    name: 'allowance',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const
-
-// ============ Encryption Metadata Type ============
-
-interface HybridEncryptionMetadata {
-  version: string
-  method: string
-  aes: {
-    algorithm: string
-    keyBits: number
-    iv: string
-    authTag: string
-  }
-  lit: {
-    network: string
-    encryptedKey: string
-    dataToEncryptHash: string
-    unifiedAccessControlConditions: any[]
-  }
-  accessControl?: {
-    type: 'songAccess' | 'unlock'
-    contractAddress?: string
-    lockAddress?: string
-    chainId: number
-    chainName: string
-  }
-  unlock?: {
-    lockAddress: string
-    chainId: number
-    chainName: string
-  }
-  encryptedAudio: {
-    url: string
-    sizeBytes: number
-  }
-}
 
 // ============ Hook Options ============
 
@@ -624,102 +532,4 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
     reset,
     purchaseSubState,
   }
-}
-
-// ============ Lit Decryption Helper ============
-
-async function performLitDecryption(
-  metadata: HybridEncryptionMetadata,
-  pkpInfo: any,
-  authData: any,
-  setProgress: (progress: number) => void
-): Promise<Blob> {
-  const { getLitClient } = await import('@/lib/lit/client')
-  const { createPKPAuthContext } = await import('@/lib/lit/auth-pkp')
-
-  const litClient = await getLitClient()
-  const authContext = await createPKPAuthContext(pkpInfo, authData)
-
-  const chainName = metadata.accessControl?.chainName || metadata.unlock?.chainName || 'baseSepolia'
-  const litChain = chainName === 'base-sepolia' ? 'baseSepolia' : chainName
-
-  setProgress(40)
-
-  const decryptedKeyResponse = await litClient.decrypt({
-    ciphertext: metadata.lit.encryptedKey,
-    dataToEncryptHash: metadata.lit.dataToEncryptHash,
-    unifiedAccessControlConditions: metadata.lit.unifiedAccessControlConditions,
-    chain: litChain,
-    authContext: authContext,
-  })
-
-  const symmetricKey = decryptedKeyResponse.decryptedData
-
-  setProgress(60)
-
-  // Fetch encrypted audio
-  const audioResponse = await fetch(metadata.encryptedAudio.url)
-  if (!audioResponse.ok) {
-    throw new Error(`Failed to fetch encrypted audio: ${audioResponse.status}`)
-  }
-
-  const encryptedAudio = await audioResponse.arrayBuffer()
-
-  setProgress(80)
-
-  // Decrypt with AES-GCM
-  const decryptedAudio = await decryptAudioWithAesGcm(
-    encryptedAudio,
-    symmetricKey,
-    metadata.aes.iv,
-    metadata.aes.authTag
-  )
-
-  return new Blob([decryptedAudio], { type: 'audio/mpeg' })
-}
-
-// ============ AES Decryption Helper ============
-
-function fromBase64(base64: string): Uint8Array {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
-}
-
-async function decryptAudioWithAesGcm(
-  encryptedAudio: ArrayBuffer,
-  symmetricKey: Uint8Array,
-  iv: string,
-  authTag: string
-): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    symmetricKey,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt']
-  )
-
-  const ivBytes = fromBase64(iv)
-  const authTagBytes = fromBase64(authTag)
-
-  const ciphertextWithTag = new Uint8Array(
-    encryptedAudio.byteLength + authTagBytes.byteLength
-  )
-  ciphertextWithTag.set(new Uint8Array(encryptedAudio), 0)
-  ciphertextWithTag.set(authTagBytes, encryptedAudio.byteLength)
-
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: ivBytes,
-    },
-    cryptoKey,
-    ciphertextWithTag
-  )
-
-  return decryptedBuffer
 }

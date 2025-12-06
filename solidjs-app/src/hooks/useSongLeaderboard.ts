@@ -94,16 +94,11 @@ const GET_SONG_LEADERBOARD_DATA = gql`
   }
 `
 
-export interface LeaderboardEntry {
-  rank: number
-  address: string
-  username: string
-  totalPoints: number
-  karaokeAvg: number
-  exerciseCount: number
-  currentStreak: number
-  bestScore: number
-}
+// Re-export for backwards compatibility
+export type { SongLeaderboardEntry as LeaderboardEntry } from '@/types/leaderboard'
+import type { SongLeaderboardEntry } from '@/types/leaderboard'
+
+type LeaderboardEntry = SongLeaderboardEntry
 
 export interface UseSongLeaderboardResult {
   leaderboard: Accessor<LeaderboardEntry[]>
