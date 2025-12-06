@@ -1,0 +1,250 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@import "@fontsource/geist/latin-400.css";
+@import "@fontsource/geist/latin-500.css";
+@import "@fontsource/geist/latin-600.css";
+@import "@fontsource/geist/latin-700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --font-serif: ui-serif, Georgia, serif;
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* Karaoke Theme - Clean dark with vibrant accents (neutral gray scale) */
+:root {
+  --vh: 1vh;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --background: oklch(0.13 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.21 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.21 0 0);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.65 0.22 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.35 0 0);
+  --secondary-foreground: oklch(0.90 0 0);
+  --muted: oklch(0.21 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.28 0 0);
+  --accent-foreground: oklch(0.75 0.18 60);
+  --destructive: oklch(0.60 0.22 25);
+  --destructive-foreground: oklch(0.95 0 0);
+  --border: oklch(0.30 0 0);
+  --input: oklch(0.21 0 0);
+  --ring: oklch(0.65 0.22 250);
+  --chart-1: oklch(0.65 0.22 250);
+  --chart-2: oklch(0.70 0.18 200);
+  --chart-3: oklch(0.75 0.15 60);
+  --chart-4: oklch(0.60 0.22 25);
+  --chart-5: oklch(0.65 0.25 300);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.11 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.65 0.22 250);
+  --sidebar-primary-foreground: oklch(0.13 0 0);
+  --sidebar-accent: oklch(0.24 0 0);
+  --sidebar-accent-foreground: oklch(0.75 0.18 60);
+  --sidebar-border: oklch(0.30 0 0);
+  --sidebar-ring: oklch(0.65 0.22 250);
+  --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
+  --font-serif: ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --shadow-color: 0 0 0;
+  --shadow-opacity: 0.4;
+  --shadow-blur: 12px;
+  --shadow-spread: 4px;
+  --shadow-offset-x: 0;
+  --shadow-offset-y: 6px;
+  --letter-spacing: 0em;
+  --spacing: 0.25rem;
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.15);
+  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.2);
+  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.25);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 6px 10px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.45);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.6);
+  --tracking-normal: 0em;
+
+  /* Gradient accents for vibrant UI */
+  --gradient-primary: linear-gradient(135deg, oklch(0.65 0.22 250), oklch(0.55 0.25 270));
+  --gradient-success: linear-gradient(135deg, oklch(0.70 0.19 145), oklch(0.60 0.20 130));
+  --gradient-fire: linear-gradient(135deg, oklch(0.70 0.22 25), oklch(0.60 0.25 5));
+  --gradient-gold: linear-gradient(135deg, oklch(0.82 0.16 85), oklch(0.72 0.18 60));
+  --gradient-purple: linear-gradient(135deg, oklch(0.60 0.25 300), oklch(0.50 0.28 320));
+
+  /* Kobalte accordion variables (replacing Radix) */
+  --kb-accordion-content-height: auto;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  a {
+    @apply hover:underline;
+  }
+}
+
+/* Custom animations */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--kb-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--kb-accordion-content-height); }
+  to { height: 0; }
+}
+
+.animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
+
+.animate-accordion-up {
+  animation: accordion-up 0.2s ease-out;
+}
+
+/* Grade reveal animation */
+@keyframes grade-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-10deg);
+    filter: blur(10px);
+  }
+  50% {
+    transform: scale(1.2) rotate(3deg);
+    filter: blur(0);
+  }
+  70% {
+    transform: scale(0.95) rotate(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+    filter: blur(0);
+  }
+}
+
+.animate-grade-reveal {
+  animation: grade-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Text glow for active lyrics */
+@keyframes text-glow {
+  0%, 100% {
+    text-shadow: 0 0 10px oklch(0.65 0.22 250 / 0.5), 0 0 20px oklch(0.65 0.22 250 / 0.3);
+  }
+  50% {
+    text-shadow: 0 0 20px oklch(0.65 0.22 250 / 0.7), 0 0 40px oklch(0.65 0.22 250 / 0.4);
+  }
+}
+
+.animate-text-glow {
+  animation: text-glow 2s ease-in-out infinite;
+}
+
+/* Shimmer effect for progress bars */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Bounce in for success states */
+@keyframes bounce-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Score count up effect */
+@keyframes score-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.animate-score-pop {
+  animation: score-pop 0.3s ease-out;
+}
+
+/* Hide scrollbars while maintaining scroll functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .vh-screen {
+    min-height: calc(var(--vh, 1vh) * 100);
+  }
+  .h-vh-screen {
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-area-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}

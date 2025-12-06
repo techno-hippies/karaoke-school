@@ -1,0 +1,114 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "songs": "Bài hát",
+    "study": "Học tập",
+    "chat": "Trò chuyện",
+    "wallet": "Ví"
+  },
+  "auth": {
+    "signIn": "Đăng nhập",
+    "connect": "Kết nối",
+    "connectWallet": "Kết nối ví",
+    "usePasskey": "Dùng Passkey",
+    "chooseUsername": "Chọn tên người dùng",
+    "authenticating": "Đang xác thực...",
+    "success": "Thành công!",
+    "passkeyRecommended": "Passkey (Khuyến nghị)",
+    "noPasswordSecure": "Không cần mật khẩu, an toàn",
+    "createNewAccount": "Tạo tài khoản mới",
+    "or": "hoặc",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "usernamePlaceholder": "Chọn tên người dùng (6+ ký tự)",
+    "validFormat": "Định dạng hợp lệ",
+    "processing": "Đang xử lý...",
+    "allSet": "Đã sẵn sàng! Bắt đầu học thôi.",
+    "startLearning": "Bắt đầu học",
+    "hideDetails": "Ẩn chi tiết",
+    "showDetails": "Hiện chi tiết",
+    "settingUp": "Đang thiết lập...",
+    "createPasskey": "Tạo passkey của bạn",
+    "verifyingPasskey": "Đang xác minh passkey...",
+    "almostDone": "Sắp xong...",
+    "authenticateDevice": "Xác thực bằng thiết bị",
+    "fetchingAccount": "Đang tải tài khoản..."
+  },
+  "wallet": {
+    "walletAddress": "Địa chỉ ví",
+    "username": "Tên người dùng",
+    "balances": "Số dư",
+    "currency": "Tiền tệ",
+    "chain": "Chuỗi"
+  },
+  "chat": {
+    "title": "Trò chuyện",
+    "upgrade": "Nâng cấp",
+    "typePlaceholder": "Nhập tin nhắn...",
+    "send": "Gửi"
+  },
+  "exercise": {
+    "translate": "Dịch:",
+    "answer": "Trả lời:",
+    "question": "Câu hỏi:",
+    "incorrect": "Không đúng",
+    "correct": "Chính xác!",
+    "next": "Tiếp theo",
+    "skip": "Bỏ qua",
+    "tryAgain": "Thử lại"
+  },
+  "song": {
+    "unlockSong": "Mở khóa bài hát",
+    "lifetimeAccess": "Truy cập vĩnh viễn bài hát đầy đủ.",
+    "whatYouGet": "Bạn sẽ nhận được:",
+    "fullKaraoke": "Luyện karaoke bài hát đầy đủ",
+    "wordByWord": "Thời gian lời bài hát từng chữ",
+    "lifetimeAccessShort": "Truy cập vĩnh viễn",
+    "oneTimePurchase": "Mua một lần",
+    "purchase": "Mua",
+    "unlocked": "đã mở khóa! Bắt đầu luyện tập ngay.",
+    "practice": "Luyện tập",
+    "lyrics": "Lời bài hát",
+    "exercises": "Bài tập"
+  },
+  "premium": {
+    "upgradeToPremium": "Nâng cấp Premium",
+    "premiumFeatures": "Tính năng Premium",
+    "betterAI": "Phản hồi AI tốt hơn",
+    "betterTTS": "Chuyển văn bản thành giọng nói tự nhiên",
+    "unlimitedChat": "Lịch sử trò chuyện không giới hạn",
+    "perMonth": "/tháng",
+    "subscribe": "Đăng ký"
+  },
+  "leaderboard": {
+    "rankings": "Bảng xếp hạng"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "retry": "Thử lại",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "close": "Đóng",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép!",
+    "search": "Tìm kiếm",
+    "noResults": "Không tìm thấy kết quả",
+    "seeAll": "Xem tất cả",
+    "viewMore": "Xem thêm"
+  },
+  "language": {
+    "title": "Ngôn ngữ",
+    "select": "Chọn ngôn ngữ",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia"
+  }
+}

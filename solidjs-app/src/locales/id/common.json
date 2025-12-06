@@ -1,0 +1,114 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "Beranda",
+    "songs": "Lagu",
+    "study": "Belajar",
+    "chat": "Obrolan",
+    "wallet": "Dompet"
+  },
+  "auth": {
+    "signIn": "Masuk",
+    "connect": "Hubungkan",
+    "connectWallet": "Hubungkan Dompet",
+    "usePasskey": "Gunakan Passkey",
+    "chooseUsername": "Pilih Nama Pengguna",
+    "authenticating": "Mengautentikasi...",
+    "success": "Berhasil!",
+    "passkeyRecommended": "Passkey (Disarankan)",
+    "noPasswordSecure": "Tanpa kata sandi, aman",
+    "createNewAccount": "Buat Akun Baru",
+    "or": "atau",
+    "back": "Kembali",
+    "next": "Selanjutnya",
+    "usernamePlaceholder": "Pilih nama pengguna (6+ karakter)",
+    "validFormat": "Format valid",
+    "processing": "Memproses...",
+    "allSet": "Sudah siap! Mari mulai belajar.",
+    "startLearning": "Mulai Belajar",
+    "hideDetails": "Sembunyikan detail",
+    "showDetails": "Tampilkan detail",
+    "settingUp": "Menyiapkan...",
+    "createPasskey": "Buat passkey Anda",
+    "verifyingPasskey": "Memverifikasi passkey...",
+    "almostDone": "Hampir selesai...",
+    "authenticateDevice": "Autentikasi dengan perangkat Anda",
+    "fetchingAccount": "Mengambil akun..."
+  },
+  "wallet": {
+    "walletAddress": "Alamat Dompet",
+    "username": "Nama Pengguna",
+    "balances": "Saldo",
+    "currency": "Mata Uang",
+    "chain": "Rantai"
+  },
+  "chat": {
+    "title": "Obrolan",
+    "upgrade": "Tingkatkan",
+    "typePlaceholder": "Ketik pesan...",
+    "send": "Kirim"
+  },
+  "exercise": {
+    "translate": "Terjemahkan:",
+    "answer": "Jawab:",
+    "question": "Pertanyaan:",
+    "incorrect": "Salah",
+    "correct": "Benar!",
+    "next": "Selanjutnya",
+    "skip": "Lewati",
+    "tryAgain": "Coba Lagi"
+  },
+  "song": {
+    "unlockSong": "Buka Kunci Lagu",
+    "lifetimeAccess": "Dapatkan akses seumur hidup ke lagu lengkap.",
+    "whatYouGet": "Yang Anda dapatkan:",
+    "fullKaraoke": "Latihan karaoke lagu lengkap",
+    "wordByWord": "Waktu lirik kata per kata",
+    "lifetimeAccessShort": "Akses seumur hidup",
+    "oneTimePurchase": "Pembelian sekali bayar",
+    "purchase": "Beli",
+    "unlocked": "terbuka! Mulai berlatih sekarang.",
+    "practice": "Latihan",
+    "lyrics": "Lirik",
+    "exercises": "Latihan"
+  },
+  "premium": {
+    "upgradeToPremium": "Tingkatkan ke Premium",
+    "premiumFeatures": "Fitur Premium",
+    "betterAI": "Respons AI lebih baik",
+    "betterTTS": "Text-to-speech alami",
+    "unlimitedChat": "Riwayat obrolan tak terbatas",
+    "perMonth": "/bulan",
+    "subscribe": "Berlangganan"
+  },
+  "leaderboard": {
+    "rankings": "Peringkat"
+  },
+  "common": {
+    "loading": "Memuat...",
+    "error": "Kesalahan",
+    "retry": "Coba Lagi",
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "edit": "Edit",
+    "close": "Tutup",
+    "copy": "Salin",
+    "copied": "Disalin!",
+    "search": "Cari",
+    "noResults": "Tidak ada hasil",
+    "seeAll": "Lihat Semua",
+    "viewMore": "Lihat Lebih"
+  },
+  "language": {
+    "title": "Bahasa",
+    "select": "Pilih Bahasa",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "sites": [
+    {
+      "slug": "kschool",
+      "distDir": "dist",
+      "buildCommand": "npm run build"
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "Home",
+    "songs": "Songs",
+    "study": "Study",
+    "chat": "Chat",
+    "wallet": "Wallet"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "connect": "Connect",
+    "connectWallet": "Connect Wallet",
+    "usePasskey": "Use Passkey",
+    "chooseUsername": "Choose Username",
+    "authenticating": "Authenticating...",
+    "success": "Success!",
+    "passkeyRecommended": "Passkey (Recommended)",
+    "noPasswordSecure": "No password, secure",
+    "createNewAccount": "Create New Account",
+    "or": "or",
+    "back": "Back",
+    "next": "Next",
+    "usernamePlaceholder": "Choose a username (6+ characters)",
+    "validFormat": "Valid format",
+    "processing": "Processing...",
+    "allSet": "You're all set! Let's start learning.",
+    "startLearning": "Start Learning",
+    "hideDetails": "Hide details",
+    "showDetails": "Show details",
+    "settingUp": "Setting up...",
+    "createPasskey": "Create your passkey",
+    "verifyingPasskey": "Verifying passkey...",
+    "almostDone": "Almost done...",
+    "authenticateDevice": "Authenticate with your device",
+    "fetchingAccount": "Fetching account..."
+  },
+  "wallet": {
+    "walletAddress": "Wallet Address",
+    "username": "Username",
+    "balances": "Balances",
+    "currency": "Currency",
+    "chain": "Chain"
+  },
+  "chat": {
+    "title": "Chat",
+    "upgrade": "Upgrade",
+    "typePlaceholder": "Type a message...",
+    "send": "Send"
+  },
+  "exercise": {
+    "translate": "Translate:",
+    "answer": "Answer:",
+    "question": "Question:",
+    "incorrect": "Incorrect",
+    "correct": "Correct!",
+    "next": "Next",
+    "skip": "Skip",
+    "tryAgain": "Try Again"
+  },
+  "song": {
+    "unlockSong": "Unlock Song",
+    "lifetimeAccess": "Get lifetime access to the full song.",
+    "whatYouGet": "What you get:",
+    "fullKaraoke": "Full song karaoke practice",
+    "wordByWord": "Word-by-word lyrics timing",
+    "lifetimeAccessShort": "Lifetime access",
+    "oneTimePurchase": "One-time purchase",
+    "purchase": "Purchase",
+    "unlocked": "unlocked! Start practicing now.",
+    "practice": "Practice",
+    "lyrics": "Lyrics",
+    "exercises": "Exercises"
+  },
+  "premium": {
+    "upgradeToPremium": "Upgrade to Premium",
+    "premiumFeatures": "Premium Features",
+    "betterAI": "Better AI responses",
+    "betterTTS": "Natural text-to-speech",
+    "unlimitedChat": "Unlimited chat history",
+    "perMonth": "/month",
+    "subscribe": "Subscribe"
+  },
+  "leaderboard": {
+    "rankings": "Rankings"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "search": "Search",
+    "noResults": "No results found",
+    "seeAll": "See All",
+    "viewMore": "View More"
+  },
+  "language": {
+    "title": "Language",
+    "select": "Select Language",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "Hey! I'm Scarlett, I want to get to know you better...",
+      "surveyComplete": "Thanks for sharing! Now I can tailor our conversations to your interests. What would you like to chat about?"
+    },
+    "violet": {
+      "welcomeMessage": "Yo! I'm Violet. I'm into anime, gaming, and making beats. Let's learn English together while geeking out about the stuff we love! 🎧🎮 Quick q's first:",
+      "surveyComplete": "Awesome picks! I can already tell we're gonna vibe. What's on your mind?"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "Something else"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "Which of these artists is your favorite?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "How would you describe your English level?",
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "learningGoal": {
+        "question": "What's your main goal for learning English?",
+        "travel": "Travel & exploring",
+        "dating": "Meeting new people / dating",
+        "test": "Passing exams (TOEFL, IELTS)",
+        "job": "Career advancement"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "What anime are you into?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "What games do you play?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Rhythm games (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "Are you into making music?",
+        "yesDaw": "Yeah! I use a DAW",
+        "curious": "Curious but haven't started",
+        "listener": "Nah, just a listener"
+      }
+    }
+  }
+}

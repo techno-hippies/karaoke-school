@@ -1,0 +1,114 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "首页",
+    "songs": "歌曲",
+    "study": "学习",
+    "chat": "聊天",
+    "wallet": "钱包"
+  },
+  "auth": {
+    "signIn": "登录",
+    "connect": "连接",
+    "connectWallet": "连接钱包",
+    "usePasskey": "使用通行密钥",
+    "chooseUsername": "选择用户名",
+    "authenticating": "认证中...",
+    "success": "成功！",
+    "passkeyRecommended": "通行密钥（推荐）",
+    "noPasswordSecure": "无需密码，安全可靠",
+    "createNewAccount": "创建新账户",
+    "or": "或",
+    "back": "返回",
+    "next": "下一步",
+    "usernamePlaceholder": "选择用户名（至少6个字符）",
+    "validFormat": "格式正确",
+    "processing": "处理中...",
+    "allSet": "设置完成！开始学习吧。",
+    "startLearning": "开始学习",
+    "hideDetails": "隐藏详情",
+    "showDetails": "显示详情",
+    "settingUp": "正在设置...",
+    "createPasskey": "创建您的通行密钥",
+    "verifyingPasskey": "验证通行密钥...",
+    "almostDone": "即将完成...",
+    "authenticateDevice": "使用设备进行认证",
+    "fetchingAccount": "获取账户信息..."
+  },
+  "wallet": {
+    "walletAddress": "钱包地址",
+    "username": "用户名",
+    "balances": "余额",
+    "currency": "货币",
+    "chain": "链"
+  },
+  "chat": {
+    "title": "聊天",
+    "upgrade": "升级",
+    "typePlaceholder": "输入消息...",
+    "send": "发送"
+  },
+  "exercise": {
+    "translate": "翻译：",
+    "answer": "回答：",
+    "question": "问题：",
+    "incorrect": "不正确",
+    "correct": "正确！",
+    "next": "下一个",
+    "skip": "跳过",
+    "tryAgain": "再试一次"
+  },
+  "song": {
+    "unlockSong": "解锁歌曲",
+    "lifetimeAccess": "获得歌曲永久访问权限。",
+    "whatYouGet": "您将获得：",
+    "fullKaraoke": "完整歌曲卡拉OK练习",
+    "wordByWord": "逐字歌词时间轴",
+    "lifetimeAccessShort": "永久访问",
+    "oneTimePurchase": "一次性购买",
+    "purchase": "购买",
+    "unlocked": "已解锁！立即开始练习。",
+    "practice": "练习",
+    "lyrics": "歌词",
+    "exercises": "练习题"
+  },
+  "premium": {
+    "upgradeToPremium": "升级高级版",
+    "premiumFeatures": "高级版功能",
+    "betterAI": "更优质的AI回复",
+    "betterTTS": "自然语音合成",
+    "unlimitedChat": "无限聊天记录",
+    "perMonth": "/月",
+    "subscribe": "订阅"
+  },
+  "leaderboard": {
+    "rankings": "排行榜"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "retry": "重试",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "close": "关闭",
+    "copy": "复制",
+    "copied": "已复制！",
+    "search": "搜索",
+    "noResults": "未找到结果",
+    "seeAll": "查看全部",
+    "viewMore": "查看更多"
+  },
+  "language": {
+    "title": "语言",
+    "select": "选择语言",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia"
+  }
+}
