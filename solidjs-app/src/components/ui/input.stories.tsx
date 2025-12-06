@@ -6,10 +6,6 @@ const meta: Meta<typeof Input> = {
   component: Input,
   tags: ['autodocs'],
   argTypes: {
-    variant: {
-      control: 'select',
-      options: ['default', 'chat'],
-    },
     type: {
       control: 'select',
       options: ['text', 'email', 'password', 'number', 'search', 'tel', 'url'],
@@ -25,14 +21,6 @@ type Story = StoryObj<typeof Input>
 export const Default: Story = {
   args: {
     placeholder: 'Enter text...',
-    variant: 'default',
-  },
-}
-
-export const Chat: Story = {
-  args: {
-    placeholder: 'Type a message...',
-    variant: 'chat',
   },
 }
 
@@ -56,6 +44,13 @@ export const Password: Story = {
   },
 }
 
+export const Search: Story = {
+  args: {
+    type: 'search',
+    placeholder: 'Search...',
+  },
+}
+
 export const Disabled: Story = {
   args: {
     placeholder: 'Disabled input',
@@ -66,24 +61,20 @@ export const Disabled: Story = {
 export const Large: Story = {
   args: {
     placeholder: 'Large input (auth style)',
-    class: 'h-14 text-lg px-4',
+    class: 'h-14 text-lg',
   },
 }
 
-export const AllVariants: Story = {
+export const AllSizes: Story = {
   render: () => (
     <div class="flex flex-col gap-4 max-w-sm">
       <div class="space-y-2">
-        <label class="text-sm font-medium text-muted-foreground">Default (forms)</label>
-        <Input placeholder="Enter username" variant="default" />
-      </div>
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-muted-foreground">Chat (messaging)</label>
-        <Input placeholder="Type a message..." variant="chat" />
+        <label class="text-sm font-medium text-muted-foreground">Default</label>
+        <Input placeholder="Default size" />
       </div>
       <div class="space-y-2">
         <label class="text-sm font-medium text-muted-foreground">Large (auth dialogs)</label>
-        <Input placeholder="Username" class="h-14 text-lg px-4" />
+        <Input placeholder="Large size" class="h-14 text-lg" />
       </div>
     </div>
   ),
@@ -109,24 +100,10 @@ export const FormExample: Story = {
 }
 
 // Textarea stories
-const textareaMeta: Meta<typeof Textarea> = {
-  title: 'UI/Textarea',
-  component: Textarea,
-  tags: ['autodocs'],
-  argTypes: {
-    variant: {
-      control: 'select',
-      options: ['default', 'chat'],
-    },
-    placeholder: { control: 'text' },
-    disabled: { control: 'boolean' },
-  },
-}
-
 export const TextareaDefault: StoryObj<typeof Textarea> = {
   render: () => (
     <div class="max-w-sm">
-      <Textarea placeholder="Enter your message..." rows={3} variant="default" />
+      <Textarea placeholder="Enter your message..." rows={3} />
     </div>
   ),
 }
@@ -134,22 +111,7 @@ export const TextareaDefault: StoryObj<typeof Textarea> = {
 export const TextareaChat: StoryObj<typeof Textarea> = {
   render: () => (
     <div class="max-w-sm">
-      <Textarea placeholder="Type a message..." rows={1} variant="chat" />
-    </div>
-  ),
-}
-
-export const TextareaAllVariants: StoryObj<typeof Textarea> = {
-  render: () => (
-    <div class="flex flex-col gap-4 max-w-sm">
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-muted-foreground">Default (forms)</label>
-        <Textarea placeholder="Enter description..." rows={3} variant="default" />
-      </div>
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-muted-foreground">Chat (messaging)</label>
-        <Textarea placeholder="Type a message..." rows={1} variant="chat" />
-      </div>
+      <Textarea placeholder="Type a message..." rows={1} />
     </div>
   ),
 }

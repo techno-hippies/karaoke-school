@@ -361,7 +361,7 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
                     value={username()}
                     onInput={(e) => handleUsernameInput(e.currentTarget.value)}
                     minLength={6}
-                    class="h-14 text-lg px-4"
+                    class="h-14 text-lg"
                     autofocus
                   />
                   <Show when={username().length >= 6}>

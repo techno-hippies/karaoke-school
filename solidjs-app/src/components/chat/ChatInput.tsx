@@ -203,7 +203,6 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
           placeholder={inputPlaceholder()}
           disabled={local.disabled}
           rows={1}
-          variant="chat"
           class="flex-1 min-w-0"
         />
 
