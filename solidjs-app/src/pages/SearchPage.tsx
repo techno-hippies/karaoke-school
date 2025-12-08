@@ -8,13 +8,24 @@
 
 import { type Component, createMemo } from 'solid-js'
 import { useNavigate } from '@solidjs/router'
-import { useKaraokeSongsSearch, type KaraokeSong } from '@/hooks/useKaraokeSongs'
+import { useKaraokeSongsWithMetadata, type KaraokeSong } from '@/hooks/useKaraokeSongs'
+import { useTranslation } from '@/lib/i18n'
+import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
 import { LibraryView, type LibrarySong, type LibrarySection } from '@/components/search/LibraryView'
+import type { UILanguage } from '@/lib/i18n'
 
-// Featured artists that get their own sections
+// Featured artists that get their own sections (English names for matching)
 const FEATURED_ARTISTS = ['Beyoncé', 'Queen', 'Taylor Swift', 'Britney Spears']
 
-// Generate URL-friendly slug
+// Localized section titles for featured artists
+const FEATURED_ARTISTS_LOCALIZED: Record<string, Record<UILanguage, string>> = {
+  'Beyoncé': { en: 'Beyoncé', zh: '碧昂丝', vi: 'Beyoncé', id: 'Beyoncé' },
+  'Queen': { en: 'Queen', zh: '皇后乐队', vi: 'Queen', id: 'Queen' },
+  'Taylor Swift': { en: 'Taylor Swift', zh: '泰勒·斯威夫特', vi: 'Taylor Swift', id: 'Taylor Swift' },
+  'Britney Spears': { en: 'Britney Spears', zh: '布兰妮·斯皮尔斯', vi: 'Britney Spears', id: 'Britney Spears' },
+}
+
+// Generate URL-friendly slug (always use English name)
 function generateSlug(text: string): string {
   return text
     .toLowerCase()
@@ -28,35 +39,44 @@ function generateSlug(text: string): string {
 interface LibrarySongWithSlug extends LibrarySong {
   artistSlug: string
   songSlug: string
+  artistEnglish: string // Keep English name for section matching
 }
 
-function transformToLibrarySong(karaokeSong: KaraokeSong): LibrarySongWithSlug {
+function transformToLibrarySong(karaokeSong: KaraokeSong, uiLanguage: UILanguage): LibrarySongWithSlug {
+  // Always use English for slugs (URL routing)
   const artistSlug = generateSlug(karaokeSong.artist || 'unknown')
   const songSlug = generateSlug(karaokeSong.title || 'unknown')
 
+  // Get localized display names
+  const localizedTitle = getLocalizedTitle(karaokeSong, uiLanguage) || karaokeSong.title
+  const localizedArtist = getLocalizedArtist(karaokeSong, uiLanguage) || karaokeSong.artist
+
   return {
     id: karaokeSong.spotifyTrackId,
-    title: karaokeSong.title,
-    artist: karaokeSong.artist,
+    title: localizedTitle,
+    artist: localizedArtist,
     artworkUrl: karaokeSong.artworkUrl || '',
     artistSlug,
     songSlug,
+    artistEnglish: karaokeSong.artist, // Keep English for section matching
   }
 }
 
-function groupSongsIntoSections(songs: LibrarySongWithSlug[]): LibrarySection[] {
+function groupSongsIntoSections(songs: LibrarySongWithSlug[], uiLanguage: UILanguage): LibrarySection[] {
   const sections: LibrarySection[] = []
   const usedSongIds = new Set<string>()
 
   // Create sections for featured artists
   for (const artistName of FEATURED_ARTISTS) {
     const artistSongs = songs.filter(
-      (s) => s.artist.toLowerCase() === artistName.toLowerCase()
+      (s) => s.artistEnglish.toLowerCase() === artistName.toLowerCase()
     )
     if (artistSongs.length > 0) {
+      // Get localized section title
+      const sectionTitle = FEATURED_ARTISTS_LOCALIZED[artistName]?.[uiLanguage] || artistName
       sections.push({
         id: generateSlug(artistName),
-        title: artistName,
+        title: sectionTitle,
         songs: artistSongs,
         showArtist: false,
       })
@@ -80,16 +100,17 @@ function groupSongsIntoSections(songs: LibrarySongWithSlug[]): LibrarySection[] 
 
 export const SearchPage: Component = () => {
   const navigate = useNavigate()
+  const { uiLanguage } = useTranslation()
 
-  const songsQuery = useKaraokeSongsSearch(
-    () => '',
+  // Use enriched query that fetches Grove metadata (includes localized names)
+  const songsQuery = useKaraokeSongsWithMetadata(
     () => ({ first: 50, hasInstrumental: true })
   )
 
   const sections = createMemo<LibrarySection[]>(() => {
     if (!songsQuery.data) return []
-    const songs = songsQuery.data.map(transformToLibrarySong)
-    return groupSongsIntoSections(songs)
+    const songs = songsQuery.data.map(song => transformToLibrarySong(song, uiLanguage()))
+    return groupSongsIntoSections(songs, uiLanguage())
   })
 
   const handleSongClick = (song: LibrarySong) => {

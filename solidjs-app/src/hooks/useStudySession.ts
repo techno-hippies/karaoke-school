@@ -308,9 +308,7 @@ export function useStudySession(
   }
 
   const handleClose = () => {
-    if (confirm('Exit study session? Progress will be saved.')) {
-      navigate(exitPath, { replace: true })
-    }
+    navigate(exitPath, { replace: true })
   }
 
   // Calculate progress

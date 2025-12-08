@@ -6,7 +6,7 @@ import { Leaderboard } from '@/components/leaderboard/Leaderboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Icon } from '@/components/icons'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, getBestUrl } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 
@@ -100,11 +100,15 @@ export const ArtistPage: Component = () => {
     if (!artist.data?.songs) return []
 
     return artist.data.songs.map((song) => {
-      const coverUrl = song.coverUri
-        ? song.coverUri.startsWith('https://')
-          ? song.coverUri
-          : convertGroveUri(song.coverUri)
-        : undefined
+      let coverUrl: string | undefined
+      if (song.coverUri) {
+        if (song.coverUri.startsWith('https://')) {
+          coverUrl = song.coverUri
+        } else {
+          const manifest = buildManifest(song.coverUri)
+          coverUrl = getBestUrl(manifest) ?? undefined
+        }
+      }
 
       return {
         id: song.spotifyTrackId,

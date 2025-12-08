@@ -2,6 +2,8 @@ import { createSignal, createEffect, onMount, onCleanup, For, Show, type Compone
 import { useNavigate } from '@solidjs/router'
 import { VideoPost } from './VideoPost'
 import { useSongPrefetch } from '@/hooks/usePrefetch'
+import { useTranslation } from '@/lib/i18n'
+import { haptic } from '@/lib/utils'
 import type { VideoPostData } from './types'
 
 export interface VerticalVideoFeedProps {
@@ -12,7 +14,6 @@ export interface VerticalVideoFeedProps {
   initialVideoId?: string
   hasMobileFooter?: boolean
   onLikeClick?: (videoId: string) => void
-  onFollowClick?: (videoId: string) => void
   onProfileClick?: (username: string) => void
   /** Show back button on videos */
   showBackButton?: boolean
@@ -27,6 +28,7 @@ export interface VerticalVideoFeedProps {
  * Features snap scrolling and keyboard navigation
  */
 export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
+  const { t } = useTranslation()
   let containerRef: HTMLDivElement | undefined
   const [activeIndex, setActiveIndex] = createSignal(0)
   const navigate = useNavigate()
@@ -63,6 +65,7 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
     const newIndex = Math.round(scrollTop / viewportHeight)
 
     if (newIndex !== activeIndex() && newIndex >= 0 && newIndex < props.videos.length) {
+      haptic.light()
       setActiveIndex(newIndex)
     }
 
@@ -109,7 +112,7 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
       when={props.videos.length > 0 || props.isLoading}
       fallback={
         <div class="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
-          <div class="text-foreground text-lg">No videos available</div>
+          <div class="text-foreground text-lg">{t('video.noVideos')}</div>
         </div>
       }
     >
@@ -148,7 +151,6 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
                   likes={video.likes}
                   shares={video.shares}
                   isLiked={video.isLiked}
-                  isFollowing={video.isFollowing}
                   canInteract={video.canInteract}
                   autoplay={isActive()}
                   priorityLoad={shouldPriorityLoad()}
@@ -156,7 +158,6 @@ export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
                   showBackButton={props.showBackButton}
                   onBack={props.onBack}
                   onLikeClick={() => props.onLikeClick?.(video.id)}
-                  onFollowClick={() => props.onFollowClick?.(video.id)}
                   onProfileClick={() => {
                     props.onProfileClick?.(video.username)
                     navigate(`/u/${video.username}`)

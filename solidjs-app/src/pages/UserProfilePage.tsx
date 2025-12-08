@@ -33,7 +33,17 @@ export const UserProfilePage: Component = () => {
   })
 
   const handleBack = () => {
-    navigate(-1)
+    // Check if we have history to go back to within the app
+    // window.history.length > 1 isn't reliable (includes external history)
+    // Instead, check if there's a referrer from within the app or use a fallback
+    const hasInternalHistory = document.referrer.includes(window.location.origin)
+
+    if (hasInternalHistory && window.history.length > 1) {
+      navigate(-1)
+    } else {
+      // Fallback to home feed if no internal history
+      navigate('/', { replace: true })
+    }
   }
 
   return (

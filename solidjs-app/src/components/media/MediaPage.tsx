@@ -117,15 +117,7 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
         </div>
 
         {/* Bottom Controls */}
-        <div class="flex-none px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center gap-5">
-          {/* Play/Pause Button */}
-          <AudioButton
-            isPlaying={isPlaying()}
-            onClick={togglePlayPause}
-            size="lg"
-            aria-label={isPlaying() ? 'Pause' : 'Play'}
-          />
-
+        <div class="flex-none px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center gap-5" style={{ 'padding-bottom': 'calc(2rem + env(safe-area-inset-bottom))' }}>
           {/* Progress Bar */}
           <AudioScrobbleBar
             currentTime={currentTime}
@@ -134,6 +126,14 @@ export const MediaPage: Component<MediaPageProps> = (props) => {
             showTimeLabels
             isAudioLoading={props.isAudioLoading}
             class="w-full"
+          />
+
+          {/* Play/Pause Button */}
+          <AudioButton
+            isPlaying={isPlaying()}
+            onClick={togglePlayPause}
+            size="lg"
+            aria-label={isPlaying() ? 'Pause' : 'Play'}
           />
         </div>
       </div>

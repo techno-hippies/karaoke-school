@@ -22,7 +22,7 @@ interface LanguageSwitcherProps {
 export const LanguageSwitcher: Component<LanguageSwitcherProps> = (props) => {
   const { t, uiLanguage, setUILanguage } = useTranslation()
 
-  const languageOptions = (SUPPORTED_UI_LANGUAGES as unknown as UILanguage[]).map(lang => ({
+  const languageOptions = SUPPORTED_UI_LANGUAGES.map(lang => ({
     value: lang,
     label: getLanguageDisplayName(lang),
   }))
@@ -51,10 +51,9 @@ export const LanguageSwitcherCompact: Component<{ class?: string }> = (props) =>
 
   // Cycle through languages on click
   const cycleLanguage = () => {
-    const langs = SUPPORTED_UI_LANGUAGES as unknown as UILanguage[]
-    const currentIndex = langs.indexOf(uiLanguage())
-    const nextIndex = (currentIndex + 1) % langs.length
-    setUILanguage(langs[nextIndex])
+    const currentIndex = SUPPORTED_UI_LANGUAGES.indexOf(uiLanguage())
+    const nextIndex = (currentIndex + 1) % SUPPORTED_UI_LANGUAGES.length
+    setUILanguage(SUPPORTED_UI_LANGUAGES[nextIndex])
   }
 
   return (

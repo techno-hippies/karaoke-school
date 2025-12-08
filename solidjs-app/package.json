@@ -11,6 +11,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@across-protocol/app-sdk": "^0.4.4",
+    "@corvu/drawer": "^0.2.4",
     "@fontsource/geist": "^5.2.8",
     "@kobalte/core": "^0.13.9",
     "@lens-protocol/client": "0.0.0-canary-20250820102520",
@@ -18,7 +20,6 @@
     "@lit-protocol/auth": "8.1.2",
     "@lit-protocol/lit-client": "8.2.3",
     "@lit-protocol/networks": "8.3.2",
-    "@phosphor-icons/web": "2.1.2",
     "@solidjs/router": "^0.15.3",
     "@tanstack/solid-query": "^5.90.15",
     "@wagmi/core": "^3.0.0",
@@ -29,6 +30,7 @@
     "graphql": "^16.9.0",
     "graphql-request": "^7.1.2",
     "idb": "8.0.3",
+    "phosphor-icons-solid": "^1.0.0",
     "process": "0.11.10",
     "solid-js": "^1.9.3",
     "solid-sonner": "^0.2.8",

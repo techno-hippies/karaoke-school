@@ -10,8 +10,6 @@ import type { VideoPostData } from './types'
 export interface VideoPostProps extends VideoPostData {
   onLikeClick?: () => void
   onShareClick?: () => void
-  onFollowClick?: () => void
-  isFollowLoading?: boolean
   onProfileClick?: () => void
   onAudioClick?: () => void
   autoplay?: boolean
@@ -193,10 +191,6 @@ export const VideoPost: Component<VideoPostProps> = (props) => {
         <VideoActions
           username={props.username}
           userAvatar={props.userAvatar}
-          isFollowing={props.isFollowing ?? false}
-          canFollow={props.canInteract ?? true}
-          isFollowLoading={props.isFollowLoading}
-          onFollowClick={() => props.onFollowClick?.()}
           onProfileClick={() => props.onProfileClick?.()}
           isLiked={props.isLiked ?? false}
           onLikeClick={() => props.onLikeClick?.()}
@@ -217,10 +211,6 @@ export const VideoPost: Component<VideoPostProps> = (props) => {
         <VideoActions
           username={props.username}
           userAvatar={props.userAvatar}
-          isFollowing={props.isFollowing ?? false}
-          canFollow={props.canInteract ?? true}
-          isFollowLoading={props.isFollowLoading}
-          onFollowClick={() => props.onFollowClick?.()}
           onProfileClick={() => props.onProfileClick?.()}
           isLiked={props.isLiked ?? false}
           onLikeClick={() => props.onLikeClick?.()}

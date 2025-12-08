@@ -31,31 +31,16 @@ function InteractiveActions(props: {
   hasAvatar?: boolean
   hasMusicImage?: boolean
   canStudy?: boolean
-  canFollow?: boolean
-  initialFollowing?: boolean
   initialLiked?: boolean
   initialMuted?: boolean
 }) {
-  const [isFollowing, setIsFollowing] = createSignal(props.initialFollowing ?? false)
   const [isLiked, setIsLiked] = createSignal(props.initialLiked ?? false)
   const [isMuted, setIsMuted] = createSignal(props.initialMuted ?? true)
-  const [isFollowLoading, setIsFollowLoading] = createSignal(false)
-
-  const handleFollow = async () => {
-    setIsFollowLoading(true)
-    await new Promise((r) => setTimeout(r, 500))
-    setIsFollowing(!isFollowing())
-    setIsFollowLoading(false)
-  }
 
   return (
     <VideoActions
       username="scarlett"
       userAvatar={props.hasAvatar ? SAMPLE_AVATAR : undefined}
-      isFollowing={isFollowing()}
-      canFollow={props.canFollow ?? true}
-      isFollowLoading={isFollowLoading()}
-      onFollowClick={handleFollow}
       onProfileClick={() => console.log('Profile clicked')}
       isLiked={isLiked()}
       onLikeClick={() => setIsLiked(!isLiked())}
@@ -81,7 +66,6 @@ export const Default: Story = {
       hasAvatar={true}
       hasMusicImage={true}
       canStudy={true}
-      canFollow={true}
     />
   ),
 }
@@ -95,22 +79,19 @@ export const NoAvatar: Story = {
       hasAvatar={false}
       hasMusicImage={true}
       canStudy={true}
-      canFollow={true}
     />
   ),
 }
 
 /**
- * Already following and liked
+ * Already liked
  */
-export const FollowingAndLiked: Story = {
+export const Liked: Story = {
   render: () => (
     <InteractiveActions
       hasAvatar={true}
       hasMusicImage={true}
       canStudy={true}
-      canFollow={true}
-      initialFollowing={true}
       initialLiked={true}
     />
   ),
@@ -125,21 +106,6 @@ export const NoStudy: Story = {
       hasAvatar={true}
       hasMusicImage={true}
       canStudy={false}
-      canFollow={true}
-    />
-  ),
-}
-
-/**
- * Cannot follow (self or not logged in)
- */
-export const CannotFollow: Story = {
-  render: () => (
-    <InteractiveActions
-      hasAvatar={true}
-      hasMusicImage={true}
-      canStudy={true}
-      canFollow={false}
     />
   ),
 }
@@ -153,7 +119,6 @@ export const NoMusicImage: Story = {
       hasAvatar={true}
       hasMusicImage={false}
       canStudy={true}
-      canFollow={true}
     />
   ),
 }
@@ -167,7 +132,6 @@ export const Unmuted: Story = {
       hasAvatar={true}
       hasMusicImage={true}
       canStudy={true}
-      canFollow={true}
       initialMuted={false}
     />
   ),
@@ -185,9 +149,6 @@ export const Minimal: Story = {
       <VideoActions
         username="user"
         userAvatar={undefined}
-        isFollowing={false}
-        canFollow={false}
-        onFollowClick={() => {}}
         onProfileClick={() => console.log('Profile')}
         isLiked={isLiked()}
         onLikeClick={() => setIsLiked(!isLiked())}

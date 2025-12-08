@@ -3,12 +3,17 @@
  * Subscription dialog for premium AI chat features (Unlock Protocol)
  * - Better AI model
  * - Premium TTS voice
+ *
+ * Supports cross-chain payments via Across Protocol
  */
 
-import { createSignal, onCleanup, type Component } from 'solid-js'
+import { createSignal, createMemo, onCleanup, Show, type Component } from 'solid-js'
 import { PurchaseDialog } from './PurchaseDialog'
+import { ChainSelector } from './ChainSelector'
 import { Icon } from '@/components/icons'
+import { baseSepolia } from 'viem/chains'
 import type { PurchaseStep } from './types'
+import type { SupportedChainId } from '@/lib/across'
 
 export interface PremiumUpgradeDialogProps {
   /** Whether the dialog is open */
@@ -35,11 +40,31 @@ export interface PremiumUpgradeDialogProps {
 
   /** URL to audio preview file */
   previewAudioUrl?: string
+
+  // Cross-chain support (optional - for progressive enhancement)
+  /** Selected origin chain for payment */
+  selectedChainId?: SupportedChainId
+  /** Called when user changes origin chain */
+  onChainChange?: (chainId: SupportedChainId) => void
+  /** Available chains for cross-chain payment */
+  availableChains?: { id: SupportedChainId; name: string; icon: string }[]
+  /** User's balance on selected chain */
+  originBalance?: bigint
+  /** Whether cross-chain mode is enabled */
+  crossChainEnabled?: boolean
+  /** Bridge fee display string */
+  bridgeFee?: string
 }
 
 export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props) => {
   const [isPlaying, setIsPlaying] = createSignal(false)
   let audioRef: HTMLAudioElement | null = null
+
+  // Check if cross-chain is selected (not Base Sepolia)
+  const isCrossChain = createMemo(() => {
+    if (!props.crossChainEnabled || !props.selectedChainId) return false
+    return props.selectedChainId !== baseSepolia.id
+  })
 
   const handlePreviewClick = () => {
     if (!props.previewAudioUrl) return
@@ -110,6 +135,25 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
         </div>
       </div>
 
+      {/* Chain Selector (cross-chain enabled) */}
+      <Show
+        when={
+          props.crossChainEnabled &&
+          props.selectedChainId &&
+          props.onChainChange &&
+          props.availableChains
+        }
+      >
+        <ChainSelector
+          selectedChainId={props.selectedChainId!}
+          onChainChange={props.onChainChange!}
+          availableChains={props.availableChains!}
+          balance={props.originBalance}
+          balanceDecimals={18}
+          balanceSymbol="ETH"
+        />
+      </Show>
+
       {/* Price */}
       <div class="flex flex-col items-center gap-1 p-6 rounded-2xl bg-muted/30">
         <div class="flex items-baseline gap-2">
@@ -117,6 +161,12 @@ export const PremiumUpgradeDialog: Component<PremiumUpgradeDialogProps> = (props
           <span class="text-sm text-muted-foreground">/ month</span>
         </div>
         <span class="text-xs text-muted-foreground">Base Sepolia</span>
+        {/* Bridge fee indicator */}
+        <Show when={isCrossChain() && props.bridgeFee}>
+          <span class="text-xs text-muted-foreground mt-1">
+            + {props.bridgeFee} bridge fee
+          </span>
+        </Show>
       </div>
     </div>
   )

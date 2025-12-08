@@ -4,6 +4,7 @@ import { useFeedPosts } from '../../lib/lens'
 import { VerticalVideoFeed } from './VerticalVideoFeed'
 import { FeedLoadingSkeleton } from './FeedLoadingSkeleton'
 import { useViewHistory, sortByViewStatus } from '@/hooks/useViewHistory'
+import { useTranslation } from '@/lib/i18n'
 
 export interface ForYouFeedProps {
   /** Initial video ID to scroll to */
@@ -22,10 +23,11 @@ export interface ForYouFeedProps {
  * Features:
  * - Fetches posts with karaoke tag from app
  * - Uses global feed (all creators)
- * - Handles like/follow interactions
+ * - Handles like interactions
  * - Lazy loads more posts on scroll
  */
 export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // Fetch posts from Lens
@@ -50,17 +52,14 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
 
   // Local state for optimistic UI updates
   const [localLikes, setLocalLikes] = createSignal<Map<string, boolean>>(new Map())
-  const [localFollows, setLocalFollows] = createSignal<Map<string, boolean>>(new Map())
 
   // Merge server data with local optimistic updates
   const videoPosts = createMemo(() => {
     const likes = localLikes()
-    const follows = localFollows()
 
     const merged = posts().map(post => ({
       ...post,
       isLiked: likes.has(post.id) ? likes.get(post.id)! : post.isLiked,
-      isFollowing: follows.has(post.username) ? follows.get(post.username)! : post.isFollowing,
       likes: likes.has(post.id)
         ? (likes.get(post.id) ? post.likes + 1 : Math.max(0, post.likes - 1))
         : post.likes,
@@ -91,22 +90,6 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
     // TODO: Call Lens API to actually like/unlike
   }
 
-  // Handle follow toggle (optimistic update)
-  const handleFollow = async (videoId: string) => {
-    const post = posts().find(p => p.id === videoId)
-    if (!post) return
-
-    // Optimistic update
-    setLocalFollows(prev => {
-      const next = new Map(prev)
-      const currentlyFollowing = next.has(post.username) ? next.get(post.username)! : post.isFollowing
-      next.set(post.username, !currentlyFollowing)
-      return next
-    })
-
-    // TODO: Call Lens API to actually follow/unfollow
-  }
-
   // Handle profile click
   const handleProfileClick = (username: string) => {
     navigate(`/u/${username}`)
@@ -125,8 +108,8 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
         fallback={
           <div class="h-screen w-full flex items-center justify-center bg-background">
             <div class="text-center space-y-4">
-              <div class="text-foreground text-lg">No videos available</div>
-              <div class="text-muted-foreground text-sm">Check back later for new content</div>
+              <div class="text-foreground text-lg">{t('video.noVideos')}</div>
+              <div class="text-muted-foreground text-sm">{t('video.checkBackLater')}</div>
             </div>
           </div>
         }
@@ -141,7 +124,6 @@ export const ForYouFeed: Component<ForYouFeedProps> = (props) => {
           hasMore={hasMore()}
           onLoadMore={loadMore}
           onLikeClick={handleLike}
-          onFollowClick={handleFollow}
           onProfileClick={handleProfileClick}
           onVideoViewed={markViewed}
         />

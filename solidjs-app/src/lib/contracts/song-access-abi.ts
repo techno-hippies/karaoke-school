@@ -1,26 +1,24 @@
 /**
- * SongAccess contract ABI and USDC ABI for Base Sepolia
+ * SongAccess contract ABI for Base Sepolia
+ * ETH-based payments (single signature!)
  */
 
 export const SONG_ACCESS_ABI = [
   {
-    inputs: [
-      { name: 'spotifyTrackId', type: 'string' },
-      { name: 'deadline', type: 'uint256' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
-    ],
+    inputs: [{ name: 'spotifyTrackId', type: 'string' }],
     name: 'purchase',
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
-    inputs: [{ name: 'spotifyTrackId', type: 'string' }],
-    name: 'purchaseWithApproval',
+    inputs: [
+      { name: 'spotifyTrackId', type: 'string' },
+      { name: 'recipient', type: 'address' },
+    ],
+    name: 'purchaseFor',
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -33,29 +31,9 @@ export const SONG_ACCESS_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
-] as const
-
-export const USDC_ABI = [
   {
-    inputs: [{ name: 'owner', type: 'address' }],
-    name: 'nonces',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: 'account', type: 'address' }],
-    name: 'balanceOf',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' },
-    ],
-    name: 'allowance',
+    inputs: [],
+    name: 'price',
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function',

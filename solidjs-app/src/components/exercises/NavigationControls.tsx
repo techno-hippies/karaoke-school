@@ -1,6 +1,7 @@
 import { type Component, createSignal, Show, For } from 'solid-js'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n'
 
 export interface NavigationControlsProps {
   /** Callback when next button is clicked */
@@ -18,8 +19,9 @@ export interface NavigationControlsProps {
 }
 
 export const NavigationControls: Component<NavigationControlsProps> = (props) => {
+  const { t } = useTranslation()
   const [showReportMenu, setShowReportMenu] = createSignal(false)
-  const displayLabel = () => props.label || 'Next'
+  const displayLabel = () => props.label || t('exercise.next')
 
   const reportReasons = [
     { id: 'incorrect_answer', label: 'Incorrect answer' },

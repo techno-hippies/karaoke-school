@@ -68,11 +68,9 @@ export {
   getExistingPkpForEoa,
 } from './auth-eoa'
 
-// Social Auth (stubs - not yet implemented)
+// Social Auth (Google, Discord)
 export {
   authGoogle,
   authDiscord,
-  loginWithGoogle,
-  loginWithDiscord,
   type SocialAuthResult,
 } from './auth-social'

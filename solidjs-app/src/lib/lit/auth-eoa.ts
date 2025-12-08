@@ -68,13 +68,19 @@ export async function registerWithEoa(
   // Use WalletClientAuthenticator to generate proper authData with SIWE signature
   // This prompts the user to sign a message proving wallet ownership
   if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
-  const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+  const rawAuthData = await WalletClientAuthenticator.authenticate(walletClient)
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', rawAuthData.authMethodType)
   if (IS_DEV) console.log('[LitEoa] ✓ PKP registration complete')
 
-  saveSession(pkpInfo, authData as AuthData)
+  // Store EOA address in authData for later use (payment wallet selection)
+  const authData: AuthData = {
+    ...rawAuthData as AuthData,
+    eoaAddress: address,
+  }
 
-  return { pkpInfo, authData: authData as AuthData }
+  saveSession(pkpInfo, authData)
+
+  return { pkpInfo, authData }
 }
 
 /**
@@ -128,13 +134,19 @@ export async function loginWithEoa(
   // Use WalletClientAuthenticator to generate proper authData with SIWE signature
   // This prompts the user to sign a message proving wallet ownership
   if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
-  const authData = await WalletClientAuthenticator.authenticate(walletClient)
-  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', authData.authMethodType)
+  const rawAuthData = await WalletClientAuthenticator.authenticate(walletClient)
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', rawAuthData.authMethodType)
   if (IS_DEV) console.log('[LitEoa] ✓ PKP login complete')
 
-  saveSession(pkpInfo, authData as AuthData)
+  // Store EOA address in authData for later use (payment wallet selection)
+  const authData: AuthData = {
+    ...rawAuthData as AuthData,
+    eoaAddress: address,
+  }
 
-  return { pkpInfo, authData: authData as AuthData }
+  saveSession(pkpInfo, authData)
+
+  return { pkpInfo, authData }
 }
 
 /**

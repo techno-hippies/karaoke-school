@@ -12,6 +12,7 @@ import { Component, For, Show, splitProps, createMemo } from 'solid-js'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/ui/avatar'
 import { Icon } from '@/components/icons'
+import { useTranslation } from '@/lib/i18n'
 import type { ChatWord, MessageContent } from '@/lib/chat/types'
 
 export interface ChatMessageProps {
@@ -50,6 +51,7 @@ export interface ChatMessageProps {
  * ChatMessage - Single chat bubble with word-level highlighting support
  */
 export const ChatMessage: Component<ChatMessageProps> = (props) => {
+  const { t } = useTranslation()
   const [local, others] = splitProps(props, [
     'content',
     'sender',
@@ -195,17 +197,17 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                       fallback={
                         <>
                           <Icon name="speaker-high" class="text-base" />
-                          <span>Play</span>
+                          <span>{t('chat.play')}</span>
                         </>
                       }
                     >
                       <Icon name="speaker-high" class="text-base animate-pulse" />
-                      <span>Loading...</span>
+                      <span>{t('common.loading')}</span>
                     </Show>
                   }
                 >
                   <Icon name="stop" class="text-base" weight="fill" />
-                  <span>Stop</span>
+                  <span>{t('chat.stop')}</span>
                 </Show>
               </button>
             </Show>
@@ -223,7 +225,7 @@ export const ChatMessage: Component<ChatMessageProps> = (props) => {
                 )}
               >
                 <Icon name="translate" class="text-base" />
-                <span>{local.isTranslating ? 'Translating...' : 'Translate'}</span>
+                <span>{local.isTranslating ? t('chat.translating') : t('chat.translate')}</span>
               </button>
             </Show>
 

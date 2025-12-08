@@ -11,6 +11,7 @@
   },
   "auth": {
     "signIn": "Sign In",
+    "signUp": "Sign Up",
     "connect": "Connect",
     "connectWallet": "Connect Wallet",
     "usePasskey": "Use Passkey",
@@ -18,15 +19,24 @@
     "authenticating": "Authenticating...",
     "success": "Success!",
     "passkeyRecommended": "Passkey - Recommended",
+    "noPasswordSecure": "No password needed, secure",
     "createNewAccount": "Create New Account",
     "or": "or",
     "back": "Back",
     "next": "Next",
     "usernamePlaceholder": "Choose a username (6+ characters)",
-    "validFormat": "Valid format",
+    "valid": "Valid",
     "processing": "Processing...",
+    "allSet": "All set! Let's start learning.",
+    "startLearning": "Start Learning",
     "hideDetails": "Hide details",
     "showDetails": "Show details",
+    "settingUp": "Setting up...",
+    "createPasskey": "Create your passkey",
+    "verifyingPasskey": "Verifying passkey...",
+    "almostDone": "Almost done...",
+    "authenticateDevice": "Authenticate with your device",
+    "fetchingAccount": "Fetching account...",
     "google": "Google",
     "discord": "Discord",
     "continueWithGoogle": "Google",
@@ -34,20 +44,56 @@
     "createWithGoogle": "Create with Google",
     "createWithDiscord": "Create with Discord",
     "signInWithGoogle": "Sign in with Google",
-    "signInWithDiscord": "Sign in with Discord"
+    "signInWithDiscord": "Sign in with Discord",
+    "creatingPasskeyWallet": "Creating passkey and wallet...",
+    "settingUpWallet": "Setting up wallet...",
+    "settingUpLensProfile": "Setting up Lens profile...",
+    "foundExistingLens": "Found existing Lens account, connecting...",
+    "creatingNewLensAccount": "Creating new Lens account...",
+    "authenticatingPasskey": "Authenticating with passkey...",
+    "connectingToLens": "Connecting to Lens...",
+    "lensSessionResumed": "Lens session resumed!",
+    "checkingExistingAccount": "Checking for existing account...",
+    "foundExistingSigningIn": "Found existing account, signing in...",
+    "creatingNewWallet": "Creating new wallet...",
+    "settingUpSession": "Setting up session...",
+    "settingUpLens": "Setting up Lens...",
+    "checkingLensAccount": "Checking for Lens account...",
+    "connectingToLensAccount": "Connecting to Lens account...",
+    "connectingWallet": "Connecting wallet...",
+    "waitingForWallet": "Waiting for wallet connection...",
+    "openingGoogle": "Opening Google...",
+    "openingDiscord": "Opening Discord...",
+    "creatingAccount": "Creating account...",
+    "complete": "Complete!",
+    "wrongNetwork": "Wrong Network",
+    "wrongNetworkDesc": "Please switch to {{chain}} to continue.",
+    "switchNetwork": "Switch to {{chain}}",
+    "switchingNetwork": "Switching...",
+    "manualNetworkSwitch": "If the button doesn't work, add the network manually:"
   },
   "wallet": {
     "walletAddress": "Wallet Address",
     "username": "Username",
     "balances": "Balances",
     "currency": "Currency",
-    "chain": "Chain"
+    "chain": "Chain",
+    "disconnect": "Disconnect",
+    "settings": "Settings",
+    "points": "Points",
+    "achievements": "Achievements",
+    "noAchievements": "No achievements yet"
   },
   "chat": {
     "title": "Chat",
     "upgrade": "Upgrade",
     "typePlaceholder": "Type a message...",
-    "send": "Send"
+    "send": "Send",
+    "play": "Play",
+    "stop": "Stop",
+    "transcribing": "Transcribing...",
+    "translate": "Translate",
+    "translating": "Translating..."
   },
   "exercise": {
     "translate": "Translate:",
@@ -57,7 +103,9 @@
     "correct": "Correct!",
     "next": "Next",
     "skip": "Skip",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try again.",
+    "sayItBack": "Say it back:",
+    "youSaid": "You said:"
   },
   "song": {
     "unlockSong": "Unlock Song",
@@ -82,8 +130,43 @@
     "perMonth": "/month",
     "subscribe": "Subscribe"
   },
+  "profile": {},
   "leaderboard": {
     "rankings": "Rankings"
+  },
+  "video": {
+    "noVideos": "No videos available",
+    "checkBackLater": "Check back later for new content",
+    "noMedia": "No media",
+    "playbackError": "Playback Error"
+  },
+  "study": {
+    "signUpToStudy": "Sign Up to Study",
+    "signUpDescription": "Create an account to track your progress and practice with spaced repetition.",
+    "noCardsDue": "No Cards Due",
+    "noCardsDescription": "You've completed all available cards for now. Check back later!",
+    "sessionComplete": "Session complete!",
+    "comeBackTomorrow": "Come back tomorrow to reinforce what you've learned.",
+    "cardsCompleted": "Cards Completed",
+    "youFinishedSong": "You finished \"{{title}}\"!",
+    "youFinishedAll": "You finished all cards!",
+    "new": "New",
+    "learning": "Learning",
+    "due": "Due",
+    "studyAll": "Study All",
+    "signInToStudy": "Sign In to Study",
+    "allCaughtUp": "All caught up!",
+    "noCardsDueGreat": "No cards due. Great job!",
+    "browseSongs": "Browse Songs"
+  },
+  "home": {
+    "recentlyAdded": "Recently Added",
+    "allSongs": "All Songs",
+    "trending": "Trending"
+  },
+  "walletPage": {
+    "signUpTitle": "Sign Up",
+    "signUpDescription": "Create an account to access your wallet and purchases"
   },
   "common": {
     "loading": "Loading...",
@@ -100,7 +183,22 @@
     "search": "Search",
     "noResults": "No results found",
     "seeAll": "See All",
-    "viewMore": "View More"
+    "viewMore": "View More",
+    "goBack": "Go Back",
+    "finish": "Finish",
+    "playAgain": "Play Again",
+    "grading": "Grading...",
+    "complete": "Complete",
+    "reloadPage": "Reload Page",
+    "exit": "Exit",
+    "exitStudy": {
+      "title": "Exit Study Session?",
+      "description": "Your progress has been saved. You can continue later."
+    },
+    "exitKaraoke": {
+      "title": "Exit Practice?",
+      "description": "Your current session will end."
+    }
   },
   "language": {
     "title": "Language",

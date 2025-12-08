@@ -11,6 +11,7 @@
   },
   "auth": {
     "signIn": "Đăng nhập",
+    "signUp": "Đăng ký",
     "connect": "Kết nối",
     "connectWallet": "Kết nối ví",
     "usePasskey": "Dùng Passkey",
@@ -24,7 +25,7 @@
     "back": "Quay lại",
     "next": "Tiếp theo",
     "usernamePlaceholder": "Chọn tên người dùng (6+ ký tự)",
-    "validFormat": "Định dạng hợp lệ",
+    "valid": "Hợp lệ",
     "processing": "Đang xử lý...",
     "allSet": "Đã sẵn sàng! Bắt đầu học thôi.",
     "startLearning": "Bắt đầu học",
@@ -35,20 +36,64 @@
     "verifyingPasskey": "Đang xác minh passkey...",
     "almostDone": "Sắp xong...",
     "authenticateDevice": "Xác thực bằng thiết bị",
-    "fetchingAccount": "Đang tải tài khoản..."
+    "fetchingAccount": "Đang tải tài khoản...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "Tạo với Google",
+    "createWithDiscord": "Tạo với Discord",
+    "signInWithGoogle": "Đăng nhập với Google",
+    "signInWithDiscord": "Đăng nhập với Discord",
+    "creatingPasskeyWallet": "Đang tạo passkey và ví...",
+    "settingUpWallet": "Đang thiết lập ví...",
+    "settingUpLensProfile": "Đang thiết lập hồ sơ Lens...",
+    "foundExistingLens": "Tìm thấy tài khoản Lens, đang kết nối...",
+    "creatingNewLensAccount": "Đang tạo tài khoản Lens mới...",
+    "authenticatingPasskey": "Đang xác thực với passkey...",
+    "connectingToLens": "Đang kết nối Lens...",
+    "lensSessionResumed": "Phiên Lens đã được khôi phục!",
+    "checkingExistingAccount": "Đang kiểm tra tài khoản hiện có...",
+    "foundExistingSigningIn": "Tìm thấy tài khoản, đang đăng nhập...",
+    "creatingNewWallet": "Đang tạo ví mới...",
+    "settingUpSession": "Đang thiết lập phiên...",
+    "settingUpLens": "Đang thiết lập Lens...",
+    "checkingLensAccount": "Đang kiểm tra tài khoản Lens...",
+    "connectingToLensAccount": "Đang kết nối tài khoản Lens...",
+    "connectingWallet": "Đang kết nối ví...",
+    "waitingForWallet": "Đang chờ kết nối ví...",
+    "openingGoogle": "Đang mở Google...",
+    "openingDiscord": "Đang mở Discord...",
+    "creatingAccount": "Đang tạo tài khoản...",
+    "complete": "Hoàn thành!",
+    "wrongNetwork": "Sai Mạng",
+    "wrongNetworkDesc": "Vui lòng chuyển sang {{chain}} để tiếp tục.",
+    "switchNetwork": "Chuyển sang {{chain}}",
+    "switchingNetwork": "Đang chuyển...",
+    "manualNetworkSwitch": "Nếu nút không hoạt động, hãy thêm mạng thủ công:"
   },
   "wallet": {
     "walletAddress": "Địa chỉ ví",
     "username": "Tên người dùng",
     "balances": "Số dư",
     "currency": "Tiền tệ",
-    "chain": "Chuỗi"
+    "chain": "Chuỗi",
+    "disconnect": "Ngắt kết nối",
+    "settings": "Cài đặt",
+    "points": "Điểm",
+    "achievements": "Thành tựu",
+    "noAchievements": "Chưa có thành tựu"
   },
   "chat": {
     "title": "Trò chuyện",
     "upgrade": "Nâng cấp",
     "typePlaceholder": "Nhập tin nhắn...",
-    "send": "Gửi"
+    "send": "Gửi",
+    "play": "Phát",
+    "stop": "Dừng",
+    "transcribing": "Đang chuyển văn bản...",
+    "translate": "Dịch",
+    "translating": "Đang dịch..."
   },
   "exercise": {
     "translate": "Dịch:",
@@ -58,7 +103,9 @@
     "correct": "Chính xác!",
     "next": "Tiếp theo",
     "skip": "Bỏ qua",
-    "tryAgain": "Thử lại"
+    "tryAgain": "Thử lại.",
+    "sayItBack": "Nói lại:",
+    "youSaid": "Bạn nói:"
   },
   "song": {
     "unlockSong": "Mở khóa bài hát",
@@ -83,8 +130,43 @@
     "perMonth": "/tháng",
     "subscribe": "Đăng ký"
   },
+  "profile": {},
   "leaderboard": {
     "rankings": "Bảng xếp hạng"
+  },
+  "video": {
+    "noVideos": "Không có video",
+    "checkBackLater": "Quay lại sau để xem nội dung mới",
+    "noMedia": "Không có media",
+    "playbackError": "Lỗi phát lại"
+  },
+  "study": {
+    "signUpToStudy": "Đăng ký để học",
+    "signUpDescription": "Tạo tài khoản để theo dõi tiến độ và luyện tập với phương pháp lặp lại ngắt quãng.",
+    "noCardsDue": "Không có thẻ cần học",
+    "noCardsDescription": "Bạn đã hoàn thành tất cả thẻ hiện có. Quay lại sau!",
+    "sessionComplete": "Hoàn thành phiên học!",
+    "comeBackTomorrow": "Quay lại ngày mai để củng cố kiến thức.",
+    "cardsCompleted": "Thẻ đã hoàn thành",
+    "youFinishedSong": "Bạn đã hoàn thành \"{{title}}\"!",
+    "youFinishedAll": "Bạn đã hoàn thành tất cả thẻ!",
+    "new": "Mới",
+    "learning": "Đang học",
+    "due": "Cần ôn",
+    "studyAll": "Học tất cả",
+    "signInToStudy": "Đăng nhập để học",
+    "allCaughtUp": "Đã hoàn thành!",
+    "noCardsDueGreat": "Không có thẻ cần ôn. Tuyệt vời!",
+    "browseSongs": "Duyệt bài hát"
+  },
+  "home": {
+    "recentlyAdded": "Mới thêm gần đây",
+    "allSongs": "Tất cả bài hát",
+    "trending": "Thịnh hành"
+  },
+  "walletPage": {
+    "signUpTitle": "Đăng ký",
+    "signUpDescription": "Tạo tài khoản để truy cập ví và các giao dịch mua"
   },
   "common": {
     "loading": "Đang tải...",
@@ -101,7 +183,22 @@
     "search": "Tìm kiếm",
     "noResults": "Không tìm thấy kết quả",
     "seeAll": "Xem tất cả",
-    "viewMore": "Xem thêm"
+    "viewMore": "Xem thêm",
+    "goBack": "Quay lại",
+    "finish": "Hoàn thành",
+    "playAgain": "Chơi lại",
+    "grading": "Đang chấm điểm...",
+    "complete": "Hoàn thành",
+    "reloadPage": "Tải lại trang",
+    "exit": "Thoát",
+    "exitStudy": {
+      "title": "Thoát buổi học?",
+      "description": "Tiến trình đã được lưu. Bạn có thể tiếp tục sau."
+    },
+    "exitKaraoke": {
+      "title": "Thoát luyện tập?",
+      "description": "Buổi luyện tập hiện tại sẽ kết thúc."
+    }
   },
   "language": {
     "title": "Ngôn ngữ",

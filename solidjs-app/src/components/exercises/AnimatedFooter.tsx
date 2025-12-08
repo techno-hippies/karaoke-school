@@ -17,7 +17,7 @@ export const AnimatedFooter: ParentComponent<AnimatedFooterProps> = (props) => {
         props.class
       )}
     >
-      <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4">
+      <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-4" style={{ 'padding-bottom': 'calc(1rem + env(safe-area-inset-bottom))' }}>
         {props.children}
       </div>
     </div>

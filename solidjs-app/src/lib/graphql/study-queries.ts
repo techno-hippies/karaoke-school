@@ -39,8 +39,8 @@ export const GET_CLIPS_WITH_PERFORMANCES = gql`
 `
 
 export const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
-  query GetAllClipsWithPerformances($performer: Bytes!) {
-    clips(first: 1000) {
+  query GetAllClipsWithPerformances($performer: Bytes!, $clipHashes: [Bytes!]!) {
+    clips(where: { clipHash_in: $clipHashes }, first: 1000) {
       id
       clipHash
       spotifyTrackId
@@ -68,6 +68,15 @@ export const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
       clipHash
       score
       gradedAt
+    }
+  }
+`
+
+// Get unique clipHashes the user has interacted with (via linePerformances)
+export const GET_USER_CLIP_HASHES = gql`
+  query GetUserClipHashes($performer: Bytes!) {
+    linePerformances(where: { performerAddress: $performer }, first: 1000) {
+      clipHash
     }
   }
 `

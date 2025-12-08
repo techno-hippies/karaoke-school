@@ -9,10 +9,11 @@
  */
 
 import { Component, createSignal, createEffect, splitProps, Show, For } from 'solid-js'
-import { cn } from '@/lib/utils'
+import { cn, haptic } from '@/lib/utils'
 import { Icon } from '@/components/icons'
 import { Textarea } from '@/components/ui/input'
 import { formatDuration } from '@/lib/chat/audio'
+import { useTranslation } from '@/lib/i18n'
 
 export interface ChatInputProps {
   /** Called when user sends a message */
@@ -40,6 +41,7 @@ export interface ChatInputProps {
  * ChatInput - Text/voice input with recording states
  */
 export const ChatInput: Component<ChatInputProps> = (props) => {
+  const { t } = useTranslation()
   const [local, others] = splitProps(props, [
     'onSend',
     'onStartRecording',
@@ -56,7 +58,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
   const [message, setMessage] = createSignal('')
   let textareaRef: HTMLTextAreaElement | undefined
 
-  const inputPlaceholder = () => local.placeholder ?? 'Type a message...'
+  const inputPlaceholder = () => local.placeholder ?? t('chat.typePlaceholder')
 
   // Auto-resize textarea (message() call is for reactivity tracking)
   createEffect(() => {
@@ -91,10 +93,13 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
 
   const handleActionButton = () => {
     if (local.isRecording) {
+      haptic.medium()
       local.onStopRecording?.()
     } else if (hasText()) {
+      haptic.heavy()
       handleSend()
     } else {
+      haptic.medium()
       local.onStartRecording?.()
     }
   }
@@ -114,7 +119,7 @@ export const ChatInput: Component<ChatInputProps> = (props) => {
       >
         <div class="flex items-center justify-center gap-3 h-11">
           <div class="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-          <span class="text-sm text-muted-foreground">Transcribing...</span>
+          <span class="text-sm text-muted-foreground">{t('chat.transcribing')}</span>
         </div>
       </div>
     )

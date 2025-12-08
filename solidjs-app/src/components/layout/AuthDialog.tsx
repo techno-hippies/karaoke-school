@@ -3,31 +3,40 @@
  *
  * Multi-method authentication dialog supporting:
  * - Passkey (WebAuthn) - recommended
- * - Google OAuth (stub - not yet implemented)
- * - Discord OAuth (stub - not yet implemented)
+ * - Google OAuth
+ * - Discord OAuth
  * - External wallet (Metamask, Rabby, etc.)
+ *
+ * No username step - accounts are created without usernames.
+ * Users can claim a username later from their profile.
  *
  * This is a pure UI component. Data flows through props from ConnectedAuthDialog.
  */
 
-import { createSignal, createEffect, Show, Switch, Match, type Component } from 'solid-js'
+import { createSignal, createEffect, Show, Switch, Match, type Component, type JSX } from 'solid-js'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { Icon } from '@/components/icons'
 import { useTranslation } from '@/lib/i18n'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export type AuthStep =
   | 'select-method'  // Initial method selection
   | 'passkey-intro'  // Create vs Sign In choice
-  | 'username'       // Username input
   | 'processing'     // Loading state
+  | 'wrong-network'  // Wallet connected but wrong chain
   | 'complete'       // Success
 
 export type AuthProvider = 'passkey' | 'google' | 'discord' | 'wallet' | null
@@ -42,7 +51,6 @@ export interface AuthDialogProps {
   isAuthenticating: boolean
   statusMessage: string
   errorMessage: string
-  usernameAvailability?: 'available' | 'unavailable' | null
 
   // Wallet state (for EOA flow display)
   isWalletConnected?: boolean
@@ -50,25 +58,25 @@ export interface AuthDialogProps {
 
   // Actions
   onRegister: () => void
-  onRegisterWithUsername: (username: string) => void
   onLogin: () => void
-  onUsernameBack: () => void
-  onUsernameChange?: (username: string) => void
 
   // Social Actions
-  onLoginGoogle?: (username?: string) => void
-  onLoginDiscord?: (username?: string) => void
-
-  // EOA Actions
-  onRetryEoaWithUsername?: (username: string) => void
+  onLoginGoogle?: () => void
+  onLoginDiscord?: () => void
 
   // Wallet Actions
   onConnectWallet?: () => void
   onWalletDisconnect?: () => void
+
+  // Network switching (for wrong network detection)
+  isWrongNetwork?: boolean
+  isSwitchingChain?: boolean
+  targetChainName?: string
+  onSwitchNetwork?: () => void
 }
 
 /**
- * Get user-friendly error message key from technical error
+ * Get user-friendly error message from technical error
  */
 function getErrorInfo(error: string): { message: string; hasTechnicalDetails: boolean } {
   if (error.includes('HTTP request failed') || error.includes('Failed to fetch')) {
@@ -100,7 +108,6 @@ function getErrorInfo(error: string): { message: string; hasTechnicalDetails: bo
 export const AuthDialog: Component<AuthDialogProps> = (props) => {
   const { t } = useTranslation()
   const [view, setView] = createSignal<AuthStep>('select-method')
-  const [username, setUsername] = createSignal('')
   const [pendingProvider, setPendingProvider] = createSignal<AuthProvider>(null)
   const [showErrorDetails, setShowErrorDetails] = createSignal(false)
 
@@ -108,9 +115,6 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
   createEffect(() => {
     if (props.currentStep === 'complete') {
       setView('complete')
-    }
-    if (props.currentStep === 'username') {
-      setView('username')
     }
     if (
       props.currentStep === 'webauthn' ||
@@ -127,11 +131,22 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
     if (view() === 'processing' && !props.isAuthenticating) {
       if (props.currentStep === 'complete') {
         setView('complete')
-      } else if (props.currentStep === 'username') {
-        setView('username')
       } else if (props.errorMessage) {
         // Go back to method selection on error
         setView(pendingProvider() ? 'passkey-intro' : 'select-method')
+      }
+    }
+  })
+
+  // Detect wrong network after wallet connection
+  createEffect(() => {
+    if (pendingProvider() === 'wallet') {
+      if (props.isWrongNetwork) {
+        setView('wrong-network')
+      } else if (view() === 'wrong-network' && !props.isWrongNetwork) {
+        // Chain switched successfully, go back to processing
+        // AuthContext's watchAccount will now proceed with the EOA flow
+        setView('processing')
       }
     }
   })
@@ -141,7 +156,6 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
     if (!props.open) {
       setTimeout(() => {
         setView('select-method')
-        setUsername('')
         setPendingProvider(null)
         setShowErrorDetails(false)
         props.onWalletDisconnect?.()
@@ -154,7 +168,14 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
     if (provider === 'wallet') {
       // External wallet - trigger wallet connection flow
       props.onConnectWallet?.()
+    } else if (provider === 'google') {
+      setView('processing')
+      props.onLoginGoogle?.()
+    } else if (provider === 'discord') {
+      setView('processing')
+      props.onLoginDiscord?.()
     } else {
+      // Passkey - still needs create vs sign in distinction
       setView('passkey-intro')
     }
   }
@@ -163,35 +184,7 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
     if (view() === 'passkey-intro') {
       setView('select-method')
       setPendingProvider(null)
-    } else if (view() === 'username') {
-      props.onUsernameBack()
-      setUsername('')
-      setView('passkey-intro')
     }
-  }
-
-  const handleUsernameSubmit = (e: Event) => {
-    e.preventDefault()
-    if (username().trim().length >= 6) {
-      const normalized = username().trim()
-      setView('processing')
-
-      // Route to appropriate handler based on auth mode
-      if (props.authMode === 'eoa') {
-        props.onRetryEoaWithUsername?.(normalized)
-      } else if (pendingProvider() === 'google') {
-        props.onLoginGoogle?.(normalized)
-      } else if (pendingProvider() === 'discord') {
-        props.onLoginDiscord?.(normalized)
-      } else {
-        props.onRegisterWithUsername(normalized)
-      }
-    }
-  }
-
-  const handleUsernameInput = (value: string) => {
-    setUsername(value)
-    props.onUsernameChange?.(value)
   }
 
   const getTitle = () => {
@@ -205,29 +198,14 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
     }
   }
 
-  const showBackButton = () => view() === 'passkey-intro' || view() === 'username'
+  const showBackButton = () => view() === 'passkey-intro'
+  const isMobile = useIsMobile()
 
-  const getCreateButtonText = () => {
-    if (pendingProvider() === 'google') return t('auth.createWithGoogle')
-    if (pendingProvider() === 'discord') return t('auth.createWithDiscord')
-    return t('auth.createNewAccount')
-  }
-
-  const getSignInButtonText = () => {
-    if (pendingProvider() === 'google') return t('auth.signInWithGoogle')
-    if (pendingProvider() === 'discord') return t('auth.signInWithDiscord')
-    return t('auth.signIn')
-  }
-
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent class="sm:max-w-[450px]" onBack={showBackButton() ? handleBack : undefined}>
-        <DialogHeader>
-          <DialogTitle class="text-3xl text-center">{getTitle()}</DialogTitle>
-        </DialogHeader>
-
-        {/* Fixed height content area to prevent layout shifts */}
-        <div class="py-6 min-h-[320px] flex flex-col">
+  // Shared content rendered inside either Dialog or Drawer
+  const content = (): JSX.Element => (
+    <>
+      {/* Fixed height content area to prevent layout shifts */}
+      <div class="py-6 min-h-[320px] flex flex-col">
           {/* ERROR DISPLAY */}
           <Show when={props.errorMessage}>
             {(error) => {
@@ -309,23 +287,15 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
               </div>
             </Match>
 
-            {/* STEP 2A: CREATE / SIGN IN CHOICE */}
+            {/* STEP 2: CREATE / SIGN IN CHOICE (Passkey only) */}
             <Match when={view() === 'passkey-intro'}>
               <div class="space-y-5 flex-1 flex flex-col justify-center">
                 <Button
-                  onClick={() => {
-                    if (pendingProvider() === 'google' || pendingProvider() === 'discord') {
-                      // Social create -> go to username step
-                      setView('username')
-                    } else {
-                      // Passkey create -> triggers username step via context
-                      props.onRegister()
-                    }
-                  }}
+                  onClick={() => props.onRegister()}
                   class="w-full h-14 text-lg"
                   size="lg"
                 >
-                  {getCreateButtonText()}
+                  {t('auth.createNewAccount')}
                 </Button>
 
                 <div class="flex justify-center">
@@ -333,48 +303,13 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
                 </div>
 
                 <Button
-                  onClick={() => {
-                    if (pendingProvider() === 'google') {
-                      setView('processing')
-                      props.onLoginGoogle?.()
-                    } else if (pendingProvider() === 'discord') {
-                      setView('processing')
-                      props.onLoginDiscord?.()
-                    } else {
-                      props.onLogin()
-                    }
-                  }}
+                  onClick={() => props.onLogin()}
                   variant="outline"
                   class="w-full h-14 text-lg"
                 >
-                  {getSignInButtonText()}
+                  {t('auth.signIn')}
                 </Button>
               </div>
-            </Match>
-
-            {/* STEP 2B: USERNAME INPUT */}
-            <Match when={view() === 'username'}>
-              <form onSubmit={handleUsernameSubmit} class="space-y-5 flex-1 flex flex-col justify-center">
-                <div class="space-y-3">
-                  <Input
-                    placeholder={t('auth.usernamePlaceholder')}
-                    value={username()}
-                    onInput={(e) => handleUsernameInput(e.currentTarget.value)}
-                    minLength={6}
-                    class="h-14 text-lg"
-                    autofocus
-                  />
-                  <Show when={username().length >= 6}>
-                    <span class="text-sm text-green-600 flex items-center gap-1">
-                      <Icon name="check-circle" class="text-lg" /> {t('auth.validFormat')}
-                    </span>
-                  </Show>
-                </div>
-
-                <Button type="submit" class="w-full h-14 text-lg" disabled={username().length < 6}>
-                  {t('auth.next')}
-                </Button>
-              </form>
             </Match>
 
             {/* PROCESSING STATE */}
@@ -382,7 +317,7 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
               <div class="flex-1 flex flex-col items-center justify-center space-y-5 text-center">
                 <Spinner size="lg" />
                 <p class="text-lg text-muted-foreground animate-pulse">
-                  {props.statusMessage || t('auth.processing')}
+                  {props.statusMessage ? t(props.statusMessage as any) || props.statusMessage : t('auth.processing')}
                 </p>
                 {/* Show wallet address if connected during processing */}
                 <Show when={props.isWalletConnected && props.walletAddress}>
@@ -393,18 +328,103 @@ export const AuthDialog: Component<AuthDialogProps> = (props) => {
               </div>
             </Match>
 
+            {/* WRONG NETWORK STATE */}
+            <Match when={view() === 'wrong-network'}>
+              <div class="flex-1 flex flex-col justify-center space-y-6">
+                {/* Warning banner */}
+                <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div class="flex items-start gap-3">
+                    <Icon name="warning" weight="fill" class="text-2xl text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p class="font-medium text-amber-800">{t('auth.wrongNetwork')}</p>
+                      <p class="text-sm text-amber-700 mt-1">
+                        {t('auth.wrongNetworkDesc', { chain: props.targetChainName || 'Base Sepolia' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Switch network button */}
+                <Button
+                  onClick={props.onSwitchNetwork}
+                  disabled={props.isSwitchingChain}
+                  class="w-full h-14 text-lg"
+                >
+                  <Show when={props.isSwitchingChain} fallback={
+                    <>{t('auth.switchNetwork', { chain: props.targetChainName || 'Base Sepolia' })}</>
+                  }>
+                    <Spinner size="sm" class="mr-2" />
+                    {t('auth.switchingNetwork')}
+                  </Show>
+                </Button>
+
+                {/* Manual instructions fallback */}
+                <div class="text-xs text-muted-foreground space-y-2 p-3 bg-muted/50 rounded-lg">
+                  <p class="font-medium">{t('auth.manualNetworkSwitch')}</p>
+                  <ul class="space-y-1 ml-2">
+                    <li>• Network: Base Sepolia</li>
+                    <li>• RPC: https://sepolia.base.org</li>
+                    <li>• Chain ID: 84532</li>
+                    <li>• Symbol: ETH</li>
+                  </ul>
+                </div>
+              </div>
+            </Match>
+
             {/* COMPLETE STATE */}
             <Match when={view() === 'complete'}>
-              <div class="flex-1 flex flex-col items-center justify-center space-y-8">
+              <div class="flex-1 flex flex-col items-center justify-center">
                 <Icon name="check-circle" class="text-8xl text-green-500" />
-                <Button onClick={() => props.onOpenChange(false)} class="w-full h-14 text-lg">
-                  {t('common.close')}
-                </Button>
               </div>
             </Match>
           </Switch>
         </div>
-      </DialogContent>
-    </Dialog>
+    </>
+  )
+
+  // Footer content - only shown for complete state
+  const footerContent = () => {
+    if (view() === 'complete') {
+      return (
+        <Button onClick={() => props.onOpenChange(false)} class="w-full h-14 text-lg">
+          {t('common.close')}
+        </Button>
+      )
+    }
+    return undefined
+  }
+
+  // Mobile: Drawer (bottom sheet)
+  // Desktop: Dialog (centered modal)
+  return (
+    <Show
+      when={isMobile()}
+      fallback={
+        <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+          <DialogContent
+            class="sm:max-w-[450px]"
+            onBack={showBackButton() ? handleBack : undefined}
+            footer={footerContent()}
+          >
+            <DialogHeader>
+              <DialogTitle class="text-3xl text-center">{getTitle()}</DialogTitle>
+            </DialogHeader>
+            {content()}
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      <Drawer open={props.open} onOpenChange={props.onOpenChange}>
+        <DrawerContent
+          onBack={showBackButton() ? handleBack : undefined}
+          footer={footerContent()}
+        >
+          <DrawerHeader>
+            <DrawerTitle class="text-3xl text-center">{getTitle()}</DrawerTitle>
+          </DrawerHeader>
+          {content()}
+        </DrawerContent>
+      </Drawer>
+    </Show>
   )
 }

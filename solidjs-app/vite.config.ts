@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
       include: ['buffer', 'process'],
     },
     server: {
-      allowedHosts: ['72b0e8677447.ngrok-free.app'],
+      allowedHosts: ['bf7ed5afed10.ngrok-free.app'],
     },
     build: {
       target: 'esnext',

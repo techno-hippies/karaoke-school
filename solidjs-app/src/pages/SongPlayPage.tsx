@@ -4,11 +4,14 @@ import { useSongClips } from '@/hooks/useSongClips'
 import { useSongSlug } from '@/hooks/useSongSlug'
 import { useSegmentMetadata } from '@/hooks/useSegmentMetadata'
 import { useSongAccess } from '@/hooks/useSongAccess'
+import { usePaymentWallet } from '@/hooks/usePaymentWallet'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/lib/i18n'
+import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
 import { MediaPage } from '@/components/media/MediaPage'
 import { SongPurchaseDialog } from '@/components/purchase/SongPurchaseDialog'
 import { Spinner } from '@/components/ui/spinner'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson, getBestUrl } from '@/lib/storage'
 import type { LyricLine } from '@/components/karaoke/types'
 import type { PurchaseStep } from '@/components/purchase/types'
 
@@ -48,6 +51,7 @@ export const SongPlayPage: Component = () => {
   const params = useParams<{ spotifyTrackId?: string; artistSlug?: string; songSlug?: string }>()
   const navigate = useNavigate()
   const auth = useAuth()
+  const { uiLanguage } = useTranslation()
 
   const [loadedTranslations, setLoadedTranslations] = createSignal<Record<string, any>>({})
   const [originalLyricsLines, setOriginalLyricsLines] = createSignal<any[]>([])
@@ -71,6 +75,14 @@ export const SongPlayPage: Component = () => {
   // Fetch clip metadata (includes lyrics and alignment)
   const clipMetadata = useSegmentMetadata(() => firstClip()?.metadataUri)
 
+  // Localized title and artist based on UI language
+  const localizedTitle = createMemo(() =>
+    getLocalizedTitle(clipMetadata.data, uiLanguage()) || clipMetadata.data?.title || 'Untitled'
+  )
+  const localizedArtist = createMemo(() =>
+    getLocalizedArtist(clipMetadata.data, uiLanguage()) || clipMetadata.data?.artist || 'Unknown Artist'
+  )
+
   // Get encryption metadata URI for v2 hybrid decryption
   const encryptionMetadataUri = createMemo(() => {
     const metadata = clipMetadata.data
@@ -82,6 +94,9 @@ export const SongPlayPage: Component = () => {
     spotifyTrackId,
     encryptionMetadataUrl: encryptionMetadataUri,
   })
+
+  // ============ Payment Wallet (EOA or PKP based on auth method) ============
+  const paymentWallet = usePaymentWallet({ requiredUsd: 0.10 })
 
   // Load translations and lyrics from metadata
   createEffect(() => {
@@ -130,9 +145,9 @@ export const SongPlayPage: Component = () => {
           // Non-owners: Use clip_grove_url (40-60s clip only)
           // Owners: Use grove_url (full song)
           const translationUrl = isOwned ? t.grove_url : (t.clip_grove_url || t.grove_url)
-          const url = convertGroveUri(translationUrl)
-          const response = await fetch(url)
-          const data = await response.json()
+          // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+          const manifest = buildManifest(translationUrl)
+          const data = await fetchJson(manifest)
           return [t.language_code, data]
         } catch {
           return null
@@ -180,12 +195,15 @@ export const SongPlayPage: Component = () => {
     if (!metadata) return undefined
 
     // Try metadata assets first, then contract event URI
+    // Use getBestUrl for audio URLs (returns URL string for <audio>)
     const clip = firstClip()
     if (metadata.assets?.instrumental) {
-      return convertGroveUri(metadata.assets.instrumental)
+      const manifest = buildManifest(metadata.assets.instrumental)
+      return getBestUrl(manifest) ?? undefined
     }
     if (clip?.instrumentalUri) {
-      return convertGroveUri(clip.instrumentalUri)
+      const manifest = buildManifest(clip.instrumentalUri)
+      return getBestUrl(manifest) ?? undefined
     }
     return undefined
   })
@@ -225,7 +243,7 @@ export const SongPlayPage: Component = () => {
         const translatedLine = lyricsData.lines?.[index]
         if (translatedLine) {
           const text = translatedLine.translatedText || translatedLine.text ||
-            translatedLine.words?.map((w: any) => w.text || w.word).join(' ') || ''
+            translatedLine.words?.map((w: any) => w.text || w.word).join('') || ''
           lineTranslations[lang] = text
         }
       })
@@ -233,7 +251,7 @@ export const SongPlayPage: Component = () => {
       return {
         lineIndex: index,
         originalText: (line.words && line.words.length > 0)
-          ? line.words.map((w: any) => w.text).join(' ')
+          ? line.words.map((w: any) => w.text).join('')
           : (line.originalText || ''),
         translations: Object.keys(lineTranslations).length > 0 ? lineTranslations : undefined,
         start: line.start,
@@ -418,8 +436,8 @@ export const SongPlayPage: Component = () => {
       {/* Media Page */}
       <Show when={!isLoading() && clipMetadata.data && audioUrl()}>
         <MediaPage
-          title={clipMetadata.data!.title || 'Untitled'}
-          artist={clipMetadata.data!.artist || 'Unknown Artist'}
+          title={localizedTitle()}
+          artist={localizedArtist()}
           audioUrl={audioUrl()!}
           lyrics={lyrics()}
           selectedLanguage={preferredLanguage()}
@@ -436,14 +454,15 @@ export const SongPlayPage: Component = () => {
       <SongPurchaseDialog
         open={showPurchaseDialog()}
         onOpenChange={handleDialogClose}
-        songTitle={clipMetadata.data?.title || ''}
-        artistName={clipMetadata.data?.artist}
-        coverUrl={clipMetadata.data?.coverUri ? convertGroveUri(clipMetadata.data.coverUri) : undefined}
+        songTitle={localizedTitle()}
+        artistName={localizedArtist()}
+        coverUrl={clipMetadata.data?.coverUri ? getBestUrl(buildManifest(clipMetadata.data.coverUri)) ?? undefined : undefined}
         currentStep={dialogStep()}
         statusMessage={songAccess.statusMessage()}
         errorMessage={songAccess.error()}
         onPurchase={handlePurchaseConfirm}
         onRetry={handleRetry}
+        walletAddress={paymentWallet.walletAddress()}
       />
     </>
   )

@@ -8,8 +8,8 @@
 // Note: These files are synced from lit-actions/keys/dev/ for Fleek/IPFS builds
 
 import litCids from './keys/dev.json'
-import exerciseVoxtralKey from './keys/exercise/voxtral_api_key_exercise.json'
-import karaokeLineVoxtralKey from './keys/karaoke-line/voxtral_api_key_karaoke-line.json'
+import exerciseDeepinfraKey from './keys/exercise/deepinfra_api_key_exercise.json'
+import karaokeLineDeepinfraKey from './keys/karaoke-line/deepinfra_api_key_karaoke-line.json'
 import chatOpenrouterKey from './keys/chat/openrouter_api_key_chat.json'
 import chatDeepinfraKey from './keys/chat/deepinfra_api_key_chat.json'
 import ttsDeepinfraKey from './keys/tts/deepinfra_api_key_tts.json'
@@ -64,11 +64,11 @@ export const LIT_KARAOKE_LINE_CID = litCids['karaoke-line'] || import.meta.env.V
 // ============ Encrypted API Keys (from lit-actions/keys/dev/) ============
 // These are imported directly - any change to the JSON files is picked up by Vite
 
-/** Encrypted Voxtral key for Exercise Grader */
-export const LIT_ACTION_VOXTRAL_KEY = exerciseVoxtralKey
+/** Encrypted DeepInfra key for Exercise Grader (Voxtral Small 24B) */
+export const LIT_ACTION_VOXTRAL_KEY = exerciseDeepinfraKey
 
-/** Encrypted Voxtral key for Karaoke Line Grader */
-export const LIT_KARAOKE_LINE_VOXTRAL_KEY = karaokeLineVoxtralKey
+/** Encrypted DeepInfra key for Karaoke Line Grader (Voxtral Small 24B) */
+export const LIT_KARAOKE_LINE_DEEPINFRA_KEY = karaokeLineDeepinfraKey
 
 /** Chat Action CID (Scarlett/Violet) */
 export const LIT_CHAT_ACTION_CID = chatOpenrouterKey.cid || 'QmRwC8UWX1nS5Q37xoPR386vdNUdbQbFrN9Vbjtc749g6C'
@@ -89,25 +89,21 @@ export const LIT_TTS_DEEPINFRA_KEY = ttsDeepinfraKey
 
 /**
  * SongAccess.sol - Soulbound NFT for per-song purchases
- * - Pay $0.10 USDC to unlock a song forever
- * - Uses EIP-2612 permit for single-signature UX
+ * - Pay ETH to unlock a song forever (single signature!)
  * - Lit Protocol checks ownsSong() for decryption access
  *
  * Chain: Base Sepolia (84532)
- * USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
  */
 export const SONG_ACCESS_CONTRACT = {
   testnet: {
-    address: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545' as `0x${string}`,
+    address: '0x7856C6121b3Fb861C31cb593a65236858d789bDB' as `0x${string}`,
     chainId: 84532, // Base Sepolia
-    usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
-    price: 100_000n, // $0.10 in USDC (6 decimals)
+    price: 100_000_000_000_000n, // 0.0001 ETH in wei
   },
   mainnet: {
     address: '0x0000000000000000000000000000000000000000' as `0x${string}`, // TODO: Deploy
     chainId: 8453, // Base
-    usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`,
-    price: 100_000n, // $0.10 in USDC (6 decimals)
+    price: 100_000_000_000_000n, // 0.0001 ETH in wei
   },
 }
 

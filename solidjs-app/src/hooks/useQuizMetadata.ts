@@ -1,5 +1,5 @@
 import { createQuery } from '@tanstack/solid-query'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson } from '@/lib/storage'
 import type { Accessor } from 'solid-js'
 
 /**
@@ -28,31 +28,13 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
     throw new Error('No metadata URI provided')
   }
 
-  const url = convertGroveUri(metadataUri)
+  console.log('[useQuizMetadata] 🌐 Fetching quiz metadata', { metadataUri })
 
-  if (!url) {
-    throw new Error('Invalid quiz metadata URI')
-  }
+  // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+  const manifest = buildManifest(metadataUri)
+  const data = await fetchJson<any>(manifest)
 
-  console.log('[useQuizMetadata] 🌐 Fetching quiz metadata', { metadataUri, url })
-
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    console.error('[useQuizMetadata] ⚠️ HTTP error', {
-      metadataUri,
-      status: response.status,
-      statusText: response.statusText,
-    })
-    throw new Error(`Failed to fetch quiz metadata: ${response.status}`)
-  }
-
-  console.log('[useQuizMetadata] ✅ HTTP success', {
-    metadataUri,
-    status: response.status,
-  })
-
-  const data = await response.json()
+  console.log('[useQuizMetadata] ✅ Fetch success', { metadataUri })
 
   // Transform Grove metadata structure to expected format
   // Grove uses: { prompt, correctAnswer, distractorPool, explanation }

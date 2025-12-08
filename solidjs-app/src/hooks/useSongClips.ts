@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson } from '@/lib/storage'
 import { generateSlug } from './useSongSlug'
 
 export interface Clip {
@@ -37,7 +37,13 @@ export interface Clip {
 
 export interface SongMetadata {
   title?: string
+  title_zh?: string  // Chinese translation
+  title_vi?: string  // Vietnamese translation
+  title_id?: string  // Indonesian translation
   artist?: string
+  artist_zh?: string  // Chinese translation/transliteration
+  artist_vi?: string  // Vietnamese translation/transliteration
+  artist_id?: string  // Indonesian translation/transliteration
   artistSlug?: string
   coverUri?: string
   artistLensHandle?: string
@@ -119,10 +125,9 @@ export function useSongClips(spotifyTrackId: () => string | undefined) {
     queryFn: async () => {
       const clip = firstClip()
       if (!clip?.metadataUri) throw new Error('No metadata URI')
-      const url = convertGroveUri(clip.metadataUri)
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Metadata fetch failed: ${response.status}`)
-      const metadata = await response.json() as SongMetadata
+      // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+      const manifest = buildManifest(clip.metadataUri)
+      const metadata = await fetchJson<SongMetadata>(manifest)
       // Derive artistSlug from artist name if not present in metadata
       if (!metadata.artistSlug && metadata.artist) {
         metadata.artistSlug = generateSlug(metadata.artist)

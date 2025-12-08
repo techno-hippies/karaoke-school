@@ -2,7 +2,7 @@ import { onMount } from 'solid-js'
 import { useQueryClient } from '@tanstack/solid-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson, getBestUrl, prefetchContent } from '@/lib/storage'
 
 // ============================================================
 // Chat Scenario Images - Preload on app boot
@@ -77,15 +77,17 @@ async function prefetchSongData(spotifyTrackId: string): Promise<void> {
 
     const clip = data.clips[0]
 
-    // Also prefetch the metadata JSON
+    // Also prefetch the metadata JSON using multi-gateway fallback
     if (clip.metadataUri) {
-      const metadataUrl = convertGroveUri(clip.metadataUri)
-      const response = await fetch(metadataUrl)
-      if (response.ok) {
-        const metadata = await response.json()
-        // Prefetch cover image
-        if (metadata.coverUri) {
-          const coverUrl = convertGroveUri(metadata.coverUri)
+      const manifest = buildManifest(clip.metadataUri)
+      const metadata = await fetchJson<any>(manifest)
+      // Prefetch cover image using prefetchContent (warms IndexedDB cache)
+      if (metadata.coverUri) {
+        const coverManifest = buildManifest(metadata.coverUri)
+        prefetchContent(coverManifest)
+        // Also preload in browser for <img> elements
+        const coverUrl = getBestUrl(coverManifest)
+        if (coverUrl) {
           const img = new Image()
           img.src = coverUrl
         }

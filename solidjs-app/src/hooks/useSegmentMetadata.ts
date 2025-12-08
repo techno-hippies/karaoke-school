@@ -1,5 +1,5 @@
 import { createQuery } from '@tanstack/solid-query'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { fetchJson, buildManifest } from '@/lib/storage'
 
 /**
  * Segment metadata from Grove
@@ -49,7 +49,13 @@ export interface SegmentMetadata {
   segment_hash?: string
   spotify_track_id?: string
   title?: string
+  title_zh?: string  // Chinese translation
+  title_vi?: string  // Vietnamese translation
+  title_id?: string  // Indonesian translation
   artist?: string
+  artist_zh?: string  // Chinese translation/transliteration
+  artist_vi?: string  // Vietnamese translation/transliteration
+  artist_id?: string  // Indonesian translation/transliteration
   coverUri?: string
   thumbnailUri?: string
   timing?: {
@@ -223,28 +229,29 @@ function transformSegmentMetadata(groveData: any): SegmentMetadata {
 }
 
 /**
- * Fetch segment metadata from Grove storage
+ * Fetch segment metadata with multi-gateway fallback
  *
- * @param metadataUri - Accessor returning Grove URI (lens://...)
+ * Uses censorship-resistant storage layer:
+ * Cache → Grove → Arweave → Akash IPFS → Lighthouse
+ *
+ * @param metadataUri - Accessor returning URI (lens://, grove://, ar://, ipfs://)
  * @returns Segment metadata including lyrics and timing
  */
 export function useSegmentMetadata(metadataUri: () => string | undefined) {
   return createQuery(() => ({
-    queryKey: ['grove-segment-metadata', metadataUri()],
+    queryKey: ['segment-metadata', metadataUri()],
     queryFn: async () => {
       const uri = metadataUri()
       if (!uri) {
         throw new Error('Metadata URI is required')
       }
 
-      const httpUrl = convertGroveUri(uri)
-      const response = await fetch(httpUrl)
+      // Build manifest from URI for multi-gateway fallback
+      const manifest = buildManifest(uri)
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch segment metadata: ${response.status}`)
-      }
+      // Fetch with fallback chain + caching
+      const groveData = await fetchJson(manifest)
 
-      const groveData = await response.json()
       const transformed = transformSegmentMetadata(groveData)
       return transformed
     },

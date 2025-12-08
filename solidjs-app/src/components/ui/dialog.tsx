@@ -5,8 +5,8 @@
 
 import { Dialog as KobalteDialog } from '@kobalte/core/dialog'
 import { Icon } from '@/components/icons'
-import { splitProps, type ParentComponent, type Component, type JSX } from 'solid-js'
-import { cn } from '@/lib/utils'
+import { splitProps, onMount, type ParentComponent, type Component, type JSX } from 'solid-js'
+import { cn, haptic } from '@/lib/utils'
 
 const Dialog = KobalteDialog
 
@@ -37,10 +37,15 @@ interface DialogContentProps {
   children?: JSX.Element
   /** Optional back button handler - shows caret-left in top-left */
   onBack?: () => void
+  /** Footer content that stays at the bottom */
+  footer?: JSX.Element
 }
 
 const DialogContent: ParentComponent<DialogContentProps> = (props) => {
-  const [local, others] = splitProps(props, ['class', 'children', 'onBack'])
+  const [local, others] = splitProps(props, ['class', 'children', 'onBack', 'footer'])
+
+  // Haptic feedback when dialog opens
+  onMount(() => haptic.light())
 
   return (
     <DialogPortal>
@@ -64,6 +69,12 @@ const DialogContent: ParentComponent<DialogContentProps> = (props) => {
           </button>
         )}
         {local.children}
+        {/* Footer - at the bottom */}
+        {local.footer && (
+          <div class="mt-auto pt-4">
+            {local.footer}
+          </div>
+        )}
         {/* Close button - top right */}
         <KobalteDialog.CloseButton
           class={cn(dialogNavButtonClass, 'absolute right-3 top-3')}

@@ -87,8 +87,10 @@ export const Leaderboard: Component<LeaderboardProps> = (props) => {
                     )}
                     onClick={handleClick}
                   >
-                    <div class="w-10 text-center text-lg font-bold text-muted-foreground">
-                      #{entry.rank}
+                    <div class="w-10 flex justify-center text-lg font-bold text-muted-foreground">
+                      <Show when={entry.rank === 1} fallback={`#${entry.rank}`}>
+                        <Icon name="crown-cross" weight="fill" class="text-2xl text-yellow-500" />
+                      </Show>
                     </div>
                     <Show when={entry.avatarUrl}>
                       <img
@@ -129,8 +131,10 @@ export const Leaderboard: Component<LeaderboardProps> = (props) => {
                     )}
                     onClick={handleClick}
                   >
-                    <div class="w-10 text-center text-lg font-bold text-muted-foreground">
-                      #{currentUserEntry.rank}
+                    <div class="w-10 flex justify-center text-lg font-bold text-muted-foreground">
+                      <Show when={currentUserEntry.rank === 1} fallback={`#${currentUserEntry.rank}`}>
+                        <Icon name="crown-cross" weight="fill" class="text-2xl text-yellow-500" />
+                      </Show>
                     </div>
                     <Show when={currentUserEntry.avatarUrl}>
                       <img

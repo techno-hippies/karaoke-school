@@ -2,10 +2,11 @@ import { type Component, Show, For, createMemo } from 'solid-js'
 import { useNavigate } from '@solidjs/router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudyCards } from '@/hooks/useStudyCards'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SongItem } from '@/components/song/SongItem'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, getBestUrl } from '@/lib/storage'
 
 /**
  * Skeleton for StudyPage loading state
@@ -53,6 +54,7 @@ const StudyPageSkeleton: Component = () => (
  * For song-specific study, users navigate from the song detail page.
  */
 export const StudyPage: Component = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { isPKPReady, isAuthenticating, openAuthDialog } = useAuth()
 
@@ -89,7 +91,7 @@ export const StudyPage: Component = () => {
           spotifyTrackId: key,
           title: card.title || 'Unknown Song',
           artist: card.artist || 'Unknown Artist',
-          artworkUrl: card.artworkUrl ? convertGroveUri(card.artworkUrl) : undefined,
+          artworkUrl: card.artworkUrl ? (getBestUrl(buildManifest(card.artworkUrl)) ?? undefined) : undefined,
           count: 0,
         }
       }
@@ -128,33 +130,33 @@ export const StudyPage: Component = () => {
               <p class="text-3xl font-bold text-green-500">
                 {isPKPReady() ? stats().new : 0}
               </p>
-              <p class="text-base text-muted-foreground">New</p>
+              <p class="text-base text-muted-foreground">{t('study.new')}</p>
             </div>
             <div class="p-4 bg-card rounded-lg text-center">
               <p class="text-3xl font-bold text-blue-500">
                 {isPKPReady() ? stats().learning : 0}
               </p>
-              <p class="text-base text-muted-foreground">Learning</p>
+              <p class="text-base text-muted-foreground">{t('study.learning')}</p>
             </div>
             <div class="p-4 bg-card rounded-lg text-center">
               <p class="text-3xl font-bold text-red-500">
                 {isPKPReady() ? stats().dueToday : 0}
               </p>
-              <p class="text-base text-muted-foreground">Due</p>
+              <p class="text-base text-muted-foreground">{t('study.due')}</p>
             </div>
           </div>
 
           {/* Study All Button */}
           <Show when={isPKPReady() && hasCards()}>
             <Button size="lg" class="w-full" onClick={handleStudyAll}>
-              Study All
+              {t('study.studyAll')}
             </Button>
           </Show>
 
           {/* Sign in button (not logged in) */}
           <Show when={!isPKPReady()}>
             <Button size="lg" class="w-full" onClick={handleStudyAll}>
-              Sign In to Study
+              {t('study.signInToStudy')}
             </Button>
           </Show>
 
@@ -162,10 +164,10 @@ export const StudyPage: Component = () => {
           <Show when={isPKPReady() && !hasCards()}>
             <div class="p-6 bg-card rounded-lg text-center space-y-4">
               <div class="text-4xl">🎉</div>
-              <h3 class="text-lg font-semibold">All caught up!</h3>
-              <p class="text-base text-muted-foreground">No cards due. Great job!</p>
-              <Button variant="outline" onClick={() => navigate('/search')}>
-                Browse Songs
+              <h3 class="text-lg font-semibold">{t('study.allCaughtUp')}</h3>
+              <p class="text-base text-muted-foreground">{t('study.noCardsDueGreat')}</p>
+              <Button variant="outline" onClick={() => navigate('/songs')}>
+                {t('study.browseSongs')}
               </Button>
             </div>
           </Show>

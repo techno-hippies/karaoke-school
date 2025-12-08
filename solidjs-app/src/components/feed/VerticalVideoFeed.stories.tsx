@@ -32,7 +32,6 @@ const SAMPLE_VIDEOS: VideoPostData[] = [
     shares: 56,
     description: 'First video in the feed!',
     isLiked: false,
-    isFollowing: false,
     canInteract: true,
   },
   {
@@ -50,7 +49,6 @@ const SAMPLE_VIDEOS: VideoPostData[] = [
     shares: 234,
     description: 'Second video - scroll down!',
     isLiked: true,
-    isFollowing: true,
     canInteract: true,
   },
   {
@@ -68,7 +66,6 @@ const SAMPLE_VIDEOS: VideoPostData[] = [
     shares: 567,
     description: 'Third video in feed',
     isLiked: false,
-    isFollowing: false,
     canInteract: true,
   },
   {
@@ -84,13 +81,12 @@ const SAMPLE_VIDEOS: VideoPostData[] = [
     shares: 890,
     description: 'Fourth video!',
     isLiked: false,
-    isFollowing: false,
     canInteract: true,
   },
 ]
 
 /**
- * Interactive wrapper with like/follow state
+ * Interactive wrapper with like state
  */
 function InteractiveFeed(props: { videos: VideoPostData[]; initialVideoId?: string }) {
   const [videos, setVideos] = createSignal(props.videos)
@@ -105,20 +101,11 @@ function InteractiveFeed(props: { videos: VideoPostData[]; initialVideoId?: stri
     )
   }
 
-  const handleFollow = (videoId: string) => {
-    setVideos(vids =>
-      vids.map(v =>
-        v.id === videoId ? { ...v, isFollowing: !v.isFollowing } : v
-      )
-    )
-  }
-
   return (
     <VerticalVideoFeed
       videos={videos()}
       initialVideoId={props.initialVideoId}
       onLikeClick={handleLike}
-      onFollowClick={handleFollow}
       onProfileClick={(username) => console.log('Profile:', username)}
     />
   )

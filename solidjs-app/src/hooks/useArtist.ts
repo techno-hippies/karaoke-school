@@ -1,6 +1,6 @@
 import { createQuery } from '@tanstack/solid-query'
-import { convertGroveUri } from '@/lib/lens/utils'
 import { SUBGRAPH_URL } from '@/lib/graphql/client'
+import { buildManifest, fetchJson } from '@/lib/storage'
 import type { Accessor } from 'solid-js'
 
 export interface ArtistSong {
@@ -76,12 +76,9 @@ export function useArtist(artistSlug: Accessor<string | undefined>) {
       await Promise.all(
         data.clips.map(async (clip: any) => {
           try {
-            const metadataUrl = clip.metadataUri.startsWith('lens://')
-              ? convertGroveUri(clip.metadataUri)
-              : clip.metadataUri
-
-            const metadataResponse = await fetch(metadataUrl)
-            const metadata = await metadataResponse.json()
+            // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+            const manifest = buildManifest(clip.metadataUri)
+            const metadata = await fetchJson<any>(manifest)
 
             // Check if this clip belongs to the artist we're looking for
             const clipArtistSlug = metadata.artistSlug || generateSlug(metadata.artist || '')

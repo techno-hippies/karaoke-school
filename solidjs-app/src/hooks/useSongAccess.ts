@@ -9,11 +9,15 @@
  * - idle: Initial state
  * - checking: Querying SongAccess contract
  * - not-owned: User doesn't own the song
- * - purchasing: USDC permit + purchase transaction in progress
+ * - purchasing: ETH purchase transaction in progress
  * - owned-pending-decrypt: Ownership confirmed, ready to decrypt
  * - owned-decrypting: Lit Protocol decryption in progress
  * - owned-decrypted: Decryption complete, audio URL ready
  * - owned-decrypt-failed: Decryption failed, can retry
+ *
+ * Smart Wallet Selection:
+ * - EOA users (authMethodType: 1): Pay from EOA, NFT minted to PKP
+ * - Social/Passkey users: Pay from PKP, NFT minted to PKP
  *
  * Entitlement source: SongAccess contract ONLY (no artist Unlock for audio)
  */
@@ -27,16 +31,22 @@ import {
   http,
 } from 'viem'
 import { baseSepolia } from 'viem/chains'
+import { sendTransaction, waitForTransactionReceipt } from '@wagmi/core'
 import { useAuth } from '@/contexts/AuthContext'
 import { SONG_ACCESS_CONTRACT } from '@/lib/contracts/addresses'
-import { SONG_ACCESS_ABI, USDC_ABI } from '@/lib/contracts/song-access-abi'
+import { SONG_ACCESS_ABI } from '@/lib/contracts/song-access-abi'
 import {
   performLitDecryption,
   type HybridEncryptionMetadata,
 } from '@/lib/lit/decrypt-audio'
+import { buildManifest, fetchJson } from '@/lib/storage'
+import { wagmiConfig } from '@/providers/Web3Provider'
 
 const IS_DEV = import.meta.env.DEV
 const CONTRACT = SONG_ACCESS_CONTRACT.testnet
+
+// Lit Protocol auth method type for EOA wallet
+const AUTH_METHOD_ETH_WALLET = 1
 
 // ============ Types ============
 
@@ -210,13 +220,9 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
       }
 
       try {
-        // Step 1: Fetch encryption metadata
-        const metadataResponse = await fetch(metadataUrl)
-        if (!metadataResponse.ok) {
-          throw new Error(`Failed to fetch encryption metadata: ${metadataResponse.status}`)
-        }
-
-        const metadata: HybridEncryptionMetadata = await metadataResponse.json()
+        // Step 1: Fetch encryption metadata using multi-gateway fallback
+        const manifest = buildManifest(metadataUrl)
+        const metadata = await fetchJson<HybridEncryptionMetadata>(manifest)
 
         if (!['2.0.0', '2.1.0'].includes(metadata.version) || metadata.method !== 'hybrid-aes-gcm-lit') {
           throw new Error(`Unsupported encryption version: ${metadata.version} / ${metadata.method}`)
@@ -252,16 +258,22 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
     performDecrypt()
   })
 
+  // ============ Determine if EOA User ============
+  const isEOAUser = createMemo(() => {
+    const authData = auth.authData()
+    return authData?.authMethodType === AUTH_METHOD_ETH_WALLET
+  })
+
+  // Get EOA address from stored auth data
+  const eoaAddress = createMemo(() => {
+    const authData = auth.authData()
+    return authData?.eoaAddress as Address | undefined
+  })
+
   // ============ Purchase Action ============
   const purchase = async () => {
-    const pkpWalletClient = auth.pkpWalletClient()
     const pkpAddress = auth.pkpAddress()
     const trackId = spotifyTrackId()
-
-    if (!pkpWalletClient) {
-      setError('Wallet not connected')
-      return
-    }
 
     if (!pkpAddress) {
       setError('No wallet address')
@@ -273,22 +285,43 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
       return
     }
 
+    // Route to appropriate purchase flow
+    if (isEOAUser()) {
+      await purchaseWithEOA(trackId, pkpAddress as Address)
+    } else {
+      await purchaseWithPKP(trackId, pkpAddress as Address)
+    }
+  }
+
+  // ============ EOA Purchase Flow ============
+  // EOA pays ETH, NFT minted to PKP (for Lit decryption)
+  // Single signature - no permit needed!
+  const purchaseWithEOA = async (trackId: string, pkpAddress: Address) => {
+    const eoa = eoaAddress()
+    if (!eoa) {
+      setError('EOA wallet not found')
+      return
+    }
+
     setState('purchasing')
     setPurchaseSubState('checking-balance')
     setError(undefined)
     setStatusMessage('Checking balance...')
 
     if (IS_DEV) {
-      console.log('[useSongAccess] Starting purchase for:', trackId)
+      console.log('[useSongAccess] Starting EOA purchase for:', trackId, {
+        eoaAddress: eoa,
+        pkpAddress,
+      })
     }
 
     try {
-      // Check if already owned (defensive)
+      // Check if PKP already owns (defensive)
       const alreadyOwned = await publicClient.readContract({
         address: CONTRACT.address,
         abi: SONG_ACCESS_ABI,
         functionName: 'ownsSongByTrackId',
-        args: [pkpAddress as Address, trackId],
+        args: [pkpAddress, trackId],
       })
 
       if (alreadyOwned) {
@@ -298,153 +331,125 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
         return
       }
 
-      // Check USDC balance
-      const balance = await publicClient.readContract({
-        address: CONTRACT.usdc,
-        abi: USDC_ABI,
-        functionName: 'balanceOf',
-        args: [pkpAddress as Address],
-      }) as bigint
+      // Check EOA's ETH balance on Base Sepolia
+      const balance = await publicClient.getBalance({ address: eoa })
+
+      if (IS_DEV) {
+        console.log('[useSongAccess] EOA ETH balance:', balance.toString())
+      }
 
       if (balance < CONTRACT.price) {
-        setError('Insufficient USDC balance. Need $0.10 USDC')
+        setError('Insufficient ETH balance on Base Sepolia')
         setState('not-owned')
         setPurchaseSubState(null)
         setStatusMessage(undefined)
         return
       }
 
-      // Check existing allowance
-      const allowance = await publicClient.readContract({
-        address: CONTRACT.usdc,
-        abi: USDC_ABI,
-        functionName: 'allowance',
-        args: [pkpAddress as Address, CONTRACT.address],
-      }) as bigint
+      // Single signature - send ETH to purchaseFor
+      setPurchaseSubState('signing')
+      setStatusMessage('Sign to purchase...')
 
-      // If sufficient allowance, use purchaseWithApproval
-      if (allowance >= CONTRACT.price) {
-        setPurchaseSubState('signing')
-        setStatusMessage('Sign to purchase...')
-
-        const data = encodeFunctionData({
+      const hash = await sendTransaction(wagmiConfig, {
+        to: CONTRACT.address,
+        data: encodeFunctionData({
           abi: SONG_ACCESS_ABI,
-          functionName: 'purchaseWithApproval',
-          args: [trackId],
-        })
+          functionName: 'purchaseFor',
+          args: [trackId, pkpAddress],
+        }),
+        value: CONTRACT.price,
+        chainId: baseSepolia.id,
+      })
 
-        const txRequest = await publicClient.prepareTransactionRequest({
-          account: pkpAddress as Address,
-          to: CONTRACT.address,
-          data,
-          chain: baseSepolia,
-        })
+      setPurchaseSubState('confirming')
+      setTxHash(hash)
+      setStatusMessage('Confirming...')
 
-        const account = pkpWalletClient.account
-        if (!account || typeof account.signTransaction !== 'function') {
-          throw new Error('Account does not support signing')
-        }
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+      if (receipt.status === 'success') {
+        setState('owned-pending-decrypt')
+        setPurchaseSubState(null)
+        setStatusMessage('Song unlocked!')
+      } else {
+        throw new Error('Transaction failed')
+      }
+    } catch (err) {
+      handlePurchaseError(err)
+    }
+  }
 
-        const signedTx = await account.signTransaction({
-          ...txRequest,
-          chainId: CONTRACT.chainId,
-        } as any)
+  // ============ PKP Purchase Flow ============
+  // PKP pays ETH and receives NFT (original flow for social/passkey users)
+  const purchaseWithPKP = async (trackId: string, pkpAddress: Address) => {
+    const pkpWalletClient = auth.pkpWalletClient()
 
-        const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx })
-        setPurchaseSubState('confirming')
-        setTxHash(hash)
-        setStatusMessage('Confirming...')
+    if (!pkpWalletClient) {
+      setError('Wallet not connected')
+      return
+    }
 
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        if (receipt.status === 'success') {
-          setState('owned-pending-decrypt')
-          setPurchaseSubState(null)
-          setStatusMessage('Song unlocked!')
-        } else {
-          throw new Error('Transaction failed')
-        }
+    setState('purchasing')
+    setPurchaseSubState('checking-balance')
+    setError(undefined)
+    setStatusMessage('Checking balance...')
+
+    if (IS_DEV) {
+      console.log('[useSongAccess] Starting PKP purchase for:', trackId)
+    }
+
+    try {
+      // Check if already owned (defensive)
+      const alreadyOwned = await publicClient.readContract({
+        address: CONTRACT.address,
+        abi: SONG_ACCESS_ABI,
+        functionName: 'ownsSongByTrackId',
+        args: [pkpAddress, trackId],
+      })
+
+      if (alreadyOwned) {
+        setState('owned-pending-decrypt')
+        setPurchaseSubState(null)
+        setStatusMessage('Song unlocked!')
         return
       }
 
-      // Need permit signature
+      // Check ETH balance
+      const balance = await publicClient.getBalance({ address: pkpAddress })
+
+      if (balance < CONTRACT.price) {
+        setError('Insufficient ETH balance on Base Sepolia')
+        setState('not-owned')
+        setPurchaseSubState(null)
+        setStatusMessage(undefined)
+        return
+      }
+
+      // Build and sign transaction
       setPurchaseSubState('signing')
-      setStatusMessage('Sign to approve USDC...')
-
-      const nonce = await publicClient.readContract({
-        address: CONTRACT.usdc,
-        abi: USDC_ABI,
-        functionName: 'nonces',
-        args: [pkpAddress as Address],
-      }) as bigint
-
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
-
-      const permitTypes = {
-        Permit: [
-          { name: 'owner', type: 'address' },
-          { name: 'spender', type: 'address' },
-          { name: 'value', type: 'uint256' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-        ],
-      }
-
-      const permitMessage = {
-        owner: pkpAddress,
-        spender: CONTRACT.address,
-        value: CONTRACT.price,
-        nonce,
-        deadline,
-      }
-
-      const account = pkpWalletClient.account
-      if (!account || typeof account.signTypedData !== 'function') {
-        throw new Error('Account does not support typed data signing')
-      }
-
-      const signature = await account.signTypedData({
-        domain: {
-          name: 'USDC',
-          version: '2',
-          chainId: CONTRACT.chainId,
-          verifyingContract: CONTRACT.usdc,
-        },
-        types: permitTypes,
-        primaryType: 'Permit',
-        message: permitMessage,
-      })
-
-      const r = `0x${signature.slice(2, 66)}` as `0x${string}`
-      const s = `0x${signature.slice(66, 130)}` as `0x${string}`
-      const v = parseInt(signature.slice(130, 132), 16)
+      setStatusMessage('Sign to purchase...')
 
       const data = encodeFunctionData({
         abi: SONG_ACCESS_ABI,
         functionName: 'purchase',
-        args: [trackId, deadline, v, r, s],
-      })
-
-      const gas = await publicClient.estimateGas({
-        account: pkpAddress as Address,
-        to: CONTRACT.address,
-        data,
+        args: [trackId],
       })
 
       const txRequest = await publicClient.prepareTransactionRequest({
-        account: pkpAddress as Address,
+        account: pkpAddress,
         to: CONTRACT.address,
         data,
-        gas,
+        value: CONTRACT.price,
         chain: baseSepolia,
       })
 
-      if (typeof account.signTransaction !== 'function') {
-        throw new Error('Account does not support transaction signing')
+      const account = pkpWalletClient.account
+      if (!account || typeof account.signTransaction !== 'function') {
+        throw new Error('Account does not support signing')
       }
 
       const signedTx = await account.signTransaction({
         ...txRequest,
-        chainId: CONTRACT.chainId,
+        chainId: baseSepolia.id,
       } as any)
 
       const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx })
@@ -461,33 +466,38 @@ export function useSongAccess(options: UseSongAccessOptions): UseSongAccessResul
         throw new Error('Transaction failed')
       }
     } catch (err) {
-      console.error('[useSongAccess] Purchase error:', err)
-
-      let errorMsg = 'Transaction failed'
-      if (err instanceof Error) {
-        const msg = err.message.toLowerCase()
-        if (msg.includes('user rejected') || msg.includes('user denied')) {
-          errorMsg = 'Transaction cancelled'
-        } else if (msg.includes('insufficient')) {
-          errorMsg = 'Insufficient USDC balance'
-        } else if (msg.includes('already')) {
-          errorMsg = 'You already own this song'
-          // Still transition to owned state
-          setState('owned-pending-decrypt')
-          setPurchaseSubState(null)
-          return
-        } else if (msg.includes('session') || msg.includes('expired') || msg.includes('sign in')) {
-          errorMsg = 'Session expired. Please sign out and sign back in.'
-        } else {
-          errorMsg = err.message.slice(0, 100)
-        }
-      }
-
-      setError(errorMsg)
-      setState('not-owned')
-      setPurchaseSubState(null)
-      setStatusMessage(undefined)
+      handlePurchaseError(err)
     }
+  }
+
+  // ============ Error Handler ============
+  const handlePurchaseError = (err: unknown) => {
+    console.error('[useSongAccess] Purchase error:', err)
+
+    let errorMsg = 'Transaction failed'
+    if (err instanceof Error) {
+      const msg = err.message.toLowerCase()
+      if (msg.includes('user rejected') || msg.includes('user denied')) {
+        errorMsg = 'Transaction cancelled'
+      } else if (msg.includes('insufficient')) {
+        errorMsg = 'Insufficient ETH balance'
+      } else if (msg.includes('already')) {
+        errorMsg = 'You already own this song'
+        // Still transition to owned state
+        setState('owned-pending-decrypt')
+        setPurchaseSubState(null)
+        return
+      } else if (msg.includes('session') || msg.includes('expired') || msg.includes('sign in')) {
+        errorMsg = 'Session expired. Please sign out and sign back in.'
+      } else {
+        errorMsg = err.message.slice(0, 100)
+      }
+    }
+
+    setError(errorMsg)
+    setState('not-owned')
+    setPurchaseSubState(null)
+    setStatusMessage(undefined)
   }
 
   // ============ Retry Decrypt Action ============

@@ -38,8 +38,6 @@ export interface VideoPostData {
   shares: number
   karaokeLines?: KaraokeLine[]
   isLiked?: boolean
-  isFollowing?: boolean
-  isFollowLoading?: boolean
   canInteract?: boolean
 }
 
@@ -65,10 +63,6 @@ export interface KaraokeOverlayProps {
 export interface VideoActionsProps {
   userAvatar?: string
   username: string
-  isFollowing: boolean
-  canFollow: boolean
-  isFollowLoading?: boolean
-  onFollowClick: () => void
   onProfileClick: () => void
   isLiked: boolean
   onLikeClick: () => void

@@ -37,7 +37,6 @@ const basePost: VideoPostData = {
   shares: 56,
   description: 'Learning this classic! 🎤',
   isLiked: false,
-  isFollowing: false,
   canInteract: true,
 }
 
@@ -46,8 +45,6 @@ const basePost: VideoPostData = {
  */
 function InteractivePost(props: { post: VideoPostData; autoplay?: boolean }) {
   const [isLiked, setIsLiked] = createSignal(props.post.isLiked ?? false)
-  const [isFollowing, setIsFollowing] = createSignal(props.post.isFollowing ?? false)
-  const [isFollowLoading, setIsFollowLoading] = createSignal(false)
   const [likes, setLikes] = createSignal(props.post.likes)
 
   const handleLike = () => {
@@ -56,22 +53,12 @@ function InteractivePost(props: { post: VideoPostData; autoplay?: boolean }) {
     setLikes(l => newLiked ? l + 1 : l - 1)
   }
 
-  const handleFollow = async () => {
-    setIsFollowLoading(true)
-    await new Promise(r => setTimeout(r, 500))
-    setIsFollowing(!isFollowing())
-    setIsFollowLoading(false)
-  }
-
   return (
     <VideoPost
       {...props.post}
       likes={likes()}
       isLiked={isLiked()}
-      isFollowing={isFollowing()}
-      isFollowLoading={isFollowLoading()}
       onLikeClick={handleLike}
-      onFollowClick={handleFollow}
       onProfileClick={() => console.log('Profile clicked')}
       onShareClick={() => console.log('Share clicked')}
       onAudioClick={() => console.log('Audio clicked')}
@@ -95,15 +82,14 @@ export const Autoplay: Story = {
 }
 
 /**
- * Already liked and following
+ * Already liked
  */
-export const LikedAndFollowing: Story = {
+export const Liked: Story = {
   render: () => (
     <InteractivePost
       post={{
         ...basePost,
         isLiked: true,
-        isFollowing: true,
         likes: 1235,
       }}
     />

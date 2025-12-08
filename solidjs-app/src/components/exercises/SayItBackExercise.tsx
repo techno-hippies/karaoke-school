@@ -1,5 +1,6 @@
 import { type Component, Show } from 'solid-js'
 import { AudioButton } from '@/components/media/AudioButton'
+import { useTranslation } from '@/lib/i18n'
 
 export interface SayItBackExerciseProps {
   /** The text the user should say */
@@ -10,6 +11,8 @@ export interface SayItBackExerciseProps {
   score?: number | null
   /** Grade message ("Excellent!", "Nice try!", etc.) */
   gradeMessage?: string
+  /** Whether the answer was correct */
+  isCorrect?: boolean
   /** Number of attempts */
   attempts?: number
   /** Whether recording is in progress */
@@ -28,6 +31,7 @@ export interface SayItBackExerciseProps {
 }
 
 export const SayItBackExercise: Component<SayItBackExerciseProps> = (props) => {
+  const { t } = useTranslation()
   let audioRef: HTMLAudioElement | undefined
 
   const showResults = () => props.transcript !== undefined
@@ -46,7 +50,7 @@ export const SayItBackExercise: Component<SayItBackExerciseProps> = (props) => {
       {/* Target text section */}
       <div class="text-left space-y-3">
         <div class="text-muted-foreground text-lg sm:text-xl font-medium">
-          Say it back:
+          {t('exercise.sayItBack')}
         </div>
         <div class="flex items-start gap-4">
           {/* Play button - only show if we have audio */}
@@ -67,17 +71,20 @@ export const SayItBackExercise: Component<SayItBackExerciseProps> = (props) => {
       {/* Results (shown after speaking) */}
       <Show when={showResults()}>
         <div class="space-y-4">
-          {/* Grade message */}
-          <Show when={props.gradeMessage}>
-            <div class="text-2xl sm:text-3xl font-bold text-primary">
-              {props.gradeMessage}
-            </div>
-          </Show>
-
-          {/* User's transcript */}
+          {/* User's transcript with inline feedback */}
           <div class="text-left space-y-3">
-            <div class="text-muted-foreground text-lg sm:text-xl font-medium">
-              You said:
+            <div class="flex items-center gap-2 text-muted-foreground text-lg sm:text-xl font-medium">
+              {/* Red X icon when incorrect */}
+              <Show when={props.isCorrect === false}>
+                <svg class="w-6 h-6 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 256 256">
+                  <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm37.66,130.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                </svg>
+              </Show>
+              <span>
+                <Show when={props.isCorrect === false}>{t('exercise.tryAgain')} </Show>
+                <Show when={props.isCorrect === true && props.gradeMessage}>{props.gradeMessage} </Show>
+                {t('exercise.youSaid')}
+              </span>
             </div>
             <div class="text-xl sm:text-2xl font-semibold text-foreground leading-relaxed break-words">
               {props.transcript}

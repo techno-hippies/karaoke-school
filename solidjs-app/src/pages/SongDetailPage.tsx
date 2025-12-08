@@ -8,7 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Leaderboard } from '@/components/leaderboard/Leaderboard'
 import { Icon } from '@/components/icons'
 import { useAuth } from '@/contexts/AuthContext'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { useTranslation } from '@/lib/i18n'
+import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
+import { buildManifest, getBestUrl } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 
 /**
@@ -51,12 +53,6 @@ export const SongDetailPageSkeleton: Component<{ class?: string }> = (props) => 
           <div class="px-4 mt-4 space-y-4 pb-8">
             {/* Leaderboard skeleton */}
             <div class="w-full">
-              {/* Title skeleton */}
-              <div class="flex items-center gap-2 mb-4">
-                <Skeleton class="w-6 h-6 rounded" />
-                <Skeleton class="w-24 h-6 rounded-lg" />
-              </div>
-
               {/* Leaderboard skeleton entries - matches actual leaderboard layout */}
               <div class="space-y-2">
                 <For each={[1, 2, 3, 4, 5]}>
@@ -75,10 +71,13 @@ export const SongDetailPageSkeleton: Component<{ class?: string }> = (props) => 
         </div>
 
         {/* Footer skeleton */}
-        <div class="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
+        <div
+          class="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 px-4"
+          style={{ 'padding-bottom': 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           <div class="flex gap-3">
-            <Skeleton class="flex-1 h-12 rounded-lg" />
-            <Skeleton class="flex-1 h-12 rounded-lg" />
+            <Skeleton class="flex-1 h-12 rounded-full" />
+            <Skeleton class="flex-1 h-12 rounded-full" />
           </div>
         </div>
       </div>
@@ -97,6 +96,7 @@ export const SongDetailPage: Component = () => {
   const params = useParams<{ spotifyTrackId?: string; artistSlug?: string; songSlug?: string }>()
   const navigate = useNavigate()
   const auth = useAuth()
+  const { uiLanguage } = useTranslation()
 
   // Resolve slug to Spotify track ID if using slug-based route
   const slugData = useSongSlug(
@@ -116,13 +116,19 @@ export const SongDetailPage: Component = () => {
   // Get first clip from work
   const firstClip = createMemo(() => workData.data?.clips?.[0])
 
-  // Extract metadata
+  // Extract metadata with localization
   const metadata = createMemo(() => firstClip()?.metadata)
-  const songTitle = createMemo(() => metadata()?.title || params.songSlug?.replace(/-/g, ' ') || 'Unknown')
-  const artist = createMemo(() => metadata()?.artist || params.artistSlug?.replace(/-/g, ' ') || 'Unknown')
+  const songTitle = createMemo(() =>
+    getLocalizedTitle(metadata(), uiLanguage()) || params.songSlug?.replace(/-/g, ' ') || 'Unknown'
+  )
+  const artist = createMemo(() =>
+    getLocalizedArtist(metadata(), uiLanguage()) || params.artistSlug?.replace(/-/g, ' ') || 'Unknown'
+  )
   const artworkUrl = createMemo(() => {
     const cover = metadata()?.coverUri
-    return cover ? convertGroveUri(cover) : undefined
+    if (!cover) return undefined
+    const manifest = buildManifest(cover)
+    return getBestUrl(manifest) ?? undefined
   })
 
   // Loading state
@@ -295,13 +301,17 @@ export const SongDetailPage: Component = () => {
                 <Leaderboard
                   entries={leaderboardEntries()}
                   isLoading={isLoadingLeaderboard()}
+                  showTitle={false}
                   onUserClick={handleUserClick}
                 />
               </div>
             </div>
 
             {/* Sticky Footer with Study and Karaoke buttons */}
-            <div class="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4 px-4">
+            <div
+              class="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-8 px-4"
+              style={{ 'padding-bottom': 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+            >
               <div class="flex gap-3">
                 <Button
                   size="lg"

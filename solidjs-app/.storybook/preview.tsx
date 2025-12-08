@@ -1,5 +1,9 @@
 import type { Preview } from 'storybook-solidjs'
+import { MemoryRouter, Route } from '@solidjs/router'
 import { CurrencyProvider } from '../src/contexts/CurrencyContext'
+import { VideoPlaybackProvider } from '../src/contexts/VideoPlaybackContext'
+import { QueryProvider } from '../src/providers/QueryProvider'
+import { I18nProvider } from '../src/lib/i18n'
 import '../src/index.css'
 
 const preview: Preview = {
@@ -20,9 +24,19 @@ const preview: Preview = {
   },
   decorators: [
     (Story) => (
-      <CurrencyProvider>
-        <Story />
-      </CurrencyProvider>
+      <QueryProvider>
+        <MemoryRouter root={(props) => (
+          <I18nProvider>
+            <CurrencyProvider>
+              <VideoPlaybackProvider>
+                {props.children}
+              </VideoPlaybackProvider>
+            </CurrencyProvider>
+          </I18nProvider>
+        )}>
+          <Route path="*" component={Story} />
+        </MemoryRouter>
+      </QueryProvider>
     ),
   ],
 }

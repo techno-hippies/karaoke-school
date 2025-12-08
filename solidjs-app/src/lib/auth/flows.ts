@@ -20,7 +20,7 @@ import {
   loginAsOnboardingUser,
   loginAsAccountOwner,
   getExistingAccounts,
-  createAccountInCustomNamespace,
+  createAccountWithoutUsername,
   resumeLensSession,
 } from '@/lib/lens'
 
@@ -47,25 +47,24 @@ function generateDefaultMetadataUri(): string {
  * Register new user with passkey (WebAuthn)
  * 1. Register WebAuthn credential + mint PKP
  * 2. Create PKP wallet client
- * 3. Setup Lens account (create new or connect existing)
+ * 3. Setup Lens account (without username - can be claimed later)
  */
 export async function registerWithPasskeyFlow(
-  username?: string,
-  onStatus?: (status: string) => void
+  onStatus?: (statusKey: string) => void
 ): Promise<AuthFlowResult> {
-  const updateStatus = (status: string) => {
+  const updateStatus = (statusKey: string) => {
     if (IS_DEV) {
-      console.log('[AuthFlow]', status)
+      console.log('[AuthFlow]', statusKey)
     }
-    onStatus?.(status)
+    onStatus?.(statusKey)
   }
 
   // Step 1: Register with WebAuthn
-  updateStatus('Creating passkey and wallet...')
+  updateStatus('auth.creatingPasskeyWallet')
 
   let registrationResult
   try {
-    registrationResult = await registerUser(username, updateStatus)
+    registrationResult = await registerUser(updateStatus)
   } catch (error: any) {
     // Handle WebAuthn attestation parsing errors (browser compatibility issue)
     if (error?.message?.includes('Attestation response') ||
@@ -82,12 +81,12 @@ export async function registerWithPasskeyFlow(
   const { pkpInfo, authData, authContext } = registrationResult
 
   // Step 2: Create wallet client
-  updateStatus('Setting up wallet...')
+  updateStatus('auth.settingUpWallet')
   const walletClient = await createPKPWalletClient(pkpInfo, authContext)
   const walletAddress = walletClient.account?.address as Address
 
-  // Step 3: Setup Lens
-  updateStatus('Setting up Lens profile...')
+  // Step 3: Setup Lens (without username)
+  updateStatus('auth.settingUpLensProfile')
   let lensSession: SessionClient | null = null
   let lensAccount: Account | null = null
   let lensSetupStatus: 'pending' | 'complete' | 'failed' = 'pending'
@@ -98,30 +97,18 @@ export async function registerWithPasskeyFlow(
 
     if (existingAccounts.length > 0) {
       // Login to existing account
-      updateStatus('Found existing Lens account, connecting...')
+      updateStatus('auth.foundExistingLens')
       const firstAccount = existingAccounts[0]
       lensSession = await loginAsAccountOwner(walletClient, walletAddress, firstAccount.account.address)
       lensAccount = firstAccount.account
       lensSetupStatus = 'complete'
-    } else if (username) {
-      // Create new account with username
-      updateStatus('Creating new Lens account...')
-      lensSession = await loginAsOnboardingUser(walletClient, walletAddress)
-
-      const metadataUri = generateDefaultMetadataUri()
-      lensAccount = await createAccountInCustomNamespace(
-        lensSession,
-        walletClient,
-        username,
-        metadataUri
-      )
-      lensSetupStatus = 'complete'
     } else {
-      // No username provided, skip Lens setup
-      if (IS_DEV) {
-        console.log('[AuthFlow] No username provided, skipping Lens account creation')
-      }
-      lensSetupStatus = 'pending'
+      // Create new account without username
+      updateStatus('auth.creatingNewLensAccount')
+      lensSession = await loginAsOnboardingUser(walletClient, walletAddress)
+      const metadataUri = generateDefaultMetadataUri()
+      lensAccount = await createAccountWithoutUsername(lensSession, walletClient, metadataUri)
+      lensSetupStatus = 'complete'
     }
   } catch (lensError) {
     console.error('[AuthFlow] Lens setup failed:', lensError)
@@ -129,7 +116,7 @@ export async function registerWithPasskeyFlow(
     // Don't throw - user can still use the app without Lens
   }
 
-  updateStatus('Complete!')
+  updateStatus('auth.complete')
 
   return {
     pkpInfo,
@@ -150,26 +137,26 @@ export async function registerWithPasskeyFlow(
  * 4. Resume or create Lens session
  */
 export async function signInWithPasskeyFlow(
-  onStatus?: (status: string) => void
+  onStatus?: (statusKey: string) => void
 ): Promise<AuthFlowResult> {
-  const updateStatus = (status: string) => {
+  const updateStatus = (statusKey: string) => {
     if (IS_DEV) {
-      console.log('[AuthFlow]', status)
+      console.log('[AuthFlow]', statusKey)
     }
-    onStatus?.(status)
+    onStatus?.(statusKey)
   }
 
   // Step 1: Authenticate with WebAuthn
-  updateStatus('Authenticating with passkey...')
+  updateStatus('auth.authenticatingPasskey')
   const { pkpInfo, authData, authContext } = await loginUser(updateStatus)
 
   // Step 2: Create wallet client
-  updateStatus('Setting up wallet...')
+  updateStatus('auth.settingUpWallet')
   const walletClient = await createPKPWalletClient(pkpInfo, authContext)
   const walletAddress = walletClient.account?.address as Address
 
   // Step 3: Resume or setup Lens
-  updateStatus('Connecting to Lens...')
+  updateStatus('auth.connectingToLens')
   let lensSession: SessionClient | null = null
   let lensAccount: Account | null = null
   let lensSetupStatus: 'pending' | 'complete' | 'failed' = 'pending'
@@ -179,7 +166,7 @@ export async function signInWithPasskeyFlow(
     lensSession = await resumeLensSession()
 
     if (lensSession) {
-      updateStatus('Lens session resumed!')
+      updateStatus('auth.lensSessionResumed')
       // TODO: Get account from session
       lensSetupStatus = 'complete'
     } else {
@@ -190,7 +177,7 @@ export async function signInWithPasskeyFlow(
       }
 
       if (existingAccounts.length > 0) {
-        updateStatus('Connecting to Lens account...')
+        updateStatus('auth.connectingToLensAccount')
         const firstAccount = existingAccounts[0]
         if (IS_DEV) {
           console.log('[AuthFlow] First account:', firstAccount)
@@ -224,7 +211,7 @@ export async function signInWithPasskeyFlow(
     // Don't throw - user can still use the app without Lens
   }
 
-  updateStatus('Complete!')
+  updateStatus('auth.complete')
 
   return {
     pkpInfo,
@@ -243,14 +230,13 @@ export async function signInWithPasskeyFlow(
  */
 export async function connectWithEoaFlow(
   walletClient: WalletClient,
-  username?: string,
-  onStatus?: (status: string) => void
+  onStatus?: (statusKey: string) => void
 ): Promise<AuthFlowResult> {
-  const updateStatus = (status: string) => {
+  const updateStatus = (statusKey: string) => {
     if (IS_DEV) {
-      console.log('[AuthFlow]', status)
+      console.log('[AuthFlow]', statusKey)
     }
-    onStatus?.(status)
+    onStatus?.(statusKey)
   }
 
   const { registerWithEoa, loginWithEoa, getExistingPkpForEoa } = await import('@/lib/lit')
@@ -260,7 +246,7 @@ export async function connectWithEoaFlow(
     throw new Error('No wallet address')
   }
 
-  updateStatus('Checking for existing account...')
+  updateStatus('auth.checkingExistingAccount')
 
   // Check if PKP already exists for this EOA
   const existingPkp = await getExistingPkpForEoa(address)
@@ -269,25 +255,25 @@ export async function connectWithEoaFlow(
   let authData: AuthData
 
   if (existingPkp) {
-    updateStatus('Found existing account, signing in...')
+    updateStatus('auth.foundExistingSigningIn')
     const result = await loginWithEoa(walletClient)
     pkpInfo = result.pkpInfo
     authData = result.authData
   } else {
-    updateStatus('Creating new wallet...')
+    updateStatus('auth.creatingNewWallet')
     const result = await registerWithEoa(walletClient)
     pkpInfo = result.pkpInfo
     authData = result.authData
   }
 
   // Create auth context and wallet client
-  updateStatus('Setting up session...')
+  updateStatus('auth.settingUpSession')
   const authContext = await createPKPAuthContext(pkpInfo, authData)
   const pkpWalletClient = await createPKPWalletClient(pkpInfo, authContext)
   const pkpAddress = pkpWalletClient.account?.address as Address
 
-  // Setup Lens
-  updateStatus('Setting up Lens...')
+  // Setup Lens (without username)
+  updateStatus('auth.settingUpLens')
   let lensSession: SessionClient | null = null
   let lensAccount: Account | null = null
   let lensSetupStatus: 'pending' | 'complete' | 'failed' = 'pending'
@@ -300,10 +286,11 @@ export async function connectWithEoaFlow(
       lensSession = await loginAsAccountOwner(pkpWalletClient, pkpAddress, firstAccount.account.address)
       lensAccount = firstAccount.account
       lensSetupStatus = 'complete'
-    } else if (username) {
+    } else {
+      // Create new account without username
       lensSession = await loginAsOnboardingUser(pkpWalletClient, pkpAddress)
       const metadataUri = generateDefaultMetadataUri()
-      lensAccount = await createAccountInCustomNamespace(lensSession, pkpWalletClient, username, metadataUri)
+      lensAccount = await createAccountWithoutUsername(lensSession, pkpWalletClient, metadataUri)
       lensSetupStatus = 'complete'
     }
   } catch (lensError) {
@@ -311,7 +298,7 @@ export async function connectWithEoaFlow(
     lensSetupStatus = 'failed'
   }
 
-  updateStatus('Complete!')
+  updateStatus('auth.complete')
 
   return {
     pkpInfo,
@@ -326,44 +313,40 @@ export async function connectWithEoaFlow(
 
 /**
  * Standalone Lens login (when PKP already exists)
- * Used for reconnecting to Lens after session expires
+ * Used for reconnecting to Lens after session expires or SSO flows
  */
 export async function loginLensStandalone(
   walletClient: WalletClient,
   address: string,
-  username?: string,
-  onStatus?: (status: string) => void
+  onStatus?: (statusKey: string) => void
 ): Promise<{ session: SessionClient; account: Account | null }> {
-  const updateStatus = (status: string) => {
+  const updateStatus = (statusKey: string) => {
     if (IS_DEV) {
-      console.log('[AuthFlow]', status)
+      console.log('[AuthFlow]', statusKey)
     }
-    onStatus?.(status)
+    onStatus?.(statusKey)
   }
 
   const walletAddress = address as Address
 
   // Check for existing accounts
-  updateStatus('Checking for Lens account...')
+  updateStatus('auth.checkingLensAccount')
   const existingAccounts = await getExistingAccounts(walletAddress)
 
   let session: SessionClient
   let account: Account | null = null
 
   if (existingAccounts.length > 0) {
-    updateStatus('Connecting to Lens account...')
+    updateStatus('auth.connectingToLensAccount')
     const firstAccount = existingAccounts[0]
     session = await loginAsAccountOwner(walletClient, walletAddress, firstAccount.account.address)
     account = firstAccount.account
-  } else if (username) {
-    updateStatus('Creating new Lens account...')
+  } else {
+    // Create new account without username
+    updateStatus('auth.creatingNewLensAccount')
     session = await loginAsOnboardingUser(walletClient, walletAddress)
     const metadataUri = generateDefaultMetadataUri()
-    account = await createAccountInCustomNamespace(session, walletClient, username, metadataUri)
-  } else {
-    // Login as onboarding user without creating account
-    updateStatus('Connecting to Lens...')
-    session = await loginAsOnboardingUser(walletClient, walletAddress)
+    account = await createAccountWithoutUsername(session, walletClient, metadataUri)
   }
 
   return { session, account }

@@ -48,10 +48,10 @@ export async function decryptAudioWithAesGcm(
   const decryptedBuffer = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: ivBytes,
+      iv: ivBytes as Uint8Array<ArrayBuffer>,
     },
     cryptoKey,
-    ciphertextWithTag as BufferSource
+    ciphertextWithTag as Uint8Array<ArrayBuffer>
   )
 
   return decryptedBuffer

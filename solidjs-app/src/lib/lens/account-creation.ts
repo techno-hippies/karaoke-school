@@ -386,6 +386,221 @@ export async function checkUsernameAvailability(
 }
 
 /**
+ * Create account WITHOUT username (for streamlined onboarding)
+ *
+ * Step 1: Create account without username
+ * Step 2: Switch to account owner
+ *
+ * Username can be created later via createUsernameForAccount()
+ *
+ * @param sessionClient - Authenticated Lens session (ONBOARDING_USER role)
+ * @param walletClient - PKP wallet client for signing transactions
+ * @param metadataUri - Grove metadata URI for account
+ * @returns Created account (without username)
+ */
+export async function createAccountWithoutUsername(
+  sessionClient: SessionClient,
+  walletClient: WalletClient,
+  metadataUri: string
+): Promise<Account> {
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Creating account without username =====')
+    console.log('[Account Creation] Metadata URI:', metadataUri)
+  }
+
+  // Use SessionClient's internal urql client which is already authenticated
+  const urqlClient = (sessionClient as any).urql
+  if (!urqlClient) {
+    throw new Error('SessionClient does not have urql client')
+  }
+
+  if (IS_DEV) console.log('[Account Creation] Using SessionClient authenticated urql client')
+
+  // Helper to execute mutations using SessionClient's urql
+  const executeMutationWithSession = async <T,>(mutation: string, variables: any): Promise<T> => {
+    const result = await urqlClient.mutation(mutation, variables).toPromise()
+    if (result.error) {
+      if (IS_DEV) console.error('[Account Creation] Mutation error:', result.error)
+      throw new Error(result.error.message || 'Mutation failed')
+    }
+    return result.data as T
+  }
+
+  // ============ STEP 1: Create Account (No Username) ============
+  if (IS_DEV) console.log('[Account Creation] Step 1/2: Creating account without username...')
+
+  const createAccountResult = await executeMutationWithSession<{ createAccount: CreateAccountResponse }>(
+    CREATE_ACCOUNT_MUTATION,
+    {
+      request: {
+        metadataUri,
+      },
+    }
+  )
+
+  const createAccountData = createAccountResult.createAccount
+
+  // Handle transaction response
+  let accountTxHash: Hex
+
+  if (createAccountData.hash) {
+    // Sponsored transaction - already has hash
+    accountTxHash = createAccountData.hash as Hex
+    if (IS_DEV) console.log('[Account Creation] ✓ Sponsored transaction, hash:', accountTxHash)
+  } else if (createAccountData.raw) {
+    // Self-funded transaction - need to sign and send
+    if (IS_DEV) {
+      console.log('[Account Creation] Self-funded transaction required')
+      console.log('[Account Creation] Reason:', createAccountData.reason)
+    }
+
+    accountTxHash = await sendRawTransaction(walletClient, createAccountData.raw)
+    if (IS_DEV) console.log('[Account Creation] ✓ Transaction sent:', accountTxHash)
+  } else if (createAccountData.reason) {
+    // Transaction will fail
+    throw new Error(`Account creation will fail: ${createAccountData.reason}`)
+  } else {
+    throw new Error('Unexpected response from createAccount mutation')
+  }
+
+  // Wait for account to be indexed
+  const account = await waitForAccountIndexing(sessionClient, accountTxHash)
+  if (IS_DEV) console.log('[Account Creation] ✓ Account created:', account.address)
+
+  // ============ STEP 2: Switch to Account Owner ============
+  if (IS_DEV) console.log('[Account Creation] Step 2/2: Switching to account owner role...')
+
+  await switchToAccountOwner(sessionClient, account.address)
+  if (IS_DEV) console.log('[Account Creation] ✓ Switched to ACCOUNT_OWNER')
+
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Account creation complete (no username) =====')
+    console.log('[Account Creation] Address:', account.address)
+    console.log('[Account Creation] Owner:', account.owner)
+  }
+
+  return account
+}
+
+/**
+ * Create username for an existing account (for later username claiming)
+ *
+ * @param sessionClient - Authenticated Lens session (ACCOUNT_OWNER role)
+ * @param walletClient - PKP wallet client for signing transactions
+ * @param username - Username to register in kschool2 custom namespace
+ * @returns Updated account with username
+ */
+export async function createUsernameForAccount(
+  sessionClient: SessionClient,
+  walletClient: WalletClient,
+  username: string
+): Promise<{ username: string; txHash: Hex }> {
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Creating username for existing account =====')
+    console.log('[Account Creation] Username:', username)
+    console.log('[Account Creation] Namespace:', LENS_CUSTOM_NAMESPACE)
+  }
+
+  // Use SessionClient's internal urql client which is already authenticated
+  const urqlClient = (sessionClient as any).urql
+  if (!urqlClient) {
+    throw new Error('SessionClient does not have urql client')
+  }
+
+  // Helper to execute mutations using SessionClient's urql
+  const executeMutationWithSession = async <T,>(mutation: string, variables: any): Promise<T> => {
+    const result = await urqlClient.mutation(mutation, variables).toPromise()
+    if (result.error) {
+      if (IS_DEV) console.error('[Account Creation] Mutation error:', result.error)
+      throw new Error(result.error.message || 'Mutation failed')
+    }
+    return result.data as T
+  }
+
+  // Create username in kschool2 namespace
+  let createUsernameResult: { createUsername: CreateUsernameResponse }
+  try {
+    createUsernameResult = await executeMutationWithSession<{ createUsername: CreateUsernameResponse }>(
+      CREATE_USERNAME_MUTATION,
+      {
+        request: {
+          username: {
+            localName: username,
+            namespace: LENS_CUSTOM_NAMESPACE,
+          },
+        },
+      }
+    )
+    if (IS_DEV) console.log('[Account Creation] Username mutation response:', JSON.stringify(createUsernameResult, null, 2))
+  } catch (mutationError) {
+    if (IS_DEV) console.error('[Account Creation] Username mutation failed:', mutationError)
+    throw mutationError
+  }
+
+  const createUsernameData = createUsernameResult.createUsername
+  let usernameTxHash: Hex
+
+  if (createUsernameData.hash) {
+    usernameTxHash = createUsernameData.hash as Hex
+    if (IS_DEV) console.log('[Account Creation] ✓ Username created, hash:', usernameTxHash)
+  } else if (createUsernameData.sponsoredReason === 'REQUIRES_SIGNATURE' && createUsernameData.typedData) {
+    // Sponsored with typedData - sign and broadcast via Lens API (gasless!)
+    if (IS_DEV) {
+      console.log('[Account Creation] Sponsored transaction with typedData')
+      console.log('[Account Creation] Signing typedData and broadcasting via Lens API...')
+    }
+
+    if (!walletClient.account) {
+      throw new Error('Wallet client account not available')
+    }
+    const signature = await walletClient.signTypedData({
+      account: walletClient.account,
+      domain: {
+        ...createUsernameData.typedData.domain,
+        chainId: BigInt(createUsernameData.typedData.domain.chainId),
+        verifyingContract: createUsernameData.typedData.domain.verifyingContract as `0x${string}`,
+      },
+      types: createUsernameData.typedData.types,
+      primaryType: 'CreateUsername',
+      message: createUsernameData.typedData.value,
+    })
+
+    const broadcastResult = await (sessionClient as any).executeTypedData({
+      id: createUsernameData.id,
+      signature,
+    })
+
+    if (broadcastResult.isOk()) {
+      usernameTxHash = broadcastResult.value as Hex
+      if (IS_DEV) console.log('[Account Creation] ✓ Transaction broadcast via Lens API:', usernameTxHash)
+    } else {
+      throw new Error(`Broadcast failed: ${broadcastResult.error?.message}`)
+    }
+  } else if (createUsernameData.raw) {
+    const paymentValue = BigInt(createUsernameData.raw.value || '0')
+    if (IS_DEV) {
+      if (paymentValue > 0n) {
+        console.log('[Account Creation] Payment required:', paymentValue.toString(), 'wei')
+      }
+    }
+    usernameTxHash = await sendRawTransaction(walletClient, createUsernameData.raw)
+    if (IS_DEV) console.log('[Account Creation] ✓ Transaction sent:', usernameTxHash)
+  } else if (createUsernameData.reason) {
+    throw new Error(`Username creation will fail: ${createUsernameData.reason}`)
+  } else {
+    throw new Error('Unexpected response from createUsername mutation')
+  }
+
+  if (IS_DEV) {
+    console.log('[Account Creation] ===== Username creation complete =====')
+    console.log('[Account Creation] Username:', username)
+    console.log('[Account Creation] Full handle:', `kschool2/${username}`)
+  }
+
+  return { username, txHash: usernameTxHash }
+}
+
+/**
  * Validate username format
  * Returns error message if invalid, undefined if valid
  */

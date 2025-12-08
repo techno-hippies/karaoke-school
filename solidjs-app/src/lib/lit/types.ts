@@ -20,6 +20,8 @@ export interface AuthData {
   authMethodType: 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11 | 12 | 13
   authMethodId: string
   accessToken: string
+  /** EOA address for users who signed up with external wallet (authMethodType: 1) */
+  eoaAddress?: Address
 }
 
 /**

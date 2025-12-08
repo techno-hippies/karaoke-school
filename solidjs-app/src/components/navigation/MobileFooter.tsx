@@ -1,6 +1,7 @@
 import type { Component } from 'solid-js'
 import { Icon } from '@/components/icons'
 import { useTranslation } from '@/lib/i18n'
+import { haptic } from '@/lib/utils'
 
 interface MobileFooterProps {
   activeTab: 'home' | 'study' | 'songs' | 'chat' | 'wallet' | 'none'
@@ -10,6 +11,11 @@ interface MobileFooterProps {
 export const MobileFooter: Component<MobileFooterProps> = (props) => {
   const { t } = useTranslation()
 
+  const handleTabChange = (tab: 'home' | 'study' | 'songs' | 'chat' | 'wallet') => {
+    haptic.light()
+    props.onTabChange(tab)
+  }
+
   return (
     <div
       class="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden z-50"
@@ -17,7 +23,7 @@ export const MobileFooter: Component<MobileFooterProps> = (props) => {
     >
       <div class="flex items-center justify-around h-16">
         <button
-          onClick={() => props.onTabChange('home')}
+          onClick={() => handleTabChange('home')}
           class={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             props.activeTab === 'home' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
@@ -28,7 +34,7 @@ export const MobileFooter: Component<MobileFooterProps> = (props) => {
         </button>
 
         <button
-          onClick={() => props.onTabChange('songs')}
+          onClick={() => handleTabChange('songs')}
           class={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             props.activeTab === 'songs' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
@@ -39,7 +45,7 @@ export const MobileFooter: Component<MobileFooterProps> = (props) => {
         </button>
 
         <button
-          onClick={() => props.onTabChange('study')}
+          onClick={() => handleTabChange('study')}
           class={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             props.activeTab === 'study' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
@@ -50,7 +56,7 @@ export const MobileFooter: Component<MobileFooterProps> = (props) => {
         </button>
 
         <button
-          onClick={() => props.onTabChange('chat')}
+          onClick={() => handleTabChange('chat')}
           class={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             props.activeTab === 'chat' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
@@ -61,7 +67,7 @@ export const MobileFooter: Component<MobileFooterProps> = (props) => {
         </button>
 
         <button
-          onClick={() => props.onTabChange('wallet')}
+          onClick={() => handleTabChange('wallet')}
           class={`flex flex-col items-center justify-center flex-1 h-full transition-colors cursor-pointer ${
             props.activeTab === 'wallet' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}

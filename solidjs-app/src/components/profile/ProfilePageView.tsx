@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Avatar } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
 import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
+import { BackButton } from '@/components/ui/back-button'
 import { LanguageSwitcher } from '@/components/settings/LanguageSwitcher'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -127,8 +127,8 @@ const formatNumber = (num: number | undefined): string => {
 /**
  * ProfilePageView - Unified profile and wallet view
  *
- * For own profile: Shows avatar, username, wallet address, tabs (Tokens | Videos | Achievements)
- * For other profiles: Shows avatar, username, stats, follow button, tabs (Videos | Achievements)
+ * For own profile: Shows avatar, username, wallet address, tabs (Tokens | Settings)
+ * For other profiles: Shows avatar, username, stats, achievements
  */
 export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
   const { t } = useTranslation()
@@ -177,10 +177,26 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
     })
   }
 
-  const displayHandle = () => props.username || 'Anonymous'
+  // Show username if available, otherwise show truncated address
+  const displayHandle = () => {
+    if (props.username) return props.username
+    if (props.walletAddress) {
+      return `${props.walletAddress.slice(0, 6)}...${props.walletAddress.slice(-4)}`
+    }
+    return 'Anonymous'
+  }
 
   return (
     <div class={cn('relative w-full min-h-screen bg-background', props.class)}>
+      {/* Back button header */}
+      <Show when={props.onBack}>
+        <div class="sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
+          <div class="max-w-4xl mx-auto px-2 py-2">
+            <BackButton onClick={props.onBack} />
+          </div>
+        </div>
+      </Show>
+
       <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6">
         {/* Profile Header */}
         <div class="flex flex-col items-center gap-4 mb-6">
@@ -211,7 +227,7 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
             <div class="flex gap-6 text-base">
               <div class="flex items-center gap-2">
                 <span class="font-bold">{formatNumber(props.totalPoints)}</span>
-                <span class="text-muted-foreground">Points</span>
+                <span class="text-muted-foreground">{t('wallet.points')}</span>
               </div>
             </div>
           </Show>
@@ -241,12 +257,12 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
           fallback={
   /* Other user's profile - Achievements only (no videos for now) */
             <div class="mt-4">
-              <h3 class="text-base font-semibold mb-4">Achievements</h3>
+              <h3 class="text-base font-semibold mb-4">{t('wallet.achievements')}</h3>
               <Show
                 when={props.achievements && props.achievements.length > 0}
                 fallback={
                   <div class="text-center py-12 text-muted-foreground">
-                    No achievements yet
+                    {t('wallet.noAchievements')}
                   </div>
                 }
               >
@@ -293,7 +309,7 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
           <Tabs defaultValue="tokens" class="w-full">
             <TabsList class="w-full grid grid-cols-2">
               <TabsTrigger value="tokens">{t('wallet.balances')}</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="settings">{t('wallet.settings')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="tokens" class="mt-4">
@@ -368,7 +384,7 @@ export const ProfilePageView: Component<ProfilePageViewProps> = (props) => {
                   variant="outline"
                   class="w-full"
                 >
-                  Disconnect
+                  {t('wallet.disconnect')}
                 </Button>
               </Show>
             </TabsContent>

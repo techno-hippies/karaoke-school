@@ -3,7 +3,23 @@
  */
 
 import type { VideoPostData } from '../../components/feed/types'
-import { convertGroveUri } from './utils'
+import { buildManifest, getBestUrl } from '../storage'
+
+/**
+ * Convert URI to best available URL using storage layer fallback
+ * Returns empty string for null/undefined URIs (backwards compatible with convertGroveUri)
+ */
+function convertUri(uri: string | null | undefined): string {
+  if (!uri) return ''
+  const manifest = buildManifest(uri)
+  return getBestUrl(manifest) ?? ''
+}
+
+// Known poster avatars - avoids subgraph calls for common accounts
+const KNOWN_AVATARS: Record<string, string> = {
+  'scarlett-ks': '/images/scarlett/default.webp',
+  'violet-ks': '/images/violet/default.webp',
+}
 
 /**
  * Transform a Lens Post with VideoMetadata to VideoPostData format
@@ -41,21 +57,25 @@ export function transformLensPostToVideoData(
   const rawVideoUrl = video?.video?.item
   const rawThumbnailUrl = video?.video?.cover
 
-  // Convert lens:// URIs to Grove storage URLs
-  const videoUrl = convertGroveUri(rawVideoUrl)
-  const thumbnailUrl = convertGroveUri(rawThumbnailUrl) ||
+  // Convert lens:// URIs to storage URLs with multi-gateway fallback
+  const videoUrl = convertUri(rawVideoUrl)
+  const thumbnailUrl = convertUri(rawThumbnailUrl) ||
     `https://picsum.photos/400/711?random=${post.id}`
 
-  // Extract avatar - handle both object and string formats
-  const rawAvatar = post.author?.metadata?.picture
-  const avatarUri = typeof rawAvatar === 'string'
-    ? rawAvatar
-    : rawAvatar?.optimized?.uri || rawAvatar?.raw?.uri
-  const userAvatar = convertGroveUri(avatarUri) ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.address}`
+  // Extract avatar - use local assets for known posters, fallback to Lens metadata
+  const username = post.author?.username?.localName
+  let userAvatar = username ? KNOWN_AVATARS[username] : undefined
+  if (!userAvatar) {
+    const rawAvatar = post.author?.metadata?.picture
+    const avatarUri = typeof rawAvatar === 'string'
+      ? rawAvatar
+      : rawAvatar?.optimized?.uri || rawAvatar?.raw?.uri
+    userAvatar = convertUri(avatarUri) ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author?.address}`
+  }
 
   const albumArt = getAttribute('album_art')
-  const musicImageUrl = albumArt ? convertGroveUri(albumArt) : undefined
+  const musicImageUrl = albumArt ? convertUri(albumArt) : undefined
 
   // Get song/artist from attributes, with fallback to parsing title for legacy posts
   let musicTitle = getAttribute('song_name')
@@ -73,7 +93,7 @@ export function transformLensPostToVideoData(
     id: post.id,
     videoUrl,
     thumbnailUrl,
-    username: post.author?.username?.localName || post.author?.address || 'unknown',
+    username: username || post.author?.address || 'unknown',
     userAvatar,
     authorAddress: post.author?.address,
     grade: getAttribute('grade'),
@@ -88,7 +108,6 @@ export function transformLensPostToVideoData(
     likes: post.stats?.upvotes ?? 0,
     shares: post.stats?.reposts ?? 0,
     isLiked,
-    isFollowing: post.author?.operations?.isFollowedByMe ?? false,
     canInteract: isAuthenticated,
   }
 }

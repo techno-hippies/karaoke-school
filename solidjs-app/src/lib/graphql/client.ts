@@ -11,8 +11,8 @@ const SUBGRAPH_ENDPOINTS = {
   // Local Graph Node Dev Mode (for development) - use 127.0.0.1 for IPv4
   local: 'http://127.0.0.1:8000/subgraphs/name/subgraph-0/',
   // The Graph Studio endpoint (deployed on Lens testnet)
-  // v0.0.12: Removed unlockLockAddress/unlockChainId from Clip entity
-  studio: 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12',
+  // v0.0.15: KaraokeLineScore immutable: false (fix duplicate key constraint)
+  studio: 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.15',
 }
 
 // Allow override via env var: VITE_SUBGRAPH_MODE=local to use local GND

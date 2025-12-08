@@ -28,6 +28,8 @@ export {
 // Account Creation
 export {
   createAccountInCustomNamespace,
+  createAccountWithoutUsername,
+  createUsernameForAccount,
   checkUsernameAvailability,
   validateUsernameFormat,
 } from './account-creation'
@@ -40,10 +42,6 @@ export {
 
 // Utils
 export {
-  lensToGroveUrl,
-  convertGroveUri,
-  extractImageSetUri,
-  convertLensImage,
   parseVideoMetadata,
   formatNumber,
   type VideoMetadata,

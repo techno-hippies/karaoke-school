@@ -6,8 +6,9 @@ import {
   GET_CLIPS_WITH_PERFORMANCES,
   GET_ALL_CLIPS_WITH_PERFORMANCES,
   GET_EXERCISE_CARDS,
+  GET_USER_CLIP_HASHES,
 } from '@/lib/graphql/study-queries'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson, getBestUrl } from '@/lib/storage'
 import {
   calculateFSRSState,
   getTodayStartTimestamp,
@@ -51,9 +52,41 @@ export function useStudyCards(songId?: Accessor<string | undefined>) {
             performer: pkpAddress.toLowerCase(),
           })
         } else {
-          // Query ALL clips for dashboard view
+          // Dashboard view: only show clips the user has interacted with
+          // First, get clipHashes from user's line performances
+          const userClipData = await graphClient.request(GET_USER_CLIP_HASHES, {
+            performer: pkpAddress.toLowerCase(),
+          })
+
+          const userClipHashes = Array.from(
+            new Set(
+              (userClipData?.linePerformances || [])
+                .map((p: any) => p.clipHash)
+                .filter((hash: unknown): hash is string => typeof hash === 'string' && hash.length > 0)
+            )
+          )
+
+          // If user hasn't interacted with any clips, return empty result
+          if (userClipHashes.length === 0) {
+            return {
+              cards: [],
+              stats: {
+                total: 0,
+                new: 0,
+                learning: 0,
+                review: 0,
+                relearning: 0,
+                newCardsIntroducedToday: 0,
+                newCardsRemaining: 15,
+                dueToday: 0,
+              }
+            }
+          }
+
+          // Query only clips the user has interacted with
           data = await graphClient.request(GET_ALL_CLIPS_WITH_PERFORMANCES, {
             performer: pkpAddress.toLowerCase(),
+            clipHashes: userClipHashes,
           })
         }
 
@@ -137,28 +170,19 @@ export function useStudyCards(songId?: Accessor<string | undefined>) {
           if (!clip.metadataUri) continue
 
           try {
-            const metadataResponse = await fetch(clip.metadataUri)
-            if (!metadataResponse.ok) {
-              console.warn('[useStudyCards] ⚠️ Failed to fetch clip metadata', {
-                metadataUri: clip.metadataUri,
-                status: metadataResponse.status,
-              })
-              metadataFailures.push({
-                metadataUri: clip.metadataUri,
-                error: `HTTP ${metadataResponse.status}`,
-              })
-              continue
-            }
-
-            const clipMetadata = await metadataResponse.json()
+            // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+            const manifest = buildManifest(clip.metadataUri)
+            const clipMetadata = await fetchJson<any>(manifest)
             clipMetadataCache.set(clip.metadataUri, clipMetadata)
 
             // Store title/artist/artwork for this track
             if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+              // Use getBestUrl for the cover image (returns URL string for <img>)
+              const coverManifest = clipMetadata.coverUri ? buildManifest(clipMetadata.coverUri) : null
               songMetadataBySpotifyId.set(clip.spotifyTrackId, {
                 title: clipMetadata.title,
                 artist: clipMetadata.artist,
-                artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+                artworkUrl: coverManifest ? getBestUrl(coverManifest) ?? undefined : undefined
               })
             }
           } catch (error) {

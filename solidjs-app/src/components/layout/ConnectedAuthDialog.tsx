@@ -8,8 +8,15 @@
 import { createSignal, createEffect, type Component } from 'solid-js'
 import { AuthDialog } from './AuthDialog'
 import { useAuth } from '@/contexts/AuthContext'
-import { validateUsernameFormat } from '@/lib/lens/account-creation'
-import { wagmiConfig, connect } from '@/providers/Web3Provider'
+import {
+  wagmiConfig,
+  connect,
+  getAccount,
+  watchAccount,
+  TARGET_CHAIN_ID,
+  TARGET_CHAIN,
+  switchToTargetChain,
+} from '@/providers/Web3Provider'
 import { injected } from '@wagmi/connectors'
 
 export interface ConnectedAuthDialogProps {
@@ -20,10 +27,38 @@ export interface ConnectedAuthDialogProps {
 export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) => {
   const auth = useAuth()
 
-  const [usernameAvailability, setUsernameAvailability] = createSignal<
-    'available' | 'unavailable' | null
-  >(null)
+  const [walletChainId, setWalletChainId] = createSignal<number | null>(null)
+  const [isSwitchingChain, setIsSwitchingChain] = createSignal(false)
   let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+  // Watch for chain changes when wallet is connected
+  createEffect(() => {
+    if (props.open) {
+      const account = getAccount(wagmiConfig)
+      if (account.isConnected && account.chainId) {
+        setWalletChainId(account.chainId)
+      }
+
+      // Subscribe to account/chain changes
+      const unwatch = watchAccount(wagmiConfig, {
+        onChange: (account) => {
+          if (account.isConnected && account.chainId) {
+            setWalletChainId(account.chainId)
+          } else {
+            setWalletChainId(null)
+          }
+        },
+      })
+
+      return () => unwatch()
+    }
+  })
+
+  // Check if wallet is on wrong network
+  const isWrongNetwork = () => {
+    const chainId = walletChainId()
+    return chainId !== null && chainId !== TARGET_CHAIN_ID
+  }
 
   const scheduleClose = () => {
     if (closeTimer) {
@@ -35,7 +70,6 @@ export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) 
   // Reset local state when dialog closes
   createEffect(() => {
     if (!props.open) {
-      setUsernameAvailability(null)
       if (closeTimer) {
         clearTimeout(closeTimer)
         closeTimer = null
@@ -43,14 +77,9 @@ export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) 
     }
   })
 
-  const handleRegisterClick = () => {
-    auth.showUsernameInput()
-    setUsernameAvailability(null)
-  }
-
-  const handleRegisterWithUsername = async (username: string) => {
+  const handleRegister = async () => {
     try {
-      await auth.register(username)
+      await auth.register()
       scheduleClose()
     } catch (error) {
       console.error('[ConnectedAuthDialog] Registration error:', error)
@@ -66,22 +95,22 @@ export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) 
     }
   }
 
-  const handleSocialLogin = async (provider: 'google' | 'discord', username?: string) => {
+  const handleGoogleLogin = async () => {
     try {
-      if (provider === 'google') {
-        await auth.loginWithGoogle(username)
-      } else {
-        await auth.loginWithDiscord(username)
-      }
+      await auth.loginWithGoogle()
       scheduleClose()
     } catch (error) {
-      console.error(`[ConnectedAuthDialog] ${provider} login error:`, error)
+      console.error('[ConnectedAuthDialog] Google login error:', error)
     }
   }
 
-  const handleUsernameBack = () => {
-    auth.resetAuthFlow()
-    setUsernameAvailability(null)
+  const handleDiscordLogin = async () => {
+    try {
+      await auth.loginWithDiscord()
+      scheduleClose()
+    } catch (error) {
+      console.error('[ConnectedAuthDialog] Discord login error:', error)
+    }
   }
 
   const handleConnectWallet = async () => {
@@ -108,18 +137,19 @@ export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) 
     }
   }
 
-  const handleEoaRetry = async (username: string) => {
+  const handleSwitchNetwork = async () => {
+    setIsSwitchingChain(true)
     try {
-      await auth.retryEoaWithUsername(username)
-      scheduleClose()
+      const success = await switchToTargetChain()
+      if (success) {
+        console.log('[ConnectedAuthDialog] Switched to target chain')
+        // Chain changed, watchAccount will update walletChainId
+      }
     } catch (error) {
-      console.error('[ConnectedAuthDialog] EOA retry error:', error)
+      console.error('[ConnectedAuthDialog] Failed to switch network:', error)
+    } finally {
+      setIsSwitchingChain(false)
     }
-  }
-
-  const checkUsernameAvailability = (username: string) => {
-    const formatError = validateUsernameFormat(username)
-    setUsernameAvailability(formatError ? null : 'available')
   }
 
   return (
@@ -131,16 +161,16 @@ export const ConnectedAuthDialog: Component<ConnectedAuthDialogProps> = (props) 
       isAuthenticating={auth.isAuthenticating()}
       statusMessage={auth.authStatus()}
       errorMessage={auth.authError()?.message || ''}
-      usernameAvailability={usernameAvailability()}
-      onRegister={handleRegisterClick}
-      onRegisterWithUsername={handleRegisterWithUsername}
+      onRegister={handleRegister}
       onLogin={handleLogin}
-      onUsernameBack={handleUsernameBack}
-      onUsernameChange={checkUsernameAvailability}
-      onLoginGoogle={(username) => handleSocialLogin('google', username)}
-      onLoginDiscord={(username) => handleSocialLogin('discord', username)}
-      onRetryEoaWithUsername={handleEoaRetry}
+      onLoginGoogle={handleGoogleLogin}
+      onLoginDiscord={handleDiscordLogin}
       onConnectWallet={handleConnectWallet}
+      // Network switching props
+      isWrongNetwork={isWrongNetwork()}
+      isSwitchingChain={isSwitchingChain()}
+      targetChainName={TARGET_CHAIN.name}
+      onSwitchNetwork={handleSwitchNetwork}
     />
   )
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from '@solidjs/router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudySession } from '@/hooks/useStudySession'
 import { useSongSlug } from '@/hooks/useSongSlug'
+import { useTranslation } from '@/lib/i18n'
 import { SayItBackExercise } from '@/components/exercises/SayItBackExercise'
 import { MultipleChoiceQuiz } from '@/components/exercises/MultipleChoiceQuiz'
 import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
@@ -10,6 +11,7 @@ import { ExerciseFooter, type ExerciseFooterControls } from '@/components/exerci
 import { ExerciseSkeleton } from '@/components/exercises/ExerciseSkeleton'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ExitConfirmation, useExitConfirmation } from '@/components/ui/exit-confirmation'
 
 /**
  * Skeleton layout for study page - shows header/footer structure while loading
@@ -63,6 +65,7 @@ const StudyPageSkeleton: Component<{ onClose?: () => void }> = (props) => {
  */
 
 export const StudySessionPage: Component = () => {
+  const { t } = useTranslation()
   const params = useParams<{
     workId?: string
     artistSlug?: string
@@ -100,15 +103,18 @@ export const StudySessionPage: Component = () => {
   // Pass spotifyTrackId for slug routes, workId for legacy routes
   const session = useStudySession(songId, { exitPath: returnPath() })
 
+  // Exit confirmation (drawer on mobile, dialog on desktop)
+  const exitConfirmation = useExitConfirmation(session.handleClose)
+
   const cardsCompleted = createMemo(() =>
     session.initialTotalCards() > 0 ? session.initialTotalCards() : session.totalCards()
   )
 
   const completionTitle = createMemo(() => {
     const title = session.songTitle()
-    if (title) return `You finished "${title}"!`
-    if (isGlobalSession()) return 'You finished all cards!'
-    return 'Session complete!'
+    if (title) return t('study.youFinishedSong', { title })
+    if (isGlobalSession()) return t('study.youFinishedAll')
+    return t('study.sessionComplete')
   })
 
   const handleConnectClick = () => {
@@ -179,36 +185,36 @@ export const StudySessionPage: Component = () => {
       {/* Auth check: Not logged in */}
       <Show when={!isPKPReady() && !isAuthenticating() && !(isSlugRoute() && slugQuery.isLoading)}>
         <div class="flex flex-col items-center justify-center h-screen gap-4 px-4">
-          <h1 class="text-xl sm:text-2xl font-bold text-center">Sign Up to Study</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-center">{t('study.signUpToStudy')}</h1>
           <p class="text-muted-foreground text-center max-w-md">
-            Create an account to track your progress and practice with spaced repetition.
+            {t('study.signUpDescription')}
           </p>
           <button
             onClick={handleConnectClick}
             class="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
-            Sign Up
+            {t('auth.signUp')}
           </button>
         </div>
       </Show>
 
       {/* Initial loading state (cards loading) */}
       <Show when={isPKPReady() && session.isInitializing()}>
-        <StudyPageSkeleton onClose={session.handleClose} />
+        <StudyPageSkeleton onClose={exitConfirmation.requestExit} />
       </Show>
 
       {/* No cards available */}
       <Show when={isPKPReady() && !session.isInitializing() && session.totalCards() === 0}>
         <div class="flex flex-col items-center justify-center h-screen gap-4 px-4">
-          <h1 class="text-2xl font-bold">No Cards Due</h1>
+          <h1 class="text-2xl font-bold">{t('study.noCardsDue')}</h1>
           <p class="text-muted-foreground text-center max-w-md">
-            You've completed all available cards for now. Check back later!
+            {t('study.noCardsDescription')}
           </p>
           <button
             onClick={() => navigate(returnPath(), { replace: true })}
             class="text-primary hover:underline"
           >
-            Go Back
+            {t('common.goBack')}
           </button>
         </div>
       </Show>
@@ -219,16 +225,16 @@ export const StudySessionPage: Component = () => {
           <div class="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 text-center gap-8">
             <div class="space-y-3 max-w-xl">
               <h1 class="text-sm uppercase tracking-wide text-muted-foreground">
-                Complete
+                {t('common.complete')}
               </h1>
               <p class="text-3xl font-bold">{completionTitle()}</p>
               <p class="text-base text-muted-foreground">
-                Come back tomorrow to reinforce what you've learned.
+                {t('study.comeBackTomorrow')}
               </p>
             </div>
 
             <div class="w-full max-w-sm bg-muted/30 rounded-2xl px-6 py-8 text-center space-y-3">
-              <p class="text-lg text-muted-foreground">Cards Completed</p>
+              <p class="text-lg text-muted-foreground">{t('study.cardsCompleted')}</p>
               <p class="text-7xl font-bold tracking-tight">{cardsCompleted()}</p>
             </div>
           </div>
@@ -236,7 +242,7 @@ export const StudySessionPage: Component = () => {
           <div class="border-t border-border bg-background/95 backdrop-blur-sm">
             <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
               <Button size="lg" class="w-full" onClick={() => navigate(returnPath(), { replace: true })}>
-                Finish
+                {t('common.finish')}
               </Button>
             </div>
           </div>
@@ -251,7 +257,7 @@ export const StudySessionPage: Component = () => {
             <div class="max-w-4xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
               <ExerciseHeader
                 progress={session.progress()}
-                onClose={session.handleClose}
+                onClose={exitConfirmation.requestExit}
                 stats={session.stats()}
               />
             </div>
@@ -286,6 +292,7 @@ export const StudySessionPage: Component = () => {
                   transcript={session.transcript()}
                   score={session.score()}
                   gradeMessage={session.feedback()?.message}
+                  isCorrect={session.feedback()?.isCorrect}
                 />
               </Show>
 
@@ -317,6 +324,14 @@ export const StudySessionPage: Component = () => {
           />
         </div>
       </Show>
+
+      {/* Exit confirmation modal */}
+      <ExitConfirmation
+        open={exitConfirmation.isOpen()}
+        onCancel={exitConfirmation.cancel}
+        onConfirm={exitConfirmation.confirm}
+        sessionType="study"
+      />
     </>
   )
 }

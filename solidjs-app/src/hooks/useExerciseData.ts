@@ -2,8 +2,23 @@ import { createQuery } from '@tanstack/solid-query'
 import { createMemo } from 'solid-js'
 import { useSegmentMetadata } from './useSegmentMetadata'
 import { useQuizMetadata } from './useQuizMetadata'
+import { buildManifest, fetchJson } from '@/lib/storage'
 import type { StudyCard } from '@/types/study'
 import type { Accessor } from 'solid-js'
+
+/** Alignment data structure from Grove storage */
+interface AlignmentData {
+  words?: Array<{ text?: string; word?: string; start?: number; end?: number }>
+}
+
+/** Translation data structure from Grove storage */
+interface TranslationData {
+  lines?: Array<{
+    originalText?: string
+    text?: string
+    translatedText?: string
+  }>
+}
 
 export interface SayItBackData {
   type: 'SAY_IT_BACK'
@@ -78,9 +93,9 @@ export function useExerciseData(card: Accessor<StudyCard | undefined>): Accessor
     queryFn: async () => {
       const uri = alignmentUri()
       if (!uri) throw new Error('Alignment URI required')
-      const response = await fetch(uri)
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
-      return response.json()
+      // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+      const manifest = buildManifest(uri)
+      return fetchJson<AlignmentData>(manifest)
     },
     enabled: !!alignmentUri() && isSayItBack(),
     staleTime: 300000,
@@ -94,9 +109,9 @@ export function useExerciseData(card: Accessor<StudyCard | undefined>): Accessor
     queryFn: async () => {
       const url = firstTranslation()?.grove_url
       if (!url) throw new Error('Translation URI required')
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
-      return response.json()
+      // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+      const manifest = buildManifest(url)
+      return fetchJson<TranslationData>(manifest)
     },
     enabled: !!firstTranslation()?.grove_url && isSayItBack(),
     staleTime: 300000,

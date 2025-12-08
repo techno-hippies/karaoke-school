@@ -1,6 +1,7 @@
 import { type Component, Show } from 'solid-js'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { haptic } from '@/lib/utils'
 
 export interface VoiceControlsProps {
   /** Current recording state */
@@ -24,6 +25,7 @@ export const VoiceControls: Component<VoiceControlsProps> = (props) => {
     console.log('[VoiceControls] Button clicked, isRecording:', props.isRecording)
     console.log('[VoiceControls] onStartRecording:', typeof props.onStartRecording)
     console.log('[VoiceControls] onStopRecording:', typeof props.onStopRecording)
+    haptic.medium()
     if (props.isRecording) {
       console.log('[VoiceControls] Calling onStopRecording...')
       props.onStopRecording?.()

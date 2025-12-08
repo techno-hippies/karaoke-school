@@ -1,7 +1,7 @@
 import { createQuery } from '@tanstack/solid-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson, getBestUrl } from '@/lib/storage'
 
 /**
  * Karaoke song data structure for library/feed display
@@ -9,7 +9,13 @@ import { convertGroveUri } from '@/lib/lens/utils'
 export interface KaraokeSong {
   spotifyTrackId: string
   title: string
+  title_zh?: string  // Chinese translation
+  title_vi?: string  // Vietnamese translation
+  title_id?: string  // Indonesian translation
   artist: string
+  artist_zh?: string  // Chinese translation/transliteration
+  artist_vi?: string  // Vietnamese translation/transliteration
+  artist_id?: string  // Indonesian translation/transliteration
   artworkUrl?: string
   hasInstrumental: boolean
   hasAlignments: boolean
@@ -132,6 +138,15 @@ interface ClipResult {
 }
 
 /**
+ * Get best URL for cover art using storage layer
+ */
+function getCoverUrl(coverUri: string | undefined): string | undefined {
+  if (!coverUri) return undefined
+  const manifest = buildManifest(coverUri)
+  return getBestUrl(manifest) ?? undefined
+}
+
+/**
  * Group clips by Spotify track ID to create song entities
  */
 function groupClipsBySpotifyTrack(clips: ClipResult[]): KaraokeSong[] {
@@ -143,7 +158,7 @@ function groupClipsBySpotifyTrack(clips: ClipResult[]): KaraokeSong[] {
         spotifyTrackId: trackId,
         title: clip.title || `Track ${trackId.slice(0, 8)}`,
         artist: clip.artist || 'Unknown Artist',
-        artworkUrl: clip.coverUri ? convertGroveUri(clip.coverUri) : undefined,
+        artworkUrl: getCoverUrl(clip.coverUri),
         hasInstrumental: false,
         hasAlignments: false,
         translationCount: 0,
@@ -179,7 +194,7 @@ function groupClipsBySpotifyTrack(clips: ClipResult[]): KaraokeSong[] {
       song.artist = clip.artist
     }
     if (clip.coverUri && !song.artworkUrl) {
-      song.artworkUrl = convertGroveUri(clip.coverUri)
+      song.artworkUrl = getCoverUrl(clip.coverUri)
     }
 
     return acc
@@ -272,16 +287,20 @@ async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
   if (!song.metadataUri) return song
 
   try {
-    const httpUrl = convertGroveUri(song.metadataUri)
-    const response = await fetch(httpUrl)
-    if (!response.ok) return song
-
-    const metadata = await response.json()
+    // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+    const manifest = buildManifest(song.metadataUri)
+    const metadata = await fetchJson<any>(manifest)
     return {
       ...song,
       title: metadata.title || song.title,
+      title_zh: metadata.title_zh,
+      title_vi: metadata.title_vi,
+      title_id: metadata.title_id,
       artist: metadata.artist || song.artist,
-      artworkUrl: metadata.coverUri ? convertGroveUri(metadata.coverUri) : song.artworkUrl
+      artist_zh: metadata.artist_zh,
+      artist_vi: metadata.artist_vi,
+      artist_id: metadata.artist_id,
+      artworkUrl: metadata.coverUri ? getCoverUrl(metadata.coverUri) : song.artworkUrl
     }
   } catch {
     return song
@@ -290,6 +309,7 @@ async function enrichSongWithMetadata(song: KaraokeSong): Promise<KaraokeSong> {
 
 /**
  * Hook that fetches songs and enriches with Grove metadata
+ * Waits for enrichment to complete before returning data (no flash of English)
  */
 export function useKaraokeSongsWithMetadata(options: () => SearchOptions = () => ({})) {
   const songsQuery = useKaraokeSongs(options)
@@ -306,10 +326,12 @@ export function useKaraokeSongsWithMetadata(options: () => SearchOptions = () =>
 
   return {
     get data() {
-      return enrichedQuery.data || songsQuery.data
+      // Only return data after enrichment is complete (no flash)
+      return enrichedQuery.data
     },
     get isLoading() {
-      return songsQuery.isLoading || enrichedQuery.isLoading
+      // Loading until enrichment is done
+      return songsQuery.isLoading || (songsQuery.data && songsQuery.data.length > 0 && enrichedQuery.isLoading)
     },
     get error() {
       return songsQuery.error

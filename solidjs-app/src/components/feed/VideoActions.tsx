@@ -1,11 +1,11 @@
 import { Show, type Component } from 'solid-js'
-import { cn } from '@/lib/utils'
+import { cn, haptic } from '@/lib/utils'
 import { Icon } from '@/components/icons'
 import type { VideoActionsProps } from './types'
 
 /**
  * VideoActions - Vertical action buttons column
- * Profile avatar + follow, like, study, share, mute, audio source
+ * Profile avatar, like, study, share, mute, audio source
  */
 export const VideoActions: Component<VideoActionsProps> = (props) => {
   return (
@@ -28,62 +28,35 @@ export const VideoActions: Component<VideoActionsProps> = (props) => {
         </div>
       </button>
 
-      {/* Profile Avatar with Follow Button */}
-      <div class="relative flex items-center justify-center">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            props.onProfileClick()
-          }}
-          class="cursor-pointer"
+      {/* Profile Avatar */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          props.onProfileClick()
+        }}
+        class="cursor-pointer"
+      >
+        <Show
+          when={props.userAvatar}
+          fallback={
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+              {props.username.charAt(0).toUpperCase()}
+            </div>
+          }
         >
-          <Show
-            when={props.userAvatar}
-            fallback={
-              <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                {props.username.charAt(0).toUpperCase()}
-              </div>
-            }
-          >
-            <img
-              src={props.userAvatar}
-              alt={props.username}
-              class="w-12 h-12 rounded-full object-cover bg-white"
-            />
-          </Show>
-        </button>
-
-        {/* Follow/Following Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            if (props.canFollow && !props.isFollowLoading) props.onFollowClick()
-          }}
-          disabled={!props.canFollow || props.isFollowLoading}
-          class={cn(
-            'absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200',
-            props.isFollowing && !props.isFollowLoading
-              ? 'bg-black/50 hover:bg-black/60'
-              : 'bg-primary hover:bg-primary/90',
-            (!props.canFollow || props.isFollowLoading) && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <Show when={props.isFollowLoading}>
-            <div class="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </Show>
-          <Show when={!props.isFollowLoading && props.isFollowing}>
-            <Icon name="check" class="text-base text-primary" />
-          </Show>
-          <Show when={!props.isFollowLoading && !props.isFollowing}>
-            <Icon name="plus" class="text-base text-foreground" />
-          </Show>
-        </button>
-      </div>
+          <img
+            src={props.userAvatar}
+            alt={props.username}
+            class="w-12 h-12 rounded-full object-cover bg-white"
+          />
+        </Show>
+      </button>
 
       {/* Like Button */}
       <button
         onClick={(e) => {
           e.stopPropagation()
+          haptic.double()
           props.onLikeClick()
         }}
         class="flex flex-col items-center cursor-pointer"

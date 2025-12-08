@@ -1,5 +1,5 @@
-import { Router, Route, useLocation, useNavigate } from '@solidjs/router'
-import { createSignal, createEffect, onMount, type Component, type ParentComponent } from 'solid-js'
+import { HashRouter, Route, useLocation, useNavigate } from '@solidjs/router'
+import { createSignal, createEffect, onMount, lazy, type Component, type ParentComponent } from 'solid-js'
 import { preloadChatImages } from '@/hooks/usePrefetch'
 
 // Providers
@@ -16,19 +16,23 @@ import { I18nProvider } from '@/lib/i18n'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
 import { Toaster } from '@/components/ui/sonner'
+import { DebugOverlay } from '@/components/debug/DebugOverlay'
 
-// Pages
+// Pages - Static imports for core navigation
 import { HomePage } from '@/pages/HomePage'
 import { SearchPage } from '@/pages/SearchPage'
-import { ChatPage } from '@/pages/ChatPage'
 import { StudyPage } from '@/pages/StudyPage'
-import { StudySessionPage } from '@/pages/StudySessionPage'
 import { WalletPage } from '@/pages/WalletPage'
 import { SongDetailPage } from '@/pages/SongDetailPage'
-import { SongPlayPage } from '@/pages/SongPlayPage'
 import { ArtistPage } from '@/pages/ArtistPage'
 import { FeedPage } from '@/pages/FeedPage'
 import { UserProfilePage } from '@/pages/UserProfilePage'
+
+// Pages - Lazy loaded (use Lit Protocol SDK)
+const ChatPage = lazy(() => import('@/pages/ChatPage').then(m => ({ default: m.ChatPage })))
+const StudySessionPage = lazy(() => import('@/pages/StudySessionPage').then(m => ({ default: m.StudySessionPage })))
+const SongPlayPage = lazy(() => import('@/pages/SongPlayPage').then(m => ({ default: m.SongPlayPage })))
+const KaraokePracticePage = lazy(() => import('@/pages/KaraokePracticePage').then(m => ({ default: m.KaraokePracticePage })))
 
 const AppShell: ParentComponent = (props) => {
   const location = useLocation()
@@ -90,7 +94,7 @@ const AppShell: ParentComponent = (props) => {
 
     return (
       !!location.pathname.match(/^\/song\//) ||
-      !!location.pathname.match(/^\/u\/[^/]+\/video\//) ||
+      !!location.pathname.match(/^\/u\//) ||
       (pathParts.length === 1 && !reservedPaths.includes(pathParts[0])) ||
       (pathParts.length >= 2 && !reservedPaths.includes(pathParts[0])) ||
       (location.pathname.startsWith('/chat/') && pathParts.length >= 2)
@@ -117,6 +121,7 @@ const AppShell: ParentComponent = (props) => {
       />
 
       <Toaster />
+      <DebugOverlay />
     </>
   )
 }
@@ -131,7 +136,7 @@ const App: Component = () => {
               <AuthProvider>
                 <LanguagePreferenceProvider>
                   <VideoPlaybackProvider>
-                    <Router root={AppShell}>
+                    <HashRouter root={AppShell}>
                       <Route path="/" component={FeedPage} />
                       <Route path="/library" component={HomePage} />
                       <Route path="/songs" component={SearchPage} />
@@ -150,13 +155,14 @@ const App: Component = () => {
                       {/* Song study pages (exercise session) */}
                       <Route path="/song/:workId/study" component={StudySessionPage} />
                       <Route path="/:artistSlug/:songSlug/study" component={StudySessionPage} />
-                      {/* Song play pages (karaoke player with lyrics) */}
+                      {/* Song play pages (listen with lyrics) */}
                       <Route path="/song/:spotifyTrackId/play" component={SongPlayPage} />
-                      <Route path="/song/:spotifyTrackId/karaoke" component={SongPlayPage} />
                       <Route path="/:artistSlug/:songSlug/play" component={SongPlayPage} />
-                      <Route path="/:artistSlug/:songSlug/karaoke" component={SongPlayPage} />
+                      {/* Karaoke practice pages (record + grade) */}
+                      <Route path="/song/:spotifyTrackId/karaoke" component={KaraokePracticePage} />
+                      <Route path="/:artistSlug/:songSlug/karaoke" component={KaraokePracticePage} />
                       <Route path="*" component={FeedPage} />
-                    </Router>
+                    </HashRouter>
                   </VideoPlaybackProvider>
                 </LanguagePreferenceProvider>
               </AuthProvider>
