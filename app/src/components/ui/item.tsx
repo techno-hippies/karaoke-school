@@ -1,193 +1,135 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+/**
+ * Item primitives for list items (songs, artists, etc.)
+ * Simplified from React version for SolidJS
+ */
 
-import { cn } from "@/lib/utils"
-import { Separator } from "@/components/ui/separator"
+import { splitProps, type JSX, type ParentComponent } from 'solid-js'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
 
-function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
+// Item Group
+export const ItemGroup: ParentComponent<JSX.HTMLAttributes<HTMLDivElement>> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
   return (
     <div
       role="list"
-      data-slot="item-group"
-      className={cn("group/item-group flex flex-col", className)}
-      {...props}
-    />
+      class={cn('flex flex-col', local.class)}
+      {...others}
+    >
+      {local.children}
+    </div>
   )
 }
 
-function ItemSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof Separator>) {
-  return (
-    <Separator
-      data-slot="item-separator"
-      orientation="horizontal"
-      className={cn("my-0", className)}
-      {...props}
-    />
-  )
-}
-
+// Item variants
 const itemVariants = cva(
-  "group/item [a]:hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-ring/50 [a]:transition-colors flex flex-wrap items-center rounded-md border border-transparent text-sm outline-none transition-colors duration-100 focus-visible:ring-[3px]",
+  'group flex flex-wrap items-center rounded-md border border-transparent text-sm outline-none transition-colors duration-100',
   {
     variants: {
       variant: {
-        default: "bg-transparent",
-        outline: "border-border",
-        muted: "bg-muted/50",
+        default: 'bg-transparent',
+        outline: 'border-border',
+        muted: 'bg-muted/50',
       },
       size: {
-        default: "gap-4 p-4 ",
-        sm: "gap-2.5 px-4 py-3",
+        default: 'gap-4 p-4',
+        sm: 'gap-2.5 px-4 py-3',
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: 'default',
+      size: 'default',
     },
   }
 )
 
-function Item({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"div"> &
-  VariantProps<typeof itemVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : "div"
+export interface ItemProps extends JSX.HTMLAttributes<HTMLDivElement>, VariantProps<typeof itemVariants> {}
+
+export const Item: ParentComponent<ItemProps> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'variant', 'size', 'children'])
   return (
-    <Comp
-      data-slot="item"
-      data-variant={variant}
-      data-size={size}
-      className={cn(itemVariants({ variant, size, className }))}
-      {...props}
-    />
+    <div
+      class={cn(itemVariants({ variant: local.variant, size: local.size }), local.class)}
+      {...others}
+    >
+      {local.children}
+    </div>
   )
 }
 
+// Item Media variants
 const itemMediaVariants = cva(
-  "flex shrink-0 items-center justify-center gap-2 group-has-[[data-slot=item-description]]/item:translate-y-0.5 group-has-[[data-slot=item-description]]/item:self-start [&_svg]:pointer-events-none",
+  'flex shrink-0 items-center justify-center gap-2',
   {
     variants: {
       variant: {
-        default: "bg-transparent",
-        icon: "bg-muted size-8 rounded-sm border [&_svg:not([class*='size-'])]:size-4",
-        image:
-          "size-10 overflow-hidden rounded-sm [&_img]:size-full [&_img]:object-cover",
+        default: 'bg-transparent',
+        icon: 'bg-muted size-8 rounded-sm border',
+        image: 'size-10 overflow-hidden rounded-lg',
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: 'default',
     },
   }
 )
 
-function ItemMedia({
-  className,
-  variant = "default",
-  ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof itemMediaVariants>) {
+export interface ItemMediaProps extends JSX.HTMLAttributes<HTMLDivElement>, VariantProps<typeof itemMediaVariants> {}
+
+export const ItemMedia: ParentComponent<ItemMediaProps> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'variant', 'children'])
   return (
     <div
-      data-slot="item-media"
-      data-variant={variant}
-      className={cn(itemMediaVariants({ variant, className }))}
-      {...props}
-    />
+      class={cn(itemMediaVariants({ variant: local.variant }), local.class)}
+      {...others}
+    >
+      {local.children}
+    </div>
   )
 }
 
-function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
+// Item Content
+export const ItemContent: ParentComponent<JSX.HTMLAttributes<HTMLDivElement>> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
   return (
-    <div
-      data-slot="item-content"
-      className={cn(
-        "flex flex-1 flex-col gap-1 [&+[data-slot=item-content]]:flex-none",
-        className
-      )}
-      {...props}
-    />
+    <div class={cn('flex flex-1 flex-col gap-1', local.class)} {...others}>
+      {local.children}
+    </div>
   )
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+// Item Title
+export const ItemTitle: ParentComponent<JSX.HTMLAttributes<HTMLDivElement>> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
   return (
     <div
-      data-slot="item-title"
-      className={cn(
-        "flex w-fit items-center gap-2 text-base md:text-lg font-semibold leading-snug",
-        className
-      )}
-      {...props}
-    />
+      class={cn('flex w-fit items-center gap-2 text-base font-semibold leading-snug', local.class)}
+      {...others}
+    >
+      {local.children}
+    </div>
   )
 }
 
-function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
+// Item Description
+export const ItemDescription: ParentComponent<JSX.HTMLAttributes<HTMLParagraphElement>> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
   return (
     <p
-      data-slot="item-description"
-      className={cn(
-        "text-muted-foreground line-clamp-2 text-balance text-base md:text-lg font-normal leading-normal",
-        "[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4",
-        className
-      )}
-      {...props}
-    />
+      class={cn('text-muted-foreground line-clamp-2 text-base font-normal leading-normal', local.class)}
+      {...others}
+    >
+      {local.children}
+    </p>
   )
 }
 
-function ItemActions({ className, ...props }: React.ComponentProps<"div">) {
+// Item Actions
+export const ItemActions: ParentComponent<JSX.HTMLAttributes<HTMLDivElement>> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
   return (
-    <div
-      data-slot="item-actions"
-      className={cn("flex items-center gap-2", className)}
-      {...props}
-    />
+    <div class={cn('flex items-center gap-2', local.class)} {...others}>
+      {local.children}
+    </div>
   )
-}
-
-function ItemHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="item-header"
-      className={cn(
-        "flex basis-full items-center justify-between gap-2",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-function ItemFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="item-footer"
-      className={cn(
-        "flex basis-full items-center justify-between gap-2",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export {
-  Item,
-  ItemMedia,
-  ItemContent,
-  ItemActions,
-  ItemGroup,
-  ItemSeparator,
-  ItemTitle,
-  ItemDescription,
-  ItemHeader,
-  ItemFooter,
 }

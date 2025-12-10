@@ -47,27 +47,6 @@ export async function searchLyrics(
 }
 
 /**
- * Get lyrics by LRCLIB ID
- */
-export async function getLyricsById(id: number): Promise<LRCLibTrack | null> {
-  const response = await fetch(`${LRCLIB_API_URL}/get/${id}`, {
-    headers: {
-      'User-Agent': 'KaraokeSchool/1.0 (https://github.com/karaoke-school)',
-    },
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error(`LRCLIB error: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
  * Parse synced lyrics (LRC format) into plain lines
  * Removes timestamps like [00:12.34]
  */

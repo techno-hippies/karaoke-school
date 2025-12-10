@@ -1,15 +1,18 @@
 # E2E Testing
 
-End-to-end tests for Karaoke School using [Playwright](https://playwright.dev/).
+End-to-end tests for Karaoke School using [Playwright](https://playwright.dev/) and [Synpress](https://synpress.io/) for MetaMask integration.
 
 ## Quick Start
 
 ```bash
-# Run all tests (headless, single worker)
+# Run core UI tests (no MetaMask required)
 bun run test:e2e
 
 # Run with visible browser
 HEADED=true bun run test:e2e
+
+# Run ALL tests (including MetaMask - requires cache)
+bun run test:e2e:all
 
 # View HTML report after tests
 bun run test:e2e:report
@@ -19,6 +22,7 @@ bun run test:e2e:report
 
 - **39 passing tests** covering UI flows, navigation, auth dialogs, and page structures
 - **10 skipped tests** requiring authenticated sessions (marked with `test.describe.skip`)
+- **8 wallet tests** requiring Synpress cache (run `bun run test:cache` first)
 
 ## Directory Structure
 

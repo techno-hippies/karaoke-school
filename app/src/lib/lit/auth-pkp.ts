@@ -5,7 +5,6 @@
  */
 
 import { getLitClient, getAuthManager } from './client'
-// import { LIT_WEBAUTHN_CONFIG } from './config' // TODO: Use for configuration
 import type { PKPInfo, AuthData, PKPAuthContext } from './types'
 
 const IS_DEV = import.meta.env.DEV

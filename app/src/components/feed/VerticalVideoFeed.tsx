@@ -1,11 +1,9 @@
-import { useRef, useState, useEffect, memo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { createSignal, createEffect, onMount, onCleanup, For, Show, type Component } from 'solid-js'
+import { useNavigate } from '@solidjs/router'
 import { VideoPost } from './VideoPost'
-import { useAuth } from '@/contexts/AuthContext'
-import { followAccount, unfollowAccount } from '@/lib/lens/follow'
-import { likePost, unlikePost } from '@/lib/lens/reactions'
-import { generateSlug } from '@/hooks/useSongSlug'
-import { toast } from 'sonner'
+import { useSongPrefetch } from '@/hooks/usePrefetch'
+import { useTranslation } from '@/lib/i18n'
+import { haptic } from '@/lib/utils'
 import type { VideoPostData } from './types'
 
 export interface VerticalVideoFeedProps {
@@ -13,343 +11,171 @@ export interface VerticalVideoFeedProps {
   isLoading?: boolean
   onLoadMore?: () => void
   hasMore?: boolean
-  initialVideoId?: string // Scroll to this video on mount
-  updateUrlOnScroll?: boolean // Update URL as user scrolls (for video detail routes)
-  baseUrl?: string // Base URL pattern for updates (e.g., '/u/username/video/')
-  hasMobileFooter?: boolean // If true, add bottom spacing for mobile footer (default: false)
+  initialVideoId?: string
+  hasMobileFooter?: boolean
+  onLikeClick?: (videoId: string) => void
+  onProfileClick?: (username: string) => void
+  /** Show back button on videos */
+  showBackButton?: boolean
+  /** Back button click handler */
+  onBack?: () => void
+  /** Called when video has been watched for 3+ seconds */
+  onVideoViewed?: (postId: string) => void
 }
 
 /**
  * VerticalVideoFeed - TikTok-style vertical scrolling video feed
- * Custom implementation with snap scrolling and keyboard navigation
+ * Features snap scrolling and keyboard navigation
  */
-function VerticalVideoFeedComponent({
-  videos,
-  isLoading = false,
-  onLoadMore,
-  hasMore = false,
-  initialVideoId,
-  updateUrlOnScroll = false,
-  baseUrl,
-  hasMobileFooter = false,
-}: VerticalVideoFeedProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [activeIndex, setActiveIndex] = useState(0)
+export const VerticalVideoFeed: Component<VerticalVideoFeedProps> = (props) => {
+  const { t } = useTranslation()
+  let containerRef: HTMLDivElement | undefined
+  const [activeIndex, setActiveIndex] = createSignal(0)
   const navigate = useNavigate()
-  const { lensSession, pkpWalletClient, pkpAddress, openAuthDialog } = useAuth()
+  const { prefetch: prefetchSong } = useSongPrefetch()
 
-  // Track follow and like state for each video (optimistic updates)
-  const [followStates, setFollowStates] = useState<Record<string, boolean>>({})
-  const [likeStates, setLikeStates] = useState<Record<string, { isLiked: boolean; count: number }>>({})
+  // Prefetch song data when active video changes
+  createEffect(() => {
+    const video = props.videos[activeIndex()]
+    if (video?.spotifyTrackId) {
+      prefetchSong(video.spotifyTrackId)
+    }
+  })
 
-  // Scroll to initial video on mount (for video detail navigation)
-  useEffect(() => {
-    if (initialVideoId && containerRef.current && videos.length > 0) {
-      const index = videos.findIndex(v => v.id === initialVideoId)
+  // Scroll to initial video on mount
+  onMount(() => {
+    if (props.initialVideoId && containerRef && props.videos.length > 0) {
+      const index = props.videos.findIndex(v => v.id === props.initialVideoId)
       if (index >= 0) {
-        console.log('[VerticalVideoFeed] Scrolling to initial video:', { initialVideoId, index })
-        containerRef.current.scrollTo({
-          top: index * containerRef.current.clientHeight,
-          behavior: 'auto' // Instant scroll on mount
+        containerRef.scrollTo({
+          top: index * containerRef.clientHeight,
+          behavior: 'auto'
         })
         setActiveIndex(index)
       }
     }
-  }, [initialVideoId, videos])
+  })
 
-  // Reset active index and scroll position when first video ID changes (e.g., tab switch)
-  const firstVideoId = videos.length > 0 ? videos[0].id : null
-  useEffect(() => {
-    // Don't reset if we have an initialVideoId (let the scroll effect above handle it)
-    if (!initialVideoId) {
-      setActiveIndex(0)
-      if (containerRef.current) {
-        containerRef.current.scrollTop = 0
-      }
-    }
-  }, [firstVideoId, initialVideoId])
+  // Handle scroll to update active index
+  const handleScroll = () => {
+    if (!containerRef) return
 
-  // Update URL when scrolling through videos (TikTok-style)
-  // Use window.history.replaceState to avoid React Router re-renders
-  useEffect(() => {
-    if (updateUrlOnScroll && baseUrl && videos.length > 0 && activeIndex >= 0) {
-      const currentVideo = videos[activeIndex]
-      if (currentVideo) {
-        const newUrl = `${baseUrl}${currentVideo.id}`
-        console.log('[VerticalVideoFeed] Updating URL to:', newUrl)
-
-        // Use native history API to avoid triggering React Router re-render
-        window.history.replaceState(
-          {
-            thumbnailUrl: currentVideo.thumbnailUrl,
-            scrollIndex: activeIndex
-          },
-          '',
-          newUrl
-        )
-      }
-    }
-  }, [activeIndex, updateUrlOnScroll, baseUrl, videos])
-
-  // Simple virtualization: only render 1 visible video + 1 buffer video
-  const [renderedVideoCount, setRenderedVideoCount] = useState(2) // Start with 2 videos (more conservative)
-  
-  // Virtualization: only render videos that should be visible
-  const shouldRenderVideo = (index: number) => {
-    // Only render if the video is:
-    // 1. The active video (index === activeIndex)
-    // 2. Very close to the active video (±1)
-    // 3. Or within the renderedVideoCount range (for backwards compatibility)
-    return Math.abs(index - activeIndex) <= 1 || index < renderedVideoCount
-  }
-  
-  // Load more videos when approaching the end (memoized to prevent recreation)
-  const handleScroll = useCallback(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const scrollTop = container.scrollTop
-    const viewportHeight = container.clientHeight
+    const scrollTop = containerRef.scrollTop
+    const viewportHeight = containerRef.clientHeight
     const newIndex = Math.round(scrollTop / viewportHeight)
-    const totalRendered = renderedVideoCount
 
-    // If we're within 1 video of the end, load 3 more (more conservative)
-    if (newIndex >= totalRendered - 1 && hasMore) {
-      setRenderedVideoCount(prev => Math.min(prev + 3, videos.length)) // Load 3 more
-      onLoadMore?.() // Call parent's load more if available
-    }
-
-    if (newIndex !== activeIndex && newIndex >= 0 && newIndex < videos.length) {
+    if (newIndex !== activeIndex() && newIndex >= 0 && newIndex < props.videos.length) {
+      haptic.light()
       setActiveIndex(newIndex)
     }
-  }, [renderedVideoCount, hasMore, activeIndex, videos.length, onLoadMore])
 
-  // Attach scroll listener for virtualization
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    // Load more when approaching the end
+    if (props.hasMore && newIndex >= props.videos.length - 2) {
+      props.onLoadMore?.()
+    }
+  }
 
-    container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
-  }, [handleScroll])
+  // Attach scroll listener
+  onMount(() => {
+    containerRef?.addEventListener('scroll', handleScroll)
+    onCleanup(() => containerRef?.removeEventListener('scroll', handleScroll))
+  })
 
-  // Handle keyboard navigation
-  useEffect(() => {
+  // Keyboard navigation
+  onMount(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const container = containerRef.current
-      if (!container) return
+      if (!containerRef) return
 
-      if (e.key === 'ArrowDown' && activeIndex < videos.length - 1) {
+      if (e.key === 'ArrowDown' && activeIndex() < props.videos.length - 1) {
         e.preventDefault()
-        const nextIndex = activeIndex + 1
-        container.scrollTo({
-          top: nextIndex * container.clientHeight,
+        const nextIndex = activeIndex() + 1
+        containerRef.scrollTo({
+          top: nextIndex * containerRef.clientHeight,
           behavior: 'smooth'
         })
-      } else if (e.key === 'ArrowUp' && activeIndex > 0) {
+      } else if (e.key === 'ArrowUp' && activeIndex() > 0) {
         e.preventDefault()
-        const prevIndex = activeIndex - 1
-        container.scrollTo({
-          top: prevIndex * container.clientHeight,
+        const prevIndex = activeIndex() - 1
+        containerRef.scrollTo({
+          top: prevIndex * containerRef.clientHeight,
           behavior: 'smooth'
         })
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeIndex, videos.length])
-
-  if (videos.length === 0 && !isLoading) {
-    return (
-      <div className="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
-        <div className="text-white text-lg">No videos available</div>
-      </div>
-    )
-  }
+    onCleanup(() => window.removeEventListener('keydown', handleKeyDown))
+  })
 
   return (
-    <div
-      ref={containerRef}
-      className="h-vh-screen md:h-screen w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    <Show
+      when={props.videos.length > 0 || props.isLoading}
+      fallback={
+        <div class="h-vh-screen md:h-screen w-full flex items-center justify-center bg-background">
+          <div class="text-foreground text-lg">{t('video.noVideos')}</div>
+        </div>
+      }
     >
-      {videos.map((video, index) => {
-        // Virtualization: only render if this video should be visible
-        if (!shouldRenderVideo(index)) {
-          return null
-        }
+      <div
+        ref={containerRef}
+        class="h-vh-screen md:h-screen w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        style={{ 'scrollbar-width': 'none', '-ms-overflow-style': 'none' }}
+      >
+        <For each={props.videos}>
+          {(video, index) => {
+            // Determine if this video should autoplay
+            const isActive = () => index() === activeIndex()
+            // Priority load for active video and adjacent ones (prev/next)
+            const shouldPriorityLoad = () => {
+              const current = activeIndex()
+              const i = index()
+              return i === current || i === current - 1 || i === current + 1
+            }
 
-        const finalFollowState = followStates[video.id] ?? video.isFollowing
-        const finalLikeState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
+            return (
+              <div class="h-vh-screen md:h-screen w-full snap-start snap-always">
+                <VideoPost
+                  id={video.id}
+                  videoUrl={video.videoUrl}
+                  thumbnailUrl={video.thumbnailUrl}
+                  username={video.username}
+                  userAvatar={video.userAvatar}
+                  authorAddress={video.authorAddress}
+                  grade={video.grade}
+                  musicTitle={video.musicTitle}
+                  musicAuthor={video.musicAuthor}
+                  musicImageUrl={video.musicImageUrl}
+                  artistSlug={video.artistSlug}
+                  songSlug={video.songSlug}
+                  spotifyTrackId={video.spotifyTrackId}
+                  likes={video.likes}
+                  shares={video.shares}
+                  isLiked={video.isLiked}
+                  canInteract={video.canInteract}
+                  autoplay={isActive()}
+                  priorityLoad={shouldPriorityLoad()}
+                  hasMobileFooter={props.hasMobileFooter}
+                  showBackButton={props.showBackButton}
+                  onBack={props.onBack}
+                  onLikeClick={() => props.onLikeClick?.(video.id)}
+                  onProfileClick={() => {
+                    props.onProfileClick?.(video.username)
+                    navigate(`/u/${video.username}`)
+                  }}
+                  onViewed={props.onVideoViewed}
+                />
+              </div>
+            )
+          }}
+        </For>
 
-        return (
-          <div key={video.id} className="h-vh-screen md:h-screen w-full snap-start snap-always">
-            <VideoPost
-              {...video}
-              isFollowing={finalFollowState}
-              isLiked={finalLikeState.isLiked}
-              likes={finalLikeState.count}
-              autoplay={index === activeIndex}
-              priorityLoad={index === 0} // First video gets priority loading (no debounce)
-              karaokeClassName="pt-20 md:pt-6"
-              hasMobileFooter={hasMobileFooter}
-              onLikeClick={async () => {
-                // Check if user is authenticated - open auth dialog if not
-                if (!lensSession) {
-                  openAuthDialog()
-                  return
-                }
-
-                // Get current like state (use optimistic state if available, otherwise server state)
-                const currentState = likeStates[video.id] ?? { isLiked: video.isLiked, count: video.likes }
-
-                // Optimistically update UI
-                setLikeStates(prev => ({
-                  ...prev,
-                  [video.id]: {
-                    isLiked: !currentState.isLiked,
-                    count: currentState.isLiked ? currentState.count - 1 : currentState.count + 1
-                  }
-                }))
-
-                try {
-                  let success: boolean
-                  if (currentState.isLiked) {
-                    // Unlike
-                    success = await unlikePost(lensSession, video.id)
-                    if (success) {
-                      console.log('[VerticalVideoFeed] Successfully unliked post')
-                    } else {
-                      // Revert on error
-                      setLikeStates(prev => ({
-                        ...prev,
-                        [video.id]: currentState
-                      }))
-                      toast.error('Failed to unlike post')
-                    }
-                  } else {
-                    // Like
-                    success = await likePost(lensSession, video.id)
-                    if (success) {
-                      console.log('[VerticalVideoFeed] Successfully liked post')
-                    } else {
-                      // Revert on error
-                      setLikeStates(prev => ({
-                        ...prev,
-                        [video.id]: currentState
-                      }))
-                      toast.error('Failed to like post')
-                    }
-                  }
-                } catch (error) {
-                  console.error('[VerticalVideoFeed] Like error:', error)
-                  toast.error('An unexpected error occurred')
-                  // Revert optimistic update
-                  setLikeStates(prev => ({
-                    ...prev,
-                    [video.id]: currentState
-                  }))
-                }
-              }}
-              onShareClick={() => {
-                // Share sheet is handled by VideoPost component
-              }}
-              onFollowClick={async () => {
-                // Check if user is authenticated - open auth dialog if not
-                if (!lensSession || !pkpWalletClient) {
-                  openAuthDialog()
-                  return
-                }
-
-                // Check if author address is available
-                if (!video.authorAddress) {
-                  toast.error('Author information not available')
-                  return
-                }
-
-                // Check if trying to follow yourself
-                if (video.authorAddress === pkpAddress) {
-                  toast.error('You cannot follow yourself')
-                  return
-                }
-
-                // Get current follow state (use optimistic state if available, otherwise server state)
-                const currentState = followStates[video.id] ?? video.isFollowing ?? false
-
-                // Optimistically update UI
-                setFollowStates(prev => ({
-                  ...prev,
-                  [video.id]: !currentState
-                }))
-
-                try {
-                  let result
-                  if (currentState) {
-                    // Unfollow
-                    result = await unfollowAccount(lensSession, pkpWalletClient, video.authorAddress)
-                    if (result.success) {
-                      toast.success(`Unfollowed @${video.username}`)
-                    } else {
-                      // Revert on error
-                      setFollowStates(prev => ({
-                        ...prev,
-                        [video.id]: currentState
-                      }))
-                      toast.error(result.error || 'Failed to unfollow')
-                    }
-                  } else {
-                    // Follow
-                    result = await followAccount(lensSession, pkpWalletClient, video.authorAddress)
-                    if (result.success) {
-                      toast.success(`Following @${video.username}`)
-                    } else {
-                      // Revert on error
-                      setFollowStates(prev => ({
-                        ...prev,
-                        [video.id]: currentState
-                      }))
-                      toast.error(result.error || 'Failed to follow')
-                    }
-                  }
-                } catch (error) {
-                  console.error('[VerticalVideoFeed] Follow error:', error)
-                  toast.error('An unexpected error occurred')
-                  // Revert optimistic update
-                  setFollowStates(prev => ({
-                    ...prev,
-                    [video.id]: currentState
-                  }))
-                }
-              }}
-              onProfileClick={() => {
-                navigate(`/u/${video.username}`)
-              }}
-              onAudioClick={() => {
-                // Primary: use slugs for clean URLs (e.g., /eminem/lose-yourself)
-                if (video.artistSlug && video.songSlug) {
-                  navigate(`/${video.artistSlug}/${video.songSlug}`)
-                  return
-                }
-                // Fallback: generate slugs from song/artist names
-                if (video.musicTitle && video.musicAuthor) {
-                  const artistSlug = generateSlug(video.musicAuthor)
-                  const songSlug = generateSlug(video.musicTitle)
-                  navigate(`/${artistSlug}/${songSlug}`)
-                  return
-                }
-                // Legacy fallback: use Spotify track ID
-                if (video.spotifyTrackId) {
-                  navigate(`/song/${video.spotifyTrackId}`)
-                }
-              }}
-            />
+        {/* Loading indicator at bottom */}
+        <Show when={props.isLoading}>
+          <div class="h-20 flex items-center justify-center">
+            <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        )
-      })}
-    </div>
+        </Show>
+      </div>
+    </Show>
   )
 }
-
-// Memoized export to prevent unnecessary re-renders
-export const VerticalVideoFeed = memo(VerticalVideoFeedComponent)

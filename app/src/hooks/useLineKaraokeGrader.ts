@@ -1,10 +1,18 @@
-import { useCallback, useState, useEffect } from 'react'
+/**
+ * Karaoke Line Grader Hook
+ *
+ * Executes Lit Actions for line-by-line karaoke grading.
+ * Used by useKaraokeLineSession for real-time grading during karaoke practice.
+ */
+
+import { createSignal, createEffect } from 'solid-js'
 import { useAuth } from '@/contexts/AuthContext'
-import { getLitClient } from '@/lib/lit'
-import { LIT_KARAOKE_LINE_CID, LIT_KARAOKE_LINE_VOXTRAL_KEY } from '@/lib/contracts/addresses'
+import {
+  LIT_KARAOKE_LINE_CID,
+  LIT_KARAOKE_LINE_DEEPINFRA_KEY,
+} from '@/lib/contracts/addresses'
 import { SUBGRAPH_URL } from '@/lib/graphql/client'
-import { withTimeout } from '@/lib/with-timeout'
-import type { GradeLineParams, GradeLineResult } from '@/hooks/useKaraokeLineSession'
+import type { GradeLineParams, GradeLineResult } from './useKaraokeLineSession'
 
 export interface LineGradeResult extends GradeLineResult {
   // Alias for backwards compatibility
@@ -24,14 +32,14 @@ export interface UseLineKaraokeGraderOptions {
 
 export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) {
   const { validateOnMount = true } = options
-  const { pkpAuthContext, pkpInfo } = useAuth()
-  const [isGrading, setIsGrading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const [isReady, setIsReady] = useState(false)
-  const [configError, setConfigError] = useState<string | null>(null)
+  const auth = useAuth()
+  const [isGrading, setIsGrading] = createSignal(false)
+  const [error, setError] = createSignal<Error | null>(null)
+  const [isReady, setIsReady] = createSignal(false)
+  const [configError, setConfigError] = createSignal<string | null>(null)
 
   // Validate configuration on mount
-  useEffect(() => {
+  createEffect(() => {
     if (!validateOnMount) {
       setIsReady(true)
       return
@@ -43,17 +51,20 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       return
     }
 
-    if (!LIT_KARAOKE_LINE_VOXTRAL_KEY) {
-      setConfigError('Voxtral key not configured for line grader. Set LIT_KARAOKE_LINE_VOXTRAL_KEY.')
+    if (!LIT_KARAOKE_LINE_DEEPINFRA_KEY) {
+      setConfigError('DeepInfra key not configured for line grader.')
       setIsReady(false)
       return
     }
 
     setConfigError(null)
     setIsReady(true)
-  }, [validateOnMount])
+  })
 
-  const gradeLine = useCallback(async (params: GradeLineParams): Promise<LineGradeResult | null> => {
+  const gradeLine = async (params: GradeLineParams): Promise<LineGradeResult | null> => {
+    const pkpAuthContext = auth.pkpAuthContext()
+    const pkpInfo = auth.pkpInfo()
+
     if (!pkpAuthContext || !pkpInfo) {
       setError(new Error('PKP not ready - please authenticate first'))
       return null
@@ -64,8 +75,8 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       return null
     }
 
-    if (!LIT_KARAOKE_LINE_VOXTRAL_KEY) {
-      setError(new Error('Missing encrypted Voxtral key for line grader'))
+    if (!LIT_KARAOKE_LINE_DEEPINFRA_KEY) {
+      setError(new Error('Missing encrypted DeepInfra key for line grader'))
       return null
     }
 
@@ -73,6 +84,7 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       setIsGrading(true)
       setError(null)
 
+      const { getLitClient } = await import('@/lib/lit')
       const litClient = await getLitClient()
 
       // Use the sessionId passed from the session hook - DO NOT generate a new one
@@ -94,7 +106,9 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         skipTx: params.skipTx ?? false,
         testMode: false,
         // Encrypted API key
-        voxtralEncryptedKey: LIT_KARAOKE_LINE_VOXTRAL_KEY,
+        voxtralEncryptedKey: LIT_KARAOKE_LINE_DEEPINFRA_KEY,
+        // End-only mode: skip line grading, just emit endSession
+        endOnly: params.endOnly ?? false,
       }
 
       const sessionFlags = [
@@ -102,8 +116,9 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         params.endSession && 'end',
       ].filter(Boolean).join('+')
 
-      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}${sessionFlags ? ` (${sessionFlags})` : ''} → session ${params.sessionId.slice(0, 10)}...`)
+      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}${sessionFlags ? ` (${sessionFlags})` : ''} → session ${params.sessionId.slice(0, 10)}... CID=${LIT_KARAOKE_LINE_CID.slice(0, 12)} endSession=${params.endSession} endOnly=${params.endOnly ?? false}`)
 
+      const litStart = performance.now()
       const result = await withTimeout(
         litClient.executeJs({
           ipfsId: LIT_KARAOKE_LINE_CID,
@@ -113,6 +128,8 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         45_000, // Increased timeout for blockchain tx
         'Lit Action execution timed out'
       )
+      const litEnd = performance.now()
+      console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}: executeJs completed in ${((litEnd - litStart) / 1000).toFixed(2)}s`)
 
       if (!result.response) {
         throw new Error('Lit Action returned empty response')
@@ -121,6 +138,11 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       const response = typeof result.response === 'string'
         ? JSON.parse(result.response)
         : result.response
+
+      // Log internal Lit Action metrics if available
+      if (response?.metrics?.phases) {
+        console.log(`[useLineKaraokeGrader] Line ${params.lineIndex} phases:`, response.metrics.phases.map((p: {phase: string, ms: number}) => `${p.phase}:${p.ms}ms`).join(' → '))
+      }
 
       if (!response?.success) {
         const errMsg = response?.error || response?.errorType || 'Line grading failed'
@@ -137,6 +159,12 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       ].filter(Boolean).join('+')
 
       console.log(`[useLineKaraokeGrader] Line ${params.lineIndex}: ${scoreBp / 100}% (${rating})${txs ? ` [tx: ${txs}]` : ''}`)
+
+      // Log transcript comparison for debugging
+      if (response.transcript !== undefined || response.expectedText !== undefined) {
+        console.log(`[useLineKaraokeGrader] Line ${params.lineIndex} transcript: "${response.transcript || '(empty)'}"`)
+        console.log(`[useLineKaraokeGrader] Line ${params.lineIndex} expected:   "${response.expectedText || '(empty)'}"`)
+      }
 
       return {
         score: Math.round(scoreBp / 100),
@@ -156,7 +184,7 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
     } finally {
       setIsGrading(false)
     }
-  }, [pkpAuthContext, pkpInfo])
+  }
 
   return {
     gradeLine,
@@ -165,6 +193,29 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
     isReady,
     configError,
     /** Whether the PKP is authenticated and ready for grading */
-    isPKPReady: Boolean(pkpAuthContext && pkpInfo),
+    isPKPReady: () => Boolean(auth.pkpAuthContext() && auth.pkpInfo()),
   }
+}
+
+function withTimeout<T>(value: Promise<T> | T, ms: number, message: string): Promise<T> {
+  const valuePromise = value instanceof Promise ? value : Promise.resolve(value)
+
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(message))
+    }, ms)
+  })
+
+  return Promise.race([
+    valuePromise.then((result) => {
+      if (timer) clearTimeout(timer)
+      return result
+    }).catch((err) => {
+      if (timer) clearTimeout(timer)
+      throw err
+    }),
+    timeoutPromise,
+  ])
 }

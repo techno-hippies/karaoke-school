@@ -1,0 +1,315 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "Ana Sayfa",
+    "songs": "Sarkilar",
+    "study": "Calis",
+    "chat": "Sohbet",
+    "wallet": "Cuzdan",
+    "karaoke": "Karaoke"
+  },
+  "auth": {
+    "signIn": "Giris Yap",
+    "signUp": "Kayit Ol",
+    "connect": "Baglan",
+    "connectWallet": "Cuzdan Bagla",
+    "usePasskey": "Passkey Kullan",
+    "chooseUsername": "Kullanici adi sec",
+    "authenticating": "Dogrulaniyor...",
+    "success": "Basarili!",
+    "passkeyRecommended": "Passkey - Onerilen",
+    "noPasswordSecure": "Sifresiz, guvenli",
+    "createNewAccount": "Yeni hesap olustur",
+    "or": "veya",
+    "back": "Geri",
+    "next": "Ileri",
+    "usernamePlaceholder": "Bir kullanici adi sec (6+ karakter)",
+    "valid": "Gecerli",
+    "processing": "Isleniyor...",
+    "allSet": "Hazirsin! Ogrenmeye baslayalim.",
+    "startLearning": "Ogrenmeye basla",
+    "hideDetails": "Detaylari gizle",
+    "showDetails": "Detaylari goster",
+    "settingUp": "Ayarlaniyor...",
+    "createPasskey": "Passkey'ini olustur",
+    "verifyingPasskey": "Passkey dogrulaniyor...",
+    "almostDone": "Neredeyse bitti...",
+    "authenticateDevice": "Cihazinla dogrula",
+    "fetchingAccount": "Hesap aliniyor...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "Google ile olustur",
+    "createWithDiscord": "Discord ile olustur",
+    "signInWithGoogle": "Google ile giris",
+    "signInWithDiscord": "Discord ile giris",
+    "creatingPasskeyWallet": "Passkey ve cuzdan olusturuluyor...",
+    "settingUpWallet": "Cuzdan ayarlaniyor...",
+    "settingUpLensProfile": "Lens profili ayarlaniyor...",
+    "foundExistingLens": "Mevcut Lens hesabi bulundu, baglaniyor...",
+    "creatingNewLensAccount": "Yeni Lens hesabi olusturuluyor...",
+    "authenticatingPasskey": "Passkey ile dogrulaniyor...",
+    "connectingToLens": "Lens'e baglaniyor...",
+    "lensSessionResumed": "Lens oturumu devam etti!",
+    "checkingExistingAccount": "Mevcut hesap kontrol ediliyor...",
+    "foundExistingSigningIn": "Mevcut hesap bulundu, giris yapiliyor...",
+    "creatingNewWallet": "Yeni cuzdan olusturuluyor...",
+    "settingUpSession": "Oturum ayarlaniyor...",
+    "settingUpLens": "Lens ayarlaniyor...",
+    "checkingLensAccount": "Lens hesabi kontrol ediliyor...",
+    "connectingToLensAccount": "Lens hesabina baglaniyor...",
+    "connectingWallet": "Cuzdan baglaniyor...",
+    "waitingForWallet": "Cuzdan baglantisi bekleniyor...",
+    "openingGoogle": "Google aciliyor...",
+    "openingDiscord": "Discord aciliyor...",
+    "creatingAccount": "Hesap olusturuluyor...",
+    "complete": "Tamamlandi!",
+    "wrongNetwork": "Yanlis ag",
+    "wrongNetworkDesc": "Devam etmek icin lutfen {{chain}}'e gecin.",
+    "switchNetwork": "{{chain}}'e gec",
+    "switchingNetwork": "Degistiriliyor...",
+    "manualNetworkSwitch": "Buton calismiyorsa, agi manuel olarak ekleyin:",
+    "errors": {
+      "googlePopupBlocked": "Google popup engellendi. Popuplara izin verin ve tekrar deneyin.",
+      "discordPopupBlocked": "Discord popup engellendi. Popuplara izin verin ve tekrar deneyin.",
+      "googleCancelled": "Google girisi iptal edildi.",
+      "discordCancelled": "Discord girisi iptal edildi.",
+      "connectionFailed": "Baglanti basarisiz. Internetinizi kontrol edin ve tekrar deneyin.",
+      "cancelled": "Dogrulama iptal edildi.",
+      "timeout": "Zaman asimi. Tekrar deneyin.",
+      "accountExists": "Hesap zaten mevcut. Giris yapmayi deneyin.",
+      "accountNotFound": "Hesap bulunamadi. Yeni bir hesap olusturmayi deneyin.",
+      "generic": "Bir seyler yanlis gitti. Tekrar deneyin."
+    }
+  },
+  "wallet": {
+    "walletAddress": "Cuzdan adresi",
+    "username": "Kullanici adi",
+    "balances": "Bakiyeler",
+    "balance": "Bakiye",
+    "currency": "Para birimi",
+    "chain": "Ag",
+    "disconnect": "Baglantıyi kes",
+    "settings": "Ayarlar",
+    "points": "Puanlar",
+    "achievements": "Basarilar",
+    "noAchievements": "Henuz basari yok"
+  },
+  "chat": {
+    "title": "Sohbet",
+    "upgrade": "Yukselt",
+    "typePlaceholder": "Bir mesaj yaz...",
+    "send": "Gonder",
+    "play": "Oynat",
+    "stop": "Durdur",
+    "transcribing": "Yaziya dokulluyor...",
+    "translate": "Cevir",
+    "translating": "Cevriliyor..."
+  },
+  "exercise": {
+    "translate": "Cevir:",
+    "answer": "Cevap:",
+    "question": "Soru:",
+    "incorrect": "Yanlis",
+    "correct": "Dogru!",
+    "next": "Sonraki",
+    "skip": "Atla",
+    "tryAgain": "Tekrar dene.",
+    "sayItBack": "Tekrarla:",
+    "youSaid": "Soyledin:"
+  },
+  "song": {
+    "unlockSong": "Sarkiyi ac",
+    "unlockSubtitle": "Kelime kelime sozlerle tam sarki. Tek seferlik satin alma.",
+    "lifetimeAccess": "Tam sarkiya omur boyu erisim kazan.",
+    "whatYouGet": "Ne aliyorsun:",
+    "fullKaraoke": "Tam karaoke pratigi",
+    "wordByWord": "Kelime kelime senkronizasyon",
+    "lifetimeAccessShort": "Omur boyu erisim",
+    "oneTimePurchase": "Tek seferlik satin alma",
+    "purchase": "Satin al",
+    "buy": "Satin al",
+    "unlocked": "Acildi! Pratige basla.",
+    "practice": "Pratik",
+    "lyrics": "Sozler",
+    "exercises": "Alistirmalar",
+    "unlock": "Ac",
+    "unlocking": "Aciliyor..."
+  },
+  "karaoke": {
+    "start": "Başla",
+    "signInToPractice": "Pratik için giriş yap",
+    "recording": "Kaydediliyor...",
+    "gradingNotConfigured": "Puanlama yapılandırılmadı",
+    "unableToLoad": "Karaoke yüklenemedi",
+    "audioNotAvailable": "Ses mevcut değil",
+    "lyricsNotAvailable": "Sözler mevcut değil",
+    "score": "Puan",
+    "linesGraded": "{{completed}}/{{total}} satır puanlandı",
+    "linesSkipped": "({{count}} atlandı)"
+  },
+  "premium": {
+    "upgradeToPremium": "Premium'a yukselt",
+    "premiumFeatures": "Premium ozellikler",
+    "betterAI": "Daha iyi yapay zeka yanitlari",
+    "betterTTS": "Dogal metin-konusma",
+    "unlimitedChat": "Sinirsiz sohbet gecmisi",
+    "perMonth": "/ay",
+    "subscribe": "Abone ol"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "Siralama",
+    "noStudentsYet": "Henuz ogrenci yok. Pratik yapan ilk kisi ol!"
+  },
+  "video": {
+    "noVideos": "Video yok",
+    "checkBackLater": "Yeni icerik icin daha sonra tekrar gelin",
+    "noMedia": "Medya yok",
+    "playbackError": "Oynatma hatasi"
+  },
+  "study": {
+    "signUpToStudy": "Calismak icin kayit ol",
+    "signUpDescription": "Ilerlemenizi takip etmek ve aralikli tekrar ile pratik yapmak icin bir hesap olusturun.",
+    "noCardsDue": "Bekleyen kart yok",
+    "noCardsDescription": "Tum mevcut kartlari tamamladiniz. Daha sonra tekrar gelin!",
+    "sessionComplete": "Oturum tamamlandi!",
+    "comeBackTomorrow": "Ogrendiklerinizi pekistirmek icin yarin gelin.",
+    "cardsCompleted": "Tamamlanan kartlar",
+    "youFinishedSong": "\"{{title}}\"i bitirdin!",
+    "youFinishedAll": "Tum kartlari bitirdin!",
+    "new": "Yeni",
+    "learning": "Ogreniyor",
+    "due": "Bekleyen",
+    "studyAll": "Hepsini calis",
+    "signInToStudy": "Calismak icin giris yap",
+    "allCaughtUp": "Guncelsin!",
+    "noCardsDueGreat": "Bekleyen kart yok. Harika!",
+    "browseSongs": "Sarkilara gozat"
+  },
+  "home": {
+    "recentlyAdded": "Yeni eklenenler",
+    "allSongs": "Tum sarkilar",
+    "trending": "Trend"
+  },
+  "walletPage": {
+    "signUpTitle": "Kayit ol",
+    "signUpDescription": "Cuzdaniniza ve satin alimlariniza erismek icin bir hesap olusturun"
+  },
+  "common": {
+    "loading": "Yukleniyor...",
+    "error": "Hata",
+    "retry": "Tekrar dene",
+    "cancel": "Iptal",
+    "confirm": "Onayla",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "edit": "Duzenle",
+    "close": "Kapat",
+    "copy": "Kopyala",
+    "copied": "Kopyalandi!",
+    "search": "Ara",
+    "noResults": "Sonuc yok",
+    "seeAll": "Tumunu gor",
+    "viewMore": "Daha fazla",
+    "goBack": "Geri don",
+    "finish": "Bitir",
+    "playAgain": "Tekrar oynat",
+    "grading": "Degerlendiriliyor...",
+    "complete": "Tamamlandi",
+    "reloadPage": "Sayfayi yenile",
+    "exit": "Cik",
+    "done": "Bitti",
+    "processing": "Isleniyor",
+    "refreshBalance": "Bakiyeyi yenile",
+    "soon": "Yakinda",
+    "transactionFailed": "Islem basarisiz. Tekrar deneyin.",
+    "exitStudy": {
+      "title": "Calisma oturumundan cik?",
+      "description": "Ilerlemeniz kaydedildi. Daha sonra devam edebilirsiniz."
+    },
+    "exitKaraoke": {
+      "title": "Pratikten cik?",
+      "description": "Mevcut oturumunuz sona erecek."
+    }
+  },
+  "language": {
+    "title": "Dil",
+    "select": "Dil sec",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "ar": "العربية",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "th": "ไทย"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "Merhaba! Ben Scarlett, seni daha iyi tanimak istiyorum...",
+      "surveyComplete": "Paylastigin icin tesekkurler! Artik sohbetlerimizi ilgi alanlarına gore uyarlayabilirim. Ne hakkinda konusmak istersin?"
+    },
+    "violet": {
+      "welcomeMessage": "Merhaba! Ben Violet. Anime, video oyunlari ve muzik yapmayi seviyorum. Sevdigimiz seyler hakkinda konusarak birlikte Ingilizce ogrenelim! Once birkac soru:",
+      "surveyComplete": "Iyi secimler! Anlasacagimizi biliyorum. Aklinda ne var?"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "Diger"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "Bu sanatcilardan hangisi favorin?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "Ingilizce seviyeni nasil tanimlarsin?",
+        "beginner": "Baslangic",
+        "intermediate": "Orta",
+        "advanced": "Ileri"
+      },
+      "learningGoal": {
+        "question": "Ingilizce ogrenmekteki ana hedefin ne?",
+        "travel": "Seyahat ve kesif",
+        "dating": "Insanlarla taniṣma / flört",
+        "test": "Sinavlari gecmek (TOEFL, IELTS)",
+        "job": "Kariyer ilerlemesi"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "Hangi animeyi seviyorsun?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "Hangi oyunlari oynuyorsun?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Ritim oyunlari (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "Muzik yapmayla ilgileniyor musun?",
+        "yesDaw": "Evet! DAW kullaniyorum",
+        "curious": "Merakli ama baslamadim",
+        "listener": "Hayir, sadece dinliyorum"
+      }
+    }
+  }
+}

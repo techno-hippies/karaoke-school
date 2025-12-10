@@ -3,6 +3,7 @@
  *
  * Parse and validate en-lyrics.txt and zh-lyrics.txt files.
  * Ensures line counts match and section markers align.
+ * Detects censored profanity that would break karaoke grading.
  */
 
 import type {
@@ -14,6 +15,201 @@ import type {
 
 // Section marker pattern: [Intro], [Verse 1], [Chorus], [Bridge], etc.
 const SECTION_MARKER_REGEX = /^\[([^\]]+)\]$/;
+
+// ============================================================================
+// PROFANITY CENSORSHIP DETECTION
+// ============================================================================
+
+/**
+ * Common profanity roots that may be censored in lyrics.
+ * These are the base words - we detect various censoring patterns.
+ */
+const PROFANITY_ROOTS = [
+  'fuck', 'shit', 'bitch', 'ass', 'damn', 'hell',
+  'nigga', 'nigger', 'cunt', 'cock', 'dick', 'pussy',
+  'whore', 'slut', 'fag', 'faggot', 'bastard', 'piss',
+  'crap', 'bollocks', 'wanker', 'twat',
+];
+
+/**
+ * Censorship characters - dashes, asterisks, em-dash, en-dash
+ */
+const CENSOR_CHARS = '[\\-–—\\*]+';
+
+/**
+ * Build regex patterns for detecting censored versions of profanity.
+ *
+ * For a word like "shit", detects:
+ * - sh-t, sh--t, sh*t, sh**t, sh–t, sh—t (middle censored)
+ * - sh-, sh–, sh— (trailing censored)
+ * - s-h-i-t (spelled out with hyphens)
+ */
+function buildCensorPatterns(): { pattern: RegExp; description: string }[] {
+  const patterns: { pattern: RegExp; description: string }[] = [];
+
+  // Spelled out patterns first (longer, more specific)
+  // e.g., n-a-s-t-y, s-h-i-t, f-u-c-k
+  for (const word of PROFANITY_ROOTS) {
+    if (word.length >= 4) {
+      const spelledOut = word.split('').join('-');
+      patterns.push({
+        pattern: new RegExp(`\\b${spelledOut}\\b`, 'gi'),
+        description: `spelled-out ${word}`,
+      });
+    }
+  }
+
+  // Common explicit censored patterns
+  // These are hand-crafted for accuracy
+  const explicitPatterns: [RegExp, string][] = [
+    // shit variants
+    [/\bsh[\-–—\*]+t\b/gi, 'sh*t'],
+    [/\bsh[\-–—\*]+\s/gi, 'sh– (trailing)'],
+    [/\bsh[\-–—\*]+$/gi, 'sh– (end of line)'],
+
+    // fuck variants
+    [/\bf[\-–—\*]+ck\b/gi, 'f*ck'],
+    [/\bf[\-–—\*]+k\b/gi, 'f*k'],
+    [/\bf[\-–—\*]+\s/gi, 'f– (trailing)'],
+
+    // bitch variants
+    [/\bb[\-–—\*]+tch\b/gi, 'b*tch'],
+    [/\bb[\-–—\*]+ch\b/gi, 'b*ch'],
+
+    // ass variants
+    [/\ba[\-–—\*]+s\b/gi, 'a*s'],
+
+    // Standalone trailing censored (often bitch/ass at end of phrase)
+    [/\ba[\-–—],/gi, 'a– (censored word)'],
+    [/\ba[\-–—]\s/gi, 'a– (censored word)'],
+    [/\ba[\-–—]$/gi, 'a– (censored word)'],
+
+    // nigga/nigger variants
+    [/\bn[\-–—\*]+a\b/gi, 'n*a'],
+    [/\bn[\-–—\*]+er\b/gi, 'n*er'],
+    [/\bn[\-–—\*]+ga\b/gi, 'n*ga'],
+
+    // damn variants
+    [/\bd[\-–—\*]+mn\b/gi, 'd*mn'],
+    [/\bd[\-–—\*]+m\b/gi, 'd*m'],
+
+    // cunt variants
+    [/\bc[\-–—\*]+nt\b/gi, 'c*nt'],
+
+    // dick/cock variants
+    [/\bd[\-–—\*]+ck\b/gi, 'd*ck'],
+    [/\bc[\-–—\*]+ck\b/gi, 'c*ck'],
+
+    // pussy variants
+    [/\bp[\-–—\*]+ssy\b/gi, 'p*ssy'],
+  ];
+
+  for (const [pattern, desc] of explicitPatterns) {
+    patterns.push({ pattern, description: desc });
+  }
+
+  return patterns;
+}
+
+const CENSOR_PATTERNS = buildCensorPatterns();
+
+export interface CensoredWordIssue {
+  lineIndex: number;
+  text: string;
+  matches: string[];
+}
+
+/**
+ * Common words that are spelled out stylistically (not profanity).
+ * These still cause grading issues and should be detected.
+ */
+const SPELLED_OUT_WORDS = [
+  'nasty',   // n-a-s-t-y (Beyoncé)
+  'crazy',   // c-r-a-z-y
+  'sexy',    // s-e-x-y
+  'money',   // m-o-n-e-y
+  'honey',   // h-o-n-e-y
+  'baby',    // b-a-b-y
+];
+
+/**
+ * Detect censored profanity in a lyric line.
+ * Returns array of descriptions for matched censored patterns, or empty if clean.
+ */
+export function detectCensoredWords(text: string): string[] {
+  const matches: string[] = [];
+
+  // First check for spelled-out non-profanity words (higher priority)
+  for (const word of SPELLED_OUT_WORDS) {
+    const spelledOut = word.split('').join('-');
+    const pattern = new RegExp(`\\b${spelledOut}\\b`, 'gi');
+    if (pattern.test(text)) {
+      matches.push(`spelled-out "${word}" (should be "${word}")`);
+    }
+  }
+
+  // If we found spelled-out words, those explain the issue - skip sub-pattern checks
+  // to avoid confusing "a*s" matches on "n-a-s-t-y"
+  if (matches.length > 0) {
+    return matches;
+  }
+
+  // Check censorship patterns
+  for (const { pattern, description } of CENSOR_PATTERNS) {
+    // Reset lastIndex for global patterns
+    pattern.lastIndex = 0;
+    if (pattern.test(text)) {
+      matches.push(description);
+    }
+  }
+
+  // Dedupe
+  return [...new Set(matches)];
+}
+
+/**
+ * Validate an array of lyric lines for censored profanity.
+ * Returns issues found, or empty array if all clean.
+ */
+export function validateLyricsForCensorship(lines: string[]): CensoredWordIssue[] {
+  const issues: CensoredWordIssue[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const matches = detectCensoredWords(lines[i]);
+    if (matches.length > 0) {
+      issues.push({
+        lineIndex: i,
+        text: lines[i],
+        matches,
+      });
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Format censorship issues for CLI output
+ */
+export function formatCensorshipErrors(issues: CensoredWordIssue[]): string {
+  const lines = [
+    '❌ Censored profanity detected in lyrics',
+    '',
+    'The following lines contain censored words that will break karaoke grading:',
+    '',
+  ];
+
+  for (const issue of issues) {
+    lines.push(`  Line ${issue.lineIndex}: "${issue.text}"`);
+    lines.push(`    Detected: ${issue.matches.join(', ')}`);
+  }
+
+  lines.push('');
+  lines.push('Fix: Replace censored words with their uncensored forms.');
+  lines.push('Example: "sh–t" → "shit", "a–" → "bitch"');
+
+  return lines.join('\n');
+}
 
 /**
  * Parse a lyrics file into structured lines

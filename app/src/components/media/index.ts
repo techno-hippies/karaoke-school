@@ -1,4 +1,5 @@
-// Media components
-export { AudioButton } from './AudioButton'
-export { ExternalLinksDrawer } from './ExternalLinksDrawer'
-export { MediaPage } from './MediaPage'
+/**
+ * Media Components Public API
+ */
+
+export { MediaPage, type MediaPageProps } from './MediaPage'

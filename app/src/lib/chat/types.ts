@@ -1,79 +1,50 @@
 /**
- * Chat storage types
+ * Chat type definitions
  *
  * Memory model:
- * - UserProfile: stable facts (name, language, level)
- * - Thread: conversation metadata + rolling summary
- * - Message: individual messages (we keep last N per thread)
+ * - UserProfile: stable user facts (name, language, level, survey responses)
+ * - Thread: conversation metadata + rolling summary (one per scenario)
+ * - Message: individual messages (keep last N per thread)
  */
+
+// ============================================================
+// Core Entities
+// ============================================================
+
+// Re-export UILanguage from canonical source (12 languages)
+export type { UILanguage } from '@/lib/i18n'
+import type { UILanguage } from '@/lib/i18n'
 
 export interface UserProfile {
   id: 'singleton'
   name?: string
   /** Preferred UI/response language */
-  language?: 'en' | 'zh' | 'vi' | 'id'
+  language?: UILanguage
   /** English proficiency level */
   level?: 'beginner' | 'intermediate' | 'advanced'
   /** Timezone for scheduling */
   timezone?: string
-  /** Learning preferences and state (populated by surveys) */
-  learning?: {
-    // From Scarlett's surveys
-    /** Favorite artists/songs */
-    favoriteArtists?: string[]
-    /** Current learning goals: 'pronunciation', 'vocabulary', 'confidence', 'fun' */
-    goals?: string[]
-
-    // From Violet's surveys
-    /** Favorite anime */
-    favoriteAnime?: string[]
-    /** Favorite games */
-    favoriteGames?: string[]
-    /** Music production interest: 'yes-daw', 'curious', 'listener' */
-    musicProductionInterest?: string
-
-    // General
-    /** Topics of interest */
-    interests?: string[]
-    /** Vocabulary words they've struggled with */
-    difficultWords?: string[]
-  }
+  /** Learning preferences (populated by surveys) */
+  learning?: LearningPreferences
   /** Track which surveys completed per personality */
-  completedSurveys?: {
-    [personalityId: string]: string[] // e.g., { scarlett: ['favoriteMusician', 'englishLevel'] }
-  }
-  /** Any other preferences */
+  completedSurveys?: Record<string, string[]>
+  /** Additional preferences */
   preferences?: Record<string, unknown>
   createdAt: number
   updatedAt: number
 }
 
-/**
- * Context passed to Lit Action for personalized responses
- */
-export interface UserContext {
-  // Profile data
-  name?: string
-  language?: string
-  level?: string
+export interface LearningPreferences {
+  // Scarlett surveys
   favoriteArtists?: string[]
+  goals?: string[]
+  // Violet surveys
   favoriteAnime?: string[]
   favoriteGames?: string[]
-  goals?: string[]
-  musicProductionInterest?: string
-
-  // FSRS study data (from useStudyCards)
-  studiedToday: boolean
-  cardsStudiedToday: number
-  newCardsRemaining: number
-  totalCardsLearning: number
-  totalCardsReview: number
-
-  // Recent activity (from subgraph)
-  recentSongsPracticed?: string[] // Last 3 song titles
-  lastSessionScore?: number // 0-100
-  totalSessions?: number
-  averageScore?: number
+  musicProductionInterest?: 'yes-daw' | 'curious' | 'listener'
+  // General
+  interests?: string[]
+  difficultWords?: string[]
 }
 
 export interface Thread {
@@ -105,15 +76,26 @@ export interface Message {
   idx: number
   role: 'user' | 'assistant' | 'system'
   content: string
-  /** Optional metadata (e.g., survey responses, tool calls) */
-  metadata?: Record<string, unknown>
+  /** Optional metadata */
+  metadata?: MessageMetadata
   createdAt: number
 }
 
-/**
- * View history entry for engagement tracking
- * Used to build psychographic profile for AI chat context
- */
+export interface MessageMetadata {
+  /** Is this a survey question/answer */
+  isSurvey?: boolean
+  /** Survey ID for this message */
+  surveyId?: string
+  /** Selected option ID (for user answers) */
+  optionId?: string
+  /** Is this the welcome message */
+  isWelcome?: boolean
+}
+
+// ============================================================
+// View History (for psychographic profiling)
+// ============================================================
+
 export interface ViewHistoryEntry {
   id: string
   /** Spotify track ID or clip ID */
@@ -123,32 +105,227 @@ export interface ViewHistoryEntry {
   watchDurationMs: number
   /** Total content length (ms) */
   totalDurationMs?: number
-  /** Song metadata for context */
+  /** Song metadata */
   songTitle?: string
   artistName?: string
   /** Tags from Lens post metadata */
   visualTags?: string[]
   lyricTags?: string[]
-  /** Did they complete it? (watched >80%) */
+  /** Completed if watched >80% */
   completed: boolean
-  /** Timestamp */
   viewedAt: number
 }
 
-/** AI personalities available to chat with */
-export const AI_PERSONALITIES = [
+// ============================================================
+// AI Personalities
+// ============================================================
+
+export interface AIPersonality {
+  id: PersonalityId
+  name: string
+  avatarUrl: string
+  description: string
+}
+
+export const AI_PERSONALITIES: readonly AIPersonality[] = [
   {
     id: 'scarlett',
     name: 'Scarlett',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=scarlett',
+    avatarUrl: '/images/scarlett/default.webp',
     description: '18F digital nomad who loves yoga',
   },
   {
     id: 'violet',
     name: 'Violet',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=violet',
+    avatarUrl: '/images/violet/default.webp',
     description: '21F Tokyo DJ, edgy but caring',
   },
 ] as const
 
-export type PersonalityId = typeof AI_PERSONALITIES[number]['id']
+export type PersonalityId = 'scarlett' | 'violet'
+
+// ============================================================
+// Scenarios
+// ============================================================
+
+export interface Scenario {
+  id: string
+  personalityId: PersonalityId
+  titleKey: string
+  descriptionKey: string
+  image: string
+  isAdult?: boolean
+  /** Roleplays are ephemeral (not persisted), default chats persist to IDB */
+  isRoleplay?: boolean
+}
+
+export const SCENARIOS: readonly Scenario[] = [
+  // Scarlett
+  {
+    id: 'scarlett-chat',
+    personalityId: 'scarlett',
+    titleKey: 'personalities.scarlett.scenarios.chat.title',
+    descriptionKey: 'personalities.scarlett.scenarios.chat.description',
+    image: '/images/scarlett/default.webp',
+    isRoleplay: false,
+  },
+  {
+    id: 'scarlett-surfing',
+    personalityId: 'scarlett',
+    titleKey: 'personalities.scarlett.scenarios.surfing.title',
+    descriptionKey: 'personalities.scarlett.scenarios.surfing.description',
+    image: '/images/scarlett/beach.webp',
+    isRoleplay: true,
+  },
+  {
+    id: 'scarlett-cafe',
+    personalityId: 'scarlett',
+    titleKey: 'personalities.scarlett.scenarios.cafe.title',
+    descriptionKey: 'personalities.scarlett.scenarios.cafe.description',
+    image: '/images/scarlett/cafe.webp',
+    isRoleplay: true,
+  },
+  // Violet
+  {
+    id: 'violet-chat',
+    personalityId: 'violet',
+    titleKey: 'personalities.violet.scenarios.chat.title',
+    descriptionKey: 'personalities.violet.scenarios.chat.description',
+    image: '/images/violet/default.webp',
+    isRoleplay: false,
+  },
+  {
+    id: 'violet-nightclub',
+    personalityId: 'violet',
+    titleKey: 'personalities.violet.scenarios.nightclub.title',
+    descriptionKey: 'personalities.violet.scenarios.nightclub.description',
+    image: '/images/violet/nightclub.webp',
+    isAdult: true,
+    isRoleplay: true,
+  },
+  {
+    id: 'violet-ramen',
+    personalityId: 'violet',
+    titleKey: 'personalities.violet.scenarios.ramen.title',
+    descriptionKey: 'personalities.violet.scenarios.ramen.description',
+    image: '/images/violet/ramen.webp',
+    isRoleplay: true,
+  },
+] as const
+
+// ============================================================
+// User Context (passed to Lit Action for personalization)
+// ============================================================
+
+export interface UserContext {
+  // Profile data
+  name?: string
+  language?: string
+  level?: string
+  favoriteArtists?: string[]
+  favoriteAnime?: string[]
+  favoriteGames?: string[]
+  goals?: string[]
+  musicProductionInterest?: string
+  // FSRS study data
+  studiedToday: boolean
+  cardsStudiedToday: number
+  newCardsRemaining: number
+  totalCardsLearning: number
+  totalCardsReview: number
+  // Recent activity
+  recentSongsPracticed?: string[]
+  lastSessionScore?: number
+  totalSessions?: number
+  averageScore?: number
+}
+
+// ============================================================
+// Chat Service Types
+// ============================================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface TTSWord {
+  id: number
+  start: number // seconds
+  end: number // seconds
+  text: string
+}
+
+export interface ChatRequest {
+  personalityId: PersonalityId
+  message?: string
+  audioBase64?: string
+  conversationHistory?: ChatMessage[]
+  returnAudio?: boolean
+  userContext?: UserContext | null
+  scenarioId?: string
+}
+
+export interface ChatResponse {
+  success: boolean
+  reply: string
+  replyAudio?: string
+  replyWords?: TTSWord[]
+  transcript?: string
+  error?: string
+}
+
+export interface TranslateRequest {
+  text: string
+  /** Target translation language (excludes 'en' since we translate FROM English) */
+  targetLanguage?: Exclude<UILanguage, 'en'>
+}
+
+export interface TranslateResponse {
+  success: boolean
+  original: string
+  translation: string
+  error?: string
+}
+
+export interface TTSRequest {
+  text: string
+  voice?: string
+}
+
+export interface TTSResponse {
+  success: boolean
+  audio?: string
+  words?: TTSWord[]
+  error?: string
+}
+
+// ============================================================
+// Survey Types
+// ============================================================
+
+export interface SurveyOption {
+  id: string
+  labelKey: string
+}
+
+export interface Survey {
+  id: string
+  questionKey: string
+  options: SurveyOption[]
+  /** Allow multiple selections */
+  multiSelect?: boolean
+  /** Profile field to update */
+  profileField: keyof LearningPreferences
+}
+
+// ============================================================
+// UI Types
+// ============================================================
+
+export interface ChatWord {
+  text: string
+  isHighlighted?: boolean
+}
+
+export type MessageContent = string | ChatWord[]

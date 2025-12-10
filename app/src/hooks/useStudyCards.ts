@@ -1,41 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { createQuery } from '@tanstack/solid-query'
 import { useAuth } from '@/contexts/AuthContext'
-import { gql } from 'graphql-request'
+import { useLanguagePreference } from '@/contexts/LanguagePreferenceContext'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
-import { useLanguagePreference } from '@/hooks/useLanguagePreference'
-
-// Helper: Get today's start timestamp (midnight local time)
-function getTodayStartTimestamp(): number {
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  return Math.floor(todayStart.getTime() / 1000) // Unix timestamp
-}
-
-// Helper: Generate deterministic lineId using Web Crypto API
-async function generateLineId(spotifyTrackId: string, lineIndex: number): Promise<string> {
-  const input = `${spotifyTrackId}-${lineIndex}`
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return '0x' + hashHex
-}
-
-// Import FSRS algorithm (from lit-actions)
-// Since we can't import JS files directly in TypeScript, we'll copy the key functions here
-// TODO: Eventually, extract to a shared package
-
-/**
- * FSRS Ratings
- */
-const Rating = {
-  Again: 0,
-  Hard: 1,
-  Good: 2,
-  Easy: 3,
-}
+import {
+  GET_CLIPS_WITH_PERFORMANCES,
+  GET_ALL_CLIPS_WITH_PERFORMANCES,
+  GET_EXERCISE_CARDS,
+  GET_USER_CLIP_HASHES,
+} from '@/lib/graphql/study-queries'
+import { buildManifest, fetchJson, getBestUrl } from '@/lib/storage'
+import {
+  calculateFSRSState,
+  getTodayStartTimestamp,
+  generateLineId,
+} from '@/lib/fsrs/calculate-state'
+import type { StudyCard, StudyCardsResult } from '@/types/study'
+import type { Accessor } from 'solid-js'
 
 /**
  * Load FSRS study cards for a song (or all songs)
@@ -46,194 +26,67 @@ const Rating = {
  * 3. Calculate FSRS state from performance history
  * 4. Filter to due cards (due date <= today)
  *
- * @param songId Optional Spotify track ID to filter to one song
- * @returns { data: studyCards[], isLoading, error }
+ * @param songId Optional Spotify track ID accessor to filter to one song
+ * @returns { data: StudyCardsResult, isLoading, error }
  */
-export interface StudyCard {
-  id: string
-  questionId?: string
-  lineId?: string
-  lineIndex?: number
-  segmentHash?: string
-  spotifyTrackId?: string
-  exerciseType?: 'SAY_IT_BACK' | 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE'
-
-  // Song metadata
-  title?: string
-  artist?: string
-  artworkUrl?: string
-
-  // Content
-  metadataUri: string
-  instrumentalUri?: string
-  alignmentUri?: string
-  languageCode?: string
-  distractorPoolSize?: number
-
-  translations?: Array<{
-    languageCode: string
-    translationUri: string
-  }>
-
-  // Timing
-  segmentStartMs?: number
-  segmentEndMs?: number
-
-  // FSRS state
-  fsrs: {
-    due: number // Unix timestamp (seconds)
-    stability: number // Days
-    difficulty: number // 1-10
-    elapsedDays: number
-    scheduledDays: number
-    reps: number
-    lapses: number
-    state: 0 | 1 | 2 | 3 // CardState enum: New=0, Learning=1, Review=2, Relearning=3
-    lastReview: number | null // Unix timestamp
-  }
-}
-
-const GET_CLIPS_WITH_PERFORMANCES = gql`
-  query GetClipsWithPerformances($spotifyTrackId: String!, $performer: Bytes!) {
-    clips(where: { spotifyTrackId: $spotifyTrackId }, first: 1000) {
-      id
-      clipHash
-      spotifyTrackId
-      metadataUri
-      instrumentalUri
-      alignmentUri
-      clipStartMs
-      clipEndMs
-      translations {
-        languageCode
-        translationUri
-      }
-      performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
-        id
-        score
-        gradedAt
-      }
-    }
-    linePerformances(where: {
-      performerAddress: $performer
-    }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
-      id
-      lineId
-      lineIndex
-      clipHash
-      score
-      gradedAt
-    }
-  }
-`
-
-const GET_ALL_CLIPS_WITH_PERFORMANCES = gql`
-  query GetAllClipsWithPerformances($performer: Bytes!) {
-    clips(first: 1000) {
-      id
-      clipHash
-      spotifyTrackId
-      metadataUri
-      instrumentalUri
-      alignmentUri
-      clipStartMs
-      clipEndMs
-      translations {
-        languageCode
-        translationUri
-      }
-      performances(where: { performerAddress: $performer }, orderBy: gradedAt, orderDirection: desc, first: 100) {
-        id
-        score
-        gradedAt
-      }
-    }
-    linePerformances(where: {
-      performerAddress: $performer
-    }, orderBy: gradedAt, orderDirection: desc, first: 1000) {
-      id
-      lineId
-      lineIndex
-      clipHash
-      score
-      gradedAt
-    }
-  }
-`
-
-const GET_EXERCISE_CARDS = gql`
-  query GetExerciseCards($spotifyTrackIds: [String!]!, $performer: Bytes!, $languageCode: String) {
-    exerciseCards(where: {
-      spotifyTrackId_in: $spotifyTrackIds
-      enabled: true
-      languageCode: $languageCode
-    }) {
-      id
-      questionId
-      exerciseType
-      spotifyTrackId
-      languageCode
-      metadataUri
-      distractorPoolSize
-      lineId
-      lineIndex
-      clipHash
-      clip {
-        clipHash
-      }
-      attempts(
-        where: { performerAddress: $performer }
-        orderBy: gradedAt
-        orderDirection: desc
-        first: 100
-      ) {
-        id
-        score
-        gradedAt
-      }
-    }
-  }
-`
-
-export interface StudyCardsResult {
-  cards: StudyCard[]
-  stats: {
-    total: number
-    new: number
-    learning: number
-    review: number
-    relearning: number
-    newCardsIntroducedToday: number
-    newCardsRemaining: number
-    dueToday: number
-  }
-}
-
-export function useStudyCards(songId?: string) {
-  const { pkpAddress } = useAuth()
+export function useStudyCards(songId?: Accessor<string | undefined>) {
+  const auth = useAuth()
   const { languageFallbackOrder } = useLanguagePreference()
 
-  return useQuery({
-    queryKey: ['study-cards', songId, pkpAddress, languageFallbackOrder.join(',')],
+  const query = createQuery(() => ({
+    queryKey: ['study-cards', songId?.(), auth.pkpAddress(), languageFallbackOrder().join(',')],
     queryFn: async (): Promise<StudyCardsResult> => {
+      const pkpAddress = auth.pkpAddress()
       if (!pkpAddress) {
         throw new Error('Not authenticated')
       }
 
       try {
-
         // Use different query based on whether we're filtering by songId
         let data
-        if (songId) {
+        const songIdValue = songId?.()
+        if (songIdValue) {
           // Query specific song by spotifyTrackId
           data = await graphClient.request(GET_CLIPS_WITH_PERFORMANCES, {
-            spotifyTrackId: songId,
+            spotifyTrackId: songIdValue,
             performer: pkpAddress.toLowerCase(),
           })
         } else {
-          // Query ALL clips for dashboard view
+          // Dashboard view: only show clips the user has interacted with
+          // First, get clipHashes from user's line performances
+          const userClipData = await graphClient.request(GET_USER_CLIP_HASHES, {
+            performer: pkpAddress.toLowerCase(),
+          })
+
+          const userClipHashes = Array.from(
+            new Set(
+              (userClipData?.linePerformances || [])
+                .map((p: any) => p.clipHash)
+                .filter((hash: unknown): hash is string => typeof hash === 'string' && hash.length > 0)
+            )
+          )
+
+          // If user hasn't interacted with any clips, return empty result
+          if (userClipHashes.length === 0) {
+            return {
+              cards: [],
+              stats: {
+                total: 0,
+                new: 0,
+                learning: 0,
+                review: 0,
+                relearning: 0,
+                newCardsIntroducedToday: 0,
+                newCardsRemaining: 15,
+                dueToday: 0,
+              }
+            }
+          }
+
+          // Query only clips the user has interacted with
           data = await graphClient.request(GET_ALL_CLIPS_WITH_PERFORMANCES, {
             performer: pkpAddress.toLowerCase(),
+            clipHashes: userClipHashes,
           })
         }
 
@@ -257,7 +110,7 @@ export function useStudyCards(songId?: string) {
           new Set(
             (data.clips || [])
               .map((clip: any) => clip.spotifyTrackId)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0)
+              .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
           )
         )
 
@@ -268,7 +121,7 @@ export function useStudyCards(songId?: string) {
           let lastError: unknown = null
           let hadSuccessfulRequest = false
 
-          for (const languageCode of languageFallbackOrder) {
+          for (const languageCode of languageFallbackOrder()) {
             try {
               const response = await graphClient.request(GET_EXERCISE_CARDS, {
                 spotifyTrackIds,
@@ -295,7 +148,7 @@ export function useStudyCards(songId?: string) {
           }
 
           if (!selectedExerciseLanguage) {
-            console.warn('[useStudyCards] ⚠️ Exercise cards unavailable for preferred languages:', languageFallbackOrder)
+            console.warn('[useStudyCards] ⚠️ Exercise cards unavailable for preferred languages:', languageFallbackOrder())
           }
         }
 
@@ -317,28 +170,19 @@ export function useStudyCards(songId?: string) {
           if (!clip.metadataUri) continue
 
           try {
-            const metadataResponse = await fetch(clip.metadataUri)
-            if (!metadataResponse.ok) {
-              console.warn('[useStudyCards] ⚠️ Failed to fetch clip metadata', {
-                metadataUri: clip.metadataUri,
-                status: metadataResponse.status,
-              })
-              metadataFailures.push({
-                metadataUri: clip.metadataUri,
-                error: `HTTP ${metadataResponse.status}`,
-              })
-              continue
-            }
-
-            const clipMetadata = await metadataResponse.json()
+            // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+            const manifest = buildManifest(clip.metadataUri)
+            const clipMetadata = await fetchJson<any>(manifest)
             clipMetadataCache.set(clip.metadataUri, clipMetadata)
 
             // Store title/artist/artwork for this track
             if (clipMetadata.title && clipMetadata.artist && clip.spotifyTrackId) {
+              // Use getBestUrl for the cover image (returns URL string for <img>)
+              const coverManifest = clipMetadata.coverUri ? buildManifest(clipMetadata.coverUri) : null
               songMetadataBySpotifyId.set(clip.spotifyTrackId, {
                 title: clipMetadata.title,
                 artist: clipMetadata.artist,
-                artworkUrl: clipMetadata.coverUri ? convertGroveUri(clipMetadata.coverUri) : undefined
+                artworkUrl: coverManifest ? getBestUrl(coverManifest) ?? undefined : undefined
               })
             }
           } catch (error) {
@@ -486,7 +330,6 @@ export function useStudyCards(songId?: string) {
 
         // Interleave new cards by exercise type (cold start onboarding)
         // Pedagogical order: translation (recognition) → trivia (knowledge) → say-it-back (production)
-        // Then lean heavier on translation with occasional variety
         const nonNewCards = dueCards.filter(c => c.fsrs.state !== 0)
         const newCards = dueCards.filter(c => c.fsrs.state === 0)
 
@@ -508,7 +351,6 @@ export function useStudyCards(songId?: string) {
                 sayItBack.push(card)
             }
           }
-
 
           // Onboarding sequence: T, Tr, S, then weighted toward translation
           // Pattern after intro: T, T, Tr, T, T, S, repeat
@@ -619,63 +461,16 @@ export function useStudyCards(songId?: string) {
       }
     },
     // Enable query when PKP is ready (songId is now optional)
-    enabled: !!pkpAddress,
+    enabled: !!auth.pkpAddress(),
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
-  })
-}
-
-/**
- * Helper to calculate FSRS state from performance history
- *
- * Implements minimal FSRS calculation for current study state.
- * For production, should import full algorithm from lit-actions.
- */
-function calculateFSRSState(performanceHistory: any[]) {
-  // If no history, card is New and due immediately
-  if (!performanceHistory || performanceHistory.length === 0) {
-    return {
-      due: Math.floor(Date.now() / 1000), // Due immediately
-      stability: 0,
-      difficulty: 5,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      state: 0 as const, // New
-      lastReview: null,
-    }
-  }
-
-  // For now, use simplified calculation (TODO: integrate full FSRS)
-  // Last performance determines next review time
-  const lastPerformance = performanceHistory[0]
-  const lastReviewTime = parseInt(lastPerformance.gradedAt)
-  const score = Math.round((lastPerformance.score || 0) / 25) // 0-100 → 0-4
-  const rating = Math.min(3, Math.max(0, score))
-
-  // Simple interval scheduling based on rating and reps
-  let dayInterval = 1
-  if (rating >= Rating.Good) {
-    // Good or Easy ratings increase interval exponentially
-    dayInterval = Math.min(
-      36500, // Max interval
-      Math.pow(2, performanceHistory.length) // Exponential backoff
-    )
-  }
-
-  const nextDueTime = lastReviewTime + (dayInterval * 86400)
+  }))
 
   return {
-    due: nextDueTime,
-    stability: dayInterval,
-    difficulty: 5 + (3 - rating), // Adjust based on rating
-    elapsedDays: Math.floor((Date.now() / 1000 - lastReviewTime) / 86400),
-    scheduledDays: dayInterval,
-    reps: performanceHistory.length,
-    lapses: rating === Rating.Again ? 1 : 0,
-    state: (performanceHistory.length === 1 ? 1 : 2) as 0 | 1 | 2 | 3, // Learning if 1 rep, Review otherwise
-    lastReview: lastReviewTime,
+    get data() { return query.data },
+    get isLoading() { return query.isLoading },
+    get error() { return query.error },
+    refetch: query.refetch,
   }
 }

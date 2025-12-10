@@ -32,6 +32,19 @@ export interface Artist {
   id: string;
   spotify_artist_id: string;
   name: string;
+  // 12 language translations/transliterations
+  name_zh: string | null; // Chinese
+  name_vi: string | null; // Vietnamese
+  name_id: string | null; // Indonesian
+  name_ja: string | null; // Japanese
+  name_ko: string | null; // Korean
+  name_es: string | null; // Spanish
+  name_pt: string | null; // Portuguese
+  name_ar: string | null; // Arabic
+  name_tr: string | null; // Turkish
+  name_ru: string | null; // Russian
+  name_hi: string | null; // Hindi
+  name_th: string | null; // Thai
   slug: string | null;
   image_url: string | null; // Original Spotify URL (for reference)
   image_grove_url: string | null; // Permanent Grove URL
@@ -49,6 +62,11 @@ export interface Song {
   iswc: string;
   spotify_track_id: string | null;
   title: string;
+  title_zh: string | null; // Chinese translation
+  title_vi: string | null; // Vietnamese translation
+  title_id: string | null; // Indonesian translation
+  title_ja: string | null; // Japanese translation
+  title_ko: string | null; // Korean translation
   slug: string | null;
   artist_id: string | null;
   duration_ms: number | null;
@@ -94,7 +112,7 @@ export interface Lyric {
   id: string;
   song_id: string;
   line_index: number;
-  language: 'en' | 'zh' | 'vi' | 'id';
+  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko';
   text: string;
   section_marker: string | null;
   start_ms: number | null;
@@ -286,4 +304,84 @@ export interface AlignmentResult {
   words: WordTiming[];
   loss: number;
   duration: number;
+}
+
+// ============================================================================
+// Multi-Layer Storage Types
+// ============================================================================
+
+/**
+ * Storage layers in order of censorship resistance
+ * - grove: Lens Protocol IPFS (primary, backwards-compatible)
+ * - arweave: Permanent storage via Turbo SDK (free <100KB)
+ * - lighthouse: IPFS + Filecoin deals (pay-once, store forever)
+ */
+export type StorageLayer = 'grove' | 'arweave' | 'lighthouse';
+
+/**
+ * Arweave upload result
+ */
+export interface ArweaveUploadResult {
+  txId: string;
+  url: string;
+  urls: string[];
+}
+
+/**
+ * Lighthouse (IPFS + Filecoin) upload result
+ */
+export interface LighthouseUploadResult {
+  cid: string;
+  url: string;
+  urls: string[];
+}
+
+/**
+ * Result from a single storage layer upload
+ */
+export interface StorageLayerResult {
+  layer: StorageLayer;
+  success: boolean;
+  identifier: string; // CID, txId, or storage_key
+  url: string;
+  urls?: string[];
+  error?: string;
+}
+
+/**
+ * Storage manifest stored in JSONB column
+ * Tracks where content is stored across layers
+ */
+export interface StorageManifest {
+  contentHash: string; // SHA-256
+  sizeBytes: number;
+  mimeType: string;
+  uploadedAt: string;
+
+  grove?: {
+    cid: string;
+    url: string;
+  };
+
+  arweave?: {
+    txId: string;
+    url: string;
+    urls: string[];
+  };
+
+  lighthouse?: {
+    cid: string;
+    url: string;
+    urls: string[];
+  };
+}
+
+/**
+ * Result from multi-layer upload
+ */
+export interface MultiLayerUploadResult {
+  contentHash: string;
+  results: StorageLayerResult[];
+  manifest: StorageManifest;
+  primaryUrl: string; // Grove URL for backwards compatibility
 }

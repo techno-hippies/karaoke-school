@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { type Component, For, createSignal, createEffect, onCleanup } from 'solid-js'
+import { cn } from '@/lib/utils'
 
 // Tiered emoji system
 const TIER_EMOJIS = {
@@ -44,7 +45,7 @@ export interface FloatingHeartsProps {
   performanceLevel: number
   /** Current combo for streak emojis */
   combo?: number
-  className?: string
+  class?: string
 }
 
 /**
@@ -52,24 +53,20 @@ export interface FloatingHeartsProps {
  * More hearts = doing well, fewer = struggling.
  * Emoji tiers based on performance level and combo streaks.
  */
-export function FloatingHearts({
-  heartsPerSecond,
-  performanceLevel,
-  combo = 1,
-  className,
-}: FloatingHeartsProps) {
-  const [hearts, setHearts] = useState<FloatingHeart[]>([])
-  const idCounter = useRef(0)
+export const FloatingHearts: Component<FloatingHeartsProps> = (props) => {
+  const [hearts, setHearts] = createSignal<FloatingHeart[]>([])
+  let idCounter = 0
 
-  useEffect(() => {
-    if (heartsPerSecond <= 0) return
+  createEffect(() => {
+    const rate = props.heartsPerSecond
+    if (rate <= 0) return
 
     // Minimum 400ms between hearts to avoid clutter
-    const interval = Math.max(400, 1000 / heartsPerSecond)
+    const interval = Math.max(400, 1000 / rate)
 
     const spawnHeart = () => {
-      const id = idCounter.current++
-      const emojis = getEmojisForPerformance(performanceLevel, combo)
+      const id = idCounter++
+      const emojis = getEmojisForPerformance(props.performanceLevel, props.combo ?? 1)
 
       const heart: FloatingHeart = {
         id,
@@ -79,67 +76,53 @@ export function FloatingHearts({
 
       setHearts(prev => [...prev, heart])
 
+      // Remove heart after animation
       setTimeout(() => {
         setHearts(prev => prev.filter(h => h.id !== id))
       }, 4500)
     }
 
     const intervalId = setInterval(spawnHeart, interval)
-    return () => clearInterval(intervalId)
-  }, [heartsPerSecond, performanceLevel, combo])
-
-  if (hearts.length === 0) return null
+    onCleanup(() => clearInterval(intervalId))
+  })
 
   return (
-    <div className={`fixed inset-0 pointer-events-none overflow-hidden z-20 ${className || ''}`}>
-      {hearts.map(heart => (
-        <div
-          key={heart.id}
-          className="absolute heart-float"
-          style={{
-            left: `${heart.x}%`,
-            bottom: '0%',
-            fontSize: '28px',
-          }}
-        >
-          {heart.emoji}
-        </div>
-      ))}
-
-      <style>{`
-        .heart-float {
-          animation: heart-rise 4s linear forwards;
-        }
-        @keyframes heart-rise {
-          from {
-            transform: translateY(0);
-            opacity: 0.9;
-          }
-          to {
-            transform: translateY(-100vh);
-            opacity: 0;
-          }
-        }
-      `}</style>
+    <div class={cn('fixed inset-0 pointer-events-none overflow-hidden z-20', props.class)}>
+      <For each={hearts()}>
+        {(heart) => (
+          <div
+            class="absolute animate-heart-rise"
+            style={{
+              left: `${heart.x}%`,
+              bottom: '0%',
+              'font-size': '28px',
+            }}
+          >
+            {heart.emoji}
+          </div>
+        )}
+      </For>
     </div>
   )
 }
 
 /**
  * Calculate hearts per second based on performance level and combo.
- * - Below 25% = no hearts (struggling)
- * - 25-50% = very slow
- * - 50-75% = moderate
- * - 75%+ = fast with combo bonus
+ * - Below 10% = no hearts (really struggling)
+ * - 10-30% = very slow (encouragement)
+ * - 30-60% = moderate
+ * - 60%+ = fast with combo bonus
+ *
+ * Thresholds lowered to provide more positive feedback and encouragement.
  */
 export function getHeartsRate(level: number, combo: number): number {
-  // Below 25% = no hearts (struggling)
-  if (level < 0.25) return 0
-  // 25-50% = very slow (0.4-0.7/sec)
-  if (level < 0.5) return 0.4 + (level - 0.25) * 1.2
-  // 50-75% = moderate (0.7-1.5/sec)
-  if (level < 0.75) return 0.7 + (level - 0.5) * 3.2
-  // 75%+ = fast (1.5-3/sec) with combo bonus
+  // Below 10% = no hearts (really struggling)
+  if (level < 0.1) return 0
+  // 10-30% = very slow (0.3-0.5/sec) - encouragement hearts
+  if (level < 0.3) return 0.3 + (level - 0.1) * 1.0
+  // 30-60% = moderate (0.5-1.2/sec)
+  if (level < 0.6) return 0.5 + (level - 0.3) * 2.3
+  // 60%+ = fast (1.2-2.5/sec) with combo bonus
   const comboBonus = Math.min(combo, 10) * 0.1
-  return 1.5 + (level - 0.75) * 6 + comboBonus
+  return 1.2 + (level - 0.6) * 3.25 + comboBonus
 }

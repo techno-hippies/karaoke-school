@@ -193,7 +193,33 @@ export const ClipMetadataSchema = z.object({
 
   // Song Info
   title: z.string().min(1).max(200),
+  // 12 language translations (all optional)
+  title_zh: z.string().max(200).optional(),
+  title_vi: z.string().max(200).optional(),
+  title_id: z.string().max(200).optional(),
+  title_ja: z.string().max(200).optional(),
+  title_ko: z.string().max(200).optional(),
+  title_es: z.string().max(200).optional(),
+  title_pt: z.string().max(200).optional(),
+  title_ar: z.string().max(200).optional(),
+  title_tr: z.string().max(200).optional(),
+  title_ru: z.string().max(200).optional(),
+  title_hi: z.string().max(200).optional(),
+  title_th: z.string().max(200).optional(),
   artist: z.string().min(1).max(200),
+  // 12 language translations/transliterations (all optional)
+  artist_zh: z.string().max(200).optional(),
+  artist_vi: z.string().max(200).optional(),
+  artist_id: z.string().max(200).optional(),
+  artist_ja: z.string().max(200).optional(),
+  artist_ko: z.string().max(200).optional(),
+  artist_es: z.string().max(200).optional(),
+  artist_pt: z.string().max(200).optional(),
+  artist_ar: z.string().max(200).optional(),
+  artist_tr: z.string().max(200).optional(),
+  artist_ru: z.string().max(200).optional(),
+  artist_hi: z.string().max(200).optional(),
+  artist_th: z.string().max(200).optional(),
   artistSlug: z.string().min(1).max(100),
   artistImageUri: groveUrlSchema, // Artist image (REQUIRED - from Spotify artist endpoint, stored on Grove)
   genres: z.array(z.string().min(1).max(50)).optional(), // Spotify genres (e.g., ["pop", "r&b"])
@@ -272,6 +298,93 @@ export function formatZodErrors(error: z.ZodError): string {
   return error.issues
     .map(issue => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
+}
+
+// ============================================================================
+// STORAGE MANIFEST SCHEMAS
+// ============================================================================
+
+/**
+ * Arweave URL pattern - multiple gateways supported
+ */
+const arweaveUrlSchema = z.string().url().refine(
+  (url) => url.startsWith('https://arweave.net/') ||
+           url.startsWith('https://ar-io.net/') ||
+           url.startsWith('https://ar-io.dev/') ||
+           url.startsWith('https://g8way.io/'),
+  { message: 'Must be a valid Arweave gateway URL' }
+);
+
+/**
+ * IPFS URL pattern - multiple gateways supported
+ */
+const ipfsUrlSchema = z.string().url().refine(
+  (url) => url.includes('/ipfs/') ||
+           url.startsWith('https://gateway.lighthouse.storage/') ||
+           url.startsWith('https://ipfs.io/'),
+  { message: 'Must be a valid IPFS gateway URL' }
+);
+
+/**
+ * Grove layer in storage manifest
+ */
+const groveLayerSchema = z.object({
+  cid: z.string().min(1),
+  url: groveUrlSchema,
+});
+
+/**
+ * Arweave layer in storage manifest
+ */
+const arweaveLayerSchema = z.object({
+  txId: z.string().regex(/^[a-zA-Z0-9_-]{43}$/, 'Must be valid Arweave transaction ID (43 chars)'),
+  url: arweaveUrlSchema,
+  urls: z.array(arweaveUrlSchema).min(1),
+});
+
+/**
+ * Lighthouse (IPFS+Filecoin) layer in storage manifest
+ */
+const lighthouseLayerSchema = z.object({
+  cid: z.string().regex(/^(Qm[a-zA-Z0-9]{44}|baf[a-zA-Z0-9]+)$/, 'Must be valid IPFS CID (CIDv0 Qm... or CIDv1 baf...)'),
+  url: ipfsUrlSchema,
+  urls: z.array(ipfsUrlSchema).min(1),
+});
+
+/**
+ * Storage Manifest Schema
+ *
+ * Validates the JSONB stored in songs.storage_manifest.
+ * Ensures at least Grove (primary) is present, with optional Arweave/Lighthouse backups.
+ */
+export const StorageManifestSchema = z.object({
+  contentHash: z.string().regex(/^[a-f0-9]{64}$/, 'Must be SHA-256 hash (64 hex chars)'),
+  sizeBytes: z.number().int().positive(),
+  mimeType: z.string().min(1),
+  uploadedAt: z.string().datetime(),
+
+  // Primary layer (required)
+  grove: groveLayerSchema,
+
+  // Backup layers (optional)
+  arweave: arweaveLayerSchema.optional(),
+  lighthouse: lighthouseLayerSchema.optional(),
+});
+
+export type StorageManifestValidated = z.infer<typeof StorageManifestSchema>;
+
+/**
+ * Validate storage manifest before saving to DB
+ */
+export function validateStorageManifest(data: unknown): StorageManifestValidated {
+  return StorageManifestSchema.parse(data);
+}
+
+/**
+ * Safe validation for storage manifest
+ */
+export function safeValidateStorageManifest(data: unknown): z.SafeParseReturnType<unknown, StorageManifestValidated> {
+  return StorageManifestSchema.safeParse(data);
 }
 
 // ============================================================================

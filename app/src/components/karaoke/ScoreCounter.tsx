@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { type Component, createSignal, createEffect, onCleanup } from 'solid-js'
 import { cn } from '@/lib/utils'
 
 export interface ScoreCounterProps {
@@ -10,8 +10,8 @@ export interface ScoreCounterProps {
   label?: string
   /** Size variant */
   size?: 'sm' | 'md' | 'lg'
-  /** Additional className */
-  className?: string
+  /** Additional class */
+  class?: string
 }
 
 const sizeStyles = {
@@ -36,90 +36,86 @@ const sizeStyles = {
  * Animated score counter that rolls up numbers like an arcade game.
  * Used during karaoke practice to show accumulating points.
  */
-export function ScoreCounter({
-  score,
-  animationDuration = 400,
-  label = 'SCORE',
-  size = 'md',
-  className,
-}: ScoreCounterProps) {
-  const [displayScore, setDisplayScore] = useState(score)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const previousScoreRef = useRef(score)
-  const animationFrameRef = useRef<number | null>(null)
+export const ScoreCounter: Component<ScoreCounterProps> = (props) => {
+  const [displayScore, setDisplayScore] = createSignal(props.score)
+  const [isAnimating, setIsAnimating] = createSignal(false)
+  let previousScore = props.score
+  let animationFrame: number | null = null
 
-  useEffect(() => {
-    const previousScore = previousScoreRef.current
-    const diff = score - previousScore
+  createEffect(() => {
+    const targetScore = props.score
+    const diff = targetScore - previousScore
 
     // Skip animation if score decreased or no change
     if (diff <= 0) {
-      setDisplayScore(score)
-      previousScoreRef.current = score
+      setDisplayScore(targetScore)
+      previousScore = targetScore
       return
     }
 
     // Animate the score rolling up
     setIsAnimating(true)
     const startTime = performance.now()
+    const startScore = previousScore
+    const duration = props.animationDuration ?? 400
 
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / animationDuration, 1)
+      const progress = Math.min(elapsed / duration, 1)
 
       // Easing function for smooth deceleration
       const easeOut = 1 - Math.pow(1 - progress, 3)
-      const currentValue = Math.round(previousScore + diff * easeOut)
+      const currentValue = Math.round(startScore + diff * easeOut)
 
       setDisplayScore(currentValue)
 
       if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(animate)
+        animationFrame = requestAnimationFrame(animate)
       } else {
-        setDisplayScore(score)
+        setDisplayScore(targetScore)
         setIsAnimating(false)
-        previousScoreRef.current = score
+        previousScore = targetScore
       }
     }
 
-    animationFrameRef.current = requestAnimationFrame(animate)
+    animationFrame = requestAnimationFrame(animate)
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+    onCleanup(() => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame)
       }
-    }
-  }, [score, animationDuration])
+    })
+  })
 
-  const styles = sizeStyles[size]
+  const styles = () => sizeStyles[props.size ?? 'md']
 
   return (
     <div
-      className={cn(
+      class={cn(
         'flex flex-col items-center',
-        styles.container,
-        className
+        styles().container,
+        props.class
       )}
     >
-      {label && (
+      {props.label !== '' && (
         <span
-          className={cn(
+          class={cn(
             'uppercase tracking-wider text-white/60 font-medium',
-            styles.label
+            styles().label
           )}
         >
-          {label}
+          {props.label ?? 'SCORE'}
         </span>
       )}
       <span
-        className={cn(
+        class={cn(
           'font-black tabular-nums transition-transform duration-150',
           'text-transparent bg-clip-text bg-gradient-to-b from-white to-white/80',
-          styles.score,
-          isAnimating && 'scale-110'
+          styles().score,
+          isAnimating() && 'scale-110'
         )}
       >
-        {displayScore.toLocaleString()}
+        {displayScore().toLocaleString()}
       </span>
     </div>
   )

@@ -1,17 +1,16 @@
-import type { ReactNode } from 'react'
+import type { ParentComponent } from 'solid-js'
 import { MobileFooter } from '@/components/navigation/MobileFooter'
 import { DesktopSidebar } from '@/components/navigation/DesktopSidebar'
 
 export interface AppLayoutProps {
-  children: ReactNode
-  activeTab: 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'
-  onTabChange: (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => void
+  activeTab: 'home' | 'study' | 'songs' | 'chat' | 'wallet' | 'none'
+  onTabChange: (tab: 'home' | 'study' | 'songs' | 'chat' | 'wallet') => void
   isConnected?: boolean
   isCheckingSession?: boolean
   walletAddress?: string
   onConnectWallet?: () => void
   onDisconnect?: () => void
-  hideMobileFooter?: boolean // Hide mobile footer for full-screen pages
+  hideMobileFooter?: boolean
 }
 
 /**
@@ -19,45 +18,33 @@ export interface AppLayoutProps {
  *
  * Desktop: Fixed sidebar (w-80) on left, content offset by md:pl-80
  * Mobile: Content full-width, footer navigation at bottom
- *
- * The md:pl-80 offset combined with flex centering creates perfect
- * centering for page content on desktop (excluding sidebar width)
  */
-export function AppLayout({
-  children,
-  activeTab,
-  onTabChange,
-  isConnected = false,
-  isCheckingSession = false,
-  walletAddress,
-  onConnectWallet,
-  hideMobileFooter = false
-}: AppLayoutProps) {
+export const AppLayout: ParentComponent<AppLayoutProps> = (props) => {
   return (
-    <div className="min-h-screen bg-background">
+    <div class="min-h-[calc(var(--vh,1vh)*100)] md:min-h-screen bg-background">
       {/* Desktop Sidebar - fixed, hidden on mobile */}
       <DesktopSidebar
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        isConnected={isConnected}
-        isCheckingSession={isCheckingSession}
-        walletAddress={walletAddress}
-        onConnectWallet={onConnectWallet}
+        activeTab={props.activeTab}
+        onTabChange={props.onTabChange}
+        isConnected={props.isConnected}
+        isCheckingSession={props.isCheckingSession}
+        walletAddress={props.walletAddress}
+        onConnectWallet={props.onConnectWallet}
       />
 
       {/* Main content area - offset by sidebar width on desktop */}
-      <div className="md:pl-80">
+      <div class="md:pl-80">
         {/* Content with bottom padding for mobile footer (unless hidden) */}
-        <div className={hideMobileFooter ? "" : "pb-16 md:pb-0"}>
-          {children}
+        <div class={props.hideMobileFooter ? '' : 'pb-16 md:pb-0'}>
+          {props.children}
         </div>
       </div>
 
       {/* Mobile Footer - hidden on desktop and full-screen pages */}
-      {!hideMobileFooter && (
+      {!props.hideMobileFooter && (
         <MobileFooter
-          activeTab={activeTab}
-          onTabChange={onTabChange}
+          activeTab={props.activeTab}
+          onTabChange={props.onTabChange}
         />
       )}
     </div>

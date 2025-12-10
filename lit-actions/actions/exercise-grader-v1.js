@@ -212,41 +212,54 @@ async function handleSayItBack({
       chain: 'ethereum'
     });
 
-    // Transcribe audio via Voxtral
+    // Transcribe audio via DeepInfra Voxtral Small 24B (same as karaoke grader for better accuracy)
     const audioData = Uint8Array.from(atob(audioDataBase64), c => c.charCodeAt(0));
 
-    const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2, 15);
+    // Detect audio format from magic bytes
+    // WAV: "RIFF" at 0-3 and "WAVE" at 8-11
+    // WebM: 0x1A45DFA3 (EBML header)
+    const isWav = audioData.length >= 12 &&
+      audioData[0] === 0x52 && audioData[1] === 0x49 && // "RI"
+      audioData[2] === 0x46 && audioData[3] === 0x46 && // "FF"
+      audioData[8] === 0x57 && audioData[9] === 0x41 && // "WA"
+      audioData[10] === 0x56 && audioData[11] === 0x45;  // "VE"
 
-    // Multipart form with model parameter (required by Voxstral API)
-    const modelPart = `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nvoxtral-mini-latest\r\n`;
-    const filePart = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.webm"\r\nContent-Type: audio/webm\r\n\r\n`;
-    const footer = `\r\n--${boundary}--\r\n`;
+    const audioFilename = isWav ? 'audio.wav' : 'audio.webm';
+    const audioContentType = isWav ? 'audio/wav' : 'audio/webm';
 
-    // Build complete multipart body: model field + file field + footer
-    const modelPartBytes = new TextEncoder().encode(modelPart);
-    const filePartBytes = new TextEncoder().encode(filePart);
-    const footerBytes = new TextEncoder().encode(footer);
+    const boundary = '----LitBoundary' + Math.random().toString(36).substring(2, 10);
+
+    // Build multipart form for DeepInfra Voxtral Small 24B
+    // Set language=en explicitly for better accuracy with English audio
+    const audioPart = `--${boundary}\r\nContent-Disposition: form-data; name="audio"; filename="${audioFilename}"\r\nContent-Type: ${audioContentType}\r\n\r\n`;
+    const languagePart = `\r\n--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nen\r\n`;
+    const footer = `--${boundary}--\r\n`;
+
+    const encoder = new TextEncoder();
+    const audioPartBytes = encoder.encode(audioPart);
+    const languagePartBytes = encoder.encode(languagePart);
+    const footerBytes = encoder.encode(footer);
 
     const bodyBytes = new Uint8Array(
-      modelPartBytes.length +
-      filePartBytes.length +
+      audioPartBytes.length +
       audioData.length +
+      languagePartBytes.length +
       footerBytes.length
     );
 
     let offset = 0;
-    bodyBytes.set(modelPartBytes, offset);
-    offset += modelPartBytes.length;
-
-    bodyBytes.set(filePartBytes, offset);
-    offset += filePartBytes.length;
+    bodyBytes.set(audioPartBytes, offset);
+    offset += audioPartBytes.length;
 
     bodyBytes.set(audioData, offset);
     offset += audioData.length;
 
+    bodyBytes.set(languagePartBytes, offset);
+    offset += languagePartBytes.length;
+
     bodyBytes.set(footerBytes, offset);
 
-    const transcriptionResponse = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
+    const transcriptionResponse = await fetch('https://api.deepinfra.com/v1/inference/mistralai/Voxtral-Small-24B-2507', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${voxtralApiKey}`,

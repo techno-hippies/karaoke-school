@@ -1,163 +1,182 @@
 /**
- * Per-personality survey configurations
+ * Survey Definitions
  *
- * Each AI personality has their own onboarding surveys tailored to their interests.
- * Survey responses are stored in the global UserProfile so all AIs can access them.
+ * Per-personality onboarding surveys to gather user preferences.
+ * Survey responses are saved to UserProfile.learning for AI personalization.
  */
 
-import type { PersonalityId } from './types'
+import type { Survey, PersonalityId, LearningPreferences } from './types'
 
-export interface SurveyOption {
-  id: string
-  /** i18n key for the option label */
-  labelKey: string
-}
+// ============================================================
+// Scarlett Surveys (Music & Karaoke focused)
+// ============================================================
 
-export interface SurveyConfig {
-  id: string
-  /** i18n key for the question text */
-  questionKey: string
-  options: SurveyOption[]
-  /** Path in UserProfile to save response (dot notation) */
-  saveTo: string
-  /** If true, append to array; if false, set value */
-  isArray: boolean
-  /** Skip saving the 'none' option */
-  skipNone?: boolean
-}
-
-/**
- * Scarlett's surveys - Music & Karaoke focused
- */
-const SCARLETT_SURVEYS: SurveyConfig[] = [
+const SCARLETT_SURVEYS: Survey[] = [
   {
     id: 'favoriteMusician',
-    questionKey: 'survey.scarlett.favoriteMusician.question',
+    questionKey: 'surveys.scarlett.favoriteMusician.question',
+    profileField: 'favoriteArtists',
+    multiSelect: true,
     options: [
-      { id: 'beyonce', labelKey: 'survey.scarlett.favoriteMusician.beyonce' },
-      { id: 'blackpink', labelKey: 'survey.scarlett.favoriteMusician.blackpink' },
-      { id: 'jay-chou', labelKey: 'survey.scarlett.favoriteMusician.jayChou' },
-      { id: 'taylor', labelKey: 'survey.scarlett.favoriteMusician.taylor' },
-      { id: 'none', labelKey: 'survey.scarlett.favoriteMusician.none' },
+      { id: 'beyonce', labelKey: 'surveys.scarlett.favoriteMusician.beyonce' },
+      { id: 'blackpink', labelKey: 'surveys.scarlett.favoriteMusician.blackpink' },
+      { id: 'jaychou', labelKey: 'surveys.scarlett.favoriteMusician.jaychou' },
+      { id: 'taylor', labelKey: 'surveys.scarlett.favoriteMusician.taylor' },
+      { id: 'none', labelKey: 'surveys.common.other' },
     ],
-    saveTo: 'learning.favoriteArtists',
-    isArray: true,
-    skipNone: true,
   },
   {
     id: 'englishLevel',
-    questionKey: 'survey.scarlett.englishLevel.question',
+    questionKey: 'surveys.scarlett.englishLevel.question',
+    profileField: 'goals', // Will set level in profile root
     options: [
-      { id: 'beginner', labelKey: 'survey.scarlett.englishLevel.beginner' },
-      { id: 'intermediate', labelKey: 'survey.scarlett.englishLevel.intermediate' },
-      { id: 'advanced', labelKey: 'survey.scarlett.englishLevel.advanced' },
+      { id: 'beginner', labelKey: 'surveys.scarlett.englishLevel.beginner' },
+      { id: 'intermediate', labelKey: 'surveys.scarlett.englishLevel.intermediate' },
+      { id: 'advanced', labelKey: 'surveys.scarlett.englishLevel.advanced' },
     ],
-    saveTo: 'level',
-    isArray: false,
   },
   {
     id: 'learningGoal',
-    questionKey: 'survey.scarlett.learningGoal.question',
+    questionKey: 'surveys.scarlett.learningGoal.question',
+    profileField: 'goals',
+    multiSelect: true,
     options: [
-      { id: 'travel', labelKey: 'survey.scarlett.learningGoal.travel' },
-      { id: 'dating', labelKey: 'survey.scarlett.learningGoal.dating' },
-      { id: 'test', labelKey: 'survey.scarlett.learningGoal.test' },
-      { id: 'job', labelKey: 'survey.scarlett.learningGoal.job' },
-      { id: 'other', labelKey: 'survey.scarlett.learningGoal.other' },
+      { id: 'travel', labelKey: 'surveys.scarlett.learningGoal.travel' },
+      { id: 'dating', labelKey: 'surveys.scarlett.learningGoal.dating' },
+      { id: 'test', labelKey: 'surveys.scarlett.learningGoal.test' },
+      { id: 'job', labelKey: 'surveys.scarlett.learningGoal.job' },
+      { id: 'other', labelKey: 'surveys.common.other' },
     ],
-    saveTo: 'learning.goals',
-    isArray: true,
   },
 ]
 
-/**
- * Violet's surveys - Anime, Gaming & Music Production focused
- */
-const VIOLET_SURVEYS: SurveyConfig[] = [
+// ============================================================
+// Violet Surveys (Anime, Gaming, Music Production)
+// ============================================================
+
+const VIOLET_SURVEYS: Survey[] = [
   {
     id: 'favoriteAnime',
-    questionKey: 'survey.violet.favoriteAnime.question',
+    questionKey: 'surveys.violet.favoriteAnime.question',
+    profileField: 'favoriteAnime',
+    multiSelect: true,
     options: [
-      { id: 'aot', labelKey: 'survey.violet.favoriteAnime.aot' },
-      { id: 'jjk', labelKey: 'survey.violet.favoriteAnime.jjk' },
-      { id: 'spy-family', labelKey: 'survey.violet.favoriteAnime.spyFamily' },
-      { id: 'one-piece', labelKey: 'survey.violet.favoriteAnime.onePiece' },
-      { id: 'none', labelKey: 'survey.violet.favoriteAnime.none' },
+      { id: 'aot', labelKey: 'surveys.violet.favoriteAnime.aot' },
+      { id: 'jjk', labelKey: 'surveys.violet.favoriteAnime.jjk' },
+      { id: 'spyfamily', labelKey: 'surveys.violet.favoriteAnime.spyfamily' },
+      { id: 'onepiece', labelKey: 'surveys.violet.favoriteAnime.onepiece' },
+      { id: 'none', labelKey: 'surveys.common.other' },
     ],
-    saveTo: 'learning.favoriteAnime',
-    isArray: true,
-    skipNone: true,
   },
   {
     id: 'favoriteGame',
-    questionKey: 'survey.violet.favoriteGame.question',
+    questionKey: 'surveys.violet.favoriteGame.question',
+    profileField: 'favoriteGames',
+    multiSelect: true,
     options: [
-      { id: 'valorant', labelKey: 'survey.violet.favoriteGame.valorant' },
-      { id: 'genshin', labelKey: 'survey.violet.favoriteGame.genshin' },
-      { id: 'lol', labelKey: 'survey.violet.favoriteGame.lol' },
-      { id: 'rhythm', labelKey: 'survey.violet.favoriteGame.rhythm' },
-      { id: 'none', labelKey: 'survey.violet.favoriteGame.none' },
+      { id: 'valorant', labelKey: 'surveys.violet.favoriteGame.valorant' },
+      { id: 'genshin', labelKey: 'surveys.violet.favoriteGame.genshin' },
+      { id: 'lol', labelKey: 'surveys.violet.favoriteGame.lol' },
+      { id: 'rhythm', labelKey: 'surveys.violet.favoriteGame.rhythm' },
+      { id: 'none', labelKey: 'surveys.common.other' },
     ],
-    saveTo: 'learning.favoriteGames',
-    isArray: true,
-    skipNone: true,
   },
   {
     id: 'musicProduction',
-    questionKey: 'survey.violet.musicProduction.question',
+    questionKey: 'surveys.violet.musicProduction.question',
+    profileField: 'musicProductionInterest',
     options: [
-      { id: 'yes-daw', labelKey: 'survey.violet.musicProduction.yesDaw' },
-      { id: 'curious', labelKey: 'survey.violet.musicProduction.curious' },
-      { id: 'listener', labelKey: 'survey.violet.musicProduction.listener' },
+      { id: 'yes-daw', labelKey: 'surveys.violet.musicProduction.yesDaw' },
+      { id: 'curious', labelKey: 'surveys.violet.musicProduction.curious' },
+      { id: 'listener', labelKey: 'surveys.violet.musicProduction.listener' },
     ],
-    saveTo: 'learning.musicProductionInterest',
-    isArray: false,
   },
 ]
 
-/**
- * Map of personality ID to their surveys
- */
-export const PERSONALITY_SURVEYS: Record<PersonalityId, SurveyConfig[]> = {
+// ============================================================
+// Survey Registry
+// ============================================================
+
+export const PERSONALITY_SURVEYS: Record<PersonalityId, Survey[]> = {
   scarlett: SCARLETT_SURVEYS,
   violet: VIOLET_SURVEYS,
 }
 
 /**
- * Get the next uncompleted survey for a personality
+ * Get the next unanswered survey for a personality
  */
 export function getNextSurvey(
   personalityId: PersonalityId,
-  completedSurveyIds: string[]
-): SurveyConfig | null {
+  completedSurveys: string[]
+): Survey | null {
   const surveys = PERSONALITY_SURVEYS[personalityId]
   if (!surveys) return null
 
   for (const survey of surveys) {
-    if (!completedSurveyIds.includes(survey.id)) {
+    if (!completedSurveys.includes(survey.id)) {
       return survey
     }
   }
 
-  return null // All surveys completed
+  return null
 }
 
 /**
- * Check if all surveys are completed for a personality
+ * Check if all surveys are complete for a personality
  */
-export function allSurveysCompleted(
+export function areSurveysComplete(
   personalityId: PersonalityId,
-  completedSurveyIds: string[]
+  completedSurveys: string[]
 ): boolean {
   const surveys = PERSONALITY_SURVEYS[personalityId]
   if (!surveys) return true
 
-  return surveys.every(s => completedSurveyIds.includes(s.id))
+  return surveys.every((s) => completedSurveys.includes(s.id))
 }
 
 /**
- * Get welcome message i18n key for a personality
+ * Get i18n key for welcome message based on personality
  */
 export function getWelcomeMessageKey(personalityId: PersonalityId): string {
-  return `personalities.${personalityId}.welcomeIntro`
+  return `personalities.${personalityId}.welcomeMessage`
+}
+
+/**
+ * Get i18n key for survey completion message
+ */
+export function getSurveyCompleteKey(personalityId: PersonalityId): string {
+  return `personalities.${personalityId}.surveyComplete`
+}
+
+/**
+ * Map survey response to profile field update
+ */
+export function mapSurveyToProfile(
+  survey: Survey,
+  optionId: string,
+  translatedLabel: string
+): Partial<LearningPreferences> {
+  const update: Partial<LearningPreferences> = {}
+
+  // Handle special cases
+  if (survey.id === 'englishLevel') {
+    // This updates the root profile.level, not learning
+    return update
+  }
+
+  // Skip 'none' or 'other' options
+  if (optionId === 'none' || optionId === 'other') {
+    return update
+  }
+
+  // For multi-select, we'd need existing values to append
+  // For single-select, just set the value
+  if (survey.multiSelect) {
+    // Will be handled by the caller to merge with existing array
+    (update as any)[survey.profileField] = [translatedLabel]
+  } else {
+    (update as any)[survey.profileField] = optionId
+  }
+
+  return update
 }

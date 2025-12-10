@@ -1,77 +1,40 @@
-"use client"
+/**
+ * Progress component - simple CSS implementation
+ */
 
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
-import { cva, type VariantProps } from "class-variance-authority"
+import { splitProps, type Component } from 'solid-js'
+import { cn } from '@/lib/utils'
 
-import { cn } from "@/lib/utils"
+interface ProgressProps {
+  value?: number
+  max?: number
+  class?: string
+  indicatorClass?: string
+}
 
-const progressVariants = cva(
-  "relative w-full overflow-hidden rounded-full bg-secondary",
-  {
-    variants: {
-      size: {
-        sm: "h-2",
-        default: "h-4",
-        lg: "h-6",
-      },
-    },
-    defaultVariants: {
-      size: "default",
-    },
+const Progress: Component<ProgressProps> = (props) => {
+  const [local] = splitProps(props, ['value', 'max', 'class', 'indicatorClass'])
+
+  const percentage = () => {
+    const val = local.value ?? 0
+    const max = local.max ?? 100
+    return Math.min(100, Math.max(0, (val / max) * 100))
   }
-)
 
-const indicatorVariants = cva(
-  "h-full w-full flex-1 transition-all duration-300",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary",
-        gradient: "bg-[image:var(--gradient-primary)]",
-        success: "bg-[image:var(--gradient-success)]",
-        fire: "bg-[image:var(--gradient-fire)]",
-        gold: "bg-[image:var(--gradient-gold)]",
-      },
-      animated: {
-        true: "",
-        false: "",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      animated: false,
-    },
-  }
-)
-
-export interface ProgressProps
-  extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>,
-    VariantProps<typeof progressVariants>,
-    VariantProps<typeof indicatorVariants> {}
-
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  ProgressProps
->(({ className, value, size, variant, animated, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn(progressVariants({ size }), className)}
-    {...props}
-  >
-    <ProgressPrimitive.Indicator
-      className={cn(
-        indicatorVariants({ variant }),
-        "relative"
-      )}
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={local.value ?? 0}
+      aria-valuemin={0}
+      aria-valuemax={local.max ?? 100}
+      class={cn('relative h-2 w-full overflow-hidden rounded-full bg-secondary', local.class)}
     >
-      {animated && (
-        <div className="absolute inset-0 animate-shimmer" />
-      )}
-    </ProgressPrimitive.Indicator>
-  </ProgressPrimitive.Root>
-))
-Progress.displayName = ProgressPrimitive.Root.displayName
+      <div
+        class={cn('h-full rounded-full bg-primary transition-all duration-300', local.indicatorClass)}
+        style={{ width: `${percentage()}%` }}
+      />
+    </div>
+  )
+}
 
 export { Progress }

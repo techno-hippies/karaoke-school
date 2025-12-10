@@ -45,3 +45,67 @@ export interface SongStats {
   segmentsWithDue: number
   segmentsCompleted: number
 }
+
+/**
+ * FSRS Study Card (loaded from subgraph)
+ */
+export interface StudyCard {
+  id: string
+  questionId?: string
+  lineId?: string
+  lineIndex?: number
+  segmentHash?: string
+  spotifyTrackId?: string
+  exerciseType?: 'SAY_IT_BACK' | 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE'
+
+  // Song metadata
+  title?: string
+  artist?: string
+  artworkUrl?: string
+
+  // Content
+  metadataUri: string
+  instrumentalUri?: string
+  alignmentUri?: string
+  languageCode?: string
+  distractorPoolSize?: number
+
+  translations?: Array<{
+    languageCode: string
+    translationUri: string
+  }>
+
+  // Timing
+  segmentStartMs?: number
+  segmentEndMs?: number
+
+  // FSRS state
+  fsrs: {
+    due: number // Unix timestamp (seconds)
+    stability: number // Days
+    difficulty: number // 1-10
+    elapsedDays: number
+    scheduledDays: number
+    reps: number
+    lapses: number
+    state: 0 | 1 | 2 | 3 // CardState enum: New=0, Learning=1, Review=2, Relearning=3
+    lastReview: number | null // Unix timestamp
+  }
+}
+
+/**
+ * Study cards result with stats
+ */
+export interface StudyCardsResult {
+  cards: StudyCard[]
+  stats: {
+    total: number
+    new: number
+    learning: number
+    review: number
+    relearning: number
+    newCardsIntroducedToday: number
+    newCardsRemaining: number
+    dueToday: number
+  }
+}

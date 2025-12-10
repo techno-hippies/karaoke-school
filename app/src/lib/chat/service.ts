@@ -1,70 +1,35 @@
 /**
- * Chat Service - Calls Scarlett/Violet chat lit actions
+ * Chat Service - Calls AI chat Lit Actions
  *
  * Modes:
  * - CHAT: Text message → AI response
- * - TRANSLATE: English → Chinese translation
- * - STT: Audio → Transcript → AI response (future)
+ * - TRANSLATE: English → target language translation
+ * - TTS: Text → speech with word timestamps
  */
 
 import { getLitClient } from '@/lib/lit/client'
-import { LIT_CHAT_ACTION_CID, LIT_CHAT_OPENROUTER_KEY, LIT_CHAT_DEEPINFRA_KEY, LIT_TTS_ACTION_CID, LIT_TTS_DEEPINFRA_KEY } from '@/lib/contracts/addresses'
-import type { PersonalityId, UserContext } from './types'
+import {
+  LIT_CHAT_ACTION_CID,
+  LIT_CHAT_OPENROUTER_KEY,
+  LIT_CHAT_DEEPINFRA_KEY,
+  LIT_TTS_ACTION_CID,
+  LIT_TTS_DEEPINFRA_KEY,
+} from '@/lib/contracts/addresses'
+import type {
+  PersonalityId,
+  ChatRequest,
+  ChatResponse,
+  TranslateRequest,
+  TranslateResponse,
+  TTSRequest,
+  TTSResponse,
+} from './types'
 import type { PKPAuthContext } from '@/lib/lit/types'
 
-// Map personality IDs to usernames expected by lit action
+// Map personality IDs to Lens usernames expected by Lit Action
 const PERSONALITY_USERNAMES: Record<PersonalityId, string> = {
   scarlett: 'scarlett-ks',
   violet: 'violet-ks',
-}
-
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export interface ChatRequest {
-  personalityId: PersonalityId
-  /** Text message (optional if audioBase64 provided) */
-  message?: string
-  /** Base64 encoded audio for STT (optional if message provided) */
-  audioBase64?: string
-  conversationHistory?: ChatMessage[]
-  returnAudio?: boolean
-  authContext: PKPAuthContext
-  /** User context for personalization (survey responses, study stats, etc.) */
-  userContext?: UserContext | null
-}
-
-/** Word timestamp from TTS for highlighting sync */
-export interface TTSWord {
-  id: number
-  start: number  // seconds
-  end: number    // seconds
-  text: string
-}
-
-export interface ChatResponse {
-  success: boolean
-  reply: string
-  replyAudio?: string // Base64 MP3 if returnAudio=true
-  replyWords?: TTSWord[] // Word timestamps for highlighting (if returnAudio=true)
-  transcript?: string // If STT mode
-  error?: string
-}
-
-export interface TranslateRequest {
-  text: string
-  /** Target language code: 'zh' | 'vi' | 'id' (default: 'zh') */
-  targetLanguage?: 'zh' | 'vi' | 'id'
-  authContext: PKPAuthContext
-}
-
-export interface TranslateResponse {
-  success: boolean
-  original: string
-  translation: string
-  error?: string
 }
 
 /**
@@ -74,8 +39,19 @@ export interface TranslateResponse {
  * - Text: Pass `message` string
  * - Audio: Pass `audioBase64` (will be transcribed via STT)
  */
-export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
-  const { personalityId, message, audioBase64, conversationHistory = [], returnAudio = false, authContext, userContext } = request
+export async function sendChatMessage(
+  request: ChatRequest,
+  authContext: PKPAuthContext
+): Promise<ChatResponse> {
+  const {
+    personalityId,
+    message,
+    audioBase64,
+    conversationHistory = [],
+    returnAudio = false,
+    userContext,
+    scenarioId,
+  } = request
 
   if (!authContext) {
     return {
@@ -99,17 +75,16 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
     // Include DeepInfra key only when audio is involved (STT or TTS)
     const needsDeepinfra = !!audioBase64 || returnAudio
 
-    // Build params for lit action
     const jsParams = {
       mode: 'CHAT',
-      username: PERSONALITY_USERNAMES[personalityId], // e.g., 'scarlett-ks'
+      username: PERSONALITY_USERNAMES[personalityId],
+      scenarioId: scenarioId || undefined,
       userMessage: message || undefined,
       audioDataBase64: audioBase64 || undefined,
       conversationHistory: conversationHistory.map((m) => ({
         role: m.role,
         content: m.content,
       })),
-      // User context for personalization (survey responses, study stats, etc.)
       userContext: userContext || undefined,
       openrouterEncryptedKey: LIT_CHAT_OPENROUTER_KEY,
       deepinfraEncryptedKey: needsDeepinfra ? LIT_CHAT_DEEPINFRA_KEY : null,
@@ -125,7 +100,6 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
       hasDeepinfraKey: !!jsParams.deepinfraEncryptedKey,
     })
 
-    // Execute lit action
     const result = await litClient.executeJs({
       ipfsId: LIT_CHAT_ACTION_CID,
       authContext,
@@ -147,7 +121,6 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
       hasTranscript: !!response.transcript,
       transcript: response.transcript,
       error: response.error,
-      executionTime: response.executionTime,
     })
 
     return {
@@ -169,10 +142,13 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
 }
 
 /**
- * Translate text to user's language (zh/vi/id)
+ * Translate text to user's language
  */
-export async function translateText(request: TranslateRequest): Promise<TranslateResponse> {
-  const { text, targetLanguage = 'zh', authContext } = request
+export async function translateText(
+  request: TranslateRequest,
+  authContext: PKPAuthContext
+): Promise<TranslateResponse> {
+  const { text, targetLanguage = 'zh' } = request
 
   if (!authContext) {
     return {
@@ -219,27 +195,15 @@ export async function translateText(request: TranslateRequest): Promise<Translat
   }
 }
 
-// ============ TTS (on-demand text-to-speech) ============
-
-export interface TTSRequest {
-  text: string
-  voice?: string  // default: 'af_heart'
-  authContext: PKPAuthContext
-}
-
-export interface TTSResponse {
-  success: boolean
-  audio?: string  // Base64 MP3
-  words?: TTSWord[]  // Word timestamps for highlighting
-  error?: string
-}
-
 /**
  * Convert text to speech on-demand
  * Called when user clicks "Play" button on a chat message
  */
-export async function synthesizeSpeech(request: TTSRequest): Promise<TTSResponse> {
-  const { text, voice = 'af_heart', authContext } = request
+export async function synthesizeSpeech(
+  request: TTSRequest,
+  authContext: PKPAuthContext
+): Promise<TTSResponse> {
+  const { text, voice = 'af_heart' } = request
 
   if (!authContext) {
     return {
@@ -268,8 +232,6 @@ export async function synthesizeSpeech(request: TTSRequest): Promise<TTSResponse
     console.log('[ChatService] Executing TTS action:', {
       ipfsId: LIT_TTS_ACTION_CID,
       textLength: text.length,
-      keyHash: LIT_TTS_DEEPINFRA_KEY.dataToEncryptHash,
-      keyCid: LIT_TTS_DEEPINFRA_KEY.cid,
     })
 
     const result = await litClient.executeJs({
@@ -286,7 +248,6 @@ export async function synthesizeSpeech(request: TTSRequest): Promise<TTSResponse
       audioLength: response.audio?.length,
       wordsCount: response.words?.length,
       error: response.error,
-      executionTime: response.executionTime,
     })
 
     return {

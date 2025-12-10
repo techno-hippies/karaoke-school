@@ -1,19 +1,23 @@
-import { Translate, SpeakerHigh, Stop, Image as ImageIcon } from '@phosphor-icons/react'
-import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
-import { cn } from '@/lib/utils'
-import { AvatarWithSkeleton } from '@/components/ui/avatar-with-skeleton'
-import { ContextIndicator } from './ContextIndicator'
-import { ImageLightbox } from './ImageLightbox'
+/**
+ * ChatMessage Component
+ *
+ * Single chat bubble with support for:
+ * - Word-level highlighting (TTS sync)
+ * - Translation button
+ * - Audio playback controls
+ * - Context indicator (token usage)
+ */
 
-export interface ChatWord {
-  text: string
-  isHighlighted?: boolean
-}
+import { Component, For, Show, splitProps, createMemo } from 'solid-js'
+import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/ui/avatar'
+import { Icon } from '@/components/icons'
+import { useTranslation } from '@/lib/i18n'
+import type { ChatWord, MessageContent } from '@/lib/chat/types'
 
 export interface ChatMessageProps {
   /** Message content - either string or array of words for highlighting */
-  content: string | ChatWord[]
+  content: MessageContent
   /** Who sent the message */
   sender: 'ai' | 'user'
   /** Avatar URL for AI messages */
@@ -26,259 +30,271 @@ export interface ChatMessageProps {
   onTranslate?: () => void
   /** Is translation loading */
   isTranslating?: boolean
-  /** Whether this message has audio available (or can fetch it on-demand) */
+  /** Whether this message has audio available */
   hasAudio?: boolean
-  /** Whether this message's audio is currently playing */
+  /** Whether audio is currently playing */
   isPlayingAudio?: boolean
-  /** Whether TTS is currently loading for this message */
+  /** Whether TTS is loading */
   isLoadingAudio?: boolean
   /** Called when play audio button clicked */
   onPlayAudio?: () => void
   /** Called when stop audio button clicked */
   onStopAudio?: () => void
-  /** Current context token count (for AI messages) */
+  /** Current context token count */
   tokensUsed?: number
-  /** Maximum context tokens (defaults to 32000) */
+  /** Maximum context tokens */
   maxTokens?: number
-  /** Show visualize/generate image button (AI messages only) */
-  showVisualize?: boolean
-  /** Generated image URL to display */
-  imageUrl?: string
-  /** Called when visualize button clicked */
-  onVisualize?: () => void
-  /** Is image generation in progress */
-  isGeneratingImage?: boolean
-  /** Called when regenerate image is clicked */
-  onRegenerateImage?: () => void
-  className?: string
+  class?: string
 }
 
 /**
  * ChatMessage - Single chat bubble with word-level highlighting support
- *
- * AI messages: left-aligned with avatar
- * User messages: right-aligned, no avatar
- *
- * Word highlighting: Pass content as ChatWord[] with isHighlighted for TTS sync
  */
-export function ChatMessage({
-  content,
-  sender,
-  avatarUrl,
-  showTranslate = false,
-  translation,
-  onTranslate,
-  isTranslating = false,
-  hasAudio = false,
-  isPlayingAudio = false,
-  isLoadingAudio = false,
-  onPlayAudio,
-  onStopAudio,
-  tokensUsed,
-  maxTokens = 32000,
-  showVisualize = false,
-  imageUrl,
-  onVisualize,
-  isGeneratingImage = false,
-  onRegenerateImage,
-  className,
-}: ChatMessageProps) {
+export const ChatMessage: Component<ChatMessageProps> = (props) => {
   const { t } = useTranslation()
-  const isAI = sender === 'ai'
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [local, others] = splitProps(props, [
+    'content',
+    'sender',
+    'avatarUrl',
+    'showTranslate',
+    'translation',
+    'onTranslate',
+    'isTranslating',
+    'hasAudio',
+    'isPlayingAudio',
+    'isLoadingAudio',
+    'onPlayAudio',
+    'onStopAudio',
+    'tokensUsed',
+    'maxTokens',
+    'class',
+  ])
+
+  const isAI = () => local.sender === 'ai'
 
   // Normalize content to words array
-  const words: ChatWord[] = typeof content === 'string'
-    ? content.split(' ').map(text => ({ text, isHighlighted: false }))
-    : content
+  const words = createMemo<ChatWord[]>(() => {
+    if (typeof local.content === 'string') {
+      return local.content.split(' ').map((text) => ({ text, isHighlighted: false }))
+    }
+    return local.content
+  })
+
+  // Show actions row if any action is available
+  const showActions = () =>
+    isAI() &&
+    (local.showTranslate ||
+      local.hasAudio ||
+      local.tokensUsed !== undefined)
 
   return (
     <div
-      className={cn(
+      class={cn(
         'flex gap-3 w-full',
-        isAI ? 'justify-start' : 'justify-end',
-        className
+        isAI() ? 'justify-start' : 'justify-end',
+        local.class
       )}
+      {...others}
     >
       {/* AI Avatar */}
-      {isAI && (
-        <AvatarWithSkeleton src={avatarUrl} alt="AI" size="sm" />
-      )}
+      <Show when={isAI()}>
+        <Avatar src={local.avatarUrl} fallback="AI" size="md" />
+      </Show>
 
       {/* Message content */}
       <div
-        className={cn(
+        class={cn(
           'flex flex-col max-w-[80%] md:max-w-[70%]',
-          isAI ? 'items-start' : 'items-end'
+          isAI() ? 'items-start' : 'items-end'
         )}
       >
         {/* Message bubble */}
         <div
-          className={cn(
+          class={cn(
             'px-4 py-3 rounded-2xl text-base leading-relaxed',
-            isAI
+            isAI()
               ? 'bg-secondary text-secondary-foreground rounded-tl-md'
               : 'bg-primary text-primary-foreground rounded-tr-md'
           )}
         >
           {/* Word-by-word rendering with highlighting */}
-          <p className="whitespace-pre-wrap">
-            {words.map((word, index) => {
-              const trimmedText = word.text.trim()
-              // Skip empty words (whitespace-only tokens from TTS)
-              if (!trimmedText) return null
+          <p class="whitespace-pre-wrap">
+            <For each={words()}>
+              {(word, index) => {
+                const trimmedText = word.text.trim()
+                // Skip empty words
+                if (!trimmedText) return null
 
-              // Find next non-empty word for spacing logic
-              let nextWord: ChatWord | undefined
-              let nextTrimmed = ''
-              for (let i = index + 1; i < words.length; i++) {
-                const t = words[i].text.trim()
-                if (t) {
-                  nextWord = words[i]
-                  nextTrimmed = t
-                  break
+                // Find next non-empty word for spacing logic
+                const wordsArray = words()
+                let nextTrimmed = ''
+                for (let i = index() + 1; i < wordsArray.length; i++) {
+                  const t = wordsArray[i].text.trim()
+                  if (t) {
+                    nextTrimmed = t
+                    break
+                  }
                 }
-              }
 
-              // Don't add space before closing punctuation
-              const nextIsClosingPunct = nextWord && /^[.,!?;:)\]}>…]/.test(nextTrimmed)
-              // Don't add space after opening punctuation or merged opening quotes ("word)
-              const currentIsOpeningPunct = /^[(\[{<]/.test(trimmedText)
-              const startsWithOpenQuote = /^["'][a-zA-Z]/.test(trimmedText)
+                // Don't add space before closing punctuation
+                const nextIsClosingPunct = /^[.,!?;:)\]}>…]/.test(nextTrimmed)
+                // Don't add space after opening punctuation
+                const currentIsOpeningPunct = /^[(\[{<]/.test(trimmedText)
+                const startsWithOpenQuote = /^["'][a-zA-Z]/.test(trimmedText)
 
-              const addSpace = nextWord && !nextIsClosingPunct && !currentIsOpeningPunct && !startsWithOpenQuote
+                const addSpace =
+                  nextTrimmed &&
+                  !nextIsClosingPunct &&
+                  !currentIsOpeningPunct &&
+                  !startsWithOpenQuote
 
-              return (
-                <span key={index}>
-                  <span
-                    className={cn(
-                      'transition-colors duration-100',
-                      word.isHighlighted && 'bg-yellow-400/50 text-foreground'
-                    )}
-                  >
-                    {trimmedText}
+                return (
+                  <span>
+                    <span
+                      class={cn(
+                        'transition-colors duration-100',
+                        word.isHighlighted && 'bg-yellow-400/50 text-foreground'
+                      )}
+                    >
+                      {trimmedText}
+                    </span>
+                    {addSpace ? ' ' : ''}
                   </span>
-                  {addSpace ? ' ' : ''}
-                </span>
-              )
-            })}
+                )
+              }}
+            </For>
           </p>
         </div>
 
         {/* Translation (if available) */}
-        {translation && (
-          <div className="mt-1.5 px-4 py-2 bg-muted/50 rounded-xl text-sm text-muted-foreground">
-            {translation}
+        <Show when={local.translation}>
+          <div class="mt-1.5 px-4 py-2 bg-muted/50 rounded-xl text-sm text-muted-foreground">
+            {local.translation}
           </div>
-        )}
-
-        {/* Generated image thumbnail */}
-        {imageUrl && (
-          <button
-            onClick={() => setIsLightboxOpen(true)}
-            className={cn(
-              'mt-2 rounded-xl overflow-hidden',
-              'border border-border/50 hover:border-border transition-colors',
-              'cursor-pointer group'
-            )}
-          >
-            <img
-              src={imageUrl}
-              alt="Generated visualization"
-              className="w-48 h-48 object-cover group-hover:scale-105 transition-transform duration-200"
-            />
-          </button>
-        )}
+        </Show>
 
         {/* Action buttons row */}
-        {isAI && (showTranslate || hasAudio || showVisualize || tokensUsed !== undefined) && (
-          <div className="mt-1.5 flex items-center gap-1">
+        <Show when={showActions()}>
+          <div class="mt-1.5 flex items-center gap-1">
             {/* Play/Stop audio button */}
-            {hasAudio && (
+            <Show when={local.hasAudio}>
               <button
-                onClick={isPlayingAudio ? onStopAudio : onPlayAudio}
-                disabled={isLoadingAudio}
-                className={cn(
+                onClick={local.isPlayingAudio ? local.onStopAudio : local.onPlayAudio}
+                disabled={local.isLoadingAudio}
+                class={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
                   'text-sm text-muted-foreground hover:text-foreground',
-                  'hover:bg-muted/50 transition-colors cursor-pointer',
-                  isPlayingAudio && 'text-primary',
-                  isLoadingAudio && 'opacity-50 cursor-wait'
+                  'hover:bg-white/5 transition-colors cursor-pointer',
+                  local.isPlayingAudio && 'text-primary',
+                  local.isLoadingAudio && 'opacity-50 cursor-wait'
                 )}
               >
-                {isPlayingAudio ? (
-                  <>
-                    <Stop className="w-4 h-4" weight="fill" />
-                    <span>{t('chatMessage.stop')}</span>
-                  </>
-                ) : isLoadingAudio ? (
-                  <>
-                    <SpeakerHigh className="w-4 h-4 animate-pulse" />
-                    <span>{t('chatMessage.loading')}</span>
-                  </>
-                ) : (
-                  <>
-                    <SpeakerHigh className="w-4 h-4" />
-                    <span>{t('chatMessage.play')}</span>
-                  </>
-                )}
+                <Show
+                  when={local.isPlayingAudio}
+                  fallback={
+                    <Show
+                      when={local.isLoadingAudio}
+                      fallback={
+                        <>
+                          <Icon name="speaker-high" class="text-base" />
+                          <span>{t('chat.play')}</span>
+                        </>
+                      }
+                    >
+                      <Icon name="speaker-high" class="text-base animate-pulse" />
+                      <span>{t('common.loading')}</span>
+                    </Show>
+                  }
+                >
+                  <Icon name="stop" class="text-base" weight="fill" />
+                  <span>{t('chat.stop')}</span>
+                </Show>
               </button>
-            )}
+            </Show>
 
             {/* Translate button */}
-            {showTranslate && !translation && (
+            <Show when={local.showTranslate && !local.translation}>
               <button
-                onClick={onTranslate}
-                disabled={isTranslating}
-                className={cn(
+                onClick={local.onTranslate}
+                disabled={local.isTranslating}
+                class={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
                   'text-sm text-muted-foreground hover:text-foreground',
-                  'hover:bg-muted/50 transition-colors cursor-pointer',
-                  isTranslating && 'opacity-50 cursor-wait'
+                  'hover:bg-white/5 transition-colors cursor-pointer',
+                  local.isTranslating && 'opacity-50 cursor-wait'
                 )}
               >
-                <Translate className="w-4 h-4" />
-                <span>{isTranslating ? t('chatMessage.translating') : t('chatMessage.translate')}</span>
+                <Icon name="translate" class="text-base" />
+                <span>{local.isTranslating ? t('chat.translating') : t('chat.translate')}</span>
               </button>
-            )}
-
-            {/* Visualize button */}
-            {showVisualize && !imageUrl && (
-              <button
-                onClick={onVisualize}
-                disabled={isGeneratingImage}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-                  'text-sm text-muted-foreground hover:text-foreground',
-                  'hover:bg-muted/50 transition-colors cursor-pointer',
-                  isGeneratingImage && 'opacity-50 cursor-wait'
-                )}
-              >
-                <ImageIcon className={cn('w-4 h-4', isGeneratingImage && 'animate-pulse')} />
-                <span>{isGeneratingImage ? t('chatMessage.generating') : t('chatMessage.visualize')}</span>
-              </button>
-            )}
+            </Show>
 
             {/* Context indicator */}
-            {tokensUsed !== undefined && (
+            <Show when={local.tokensUsed !== undefined}>
               <ContextIndicator
-                tokensUsed={tokensUsed}
-                maxTokens={maxTokens}
-                className="ml-1"
+                tokensUsed={local.tokensUsed!}
+                maxTokens={local.maxTokens || 64000}
+                class="ml-1"
               />
-            )}
+            </Show>
           </div>
-        )}
+        </Show>
       </div>
-
-      {/* Image lightbox */}
-      {isLightboxOpen && imageUrl && (
-        <ImageLightbox
-          imageUrl={imageUrl}
-          onClose={() => setIsLightboxOpen(false)}
-          onRegenerate={onRegenerateImage}
-        />
-      )}
     </div>
   )
 }
+
+// ============================================================
+// Context Indicator (inline component)
+// ============================================================
+
+interface ContextIndicatorProps {
+  tokensUsed: number
+  maxTokens: number
+  class?: string
+}
+
+const ContextIndicator: Component<ContextIndicatorProps> = (props) => {
+  const percentage = () =>
+    Math.min(100, Math.round((props.tokensUsed / props.maxTokens) * 100))
+
+  const color = () => {
+    const pct = percentage()
+    if (pct > 90) return 'text-destructive'
+    if (pct > 75) return 'text-yellow-500'
+    return 'text-muted-foreground'
+  }
+
+  return (
+    <div
+      class={cn('flex items-center gap-1 text-xs', color(), props.class)}
+      title={`${props.tokensUsed.toLocaleString()} / ${props.maxTokens.toLocaleString()} tokens (${percentage()}%)`}
+    >
+      <svg class="w-4 h-4" viewBox="0 0 24 24">
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          opacity="0.2"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-dasharray={`${percentage() * 0.628} 62.8`}
+          stroke-linecap="round"
+          transform="rotate(-90 12 12)"
+        />
+      </svg>
+      <span>{percentage()}%</span>
+    </div>
+  )
+}
+
+export default ChatMessage

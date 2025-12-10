@@ -1,44 +1,41 @@
-import { CaretLeft } from '@phosphor-icons/react'
-import { Button } from './button'
+import { type Component, splitProps } from 'solid-js'
 import { cn } from '@/lib/utils'
+import { Icon } from '@/components/icons'
 
 export interface BackButtonProps {
+  /** Click handler */
   onClick?: () => void
-  className?: string
-  'aria-label'?: string
-  variant?: 'default' | 'floating'
+  /** Button variant: 'back' shows caret-left, 'close' shows X */
+  variant?: 'back' | 'close'
+  /** Optional class overrides */
+  class?: string
 }
 
 /**
- * BackButton - Standardized back navigation button
- * Used for full-page navigation (returns to previous page in stack)
- * Always positioned top-left, uses CaretLeft chevron
- *
- * Variants:
- * - default: In header with solid background (uses theme colors)
- * - floating: Over content like album art (white icon, subtle dark hover)
+ * Standardized navigation button for headers
+ * - 'back' variant: caret-left icon for navigation back
+ * - 'close' variant: X icon for dismissing/exiting
  */
-export function BackButton({
-  onClick,
-  className,
-  'aria-label': ariaLabel = 'Go back',
-  variant = 'default'
-}: BackButtonProps) {
-  const isFloating = variant === 'floating'
+export const BackButton: Component<BackButtonProps> = (props) => {
+  const [local, others] = splitProps(props, ['onClick', 'variant', 'class'])
+  const variant = () => local.variant ?? 'back'
 
   return (
-    <Button
-      variant="ghost"
-      size="lg"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className={cn(
-        "w-12 px-0",
-        isFloating && "text-foreground hover:bg-black/30 hover:text-foreground",
-        className
+    <button
+      onClick={local.onClick}
+      class={cn(
+        'flex items-center justify-center w-10 h-10 rounded-full',
+        'hover:bg-white/10 transition-colors cursor-pointer',
+        'text-foreground',
+        local.class
       )}
+      aria-label={variant() === 'close' ? 'Close' : 'Go back'}
+      {...others}
     >
-      <CaretLeft className="w-6 h-6" weight="bold" />
-    </Button>
+      <Icon
+        name={variant() === 'close' ? 'x' : 'caret-left'}
+        class="text-2xl"
+      />
+    </button>
   )
 }

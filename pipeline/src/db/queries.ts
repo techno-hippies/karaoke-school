@@ -177,24 +177,6 @@ export async function createArtist(data: CreateArtistData): Promise<Artist> {
   return result[0];
 }
 
-export async function getArtistBySlug(slug: string): Promise<Artist | null> {
-  return queryOne<Artist>(
-    `SELECT * FROM artists WHERE slug = $1`,
-    [slug]
-  );
-}
-
-export async function updateArtistImage(
-  spotifyArtistId: string,
-  imageGroveUrl: string
-): Promise<Artist | null> {
-  const result = await query<Artist>(
-    `UPDATE artists SET image_grove_url = $2 WHERE spotify_artist_id = $1 RETURNING *`,
-    [spotifyArtistId, imageGroveUrl]
-  );
-  return result[0] || null;
-}
-
 export async function getArtistBySpotifyId(spotifyArtistId: string): Promise<Artist | null> {
   return queryOne<Artist>(
     `SELECT * FROM artists WHERE spotify_artist_id = $1`,
@@ -207,6 +189,58 @@ export async function getArtistById(id: string): Promise<Artist | null> {
     `SELECT * FROM artists WHERE id = $1`,
     [id]
   );
+}
+
+export async function updateArtistTranslations(
+  spotifyArtistId: string,
+  data: {
+    name_zh?: string;
+    name_vi?: string;
+    name_id?: string;
+    name_ja?: string;
+    name_ko?: string;
+    name_es?: string;
+    name_pt?: string;
+    name_ar?: string;
+    name_tr?: string;
+    name_ru?: string;
+    name_hi?: string;
+    name_th?: string;
+  }
+): Promise<Artist | null> {
+  const result = await query<Artist>(
+    `UPDATE artists SET
+      name_zh = COALESCE($2, name_zh),
+      name_vi = COALESCE($3, name_vi),
+      name_id = COALESCE($4, name_id),
+      name_ja = COALESCE($5, name_ja),
+      name_ko = COALESCE($6, name_ko),
+      name_es = COALESCE($7, name_es),
+      name_pt = COALESCE($8, name_pt),
+      name_ar = COALESCE($9, name_ar),
+      name_tr = COALESCE($10, name_tr),
+      name_ru = COALESCE($11, name_ru),
+      name_hi = COALESCE($12, name_hi),
+      name_th = COALESCE($13, name_th)
+    WHERE spotify_artist_id = $1
+    RETURNING *`,
+    [
+      spotifyArtistId,
+      data.name_zh || null,
+      data.name_vi || null,
+      data.name_id || null,
+      data.name_ja || null,
+      data.name_ko || null,
+      data.name_es || null,
+      data.name_pt || null,
+      data.name_ar || null,
+      data.name_tr || null,
+      data.name_ru || null,
+      data.name_hi || null,
+      data.name_th || null,
+    ]
+  );
+  return result[0] || null;
 }
 
 // ============================================================================
@@ -369,6 +403,59 @@ export async function updateSongClipAudio(
   return result[0] || null;
 }
 
+export async function updateSongTranslations(
+  iswc: string,
+  data: {
+    title_zh?: string;
+    title_vi?: string;
+    title_id?: string;
+    title_ja?: string;
+    title_ko?: string;
+    title_es?: string;
+    title_pt?: string;
+    title_ar?: string;
+    title_tr?: string;
+    title_ru?: string;
+    title_hi?: string;
+    title_th?: string;
+  }
+): Promise<Song | null> {
+  const result = await query<Song>(
+    `UPDATE songs SET
+      title_zh = COALESCE($2, title_zh),
+      title_vi = COALESCE($3, title_vi),
+      title_id = COALESCE($4, title_id),
+      title_ja = COALESCE($5, title_ja),
+      title_ko = COALESCE($6, title_ko),
+      title_es = COALESCE($7, title_es),
+      title_pt = COALESCE($8, title_pt),
+      title_ar = COALESCE($9, title_ar),
+      title_tr = COALESCE($10, title_tr),
+      title_ru = COALESCE($11, title_ru),
+      title_hi = COALESCE($12, title_hi),
+      title_th = COALESCE($13, title_th),
+      updated_at = NOW()
+    WHERE iswc = $1
+    RETURNING *`,
+    [
+      iswc,
+      data.title_zh || null,
+      data.title_vi || null,
+      data.title_id || null,
+      data.title_ja || null,
+      data.title_ko || null,
+      data.title_es || null,
+      data.title_pt || null,
+      data.title_ar || null,
+      data.title_tr || null,
+      data.title_ru || null,
+      data.title_hi || null,
+      data.title_th || null,
+    ]
+  );
+  return result[0] || null;
+}
+
 export async function updateSongEncryption(
   iswc: string,
   env: 'testnet' | 'mainnet',
@@ -403,7 +490,7 @@ export async function updateSongEncryption(
 export interface CreateLyricData {
   song_id: string;
   line_index: number;
-  language: 'en' | 'zh' | 'vi' | 'id';
+  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko';
   text: string;
   section_marker?: string;
   start_ms?: number;

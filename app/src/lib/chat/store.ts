@@ -1,10 +1,11 @@
 /**
- * Chat IndexedDB store
+ * Chat IndexedDB Store
  *
  * Persistent storage for:
  * - User profile (singleton)
  * - Threads (conversations)
  * - Messages (last N per thread)
+ * - View history (for psychographic profiling)
  */
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
@@ -13,14 +14,18 @@ import type { UserProfile, Thread, Message, ViewHistoryEntry } from './types'
 const DB_NAME = 'karaoke-chat'
 const DB_VERSION = 2
 
-/** How many recent messages to keep per thread */
+/** Max messages to keep per thread */
 const MAX_MESSAGES_PER_THREAD = 100
 
-/** After how many messages to generate a new summary */
+/** Generate summary after this many messages */
 export const SUMMARY_INTERVAL = 20
 
-/** Max view history entries to keep */
+/** Max view history entries */
 const MAX_VIEW_HISTORY = 100
+
+// ============================================================
+// Database Schema
+// ============================================================
 
 interface ChatDBSchema extends DBSchema {
   profile: {
@@ -76,7 +81,7 @@ function getDB(): Promise<IDBPDatabase<ChatDBSchema>> {
           msgStore.createIndex('by-thread-idx', ['threadId', 'idx'])
         }
 
-        // View history store (v2)
+        // View history store
         if (!db.objectStoreNames.contains('viewHistory')) {
           const viewStore = db.createObjectStore('viewHistory', { keyPath: 'id' })
           viewStore.createIndex('by-viewed-at', 'viewedAt')
@@ -89,7 +94,7 @@ function getDB(): Promise<IDBPDatabase<ChatDBSchema>> {
 }
 
 // ============================================================
-// Profile
+// Profile Operations
 // ============================================================
 
 export async function getProfile(): Promise<UserProfile | null> {
@@ -97,7 +102,9 @@ export async function getProfile(): Promise<UserProfile | null> {
   return (await db.get('profile', 'singleton')) ?? null
 }
 
-export async function saveProfile(profile: Partial<UserProfile>): Promise<UserProfile> {
+export async function saveProfile(
+  profile: Partial<UserProfile>
+): Promise<UserProfile> {
   const db = await getDB()
   const existing = await getProfile()
   const now = Date.now()
@@ -115,7 +122,7 @@ export async function saveProfile(profile: Partial<UserProfile>): Promise<UserPr
 }
 
 // ============================================================
-// Threads
+// Thread Operations
 // ============================================================
 
 export async function getThreads(): Promise<Thread[]> {
@@ -131,28 +138,25 @@ export async function getThread(threadId: string): Promise<Thread | null> {
 }
 
 /**
- * Get or create a conversation for a personality.
- * Each personality has exactly one conversation.
- * Thread ID = personality ID for simplicity.
+ * Get or create a conversation for a scenario.
+ * Thread ID = scenario ID (e.g., "scarlett-chat")
  */
 export async function getOrCreateConversation(
-  personalityId: string,
-  personalityName: string,
-  personalityAvatarUrl?: string
+  scenarioId: string,
+  tutorName: string,
+  tutorAvatarUrl?: string
 ): Promise<Thread> {
   const db = await getDB()
 
-  // Check if conversation exists (thread ID = personality ID)
-  const existing = await db.get('threads', personalityId)
+  const existing = await db.get('threads', scenarioId)
   if (existing) return existing
 
-  // Create new conversation
   const now = Date.now()
   const thread: Thread = {
-    id: personalityId, // Thread ID = personality ID
-    tutorId: personalityId,
-    tutorName: personalityName,
-    tutorAvatarUrl: personalityAvatarUrl,
+    id: scenarioId,
+    tutorId: scenarioId.split('-')[0], // Extract personality ID
+    tutorName,
+    tutorAvatarUrl,
     messageCount: 0,
     lastSummarizedIdx: 0,
     unreadCount: 0,
@@ -162,15 +166,6 @@ export async function getOrCreateConversation(
 
   await db.put('threads', thread)
   return thread
-}
-
-/** @deprecated Use getOrCreateConversation */
-export async function createThread(
-  tutorId: string,
-  tutorName: string,
-  tutorAvatarUrl?: string
-): Promise<Thread> {
-  return getOrCreateConversation(tutorId, tutorName, tutorAvatarUrl)
 }
 
 export async function updateThread(
@@ -204,8 +199,12 @@ export async function deleteThread(threadId: string): Promise<void> {
   await db.delete('threads', threadId)
 }
 
+export async function markThreadRead(threadId: string): Promise<void> {
+  await updateThread(threadId, { unreadCount: 0 })
+}
+
 // ============================================================
-// Messages
+// Message Operations
 // ============================================================
 
 export async function getMessages(
@@ -223,11 +222,10 @@ export async function addMessage(
   threadId: string,
   role: Message['role'],
   content: string,
-  metadata?: Record<string, unknown>
+  metadata?: Message['metadata']
 ): Promise<Message> {
   const db = await getDB()
 
-  // Get current message count
   const thread = await getThread(threadId)
   if (!thread) throw new Error(`Thread ${threadId} not found`)
 
@@ -244,7 +242,6 @@ export async function addMessage(
     createdAt: now,
   }
 
-  // Save message
   await db.put('messages', message)
 
   // Update thread
@@ -252,25 +249,18 @@ export async function addMessage(
     messageCount: idx + 1,
     lastMessagePreview:
       role === 'assistant' ? content.slice(0, 100) : thread.lastMessagePreview,
-    unreadCount: role === 'assistant' ? thread.unreadCount + 1 : thread.unreadCount,
+    unreadCount:
+      role === 'assistant' ? thread.unreadCount + 1 : thread.unreadCount,
   })
 
   // Prune old messages if needed
-  const allMessages = await db.getAllFromIndex('messages', 'by-thread', threadId)
-  if (allMessages.length > MAX_MESSAGES_PER_THREAD * 1.5) {
-    // Keep only the most recent MAX_MESSAGES_PER_THREAD
-    allMessages.sort((a, b) => a.idx - b.idx)
-    const toDelete = allMessages.slice(0, allMessages.length - MAX_MESSAGES_PER_THREAD)
-    const tx = db.transaction('messages', 'readwrite')
-    await Promise.all(toDelete.map((m) => tx.store.delete(m.id)))
-    await tx.done
-  }
+  await pruneMessages(threadId)
 
   return message
 }
 
 /**
- * Add multiple messages in a batch, updating thread count once at the end.
+ * Add multiple messages in a batch (single refresh).
  * More efficient than calling addMessage multiple times.
  */
 export async function addMessagesBatch(
@@ -278,14 +268,13 @@ export async function addMessagesBatch(
   messages: Array<{
     role: Message['role']
     content: string
-    metadata?: Record<string, unknown>
+    metadata?: Message['metadata']
   }>
 ): Promise<Message[]> {
   if (messages.length === 0) return []
 
   const db = await getDB()
 
-  // Get current message count
   const thread = await getThread(threadId)
   if (!thread) throw new Error(`Thread ${threadId} not found`)
 
@@ -293,7 +282,7 @@ export async function addMessagesBatch(
   let currentIdx = thread.messageCount
   const savedMessages: Message[] = []
 
-  // Save all messages
+  // Save all messages in transaction
   const tx = db.transaction('messages', 'readwrite')
   for (const msg of messages) {
     const message: Message = {
@@ -311,33 +300,38 @@ export async function addMessagesBatch(
   }
   await tx.done
 
-  // Update thread once with final count
-  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+  // Update thread with final count
+  const lastAssistantMsg = [...messages]
+    .reverse()
+    .find((m) => m.role === 'assistant')
   await updateThread(threadId, {
     messageCount: currentIdx,
-    lastMessagePreview: lastAssistantMsg?.content.slice(0, 100) ?? thread.lastMessagePreview,
-    unreadCount: thread.unreadCount + messages.filter(m => m.role === 'assistant').length,
+    lastMessagePreview:
+      lastAssistantMsg?.content.slice(0, 100) ?? thread.lastMessagePreview,
+    unreadCount:
+      thread.unreadCount + messages.filter((m) => m.role === 'assistant').length,
   })
 
-  // Prune old messages if needed
-  const allMessages = await db.getAllFromIndex('messages', 'by-thread', threadId)
-  if (allMessages.length > MAX_MESSAGES_PER_THREAD * 1.5) {
-    allMessages.sort((a, b) => a.idx - b.idx)
-    const toDelete = allMessages.slice(0, allMessages.length - MAX_MESSAGES_PER_THREAD)
-    const pruneTx = db.transaction('messages', 'readwrite')
-    await Promise.all(toDelete.map((m) => pruneTx.store.delete(m.id)))
-    await pruneTx.done
-  }
+  // Prune old messages
+  await pruneMessages(threadId)
 
   return savedMessages
 }
 
-// ============================================================
-// Utilities
-// ============================================================
+async function pruneMessages(threadId: string): Promise<void> {
+  const db = await getDB()
+  const allMessages = await db.getAllFromIndex('messages', 'by-thread', threadId)
 
-export async function markThreadRead(threadId: string): Promise<void> {
-  await updateThread(threadId, { unreadCount: 0 })
+  if (allMessages.length > MAX_MESSAGES_PER_THREAD * 1.5) {
+    allMessages.sort((a, b) => a.idx - b.idx)
+    const toDelete = allMessages.slice(
+      0,
+      allMessages.length - MAX_MESSAGES_PER_THREAD
+    )
+    const tx = db.transaction('messages', 'readwrite')
+    await Promise.all(toDelete.map((m) => tx.store.delete(m.id)))
+    await tx.done
+  }
 }
 
 /** Check if a thread needs a new summary */
@@ -348,19 +342,43 @@ export async function needsSummary(threadId: string): Promise<boolean> {
 }
 
 // ============================================================
-// View History (for AI chat context / psychographics)
+// View History Operations
 // ============================================================
 
 export async function getViewHistory(limit = 50): Promise<ViewHistoryEntry[]> {
   const db = await getDB()
   const all = await db.getAllFromIndex('viewHistory', 'by-viewed-at')
-  // Return newest first
   return all.reverse().slice(0, limit)
 }
 
+export async function addViewHistoryEntry(
+  entry: Omit<ViewHistoryEntry, 'id' | 'viewedAt'>
+): Promise<ViewHistoryEntry> {
+  const db = await getDB()
+
+  const fullEntry: ViewHistoryEntry = {
+    ...entry,
+    id: crypto.randomUUID(),
+    viewedAt: Date.now(),
+  }
+
+  await db.put('viewHistory', fullEntry)
+
+  // Prune old entries
+  const all = await db.getAllFromIndex('viewHistory', 'by-viewed-at')
+  if (all.length > MAX_VIEW_HISTORY * 1.5) {
+    const toDelete = all.slice(0, all.length - MAX_VIEW_HISTORY)
+    const tx = db.transaction('viewHistory', 'readwrite')
+    await Promise.all(toDelete.map((e) => tx.store.delete(e.id)))
+    await tx.done
+  }
+
+  return fullEntry
+}
+
 /**
- * Build a psychographic profile from view history
- * Returns aggregated tag counts and favorite content
+ * Build a psychographic profile from view history.
+ * Returns aggregated tag counts and favorite content.
  */
 export async function getEngagementProfile(): Promise<{
   visualTagCounts: Record<string, number>
@@ -375,7 +393,10 @@ export async function getEngagementProfile(): Promise<{
   const visualTagCounts: Record<string, number> = {}
   const lyricTagCounts: Record<string, number> = {}
   const artistCounts: Record<string, number> = {}
-  const songCounts: Record<string, { title: string; artist: string; count: number }> = {}
+  const songCounts: Record<
+    string,
+    { title: string; artist: string; count: number }
+  > = {}
   let completedCount = 0
 
   for (const entry of history) {
@@ -398,7 +419,11 @@ export async function getEngagementProfile(): Promise<{
     if (entry.songTitle && entry.artistName) {
       const key = `${entry.songTitle}:${entry.artistName}`
       if (!songCounts[key]) {
-        songCounts[key] = { title: entry.songTitle, artist: entry.artistName, count: 0 }
+        songCounts[key] = {
+          title: entry.songTitle,
+          artist: entry.artistName,
+          count: 0,
+        }
       }
       songCounts[key].count++
     }

@@ -1,0 +1,21 @@
+{
+  "name": "livestream-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "bun run dev:all",
+    "dev:tts": "cd services/tts && bun dev",
+    "dev:browser": "cd services/browser && bun dev",
+    "dev:orchestrator": "cd services/orchestrator && bun dev",
+    "dev:all": "concurrently \"bun run dev:tts\" \"bun run dev:browser\" \"bun run dev:orchestrator\"",
+    "karaoke": "cd services/orchestrator && bun src/flows/karaoke.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "concurrently": "^9.1.0"
+  }
+}

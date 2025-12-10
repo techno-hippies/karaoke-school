@@ -1,25 +1,16 @@
-// 1️⃣ polyfills FIRST - before any other imports
-import './polyfills/node-globals'
+/* @refresh reload */
+import { render } from 'solid-js/web'
+import App from './App'
+import './index.css'
 
-// 2️⃣ React Scan - performance monitoring (localhost only)
-import { scan } from 'react-scan'
+// Node.js polyfills for browser
+import { Buffer } from 'buffer'
+globalThis.Buffer = Buffer
 
-if (typeof window !== 'undefined') {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  scan({
-    enabled: isLocalhost,
-    log: isLocalhost,
-  })
+const root = document.getElementById('root')
+
+if (!root) {
+  throw new Error('Root element not found')
 }
 
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './lib/i18n' // Initialize i18n before App
-import './index.css'
-import App from './App.tsx'
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+render(() => <App />, root)

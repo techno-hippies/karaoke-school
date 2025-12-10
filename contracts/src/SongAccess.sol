@@ -4,38 +4,34 @@ pragma solidity ^0.8.24;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title SongAccess
- * @notice Soulbound NFT for song access. Pay $0.10 USDC to unlock a song forever.
+ * @notice Soulbound NFT for song access. Pay ETH to unlock a song forever.
  * @dev Non-transferable. Lit Protocol checks ownsSong() for decryption access.
+ *      Single-signature UX - just send ETH, no approvals needed.
  */
 contract SongAccess is ERC721, Ownable, ReentrancyGuard {
-    using SafeERC20 for IERC20;
-
     // ============ Errors ============
     error AlreadyOwned();
-    error InvalidPermit();
+    error InsufficientPayment();
     error TransferNotAllowed();
+    error WithdrawFailed();
 
     // ============ Events ============
     event SongPurchased(
         address indexed buyer,
         uint256 indexed tokenId,
         bytes32 indexed songId,
-        string spotifyTrackId
+        string spotifyTrackId,
+        uint256 pricePaid
     );
     event PriceUpdated(uint256 oldPrice, uint256 newPrice);
 
     // ============ State ============
 
-    /// @notice USDC contract (6 decimals)
-    IERC20Permit public immutable usdc;
-
-    /// @notice Price in USDC (6 decimals). Default: 100000 = $0.10
-    uint256 public price = 100_000;
+    /// @notice Price in wei. Updated via setPrice() to 0.000033 ETH (~$0.10 at $3000/ETH)
+    uint256 public price = 0.0001 ether;
 
     /// @notice Next token ID to mint
     uint256 private _nextTokenId;
@@ -48,36 +44,21 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
 
     // ============ Constructor ============
 
-    constructor(address _usdc, address initialOwner)
+    constructor(address initialOwner)
         ERC721("Karaoke Song Access", "SONG")
         Ownable(initialOwner)
-    {
-        usdc = IERC20Permit(_usdc);
-    }
+    {}
 
     // ============ External Functions ============
 
     /**
-     * @notice Purchase song access with USDC permit (single signature!)
+     * @notice Purchase song access with ETH (single signature!)
      * @param spotifyTrackId The Spotify track ID (22 chars)
-     * @param deadline Permit deadline timestamp
-     * @param v Permit signature v
-     * @param r Permit signature r
-     * @param s Permit signature s
      */
-    function purchase(
-        string calldata spotifyTrackId,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external nonReentrant {
+    function purchase(string calldata spotifyTrackId) external payable nonReentrant {
         bytes32 songId = keccak256(bytes(spotifyTrackId));
         if (owns[msg.sender][songId]) revert AlreadyOwned();
-
-        // Permit allows USDC transfer without separate approve tx
-        usdc.permit(msg.sender, address(this), price, deadline, v, r, s);
-        IERC20(address(usdc)).safeTransferFrom(msg.sender, address(this), price);
+        if (msg.value < price) revert InsufficientPayment();
 
         // Mint soulbound NFT
         uint256 tokenId = _nextTokenId++;
@@ -85,25 +66,39 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
         tokenSong[tokenId] = songId;
         owns[msg.sender][songId] = true;
 
-        emit SongPurchased(msg.sender, tokenId, songId, spotifyTrackId);
+        // Refund excess ETH
+        if (msg.value > price) {
+            (bool success, ) = msg.sender.call{value: msg.value - price}("");
+            require(success, "Refund failed");
+        }
+
+        emit SongPurchased(msg.sender, tokenId, songId, spotifyTrackId, price);
     }
 
     /**
-     * @notice Purchase without permit (user must approve USDC first)
-     * @param spotifyTrackId The Spotify track ID
+     * @notice Purchase song access for another address (e.g., PKP wallet)
+     * @dev Allows EOA to pay while granting access to their PKP wallet
+     * @param spotifyTrackId The Spotify track ID (22 chars)
+     * @param recipient Address that will receive song access
      */
-    function purchaseWithApproval(string calldata spotifyTrackId) external nonReentrant {
+    function purchaseFor(string calldata spotifyTrackId, address recipient) external payable nonReentrant {
         bytes32 songId = keccak256(bytes(spotifyTrackId));
-        if (owns[msg.sender][songId]) revert AlreadyOwned();
+        if (owns[recipient][songId]) revert AlreadyOwned();
+        if (msg.value < price) revert InsufficientPayment();
 
-        IERC20(address(usdc)).safeTransferFrom(msg.sender, address(this), price);
-
+        // Mint soulbound NFT to recipient
         uint256 tokenId = _nextTokenId++;
-        _mint(msg.sender, tokenId);
+        _mint(recipient, tokenId);
         tokenSong[tokenId] = songId;
-        owns[msg.sender][songId] = true;
+        owns[recipient][songId] = true;
 
-        emit SongPurchased(msg.sender, tokenId, songId, spotifyTrackId);
+        // Refund excess ETH
+        if (msg.value > price) {
+            (bool success, ) = msg.sender.call{value: msg.value - price}("");
+            require(success, "Refund failed");
+        }
+
+        emit SongPurchased(recipient, tokenId, songId, spotifyTrackId, price);
     }
 
     /**
@@ -120,7 +115,7 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
         tokenSong[tokenId] = songId;
         owns[to][songId] = true;
 
-        emit SongPurchased(to, tokenId, songId, spotifyTrackId);
+        emit SongPurchased(to, tokenId, songId, spotifyTrackId, 0);
     }
 
     // ============ View Functions (for Lit Protocol) ============
@@ -156,7 +151,7 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
 
     /**
      * @notice Update price (owner only)
-     * @param newPrice New price in USDC (6 decimals)
+     * @param newPrice New price in wei
      */
     function setPrice(uint256 newPrice) external onlyOwner {
         uint256 oldPrice = price;
@@ -165,11 +160,12 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Withdraw USDC to owner
+     * @notice Withdraw ETH to owner
      */
     function withdraw() external onlyOwner {
-        uint256 balance = IERC20(address(usdc)).balanceOf(address(this));
-        IERC20(address(usdc)).safeTransfer(owner(), balance);
+        uint256 balance = address(this).balance;
+        (bool success, ) = owner().call{value: balance}("");
+        if (!success) revert WithdrawFailed();
     }
 
     // ============ Soulbound (Non-Transferable) ============
@@ -197,24 +193,4 @@ contract SongAccess is ERC721, Ownable, ReentrancyGuard {
     function setApprovalForAll(address, bool) public pure override {
         revert TransferNotAllowed();
     }
-}
-
-// ============ Interfaces ============
-
-interface IERC20Permit {
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-    function transfer(address to, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-    function nonces(address owner) external view returns (uint256);
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
 }

@@ -13,25 +13,25 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Karaoke Page Navigation', () => {
-  test('should load search page', async ({ page }) => {
-    await page.goto('/#/search')
+  test('should load songs page', async ({ page }) => {
+    await page.goto('/#/songs')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(2000)
 
-    // Search page should be visible
+    // Songs page should be visible
     const bodyText = await page.textContent('body')
     expect(bodyText).toBeTruthy()
   })
 
   test('should show song page with play options', async ({ page }) => {
-    // Navigate to search
-    await page.goto('/#/search')
+    // Navigate to songs
+    await page.goto('/#/songs')
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(1000)
 
-    // The search page should be visible
-    const searchContent = await page.textContent('body')
-    expect(searchContent).toBeTruthy()
+    // The songs page should be visible
+    const songsContent = await page.textContent('body')
+    expect(songsContent).toBeTruthy()
   })
 })
 

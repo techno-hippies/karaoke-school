@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+import { type Component, createSignal, createEffect, Show, For } from 'solid-js'
+import { cn, haptic } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
+import { useTranslation } from '@/lib/i18n'
 
 export interface MultipleChoiceOption {
   id: string
@@ -28,64 +28,56 @@ export interface MultipleChoiceQuizProps {
   exerciseType?: 'TRANSLATION_MULTIPLE_CHOICE' | 'TRIVIA_MULTIPLE_CHOICE' | 'TRANSLATION_QUIZ' | 'TRIVIA_QUIZ'
 }
 
-export const MultipleChoiceQuiz = ({
-  question,
-  options,
-  onAnswer,
-  isProcessing = false,
-  hasAnswered,
-  selectedAnswerId,
-  explanation,
-  exerciseType = 'TRIVIA_QUIZ',
-}: MultipleChoiceQuizProps) => {
+export const MultipleChoiceQuiz: Component<MultipleChoiceQuizProps> = (props) => {
   const { t } = useTranslation()
-  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(selectedAnswerId ?? null)
-  const [internalAnswered, setInternalAnswered] = useState<boolean>(!!hasAnswered)
+  const [internalSelectedId, setInternalSelectedId] = createSignal<string | null>(props.selectedAnswerId ?? null)
+  const [internalAnswered, setInternalAnswered] = createSignal<boolean>(!!props.hasAnswered)
 
-  const isSelectedControlled = typeof selectedAnswerId !== 'undefined'
-  const isAnsweredControlled = typeof hasAnswered !== 'undefined'
+  const isSelectedControlled = () => typeof props.selectedAnswerId !== 'undefined'
+  const isAnsweredControlled = () => typeof props.hasAnswered !== 'undefined'
 
-  const resolvedSelectedId = isSelectedControlled ? (selectedAnswerId ?? null) : internalSelectedId
-  const resolvedAnswered = isAnsweredControlled ? !!hasAnswered : internalAnswered
+  const resolvedSelectedId = () => isSelectedControlled() ? (props.selectedAnswerId ?? null) : internalSelectedId()
+  const resolvedAnswered = () => isAnsweredControlled() ? !!props.hasAnswered : internalAnswered()
 
   // Sync with props when they change (controlled mode)
-  useEffect(() => {
-    if (isSelectedControlled) {
-      setInternalSelectedId(selectedAnswerId ?? null)
+  createEffect(() => {
+    if (isSelectedControlled()) {
+      setInternalSelectedId(props.selectedAnswerId ?? null)
     }
-  }, [selectedAnswerId, isSelectedControlled])
+  })
 
-  useEffect(() => {
-    if (isAnsweredControlled) {
-      setInternalAnswered(!!hasAnswered)
+  createEffect(() => {
+    if (isAnsweredControlled()) {
+      setInternalAnswered(!!props.hasAnswered)
     }
-  }, [hasAnswered, isAnsweredControlled])
+  })
 
   const handleOptionClick = (option: MultipleChoiceOption) => {
-    if (resolvedAnswered || isProcessing) return
+    if (resolvedAnswered() || props.isProcessing) return
 
-    if (!isSelectedControlled) {
+    haptic.medium()
+    if (!isSelectedControlled()) {
       setInternalSelectedId(option.id)
     }
-    if (!isAnsweredControlled) {
+    if (!isAnsweredControlled()) {
       setInternalAnswered(true)
     }
-    onAnswer?.(option.id, option.isCorrect)
+    props.onAnswer?.(option.id, option.isCorrect)
   }
 
   const getOptionStyles = (option: MultipleChoiceOption) => {
     const baseStyles = "w-full flex items-center gap-3 p-4 rounded-lg transition-all cursor-pointer min-h-[60px]"
 
-    if (!resolvedAnswered) {
+    if (!resolvedAnswered()) {
       // Not answered yet - normal hover states (matches button outline variant)
       return cn(
         baseStyles,
-        "bg-secondary/30 hover:bg-secondary/50 text-foreground"
+        "bg-secondary/30 hover:bg-secondary/40 text-foreground"
       )
     }
 
     // After answering - show feedback
-    const isSelected = resolvedSelectedId === option.id
+    const isSelected = resolvedSelectedId() === option.id
     const isCorrectAnswer = option.isCorrect
 
     if (isSelected && isCorrectAnswer) {
@@ -120,64 +112,77 @@ export const MultipleChoiceQuiz = ({
   }
 
   // Determine prompt text based on exercise type
-  // Translation = learner selects correct translation of English text
-  // Trivia = learner answers a question about the song/lyrics
   const getPromptText = () => {
-    switch (exerciseType) {
+    switch (props.exerciseType) {
       case 'TRANSLATION_MULTIPLE_CHOICE':
       case 'TRANSLATION_QUIZ':
-        return t('study.translate')
+        return t('exercise.translate')
       case 'TRIVIA_MULTIPLE_CHOICE':
       case 'TRIVIA_QUIZ':
-        return t('study.answer')
+        return t('exercise.answer')
       default:
-        return t('study.question')
+        return t('exercise.question')
     }
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div class="w-full space-y-6">
       {/* Question */}
-      <div className="text-left space-y-3">
-        <div className="text-muted-foreground text-base font-medium">
+      <div class="text-left space-y-3">
+        <div class="text-muted-foreground text-lg sm:text-xl font-medium">
           {getPromptText()}
         </div>
-        <div className="text-base sm:text-lg md:text-xl font-medium text-foreground leading-relaxed break-words">
-          {question}
+        <div class="text-xl sm:text-2xl font-semibold text-foreground leading-relaxed break-words">
+          {props.question}
         </div>
       </div>
 
       {/* Options */}
-      <div className="space-y-3">
-        {options.map((option) => {
-          const isSelected = resolvedSelectedId === option.id
-          const showSpinner = isProcessing && isSelected
+      <div class="space-y-3">
+        <For each={props.options}>
+          {(option) => {
+            const isSelected = () => resolvedSelectedId() === option.id
+            const showSpinner = () => props.isProcessing && isSelected()
 
-          return (
-            <button
-              key={option.id}
-              onClick={() => handleOptionClick(option)}
-              disabled={resolvedAnswered || isProcessing}
-              className={getOptionStyles(option)}
-            >
-              <span className="flex-1 text-left font-medium text-base leading-relaxed">
-                {option.text}
-              </span>
-              {showSpinner && (
-                <Spinner size="sm" className="ml-2" />
-              )}
-            </button>
-          )
-        })}
+            return (
+              <button
+                onClick={() => handleOptionClick(option)}
+                disabled={resolvedAnswered() || props.isProcessing}
+                class={getOptionStyles(option)}
+              >
+                <span class="flex-1 text-left font-medium text-base leading-relaxed">
+                  {option.text}
+                </span>
+                <Show when={showSpinner()}>
+                  <Spinner size="sm" class="ml-2" />
+                </Show>
+              </button>
+            )
+          }}
+        </For>
       </div>
 
-      {/* Explanation (shown after answering if provided) */}
-      {resolvedAnswered && !isProcessing && explanation && (
-        <div className="p-4 bg-secondary/20 rounded-lg">
-          <div className="text-muted-foreground text-base font-medium mb-1">{t('study.explanation')}</div>
-          <div className="text-foreground text-base">{explanation}</div>
-        </div>
-      )}
+      {/* Feedback with explanation (shown after answering incorrectly) */}
+      <Show when={resolvedAnswered() && !props.isProcessing && props.explanation}>
+        {(() => {
+          const selectedOption = props.options.find(o => o.id === resolvedSelectedId())
+          const isCorrect = selectedOption?.isCorrect ?? false
+
+          return (
+            <Show when={!isCorrect}>
+              <div class="p-4 bg-muted/30 rounded-lg">
+                <div class="flex items-center gap-2 text-muted-foreground text-lg sm:text-xl font-medium mb-2">
+                  <svg class="w-6 h-6 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm37.66,130.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32L139.31,128Z" />
+                  </svg>
+                  <span>{t('exercise.incorrect')}</span>
+                </div>
+                <div class="text-foreground text-base">{props.explanation}</div>
+              </div>
+            </Show>
+          )
+        })()}
+      </Show>
     </div>
   )
 }

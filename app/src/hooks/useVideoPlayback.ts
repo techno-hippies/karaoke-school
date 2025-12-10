@@ -1,22 +1,16 @@
-import { useState, useCallback, useEffect } from 'react'
+import { createSignal, createEffect, type Accessor } from 'solid-js'
 import { useVideoPlaybackContext } from '@/contexts/VideoPlaybackContext'
 
 export interface UseVideoPlaybackOptions {
-  /**
-   * Whether this video should attempt to autoplay when mounted/active
-   */
-  autoplay?: boolean
-  /**
-   * Force autoplay regardless of user interaction state
-   * Use for video detail pages where autoplay is always desired
-   */
+  /** Reactive getter for autoplay state - use () => props.autoplay */
+  autoplay?: Accessor<boolean>
   forceAutoplay?: boolean
 }
 
 export interface UseVideoPlaybackReturn {
-  isPlaying: boolean
-  isMuted: boolean
-  currentTime: number
+  isPlaying: Accessor<boolean>
+  isMuted: Accessor<boolean>
+  currentTime: Accessor<number>
   setIsPlaying: (playing: boolean) => void
   setIsMuted: (muted: boolean) => void
   setCurrentTime: (time: number) => void
@@ -26,74 +20,87 @@ export interface UseVideoPlaybackReturn {
 }
 
 /**
- * useVideoPlayback - Shared video playback state logic
+ * useVideoPlayback - Shared video playback state logic for SolidJS
  *
- * Encapsulates common video player state and behavior:
- * - Play/pause state with user interaction tracking
- * - Mute state
- * - Current time tracking
- * - Autoplay logic based on global user interaction state
- *
- * Usage:
- * ```tsx
- * const {
- *   isPlaying,
- *   isMuted,
- *   currentTime,
- *   handleTogglePlay,
- *   handlePlayFailed,
- *   handleTimeUpdate,
- * } = useVideoPlayback({ autoplay: true })
- * ```
+ * IMPORTANT: Pass autoplay as a getter function for reactivity:
+ * useVideoPlayback({ autoplay: () => props.autoplay })
  */
-export function useVideoPlayback({
-  autoplay = true,
-  forceAutoplay = false,
-}: UseVideoPlaybackOptions = {}): UseVideoPlaybackReturn {
+export function useVideoPlayback(options: UseVideoPlaybackOptions = {}): UseVideoPlaybackReturn {
+  const { autoplay = () => true, forceAutoplay = false } = options
   const { hasUserInteracted, setUserInteracted } = useVideoPlaybackContext()
 
-  // Start paused on first load, autoplay only if user has interacted before OR forceAutoplay is true
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(false) // Try unmuted first
-  const [currentTime, setCurrentTime] = useState(0)
+  const [isPlaying, setIsPlaying] = createSignal(false)
+  const [isMuted, setIsMuted] = createSignal(false)
+  const [currentTime, setCurrentTime] = createSignal(0)
+  // Track if user has manually controlled this video (to prevent effect from overriding)
+  const [userControlled, setUserControlled] = createSignal(false)
 
-  // Sync playing state with autoplay prop
-  // Autoplay if: forceAutoplay OR (user has interacted before AND autoplay is true)
-  useEffect(() => {
-    if ((forceAutoplay || hasUserInteracted()) && autoplay) {
+  // Sync playing state with autoplay prop - only when autoplay changes, not on user interaction
+  // This effect handles: scroll to new video (autoplay changes), initial load
+  // It should NOT override user's manual play/pause
+  createEffect((prevAutoplay: boolean | undefined) => {
+    const shouldAutoplay = autoplay()
+    const userInteracted = hasUserInteracted()
+
+    console.log('[useVideoPlayback] Sync effect', {
+      shouldAutoplay,
+      prevAutoplay,
+      forceAutoplay,
+      userInteracted,
+      userControlled: userControlled(),
+      currentIsPlaying: isPlaying(),
+    })
+
+    // Only sync when autoplay prop actually changes (scroll to different video)
+    // Don't sync just because hasUserInteracted changed
+    if (prevAutoplay !== undefined && prevAutoplay === shouldAutoplay) {
+      console.log('[useVideoPlayback] -> skipping, autoplay unchanged')
+      return shouldAutoplay
+    }
+
+    // Reset user control when switching videos (autoplay changed)
+    if (prevAutoplay !== undefined && prevAutoplay !== shouldAutoplay) {
+      setUserControlled(false)
+    }
+
+    if ((forceAutoplay || userInteracted) && shouldAutoplay) {
+      console.log('[useVideoPlayback] -> setIsPlaying(true)')
       setIsPlaying(true)
-    } else if (!autoplay) {
+    } else if (!shouldAutoplay) {
+      console.log('[useVideoPlayback] -> setIsPlaying(false) because !shouldAutoplay')
       setIsPlaying(false)
     }
-  }, [autoplay, forceAutoplay, hasUserInteracted])
 
-  const handleTogglePlay = useCallback(() => {
-    // Mark that user has interacted globally
+    return shouldAutoplay
+  }, undefined)
+
+  const handleTogglePlay = () => {
     setUserInteracted()
+    setUserControlled(true)
 
     // If playing but muted, unmute instead of pausing
-    if (isPlaying && isMuted) {
+    if (isPlaying() && isMuted()) {
       setIsMuted(false)
       return
     }
 
-    // Otherwise, toggle play state
-    const newPlayingState = !isPlaying
+    const newPlayingState = !isPlaying()
+    console.log('[useVideoPlayback] handleTogglePlay ->', newPlayingState)
     setIsPlaying(newPlayingState)
 
     // Unmute when starting to play
-    if (newPlayingState && isMuted) {
+    if (newPlayingState && isMuted()) {
       setIsMuted(false)
     }
-  }, [isMuted, isPlaying, setUserInteracted])
+  }
 
-  const handlePlayFailed = useCallback(() => {
+  const handlePlayFailed = () => {
     setIsPlaying(false)
-  }, [])
+  }
 
-  const handleTimeUpdate = useCallback((time: number) => {
+  const handleTimeUpdate = (time: number) => {
     setCurrentTime(time)
-  }, [])
+  }
 
   return {
     isPlaying,

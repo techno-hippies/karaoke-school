@@ -1,13 +1,31 @@
 /**
- * useUnlockPurchase
- * Hook for one-time purchase of Unlock Protocol NFTs on Base Sepolia
- * Price is read from the lock contract's keyPrice
+ * useUnlockSubscription - Hook for Unlock Protocol subscriptions (SolidJS)
+ *
+ * Used for recurring subscriptions like Premium AI chat (0.001 ETH / 30 days)
+ * on Base Sepolia using Unlock Protocol.
+ *
+ * Smart Wallet Selection:
+ * - EOA users (authMethodType: 1): Pay from EOA, key granted to PKP
+ * - Social/Passkey users: Pay from PKP, key granted to PKP
+ *
+ * NOT for song purchases - those use SongAccess contract via useSongAccess.
  */
 
-import { useState } from 'react'
-import { parseEther, type Address, type Hash, type WalletClient, type PublicClient } from 'viem'
+import { createSignal, createMemo } from 'solid-js'
+import {
+  type Address,
+  type Hash,
+  encodeFunctionData,
+  createPublicClient,
+  http,
+} from 'viem'
 import { baseSepolia } from 'viem/chains'
-import { usePublicClient, useWalletClient } from 'wagmi'
+import { sendTransaction, waitForTransactionReceipt } from '@wagmi/core'
+import { useAuth } from '@/contexts/AuthContext'
+import { wagmiConfig } from '@/providers/Web3Provider'
+import type { PurchaseStep } from '@/components/purchase/types'
+
+const IS_DEV = import.meta.env.DEV
 
 // Unlock Protocol Public Lock ABI (v13 - array-based purchase)
 const UNLOCK_ABI = [
@@ -24,287 +42,460 @@ const UNLOCK_ABI = [
     stateMutability: 'payable',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'keyPrice',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'maxKeysPerAddress',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '_owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '_tokenHolder', type: 'address' }],
+    name: 'getHasValidKey',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 // Default lock address when none configured
 const DEFAULT_LOCK_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
-// Price for Unlock subscription (in wei) - used for balance logging
-const SUBSCRIPTION_PRICE = parseEther('0.001')
+// Lit Protocol auth method type for EOA wallet
+const AUTH_METHOD_ETH_WALLET = 1
 
-export type SubscriptionStatus = 'idle' | 'approving' | 'purchasing' | 'complete' | 'error'
+// ============ Types ============
 
-interface UseUnlockSubscriptionOptions {
-  walletClient?: WalletClient | null
-  publicClient?: PublicClient
+export interface UseUnlockSubscriptionOptions {
+  /** Lock contract address on Base Sepolia */
+  lockAddress?: Address
 }
 
 export interface UseUnlockSubscriptionResult {
+  // State
+  status: () => PurchaseStep
+  statusMessage: () => string
+  errorMessage: () => string
+  txHash: () => Hash | undefined
+  hasValidKey: () => boolean | undefined
+
+  // Actions
   subscribe: () => Promise<void>
-  status: SubscriptionStatus
-  statusMessage: string
-  errorMessage: string
-  txHash?: Hash
+  checkSubscription: () => Promise<boolean>
   reset: () => void
 }
 
+// ============ Hook Implementation ============
+
 export function useUnlockSubscription(
-  recipientAddress?: Address,
-  lockAddress?: Address,
   options?: UseUnlockSubscriptionOptions
 ): UseUnlockSubscriptionResult {
-  const [status, setStatus] = useState<SubscriptionStatus>('idle')
-  const [statusMessage, setStatusMessage] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
-  const [txHash, setTxHash] = useState<Hash | undefined>()
+  const auth = useAuth()
 
-  const chainId = baseSepolia.id
-  const wagmiPublicClient = usePublicClient({ chainId })
-  const { data: wagmiWalletClient } = useWalletClient({ chainId })
+  // State signals
+  const [status, setStatus] = createSignal<PurchaseStep>('idle')
+  const [statusMessage, setStatusMessage] = createSignal('')
+  const [errorMessage, setErrorMessage] = createSignal('')
+  const [txHash, setTxHash] = createSignal<Hash | undefined>(undefined)
+  const [hasValidKey, setHasValidKey] = createSignal<boolean | undefined>(undefined)
 
-  const publicClient = options?.publicClient ?? wagmiPublicClient
+  // Resolved lock address
+  const lockAddress = createMemo(() => options?.lockAddress || DEFAULT_LOCK_ADDRESS)
 
-  const resolvedWalletClient = options?.walletClient ?? wagmiWalletClient ?? null
-  const resolvedRecipient = recipientAddress ?? resolvedWalletClient?.account?.address
+  // Create public client for Base Sepolia
+  const publicClient = createPublicClient({
+    chain: baseSepolia,
+    transport: http(),
+  })
 
-  // Use provided lock address or default
-  const resolvedLockAddress = lockAddress || DEFAULT_LOCK_ADDRESS
+  // ============ Determine if EOA User ============
+  const isEOAUser = createMemo(() => {
+    const authData = auth.authData()
+    return authData?.authMethodType === AUTH_METHOD_ETH_WALLET
+  })
 
-  const subscribe = async () => {
-    console.log('[useUnlockSubscription] 🔐 subscribe() called')
-    console.log('[useUnlockSubscription] 🔐 resolvedWalletClient:', resolvedWalletClient)
-    console.log('[useUnlockSubscription] 🔐 publicClient:', publicClient)
-    console.log('[useUnlockSubscription] 🔐 resolvedRecipient:', resolvedRecipient)
-    console.log('[useUnlockSubscription] 🔐 resolvedLockAddress:', resolvedLockAddress)
-    console.log('[useUnlockSubscription] 🔐 Lock address type check:', typeof resolvedLockAddress)
-    console.log('[useUnlockSubscription] 🔐 Lock address length:', resolvedLockAddress?.length)
+  // Get EOA address from stored auth data
+  const eoaAddress = createMemo(() => {
+    const authData = auth.authData()
+    return authData?.eoaAddress as Address | undefined
+  })
 
-    if (!resolvedWalletClient || !publicClient) {
-      console.error('[useUnlockSubscription] Wallet or public client not available')
-      setStatus('error')
-      setErrorMessage('Wallet not connected')
-      return
-    }
+  // ============ Check Subscription ============
+  const checkSubscription = async (): Promise<boolean> => {
+    const pkpAddress = auth.pkpAddress()
+    const lock = lockAddress()
 
-    if (!resolvedRecipient) {
-      console.error('[useUnlockSubscription] No recipient address')
-      setStatus('error')
-      setErrorMessage('No recipient address provided')
-      return
-    }
-
-    if (resolvedLockAddress === DEFAULT_LOCK_ADDRESS) {
-      console.error('[useUnlockSubscription] Default lock address - purchase not configured')
-      setStatus('error')
-      setErrorMessage('Purchase not available for this song')
-      return
+    if (!pkpAddress || lock === DEFAULT_LOCK_ADDRESS) {
+      return false
     }
 
     try {
-      // Check balance on Base Sepolia (where the contract is)
-      console.log('[useUnlockSubscription] Checking balance for address:', resolvedRecipient)
-      console.log('[useUnlockSubscription] Checking balance on Base Sepolia (chain ID:', baseSepolia.id, ')')
-      const balance = await publicClient.getBalance({ address: resolvedRecipient })
-      console.log('[useUnlockSubscription] Base Sepolia balance (wei):', balance.toString())
-      console.log('[useUnlockSubscription] Base Sepolia balance (ETH):', Number(balance) / 1e18)
-      console.log('[useUnlockSubscription] Required amount (wei):', SUBSCRIPTION_PRICE.toString())
-      console.log('[useUnlockSubscription] Required amount (ETH):', Number(SUBSCRIPTION_PRICE) / 1e18)
-      console.log('[useUnlockSubscription] Has sufficient balance:', balance >= SUBSCRIPTION_PRICE)
+      const hasKey = await publicClient.readContract({
+        address: lock,
+        abi: UNLOCK_ABI,
+        functionName: 'getHasValidKey',
+        args: [pkpAddress as Address],
+      })
 
-      // Check chain mismatch
-      console.log('[useUnlockSubscription] ⚠️ Wallet chain ID:', resolvedWalletClient.chain?.id)
-      console.log('[useUnlockSubscription] ⚠️ Wallet chain name:', resolvedWalletClient.chain?.name)
-      console.log('[useUnlockSubscription] ⚠️ Expected chain (Base Sepolia) ID:', baseSepolia.id)
-      console.log('[useUnlockSubscription] ⚠️ Expected chain (Base Sepolia) name:', baseSepolia.name)
-      console.log('[useUnlockSubscription] ⚠️ CHAIN MISMATCH:', resolvedWalletClient.chain?.id !== baseSepolia.id)
-      console.log('[useUnlockSubscription] Account:', resolvedWalletClient.account)
+      setHasValidKey(hasKey)
+      return hasKey
+    } catch (err) {
+      console.error('[useUnlockSubscription] Error checking subscription:', err)
+      return false
+    }
+  }
 
-      // Step 1: Approving (wallet signature request)
-      setStatus('approving')
-      setStatusMessage('Signing transaction...')
+  // ============ Subscribe Action ============
+  const subscribe = async () => {
+    const pkpAddress = auth.pkpAddress()
+    const lock = lockAddress()
+
+    if (!pkpAddress) {
+      setStatus('error')
+      setErrorMessage('No wallet address')
+      return
+    }
+
+    if (lock === DEFAULT_LOCK_ADDRESS) {
+      setStatus('error')
+      setErrorMessage('Subscription not available')
+      return
+    }
+
+    // Route to appropriate purchase flow
+    if (isEOAUser()) {
+      await subscribeWithEOA(pkpAddress as Address, lock)
+    } else {
+      await subscribeWithPKP(pkpAddress as Address, lock)
+    }
+  }
+
+  // ============ EOA Subscribe Flow ============
+  // EOA pays ETH, key granted to PKP (for Lit decryption consistency)
+  const subscribeWithEOA = async (pkpAddress: Address, lock: Address) => {
+    const eoa = eoaAddress()
+    if (!eoa) {
+      setStatus('error')
+      setErrorMessage('EOA wallet not found')
+      return
+    }
+
+    if (IS_DEV) {
+      console.log('[useUnlockSubscription] subscribeWithEOA() called')
+      console.log('[useUnlockSubscription] eoaAddress:', eoa)
+      console.log('[useUnlockSubscription] pkpAddress:', pkpAddress)
+      console.log('[useUnlockSubscription] lockAddress:', lock)
+    }
+
+    try {
+      // Step 1: Check EOA balance
+      setStatus('checking')
+      setStatusMessage('Checking wallet balance...')
       setErrorMessage('')
-      console.log('[useUnlockSubscription] Status: approving')
 
-      // Step 2: First check the lock's key price
-      console.log('[useUnlockSubscription] 🔐 Checking lock contract details...')
-      console.log('[useUnlockSubscription] 🔐 Lock contract address:', resolvedLockAddress)
-      console.log('[useUnlockSubscription] 🔐 Is default address?', resolvedLockAddress === DEFAULT_LOCK_ADDRESS)
+      const balance = await publicClient.getBalance({ address: eoa })
 
-      // Get the actual key price from the contract
-    // @ts-expect-error - viem version mismatch
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] EOA Balance (wei):', balance.toString())
+        console.log('[useUnlockSubscription] EOA Balance (ETH):', Number(balance) / 1e18)
+      }
+
+      // Step 2: Get key price from contract
       const keyPrice = await publicClient.readContract({
-        address: resolvedLockAddress,
-        abi: [
-          {
-            inputs: [],
-            name: 'keyPrice',
-            outputs: [{ name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function',
-          },
-        ] as const,
+        address: lock,
+        abi: UNLOCK_ABI,
         functionName: 'keyPrice',
       })
-      console.log('[useUnlockSubscription] 🔐 Lock keyPrice (wei):', keyPrice.toString())
-      console.log('[useUnlockSubscription] 🔐 Lock keyPrice (ETH):', Number(keyPrice) / 1e18)
 
-    // @ts-expect-error - viem version mismatch
-      // Check max keys per address
-      const maxKeys = await publicClient.readContract({
-        address: resolvedLockAddress,
-        abi: [
-          {
-            inputs: [],
-            name: 'maxKeysPerAddress',
-            outputs: [{ name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function',
-          },
-        ] as const,
-        functionName: 'maxKeysPerAddress',
-      })
-      console.log('[useUnlockSubscription] 🔐 maxKeysPerAddress:', maxKeys.toString())
-    // @ts-expect-error - viem version mismatch
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Key price (wei):', keyPrice.toString())
+        console.log('[useUnlockSubscription] Key price (ETH):', Number(keyPrice) / 1e18)
+      }
 
-      // Check current balance of keys
-      const keyBalance = await publicClient.readContract({
-        address: resolvedLockAddress,
-        abi: [
-          {
-            inputs: [{ name: '_owner', type: 'address' }],
-            name: 'balanceOf',
-            outputs: [{ name: '', type: 'uint256' }],
-            stateMutability: 'view',
-            type: 'function',
-          },
-        ] as const,
-        functionName: 'balanceOf',
-        args: [resolvedRecipient],
-      })
-      console.log('[useUnlockSubscription] 🔐 Current key balance:', keyBalance.toString())
+      // Check if user has sufficient balance
+      if (balance < keyPrice) {
+        setStatus('error')
+        setErrorMessage(
+          'Insufficient ETH balance on Base Sepolia. Please add funds to your wallet.'
+        )
+        return
+      }
 
-      // Step 3: Simulate the contract call on Base Sepolia to get gas estimate
-      console.log('[useUnlockSubscription] 🔐 Simulating contract on Base Sepolia...')
-
-      const { request } = await publicClient.simulateContract({
-        address: resolvedLockAddress,
+      // Check if PKP already has a valid key
+      const alreadyHasKey = await publicClient.readContract({
+        address: lock,
         abi: UNLOCK_ABI,
-        functionName: 'purchase',
-        args: [
-          [keyPrice], // _values (array of prices)
-          [resolvedRecipient], // _recipients (who receives the key)
-          [resolvedRecipient], // _referrers (referral address)
-          [resolvedRecipient], // _keyManagers (who can manage the key)
-          ['0x' as `0x${string}`], // _data (additional data, none needed)
-        ],
-        value: keyPrice,
-        account: resolvedRecipient,
+        functionName: 'getHasValidKey',
+        args: [pkpAddress],
       })
 
-      console.log('[useUnlockSubscription] Simulation successful, gas:', request.gas)
+      if (alreadyHasKey) {
+        if (IS_DEV) {
+          console.log('[useUnlockSubscription] PKP already has valid key')
+        }
+        setHasValidKey(true)
+        setStatus('complete')
+        setStatusMessage('Already subscribed!')
+        return
+      }
 
-      // Step 4: Purchasing
-      setStatus('purchasing')
-      setStatusMessage('Processing purchase...')
-      console.log('[useUnlockSubscription] Status: purchasing')
+      // Step 3: Send transaction from EOA, grant key to PKP
+      setStatus('signing')
+      setStatusMessage('Sign to subscribe...')
 
-      // Encode the purchase call
-      const { encodeFunctionData } = await import('viem')
       const data = encodeFunctionData({
         abi: UNLOCK_ABI,
         functionName: 'purchase',
         args: [
           [keyPrice], // _values (array of prices)
-          [resolvedRecipient], // _recipients (who receives the key)
-          [resolvedRecipient], // _referrers (referral address)
-          [resolvedRecipient], // _keyManagers (who can manage the key)
-          ['0x' as `0x${string}`], // _data (additional data, none needed)
+          [pkpAddress], // _recipients - key goes to PKP
+          [eoa], // _referrers
+          [pkpAddress], // _keyManagers - PKP manages the key
+          ['0x' as `0x${string}`], // _data
         ],
       })
 
-      // Build transaction for Base Sepolia
+      const hash = await sendTransaction(wagmiConfig, {
+        to: lock,
+        data,
+        value: keyPrice,
+        chainId: baseSepolia.id,
+      })
+
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Transaction hash:', hash)
+      }
+
+      // Step 4: Confirm
+      setStatus('purchasing')
+      setStatusMessage('Confirming transaction...')
+      setTxHash(hash)
+
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+
+      if (receipt.status === 'success') {
+        if (IS_DEV) {
+          console.log('[useUnlockSubscription] Transaction successful!')
+        }
+        setHasValidKey(true)
+        setStatus('complete')
+        setStatusMessage('Subscription activated!')
+      } else {
+        throw new Error('Transaction failed')
+      }
+    } catch (err) {
+      handleSubscribeError(err)
+    }
+  }
+
+  // ============ PKP Subscribe Flow ============
+  // PKP pays ETH and receives key (original flow for social/passkey users)
+  const subscribeWithPKP = async (pkpAddress: Address, lock: Address) => {
+    const pkpWalletClient = auth.pkpWalletClient()
+
+    if (!pkpWalletClient) {
+      setStatus('error')
+      setErrorMessage('Wallet not connected')
+      return
+    }
+
+    if (IS_DEV) {
+      console.log('[useUnlockSubscription] subscribeWithPKP() called')
+      console.log('[useUnlockSubscription] pkpAddress:', pkpAddress)
+      console.log('[useUnlockSubscription] lockAddress:', lock)
+    }
+
+    try {
+      // Step 1: Check balance
+      setStatus('checking')
+      setStatusMessage('Checking wallet balance...')
+      setErrorMessage('')
+
+      const balance = await publicClient.getBalance({ address: pkpAddress })
+
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Balance (wei):', balance.toString())
+        console.log('[useUnlockSubscription] Balance (ETH):', Number(balance) / 1e18)
+      }
+
+      // Step 2: Get key price from contract
+      const keyPrice = await publicClient.readContract({
+        address: lock,
+        abi: UNLOCK_ABI,
+        functionName: 'keyPrice',
+      })
+
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Key price (wei):', keyPrice.toString())
+        console.log('[useUnlockSubscription] Key price (ETH):', Number(keyPrice) / 1e18)
+      }
+
+      // Check if user has sufficient balance
+      if (balance < keyPrice) {
+        setStatus('error')
+        setErrorMessage(
+          'Insufficient ETH balance on Base Sepolia. Please add funds to your wallet.'
+        )
+        return
+      }
+
+      // Check if user already has a valid key
+      const alreadyHasKey = await publicClient.readContract({
+        address: lock,
+        abi: UNLOCK_ABI,
+        functionName: 'getHasValidKey',
+        args: [pkpAddress],
+      })
+
+      if (alreadyHasKey) {
+        if (IS_DEV) {
+          console.log('[useUnlockSubscription] User already has valid key')
+        }
+        setHasValidKey(true)
+        setStatus('complete')
+        setStatusMessage('Already subscribed!')
+        return
+      }
+
+      // Step 3: Signing
+      setStatus('signing')
+      setStatusMessage('Sign to subscribe...')
+
+      // Simulate the transaction first
+      const { request } = await publicClient.simulateContract({
+        address: lock,
+        abi: UNLOCK_ABI,
+        functionName: 'purchase',
+        args: [
+          [keyPrice], // _values (array of prices)
+          [pkpAddress], // _recipients
+          [pkpAddress], // _referrers
+          [pkpAddress], // _keyManagers
+          ['0x' as `0x${string}`], // _data
+        ],
+        value: keyPrice,
+        account: pkpAddress,
+      })
+
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Simulation successful, gas:', request.gas)
+      }
+
+      // Step 4: Build and sign transaction
+      setStatus('approving')
+      setStatusMessage('Processing subscription...')
+
+      const data = encodeFunctionData({
+        abi: UNLOCK_ABI,
+        functionName: 'purchase',
+        args: [
+          [keyPrice],
+          [pkpAddress],
+          [pkpAddress],
+          [pkpAddress],
+          ['0x' as `0x${string}`],
+        ],
+      })
+
       const txRequest = await publicClient.prepareTransactionRequest({
-        account: resolvedRecipient,
-        to: resolvedLockAddress,
+        account: pkpAddress,
+        to: lock,
         data,
         value: keyPrice,
         gas: request.gas,
-        chain: undefined as any,
-        kzg: undefined as any
-      } as any)
+        chain: baseSepolia,
+      })
 
-      console.log('[useUnlockSubscription] 🔐 Signing transaction with PKP...')
-      console.log('[useUnlockSubscription] 🔐 Transaction request:', txRequest)
-
-      // Sign transaction using the account's signTransaction method (PKP custom implementation)
-      const account = resolvedWalletClient.account
+      const account = pkpWalletClient.account
       if (!account || typeof account.signTransaction !== 'function') {
-        throw new Error('PKP account does not have signTransaction method')
+        throw new Error('Account does not support signing')
       }
 
       const signedTx = await account.signTransaction({
         ...txRequest,
         chainId: baseSepolia.id,
-      })
+      } as any)
 
-      console.log('[useUnlockSubscription] 🔐 Sending signed transaction to Base Sepolia...')
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Transaction signed, sending...')
+      }
 
-      // Send raw transaction to Base Sepolia
-      const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx })
-
-      console.log('[useUnlockSubscription] Transaction hash:', hash)
-      setTxHash(hash)
+      // Step 5: Send and confirm
+      setStatus('purchasing')
       setStatusMessage('Confirming transaction...')
 
-      // Wait for transaction confirmation
-      console.log('[useUnlockSubscription] Waiting for transaction receipt...')
+      const hash = await publicClient.sendRawTransaction({ serializedTransaction: signedTx })
+      setTxHash(hash)
+
+      if (IS_DEV) {
+        console.log('[useUnlockSubscription] Transaction hash:', hash)
+      }
+
       const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      console.log('[useUnlockSubscription] Transaction receipt:', receipt)
 
       if (receipt.status === 'success') {
-        console.log('[useUnlockSubscription] Transaction successful!')
+        if (IS_DEV) {
+          console.log('[useUnlockSubscription] Transaction successful!')
+        }
+        setHasValidKey(true)
         setStatus('complete')
-        setStatusMessage('Song unlocked!')
+        setStatusMessage('Subscription activated!')
       } else {
-        console.error('[useUnlockSubscription] Transaction failed - receipt status:', receipt.status)
         throw new Error('Transaction failed')
       }
-    } catch (error) {
-      console.error('[useUnlockSubscription] 🔐 Error details:', error)
-      console.error('[useUnlockSubscription] 🔐 Error type:', typeof error)
-      console.error('[useUnlockSubscription] 🔐 Error message:', error instanceof Error ? error.message : 'Unknown error')
-      console.error('[useUnlockSubscription] 🔐 Error stack:', error instanceof Error ? error.stack : 'No stack')
-      setStatus('error')
-      setStatusMessage('')
-
-      // Parse error message to provide user-friendly feedback
-      let userMessage = 'Transaction failed. Please try again.'
-
-      if (error instanceof Error) {
-        const errorMsg = error.message.toLowerCase()
-
-        // Check for insufficient balance
-        if (errorMsg.includes('exceeds the balance') || errorMsg.includes('insufficient funds')) {
-          userMessage = 'Insufficient balance. Please add more ETH to your wallet on Base Sepolia to complete this transaction.'
-        }
-        // Check for user rejection
-        else if (errorMsg.includes('user rejected') || errorMsg.includes('user denied')) {
-          userMessage = 'Transaction cancelled.'
-        }
-        // Check for network issues
-        else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
-          userMessage = 'Network error. Please check your connection and try again.'
-        }
-        // Check for already purchased
-        else if (errorMsg.includes('already') || errorMsg.includes('duplicate')) {
-          userMessage = 'You may already own this song. Please refresh the page.'
-        }
-      }
-
-      setErrorMessage(userMessage)
+    } catch (err) {
+      handleSubscribeError(err)
     }
   }
 
+  // ============ Error Handler ============
+  const handleSubscribeError = (err: unknown) => {
+    console.error('[useUnlockSubscription] Error:', err)
+
+    let userMessage = 'Transaction failed. Please try again.'
+
+    if (err instanceof Error) {
+      const errorMsg = err.message.toLowerCase()
+
+      if (errorMsg.includes('exceeds the balance') || errorMsg.includes('insufficient funds')) {
+        userMessage =
+          'Insufficient ETH balance on Base Sepolia. Please add funds to your wallet.'
+      } else if (errorMsg.includes('user rejected') || errorMsg.includes('user denied')) {
+        userMessage = 'Transaction cancelled.'
+      } else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
+        userMessage = 'Network error. Please check your connection and try again.'
+      } else if (errorMsg.includes('already') || errorMsg.includes('duplicate')) {
+        userMessage = 'You may already have an active subscription. Please refresh the page.'
+        setHasValidKey(true)
+      } else if (
+        errorMsg.includes('session') ||
+        errorMsg.includes('expired') ||
+        errorMsg.includes('sign in')
+      ) {
+        userMessage = 'Session expired. Please sign out and sign back in.'
+      }
+    }
+
+    setStatus('error')
+    setStatusMessage('')
+    setErrorMessage(userMessage)
+  }
+
+  // ============ Reset Action ============
   const reset = () => {
     setStatus('idle')
     setStatusMessage('')
@@ -313,11 +504,13 @@ export function useUnlockSubscription(
   }
 
   return {
-    subscribe,
     status,
     statusMessage,
     errorMessage,
     txHash,
+    hasValidKey,
+    subscribe,
+    checkSubscription,
     reset,
   }
 }

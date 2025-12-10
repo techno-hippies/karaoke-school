@@ -1,495 +1,445 @@
 /**
- * AuthDialog
- * Multi-method authentication (Passkey, Wallet)
- * Ensures all users get a PKP (Lit Protocol Identity)
- * 
- * Note: This component is PURE UI. It does not use hooks like useAccount directly.
- * Data must be passed in via props.
+ * AuthDialog for SolidJS
+ *
+ * Multi-method authentication dialog supporting:
+ * - Passkey (WebAuthn) - recommended
+ * - Google OAuth
+ * - Discord OAuth
+ * - External wallet (Metamask, Rabby, etc.)
+ *
+ * No username step - accounts are created without usernames.
+ * Users can claim a username later from their profile.
+ *
+ * This is a pure UI component. Data flows through props from ConnectedAuthDialog.
  */
 
-import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { createSignal, createEffect, Show, Switch, Match, type Component, type JSX } from 'solid-js'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { CheckCircle, Wallet, Fingerprint, CaretLeft, GoogleLogo, DiscordLogo, CaretDown, CaretUp, Warning } from '@phosphor-icons/react'
+import { Icon } from '@/components/icons'
+import { useTranslation } from '@/lib/i18n'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
-// Helper to extract a user-friendly message key from technical errors
-function getErrorMessageKey(error: string): { key: string; hasTechnicalDetails: boolean } {
-  // Check for common error patterns and provide friendly message keys
-  if (error.includes('HTTP request failed') || error.includes('Failed to fetch')) {
-    return { key: 'auth.errors.connectionFailed', hasTechnicalDetails: true }
-  }
-  if (error.includes('User rejected') || error.includes('user rejected')) {
-    return { key: 'auth.errors.cancelled', hasTechnicalDetails: false }
-  }
-  if (error.includes('timeout') || error.includes('Timeout')) {
-    return { key: 'auth.errors.timeout', hasTechnicalDetails: true }
-  }
-  if (error.includes('already registered') || error.includes('already exists')) {
-    return { key: 'auth.errors.accountExists', hasTechnicalDetails: false }
-  }
-  if (error.includes('not found') || error.includes('No credential')) {
-    return { key: 'auth.errors.accountNotFound', hasTechnicalDetails: false }
-  }
-  // For short, already-friendly messages, just return as-is (no i18n key)
-  if (error.length < 100 && !error.includes('0x') && !error.includes('http')) {
-    return { key: '', hasTechnicalDetails: false }
-  }
-  // Default: hide technical details
-  return { key: 'auth.errors.generic', hasTechnicalDetails: true }
-}
+export type AuthStep =
+  | 'select-method'  // Initial method selection
+  | 'passkey-intro'  // Create vs Sign In choice
+  | 'processing'     // Loading state
+  | 'wrong-network'  // Wallet connected but wrong chain
+  | 'complete'       // Success
 
-// ---------------- Types ----------------
-
-export type AuthStep = 
-  | 'select-method' // Initial choice
-  | 'passkey-intro' // "Create" vs "Login" for WebAuthn
-  | 'username'      // Username input (Passkey or Social)
-  | 'wallet-select' // REMOVED - Wallet (Metamask, etc)
-  | 'processing'    // Minting/Loading
-  | 'funding'       // Check gas (for EOA)
-  | 'complete'      // Done
-
-type AuthMode = 'register' | 'login' | null
-
-// Generic connector interface to avoid Wagmi dependency in View
-export interface WalletConnector {
-  uid: string
-  name: string
-  icon?: string
-}
+export type AuthProvider = 'passkey' | 'google' | 'discord' | 'wallet' | null
 
 export interface AuthDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  
+
   // Context state
-  currentStep: string // Mapped to internal logic
+  currentStep: string
+  authMode?: 'register' | 'login' | 'eoa' | 'google' | 'discord' | null
   isAuthenticating: boolean
   statusMessage: string
   errorMessage: string
-  usernameAvailability?: 'available' | 'unavailable' | null
 
-  // Wallet State (Deprecated but kept for type compat if needed)
-  walletConnectors?: WalletConnector[]
+  // Wallet state (for EOA flow display)
   isWalletConnected?: boolean
   walletAddress?: string
-  walletError?: string
 
   // Actions
   onRegister: () => void
-  onRegisterWithUsername: (username: string) => void
   onLogin: () => void
-  onUsernameBack: () => void
-  onUsernameChange: (username: string) => void
-  
+
   // Social Actions
-  onLoginGoogle?: (username?: string) => void
-  onLoginDiscord?: (username?: string) => void
-  
+  onLoginGoogle?: () => void
+  onLoginDiscord?: () => void
+
   // Wallet Actions
-  onConnectWallet?: (connectorId: any) => void
+  onConnectWallet?: () => void
   onWalletDisconnect?: () => void
+
+  // Network switching (for wrong network detection)
+  isWrongNetwork?: boolean
+  isSwitchingChain?: boolean
+  targetChainName?: string
+  onSwitchNetwork?: () => void
 }
 
-export function AuthDialog({
-  open,
-  onOpenChange,
-  currentStep: contextStep,
-  isAuthenticating,
-  statusMessage,
-  errorMessage,
-  usernameAvailability,
-  
-  walletConnectors = [],
-  isWalletConnected = false,
-  walletAddress,
-  walletError,
+/**
+ * Get user-friendly error message key from technical error
+ * Returns a translation key that will be resolved by the component
+ */
+function getErrorInfo(error: string): { messageKey: string; hasTechnicalDetails: boolean } {
+  // Google popup blocked
+  if (error.includes('Google') && error.includes('popup')) {
+    return { messageKey: 'auth.errors.googlePopupBlocked', hasTechnicalDetails: false }
+  }
+  // Discord popup blocked
+  if (error.includes('Discord') && error.includes('popup')) {
+    return { messageKey: 'auth.errors.discordPopupBlocked', hasTechnicalDetails: false }
+  }
+  // Google cancelled
+  if (error.includes('Google') && error.includes('cancelled')) {
+    return { messageKey: 'auth.errors.googleCancelled', hasTechnicalDetails: false }
+  }
+  // Discord cancelled
+  if (error.includes('Discord') && error.includes('cancelled')) {
+    return { messageKey: 'auth.errors.discordCancelled', hasTechnicalDetails: false }
+  }
+  if (error.includes('HTTP request failed') || error.includes('Failed to fetch')) {
+    return { messageKey: 'auth.errors.connectionFailed', hasTechnicalDetails: true }
+  }
+  if (error.includes('User rejected') || error.includes('user rejected')) {
+    return { messageKey: 'auth.errors.cancelled', hasTechnicalDetails: false }
+  }
+  if (error.includes('timeout') || error.includes('Timeout')) {
+    return { messageKey: 'auth.errors.timeout', hasTechnicalDetails: true }
+  }
+  if (error.includes('already registered') || error.includes('already exists')) {
+    return { messageKey: 'auth.errors.accountExists', hasTechnicalDetails: false }
+  }
+  if (error.includes('not found') || error.includes('No credential')) {
+    return { messageKey: 'auth.errors.accountNotFound', hasTechnicalDetails: false }
+  }
+  if (error.includes('not yet implemented') || error.includes('not implemented')) {
+    return { messageKey: '', hasTechnicalDetails: false } // Pass through as-is
+  }
+  // Default: hide technical details
+  return { messageKey: 'auth.errors.generic', hasTechnicalDetails: true }
+}
 
-  onRegister,
-  onRegisterWithUsername,
-  onLogin,
-  onUsernameBack,
-  onUsernameChange,
-  
-  onLoginGoogle,
-  onLoginDiscord,
-  
-  onConnectWallet,
-  onWalletDisconnect,
-}: AuthDialogProps) {
+export const AuthDialog: Component<AuthDialogProps> = (props) => {
   const { t } = useTranslation()
+  const [view, setView] = createSignal<AuthStep>('select-method')
+  const [pendingProvider, setPendingProvider] = createSignal<AuthProvider>(null)
+  const [showErrorDetails, setShowErrorDetails] = createSignal(false)
 
-  // Internal UI state to manage the multi-step flow over the context's simpler state
-  const [view, setView] = useState<AuthStep>('select-method')
-  const [username, setUsername] = useState('')
-  const [pendingProvider, setPendingProvider] = useState<'passkey' | 'google' | 'discord' | null>(null)
-  const [showErrorDetails, setShowErrorDetails] = useState(false)
-
-  // Sync context step to view if needed
-  useEffect(() => {
-    if (contextStep === 'complete') setView('complete')
-    if (contextStep === 'username') setView('username')
-    // If context is working (webauthn), show processing
-    if (contextStep === 'webauthn' || contextStep === 'session' || contextStep === 'social') {
+  // Sync context step to view
+  createEffect(() => {
+    if (props.currentStep === 'complete') {
+      setView('complete')
+    }
+    if (
+      props.currentStep === 'webauthn' ||
+      props.currentStep === 'session' ||
+      props.currentStep === 'social' ||
+      props.currentStep === 'processing'
+    ) {
       setView('processing')
     }
-  }, [contextStep])
+  })
 
-  // Handle authentication finishing (success or error)
-  useEffect(() => {
-    // If we were processing but are no longer authenticating
-    if (view === 'processing' && !isAuthenticating) {
-      if (contextStep === 'complete') {
+  // Handle authentication finishing
+  createEffect(() => {
+    if (view() === 'processing' && !props.isAuthenticating) {
+      if (props.currentStep === 'complete') {
         setView('complete')
-      } else {
-        // If we stopped authenticating and aren't complete, it likely failed.
-        // Go back to selection so user can try again or see error.
-        setView(pendingProvider ? 'passkey-intro' : 'select-method')
+      } else if (props.errorMessage) {
+        // Go back to method selection on error
+        setView(pendingProvider() ? 'passkey-intro' : 'select-method')
       }
     }
-  }, [isAuthenticating, view, contextStep, pendingProvider])
+  })
 
-  // Reset view when closed
-  useEffect(() => {
-    if (!open) {
+  // Detect wrong network after wallet connection
+  createEffect(() => {
+    if (pendingProvider() === 'wallet') {
+      if (props.isWrongNetwork) {
+        setView('wrong-network')
+      } else if (view() === 'wrong-network' && !props.isWrongNetwork) {
+        // Chain switched successfully, go back to processing
+        // AuthContext's watchAccount will now proceed with the EOA flow
+        setView('processing')
+      }
+    }
+  })
+
+  // Reset view when dialog closes
+  createEffect(() => {
+    if (!props.open) {
       setTimeout(() => {
         setView('select-method')
-        setUsername('')
         setPendingProvider(null)
         setShowErrorDetails(false)
-        onWalletDisconnect?.()
+        props.onWalletDisconnect?.()
       }, 300)
     }
-  }, [open, onWalletDisconnect])
+  })
 
-  // --- Handlers ---
-
-  const handleProviderSelect = (provider: 'passkey' | 'google' | 'discord') => {
+  const handleProviderSelect = (provider: AuthProvider) => {
     setPendingProvider(provider)
-    setView('passkey-intro')
-  }
-
-  const handleWalletSelect = () => {
-    setView('wallet-select')
-  }
-
-  const handleBack = () => {
-    if (view === 'passkey-intro' || view === 'wallet-select') {
-      setView('select-method')
-      setPendingProvider(null)
-    } else if (view === 'username') {
-      onUsernameBack() // Context handler
-      setUsername('')
+    if (provider === 'wallet') {
+      // External wallet - trigger wallet connection flow
+      props.onConnectWallet?.()
+    } else if (provider === 'google') {
+      setView('processing')
+      props.onLoginGoogle?.()
+    } else if (provider === 'discord') {
+      setView('processing')
+      props.onLoginDiscord?.()
+    } else {
+      // Passkey - still needs create vs sign in distinction
       setView('passkey-intro')
     }
   }
 
-  const handleWalletConnect = (connector: any) => {
-    onConnectWallet?.(connector)
-    setView('processing')
-  }
-
-  // Handle username (Passkey flow)
-  const handleUsernameSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (username.trim().length >= 6) {
-      const normalized = username.trim()
-      setView('processing')
-      if (pendingProvider === 'google') {
-        onLoginGoogle?.(normalized)
-      } else if (pendingProvider === 'discord') {
-        onLoginDiscord?.(normalized)
-      } else {
-        onRegisterWithUsername(normalized)
-      }
+  const handleBack = () => {
+    if (view() === 'passkey-intro') {
+      setView('select-method')
+      setPendingProvider(null)
     }
   }
 
-  // Combined error message
-  const displayError = errorMessage || walletError
+  const getTitle = () => {
+    switch (view()) {
+      case 'processing':
+        return t('auth.authenticating')
+      case 'complete':
+        return t('auth.success')
+      default:
+        return t('auth.signIn')
+    }
+  }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-center">
-            {view === 'passkey-intro' && t('auth.usePasskey')}
-            {view === 'wallet-select' && t('auth.connectWallet')}
-            {view === 'username' && t('auth.chooseUsername')}
-            {view === 'processing' && t('auth.authenticating')}
-            {view === 'complete' && t('auth.success')}
-          </DialogTitle>
-        </DialogHeader>
+  const showBackButton = () => view() === 'passkey-intro'
+  const isMobile = useIsMobile()
 
-        <div className="py-4">
+  // Shared content rendered inside either Dialog or Drawer
+  const content = (): JSX.Element => (
+    <>
+      {/* Fixed height content area to prevent layout shifts */}
+      <div class="py-6 min-h-[320px] flex flex-col">
           {/* ERROR DISPLAY */}
-          {displayError && (() => {
-            const { key, hasTechnicalDetails } = getErrorMessageKey(displayError)
-            const friendlyMessage = key ? t(key) : displayError
-            return (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
-                <div className="flex items-start gap-2">
-                  <Warning className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" weight="fill" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-red-700">{friendlyMessage}</p>
-                    {hasTechnicalDetails && (
-                      <button
-                        type="button"
-                        onClick={() => setShowErrorDetails(!showErrorDetails)}
-                        className="mt-2 text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
-                      >
-                        {showErrorDetails ? (
-                          <>
-                            <CaretUp className="w-3 h-3" />
-                            {t('auth.errors.hideDetails')}
-                          </>
-                        ) : (
-                          <>
-                            <CaretDown className="w-3 h-3" />
-                            {t('auth.errors.showDetails')}
-                          </>
-                        )}
-                      </button>
-                    )}
-                    {showErrorDetails && hasTechnicalDetails && (
-                      <pre className="mt-2 p-2 bg-red-100 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
-                        {displayError}
-                      </pre>
-                    )}
+          <Show when={props.errorMessage}>
+            {(error) => {
+              const info = getErrorInfo(error())
+              // Use translation if key exists, otherwise pass through the original error
+              const displayMessage = info.messageKey ? t(info.messageKey as any) : error()
+              return (
+                <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
+                  <div class="flex items-start gap-2">
+                    <Icon name="warning-circle" class="text-xl text-red-500 flex-shrink-0 mt-0.5" />
+                    <div class="flex-1 min-w-0">
+                      <p class="text-red-700">{displayMessage}</p>
+                      <Show when={info.hasTechnicalDetails}>
+                        <button
+                          type="button"
+                          onClick={() => setShowErrorDetails(!showErrorDetails())}
+                          class="mt-2 text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                        >
+                          <Show when={showErrorDetails()} fallback={<><Icon name="caret-down" class="text-sm" />{t('auth.showDetails')}</>}>
+                            <Icon name="caret-up" class="text-sm" />{t('auth.hideDetails')}
+                          </Show>
+                        </button>
+                        <Show when={showErrorDetails()}>
+                          <pre class="mt-2 p-2 bg-red-100 rounded text-xs text-red-600 overflow-x-auto whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+                            {error()}
+                          </pre>
+                        </Show>
+                      </Show>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })()}
+              )
+            }}
+          </Show>
 
-          {/* STEP 1: METHOD SELECTION */}
-          {view === 'select-method' && (
-            <div className="space-y-3">
-              <Button
-                onClick={() => handleProviderSelect('passkey')}
-                variant="outline"
-                className="w-full h-14 justify-start px-4 text-base font-medium gap-3"
-              >
-                <Fingerprint className="w-6 h-6 text-orange-500" />
-                <div className="flex flex-col items-start">
+          <Switch>
+            {/* STEP 1: METHOD SELECTION */}
+            <Match when={view() === 'select-method'}>
+              <div class="space-y-4 flex-1 flex flex-col justify-center">
+                {/* Passkey */}
+                <Button
+                  onClick={() => handleProviderSelect('passkey')}
+                  variant="outline"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
+                >
+                  <Icon name="key" weight="fill" class="text-3xl" />
                   <span>{t('auth.passkeyRecommended')}</span>
-                  <span className="text-xs text-muted-foreground font-normal">{t('auth.noPasswordSecure')}</span>
-                </div>
-              </Button>
+                </Button>
 
-              <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">{t('auth.orSocialLogin')}</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => handleProviderSelect('google')}
-                variant="outline"
-                className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
-              >
-                <GoogleLogo className="w-6 h-6 text-red-500" weight="bold" />
-                <span>{t('auth.continueWithGoogle')}</span>
-              </Button>
-
-              <Button
-                onClick={() => handleProviderSelect('discord')}
-                variant="outline"
-                className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
-              >
-                <DiscordLogo className="w-6 h-6 text-indigo-500" weight="fill" />
-                <span>{t('auth.continueWithDiscord')}</span>
-              </Button>
-
-              {onConnectWallet && (
-                <>
-                  <div className="relative py-2">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">{t('auth.orConnectWallet')}</span>
-                    </div>
-                  </div>
-
+                {/* Wallet */}
+                <Show when={props.onConnectWallet}>
                   <Button
-                    onClick={onConnectWallet}
+                    onClick={() => handleProviderSelect('wallet')}
                     variant="outline"
-                    className="w-full h-12 justify-start px-4 text-base font-medium gap-3"
+                    class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
                   >
-                    <Wallet className="w-6 h-6 text-blue-500" weight="fill" />
+                    <Icon name="wallet" weight="fill" class="text-3xl" />
                     <span>{t('auth.connectWallet')}</span>
                   </Button>
-                </>
-              )}
-            </div>
-          )}
+                </Show>
 
-          {/* STEP 2A: PASSKEY INTRO (Register/Login) */}
-          {view === 'passkey-intro' && (
-            <div className="space-y-4">
-              <Button
-                onClick={() => {
-                    if (pendingProvider === 'google') {
-                      // Social create -> go to username step
-                      setView('username')
-                    } else if (pendingProvider === 'discord') {
-                      setView('username')
-                    } else {
-                      onRegister() // Passkey create triggers username step via context
-                    }
-                }}
-                className="w-full h-12"
-                size="lg"
-              >
-                {pendingProvider === 'google' ? t('auth.createWithGoogle') : pendingProvider === 'discord' ? t('auth.createWithDiscord') : t('auth.createNewAccount')}
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">{t('auth.or')}</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => {
-                    if (pendingProvider === 'google') {
-                      setView('processing')
-                      onLoginGoogle?.()
-                    } else if (pendingProvider === 'discord') {
-                      setView('processing')
-                      onLoginDiscord?.()
-                    } else {
-                      onLogin() // Passkey login
-                    }
-                }}
-                variant="outline"
-                className="w-full h-12"
-              >
-                {pendingProvider === 'google' ? t('auth.signInWithGoogle') : pendingProvider === 'discord' ? t('auth.signInWithDiscord') : t('auth.signIn')}
-              </Button>
-
-              <Button variant="ghost" size="sm" onClick={handleBack} className="w-full text-muted-foreground">
-                <CaretLeft className="mr-2 h-4 w-4" /> {t('common.back')}
-              </Button>
-            </div>
-          )}
-
-          {/* STEP 2B: USERNAME INPUT */}
-          {view === 'username' && (
-            <form onSubmit={handleUsernameSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  placeholder={t('auth.usernamePlaceholder')}
-                  value={username}
-                  onChange={(e) => {
-                    setUsername(e.target.value)
-                    onUsernameChange(e.target.value)
-                  }}
-                  minLength={6}
-                  className="h-12"
-                  autoFocus
-                />
-                {usernameAvailability === 'available' && (
-                  <span className="text-xs text-green-600 flex items-center gap-1">
-                    <CheckCircle weight="fill" /> {t('auth.formatValid')}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
-                  {t('common.back')}
-                </Button>
+                {/* Google */}
                 <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={username.length < 6 || usernameAvailability === 'unavailable'}
-                >
-                  {t('common.next')}
-                </Button>
-              </div>
-
-            </form>
-          )}
-
-          {/* STEP 3: WALLET SELECTION */}
-          {view === 'wallet-select' && (
-            <div className="space-y-2">
-              {walletConnectors.map((connector) => (
-                <Button
-                  key={connector.uid}
-                  onClick={() => handleWalletConnect(connector)}
+                  onClick={() => handleProviderSelect('google')}
                   variant="outline"
-                  className="w-full justify-start gap-3 h-12"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
                 >
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                    {connector.icon ? (
-                      <img src={connector.icon} alt="" className="w-4 h-4" />
-                    ) : (
-                      <Wallet className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                  {connector.name}
+                  <Icon name="google-logo" weight="fill" class="text-3xl" />
+                  <span>{t('auth.google')}</span>
                 </Button>
-              ))}
 
-              {walletConnectors.length === 0 && (
-                 <div className="text-center text-sm text-muted-foreground py-4">
-                   {t('auth.noWalletsDetected')}
-                 </div>
-              )}
+                {/* Discord */}
+                <Button
+                  onClick={() => handleProviderSelect('discord')}
+                  variant="outline"
+                  class="w-full h-14 justify-start px-5 text-lg font-medium gap-4"
+                >
+                  <Icon name="discord-logo" weight="fill" class="text-3xl" />
+                  <span>{t('auth.discord')}</span>
+                </Button>
+              </div>
+            </Match>
 
-              <Button variant="ghost" size="sm" onClick={handleBack} className="w-full mt-2">
-                <CaretLeft className="mr-2 h-4 w-4" /> {t('common.back')}
-              </Button>
-            </div>
-          )}
+            {/* STEP 2: CREATE / SIGN IN CHOICE (Passkey only) */}
+            <Match when={view() === 'passkey-intro'}>
+              <div class="space-y-5 flex-1 flex flex-col justify-center">
+                <Button
+                  onClick={() => props.onRegister()}
+                  class="w-full h-14 text-lg"
+                  size="lg"
+                >
+                  {t('auth.createNewAccount')}
+                </Button>
 
-          {/* PROCESSING STATE */}
-          {view === 'processing' && (
-            <div className="flex flex-col items-center py-8 space-y-4 text-center">
-              <Spinner className="w-10 h-10" />
-              <p className="text-muted-foreground animate-pulse">
-                {statusMessage || t('auth.processing')}
-              </p>
-              {/* Show wallet address if connected during processing */}
-              {isWalletConnected && walletAddress && (
-                <div className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                  {walletAddress.slice(0,6)}...{walletAddress.slice(-4)}
+                <div class="flex justify-center">
+                  <span class="text-sm uppercase text-muted-foreground">{t('auth.or')}</span>
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* COMPLETE STATE */}
-          {view === 'complete' && (
-            <div className="flex flex-col items-center py-6 space-y-4">
-              <CheckCircle className="w-16 h-16 text-green-500" weight="fill" />
-              <p className="text-center text-muted-foreground">
-                {t('auth.successMessage')}
-              </p>
-              <Button onClick={() => onOpenChange(false)} className="w-full">
-                {t('auth.startLearning')}
-              </Button>
-            </div>
-          )}
+                <Button
+                  onClick={() => props.onLogin()}
+                  variant="outline"
+                  class="w-full h-14 text-lg"
+                >
+                  {t('auth.signIn')}
+                </Button>
+              </div>
+            </Match>
+
+            {/* PROCESSING STATE */}
+            <Match when={view() === 'processing'}>
+              <div class="flex-1 flex flex-col items-center justify-center space-y-5 text-center">
+                <Spinner size="lg" />
+                <p class="text-lg text-muted-foreground animate-pulse">
+                  {props.statusMessage ? t(props.statusMessage as any) || props.statusMessage : t('auth.processing')}
+                </p>
+                {/* Show wallet address if connected during processing */}
+                <Show when={props.isWalletConnected && props.walletAddress}>
+                  <div class="text-sm font-mono bg-muted px-3 py-2 rounded">
+                    {props.walletAddress?.slice(0, 6)}...{props.walletAddress?.slice(-4)}
+                  </div>
+                </Show>
+              </div>
+            </Match>
+
+            {/* WRONG NETWORK STATE */}
+            <Match when={view() === 'wrong-network'}>
+              <div class="flex-1 flex flex-col justify-center space-y-6">
+                {/* Warning banner */}
+                <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div class="flex items-start gap-3">
+                    <Icon name="warning" weight="fill" class="text-2xl text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p class="font-medium text-amber-800">{t('auth.wrongNetwork')}</p>
+                      <p class="text-sm text-amber-700 mt-1">
+                        {t('auth.wrongNetworkDesc', { chain: props.targetChainName || 'Base Sepolia' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Switch network button */}
+                <Button
+                  onClick={props.onSwitchNetwork}
+                  disabled={props.isSwitchingChain}
+                  class="w-full h-14 text-lg"
+                >
+                  <Show when={props.isSwitchingChain} fallback={
+                    <>{t('auth.switchNetwork', { chain: props.targetChainName || 'Base Sepolia' })}</>
+                  }>
+                    <Spinner size="sm" class="mr-2" />
+                    {t('auth.switchingNetwork')}
+                  </Show>
+                </Button>
+
+                {/* Manual instructions fallback */}
+                <div class="text-xs text-muted-foreground space-y-2 p-3 bg-muted/50 rounded-lg">
+                  <p class="font-medium">{t('auth.manualNetworkSwitch')}</p>
+                  <ul class="space-y-1 ml-2">
+                    <li>• Network: Base Sepolia</li>
+                    <li>• RPC: https://sepolia.base.org</li>
+                    <li>• Chain ID: 84532</li>
+                    <li>• Symbol: ETH</li>
+                  </ul>
+                </div>
+              </div>
+            </Match>
+
+            {/* COMPLETE STATE */}
+            <Match when={view() === 'complete'}>
+              <div class="flex-1 flex flex-col items-center justify-center">
+                <Icon name="check-circle" class="text-8xl text-green-500" />
+              </div>
+            </Match>
+          </Switch>
         </div>
-      </DialogContent>
-    </Dialog>
+    </>
+  )
+
+  // Footer content - only shown for complete state
+  const footerContent = () => {
+    if (view() === 'complete') {
+      return (
+        <Button onClick={() => props.onOpenChange(false)} class="w-full h-14 text-lg">
+          {t('common.close')}
+        </Button>
+      )
+    }
+    return undefined
+  }
+
+  // Mobile: Drawer (bottom sheet)
+  // Desktop: Dialog (centered modal)
+  return (
+    <Show
+      when={isMobile()}
+      fallback={
+        <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+          <DialogContent
+            class="sm:max-w-[450px]"
+            onBack={showBackButton() ? handleBack : undefined}
+            footer={footerContent()}
+          >
+            <DialogHeader>
+              <DialogTitle class="text-3xl text-center">{getTitle()}</DialogTitle>
+            </DialogHeader>
+            {content()}
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      <Drawer open={props.open} onOpenChange={props.onOpenChange}>
+        <DrawerContent
+          onBack={showBackButton() ? handleBack : undefined}
+          footer={footerContent()}
+        >
+          <DrawerHeader>
+            <DrawerTitle class="text-3xl text-center">{getTitle()}</DrawerTitle>
+          </DrawerHeader>
+          {content()}
+        </DrawerContent>
+      </Drawer>
+    </Show>
   )
 }

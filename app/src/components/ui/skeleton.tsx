@@ -1,15 +1,18 @@
-import { cn } from "@/lib/utils"
+/**
+ * Skeleton - Loading placeholder component
+ */
 
-function Skeleton({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+import { splitProps, type Component, type JSX } from 'solid-js'
+import { cn } from '@/lib/utils'
+
+export interface SkeletonProps extends JSX.HTMLAttributes<HTMLDivElement> {}
+
+export const Skeleton: Component<SkeletonProps> = (props) => {
+  const [local, others] = splitProps(props, ['class'])
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-muted", className)}
-      {...props}
+      class={cn('animate-pulse rounded-md bg-muted', local.class)}
+      {...others}
     />
   )
 }
-
-export { Skeleton }

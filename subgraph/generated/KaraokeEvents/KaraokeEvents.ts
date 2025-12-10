@@ -10,6 +10,36 @@ import {
   BigInt,
 } from "@graphprotocol/graph-ts";
 
+export class ClipLocalizationUpdated extends ethereum.Event {
+  get params(): ClipLocalizationUpdated__Params {
+    return new ClipLocalizationUpdated__Params(this);
+  }
+}
+
+export class ClipLocalizationUpdated__Params {
+  _event: ClipLocalizationUpdated;
+
+  constructor(event: ClipLocalizationUpdated) {
+    this._event = event;
+  }
+
+  get clipHash(): Bytes {
+    return this._event.parameters[0].value.toBytes();
+  }
+
+  get localizations(): string {
+    return this._event.parameters[1].value.toString();
+  }
+
+  get genres(): string {
+    return this._event.parameters[2].value.toString();
+  }
+
+  get timestamp(): BigInt {
+    return this._event.parameters[3].value.toBigInt();
+  }
+}
+
 export class ClipProcessed extends ethereum.Event {
   get params(): ClipProcessed__Params {
     return new ClipProcessed__Params(this);
@@ -483,6 +513,44 @@ export class ConstructorCall__Outputs {
   _call: ConstructorCall;
 
   constructor(call: ConstructorCall) {
+    this._call = call;
+  }
+}
+
+export class EmitClipLocalizationUpdatedCall extends ethereum.Call {
+  get inputs(): EmitClipLocalizationUpdatedCall__Inputs {
+    return new EmitClipLocalizationUpdatedCall__Inputs(this);
+  }
+
+  get outputs(): EmitClipLocalizationUpdatedCall__Outputs {
+    return new EmitClipLocalizationUpdatedCall__Outputs(this);
+  }
+}
+
+export class EmitClipLocalizationUpdatedCall__Inputs {
+  _call: EmitClipLocalizationUpdatedCall;
+
+  constructor(call: EmitClipLocalizationUpdatedCall) {
+    this._call = call;
+  }
+
+  get clipHash(): Bytes {
+    return this._call.inputValues[0].value.toBytes();
+  }
+
+  get localizations(): string {
+    return this._call.inputValues[1].value.toString();
+  }
+
+  get genres(): string {
+    return this._call.inputValues[2].value.toString();
+  }
+}
+
+export class EmitClipLocalizationUpdatedCall__Outputs {
+  _call: EmitClipLocalizationUpdatedCall;
+
+  constructor(call: EmitClipLocalizationUpdatedCall) {
     this._call = call;
   }
 }

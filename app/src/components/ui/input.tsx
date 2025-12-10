@@ -1,22 +1,50 @@
-import * as React from "react"
+/**
+ * Input Component for SolidJS
+ *
+ * Rounded pill-shaped inputs with gray background.
+ * Used across auth dialogs, chat, forms.
+ */
 
-import { cn } from "@/lib/utils"
+import { splitProps, type Component, type JSX } from 'solid-js'
+import { cn } from '@/lib/utils'
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
-    return (
-      <input
-        type={type}
-        className={cn(
-          "flex h-11 w-full rounded-full border border-input bg-background px-4 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          className
-        )}
-        ref={ref}
-        {...props}
-      />
-    )
-  }
-)
-Input.displayName = "Input"
+const inputStyles = [
+  'flex w-full rounded-full bg-secondary px-4 py-[10px]',
+  'text-base text-foreground placeholder:text-muted-foreground leading-6',
+  'focus:outline-none focus:ring-2 focus:ring-ring',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+].join(' ')
 
-export { Input }
+export interface InputProps extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'class'> {
+  class?: string
+}
+
+export const Input: Component<InputProps> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'type'])
+
+  return (
+    <input
+      type={local.type}
+      class={cn(inputStyles, local.class)}
+      {...others}
+    />
+  )
+}
+
+/**
+ * Textarea - for multi-line input (chat, comments)
+ */
+export interface TextareaProps extends Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, 'class'> {
+  class?: string
+}
+
+export const Textarea: Component<TextareaProps> = (props) => {
+  const [local, others] = splitProps(props, ['class'])
+
+  return (
+    <textarea
+      class={cn(inputStyles, 'resize-none scrollbar-hide', local.class)}
+      {...others}
+    />
+  )
+}

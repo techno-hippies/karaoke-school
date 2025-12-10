@@ -1,173 +1,176 @@
-import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { HomePage } from '@/pages/HomePage'
-import { ChatPage } from '@/pages/ChatPage'
-import { SearchPage } from '@/pages/SearchPage'
-import { AccountPageContainer } from '@/pages/AccountPageContainer'
-import { VideoDetailPage } from '@/pages/VideoDetailPage'
-import { SongPageContainer } from '@/pages/SongPageContainer'
-import { SlugSongPageContainer } from '@/pages/SlugSongPageContainer'
-import { ArtistPageContainer } from '@/pages/ArtistPageContainer'
-import { MediaPageContainer } from '@/pages/MediaPageContainer'
-import { ProfilePageContainer } from '@/pages/ProfilePageContainer'
-import { ClassPage } from '@/pages/ClassPage'
-import { StudySessionPage } from '@/pages/StudySessionPage'
-import { AppLayout } from '@/components/layout/AppLayout'
-import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
-import { Toaster } from '@/components/ui/sonner'
+import { HashRouter, Route, useLocation, useNavigate } from '@solidjs/router'
+import { createSignal, createEffect, onMount, lazy, type Component, type ParentComponent } from 'solid-js'
+import { preloadChatImages } from '@/hooks/usePrefetch'
+
+// Providers
+import { QueryProvider } from '@/providers/QueryProvider'
+import { LensProvider } from '@/providers/LensProvider'
+import { Web3Provider } from '@/providers/Web3Provider'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { LanguagePreferenceProvider } from '@/contexts/LanguagePreferenceContext'
 import { VideoPlaybackProvider } from '@/contexts/VideoPlaybackContext'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
-import { Web3Provider } from '@/providers/Web3Provider'
+import { I18nProvider } from '@/lib/i18n'
 
-function AppRouter() {
+// Layout
+import { AppLayout } from '@/components/layout/AppLayout'
+import { ConnectedAuthDialog } from '@/components/layout/ConnectedAuthDialog'
+import { Toaster } from '@/components/ui/sonner'
+import { DebugOverlay } from '@/components/debug/DebugOverlay'
+
+// Pages - Static imports for core navigation
+import { HomePage } from '@/pages/HomePage'
+import { SearchPage } from '@/pages/SearchPage'
+import { StudyPage } from '@/pages/StudyPage'
+import { WalletPage } from '@/pages/WalletPage'
+import { SongDetailPage } from '@/pages/SongDetailPage'
+import { ArtistPage } from '@/pages/ArtistPage'
+import { FeedPage } from '@/pages/FeedPage'
+import { UserProfilePage } from '@/pages/UserProfilePage'
+
+// Pages - Lazy loaded (use Lit Protocol SDK)
+const ChatPage = lazy(() => import('@/pages/ChatPage').then(m => ({ default: m.ChatPage })))
+const StudySessionPage = lazy(() => import('@/pages/StudySessionPage').then(m => ({ default: m.StudySessionPage })))
+const SongPlayPage = lazy(() => import('@/pages/SongPlayPage').then(m => ({ default: m.SongPlayPage })))
+const KaraokePracticePage = lazy(() => import('@/pages/KaraokePracticePage').then(m => ({ default: m.KaraokePracticePage })))
+
+const AppShell: ParentComponent = (props) => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'>('home')
-  const [inChatConversation, setInChatConversation] = useState(false)
+  const [activeTab, setActiveTab] = createSignal<'home' | 'study' | 'songs' | 'chat' | 'wallet' | 'none'>('home')
+  const [showAuthDialog, setShowAuthDialog] = createSignal(false)
 
-  const { isPKPReady, pkpAddress, isCheckingSession, setAuthDialogOpener } = useAuth()
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const auth = useAuth()
 
-  // Register the auth dialog opener with AuthContext so any component can trigger it
-  useEffect(() => {
-    setAuthDialogOpener(() => setShowAuthDialog(true))
-  }, [setAuthDialogOpener])
+  // Preload chat images on app mount
+  onMount(() => {
+    preloadChatImages()
+  })
 
-  useEffect(() => {
-    const pathToTab: Record<string, 'home' | 'study' | 'search' | 'chat' | 'wallet' | 'none'> = {
+  // Register the auth dialog opener
+  createEffect(() => {
+    auth.setAuthDialogOpener(() => setShowAuthDialog(true))
+  })
+
+  // Update active tab based on route
+  createEffect(() => {
+    const pathToTab: Record<string, 'home' | 'study' | 'songs' | 'chat' | 'wallet'> = {
       '/': 'home',
-      '/search': 'search',
+      '/songs': 'songs',
       '/study': 'study',
       '/chat': 'chat',
       '/wallet': 'wallet',
     }
 
-    // Hide tab bar on song pages (slug-based or legacy), user pages, and artist pages
     const pathParts = location.pathname.split('/').filter(Boolean)
-    const reservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
-
-    // Check if we're on a chat route (including sub-routes)
-    const isOnChatRoute = location.pathname.startsWith('/chat')
+    const reservedPaths = ['songs', 'study', 'chat', 'wallet', 'u', 'song']
 
     if (location.pathname.startsWith('/song/') || location.pathname.startsWith('/u/') ||
-        // Artist pages: /:artistSlug (single segment, not reserved)
         (pathParts.length === 1 && !reservedPaths.includes(pathParts[0])) ||
-        // Slug-based song routes: /:artistSlug/:songSlug
         (pathParts.length >= 2 && !reservedPaths.includes(pathParts[0]))) {
       setActiveTab('none')
-    } else if (isOnChatRoute) {
-      // All /chat/* routes should show chat tab
+    } else if (location.pathname.startsWith('/chat')) {
       setActiveTab('chat')
     } else {
-      const tab = pathToTab[location.pathname] || 'home'
-      setActiveTab(tab)
+      setActiveTab(pathToTab[location.pathname] || 'home')
     }
+  })
 
-    // Reset chat conversation state when leaving /chat entirely
-    if (!isOnChatRoute) {
-      setInChatConversation(false)
-    }
-  }, [location.pathname])
-
-  const handleTabChange = (tab: 'home' | 'study' | 'search' | 'chat' | 'wallet') => {
+  const handleTabChange = (tab: 'home' | 'study' | 'songs' | 'chat' | 'wallet') => {
     const routes = {
       home: '/',
       study: '/study',
-      search: '/search',
+      songs: '/songs',
       chat: '/chat',
-      wallet: '/wallet'
+      wallet: '/wallet',
     }
     navigate(routes[tab])
   }
 
-  // Hide footer on song pages (both slug-based and legacy), video detail pages, artist pages, and chat conversations
-  const footerPathParts = location.pathname.split('/').filter(Boolean)
-  const footerReservedPaths = ['search', 'study', 'chat', 'wallet', 'u', 'song']
+  // Determine if footer should be hidden
+  const hideMobileFooter = () => {
+    const pathParts = location.pathname.split('/').filter(Boolean)
+    const reservedPaths = ['songs', 'study', 'chat', 'wallet', 'u', 'song']
 
-  // Check if we're in a chat conversation (either via URL or state)
-  const isInChatConversation = inChatConversation ||
-    (location.pathname.startsWith('/chat/') && footerPathParts.length >= 2)
-
-  const hideMobileFooter =
-    location.pathname.match(/^\/song\//) ||
-    location.pathname.match(/^\/u\/[^/]+\/video\//) ||
-    // Artist pages: /:artistSlug (single segment, not reserved)
-    (footerPathParts.length === 1 && !footerReservedPaths.includes(footerPathParts[0])) ||
-    // Slug-based routes: /:artistSlug/:songSlug
-    (footerPathParts.length >= 2 && !footerReservedPaths.includes(footerPathParts[0])) ||
-    // Inside a chat conversation (via URL or state)
-    isInChatConversation
+    return (
+      !!location.pathname.match(/^\/song\//) ||
+      !!location.pathname.match(/^\/u\//) ||
+      (pathParts.length === 1 && !reservedPaths.includes(pathParts[0])) ||
+      (pathParts.length >= 2 && !reservedPaths.includes(pathParts[0])) ||
+      (location.pathname.startsWith('/chat/') && pathParts.length >= 2)
+    )
+  }
 
   return (
     <>
       <AppLayout
-        activeTab={activeTab}
+        activeTab={activeTab()}
         onTabChange={handleTabChange}
-        isConnected={isPKPReady}
-        isCheckingSession={isCheckingSession}
-        walletAddress={pkpAddress || undefined}
+        isConnected={auth.isPKPReady()}
+        isCheckingSession={auth.isCheckingSession()}
+        walletAddress={auth.pkpAddress() || undefined}
         onConnectWallet={() => setShowAuthDialog(true)}
-        hideMobileFooter={!!hideMobileFooter}
+        hideMobileFooter={hideMobileFooter()}
       >
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/u/:lenshandle" element={<AccountPageContainer />} />
-          <Route path="/u/:lenshandle/video/:postId" element={<VideoDetailPage />} />
-
-          {/* Artist page (e.g., /queen, /eminem) */}
-          <Route path="/:artistSlug" element={<ArtistPageContainer />} />
-
-          {/* Primary song routes - slug-based (e.g., /eminem/lose-yourself) */}
-          <Route path="/:artistSlug/:songSlug" element={<SlugSongPageContainer />} />
-          <Route path="/:artistSlug/:songSlug/play" element={<MediaPageContainer />} />
-          <Route path="/:artistSlug/:songSlug/karaoke" element={<MediaPageContainer variant="practice" />} />
-          <Route path="/:artistSlug/:songSlug/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-
-          {/* Legacy song routes - redirect to search (no longer supported) */}
-          <Route path="/song/:workId" element={<SongPageContainer />} />
-          <Route path="/song/:workId/play" element={<MediaPageContainer />} />
-          <Route path="/song/:workId/karaoke" element={<MediaPageContainer variant="practice" />} />
-          <Route path="/song/:workId/study" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-
-          <Route path="/study/session" element={<StudySessionPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-          <Route path="/study" element={<ClassPage onConnectWallet={() => setShowAuthDialog(true)} />} />
-
-          <Route path="/chat" element={<ChatPage onConversationChange={setInChatConversation} />} />
-          <Route path="/chat/:personalityId" element={<ChatPage onConversationChange={setInChatConversation} />} />
-          <Route path="/chat/:personalityId/:scenarioSlug" element={<ChatPage onConversationChange={setInChatConversation} />} />
-          <Route path="/wallet" element={<ProfilePageContainer onConnectWallet={() => setShowAuthDialog(true)} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {props.children}
       </AppLayout>
 
       <ConnectedAuthDialog
-        open={showAuthDialog}
+        open={showAuthDialog()}
         onOpenChange={setShowAuthDialog}
       />
 
       <Toaster />
+      <DebugOverlay />
     </>
   )
 }
 
-function App() {
+const App: Component = () => {
   return (
-    <Web3Provider>
-      <HashRouter>
-        <CurrencyProvider>
-          <AuthProvider>
-            <LanguagePreferenceProvider>
-              <VideoPlaybackProvider>
-                <AppRouter />
-              </VideoPlaybackProvider>
-            </LanguagePreferenceProvider>
-          </AuthProvider>
-        </CurrencyProvider>
-      </HashRouter>
-    </Web3Provider>
+    <QueryProvider>
+      <LensProvider>
+        <Web3Provider>
+          <CurrencyProvider>
+            <I18nProvider>
+              <AuthProvider>
+                <LanguagePreferenceProvider>
+                  <VideoPlaybackProvider>
+                    <HashRouter root={AppShell}>
+                      <Route path="/" component={FeedPage} />
+                      <Route path="/library" component={HomePage} />
+                      <Route path="/songs" component={SearchPage} />
+                      <Route path="/study" component={StudyPage} />
+                      <Route path="/study/session" component={StudySessionPage} />
+                      <Route path="/chat" component={ChatPage} />
+                      <Route path="/chat/:scenarioId" component={ChatPage} />
+                      <Route path="/wallet" component={WalletPage} />
+                      {/* User profile page (e.g., /u/scarlett-ks) */}
+                      <Route path="/u/:handle" component={UserProfilePage} />
+                      {/* Artist page (e.g., /queen, /eminem) */}
+                      <Route path="/:artistSlug" component={ArtistPage} />
+                      {/* Song detail pages (shows info + Study/Karaoke buttons) */}
+                      <Route path="/song/:spotifyTrackId" component={SongDetailPage} />
+                      <Route path="/:artistSlug/:songSlug" component={SongDetailPage} />
+                      {/* Song study pages (exercise session) */}
+                      <Route path="/song/:workId/study" component={StudySessionPage} />
+                      <Route path="/:artistSlug/:songSlug/study" component={StudySessionPage} />
+                      {/* Song play pages (listen with lyrics) */}
+                      <Route path="/song/:spotifyTrackId/play" component={SongPlayPage} />
+                      <Route path="/:artistSlug/:songSlug/play" component={SongPlayPage} />
+                      {/* Karaoke practice pages (record + grade) */}
+                      <Route path="/song/:spotifyTrackId/karaoke" component={KaraokePracticePage} />
+                      <Route path="/:artistSlug/:songSlug/karaoke" component={KaraokePracticePage} />
+                      <Route path="*" component={FeedPage} />
+                    </HashRouter>
+                  </VideoPlaybackProvider>
+                </LanguagePreferenceProvider>
+              </AuthProvider>
+            </I18nProvider>
+          </CurrencyProvider>
+        </Web3Provider>
+      </LensProvider>
+    </QueryProvider>
   )
 }
 

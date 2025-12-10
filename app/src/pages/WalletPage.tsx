@@ -1,105 +1,191 @@
-import { useTranslation } from 'react-i18next'
-import { WalletPageView } from '@/components/wallet/WalletPageView'
-import { useAuth } from '@/contexts/AuthContext'
-import { usePKPBalances } from '@/hooks/usePKPBalances'
-import { Button } from '@/components/ui/button'
-
 /**
- * WalletPage - Container component for wallet page
- * Handles wallet data fetching and state management
+ * WalletPage - Container component for wallet/profile functionality
+ * Shows the current user's unified profile with wallet info
+ *
+ * Uses smart wallet selection:
+ * - EOA users see their EOA wallet balances
+ * - Social/passkey users see their PKP wallet balances
  */
-export function WalletPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
-  const { t } = useTranslation()
-  const { pkpAddress, lensAccount, isPKPReady, isCheckingSession } = useAuth()
-  const { balances, error } = usePKPBalances()
 
-  // Get username from lens account if available
-  const currentUsername = lensAccount?.username?.localName || undefined
+const IS_DEV = import.meta.env.DEV
+
+import { type Component, Switch, Match, createEffect, createMemo } from 'solid-js'
+import { useAuth } from '@/contexts/AuthContext'
+import { usePKPBalances, type TokenBalance } from '@/hooks/usePKPBalances'
+import { usePaymentWallet } from '@/hooks/usePaymentWallet'
+import { useEOABalances } from '@/hooks/useEOABalances'
+import { useTranslation } from '@/lib/i18n'
+import { ProfilePageView } from '@/components/profile/ProfilePageView'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+
+export const WalletPage: Component = () => {
+  const { t } = useTranslation()
+  const auth = useAuth()
+  const pkpBalances = usePKPBalances()
+  const paymentWallet = usePaymentWallet({ requiredUsd: 0.10 })
+
+  // Get stored EOA address for balance fetching
+  const storedEoaAddress = createMemo(() => auth.authData()?.eoaAddress)
+
+  // EOA balances (only used if user signed up with EOA)
+  const eoaBalances = useEOABalances({
+    requiredUsd: 0.10,
+    overrideAddress: storedEoaAddress,
+  })
+
+  // Debug: log wallet selection
+  createEffect(() => {
+    if (IS_DEV) {
+      console.log('[WalletPage] Payment wallet state:', {
+        walletType: paymentWallet.walletType(),
+        walletAddress: paymentWallet.walletAddress(),
+        isEOAUser: paymentWallet.isEOAUser(),
+        hasSufficientBalance: paymentWallet.hasSufficientBalance(),
+        bestPaymentMethod: paymentWallet.bestPaymentMethod(),
+        isLoading: paymentWallet.isLoading(),
+        eoaBalancesCount: eoaBalances.balances().length,
+      })
+    }
+  })
+
+  // Map chain names to icon filenames
+  const chainIconMap: Record<string, string> = {
+    'Base': 'base-chain.svg',
+    'Arbitrum': 'arbitrum-chain.svg',
+    'Optimism': 'optimism-chain.svg',
+    'Sepolia': 'ethereum-chain.svg',
+    'Ethereum': 'ethereum-chain.svg',
+  }
+
+  // Convert EOA balances to ProfilePageView format
+  const eoaTokensForDisplay = createMemo((): TokenBalance[] => {
+    return eoaBalances.balances().map(b => ({
+      symbol: b.token,
+      name: b.token === 'ETH' ? 'Ethereum' : 'USD Coin',
+      balance: b.balanceFormatted.toFixed(b.token === 'USDC' ? 2 : 6),
+      network: b.chainName,
+      // Raw USD value (number) - ProfilePageView formats it
+      usdValue: b.token === 'ETH' ? b.balanceFormatted * 3000 : b.balanceFormatted,
+      // Icons for display
+      currencyIcon: b.token === 'ETH' ? 'ethereum-logo.png' : 'usdc-logo.png',
+      chainIcon: chainIconMap[b.chainName] || 'ethereum-chain.svg',
+    }))
+  })
+
+  // Get wallet address to display (EOA or PKP)
+  const displayWalletAddress = createMemo(() => {
+    if (paymentWallet.isEOAUser()) {
+      return paymentWallet.walletAddress() || ''
+    }
+    return auth.pkpAddress() || ''
+  })
+
+  // Get tokens to display (EOA or PKP balances)
+  const displayTokens = createMemo(() => {
+    if (paymentWallet.isEOAUser()) {
+      return eoaTokensForDisplay()
+    }
+    return pkpBalances.balances()
+  })
+
+  // Loading state
+  const isLoadingTokens = createMemo(() => {
+    if (paymentWallet.isEOAUser()) {
+      return eoaBalances.isLoading()
+    }
+    return pkpBalances.isLoading()
+  })
 
   const handleCopyAddress = async () => {
-    if (!pkpAddress) return
-    
+    const address = displayWalletAddress()
+    if (!address) return
+
     try {
-      await navigator.clipboard.writeText(pkpAddress)
-      console.log('PKP address copied to clipboard')
+      await navigator.clipboard.writeText(address)
+      if (IS_DEV) {
+        console.log('Wallet address copied to clipboard:', address)
+      }
     } catch (err) {
       console.error('Failed to copy address:', err)
     }
   }
 
-  const handleCheckUsernameAvailability = async (username: string): Promise<boolean> => {
-    // TODO: Check against Lens Protocol
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Mock: some usernames are taken
-    const takenUsernames = ['alice', 'bob', 'charlie', 'test', 'admin', 'karaoke']
-    return !takenUsernames.includes(username.toLowerCase())
+  // Get username handle from Lens account
+  const username = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.username?.localName || undefined
   }
 
-  const handlePurchaseUsername = async (username: string): Promise<boolean> => {
-    // TODO: Implement username purchase with Lens Protocol
-    console.log('Purchasing username:', username)
-
-    // Simulate purchase
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    console.log(`Username @${username} purchased successfully!`)
-
-    return true
+  const avatarUrl = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.metadata?.picture || undefined
   }
 
-  // Show skeleton while checking for stored session
-  if (isCheckingSession) {
-    return (
-      <WalletPageView
-        tokens={[]}
-        walletAddress=""
-        onCopyAddress={() => {}}
-        isLoading={true}
-      />
-    )
-  }
-
-  // Show sign up state when PKP is not ready
-  if (!isPKPReady) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h2 className="text-2xl font-bold text-center">{t('study.signUp')}</h2>
-        <p className="text-muted-foreground text-center">{t('study.signUpDescription')}</p>
-        <Button onClick={onConnectWallet}>
-          {t('study.signUp')}
-        </Button>
-      </div>
-    )
-  }
-
-  // Show error state if balance fetching failed
-  if (error) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 md:px-8 py-8 md:py-12">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-4 text-destructive">{t('wallet.errorLoadingBalances')}</h2>
-          <p className="text-muted-foreground mb-4">{error.message}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            {t('common.retry')}
-          </button>
-        </div>
-      </div>
-    )
+  const bio = () => {
+    const lensAccount = auth.lensAccount()
+    return lensAccount?.metadata?.bio || undefined
   }
 
   return (
-    <WalletPageView
-      tokens={balances}
-      walletAddress={pkpAddress || ''}
-      currentUsername={currentUsername}
-      onCopyAddress={handleCopyAddress}
-      onCheckUsernameAvailability={handleCheckUsernameAvailability}
-      onPurchaseUsername={handlePurchaseUsername}
-    />
+    <Switch>
+      {/* Loading skeleton while checking stored session */}
+      <Match when={auth.isCheckingSession()}>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+          <div class="flex flex-col items-center gap-4 mb-6">
+            <Skeleton class="w-28 h-28 md:w-36 md:h-36 rounded-full" />
+            <Skeleton class="h-6 w-32" />
+            <Skeleton class="h-10 w-48 rounded-full" />
+          </div>
+          <div class="space-y-4">
+            <Skeleton class="h-12 w-full rounded-full" />
+            <Skeleton class="h-40 w-full rounded-xl" />
+          </div>
+        </div>
+      </Match>
+
+      {/* Not connected state */}
+      <Match when={!auth.isPKPReady()}>
+        <div class="flex flex-col items-center justify-center h-screen gap-4 px-4">
+          <h2 class="text-2xl font-bold text-center">{t('walletPage.signUpTitle')}</h2>
+          <p class="text-muted-foreground text-center">
+            {t('walletPage.signUpDescription')}
+          </p>
+          <Button onClick={() => auth.openAuthDialog()}>
+            {t('auth.signUp')}
+          </Button>
+        </div>
+      </Match>
+
+      {/* Error state */}
+      <Match when={pkpBalances.error()}>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
+          <div class="text-center">
+            <h2 class="text-xl font-semibold mb-4 text-destructive">
+              {t('common.error')}
+            </h2>
+            <p class="text-muted-foreground mb-4">{pkpBalances.error()?.message}</p>
+            <Button onClick={pkpBalances.refetch} variant="outline">
+              {t('common.retry')}
+            </Button>
+          </div>
+        </div>
+      </Match>
+
+      {/* Connected state - Show unified profile */}
+      <Match when={auth.isPKPReady()}>
+        <ProfilePageView
+          username={username()}
+          avatarUrl={avatarUrl()}
+          bio={bio()}
+          walletAddress={displayWalletAddress()}
+          tokens={displayTokens()}
+          isLoadingTokens={isLoadingTokens()}
+          isOwnProfile={true}
+          onCopyAddress={handleCopyAddress}
+          onDisconnect={() => auth.logout()}
+        />
+      </Match>
+    </Switch>
   )
 }

@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { createQuery } from '@tanstack/solid-query'
+import { buildManifest, fetchJson } from '@/lib/storage'
+import type { Accessor } from 'solid-js'
 
 /**
  * Quiz metadata structure from Grove
@@ -27,31 +28,13 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
     throw new Error('No metadata URI provided')
   }
 
-  const url = convertGroveUri(metadataUri)
+  console.log('[useQuizMetadata] 🌐 Fetching quiz metadata', { metadataUri })
 
-  if (!url) {
-    throw new Error('Invalid quiz metadata URI')
-  }
+  // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+  const manifest = buildManifest(metadataUri)
+  const data = await fetchJson<any>(manifest)
 
-  console.log('[useQuizMetadata] 🌐 Fetching quiz metadata', { metadataUri, url })
-
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    console.error('[useQuizMetadata] ⚠️ HTTP error', {
-      metadataUri,
-      status: response.status,
-      statusText: response.statusText,
-    })
-    throw new Error(`Failed to fetch quiz metadata: ${response.status}`)
-  }
-
-  console.log('[useQuizMetadata] ✅ HTTP success', {
-    metadataUri,
-    status: response.status,
-  })
-
-  const data = await response.json()
+  console.log('[useQuizMetadata] ✅ Fetch success', { metadataUri })
 
   // Transform Grove metadata structure to expected format
   // Grove uses: { prompt, correctAnswer, distractorPool, explanation }
@@ -120,34 +103,38 @@ export async function fetchQuizMetadata(metadataUri: string): Promise<QuizMetada
 /**
  * Fetch quiz question data from Grove with language preference support
  *
- * Respects user's language preference and falls back to Mandarin (Chinese) if unavailable.
- * This is the recommended hook to use instead of calling fetchQuizMetadata directly.
- *
- * @param metadataUri Grove URI pointing to quiz JSON (without language suffix)
- * @returns Quiz metadata with question, options, correct answer, and explanation in appropriate language
+ * @param metadataUri Grove URI accessor pointing to quiz JSON
+ * @returns Quiz metadata with question, options, correct answer, and explanation
  */
-export function useQuizMetadata(metadataUri?: string) {
-  return useQuery<QuizMetadata, Error>({
-    queryKey: ['quiz-metadata', metadataUri],
+export function useQuizMetadata(metadataUri: Accessor<string | undefined>) {
+  const query = createQuery(() => ({
+    queryKey: ['quiz-metadata', metadataUri()],
     queryFn: async () => {
-      if (!metadataUri) {
+      const uri = metadataUri()
+      if (!uri) {
         throw new Error('No metadata URI provided')
       }
 
       try {
-        const data = await fetchQuizMetadata(metadataUri)
+        const data = await fetchQuizMetadata(uri)
         return data
       } catch (error) {
         console.error('[useQuizMetadata] ❌ Fetch failed', {
-          metadataUri,
+          metadataUri: uri,
           error,
         })
         throw error
       }
     },
-    enabled: !!metadataUri,
+    enabled: !!metadataUri(),
     staleTime: 300000, // 5 minutes
     retry: 2,
     placeholderData: (prev) => prev,
-  })
+  }))
+
+  return {
+    get data() { return query.data },
+    get isLoading() { return query.isLoading },
+    get error() { return query.error },
+  }
 }

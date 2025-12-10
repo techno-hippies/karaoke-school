@@ -1,7 +1,5 @@
-import { useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/solid-query'
+import { toast } from 'solid-sonner'
 import { useLitActionGrader, type GradingParams } from './useLitActionGrader'
 
 export interface SubmissionResult {
@@ -26,9 +24,8 @@ export interface SubmissionResult {
 export function useExerciseSubmission() {
   const { grade } = useLitActionGrader()
   const queryClient = useQueryClient()
-  const { t } = useTranslation()
 
-  const submitSayItBack = useCallback(async (
+  const submitSayItBack = async (
     params: GradingParams
   ): Promise<SubmissionResult> => {
     console.log('[useExerciseSubmission] SAY_IT_BACK submission starting...')
@@ -39,8 +36,6 @@ export function useExerciseSubmission() {
         if (result?.txHash) {
           console.log('[useExerciseSubmission] ✅ Blockchain submission successful:', result.txHash)
           // Invalidate study cards to reflect new FSRS state
-          // Note: currentCard is pinned in useStudySession, so UI won't jump
-          // even if query refetches before subgraph indexes
           queryClient.invalidateQueries({ queryKey: ['study-cards'] })
         } else {
           console.warn('[useExerciseSubmission] ⚠️ No transaction hash returned')
@@ -62,13 +57,13 @@ export function useExerciseSubmission() {
 
     // Map rating to feedback
     const ratingMessages: Record<string, string> = {
-      Easy: t('study.feedbackExcellent'),
-      Good: t('study.feedbackGreat'),
-      Hard: t('study.feedbackNice'),
-      Again: t('study.feedbackTryAgain'),
+      Easy: 'Excellent!',
+      Good: 'Great job!',
+      Hard: 'Nice try!',
+      Again: 'Try again',
     }
     const isCorrect = gradingResult.rating !== 'Again'
-    const message = ratingMessages[gradingResult.rating] ?? t('study.feedbackNice')
+    const message = ratingMessages[gradingResult.rating] ?? 'Nice try!'
 
     return {
       transcript: gradingResult.transcript,
@@ -76,9 +71,9 @@ export function useExerciseSubmission() {
       feedback: { isCorrect, message },
       canAdvance: true,
     }
-  }, [grade, queryClient, t])
+  }
 
-  const submitMultipleChoice = useCallback(async (
+  const submitMultipleChoice = async (
     params: GradingParams,
     isCorrectAnswer: boolean
   ): Promise<SubmissionResult> => {
@@ -87,7 +82,7 @@ export function useExerciseSubmission() {
     // Optimistic: Show immediate feedback (frontend already knows if correct)
     const optimisticFeedback = {
       isCorrect: isCorrectAnswer,
-      message: isCorrectAnswer ? t('study.feedbackCorrect') : t('study.feedbackIncorrect'),
+      message: isCorrectAnswer ? 'Correct!' : 'Incorrect',
     }
 
     console.log('[useExerciseSubmission] ✅ Instant feedback shown, submitting to blockchain in background...')
@@ -98,7 +93,6 @@ export function useExerciseSubmission() {
         if (result?.txHash) {
           console.log('[useExerciseSubmission] ✅ Background blockchain update complete:', result.txHash)
           // Invalidate study cards to reflect new FSRS state
-          // Note: currentCard is pinned in useStudySession, so UI won't jump
           queryClient.invalidateQueries({ queryKey: ['study-cards'] })
         } else {
           console.warn('[useExerciseSubmission] ⚠️ Blockchain update returned no txHash')
@@ -106,8 +100,6 @@ export function useExerciseSubmission() {
       })
       .catch(error => {
         console.error('[useExerciseSubmission] ❌ Background blockchain update failed:', error)
-        // FSRS state won't update, but user already got feedback
-        // Card will reappear later with correct FSRS schedule
         toast.error('Failed to save progress to blockchain')
       })
 
@@ -116,7 +108,7 @@ export function useExerciseSubmission() {
       feedback: optimisticFeedback,
       canAdvance: true,
     }
-  }, [grade, queryClient, t])
+  }
 
   return {
     submitSayItBack,

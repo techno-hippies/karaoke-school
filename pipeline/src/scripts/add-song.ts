@@ -22,17 +22,21 @@ import {
   createSong,
   createLyrics,
   getSongByISWC,
+  updateSongTranslations,
+  updateArtistTranslations,
   type CreateLyricData,
 } from '../db/queries';
 import {
   validateISWC,
   normalizeISWC,
+  validateLyricsForCensorship,
+  formatCensorshipErrors,
 } from '../lib/lyrics-parser';
 import { slugify } from '../lib/slugify';
 import { downloadAndUploadImageToGrove } from '../services/grove';
 import { searchGenius } from '../services/genius';
 import { searchLyrics } from '../services/lrclib';
-import { translateLyrics, LANGUAGES } from '../services/openrouter';
+import { translateLyrics, translateSongMetadata, LANGUAGES } from '../services/openrouter';
 import { validateEnv, GENIUS_API_KEY, OPENROUTER_API_KEY } from '../config';
 
 // Parse CLI arguments
@@ -200,6 +204,16 @@ async function main() {
   // Parse lyrics into lines
   const enLines = parsePlainLyrics(lrcResult.plainLyrics);
   console.log(`   EN lines (cleaned): ${enLines.length}`);
+
+  // Check for censored profanity (breaks karaoke grading)
+  const censorshipIssues = validateLyricsForCensorship(enLines);
+  if (censorshipIssues.length > 0) {
+    console.error('\n' + formatCensorshipErrors(censorshipIssues));
+    console.error('\nLRCLIB returned censored lyrics. You need to manually fix the lyrics.');
+    console.error(`Create: songs/${iswc}/en-lyrics.txt with uncensored lyrics`);
+    console.error(`Then run: bun src/scripts/add-lyrics.ts --iswc=${iswc} --language=en --force`);
+    process.exit(1);
+  }
 
   // Translate to Chinese via Gemini
   let zhLines: string[] = [];
@@ -373,6 +387,39 @@ async function main() {
 
   const lyrics = await createLyrics(lyricsData);
   console.log(`   Created ${lyrics.length} lyric entries (${enLines.length} EN + ${zhLines.length} ZH)`);
+
+  // Translate song title and artist name for localization
+  if (!values['skip-translate'] && OPENROUTER_API_KEY) {
+    console.log('\n🌍 Translating song title and artist name...');
+    try {
+      const metadata = await translateSongMetadata(values.title, artistName);
+
+      // Update song translations
+      await updateSongTranslations(iswc, {
+        title_zh: metadata.title_zh,
+        title_vi: metadata.title_vi,
+        title_id: metadata.title_id,
+      });
+      console.log(`   Title (ZH): ${metadata.title_zh}`);
+      console.log(`   Title (VI): ${metadata.title_vi}`);
+      console.log(`   Title (ID): ${metadata.title_id}`);
+
+      // Update artist translations (if artist exists)
+      if (spotifyTrack.artists[0]) {
+        await updateArtistTranslations(spotifyTrack.artists[0].id, {
+          name_zh: metadata.artist_zh,
+          name_vi: metadata.artist_vi,
+          name_id: metadata.artist_id,
+        });
+        console.log(`   Artist (ZH): ${metadata.artist_zh}`);
+        console.log(`   Artist (VI): ${metadata.artist_vi}`);
+        console.log(`   Artist (ID): ${metadata.artist_id}`);
+      }
+    } catch (error: any) {
+      console.log(`   ⚠️  Metadata translation failed: ${error.message}`);
+      console.log('   Continuing without translations...');
+    }
+  }
 
   // Summary
   console.log('\n✅ Song added successfully');

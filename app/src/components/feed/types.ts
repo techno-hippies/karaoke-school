@@ -1,4 +1,6 @@
-// Shared types for VideoPost components
+/**
+ * Shared types for feed/video components
+ */
 
 export interface KaraokeLine {
   text: string
@@ -12,39 +14,57 @@ export interface KaraokeWord {
   text: string
   start: number
   end: number
-  isSung?: boolean // For highlighting
+  isSung?: boolean
 }
 
 export interface VideoPostData {
   id: string
-  tiktokVideoId?: string // TikTok video ID for querying STT transcriptions
   videoUrl?: string
   thumbnailUrl?: string
   username: string
-  userHandle?: string // Display name (e.g., "Professional Vocalist")
+  userHandle?: string
   userAvatar?: string
-  authorAddress?: string // Lens account address for follow operations
-  grade?: string // Performance grade (A, B+, C, etc)
-  description?: string // Post description/caption
+  authorAddress?: string
+  grade?: string
+  description?: string
   musicTitle?: string
+  // 12 language translations
+  musicTitle_zh?: string
+  musicTitle_vi?: string
+  musicTitle_id?: string
+  musicTitle_ja?: string
+  musicTitle_ko?: string
+  musicTitle_es?: string
+  musicTitle_pt?: string
+  musicTitle_ar?: string
+  musicTitle_tr?: string
+  musicTitle_ru?: string
+  musicTitle_hi?: string
+  musicTitle_th?: string
   musicAuthor?: string
+  // 12 language translations
+  musicAuthor_zh?: string
+  musicAuthor_vi?: string
+  musicAuthor_id?: string
+  musicAuthor_ja?: string
+  musicAuthor_ko?: string
+  musicAuthor_es?: string
+  musicAuthor_pt?: string
+  musicAuthor_ar?: string
+  musicAuthor_tr?: string
+  musicAuthor_ru?: string
+  musicAuthor_hi?: string
+  musicAuthor_th?: string
   musicImageUrl?: string
-  // Primary: slug-based routing (e.g., /eminem/lose-yourself)
   artistSlug?: string
   songSlug?: string
-  // Identifiers
   spotifyTrackId?: string
-  createdAt?: string // Post date/time
-  // Engagement metrics
+  createdAt?: string
   likes: number
   shares: number
-  // Karaoke data
   karaokeLines?: KaraokeLine[]
-  // User interaction state
   isLiked?: boolean
-  isFollowing?: boolean
-  isFollowLoading?: boolean
-  canInteract?: boolean // Can like/comment/follow
+  canInteract?: boolean
 }
 
 export interface VideoPlayerProps {
@@ -53,64 +73,35 @@ export interface VideoPlayerProps {
   isPlaying: boolean
   isMuted: boolean
   onTogglePlay: () => void
-  onPlayFailed?: () => void // Called when autoplay fails
-  onTimeUpdate?: (currentTime: number) => void // Called on video timeupdate for karaoke sync
-  forceShowThumbnail?: boolean // Keep thumbnail visible even when playing (for locked videos)
-  forceAutoplay?: boolean // Hide thumbnail on first render for video navigation (prevents flash)
-  captionTracks?: CaptionTrack[] // WebVTT caption tracks
-  className?: string
-  priorityLoad?: boolean // If true, load immediately without debounce (for first/priority videos)
-}
-
-export interface CaptionTrack {
-  src: string // WebVTT file URL or data URL
-  srclang: string // Language code (e.g., 'en', 'zh', 'vi')
-  label: string // Display name (e.g., 'English', '中文', 'Tiếng Việt')
-  default?: boolean // Whether this track is default
+  onPlayFailed?: () => void
+  onTimeUpdate?: (currentTime: number) => void
+  class?: string
+  priorityLoad?: boolean
 }
 
 export interface KaraokeOverlayProps {
   lines?: KaraokeLine[]
   currentTime: number
-  className?: string
-  /** Show next line below current line (for karaoke recording) */
+  class?: string
   showNextLine?: boolean
 }
 
-export interface AudioSourceButtonProps {
-  musicTitle?: string
-  musicAuthor?: string
-  musicImageUrl?: string
-  onClick?: () => void
-  className?: string
-}
-
 export interface VideoActionsProps {
-  // Profile
-  userAvatar: string
+  userAvatar?: string
   username: string
-  isFollowing: boolean
-  canFollow: boolean
-  isFollowLoading?: boolean
-  onFollowClick: () => void
   onProfileClick: () => void
-  // Engagement actions
   isLiked: boolean
   onLikeClick: () => void
   onShareClick: () => void
-  // Study action
   canStudy?: boolean
   onStudyClick?: () => void
-  // Audio
   musicTitle?: string
   musicAuthor?: string
   musicImageUrl?: string
   onAudioClick?: () => void
-  // Video controls
   isMuted: boolean
   onToggleMute: () => void
-  description?: string
-  className?: string
+  class?: string
 }
 
 export interface VideoInfoProps {
@@ -119,5 +110,5 @@ export interface VideoInfoProps {
   musicAuthor?: string
   onUsernameClick?: () => void
   onMusicClick?: () => void
-  className?: string
+  class?: string
 }

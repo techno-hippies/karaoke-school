@@ -133,6 +133,22 @@ contract KaraokeEvents {
     );
 
     /**
+     * @notice Emitted when clip localization data is added or updated
+     * @param clipHash Unique clip identifier
+     * @param localizations JSON object with title_XX and artist_XX keys for each language
+     *        Example: {"title_zh":"...","title_es":"...","artist_zh":"...","artist_es":"..."}
+     *        Supported languages: zh, vi, id, ja, ko, es, pt, ar, tr, ru, hi, th
+     * @param genres Spotify genres array (JSON string)
+     * @param timestamp Block timestamp
+     */
+    event ClipLocalizationUpdated(
+        bytes32 indexed clipHash,
+        string localizations,
+        string genres,
+        uint64 timestamp
+    );
+
+    /**
      * @notice Emitted when a karaoke session is started for line-by-line grading
      * @param sessionId Deterministic session identifier (e.g., keccak256(performer, clipHash, clientNonce))
      * @param clipHash Clip identifier (keccak256(spotifyTrackId, clipStartMs))
@@ -292,6 +308,19 @@ contract KaraokeEvents {
         emit ClipToggled(
             clipHash,
             enabled,
+            uint64(block.timestamp)
+        );
+    }
+
+    function emitClipLocalizationUpdated(
+        bytes32 clipHash,
+        string calldata localizations,
+        string calldata genres
+    ) external {
+        emit ClipLocalizationUpdated(
+            clipHash,
+            localizations,
+            genres,
             uint64(block.timestamp)
         );
     }

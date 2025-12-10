@@ -103,7 +103,7 @@ for (let i = 0; i < updatedLyrics.length - 1; i++) {
 // Last line ends at song duration
 if (updatedLyrics.length > 0) {
   const lastId = updatedLyrics[updatedLyrics.length - 1].id;
-  const durationMs = Math.round((song.duration_seconds || 200) * 1000);
+  const durationMs = song.duration_ms || 200000;
   await sql`UPDATE lyrics SET end_ms = ${durationMs} WHERE id = ${lastId}`;
 }
 

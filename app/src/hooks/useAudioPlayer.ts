@@ -1,18 +1,18 @@
-import { useState, useRef, useEffect } from 'react'
+import { createSignal, onCleanup, type Accessor } from 'solid-js'
 
 export interface UseAudioPlayerOptions {
   autoplay?: boolean
   startMuted?: boolean
   onEnded?: () => void
-  updateThrottleMs?: number // Throttle currentTime updates to reduce re-renders
 }
 
 export interface UseAudioPlayerReturn {
-  audioRef: React.RefObject<HTMLAudioElement | null>
-  isPlaying: boolean
-  isMuted: boolean
-  currentTime: number
-  duration: number
+  audioRef: HTMLAudioElement | undefined
+  setAudioRef: (el: HTMLAudioElement) => void
+  isPlaying: Accessor<boolean>
+  isMuted: Accessor<boolean>
+  currentTime: Accessor<number>
+  duration: Accessor<number>
   play: () => Promise<void>
   pause: () => void
   togglePlayPause: () => void
@@ -22,125 +22,90 @@ export interface UseAudioPlayerReturn {
 }
 
 /**
- * Audio player hook with playback controls and state management
+ * Audio player hook with playback controls and state management (SolidJS)
  */
-export function useAudioPlayer(
-  _audioUrl?: string, // TODO: Use for setting audio source
-  options: UseAudioPlayerOptions = {}
-): UseAudioPlayerReturn {
-  const { 
-    autoplay = false, 
-    startMuted = false, 
-    onEnded,
-    updateThrottleMs = 50 // Update currentTime at most every 50ms to reduce re-renders
-  } = options
+export function useAudioPlayer(options: UseAudioPlayerOptions = {}): UseAudioPlayerReturn {
+  const { autoplay = false, startMuted = false, onEnded } = options
 
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(startMuted)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const [isPlaying, setIsPlaying] = createSignal(false)
+  const [isMuted, setIsMuted] = createSignal(startMuted)
+  const [currentTime, setCurrentTime] = createSignal(0)
+  const [duration, setDuration] = createSignal(0)
 
-  // Throttling refs to prevent excessive re-renders
-  const lastUpdateRef = useRef(0)
-  const requestAnimationFrameRef = useRef<number | null>(null)
+  let audioRef: HTMLAudioElement | undefined
+  let rafId: number | null = null
+  let lastUpdate = 0
 
-  // Setup audio event listeners
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
+  const setAudioRef = (el: HTMLAudioElement) => {
+    audioRef = el
+    setupAudioListeners()
+  }
 
-    // Optimized time update function with throttling - defined INSIDE useEffect to avoid stale closures
-    const updateCurrentTime = (timestamp: number) => {
-      // Only update if enough time has passed since last update
-      if (timestamp - lastUpdateRef.current >= updateThrottleMs) {
-        setCurrentTime(audio.currentTime)
-        lastUpdateRef.current = timestamp
-      }
-
-      // Continue the loop - always schedule next frame since audio is playing
-      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+  const updateCurrentTime = (timestamp: number) => {
+    if (!audioRef) return
+    if (timestamp - lastUpdate >= 50) {
+      setCurrentTime(audioRef.currentTime)
+      lastUpdate = timestamp
     }
+    rafId = requestAnimationFrame(updateCurrentTime)
+  }
 
-    const handleLoadedMetadata = () => setDuration(audio.duration)
+  const setupAudioListeners = () => {
+    if (!audioRef) return
+
+    const handleLoadedMetadata = () => setDuration(audioRef!.duration)
     const handleEnded = () => {
       setIsPlaying(false)
-      // Clean up animation frame on end
-      if (requestAnimationFrameRef.current) {
-        cancelAnimationFrame(requestAnimationFrameRef.current)
-        requestAnimationFrameRef.current = null
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+        rafId = null
       }
       onEnded?.()
     }
     const handlePlay = () => {
       setIsPlaying(true)
-      // Start the throttled time update loop
-      lastUpdateRef.current = 0
-      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+      lastUpdate = 0
+      rafId = requestAnimationFrame(updateCurrentTime)
     }
     const handlePause = () => {
       setIsPlaying(false)
-      // Stop the animation frame loop
-      if (requestAnimationFrameRef.current) {
-        cancelAnimationFrame(requestAnimationFrameRef.current)
-        requestAnimationFrameRef.current = null
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+        rafId = null
       }
     }
 
-    // Clean up any existing animation frame on mount
-    if (requestAnimationFrameRef.current) {
-      cancelAnimationFrame(requestAnimationFrameRef.current)
-      requestAnimationFrameRef.current = null
-    }
+    audioRef.addEventListener('loadedmetadata', handleLoadedMetadata)
+    audioRef.addEventListener('ended', handleEnded)
+    audioRef.addEventListener('play', handlePlay)
+    audioRef.addEventListener('pause', handlePause)
 
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
-    audio.addEventListener('ended', handleEnded)
-    audio.addEventListener('play', handlePlay)
-    audio.addEventListener('pause', handlePause)
+    onCleanup(() => {
+      if (rafId) cancelAnimationFrame(rafId)
+      audioRef?.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      audioRef?.removeEventListener('ended', handleEnded)
+      audioRef?.removeEventListener('play', handlePlay)
+      audioRef?.removeEventListener('pause', handlePause)
+    })
 
-    // IMPORTANT: If audio is already playing (e.g., effect re-ran due to dependency change),
-    // restart the RAF loop
-    if (!audio.paused) {
-      lastUpdateRef.current = 0
-      requestAnimationFrameRef.current = requestAnimationFrame(updateCurrentTime)
+    // Handle autoplay
+    if (autoplay) {
+      audioRef.play().catch(() => {})
     }
-
-    return () => {
-      // Clean up animation frame on unmount
-      if (requestAnimationFrameRef.current) {
-        cancelAnimationFrame(requestAnimationFrameRef.current)
-        requestAnimationFrameRef.current = null
-      }
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      audio.removeEventListener('ended', handleEnded)
-      audio.removeEventListener('play', handlePlay)
-      audio.removeEventListener('pause', handlePause)
-    }
-  }, [onEnded, updateThrottleMs])
-
-  // Handle autoplay
-  useEffect(() => {
-    if (autoplay && audioRef.current) {
-      audioRef.current.play().catch(() => {
-        // Autoplay blocked - user interaction required
-      })
-    }
-  }, [autoplay])
+  }
 
   const play = async () => {
-    if (audioRef.current) {
-      await audioRef.current.play()
+    if (audioRef) {
+      await audioRef.play()
     }
   }
 
   const pause = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-    }
+    audioRef?.pause()
   }
 
   const togglePlayPause = () => {
-    if (isPlaying) {
+    if (isPlaying()) {
       pause()
     } else {
       play()
@@ -148,17 +113,19 @@ export function useAudioPlayer(
   }
 
   const toggleMute = () => {
-    setIsMuted(!isMuted)
+    setIsMuted(!isMuted())
   }
 
   const seek = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time
+    if (audioRef) {
+      audioRef.currentTime = time
+      setCurrentTime(time)
     }
   }
 
   return {
-    audioRef,
+    get audioRef() { return audioRef },
+    setAudioRef,
     isPlaying,
     isMuted,
     currentTime,

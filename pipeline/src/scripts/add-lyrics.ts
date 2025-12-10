@@ -13,7 +13,12 @@ import { parseArgs } from 'util';
 import path from 'path';
 import { query } from '../db/connection';
 import { getSongByISWC, createLyrics, type CreateLyricData } from '../db/queries';
-import { parseLyrics, normalizeISWC } from '../lib/lyrics-parser';
+import {
+  parseLyrics,
+  normalizeISWC,
+  validateLyricsForCensorship,
+  formatCensorshipErrors,
+} from '../lib/lyrics-parser';
 import { validateEnv } from '../config';
 
 const { values } = parseArgs({
@@ -79,6 +84,17 @@ async function main() {
 
   console.log(`   Lines: ${parsed.lines.length}`);
 
+  // Check for censored profanity (only for English lyrics - breaks karaoke grading)
+  if (language === 'en') {
+    const lineTexts = parsed.lines.map((l) => l.text);
+    const censorshipIssues = validateLyricsForCensorship(lineTexts);
+    if (censorshipIssues.length > 0) {
+      console.error('\n' + formatCensorshipErrors(censorshipIssues));
+      console.error('\nFix the lyrics file and try again.');
+      process.exit(1);
+    }
+  }
+
   // Delete existing if force
   if (values.force && parseInt(existing[0].count) > 0) {
     await query(`DELETE FROM lyrics WHERE song_id = $1 AND language = $2`, [song.id, language]);
@@ -89,7 +105,7 @@ async function main() {
   const lyricsData: CreateLyricData[] = parsed.lines.map((line) => ({
     song_id: song.id,
     line_index: line.index,
-    language: language as 'en' | 'zh',
+    language: language as 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko',
     text: line.text,
     section_marker: line.sectionMarker || undefined,
   }));

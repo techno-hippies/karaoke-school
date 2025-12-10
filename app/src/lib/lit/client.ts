@@ -19,7 +19,6 @@ export async function getLitClient() {
     if (IS_DEV) console.log('[LitWebAuthn] Creating Lit client...')
 
     litClientInstance = await createLitClient({
-  // @ts-expect-error - Lit Protocol version mismatch between dependencies
       network: LIT_WEBAUTHN_CONFIG.network,
     })
 

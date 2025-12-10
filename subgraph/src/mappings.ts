@@ -1,9 +1,10 @@
-import { BigInt, BigDecimal } from "@graphprotocol/graph-ts";
+import { BigInt, BigDecimal, json, JSONValue, JSONValueKind } from "@graphprotocol/graph-ts";
 // KaraokeEvents - Clip lifecycle + karaoke grading
 import {
   ClipRegistered,
   ClipProcessed,
   ClipToggled,
+  ClipLocalizationUpdated,
   SongEncrypted,
   KaraokePerformanceGraded,
   KaraokeSessionStarted,
@@ -40,6 +41,15 @@ import {
   KaraokeSession,
   KaraokeLineScore,
 } from "./entities";
+
+// Helper to extract a string value from a JSON object by key
+function getJsonString(obj: JSONValue, key: string): string | null {
+  if (obj.kind != JSONValueKind.OBJECT) return null;
+  let objMap = obj.toObject();
+  let value = objMap.get(key);
+  if (value == null || value.kind != JSONValueKind.STRING) return null;
+  return value.toString();
+}
 
 // Helper to load or create global stats
 function loadOrCreateGlobalStats(): GlobalStats {
@@ -89,6 +99,29 @@ function updateExerciseCardAverages(card: ExerciseCard, newScore: i32): void {
 
 export function handleClipRegistered(event: ClipRegistered): void {
   let clipId = event.params.clipHash.toHexString();
+  let existingClip = Clip.load(clipId);
+
+  if (existingClip != null) {
+    // Update existing clip (allows re-emission to update metadata)
+    existingClip.clipHash = event.params.clipHash;
+    existingClip.spotifyTrackId = event.params.spotifyTrackId;
+    existingClip.iswc = event.params.iswc;
+    existingClip.title = event.params.title;
+    existingClip.artist = event.params.artist;
+    existingClip.artistSlug = event.params.artistSlug;
+    existingClip.songSlug = event.params.songSlug;
+    existingClip.coverUri = event.params.coverUri;
+    existingClip.thumbnailUri = event.params.thumbnailUri;
+    existingClip.clipStartMs = event.params.clipStartMs.toI32();
+    existingClip.clipEndMs = event.params.clipEndMs.toI32();
+    existingClip.metadataUri = event.params.metadataUri;
+    existingClip.registeredBy = event.params.registeredBy;
+    existingClip.registeredAt = event.params.timestamp;
+    existingClip.save();
+    return;
+  }
+
+  // Create new clip
   let clip = new Clip(clipId);
   clip.clipHash = event.params.clipHash;
   clip.spotifyTrackId = event.params.spotifyTrackId;
@@ -159,6 +192,103 @@ export function handleSongEncrypted(event: SongEncrypted): void {
     clip.encryptedManifestUri = event.params.encryptedManifestUri;
 
     updateClipProcessingStatus(clip);
+    clip.save();
+  }
+}
+
+export function handleClipLocalizationUpdated(event: ClipLocalizationUpdated): void {
+  let clipId = event.params.clipHash.toHexString();
+  let clip = Clip.load(clipId);
+
+  if (clip != null) {
+    // Parse JSON localizations string
+    // Format: {"title_zh":"...","artist_zh":"...","title_es":"...",...}
+    let localizationsStr = event.params.localizations;
+    if (localizationsStr.length > 0) {
+      let parsed = json.try_fromString(localizationsStr);
+      if (parsed.isOk) {
+        let obj = parsed.value;
+
+        // Extract all title localizations
+        let title_zh = getJsonString(obj, "title_zh");
+        let title_vi = getJsonString(obj, "title_vi");
+        let title_id = getJsonString(obj, "title_id");
+        let title_ja = getJsonString(obj, "title_ja");
+        let title_ko = getJsonString(obj, "title_ko");
+        let title_es = getJsonString(obj, "title_es");
+        let title_pt = getJsonString(obj, "title_pt");
+        let title_ar = getJsonString(obj, "title_ar");
+        let title_tr = getJsonString(obj, "title_tr");
+        let title_ru = getJsonString(obj, "title_ru");
+        let title_hi = getJsonString(obj, "title_hi");
+        let title_th = getJsonString(obj, "title_th");
+
+        // Extract all artist localizations
+        let artist_zh = getJsonString(obj, "artist_zh");
+        let artist_vi = getJsonString(obj, "artist_vi");
+        let artist_id = getJsonString(obj, "artist_id");
+        let artist_ja = getJsonString(obj, "artist_ja");
+        let artist_ko = getJsonString(obj, "artist_ko");
+        let artist_es = getJsonString(obj, "artist_es");
+        let artist_pt = getJsonString(obj, "artist_pt");
+        let artist_ar = getJsonString(obj, "artist_ar");
+        let artist_tr = getJsonString(obj, "artist_tr");
+        let artist_ru = getJsonString(obj, "artist_ru");
+        let artist_hi = getJsonString(obj, "artist_hi");
+        let artist_th = getJsonString(obj, "artist_th");
+
+        // Set fields (only update if value present in JSON)
+        if (title_zh != null) clip.title_zh = title_zh;
+        if (title_vi != null) clip.title_vi = title_vi;
+        if (title_id != null) clip.title_id = title_id;
+        if (title_ja != null) clip.title_ja = title_ja;
+        if (title_ko != null) clip.title_ko = title_ko;
+        if (title_es != null) clip.title_es = title_es;
+        if (title_pt != null) clip.title_pt = title_pt;
+        if (title_ar != null) clip.title_ar = title_ar;
+        if (title_tr != null) clip.title_tr = title_tr;
+        if (title_ru != null) clip.title_ru = title_ru;
+        if (title_hi != null) clip.title_hi = title_hi;
+        if (title_th != null) clip.title_th = title_th;
+
+        if (artist_zh != null) clip.artist_zh = artist_zh;
+        if (artist_vi != null) clip.artist_vi = artist_vi;
+        if (artist_id != null) clip.artist_id = artist_id;
+        if (artist_ja != null) clip.artist_ja = artist_ja;
+        if (artist_ko != null) clip.artist_ko = artist_ko;
+        if (artist_es != null) clip.artist_es = artist_es;
+        if (artist_pt != null) clip.artist_pt = artist_pt;
+        if (artist_ar != null) clip.artist_ar = artist_ar;
+        if (artist_tr != null) clip.artist_tr = artist_tr;
+        if (artist_ru != null) clip.artist_ru = artist_ru;
+        if (artist_hi != null) clip.artist_hi = artist_hi;
+        if (artist_th != null) clip.artist_th = artist_th;
+      }
+    }
+
+    // Parse genres JSON string into array
+    let genresStr = event.params.genres;
+    if (genresStr.length > 0) {
+      // Simple JSON array parsing: ["genre1", "genre2"]
+      // Remove brackets and split by comma
+      let stripped = genresStr.slice(1, genresStr.length - 1); // Remove [ and ]
+      if (stripped.length > 0) {
+        let genres: string[] = [];
+        let parts = stripped.split(",");
+        for (let i = 0; i < parts.length; i++) {
+          // Remove quotes and trim whitespace
+          let genre = parts[i].trim();
+          if (genre.startsWith('"') && genre.endsWith('"')) {
+            genre = genre.slice(1, genre.length - 1);
+          }
+          if (genre.length > 0) {
+            genres.push(genre);
+          }
+        }
+        clip.genres = genres;
+      }
+    }
+
     clip.save();
   }
 }

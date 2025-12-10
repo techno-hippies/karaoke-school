@@ -1,17 +1,18 @@
-// Feed components
-export { AudioSourceButton } from './AudioSourceButton'
-export { Comment } from './Comment'
-export { CommentInput } from './CommentInput'
-export { CommentSheet } from './CommentSheet'
-export { FeedLoadingSkeleton } from './FeedLoadingSkeleton'
-export { FeedPage } from './FeedPage'
-export { FollowingFeed } from './FollowingFeed'
-export { ForYouFeed } from './ForYouFeed'
-export { KaraokeOverlay } from './KaraokeOverlay'
-export { ShareSheet } from './ShareSheet'
-export { VerticalVideoFeed } from './VerticalVideoFeed'
-export { VideoActions } from './VideoActions'
-export { VideoDetail } from './VideoDetail'
-export { VideoInfo } from './VideoInfo'
+/**
+ * Feed Components Public API
+ */
+
 export { VideoPlayer } from './VideoPlayer'
-export { VideoPost } from './VideoPost'
+export { VideoPost, type VideoPostProps } from './VideoPost'
+export { VideoActions } from './VideoActions'
+export { VerticalVideoFeed } from './VerticalVideoFeed'
+export { FeedLoadingSkeleton } from './FeedLoadingSkeleton'
+export { ForYouFeed, type ForYouFeedProps } from './ForYouFeed'
+export type {
+  KaraokeLine,
+  KaraokeWord,
+  VideoPostData,
+  VideoPlayerProps,
+  VideoActionsProps,
+  VideoInfoProps,
+} from './types'

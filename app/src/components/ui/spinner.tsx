@@ -1,26 +1,31 @@
-import { CircleNotch } from "@phosphor-icons/react"
+/**
+ * Spinner Component for SolidJS
+ */
 
-import { cn } from "@/lib/utils"
+import type { Component } from 'solid-js'
+import { cn } from '@/lib/utils'
 
-interface SpinnerProps extends Omit<React.ComponentProps<"svg">, "width" | "height"> {
-  size?: "sm" | "md" | "lg"
+interface SpinnerProps {
+  class?: string
+  size?: 'sm' | 'md' | 'lg'
 }
 
-const sizeClasses = {
-  sm: "size-4",
-  md: "size-6",
-  lg: "size-8",
-}
+export const Spinner: Component<SpinnerProps> = (props) => {
+  const sizeClasses = {
+    sm: 'h-4 w-4',
+    md: 'h-6 w-6',
+    lg: 'h-10 w-10',
+  }
 
-function Spinner({ className, size = "md", ...props }: SpinnerProps) {
   return (
-    <CircleNotch
-      role="status"
-      aria-label="Loading"
-      className={cn(sizeClasses[size], "animate-spin", className)}
-      {...props}
-    />
+    <div
+      class={cn(
+        'animate-spin rounded-full border-2 border-current border-t-transparent',
+        sizeClasses[props.size || 'md'],
+        props.class
+      )}
+    >
+      <span class="sr-only">Loading...</span>
+    </div>
   )
 }
-
-export { Spinner }

@@ -1,13 +1,14 @@
-import { useTranslation } from 'react-i18next'
+import { type Component, Show } from 'solid-js'
 import { useAudioPlayer } from '@/hooks/useAudioPlayer'
 import { LyricsDisplay } from '@/components/karaoke/LyricsDisplay'
-import { AudioButton } from '@/components/media/AudioButton'
+import { AudioButton } from '@/components/audio/AudioButton'
 import { AudioScrobbleBar } from '@/components/audio/AudioScrobbleBar'
-import { BackButton } from '@/components/ui/back-button'
 import { Button } from '@/components/ui/button'
-import { LockKey } from '@phosphor-icons/react'
-import type { LyricLine } from '@/types/karaoke'
+import { Icon } from '@/components/icons'
+import { BackButton } from '@/components/ui/back-button'
+import type { LyricLine } from '@/components/karaoke/types'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n'
 
 export interface MediaPageProps {
   title: string
@@ -25,129 +26,118 @@ export interface MediaPageProps {
   onBack?: () => void
   onArtistClick?: () => void
   onUnlockClick?: () => void
-  className?: string
+  class?: string
 }
 
 /**
- * Full-screen media player with synchronized lyrics
+ * Full-screen media player with synchronized lyrics (SolidJS)
  * Used for playing instrumental tracks with karaoke lyrics
  */
-export function MediaPage({
-  title,
-  artist,
-  audioUrl,
-  lyrics,
-  artworkUrl,
-  selectedLanguage = 'zh', // ISO 639-1 code, not old 'cn' code
-  showTranslations = true,
-  isAudioLoading = false,
-  isUnlockingFullAudio = false,
-  unlockProgress,
-  onBack,
-  onArtistClick,
-  onUnlockClick,
-  className,
-}: MediaPageProps) {
+export const MediaPage: Component<MediaPageProps> = (props) => {
   const { t } = useTranslation()
   const {
-    audioRef,
+    setAudioRef,
     isPlaying,
     currentTime,
     duration,
     togglePlayPause,
     seek,
-  } = useAudioPlayer(audioUrl)
+  } = useAudioPlayer()
 
   return (
-    <div className={cn('relative w-full h-screen bg-background flex items-center justify-center', className)}>
-      <div className="relative w-full h-full md:max-w-2xl flex flex-col">
-      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+    <div class={cn('relative w-full h-screen bg-background flex items-center justify-center', props.class)}>
+      <div class="relative w-full h-full md:max-w-4xl flex flex-col">
+        <audio ref={setAudioRef} src={props.audioUrl} preload="metadata" />
 
-      {/* Header with optional artwork */}
-      <div className="flex-none relative">
-        {/* Artwork Hero Section - only show if artworkUrl is provided */}
-        {artworkUrl && (
-          <div className="relative w-full bg-neutral-900" style={{ height: 'min(200px, 30vh)' }}>
-            <img
-              src={artworkUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-            />
-            {/* Gradient overlay to ensure text is readable */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)'
-              }}
-            />
-            {/* Back button on top of artwork */}
-            <div className="absolute top-4 left-4 z-10">
-              <BackButton onClick={onBack} />
+        {/* Header with optional artwork */}
+        <div class="flex-none relative">
+          {/* Artwork Hero Section */}
+          <Show when={props.artworkUrl}>
+            <div class="relative w-full bg-neutral-900" style={{ height: 'min(200px, 30vh)' }}>
+              <img
+                src={props.artworkUrl}
+                alt={props.title}
+                class="w-full h-full object-cover"
+              />
+              {/* Gradient overlay */}
+              <div
+                class="absolute inset-0"
+                style={{
+                  background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)'
+                }}
+              />
+              {/* Back button on top of artwork */}
+              <div class="absolute top-4 left-4 z-10">
+                <BackButton
+                  onClick={() => props.onBack?.()}
+                  class="bg-black/30 hover:bg-black/40"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          </Show>
 
-        {/* Title and Artist Bar */}
-        <div className={cn(
-          'flex items-center justify-between px-4 gap-2 border-b border-border',
-          artworkUrl ? 'h-16 bg-background/95 backdrop-blur' : 'h-16'
-        )}>
-          {!artworkUrl && <BackButton onClick={onBack} />}
-          <div className="flex-1 min-w-0">
-            {/* Title and artist removed per user request */}
-          </div>
-          {/* Unlocking indicator for subscribers */}
-          {isUnlockingFullAudio && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              <span>{unlockProgress ? `${unlockProgress}%` : t('study.unlocking')}</span>
+          {/* Title and Artist Bar */}
+          <div class={cn(
+            'flex items-center justify-between px-4 gap-2 border-b border-border',
+            props.artworkUrl ? 'h-16 bg-background/95 backdrop-blur' : 'h-16'
+          )}>
+            <Show when={!props.artworkUrl}>
+              <BackButton onClick={() => props.onBack?.()} />
+            </Show>
+            <div class="flex-1 min-w-0">
+              {/* Title and artist removed per design */}
             </div>
-          )}
-          {/* Unlock button for non-subscribers */}
-          {onUnlockClick && !isUnlockingFullAudio && (
-            <Button
-              onClick={onUnlockClick}
-              variant="destructive"
-              size="sm"
-            >
-              <LockKey className="w-5 h-5" weight="fill" />
-              {t('study.unlock')}
-            </Button>
-          )}
+            {/* Unlocking indicator for subscribers */}
+            <Show when={props.isUnlockingFullAudio}>
+              <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                <span>{props.unlockProgress ? `${props.unlockProgress}%` : t('song.unlocking')}</span>
+              </div>
+            </Show>
+            {/* Unlock button for non-subscribers */}
+            <Show when={props.onUnlockClick && !props.isUnlockingFullAudio}>
+              <Button
+                onClick={() => props.onUnlockClick?.()}
+                size="sm"
+              >
+                <Icon name="lock-simple" class="text-base" />
+                {t('song.unlock')}
+              </Button>
+            </Show>
+          </div>
         </div>
-      </div>
 
-      {/* Lyrics Display - flex-1 makes it fill available space */}
-      <div className="flex-1 relative overflow-hidden">
-        <LyricsDisplay
-          lyrics={lyrics}
-          currentTime={currentTime}
-          selectedLanguage={selectedLanguage}
-          showTranslations={showTranslations}
-          className="absolute inset-0"
-        />
-      </div>
+        {/* Lyrics Display - flex-1 fills available space */}
+        <div class="flex-1 relative overflow-hidden">
+          <LyricsDisplay
+            lyrics={props.lyrics}
+            currentTime={currentTime}
+            selectedLanguage={props.selectedLanguage}
+            showTranslations={props.showTranslations}
+            class="absolute inset-0"
+          />
+        </div>
 
-      {/* Bottom Controls */}
-      <div className="flex-none px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center gap-5">
-        {/* Play/Pause Button */}
-        <AudioButton
-          isPlaying={isPlaying}
-          onClick={togglePlayPause}
-          size="lg"
-          aria-label={isPlaying ? 'Pause' : 'Play'}
-        />
+        {/* Bottom Controls */}
+        <div class="flex-none px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center gap-5" style={{ 'padding-bottom': 'calc(2rem + env(safe-area-inset-bottom))' }}>
+          {/* Progress Bar */}
+          <AudioScrobbleBar
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={seek}
+            showTimeLabels
+            isAudioLoading={props.isAudioLoading}
+            class="w-full"
+          />
 
-        {/* Progress Bar */}
-        <AudioScrobbleBar
-          currentTime={currentTime}
-          duration={duration}
-          onSeek={seek}
-          showTimeLabels
-          isAudioLoading={isAudioLoading}
-          className="w-full"
-        />
-      </div>
+          {/* Play/Pause Button */}
+          <AudioButton
+            isPlaying={isPlaying()}
+            onClick={togglePlayPause}
+            size="lg"
+            aria-label={isPlaying() ? 'Pause' : 'Play'}
+          />
+        </div>
       </div>
     </div>
   )

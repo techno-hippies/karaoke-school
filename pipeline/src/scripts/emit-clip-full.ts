@@ -5,12 +5,12 @@
  * Emits all clip-related events to KaraokeEvents contract:
  * - ClipRegistered: Basic clip metadata
  * - ClipProcessed: Audio/alignment URIs
- * - SongEncrypted: Encryption metadata for subscribers
+ * - SongEncrypted: Encryption metadata for subscribers (REQUIRED)
  *
- * Prerequisites:
+ * Prerequisites (ALL REQUIRED - no skip options):
  * - Song with clip_end_ms set (run select-clip.ts)
  * - Free clip created (run create-clip.ts)
- * - Full audio encrypted (run encrypt-audio.ts)
+ * - Full audio encrypted (run encrypt-audio.ts) ← MANDATORY
  * - Cover images uploaded to Grove (done in add-song.ts, or use --upload-images)
  *
  * Usage:
@@ -25,10 +25,11 @@ import { ethers } from 'ethers';
 import { getSongByISWC, getArtistById, getLyricsBySong } from '../db/queries';
 import { query } from '../db/connection';
 import { uploadToGrove, downloadAndUploadImageToGrove } from '../services/grove';
+import { uploadJsonToLayers, printUploadResults } from '../services/storage';
 import { getEnvironment, type Environment } from '../config/networks';
 import { ClipMetadataSchema, formatZodErrors, type ClipMetadata } from '../lib/schemas';
 import { callOpenRouter } from '../services/openrouter';
-import type { Song, Artist, Lyric } from '../types';
+import type { Song, Artist, Lyric, StorageManifest } from '../types';
 
 // ============================================================================
 // AD LIB FILTERING
@@ -50,14 +51,14 @@ function stripTrailingAdLibs(text: string): string {
 }
 
 // Contract config - KaraokeEvents handles both clip lifecycle and grading
-// V3: Removed unlock params from SongEncrypted event (access control via metadata)
-const KARAOKE_EVENTS_ADDRESS = '0x8f97C17e599bb823e42d936309706628A93B33B8';
+// V6: JSON localizations for 12 languages (zh, vi, id, ja, ko, es, pt, ar, tr, ru, hi, th)
+const KARAOKE_EVENTS_ADDRESS = '0xd942eB51C86c46Db82678627d19Aa44630F901aE';
 const LENS_RPC = 'https://rpc.testnet.lens.xyz';
 
-// SongAccess contract addresses (per-song USDC purchase - single contract for all songs)
+// SongAccess contract addresses (per-song ETH purchase - single contract for all songs)
 const SONG_ACCESS_CONTRACT = {
   testnet: {
-    address: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545',
+    address: '0x7856C6121b3Fb861C31cb593a65236858d789bDB',
     chainId: 84532, // Base Sepolia
   },
   mainnet: {
@@ -99,7 +100,6 @@ const { values } = parseArgs({
     iswc: { type: 'string' },
     env: { type: 'string', default: 'testnet' },
     'dry-run': { type: 'boolean', default: false },
-    'skip-encryption': { type: 'boolean', default: false },
     'upload-images': { type: 'boolean', default: false },
   },
   strict: true,
@@ -373,7 +373,33 @@ async function buildClipMetadata(
 
     // Song info
     title: song.title,
+    // 12 language translations
+    title_zh: song.title_zh || undefined,
+    title_vi: song.title_vi || undefined,
+    title_id: song.title_id || undefined,
+    title_ja: song.title_ja || undefined,
+    title_ko: song.title_ko || undefined,
+    title_es: song.title_es || undefined,
+    title_pt: song.title_pt || undefined,
+    title_ar: song.title_ar || undefined,
+    title_tr: song.title_tr || undefined,
+    title_ru: song.title_ru || undefined,
+    title_hi: song.title_hi || undefined,
+    title_th: song.title_th || undefined,
     artist: artist.name,
+    // 12 language translations/transliterations
+    artist_zh: artist.name_zh || undefined,
+    artist_vi: artist.name_vi || undefined,
+    artist_id: artist.name_id || undefined,
+    artist_ja: artist.name_ja || undefined,
+    artist_ko: artist.name_ko || undefined,
+    artist_es: artist.name_es || undefined,
+    artist_pt: artist.name_pt || undefined,
+    artist_ar: artist.name_ar || undefined,
+    artist_tr: artist.name_tr || undefined,
+    artist_ru: artist.name_ru || undefined,
+    artist_hi: artist.name_hi || undefined,
+    artist_th: artist.name_th || undefined,
     artistSlug: artist.slug!,
     artistImageUri: artist.image_grove_url!, // Artist image from Spotify (REQUIRED - run fix-artist-images.ts if missing)
     genres: artist.genres?.length ? artist.genres : undefined, // Spotify genres for filtering/search
@@ -451,7 +477,6 @@ async function main() {
   const iswc = values.iswc;
   const env = (values.env as Environment) || getEnvironment();
   const dryRun = values['dry-run'];
-  const skipEncryption = values['skip-encryption'];
   const uploadImages = values['upload-images'];
 
   if (!iswc) {
@@ -463,7 +488,6 @@ async function main() {
   console.log(`   ISWC: ${iswc}`);
   console.log(`   Environment: ${env}`);
   if (dryRun) console.log('   Mode: DRY RUN');
-  if (skipEncryption) console.log('   Skipping encryption event');
   if (uploadImages) console.log('   Will upload missing images');
 
   // Get song
@@ -532,7 +556,7 @@ async function main() {
     console.log(`   Thumbnail: ${thumbnailGroveUrl}`);
   }
 
-  // Get encryption info for this environment
+  // Get encryption info for this environment (REQUIRED)
   const encryptedFullUrl = env === 'testnet'
     ? song.encrypted_full_url_testnet
     : song.encrypted_full_url_mainnet;
@@ -543,13 +567,21 @@ async function main() {
   // SongAccess ERC-721 is the access control model
   const songAccessAddress = SONG_ACCESS_CONTRACT[env].address;
   const hasSongAccess = songAccessAddress !== '0x0000000000000000000000000000000000000000';
-  const hasEncryption = !!encryptionManifestUrl && hasSongAccess;
 
-  if (!hasEncryption && !skipEncryption) {
-    console.warn(`\n⚠️  No encryption for ${env} environment`);
-    console.log('   Run encrypt-audio.ts first, or use --skip-encryption');
+  // Encryption is REQUIRED - no skip option
+  if (!encryptionManifestUrl) {
+    console.error(`\n❌ No encryption_manifest_url for ${env} environment`);
+    console.error('   Run: bun src/scripts/encrypt-audio.ts --iswc=' + iswc);
     process.exit(1);
   }
+
+  if (!hasSongAccess) {
+    console.error(`\n❌ No SongAccess contract configured for ${env}`);
+    process.exit(1);
+  }
+
+  console.log(`   Encryption: ✅ (manifest exists)`);
+  console.log(`   SongAccess: ${songAccessAddress}`);
 
   // Get ALL lyrics for metadata (all languages)
   const allLyrics = await getLyricsBySong(song.id);
@@ -579,15 +611,22 @@ async function main() {
     process.exit(0);
   }
 
-  // Upload metadata to Grove
-  console.log('\n☁️  Uploading metadata to Grove...');
-  const metadataBuffer = Buffer.from(JSON.stringify(metadata, null, 2));
-  const metadataUpload = await uploadToGrove(
-    metadataBuffer,
-    `${iswc}-clip-metadata.json`,
-    'application/json'
+  // Upload metadata to Grove + Arweave (multi-layer)
+  // Metadata is small (<100KB) so Arweave upload is free via Turbo
+  console.log('\n☁️  Uploading metadata to Grove + Arweave...');
+  const metadataUploadResult = await uploadJsonToLayers(
+    metadata,
+    `${iswc}-clip-metadata.json`
   );
-  console.log(`   Metadata: ${metadataUpload.url}`);
+  printUploadResults(metadataUploadResult);
+
+  // Primary URL is Grove (backwards compatible)
+  const metadataUrl = metadataUploadResult.primaryUrl;
+  const metadataArweaveUrl = metadataUploadResult.manifest.arweave?.url;
+  console.log(`   Primary (Grove): ${metadataUrl}`);
+  if (metadataArweaveUrl) {
+    console.log(`   Arweave: ${metadataArweaveUrl}`);
+  }
 
   // Connect to Lens testnet
   console.log('\n🔗 Connecting to Lens testnet...');
@@ -617,7 +656,7 @@ async function main() {
     thumbnailGroveUrl,
     0, // clipStartMs = 0
     song.clip_end_ms,
-    metadataUpload.url
+    metadataUrl
   );
   console.log(`   TX: ${tx1.hash}`);
   const receipt1 = await tx1.wait();
@@ -630,45 +669,48 @@ async function main() {
     song.clip_instrumental_url!,
     song.clip_lyrics_url || '', // alignment URI
     1, // translation count
-    metadataUpload.url
+    metadataUrl
   );
   console.log(`   TX: ${tx2.hash}`);
   const receipt2 = await tx2.wait();
   console.log(`   Confirmed in block ${receipt2.blockNumber}`);
 
-  // 3. Emit SongEncrypted (if encryption available)
+  // 3. Emit SongEncrypted (REQUIRED)
   // V3: Access control info is stored in the encryption manifest, not on-chain
-  if (hasEncryption && !skipEncryption) {
-    console.log('\n📤 Emitting SongEncrypted...');
-    const encryptionManifestUrlForTx = env === 'testnet'
-      ? song.encryption_manifest_url_testnet
-      : song.encryption_manifest_url_mainnet;
-
-    const tx3 = await clipContract.emitSongEncrypted(
-      clipHash,
-      song.spotify_track_id,
-      encryptedFullUrl!,
-      encryptionManifestUrlForTx || '',
-      metadataUpload.url
-    );
-    console.log(`   TX: ${tx3.hash}`);
-    const receipt3 = await tx3.wait();
-    console.log(`   Confirmed in block ${receipt3.blockNumber}`);
-  }
-
-  // Update song stage
-  await query(
-    `UPDATE songs SET stage = 'ready', updated_at = NOW() WHERE iswc = $1`,
-    [iswc]
+  console.log('\n📤 Emitting SongEncrypted...');
+  const tx3 = await clipContract.emitSongEncrypted(
+    clipHash,
+    song.spotify_track_id,
+    encryptedFullUrl!,
+    encryptionManifestUrl,
+    metadataUrl
   );
+  console.log(`   TX: ${tx3.hash}`);
+  const receipt3 = await tx3.wait();
+  console.log(`   Confirmed in block ${receipt3.blockNumber}`);
+
+  // Update song stage and storage manifest
+  await query(
+    `UPDATE songs SET stage = 'ready', storage_manifest = $1, updated_at = NOW() WHERE iswc = $2`,
+    [JSON.stringify(metadataUploadResult.manifest), iswc]
+  );
+
+  // Store Arweave URI on clip if available
+  if (metadataArweaveUrl) {
+    await query(
+      `UPDATE clips SET metadata_arweave_uri = $1 WHERE song_id = (SELECT id FROM songs WHERE iswc = $2) AND start_ms = 0`,
+      [metadataArweaveUrl, iswc]
+    );
+  }
 
   console.log('\n✅ Clip pipeline complete!');
   console.log(`   ClipRegistered: ${tx1.hash}`);
   console.log(`   ClipProcessed: ${tx2.hash}`);
-  if (hasEncryption && !skipEncryption) {
-    console.log(`   SongEncrypted: ✅`);
+  console.log(`   SongEncrypted: ${tx3.hash}`);
+  console.log(`   Metadata (Grove): ${metadataUrl}`);
+  if (metadataArweaveUrl) {
+    console.log(`   Metadata (Arweave): ${metadataArweaveUrl}`);
   }
-  console.log(`   Metadata: ${metadataUpload.url}`);
   console.log(`   Explorer: https://block-explorer.testnet.lens.dev/tx/${tx1.hash}`);
 }
 

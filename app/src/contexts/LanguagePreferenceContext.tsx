@@ -1,54 +1,43 @@
-import React, { createContext, useState, useEffect } from 'react'
+import { createContext, useContext, createSignal, onMount, type ParentComponent } from 'solid-js'
 
-export type SupportedLanguage = 'vi' | 'id' | 'zh'
+export type SupportedLanguage = 'vi' | 'id' | 'zh' | 'ja' | 'ko'
 
 export interface LanguagePreferenceContextType {
-  /** Primary language preference (Vietnamese, Indonesian, or Chinese) */
-  preferredLanguage: SupportedLanguage
-  /** Set the user's language preference */
+  preferredLanguage: () => SupportedLanguage
   setPreferredLanguage: (language: SupportedLanguage) => void
-  /** Language fallback order: preferred language followed by remaining supported languages */
-  languageFallbackOrder: SupportedLanguage[]
+  languageFallbackOrder: () => SupportedLanguage[]
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const LanguagePreferenceContext = createContext<LanguagePreferenceContextType | undefined>(undefined)
+const LanguagePreferenceContext = createContext<LanguagePreferenceContextType>()
 
-/**
- * Provider for language preferences
- *
- * Stores user's language preference in localStorage for persistence
- * Default: 'zh' (Mandarin/Chinese)
-   * Fallback order: user preference → remaining supported languages
- */
 const DEFAULT_LANGUAGE: SupportedLanguage = 'zh'
-const SUPPORTED_LANGUAGES = ['vi', 'id', 'zh'] as const
+const SUPPORTED_LANGUAGES: readonly SupportedLanguage[] = ['vi', 'id', 'zh', 'ja', 'ko']
 
-export function LanguagePreferenceProvider({ children }: { children: React.ReactNode }) {
-  const [preferredLanguage, setPreferredLanguageState] = useState<SupportedLanguage>('zh')
-  const [isHydrated, setIsHydrated] = useState(false)
+export const LanguagePreferenceProvider: ParentComponent = (props) => {
+  const [preferredLanguage, setPreferredLanguageState] = createSignal<SupportedLanguage>(DEFAULT_LANGUAGE)
+  const [isHydrated, setIsHydrated] = createSignal(false)
 
-  // Initialize from localStorage on mount
-  useEffect(() => {
+  onMount(() => {
     const stored = localStorage.getItem('languagePreference')
     if (stored && SUPPORTED_LANGUAGES.includes(stored as SupportedLanguage)) {
       setPreferredLanguageState(stored as SupportedLanguage)
     }
     setIsHydrated(true)
-  }, [])
+  })
 
   const setPreferredLanguage = (language: SupportedLanguage) => {
     setPreferredLanguageState(language)
     localStorage.setItem('languagePreference', language)
   }
 
-  // Build fallback order: preferred language first, then Mandarin as fallback
-  const languageFallbackOrder: SupportedLanguage[] = Array.from(
-    new Set<SupportedLanguage>([
-      preferredLanguage,
-      ...SUPPORTED_LANGUAGES,
-    ])
-  )
+  const languageFallbackOrder = () => {
+    return Array.from(
+      new Set<SupportedLanguage>([
+        preferredLanguage(),
+        ...SUPPORTED_LANGUAGES,
+      ])
+    )
+  }
 
   return (
     <LanguagePreferenceContext.Provider
@@ -58,7 +47,15 @@ export function LanguagePreferenceProvider({ children }: { children: React.React
         languageFallbackOrder,
       }}
     >
-      {isHydrated ? children : null}
+      {isHydrated() ? props.children : null}
     </LanguagePreferenceContext.Provider>
   )
+}
+
+export function useLanguagePreference() {
+  const context = useContext(LanguagePreferenceContext)
+  if (!context) {
+    throw new Error('useLanguagePreference must be used within LanguagePreferenceProvider')
+  }
+  return context
 }

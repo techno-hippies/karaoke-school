@@ -1,18 +1,25 @@
 /**
  * EOA Authentication
  * Register and authenticate with external wallet (Metamask, Rabby, Farcaster)
+ *
+ * Uses a relayer API to sponsor PKP minting (user doesn't pay gas).
  */
 
 import type { WalletClient } from 'viem'
+import { WalletClientAuthenticator } from '@lit-protocol/auth'
 import { getLitClient } from './client'
 import { saveSession } from './storage'
 import type { PKPInfo, AuthData } from './types'
 
+// Relayer API for sponsored PKP minting
+const LIT_SPONSORSHIP_API_URL =
+  import.meta.env.VITE_LIT_SPONSORSHIP_API_URL || 'https://lit-sponsorship-api.vercel.app'
+
 const IS_DEV = import.meta.env.DEV
 
 /**
- * Register new PKP with EOA wallet
- * Mints a new PKP owned by the connected wallet
+ * Register new PKP with EOA wallet via relayer
+ * Relayer pays gas, user's EOA is added as auth method
  *
  * @param walletClient - viem WalletClient from connected wallet
  * @returns PKP info and auth data for session
@@ -20,60 +27,56 @@ const IS_DEV = import.meta.env.DEV
 export async function registerWithEoa(
   walletClient: WalletClient
 ): Promise<{ pkpInfo: PKPInfo; authData: AuthData }> {
-  if (IS_DEV) console.log('[LitEoa] Starting EOA registration...')
+  if (IS_DEV) console.log('[LitEoa] Starting EOA registration via relayer...')
 
-  const litClient = await getLitClient()
   const address = walletClient.account?.address
 
   if (!address) {
     throw new Error('No account address in wallet client')
   }
 
-  if (IS_DEV) console.log('[LitEoa] Minting PKP for EOA:', address)
+  if (IS_DEV) console.log('[LitEoa] Requesting PKP mint for EOA:', address)
+  if (IS_DEV) console.log('[LitEoa] Relayer URL:', LIT_SPONSORSHIP_API_URL)
 
-  // Mint PKP with EOA
-  // The wallet will prompt user to sign a message to prove ownership
-  // Note: Lit SDK expects the full wallet client, not just walletClient.account
-  const mintResult = await litClient.mintWithEoa({
-    account: walletClient,
+  // Call relayer API to mint PKP (relayer pays gas)
+  const response = await fetch(`${LIT_SPONSORSHIP_API_URL}/api/mint-user-pkp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userAddress: address }),
   })
 
-  // The GenericTxRes type wraps the actual PKP data
-  // Extract the PKP info from the result (may be nested in different ways depending on SDK version)
-  const pkpData = (mintResult as any).pkp ?? (mintResult as any).result ?? mintResult
+  if (IS_DEV) console.log('[LitEoa] Relayer response status:', response.status)
 
-  if (IS_DEV) {
-    console.log('[LitEoa] PKP minted:', {
-      rawResult: mintResult,
-      pkpData,
-    })
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    console.error('[LitEoa] Relayer API error:', errorData)
+    throw new Error(errorData.error || `Failed to mint PKP: ${response.status}`)
   }
 
-  // Extract fields - handle both direct and nested structures
-  const pubkey = pkpData.pubkey ?? pkpData.publicKey
-  const ethAddr = pkpData.ethAddress
-  const tokenId = pkpData.tokenId
-
-  if (!pubkey || !ethAddr || tokenId === undefined) {
-    console.error('[LitEoa] Invalid mint result structure:', mintResult)
-    throw new Error('Failed to extract PKP info from mint result')
-  }
+  const data = await response.json()
+  if (IS_DEV) console.log('[LitEoa] PKP minted via relayer:', {
+    existing: data.existing,
+    pkpEthAddress: data.pkpEthAddress,
+  })
 
   const pkpInfo: PKPInfo = {
-    publicKey: pubkey,
-    ethAddress: ethAddr as `0x${string}`,
-    tokenId: tokenId.toString(),
+    publicKey: data.pkpPublicKey,
+    ethAddress: data.pkpEthAddress as `0x${string}`,
+    tokenId: data.pkpTokenId,
   }
 
-  // For EOA auth, authData uses the wallet address as the auth method ID
-  // authMethodType 1 = EthWallet
-  const authData: AuthData = {
-    authMethodType: 1,
-    authMethodId: address.toLowerCase(),
-    accessToken: '', // EOA doesn't use access token - uses wallet signatures
-  }
-
+  // Use WalletClientAuthenticator to generate proper authData with SIWE signature
+  // This prompts the user to sign a message proving wallet ownership
+  if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
+  const rawAuthData = await WalletClientAuthenticator.authenticate(walletClient)
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', rawAuthData.authMethodType)
   if (IS_DEV) console.log('[LitEoa] ✓ PKP registration complete')
+
+  // Store EOA address in authData for later use (payment wallet selection)
+  const authData: AuthData = {
+    ...rawAuthData as AuthData,
+    eoaAddress: address,
+  }
 
   saveSession(pkpInfo, authData)
 
@@ -110,18 +113,17 @@ export async function loginWithEoa(
     pagination: { limit: 5, offset: 0 },
   })
 
+  if (IS_DEV) console.log('[LitEoa] PKP query result:', pkpsResult)
+
   if (!pkpsResult?.pkps?.length) {
     throw new Error('No PKP found for this wallet. Please create an account first.')
   }
 
   const pkp = pkpsResult.pkps[0]
-
-  if (IS_DEV) {
-    console.log('[LitEoa] PKP found:', {
-      ethAddress: pkp.ethAddress,
-      publicKey: pkp.pubkey?.slice(0, 20) + '...',
-    })
-  }
+  if (IS_DEV) console.log('[LitEoa] PKP found:', {
+    ethAddress: pkp.ethAddress,
+    publicKey: pkp.pubkey?.slice(0, 20) + '...',
+  })
 
   const pkpInfo: PKPInfo = {
     publicKey: pkp.pubkey,
@@ -129,13 +131,18 @@ export async function loginWithEoa(
     tokenId: pkp.tokenId.toString(),
   }
 
-  const authData: AuthData = {
-    authMethodType: 1,
-    authMethodId: address.toLowerCase(),
-    accessToken: '',
-  }
-
+  // Use WalletClientAuthenticator to generate proper authData with SIWE signature
+  // This prompts the user to sign a message proving wallet ownership
+  if (IS_DEV) console.log('[LitEoa] Authenticating wallet (SIWE signature)...')
+  const rawAuthData = await WalletClientAuthenticator.authenticate(walletClient)
+  if (IS_DEV) console.log('[LitEoa] Wallet authenticated, authMethodType:', rawAuthData.authMethodType)
   if (IS_DEV) console.log('[LitEoa] ✓ PKP login complete')
+
+  // Store EOA address in authData for later use (payment wallet selection)
+  const authData: AuthData = {
+    ...rawAuthData as AuthData,
+    eoaAddress: address,
+  }
 
   saveSession(pkpInfo, authData)
 
@@ -143,13 +150,13 @@ export async function loginWithEoa(
 }
 
 /**
- * Check if EOA has existing PKP
- * Useful for determining whether to show "Create Account" or "Sign In"
+ * Get existing PKP for EOA (if any)
+ * Returns the PKP info without requiring a signature
  *
  * @param address - EOA address to check
- * @returns true if PKP exists for this address
+ * @returns PKP info if exists, null otherwise
  */
-export async function hasExistingPkpForEoa(address: string): Promise<boolean> {
+export async function getExistingPkpForEoa(address: string): Promise<{ ethAddress: string; publicKey: string } | null> {
   if (IS_DEV) console.log('[LitEoa] Checking for existing PKP:', address)
 
   const litClient = await getLitClient()
@@ -164,7 +171,13 @@ export async function hasExistingPkpForEoa(address: string): Promise<boolean> {
 
   const hasExisting = (pkpsResult?.pkps?.length ?? 0) > 0
 
-  if (IS_DEV) console.log('[LitEoa] Has existing PKP:', hasExisting)
+  if (IS_DEV) console.log('[LitEoa] Has existing PKP:', hasExisting, pkpsResult)
 
-  return hasExisting
+  if (hasExisting && pkpsResult.pkps[0]) {
+    return {
+      ethAddress: pkpsResult.pkps[0].ethAddress,
+      publicKey: pkpsResult.pkps[0].pubkey,
+    }
+  }
+  return null
 }

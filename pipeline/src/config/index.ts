@@ -24,8 +24,7 @@ export const RUNPOD_DEMUCS_ENDPOINT_ID = process.env.RUNPOD_DEMUCS_ENDPOINT_ID |
 // FAL
 export const FAL_API_KEY = process.env.FAL_API_KEY || '';
 
-// Grove
-export const GROVE_API_KEY = process.env.GROVE_API_KEY || '';
+// Grove (no API key required - uses chain_id auth)
 export const GROVE_API_URL = 'https://api.grove.storage';
 
 // Blockchain
@@ -34,9 +33,9 @@ export const LENS_RPC_URL = 'https://rpc.testnet.lens.xyz';
 export const LENS_CHAIN_ID = 37111;
 
 // Contracts (Lens Testnet)
-// KaraokeEvents V3: Removed unlock params from SongEncrypted
+// KaraokeEvents V6: JSON localizations for 12 languages
 export const CONTRACTS = {
-  KaraokeEvents: '0x8f97C17e599bb823e42d936309706628A93B33B8',
+  KaraokeEvents: '0xd942eB51C86c46Db82678627d19Aa44630F901aE',
   ExerciseEvents: '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832',
 } as const;
 

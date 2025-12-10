@@ -208,7 +208,7 @@ export function formatTokenPriceWithLocal(
 
 /**
  * Format just the local currency equivalent
- * Example: "≈¥0.73"
+ * Example: "≈ ¥0.73"
  */
 export function formatLocalEquivalent(amountUsd: number, localCurrency: SupportedCurrency): string {
   if (localCurrency === 'USD') {
@@ -216,7 +216,7 @@ export function formatLocalEquivalent(amountUsd: number, localCurrency: Supporte
   }
 
   const localAmount = convertUsdTo(amountUsd, localCurrency)
-  return `≈${formatFiat(localAmount, localCurrency)}`
+  return `≈ ${formatFiat(localAmount, localCurrency)}`
 }
 
 /**

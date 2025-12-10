@@ -1,82 +1,95 @@
-import { Button } from '@/components/ui/button'
-import { AvatarWithSkeleton } from '@/components/ui/avatar-with-skeleton'
-import { cn } from '@/lib/utils'
+/**
+ * ChatSurveyMessage Component
+ *
+ * Onboarding-style survey question with clickable options
+ * Used for soft onboarding flow (favorite musicians, anime, age range, etc.)
+ */
 
-export interface SurveyOption {
+import { Component, For, splitProps } from 'solid-js'
+import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+
+/**
+ * Survey option with resolved display label
+ * (id: internal key, label: translated display text)
+ */
+export interface SurveyOptionWithLabel {
   id: string
   label: string
-  /** Optional i18n key for saving the response */
   labelKey?: string
 }
 
 export interface ChatSurveyMessageProps {
   /** Question text */
   question: string
-  /** Available options */
-  options: SurveyOption[]
+  /** Available options with labels */
+  options: SurveyOptionWithLabel[]
   /** Called when an option is selected */
-  onSelect?: (option: SurveyOption) => void
+  onSelect?: (option: SurveyOptionWithLabel) => void
   /** Currently selected option (if any) */
   selectedId?: string
   /** Disable selection (after answered) */
   disabled?: boolean
   /** Avatar URL */
   avatarUrl?: string
-  className?: string
+  class?: string
 }
 
 /**
  * ChatSurveyMessage - Onboarding-style survey question with clickable options
- *
- * Used for soft onboarding flow:
- * - Favorite musicians
- * - Favorite anime
- * - Age range
- * etc.
  */
-export function ChatSurveyMessage({
-  question,
-  options,
-  onSelect,
-  selectedId,
-  disabled = false,
-  avatarUrl,
-  className,
-}: ChatSurveyMessageProps) {
+export const ChatSurveyMessage: Component<ChatSurveyMessageProps> = (props) => {
+  const [local, others] = splitProps(props, [
+    'question',
+    'options',
+    'onSelect',
+    'selectedId',
+    'disabled',
+    'avatarUrl',
+    'class',
+  ])
+
   return (
-    <div className={cn('flex gap-3 w-full justify-start', className)}>
+    <div
+      class={cn('flex gap-3 w-full justify-start', local.class)}
+      {...others}
+    >
       {/* AI Avatar */}
-      <AvatarWithSkeleton src={avatarUrl} alt="AI" size="sm" />
+      <Avatar src={local.avatarUrl} fallback="AI" size="sm" />
 
       {/* Question and options */}
-      <div className="flex flex-col flex-1 min-w-0">
+      <div class="flex flex-col flex-1 min-w-0">
         {/* Question bubble */}
-        <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-secondary text-secondary-foreground text-base leading-relaxed w-fit max-w-[85%]">
-          {question}
+        <div class="px-4 py-3 rounded-2xl rounded-tl-md bg-secondary text-secondary-foreground text-base leading-relaxed w-fit max-w-[85%]">
+          {local.question}
         </div>
 
         {/* Options - stacked vertically, fixed width */}
-        <div className="mt-3 flex flex-col gap-2 w-64 md:w-72">
-          {options.map((option) => {
-            const isSelected = selectedId === option.id
-            return (
-              <Button
-                key={option.id}
-                variant={isSelected ? 'default' : 'outline'}
-                size="default"
-                onClick={() => !disabled && onSelect?.(option)}
-                disabled={disabled && !isSelected}
-                className={cn(
-                  'w-full justify-start',
-                  disabled && !isSelected && 'opacity-40'
-                )}
-              >
-                {option.label}
-              </Button>
-            )
-          })}
+        <div class="mt-3 flex flex-col gap-2 w-64 md:w-72">
+          <For each={local.options}>
+            {(option) => {
+              const isSelected = () => local.selectedId === option.id
+              return (
+                <Button
+                  variant={isSelected() ? 'default' : 'outline'}
+                  size="default"
+                  onClick={() => !local.disabled && local.onSelect?.(option)}
+                  disabled={local.disabled && !isSelected()}
+                  class={cn(
+                    'w-full justify-start',
+                    local.disabled && !isSelected() && 'opacity-40'
+                  )}
+                >
+                  {option.label}
+                </Button>
+              )
+            }}
+          </For>
         </div>
       </div>
     </div>
   )
 }
+
+export default ChatSurveyMessage

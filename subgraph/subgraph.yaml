@@ -5,14 +5,14 @@ schema:
   file: ./schema.graphql
 dataSources:
   # KaraokeEvents - Clip lifecycle + karaoke grading
-  # Address: 0x8f97C17e599bb823e42d936309706628A93B33B8 (V3 - removed unlock params from SongEncrypted)
+  # Address: 0xd942eB51C86c46Db82678627d19Aa44630F901aE (V6 - JSON localizations for 12 languages)
   - kind: ethereum
     name: KaraokeEvents
     network: lens-testnet
     source:
-      address: "0x8f97C17e599bb823e42d936309706628A93B33B8"
+      address: "0xd942eB51C86c46Db82678627d19Aa44630F901aE"
       abi: KaraokeEvents
-      startBlock: 4216537
+      startBlock: 4209999
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -36,6 +36,8 @@ dataSources:
           handler: handleSongEncrypted
         - event: ClipToggled(indexed bytes32,bool,uint64)
           handler: handleClipToggled
+        - event: ClipLocalizationUpdated(indexed bytes32,string,string,uint64)
+          handler: handleClipLocalizationUpdated
         # Karaoke grading events
         - event: KaraokePerformanceGraded(indexed uint256,indexed bytes32,string,indexed address,string,uint16,uint16,string,string,uint64)
           handler: handleKaraokePerformanceGraded

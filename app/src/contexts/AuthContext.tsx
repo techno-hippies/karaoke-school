@@ -1,77 +1,35 @@
-// src/contexts/AuthContext.tsx
+/**
+ * Auth Context for SolidJS
+ *
+ * Manages PKP wallet + Lens session state with support for:
+ * - Passkey (WebAuthn) authentication
+ * - Social login stubs (Google/Discord - not yet implemented)
+ * - EOA wallet connection (Metamask, Rabby, etc.)
+ */
 
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-  type ReactNode,
-} from 'react'
+  createSignal,
+  onMount,
+  onCleanup,
+  type ParentComponent,
+  type Accessor,
+} from 'solid-js'
 import type { Address, WalletClient } from 'viem'
 import type { SessionClient, Account } from '@lens-protocol/client'
-import { useAccount, useDisconnect, useWalletClient } from 'wagmi'
-
 import type { PKPInfo, AuthData, PKPAuthContext } from '@/lib/lit'
 import { LIT_SESSION_STORAGE_KEY } from '@/lib/lit/constants'
 import { getExistingAccounts, resumeLensSession } from '@/lib/lens/auth'
-import { validateUsernameFormat } from '@/lib/lens/account-creation'
+import {
+  wagmiConfig,
+  getWalletClient,
+  watchAccount,
+  disconnect as disconnectWagmi,
+  TARGET_CHAIN_ID,
+} from '@/providers/Web3Provider'
 
-// ---------------- Types ----------------
-
-interface AuthState {
-  pkpInfo: PKPInfo | null
-  pkpAddress: Address | null
-  pkpWalletClient: WalletClient | null
-  pkpAuthContext: PKPAuthContext | null
-  authData: AuthData | null
-  isPKPReady: boolean
-  /** True while checking for stored session on initial load */
-  isCheckingSession: boolean
-
-  lensSession: SessionClient | null
-  lensAccount: Account | null
-  hasLensAccount: boolean
-
-  isAuthenticating: boolean
-  authError: Error | null
-  authStep:
-    | 'idle'
-    | 'username'
-    | 'webauthn'
-    | 'session'
-    | 'social'
-    | 'processing'
-    | 'complete'
-  authMode: 'register' | 'login' | null
-  authStatus: string
-  lensSetupStatus: 'pending' | 'complete' | 'failed'
-}
-
-interface AuthActions {
-  register: (username?: string) => Promise<void>
-  signIn: () => Promise<void>
-  loginWithGoogle: (username?: string) => Promise<void>
-  loginWithDiscord: (username?: string) => Promise<void>
-  logout: () => void
-
-  showUsernameInput: () => void
-  resetAuthFlow: () => void
-
-  /** Open the auth dialog (set by App.tsx) */
-  openAuthDialog: () => void
-  /** Set the auth dialog opener (called by App.tsx) */
-  setAuthDialogOpener: (opener: () => void) => void
-}
-
-type AuthContextType = AuthState & AuthActions
-
-const AuthContext = createContext<AuthContextType | null>(null)
-
-// ---------------- Dynamic loaders ----------------
-
+// Dynamic module loaders for code splitting
 type LitModule = typeof import('@/lib/lit')
 type AuthFlowsModule = typeof import('@/lib/auth/flows')
 type AuthSocialModule = typeof import('@/lib/lit/auth-social')
@@ -101,21 +59,48 @@ function loadAuthSocial(): Promise<AuthSocialModule> {
   return authSocialPromise
 }
 
-// EOA flow loader
-type EoaFlowModule = typeof import('@/lib/auth/flows')
-let eoaFlowPromise: Promise<EoaFlowModule> | null = null
+// Auth State Types
+interface AuthState {
+  pkpInfo: Accessor<PKPInfo | null>
+  pkpAddress: Accessor<Address | null>
+  pkpWalletClient: Accessor<WalletClient | null>
+  pkpAuthContext: Accessor<PKPAuthContext | null>
+  authData: Accessor<AuthData | null>
+  isPKPReady: Accessor<boolean>
+  isCheckingSession: Accessor<boolean>
 
-function loadEoaFlow(): Promise<EoaFlowModule> {
-  if (!eoaFlowPromise) {
-    eoaFlowPromise = import('@/lib/auth/flows')
-  }
-  return eoaFlowPromise
+  lensSession: Accessor<SessionClient | null>
+  lensAccount: Accessor<Account | null>
+  hasLensAccount: Accessor<boolean>
+
+  isAuthenticating: Accessor<boolean>
+  authError: Accessor<Error | null>
+  authStep: Accessor<'idle' | 'webauthn' | 'session' | 'social' | 'processing' | 'complete'>
+  authMode: Accessor<'register' | 'login' | 'eoa' | 'google' | 'discord' | null>
+  authStatus: Accessor<string>
+  lensSetupStatus: Accessor<'pending' | 'complete' | 'failed'>
 }
 
+interface AuthActions {
+  register: () => Promise<void>
+  signIn: () => Promise<void>
+  loginWithGoogle: () => Promise<void>
+  loginWithDiscord: () => Promise<void>
+  connectWithEoa: (walletClient: WalletClient) => Promise<void>
+  logout: () => void
+  resetAuthFlow: () => void
+  openAuthDialog: () => void
+  setAuthDialogOpener: (opener: () => void) => void
+  expectWalletConnection: () => void
+  setEoaWalletClient: (client: WalletClient | null) => void
+}
+
+type AuthContextType = AuthState & AuthActions
+
+const AuthContext = createContext<AuthContextType>()
 
 /**
- * Defensive check for "likely valid" session in localStorage
- * WITHOUT importing Lit.
+ * Check for valid stored session without loading Lit
  */
 function hasLikelyValidStoredSession(): boolean {
   if (typeof window === 'undefined') return false
@@ -125,331 +110,263 @@ function hasLikelyValidStoredSession(): boolean {
     if (!raw) return false
 
     const session = JSON.parse(raw)
-
-    if (!session || typeof session !== 'object') {
-      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
-      return false
-    }
-
-    if (!session.expiresAt || typeof session.expiresAt !== 'number') {
-      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
-      return false
-    }
-
-    if (Date.now() >= session.expiresAt) {
-      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
-      return false
-    }
-
-    if (!session.pkpInfo || typeof session.pkpInfo !== 'object') {
-      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
-      return false
-    }
+    if (!session || typeof session !== 'object') return false
+    if (!session.expiresAt || Date.now() >= session.expiresAt) return false
+    if (!session.pkpInfo) return false
 
     return true
-  } catch (error) {
-    console.warn('[Auth] localStorage check failed:', error)
-    try {
-      window.localStorage.removeItem(LIT_SESSION_STORAGE_KEY)
-    } catch {
-      // ignore
-    }
+  } catch {
     return false
   }
 }
 
-/**
- * Auth Provider
- */
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider: ParentComponent = (props) => {
   // PKP Wallet State
-  const [walletClient, setWalletClient] = useState<WalletClient | null>(null)
-  const [authContext, setAuthContext] = useState<PKPAuthContext | null>(null)
-  const [pkpInfo, setPkpInfo] = useState<PKPInfo | null>(null)
-  const [authData, setAuthData] = useState<AuthData | null>(null)
-  const [isInitializing, setIsInitializing] = useState(false)
-  // Track initial session check to prevent UI flash - default true to avoid Sign Up flash
-  const [isCheckingSession, setIsCheckingSession] = useState(true)
+  const [walletClient, setWalletClient] = createSignal<WalletClient | null>(null)
+  const [authContext, setAuthContext] = createSignal<PKPAuthContext | null>(null)
+  const [pkpInfo, setPkpInfo] = createSignal<PKPInfo | null>(null)
+  const [authData, setAuthData] = createSignal<AuthData | null>(null)
+  const [isInitializing, setIsInitializing] = createSignal(false)
+  const [isCheckingSession, setIsCheckingSession] = createSignal(true)
 
   // Lens State
-  const [sessionClient, setSessionClient] = useState<SessionClient | null>(null)
-  const [account, setAccount] = useState<Account | null>(null)
+  const [sessionClient, setSessionClient] = createSignal<SessionClient | null>(null)
+  const [account, setAccount] = createSignal<Account | null>(null)
 
-  // Overall state
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
-  const [authError, setAuthError] = useState<Error | null>(null)
-  const [authStep, setAuthStep] = useState<AuthState['authStep']>('idle')
-  const [authMode, setAuthMode] = useState<AuthState['authMode']>(null)
-  const [authStatus, setAuthStatus] = useState<string>('')
-  const [lensSetupStatus, setLensSetupStatus] =
-    useState<'pending' | 'complete' | 'failed'>('pending')
+  // Flow state
+  const [isAuthenticating, setIsAuthenticating] = createSignal(false)
+  const [authError, setAuthError] = createSignal<Error | null>(null)
+  const [authStep, setAuthStep] = createSignal<AuthState['authStep']['prototype']>('idle')
+  const [authMode, setAuthMode] = createSignal<AuthState['authMode']['prototype']>(null)
+  const [authStatus, setAuthStatus] = createSignal('')
+  const [lensSetupStatus, setLensSetupStatus] = createSignal<'pending' | 'complete' | 'failed'>('pending')
 
-  // Auth dialog opener - set by App.tsx
-  const authDialogOpenerRef = useRef<(() => void) | null>(null)
+  // EOA wallet state (external wallet - kept for future use)
+  const [, setEoaWalletClient] = createSignal<WalletClient | null>(null)
 
-  const openAuthDialog = useCallback(() => {
-    if (authDialogOpenerRef.current) {
-      authDialogOpenerRef.current()
-    } else {
-      console.warn('[Auth] Auth dialog opener not set')
-    }
-  }, [])
+  // Auth dialog opener ref
+  let authDialogOpener: (() => void) | null = null
 
-  const setAuthDialogOpener = useCallback((opener: () => void) => {
-    authDialogOpenerRef.current = opener
-  }, [])
+  // Track if user explicitly wants wallet connection (vs wagmi auto-reconnect)
+  const [expectingWallet, setExpectingWallet] = createSignal(false)
+  // Track if we've processed this EOA connection to prevent duplicate runs
+  const [processedEoaAddress, setProcessedEoaAddress] = createSignal<string | null>(null)
 
-  const address = walletClient?.account?.address || null
-  const isConnected = !!walletClient && !!authContext
+  // Derived state
+  const address = () => walletClient()?.account?.address || null
+  const isConnected = () => !!walletClient() && !!authContext()
 
-  // --------- Initialize PKP using Lit (lazy) ---------
-
-  const initializePKP = useCallback(async (info: PKPInfo, data: AuthData) => {
+  // Initialize PKP
+  const initializePKP = async (info: PKPInfo, data: AuthData) => {
     setIsInitializing(true)
 
     try {
       console.log('[Auth] Initializing PKP wallet:', info.ethAddress)
+      const lit = await loadLit()
 
-      const {
-        createPKPWalletClient,
-        createPKPAuthContext,
-        getCachedAuthContext,
-      } = await loadLit()
-
-      let context = getCachedAuthContext(info.publicKey)
-
+      let context = lit.getCachedAuthContext(info.publicKey)
       if (!context) {
         console.log('[Auth] Creating PKP auth context...')
-        context = await createPKPAuthContext(info, data)
+        context = await lit.createPKPAuthContext(info, data)
       }
 
       console.log('[Auth] Creating wallet client...')
-      const client = await createPKPWalletClient(info, context)
+      const client = await lit.createPKPWalletClient(info, context)
 
       setAuthContext(context)
       setWalletClient(client)
       setPkpInfo(info)
       setAuthData(data)
 
-      console.log('[Auth] ✓ PKP wallet initialized')
+      console.log('[Auth] PKP wallet initialized')
     } catch (err) {
       console.error('[Auth] Initialization failed:', err)
       throw err
     } finally {
       setIsInitializing(false)
     }
-  }, [])
+  }
 
-  // --------- Auto-initialize from stored session ---------
+  // Auto-initialize from stored session
+  onMount(async () => {
+    if (walletClient() || isInitializing()) return
 
-  const hasAutoInitializedRef = useRef(false)
+    if (!hasLikelyValidStoredSession()) {
+      console.log('[Auth] No stored session')
+      setIsCheckingSession(false)
+      return
+    }
 
-  useEffect(() => {
-    const autoInitialize = async () => {
-      if (walletClient || isInitializing || hasAutoInitializedRef.current) return
+    try {
+      const { getAuthStatus, clearSession } = await loadLit()
+      const status = getAuthStatus()
 
-      hasAutoInitializedRef.current = true
+      if (status.isAuthenticated && status.pkpInfo && status.authData) {
+        console.log('[Auth] Auto-initializing from stored session...')
+        await initializePKP(status.pkpInfo, status.authData)
 
-      // Step 1: Cheap check without Lit
-      if (!hasLikelyValidStoredSession()) {
-        console.log('[Auth] No stored session, skipping Lit initialization')
-        setIsCheckingSession(false)
-        return
-      }
+        // Try to resume Lens session
+        try {
+          const lensSession = await resumeLensSession()
 
-      try {
-        // Step 2: Now load Lit + storage helpers
-        const { getAuthStatus, clearSession } = await loadLit()
-        const status = getAuthStatus()
+          if (lensSession) {
+            setSessionClient(lensSession)
 
-        if (status.isAuthenticated && status.pkpInfo && status.authData) {
-          console.log('[Auth] Auto-initializing from stored session...')
-
-          try {
-            await initializePKP(status.pkpInfo, status.authData)
-
-            const lensSession = await resumeLensSession()
-
-            if (lensSession) {
-              setSessionClient(lensSession)
-
-              const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
-
-              if (accounts.length > 0) {
-                setAccount(accounts[0].account)
-                setLensSetupStatus('complete')
-              }
-            }
-          } catch (error) {
-            console.error('[Auth] Auto-initialization failed:', error)
-
-            if (error instanceof Error) {
-              if (error.message.includes('Invalid blockhash')) {
-                console.log('[Auth] Clearing stale session data')
-                clearSession()
-              } else if (
-                error.message.includes('Failed to fetch') ||
-                error.message.includes('CORS')
-              ) {
-                console.log(
-                  '[Auth] Network error during auto-init, keeping PKP session'
-                )
-              }
+            const accounts = await getExistingAccounts(status.pkpInfo.ethAddress)
+            if (accounts.length > 0) {
+              setAccount(accounts[0].account)
+              setLensSetupStatus('complete')
             }
           }
-        } else {
-          // Stored blob looked valid but Lit disagrees → clean it up
-          clearSession()
+        } catch (lensError) {
+          console.error('[Auth] Lens session resume failed:', lensError)
         }
-      } catch (error) {
-        console.error('[Auth] Failed to load Lit or check auth status:', error)
-      } finally {
-        setIsCheckingSession(false)
+      } else {
+        clearSession()
       }
+    } catch (error) {
+      console.error('[Auth] Auto-initialization failed:', error)
+    } finally {
+      setIsCheckingSession(false)
     }
+  })
 
-    void autoInitialize()
-  }, [walletClient, isInitializing, initializePKP])
+  // Watch for EOA wallet connections via wagmi
+  onMount(() => {
+    const unwatch = watchAccount(wagmiConfig, {
+      onChange: async (account) => {
+        const eoaAddress = account.address
+        const isEoaConnected = account.isConnected
 
-  // --------- EOA wallet connection (Metamask, Rabby) ---------
+        console.log('[Auth] EOA account change:', {
+          isEoaConnected,
+          eoaAddress,
+          hasPkpWallet: !!walletClient(),
+          isAuthenticating: isAuthenticating(),
+          isInitializing: isInitializing(),
+          processedAddress: processedEoaAddress(),
+          expectingWallet: expectingWallet(),
+        })
 
-  const {
-    address: eoaAddress,
-    isConnected: isEoaConnected,
-  } = useAccount()
-  const { data: wagmiWalletClient } = useWalletClient()
-  const { disconnect: disconnectEoa } = useDisconnect()
+        // Skip if not connected
+        if (!isEoaConnected || !eoaAddress) {
+          console.log('[Auth] EOA skipped: not connected')
+          return
+        }
 
-  // Track if we've processed this EOA connection to prevent duplicate runs
-  const processedEoaRef = useRef<string | null>(null)
+        // Skip if already have PKP wallet
+        if (walletClient()) {
+          console.log('[Auth] EOA skipped: already have PKP wallet')
+          return
+        }
 
-  useEffect(() => {
-    // Skip if not connected or no wagmi wallet client
-    if (!isEoaConnected || !eoaAddress || !wagmiWalletClient) {
-      return
-    }
+        // Skip if currently authenticating
+        if (isAuthenticating() || isInitializing()) {
+          console.log('[Auth] EOA skipped: auth in progress')
+          return
+        }
 
-    // Skip if already have PKP wallet (from passkey, stored session, or previous EOA flow)
-    if (walletClient) {
-      return
-    }
+        // Skip if already processed this address
+        if (processedEoaAddress() === eoaAddress) {
+          console.log('[Auth] EOA skipped: already processed this address')
+          return
+        }
 
-    // Skip if already processing
-    if (isAuthenticating || isInitializing) {
-      return
-    }
+        // Skip if this is a stale wagmi auto-reconnect (user didn't click Connect Wallet)
+        if (!expectingWallet()) {
+          console.log('[Auth] EOA skipped: not expecting wallet connection (stale auto-reconnect)')
+          // Disconnect the stale connection
+          disconnectWagmi(wagmiConfig)
+          return
+        }
 
-    // Skip if we've already processed this address
-    if (processedEoaRef.current === eoaAddress) {
-      return
-    }
+        // Skip if on wrong chain - UI will prompt user to switch
+        const currentChainId = account.chainId
+        if (currentChainId !== TARGET_CHAIN_ID) {
+          console.log('[Auth] EOA skipped: wrong chain', { currentChainId, targetChainId: TARGET_CHAIN_ID })
+          // Don't mark as processed - we'll try again when chain changes
+          // Don't clear expectingWallet - still waiting for correct chain
+          return
+        }
 
-    // Mark as processed
-    processedEoaRef.current = eoaAddress
+        // Mark as processed and clear the expectation flag
+        setProcessedEoaAddress(eoaAddress)
+        setExpectingWallet(false)
 
-    console.log('[Auth] EOA connected, starting PKP flow:', eoaAddress)
+        console.log('[Auth] EOA connected on correct chain, starting PKP flow:', eoaAddress)
 
-    const runEoaFlow = async () => {
-      try {
-        setIsAuthenticating(true)
-        setAuthStep('processing')
-        setAuthError(null)
+        // Dialog is already open showing "Waiting for wallet connection..."
+        // Now update status to show we're connecting
+        setAuthStatus('auth.connectingWallet')
 
-        const { connectWithEoaFlow } = await loadEoaFlow()
+        // Get wagmi wallet client and run EOA flow
+        try {
+          const wagmiClient = await getWalletClient(wagmiConfig)
+          if (!wagmiClient) {
+            console.error('[Auth] Failed to get wagmi wallet client')
+            setAuthError(new Error('Failed to get wallet client'))
+            return
+          }
 
-        const result = await connectWithEoaFlow(
-          wagmiWalletClient,
-          undefined, // username - will be prompted if new user needs Lens account
-          (status) => setAuthStatus(status)
-        )
+          await connectWithEoa(wagmiClient)
+        } catch (error) {
+          console.error('[Auth] EOA flow error:', error)
+          // Error handling is done in connectWithEoa
+        }
+      },
+    })
 
-        // Set all state from result
-        setAuthContext(result.pkpAuthContext)
-        setWalletClient(result.walletClient)
-        setPkpInfo(result.pkpInfo)
-        setAuthData(result.authData)
-        setSessionClient(result.lensSession)
-        setAccount(result.lensAccount)
-        setLensSetupStatus(result.lensSetupStatus)
+    onCleanup(unwatch)
+  })
 
-        setAuthStep('complete')
-        console.log('[Auth] ✓ EOA flow complete, PKP ready:', result.pkpInfo.ethAddress)
-      } catch (error) {
-        console.error('[Auth] EOA flow error:', error)
-        setAuthError(error as Error)
-        setAuthStep('idle')
-
-        // Reset processed ref so user can retry
-        processedEoaRef.current = null
-
-        // Disconnect the EOA wallet on error
-        disconnectEoa()
-      } finally {
-        setIsAuthenticating(false)
-        setAuthStatus('')
-      }
-    }
-
-    void runEoaFlow()
-  }, [
-    eoaAddress,
-    isEoaConnected,
-    wagmiWalletClient,
-    walletClient,
-    isAuthenticating,
-    isInitializing,
-    disconnectEoa,
-  ])
-
-  // Reset EOA tracking on logout
-  useEffect(() => {
-    if (!walletClient && !isCheckingSession) {
-      processedEoaRef.current = null
-    }
-  }, [walletClient, isCheckingSession])
-
-  // --------- Flow helpers ---------
-
-  const showUsernameInput = useCallback(() => {
-    setAuthMode('register')
-    setAuthStep('username')
-    setAuthError(null)
-    setAuthStatus('')
-    setIsAuthenticating(false)
-  }, [])
-
-  const resetAuthFlow = useCallback(() => {
+  // Flow helpers
+  const resetAuthFlow = () => {
     setAuthMode(null)
     setAuthStep('idle')
     setAuthError(null)
     setAuthStatus('')
     setIsAuthenticating(false)
-  }, [])
+  }
 
-  // --------- Register (lazy-load flows + Lit) ---------
+  const openAuthDialog = () => {
+    if (authDialogOpener) {
+      authDialogOpener()
+    } else {
+      console.warn('[Auth] Auth dialog opener not set')
+    }
+  }
 
-  const register = useCallback(async (username?: string) => {
+  const setAuthDialogOpener = (opener: () => void) => {
+    authDialogOpener = opener
+  }
+
+  const expectWalletConnection = () => {
+    setExpectingWallet(true)
+    // Also reset processedEoaAddress so we can process a new connection
+    setProcessedEoaAddress(null)
+    // Set auth state to show "waiting for wallet" in the dialog
+    setAuthMode('eoa')
+    setAuthStep('processing')
+    setAuthStatus('auth.waitingForWallet')
+    setAuthError(null)
+  }
+
+  // Register with passkey
+  const register = async () => {
     try {
       const { registerWithPasskeyFlow } = await loadAuthFlows()
-
-      const flowPromise = registerWithPasskeyFlow(username, (status) => {
-        setAuthStatus(status)
-
-        if (status.includes('passkey')) {
-          setAuthStep('webauthn')
-        } else if (status.includes('session') || status.includes('wallet')) {
-          setAuthStep('session')
-        } else if (status.includes('social') || status.includes('Lens')) {
-          setAuthStep('social')
-        }
-      })
 
       setIsAuthenticating(true)
       setAuthError(null)
       setAuthMode('register')
       setAuthStep('webauthn')
 
-      const result = await flowPromise
+      const result = await registerWithPasskeyFlow((status) => {
+        setAuthStatus(status)
+        if (status.includes('passkey')) setAuthStep('webauthn')
+        else if (status.includes('session')) setAuthStep('session')
+        else if (status.includes('Lens')) setAuthStep('social')
+      })
 
       setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
@@ -467,37 +384,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError(error as Error)
       setAuthStep('idle')
       setAuthMode(null)
-      setAuthStatus('')
       throw error
     } finally {
       setIsAuthenticating(false)
     }
-  }, [])
+  }
 
-  // --------- Sign in (lazy-load flows + Lit) ---------
-
-  const signIn = useCallback(async () => {
+  // Sign in with passkey
+  const signIn = async () => {
     try {
       const { signInWithPasskeyFlow } = await loadAuthFlows()
-
-      const flowPromise = signInWithPasskeyFlow((status) => {
-        setAuthStatus(status)
-
-        if (status.includes('authenticate') || status.includes('device')) {
-          setAuthStep('webauthn')
-        } else if (status.includes('wallet') || status.includes('Restoring')) {
-          setAuthStep('session')
-        } else if (status.includes('social') || status.includes('Lens')) {
-          setAuthStep('social')
-        }
-      })
 
       setIsAuthenticating(true)
       setAuthMode('login')
       setAuthStep('webauthn')
       setAuthError(null)
 
-      const result = await flowPromise
+      const result = await signInWithPasskeyFlow((status) => {
+        setAuthStatus(status)
+        if (status.includes('authenticate')) setAuthStep('webauthn')
+        else if (status.includes('wallet')) setAuthStep('session')
+        else if (status.includes('Lens')) setAuthStep('social')
+      })
 
       setAuthContext(result.pkpAuthContext)
       setWalletClient(result.walletClient)
@@ -515,171 +423,162 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthError(error as Error)
       setAuthStep('idle')
       setAuthMode(null)
-      setAuthStatus('')
       throw error
     } finally {
       setIsAuthenticating(false)
     }
-  }, [])
+  }
 
-  // --------- Login with Google ---------
-  
-  const loginWithGoogle = useCallback(async (username?: string) => {
-    const normalized = username?.trim() || undefined
-    if (normalized) {
-      const validationError = validateUsernameFormat(normalized)
-      if (validationError) {
-        setAuthError(new Error(validationError))
-        setAuthStep('username')
-        return
-      }
-    }
+  // Login with Google
+  const loginWithGoogle = async () => {
     try {
       setIsAuthenticating(true)
-      setAuthMode('login')
+      setAuthMode('google')
       setAuthStep('processing')
       setAuthStatus('')
       setAuthError(null)
 
-      const { authGoogle } = await loadAuthSocial()
       const { loginLensStandalone } = await loadAuthFlows()
-
-      // 1. Auth with Google & Get PKP (Mint if new)
-      const result = await authGoogle(
-        (status) => setAuthStatus(status),
-        { requireExisting: !normalized }
-      )
-
-      // 2. Connect Lens
-      
-      // Get PKP Wallet Client for Lens
+      const { authGoogle } = await loadAuthSocial()
       const litModule = await loadLit()
-      const pkpWalletClient = await litModule.createPKPWalletClient(
-        result.pkpInfo,
-        result.authContext
+
+      const ssoResult = await authGoogle(
+        (status) => setAuthStatus(status),
+        { skipMintIfNew: false }
       )
-      
+
+      const pkpWalletClient = await litModule.createPKPWalletClient(
+        ssoResult.pkpInfo,
+        ssoResult.authContext
+      )
+
       const lensResult = await loginLensStandalone(
         pkpWalletClient,
-        result.pkpInfo.ethAddress,
-        normalized,
+        ssoResult.pkpInfo.ethAddress,
         (status) => setAuthStatus(status)
       )
-      
-      setAuthContext(result.authContext)
+
+      setAuthContext(ssoResult.authContext)
       setWalletClient(pkpWalletClient)
-      setPkpInfo(result.pkpInfo)
-      setAuthData(result.authData)
+      setPkpInfo(ssoResult.pkpInfo)
+      setAuthData(ssoResult.authData)
       setSessionClient(lensResult.session)
       setAccount(lensResult.account)
       setLensSetupStatus('complete')
-      
+
       setAuthStep('complete')
       setAuthMode(null)
       setAuthStatus('')
     } catch (error) {
       console.error('[Auth] Google login error:', error)
-      const err = error as Error
-      setAuthError(err)
-      if (err.message?.includes('Username is required')) {
-        setAuthStep('username')
-      } else {
-        setAuthStep('idle')
-      }
+      setAuthError(error as Error)
+      setAuthStep('idle')
       setAuthMode(null)
       setAuthStatus('')
       throw error
     } finally {
       setIsAuthenticating(false)
     }
-  }, [])
+  }
 
-  // --------- Login with Discord ---------
-  
-  const loginWithDiscord = useCallback(async (username?: string) => {
-    const normalized = username?.trim() || undefined
-    if (normalized) {
-      const validationError = validateUsernameFormat(normalized)
-      if (validationError) {
-        setAuthError(new Error(validationError))
-        setAuthStep('username')
-        return
-      }
-    }
+  // Login with Discord
+  const loginWithDiscord = async () => {
     try {
       setIsAuthenticating(true)
-      setAuthMode('login')
+      setAuthMode('discord')
       setAuthStep('processing')
       setAuthStatus('')
       setAuthError(null)
 
-      const { authDiscord } = await loadAuthSocial()
       const { loginLensStandalone } = await loadAuthFlows()
-
-      // 1. Auth with Discord & Get PKP (Mint if new)
-      const result = await authDiscord(
-        (status) => setAuthStatus(status),
-        { requireExisting: !normalized }
-      )
-
-      // 2. Connect Lens
-      
-      // Get PKP Wallet Client for Lens
+      const { authDiscord } = await loadAuthSocial()
       const litModule = await loadLit()
-      const pkpWalletClient = await litModule.createPKPWalletClient(
-        result.pkpInfo,
-        result.authContext
+
+      const ssoResult = await authDiscord(
+        (status) => setAuthStatus(status),
+        { skipMintIfNew: false }
       )
-      
+
+      const pkpWalletClient = await litModule.createPKPWalletClient(
+        ssoResult.pkpInfo,
+        ssoResult.authContext
+      )
+
       const lensResult = await loginLensStandalone(
         pkpWalletClient,
-        result.pkpInfo.ethAddress,
-        normalized,
+        ssoResult.pkpInfo.ethAddress,
         (status) => setAuthStatus(status)
       )
-      
-      setAuthContext(result.authContext)
+
+      setAuthContext(ssoResult.authContext)
       setWalletClient(pkpWalletClient)
-      setPkpInfo(result.pkpInfo)
-      setAuthData(result.authData)
+      setPkpInfo(ssoResult.pkpInfo)
+      setAuthData(ssoResult.authData)
       setSessionClient(lensResult.session)
       setAccount(lensResult.account)
       setLensSetupStatus('complete')
-      
+
       setAuthStep('complete')
       setAuthMode(null)
       setAuthStatus('')
     } catch (error) {
       console.error('[Auth] Discord login error:', error)
-      const err = error as Error
-      setAuthError(err)
-      if (err.message?.includes('Username is required')) {
-        setAuthStep('username')
-      } else {
-        setAuthStep('idle')
-      }
+      setAuthError(error as Error)
+      setAuthStep('idle')
       setAuthMode(null)
       setAuthStatus('')
       throw error
     } finally {
       setIsAuthenticating(false)
     }
-  }, [])
+  }
 
-  // --------- Logout ---------
+  // Connect with EOA wallet
+  const connectWithEoa = async (eoaClient: WalletClient) => {
+    setEoaWalletClient(eoaClient)
 
-  const logout = useCallback(() => {
-    void loadLit()
-      .then(({ clearSession }) => clearSession())
-      .catch((err) =>
-        console.error('[Auth] Failed to clear session via Lit:', err)
+    try {
+      setIsAuthenticating(true)
+      setAuthMode('eoa')
+      setAuthStep('processing')
+      setAuthError(null)
+
+      const { connectWithEoaFlow } = await loadAuthFlows()
+
+      const result = await connectWithEoaFlow(
+        eoaClient,
+        (status) => setAuthStatus(status)
       )
 
-    // Disconnect EOA wallet if connected
-    disconnectEoa()
+      setAuthContext(result.pkpAuthContext)
+      setWalletClient(result.walletClient)
+      setPkpInfo(result.pkpInfo)
+      setAuthData(result.authData)
+      setSessionClient(result.lensSession)
+      setAccount(result.lensAccount)
+      setLensSetupStatus(result.lensSetupStatus)
 
-    // Reset EOA tracking
-    processedEoaRef.current = null
+      setAuthStep('complete')
+      setAuthMode(null)
+      setAuthStatus('')
+      console.log('[Auth] EOA flow complete, PKP ready:', result.pkpInfo.ethAddress)
+    } catch (error) {
+      console.error('[Auth] EOA flow error:', error)
+      setAuthError(error as Error)
+      setAuthStep('idle')
+      setAuthMode(null)
+      throw error
+    } finally {
+      setIsAuthenticating(false)
+      setAuthStatus('')
+    }
+  }
+
+  // Logout
+  const logout = () => {
+    loadLit()
+      .then(({ clearSession }) => clearSession())
+      .catch((err) => console.error('[Auth] Failed to clear session:', err))
 
     setWalletClient(null)
     setAuthContext(null)
@@ -687,80 +586,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthData(null)
     setSessionClient(null)
     setAccount(null)
+    setEoaWalletClient(null)
     setAuthStep('idle')
     setAuthMode(null)
     setAuthError(null)
     setAuthStatus('')
     setLensSetupStatus('pending')
-  }, [disconnectEoa])
+  }
 
-  const value: AuthContextType = useMemo(
-    () => ({
-      // PKP
-      pkpInfo,
-      pkpAddress: address,
-      pkpWalletClient: walletClient,
-      pkpAuthContext: authContext,
-      authData,
-      isPKPReady: isConnected,
-      isCheckingSession,
+  const value: AuthContextType = {
+    // State (all as accessors)
+    pkpInfo,
+    pkpAddress: address,
+    pkpWalletClient: walletClient,
+    pkpAuthContext: authContext,
+    authData,
+    isPKPReady: isConnected,
+    isCheckingSession,
+    lensSession: sessionClient,
+    lensAccount: account,
+    hasLensAccount: () => !!account(),
+    isAuthenticating: () => isAuthenticating() || isInitializing(),
+    authError,
+    authStep,
+    authMode,
+    authStatus,
+    lensSetupStatus,
 
-      // Lens
-      lensSession: sessionClient,
-      lensAccount: account,
-      hasLensAccount: !!account,
+    // Actions
+    register,
+    signIn,
+    loginWithGoogle,
+    loginWithDiscord,
+    connectWithEoa,
+    logout,
+    resetAuthFlow,
+    openAuthDialog,
+    setAuthDialogOpener,
+    expectWalletConnection,
+    setEoaWalletClient,
+  }
 
-      // Flow state
-      isAuthenticating: isAuthenticating || isInitializing,
-      authError,
-      authStep,
-      authMode,
-      authStatus,
-      lensSetupStatus,
-
-      // Actions
-      register,
-      signIn,
-      loginWithGoogle,
-      loginWithDiscord,
-      logout,
-      showUsernameInput,
-      resetAuthFlow,
-      openAuthDialog,
-      setAuthDialogOpener,
-    }),
-    [
-      pkpInfo,
-      address,
-      walletClient,
-      authContext,
-      authData,
-      isConnected,
-      isCheckingSession,
-      sessionClient,
-      account,
-      isAuthenticating,
-      isInitializing,
-      authError,
-      authStep,
-      authMode,
-      authStatus,
-      lensSetupStatus,
-      register,
-      signIn,
-      logout,
-      showUsernameInput,
-      resetAuthFlow,
-      openAuthDialog,
-      setAuthDialogOpener,
-    ]
-  )
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{props.children}</AuthContext.Provider>
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider')

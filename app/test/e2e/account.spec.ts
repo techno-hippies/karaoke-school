@@ -4,6 +4,9 @@
  * Tests account-related UI flows. Note that actual account creation
  * requires WebAuthn/passkeys or social login which is difficult to
  * fully automate. These tests verify the UI states and flows.
+ *
+ * Note: Username step has been removed - accounts are created without
+ * usernames. Users can claim a username later from their profile.
  */
 import { test, expect } from '@playwright/test'
 
@@ -13,103 +16,55 @@ test.describe('Account UI Flows', () => {
     await page.waitForLoadState('networkidle')
   })
 
-  test('should show username validation when creating account', async ({ page }) => {
+  test('should show all auth methods in dialog', async ({ page }) => {
     // Open auth dialog
     const connectButton = page.locator('button:has-text("Connect")')
     await connectButton.first().click()
     await page.waitForTimeout(500)
 
-    // Click Google option (social login shows username input)
-    const googleOption = page.locator('button:has-text("Continue with Google")')
-    await googleOption.click()
-    await page.waitForTimeout(300)
-
-    // Click Create (which should show username input for social)
-    const createButton = page.locator('button:has-text("Create New Account with Google")')
-    await createButton.click()
-    await page.waitForTimeout(300)
-
-    // Should show username input
-    const usernameInput = page.locator('input[placeholder*="Username"]')
-    await expect(usernameInput).toBeVisible({ timeout: 5000 })
-
-    // Type an invalid username (too short)
-    await usernameInput.fill('abc')
-
-    // The Next button should be disabled
-    const nextButton = page.locator('button:has-text("Next")')
-    await expect(nextButton).toBeDisabled()
-
-    // Type a valid username (6+ chars)
-    await usernameInput.fill('testuser123')
-
-    // Should show format valid message
-    const formatValid = page.locator('text=Format valid')
-    await expect(formatValid).toBeVisible({ timeout: 2000 })
-
-    // Next button should be enabled
-    await expect(nextButton).toBeEnabled()
+    // All auth methods should be visible
+    await expect(page.locator('button:has-text("Passkey")')).toBeVisible()
+    await expect(page.locator('button:has-text("Google")')).toBeVisible()
+    await expect(page.locator('button:has-text("Discord")')).toBeVisible()
+    await expect(page.locator('button:has-text("Connect Wallet")')).toBeVisible()
   })
 
-  test('should validate username format rules', async ({ page }) => {
-    // Open auth dialog and go to username input
-    const connectButton = page.locator('button:has-text("Connect")')
-    await connectButton.first().click()
-    await page.waitForTimeout(500)
-
-    const googleOption = page.locator('button:has-text("Continue with Google")')
-    await googleOption.click()
-    await page.waitForTimeout(300)
-
-    const createButton = page.locator('button:has-text("Create New Account with Google")')
-    await createButton.click()
-    await page.waitForTimeout(300)
-
-    const usernameInput = page.locator('input[placeholder*="Username"]')
-    await expect(usernameInput).toBeVisible()
-
-    // Test valid usernames
-    const validUsernames = [
-      'testuser',
-      'test_user',
-      'test123',
-      'alice_in_chains',
-    ]
-
-    for (const username of validUsernames) {
-      await usernameInput.fill(username)
-      await page.waitForTimeout(200)
-      const formatValid = page.locator('text=Format valid')
-      await expect(formatValid).toBeVisible()
-    }
-  })
-
-  test('should allow navigating back from username input', async ({ page }) => {
+  test('should navigate to passkey create/signin options', async ({ page }) => {
     // Open auth dialog
     const connectButton = page.locator('button:has-text("Connect")')
     await connectButton.first().click()
     await page.waitForTimeout(500)
 
-    // Navigate to Google create flow
-    const googleOption = page.locator('button:has-text("Continue with Google")')
-    await googleOption.click()
+    // Click passkey option
+    await page.locator('button:has-text("Passkey")').first().click()
     await page.waitForTimeout(300)
 
-    const createButton = page.locator('button:has-text("Create New Account with Google")')
-    await createButton.click()
+    // Should show create/signin options
+    await expect(page.locator('button:has-text("Create New Account")')).toBeVisible()
+    await expect(page.locator('button:has-text("Sign In")')).toBeVisible()
+  })
+
+  test('should allow navigating back from passkey options', async ({ page }) => {
+    // Open auth dialog
+    const connectButton = page.locator('button:has-text("Connect")')
+    await connectButton.first().click()
+    await page.waitForTimeout(500)
+
+    // Navigate to passkey flow
+    await page.locator('button:has-text("Passkey")').first().click()
     await page.waitForTimeout(300)
 
-    // Should be at username input
-    await expect(page.locator('input[placeholder*="Username"]')).toBeVisible()
+    // Should be at create/signin options
+    await expect(page.locator('button:has-text("Create New Account")')).toBeVisible()
 
-    // Click back
-    const backButton = page.locator('button:has-text("Back")')
+    // Click back button (uses aria-label="Go back")
+    const backButton = page.locator('button[aria-label="Go back"]')
     await backButton.click()
     await page.waitForTimeout(300)
 
-    // Should be back at create/sign in options
-    await expect(page.locator('button:has-text("Create New Account with Google")')).toBeVisible()
-    await expect(page.locator('button:has-text("Sign In with Google")')).toBeVisible()
+    // Should be back at method selection
+    await expect(page.locator('button:has-text("Passkey")')).toBeVisible()
+    await expect(page.locator('button:has-text("Google")')).toBeVisible()
   })
 
   test('should close auth dialog when clicking escape', async ({ page }) => {
@@ -119,15 +74,15 @@ test.describe('Account UI Flows', () => {
     await page.waitForTimeout(500)
 
     // Dialog should be visible
-    const passkeyOption = page.locator('text=Passkey (Recommended)')
-    await expect(passkeyOption).toBeVisible()
+    const passkeyOption = page.locator('text=Passkey')
+    await expect(passkeyOption.first()).toBeVisible()
 
     // Press Escape to close
     await page.keyboard.press('Escape')
     await page.waitForTimeout(500)
 
     // Dialog should be closed
-    await expect(passkeyOption).not.toBeVisible()
+    await expect(passkeyOption.first()).not.toBeVisible()
   })
 })
 

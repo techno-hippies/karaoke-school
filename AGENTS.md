@@ -64,8 +64,11 @@ SELECT id, start_ms, end_ms, emitted_at FROM clips WHERE song_id = '<uuid>';
 │  3. align-lyrics.ts     ElevenLabs forced alignment                     │
 │     └─► Creates: word-level timing on lyrics table                      │
 │                                                                         │
-│  4. add-lyrics.ts       Add translated lyrics (zh, vi, id)              │
+│  4. add-lyrics.ts       Add translated lyrics (zh, vi, id, ja, ko)      │
 │     └─► Or use fetch-and-translate.ts to auto-translate                 │
+│                                                                         │
+│  4b. translate-names.ts  AI-translate song/artist names (12 languages)  │
+│     └─► Languages: zh, vi, id, ja, ko, es, pt, ar, tr, ru, hi, th       │
 │                                                                         │
 │  5. generate-exercises.ts  Create translation + sayitback questions     │
 │                                                                         │
@@ -144,6 +147,7 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 |--------|---------|------|
 | `add-song.ts` | Create song + artist + EN lyrics + cover images | `--iswc`, `--title`, `--spotify-id` |
 | `add-lyrics.ts` | Add translated lyrics from file | `--iswc`, `--language` |
+| `translate-names.ts` | AI-translate song/artist names (12 languages) | `--iswc`, `--all`, `--dry-run`, `--limit` |
 | `fetch-and-translate.ts` | Auto-fetch from LRCLIB + translate | `--iswc` |
 | `align-lyrics.ts` | ElevenLabs word alignment | `--iswc` |
 | `process-audio.ts` | Demucs + FAL (supports .mp3/.flac/.wav/.m4a, auto-converts to MP3) | `--iswc` |
@@ -238,7 +242,7 @@ Rules:
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
-| KaraokeEvents | `0x8f97C17e599bb823e42d936309706628A93B33B8` | Clip lifecycle + karaoke grading (V3) |
+| KaraokeEvents | `0xd942eB51C86c46Db82678627d19Aa44630F901aE` | Clip lifecycle + karaoke grading (V6 - JSON 12-language localizations) |
 | ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
 | TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |

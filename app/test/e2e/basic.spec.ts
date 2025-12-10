@@ -24,13 +24,16 @@ test.describe('Basic App Tests', () => {
     expect(hasContent).toBe(true)
   })
 
-  test('should navigate to search page', async ({ page }) => {
-    await page.goto('/#/search')
+  test('should navigate to songs page', async ({ page }) => {
+    await page.goto('/#/songs')
     await page.waitForLoadState('networkidle')
 
-    // Search input should be visible
-    const searchInput = page.locator('input[placeholder*="Search"]')
-    await expect(searchInput).toBeVisible({ timeout: 10000 })
+    // Songs page should load - check for song content or page structure
+    const pageLoaded = await page.locator('body').textContent()
+    expect(pageLoaded).toBeTruthy()
+
+    // Should be on the songs route
+    expect(page.url()).toContain('songs')
   })
 
   test('should show auth dialog when clicking connect', async ({ page }) => {
@@ -51,12 +54,12 @@ test.describe('Basic App Tests', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Click on Search nav
-    const searchNav = page.locator('button:has-text("Search")')
-    if (await searchNav.first().isVisible({ timeout: 5000 })) {
-      await searchNav.first().click()
+    // Click on Songs nav (renamed from Search)
+    const songsNav = page.locator('button:has-text("Songs")')
+    if (await songsNav.first().isVisible({ timeout: 5000 })) {
+      await songsNav.first().click()
       await page.waitForTimeout(500)
-      expect(page.url()).toContain('search')
+      expect(page.url()).toContain('songs')
     }
   })
 })

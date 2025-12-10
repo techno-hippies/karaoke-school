@@ -5,7 +5,7 @@
  * 1. Fetches lyrics from Genius
  * 2. Cleans adlibs (yeah), (uh), etc.
  * 3. Keeps section markers [Verse 1], [Chorus]
- * 4. Translates to zh, vi, id
+ * 4. Translates to zh, vi, id, ja, ko
  * 5. Saves all versions to database
  *
  * Usage:
@@ -28,7 +28,7 @@ const { values } = parseArgs({
     iswc: { type: 'string' },
     artist: { type: 'string' },
     'skip-translate': { type: 'boolean', default: false },
-    languages: { type: 'string', default: 'zh,vi,id' }, // Comma-separated
+    languages: { type: 'string', default: 'zh,vi,id,ja,ko' }, // Comma-separated
   },
   strict: true,
 });
@@ -187,7 +187,7 @@ async function main() {
           lyricsData.push({
             song_id: song.id,
             line_index: idx,
-            language: langCode as 'en' | 'zh',
+            language: langCode as 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko',
             text,
             section_marker: section || undefined,
           });

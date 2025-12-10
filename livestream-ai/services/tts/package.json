@@ -1,0 +1,17 @@
+{
+  "name": "@livestream-ai/tts",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "@livestream-ai/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/ws": "^8.5.13"
+  }
+}

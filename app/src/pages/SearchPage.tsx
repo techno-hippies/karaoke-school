@@ -1,45 +1,82 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+/**
+ * SearchPage - Library view with organized sections
+ *
+ * Shows songs organized by:
+ * - Featured artists (their own sections)
+ * - Trending (everything else)
+ */
+
+import { type Component, createMemo } from 'solid-js'
+import { useNavigate } from '@solidjs/router'
+import { useKaraokeSongsWithMetadata, type KaraokeSong } from '@/hooks/useKaraokeSongs'
+import { useTranslation } from '@/lib/i18n'
+import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
 import { LibraryView, type LibrarySong, type LibrarySection } from '@/components/search/LibraryView'
-import { useKaraokeSongsSearchWithMetadata } from '@/hooks/useKaraokeSongsSearch'
-import { generateSlug } from '@/hooks/useSongSlug'
+import type { UILanguage } from '@/lib/i18n'
+
+// Featured artists that get their own sections (English names for matching)
+const FEATURED_ARTISTS = ['Beyoncé', 'Queen', 'Taylor Swift', 'Britney Spears']
+
+// Localized section titles for featured artists (12 languages)
+const FEATURED_ARTISTS_LOCALIZED: Record<string, Partial<Record<UILanguage, string>>> = {
+  'Beyoncé': { en: 'Beyoncé', zh: '碧昂丝', vi: 'Beyoncé', id: 'Beyoncé', ja: 'ビヨンセ', ko: '비욘세', es: 'Beyoncé', pt: 'Beyoncé', ar: 'بيونسيه', tr: 'Beyoncé', ru: 'Бейонсе', hi: 'बियॉन्से', th: 'บียอนเซ' },
+  'Queen': { en: 'Queen', zh: '皇后乐队', vi: 'Queen', id: 'Queen', ja: 'クイーン', ko: '퀸', es: 'Queen', pt: 'Queen', ar: 'كوين', tr: 'Queen', ru: 'Куин', hi: 'क्वीन', th: 'ควีน' },
+  'Taylor Swift': { en: 'Taylor Swift', zh: '泰勒·斯威夫特', vi: 'Taylor Swift', id: 'Taylor Swift', ja: 'テイラー・スウィフト', ko: '테일러 스위프트', es: 'Taylor Swift', pt: 'Taylor Swift', ar: 'تايلور سويفت', tr: 'Taylor Swift', ru: 'Тейлор Свифт', hi: 'टेलर स्विफ्ट', th: 'เทย์เลอร์ สวิฟต์' },
+  'Britney Spears': { en: 'Britney Spears', zh: '布兰妮·斯皮尔斯', vi: 'Britney Spears', id: 'Britney Spears', ja: 'ブリトニー・スピアーズ', ko: '브리트니 스피어스', es: 'Britney Spears', pt: 'Britney Spears', ar: 'بريتني سبيرز', tr: 'Britney Spears', ru: 'Бритни Спирс', hi: 'ब्रिटनी स्पीयर्स', th: 'บริตนีย์ สเปียร์ส' },
+}
+
+// Generate URL-friendly slug (always use English name)
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 // Extended song type with slugs for routing
 interface LibrarySongWithSlug extends LibrarySong {
   artistSlug: string
   songSlug: string
+  artistEnglish: string // Keep English name for section matching
 }
 
-// Featured artists that get their own sections
-const FEATURED_ARTISTS = ['Beyoncé', 'Queen']
-
-function transformToLibrarySong(karaokeSong: any): LibrarySongWithSlug {
+function transformToLibrarySong(karaokeSong: KaraokeSong, uiLanguage: UILanguage): LibrarySongWithSlug {
+  // Always use English for slugs (URL routing)
   const artistSlug = generateSlug(karaokeSong.artist || 'unknown')
   const songSlug = generateSlug(karaokeSong.title || 'unknown')
 
+  // Get localized display names
+  const localizedTitle = getLocalizedTitle(karaokeSong, uiLanguage) || karaokeSong.title
+  const localizedArtist = getLocalizedArtist(karaokeSong, uiLanguage) || karaokeSong.artist
+
   return {
     id: karaokeSong.spotifyTrackId,
-    title: karaokeSong.title,
-    artist: karaokeSong.artist,
+    title: localizedTitle,
+    artist: localizedArtist,
     artworkUrl: karaokeSong.artworkUrl || '',
     artistSlug,
     songSlug,
+    artistEnglish: karaokeSong.artist, // Keep English for section matching
   }
 }
 
-function groupSongsIntoSections(songs: LibrarySongWithSlug[]): LibrarySection[] {
+function groupSongsIntoSections(songs: LibrarySongWithSlug[], uiLanguage: UILanguage): LibrarySection[] {
   const sections: LibrarySection[] = []
   const usedSongIds = new Set<string>()
 
   // Create sections for featured artists
   for (const artistName of FEATURED_ARTISTS) {
     const artistSongs = songs.filter(
-      (s) => s.artist.toLowerCase() === artistName.toLowerCase()
+      (s) => s.artistEnglish.toLowerCase() === artistName.toLowerCase()
     )
     if (artistSongs.length > 0) {
+      // Get localized section title
+      const sectionTitle = FEATURED_ARTISTS_LOCALIZED[artistName]?.[uiLanguage] || artistName
       sections.push({
         id: generateSlug(artistName),
-        title: artistName,
+        title: sectionTitle,
         songs: artistSongs,
         showArtist: false,
       })
@@ -61,19 +98,20 @@ function groupSongsIntoSections(songs: LibrarySongWithSlug[]): LibrarySection[] 
   return sections
 }
 
-export function SearchPage() {
+export const SearchPage: Component = () => {
   const navigate = useNavigate()
+  const { uiLanguage } = useTranslation()
 
-  const { data: karaokeSongs, isLoading } = useKaraokeSongsSearchWithMetadata('', {
-    hasInstrumental: true,
-    first: 50,
+  // Use enriched query that fetches Grove metadata (includes localized names)
+  const songsQuery = useKaraokeSongsWithMetadata(
+    () => ({ first: 50, hasInstrumental: true })
+  )
+
+  const sections = createMemo<LibrarySection[]>(() => {
+    if (!songsQuery.data) return []
+    const songs = songsQuery.data.map(song => transformToLibrarySong(song, uiLanguage()))
+    return groupSongsIntoSections(songs, uiLanguage())
   })
-
-  const sections = useMemo(() => {
-    if (!karaokeSongs) return []
-    const songs = karaokeSongs.map(transformToLibrarySong)
-    return groupSongsIntoSections(songs)
-  }, [karaokeSongs])
 
   const handleSongClick = (song: LibrarySong) => {
     const songWithSlug = song as LibrarySongWithSlug
@@ -82,8 +120,8 @@ export function SearchPage() {
 
   return (
     <LibraryView
-      sections={sections}
-      isLoading={isLoading}
+      sections={sections()}
+      isLoading={songsQuery.isLoading}
       onSongClick={handleSongClick}
     />
   )

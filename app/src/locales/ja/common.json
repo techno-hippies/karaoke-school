@@ -1,0 +1,308 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "ホーム",
+    "songs": "曲",
+    "study": "学習",
+    "chat": "チャット",
+    "wallet": "ウォレット",
+    "karaoke": "カラオケ"
+  },
+  "auth": {
+    "signIn": "サインイン",
+    "signUp": "登録",
+    "connect": "接続",
+    "connectWallet": "ウォレットを接続",
+    "usePasskey": "パスキーを使用",
+    "chooseUsername": "ユーザー名を選択",
+    "authenticating": "認証中...",
+    "success": "成功！",
+    "passkeyRecommended": "パスキー - おすすめ",
+    "noPasswordSecure": "パスワード不要、安全",
+    "createNewAccount": "新規アカウント作成",
+    "or": "または",
+    "back": "戻る",
+    "next": "次へ",
+    "usernamePlaceholder": "ユーザー名を選択（6文字以上）",
+    "valid": "有効",
+    "processing": "処理中...",
+    "allSet": "準備完了！学習を始めましょう。",
+    "startLearning": "学習を始める",
+    "hideDetails": "詳細を隠す",
+    "showDetails": "詳細を表示",
+    "settingUp": "設定中...",
+    "createPasskey": "パスキーを作成",
+    "verifyingPasskey": "パスキーを確認中...",
+    "almostDone": "もう少しで完了...",
+    "authenticateDevice": "デバイスで認証",
+    "fetchingAccount": "アカウントを取得中...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "Googleで作成",
+    "createWithDiscord": "Discordで作成",
+    "signInWithGoogle": "Googleでサインイン",
+    "signInWithDiscord": "Discordでサインイン",
+    "creatingPasskeyWallet": "パスキーとウォレットを作成中...",
+    "settingUpWallet": "ウォレットを設定中...",
+    "settingUpLensProfile": "Lensプロフィールを設定中...",
+    "foundExistingLens": "既存のLensアカウントを発見、接続中...",
+    "creatingNewLensAccount": "新規Lensアカウントを作成中...",
+    "authenticatingPasskey": "パスキーで認証中...",
+    "connectingToLens": "Lensに接続中...",
+    "lensSessionResumed": "Lensセッションを再開しました！",
+    "checkingExistingAccount": "既存のアカウントを確認中...",
+    "foundExistingSigningIn": "既存のアカウントを発見、サインイン中...",
+    "creatingNewWallet": "新規ウォレットを作成中...",
+    "settingUpSession": "セッションを設定中...",
+    "settingUpLens": "Lensを設定中...",
+    "checkingLensAccount": "Lensアカウントを確認中...",
+    "connectingToLensAccount": "Lensアカウントに接続中...",
+    "connectingWallet": "ウォレットを接続中...",
+    "waitingForWallet": "ウォレット接続を待機中...",
+    "openingGoogle": "Googleを開いています...",
+    "openingDiscord": "Discordを開いています...",
+    "creatingAccount": "アカウントを作成中...",
+    "complete": "完了！",
+    "wrongNetwork": "ネットワークが違います",
+    "wrongNetworkDesc": "続行するには{{chain}}に切り替えてください。",
+    "switchNetwork": "{{chain}}に切り替え",
+    "switchingNetwork": "切り替え中...",
+    "manualNetworkSwitch": "ボタンが機能しない場合は、手動でネットワークを追加してください：",
+    "errors": {
+      "googlePopupBlocked": "Googleサインインのポップアップがブロックされました。ポップアップを許可して再試行してください。",
+      "discordPopupBlocked": "Discordサインインのポップアップがブロックされました。ポップアップを許可して再試行してください。",
+      "googleCancelled": "Googleサインインがキャンセルされました。",
+      "discordCancelled": "Discordサインインがキャンセルされました。",
+      "connectionFailed": "接続に失敗しました。インターネット接続を確認して再試行してください。",
+      "cancelled": "認証がキャンセルされました。",
+      "timeout": "リクエストがタイムアウトしました。再試行してください。",
+      "accountExists": "アカウントは既に存在します。代わりにサインインしてみてください。",
+      "accountNotFound": "アカウントが見つかりません。新規アカウントを作成してみてください。",
+      "generic": "問題が発生しました。再試行してください。"
+    }
+  },
+  "wallet": {
+    "walletAddress": "ウォレットアドレス",
+    "username": "ユーザー名",
+    "balances": "残高",
+    "balance": "残高",
+    "currency": "通貨",
+    "chain": "チェーン",
+    "disconnect": "切断",
+    "settings": "設定",
+    "points": "ポイント",
+    "achievements": "実績",
+    "noAchievements": "まだ実績がありません"
+  },
+  "chat": {
+    "title": "チャット",
+    "upgrade": "アップグレード",
+    "typePlaceholder": "メッセージを入力...",
+    "send": "送信",
+    "play": "再生",
+    "stop": "停止",
+    "transcribing": "文字起こし中...",
+    "translate": "翻訳",
+    "translating": "翻訳中..."
+  },
+  "exercise": {
+    "translate": "翻訳：",
+    "answer": "答え：",
+    "question": "質問：",
+    "incorrect": "不正解",
+    "correct": "正解！",
+    "next": "次へ",
+    "skip": "スキップ",
+    "tryAgain": "もう一度試してください。",
+    "sayItBack": "リピート：",
+    "youSaid": "あなたの発音："
+  },
+  "song": {
+    "unlockSong": "曲をアンロック",
+    "unlockSubtitle": "単語ごとの歌詞付きフルソング。一回限りの購入。",
+    "lifetimeAccess": "フルソングへの永久アクセスを取得。",
+    "whatYouGet": "含まれるもの：",
+    "fullKaraoke": "フルソングカラオケ練習",
+    "wordByWord": "単語ごとの歌詞タイミング",
+    "lifetimeAccessShort": "永久アクセス",
+    "oneTimePurchase": "一回限りの購入",
+    "purchase": "購入",
+    "buy": "購入",
+    "unlocked": "アンロック済み！練習を始めましょう。",
+    "practice": "練習",
+    "lyrics": "歌詞",
+    "exercises": "練習問題",
+    "unlock": "アンロック",
+    "unlocking": "アンロック中..."
+  },
+  "karaoke": {
+    "start": "スタート",
+    "signInToPractice": "ログインして練習",
+    "recording": "録音中...",
+    "gradingNotConfigured": "採点が設定されていません",
+    "unableToLoad": "カラオケを読み込めません",
+    "audioNotAvailable": "音声が利用できません",
+    "lyricsNotAvailable": "歌詞が利用できません",
+    "score": "スコア",
+    "linesGraded": "{{completed}}/{{total}} 行採点済み",
+    "linesSkipped": "({{count}} スキップ)"
+  },
+  "premium": {
+    "upgradeToPremium": "プレミアムにアップグレード",
+    "premiumFeatures": "プレミアム機能",
+    "betterAI": "より良いAI応答",
+    "betterTTS": "自然な音声合成",
+    "unlimitedChat": "無制限のチャット履歴",
+    "perMonth": "/月",
+    "subscribe": "購読"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "ランキング",
+    "noStudentsYet": "まだ生徒がいません。最初に練習しましょう！"
+  },
+  "video": {
+    "noVideos": "動画がありません",
+    "checkBackLater": "後で新しいコンテンツをチェックしてください",
+    "noMedia": "メディアなし",
+    "playbackError": "再生エラー"
+  },
+  "study": {
+    "signUpToStudy": "学習するには登録",
+    "signUpDescription": "アカウントを作成して、進捗を追跡し、間隔反復で練習しましょう。",
+    "noCardsDue": "予定のカードなし",
+    "noCardsDescription": "現在利用可能なすべてのカードを完了しました。後でまたチェックしてください！",
+    "sessionComplete": "セッション完了！",
+    "comeBackTomorrow": "明日また来て、学んだことを復習しましょう。",
+    "cardsCompleted": "完了したカード",
+    "youFinishedSong": "「{{title}}」を完了しました！",
+    "youFinishedAll": "すべてのカードを完了しました！",
+    "new": "新規",
+    "learning": "学習中",
+    "due": "予定",
+    "studyAll": "すべて学習",
+    "signInToStudy": "学習するにはサインイン",
+    "allCaughtUp": "すべて完了！",
+    "noCardsDueGreat": "予定のカードはありません。素晴らしい！",
+    "browseSongs": "曲を閲覧"
+  },
+  "home": {
+    "recentlyAdded": "最近追加",
+    "allSongs": "すべての曲",
+    "trending": "トレンド"
+  },
+  "walletPage": {
+    "signUpTitle": "登録",
+    "signUpDescription": "ウォレットと購入にアクセスするにはアカウントを作成してください"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "retry": "再試行",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "save": "保存",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "copy": "コピー",
+    "copied": "コピーしました！",
+    "search": "検索",
+    "noResults": "結果が見つかりません",
+    "seeAll": "すべて見る",
+    "viewMore": "もっと見る",
+    "goBack": "戻る",
+    "finish": "完了",
+    "playAgain": "もう一度再生",
+    "grading": "採点中...",
+    "complete": "完了",
+    "reloadPage": "ページを再読み込み",
+    "exit": "終了",
+    "done": "完了",
+    "processing": "処理中",
+    "refreshBalance": "残高を更新",
+    "soon": "まもなく",
+    "transactionFailed": "トランザクションが失敗しました。再試行してください。",
+    "exitStudy": {
+      "title": "学習セッションを終了しますか？",
+      "description": "進捗は保存されました。後で続けることができます。"
+    },
+    "exitKaraoke": {
+      "title": "練習を終了しますか？",
+      "description": "現在のセッションが終了します。"
+    }
+  },
+  "language": {
+    "title": "言語",
+    "select": "言語を選択",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "こんにちは！私はスカーレットです。もっとあなたのことを知りたいな...",
+      "surveyComplete": "教えてくれてありがとう！これであなたの興味に合わせた会話ができるわ。何について話したい？"
+    },
+    "violet": {
+      "welcomeMessage": "やあ！バイオレットだよ。アニメ、ゲーム、音楽制作が好き。大好きなことについて話しながら一緒に英語を学ぼう！🎧🎮 まずいくつか質問させて：",
+      "surveyComplete": "いい選択！きっと気が合うと思う。何について話したい？"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "その他"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "好きなアーティストは誰？",
+        "beyonce": "ビヨンセ",
+        "blackpink": "BLACKPINK",
+        "jaychou": "ジェイ・チョウ",
+        "taylor": "テイラー・スウィフト"
+      },
+      "englishLevel": {
+        "question": "あなたの英語レベルは？",
+        "beginner": "初級",
+        "intermediate": "中級",
+        "advanced": "上級"
+      },
+      "learningGoal": {
+        "question": "英語を学ぶ主な目標は？",
+        "travel": "旅行と探検",
+        "dating": "新しい出会い／恋愛",
+        "test": "試験対策（TOEFL、IELTS）",
+        "job": "キャリアアップ"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "好きなアニメは？",
+        "aot": "進撃の巨人",
+        "jjk": "呪術廻戦",
+        "spyfamily": "SPY×FAMILY",
+        "onepiece": "ワンピース"
+      },
+      "favoriteGame": {
+        "question": "どんなゲームをする？",
+        "valorant": "Valorant",
+        "genshin": "原神",
+        "lol": "リーグ・オブ・レジェンド",
+        "rhythm": "リズムゲーム（osu!、プロセカ）"
+      },
+      "musicProduction": {
+        "question": "音楽制作に興味ある？",
+        "yesDaw": "うん！DAWを使ってる",
+        "curious": "興味あるけどまだ始めてない",
+        "listener": "いや、聴く専門"
+      }
+    }
+  }
+}

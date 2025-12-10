@@ -1,42 +1,38 @@
-import { createContext, useContext, useRef, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, createSignal, type ParentComponent, type Accessor } from 'solid-js'
 
 interface VideoPlaybackContextType {
-  hasUserInteracted: () => boolean
+  currentlyPlayingId: Accessor<string | null>
+  setCurrentlyPlayingId: (id: string | null) => void
+  hasUserInteracted: Accessor<boolean>
   setUserInteracted: () => void
 }
 
-const VideoPlaybackContext = createContext<VideoPlaybackContextType | null>(null)
+const VideoPlaybackContext = createContext<VideoPlaybackContextType>()
 
-/**
- * VideoPlaybackProvider - Global state for video playback behavior
- *
- * Tracks whether user has interacted with any video player in the session.
- * Once user clicks play on any video, all subsequent videos will autoplay.
- * This provides consistent UX across Feed, Profile, and VideoDetail pages.
- */
-export function VideoPlaybackProvider({ children }: { children: ReactNode }) {
-  const hasInteractedRef = useRef(false)
+export const VideoPlaybackProvider: ParentComponent = (props) => {
+  const [currentlyPlayingId, setCurrentlyPlayingId] = createSignal<string | null>(null)
+  const [hasUserInteracted, setHasUserInteracted] = createSignal(false)
 
-  const hasUserInteracted = useCallback(() => hasInteractedRef.current, [])
-
-  const setUserInteracted = useCallback(() => {
-    hasInteractedRef.current = true
-  }, [])
+  const setUserInteracted = () => {
+    if (!hasUserInteracted()) {
+      setHasUserInteracted(true)
+    }
+  }
 
   return (
-    <VideoPlaybackContext.Provider value={{ hasUserInteracted, setUserInteracted }}>
-      {children}
+    <VideoPlaybackContext.Provider
+      value={{
+        currentlyPlayingId,
+        setCurrentlyPlayingId,
+        hasUserInteracted,
+        setUserInteracted,
+      }}
+    >
+      {props.children}
     </VideoPlaybackContext.Provider>
   )
 }
 
-/**
- * useVideoPlaybackContext - Access global video playback state
- *
- * Use this to check if user has interacted with any video player,
- * which determines autoplay behavior across the app.
- */
-// eslint-disable-next-line react-refresh/only-export-components
 export function useVideoPlaybackContext() {
   const context = useContext(VideoPlaybackContext)
   if (!context) {

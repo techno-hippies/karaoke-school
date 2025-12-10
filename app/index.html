@@ -2,8 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual"
+    />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#171717" />
+
+    <!-- iOS PWA support -->
+    <link rel="apple-touch-icon" href="/images/192x192-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Karaoke School" />
 
     <!-- Primary Meta Tags -->
     <title>卡拉OK学校 | Karaoke School</title>
@@ -15,7 +29,7 @@
     <meta property="og:url" content="https://karaoke.school/" />
     <meta property="og:title" content="卡拉OK学校 | Karaoke School" />
     <meta property="og:description" content="通过唱歌学英语 - Learn English through music. Practice songs, earn rewards." />
-    <meta property="og:image" content="https://karaoke.school/images/karaoke-school.png" />
+    <meta property="og:image" content="https://karaoke.school/images/karaoke-school-og.jpg" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:locale:alternate" content="en_US" />
 
@@ -24,9 +38,9 @@
     <meta property="twitter:url" content="https://karaoke.school/" />
     <meta property="twitter:title" content="卡拉OK学校 | Karaoke School" />
     <meta property="twitter:description" content="通过唱歌学英语 - Learn English through music. Practice songs, earn rewards." />
-    <meta property="twitter:image" content="https://karaoke.school/images/karaoke-school.png" />
+    <meta property="twitter:image" content="https://karaoke.school/images/karaoke-school-og.jpg" />
   </head>
-  <body>
+  <body class="bg-neutral-950 text-white">
     <div id="root"></div>
 
     <!-- Node-style globals for browser, run BEFORE Vite entry -->
@@ -40,9 +54,6 @@
           NODE_ENV: 'production',
         },
       };
-
-      // Buffer is handled by polyfills/node-globals.ts import
-      // (Real Buffer class from 'buffer' package, not an empty array)
     </script>
 
     <!-- Dynamic viewport height fix for mobile browsers -->
@@ -67,7 +78,6 @@
       })();
     </script>
 
-    <!-- Vite entry MUST come after the polyfill -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

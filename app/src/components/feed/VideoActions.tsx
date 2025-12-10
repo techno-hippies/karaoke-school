@@ -1,116 +1,80 @@
-import { Heart, Exam, ShareFat, Plus, Check, SpeakerHigh, SpeakerX } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
-import { AudioSourceButton } from './AudioSourceButton'
+import { Show, type Component } from 'solid-js'
+import { cn, haptic } from '@/lib/utils'
+import { Icon } from '@/components/icons'
 import type { VideoActionsProps } from './types'
 
 /**
  * VideoActions - Vertical action buttons column
- * Profile avatar + follow, like, study, share, mute, audio source
- * Mobile: overlays on right side of video
- * Desktop: positioned to right of video container
+ * Profile avatar, like, study, share, mute, audio source
  */
-export function VideoActions({
-  userAvatar,
-  username,
-  isFollowing,
-  canFollow,
-  isFollowLoading = false,
-  onFollowClick,
-  onProfileClick,
-  isLiked,
-  onLikeClick,
-  onShareClick,
-  canStudy,
-  onStudyClick,
-  musicTitle,
-  musicAuthor,
-  musicImageUrl,
-  onAudioClick,
-  isMuted,
-  onToggleMute,
-  className
-}: VideoActionsProps) {
-
+export const VideoActions: Component<VideoActionsProps> = (props) => {
   return (
-    <div className={cn('flex flex-col items-center gap-4 md:gap-6', className)}>
+    <div class={cn('flex flex-col items-center gap-2 md:gap-6', props.class)}>
       {/* Mute/Unmute Button */}
       <button
         onClick={(e) => {
           e.stopPropagation()
-          onToggleMute()
+          props.onToggleMute()
         }}
-        className="flex flex-col items-center cursor-pointer"
+        class="flex flex-col items-center cursor-pointer"
       >
-        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-          {isMuted ? (
-            <SpeakerX className="w-7 h-7 text-foreground" />
-          ) : (
-            <SpeakerHigh className="w-7 h-7 text-foreground" />
-          )}
+        <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
+          <Show
+            when={!props.isMuted}
+            fallback={<Icon name="speaker-slash" class="text-4xl md:text-3xl text-foreground" />}
+          >
+            <Icon name="speaker-high" class="text-4xl md:text-3xl text-foreground" />
+          </Show>
         </div>
       </button>
 
-      {/* Profile Avatar with Follow Button */}
-      <div className="relative flex items-center justify-center">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onProfileClick()
-          }}
-          className="cursor-pointer"
-        >
-          <img
-            src={userAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`}
-            alt={username}
-            className="w-12 h-12 rounded-full object-cover bg-white"
-          />
-        </button>
-
-
-        {/* Follow/Following Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            if (canFollow && !isFollowLoading) onFollowClick()
-          }}
-          disabled={!canFollow || isFollowLoading}
-          className={cn(
-            'absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200',
-            isFollowing && !isFollowLoading
-              ? 'bg-neutral-800 hover:bg-neutral-700'
-              : 'bg-primary hover:bg-primary/90',
-            (!canFollow || isFollowLoading) && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          {isFollowLoading ? (
-            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          ) : isFollowing ? (
-            <Check className="w-4 h-4 text-primary" />
-          ) : (
-            <Plus className="w-4 h-4 text-foreground" />
-          )}
-        </button>
-      </div>
-
-      {/* Like Button - always clickable, auth check happens in handler */}
+      {/* Profile Avatar */}
       <button
         onClick={(e) => {
           e.stopPropagation()
-          onLikeClick()
+          props.onProfileClick()
         }}
-        className="flex flex-col items-center cursor-pointer"
+        class="cursor-pointer"
       >
-        <div className={cn(
-          'rounded-full p-3 transition-colors',
-          'max-md:bg-transparent',
-          isLiked
-            ? 'md:bg-red-500/20 md:hover:bg-red-500/30'
-            : 'md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50'
-        )}>
-          <Heart
-            className={cn(
-              'w-7 h-7 transition-colors',
-              isLiked ? 'text-red-500' : 'text-foreground'
+        <Show
+          when={props.userAvatar}
+          fallback={
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+              {props.username.charAt(0).toUpperCase()}
+            </div>
+          }
+        >
+          <img
+            src={props.userAvatar}
+            alt={props.username}
+            class="w-12 h-12 rounded-full object-cover bg-white"
+          />
+        </Show>
+      </button>
+
+      {/* Like Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          haptic.double()
+          props.onLikeClick()
+        }}
+        class="flex flex-col items-center cursor-pointer"
+      >
+        <div
+          class={cn(
+            'rounded-full p-3 transition-colors',
+            'max-md:bg-transparent',
+            props.isLiked
+              ? 'md:bg-red-500/15 md:hover:bg-red-500/20'
+              : 'md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40'
+          )}
+        >
+          <Icon
+            name="heart"
+            class={cn(
+              'text-4xl md:text-3xl transition-colors',
+              props.isLiked ? 'text-red-500' : 'text-foreground'
             )}
             weight="fill"
           />
@@ -121,39 +85,53 @@ export function VideoActions({
       <button
         onClick={(e) => {
           e.stopPropagation()
-          onShareClick()
+          props.onShareClick()
         }}
-        className="flex flex-col items-center cursor-pointer"
+        class="flex flex-col items-center cursor-pointer"
       >
-        <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-          <ShareFat className="w-7 h-7 text-foreground" weight="fill" />
+        <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
+          <Icon name="share-network" class="text-4xl md:text-3xl text-foreground" weight="fill" />
         </div>
       </button>
 
-      {/* Study Button - only show when song data is available */}
-      {canStudy && (
+      {/* Study Button */}
+      <Show when={props.canStudy}>
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onStudyClick?.()
+            props.onStudyClick?.()
           }}
-          className="flex flex-col items-center cursor-pointer"
+          class="flex flex-col items-center cursor-pointer"
         >
-          <div className="rounded-full p-3 max-md:bg-transparent md:bg-neutral-800/50 md:backdrop-blur-sm md:hover:bg-neutral-700/50 transition-colors">
-            <Exam className="w-7 h-7 text-foreground" weight="fill" />
+          <div class="rounded-full p-3 max-md:bg-transparent md:bg-black/30 md:backdrop-blur-sm md:hover:bg-black/40 transition-colors">
+            <Icon name="exam" class="text-4xl md:text-3xl text-foreground" weight="fill" />
           </div>
         </button>
-      )}
+      </Show>
 
-      {/* Audio Source Button - only show when music info is available */}
-      {(musicTitle || musicAuthor) && (
-        <AudioSourceButton
-          musicTitle={musicTitle}
-          musicAuthor={musicAuthor}
-          musicImageUrl={musicImageUrl}
-          onClick={onAudioClick}
-        />
-      )}
+      {/* Audio Source Button */}
+      <Show when={props.musicTitle || props.musicAuthor}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            props.onAudioClick?.()
+          }}
+          class="cursor-pointer group"
+        >
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center overflow-hidden">
+            <Show
+              when={props.musicImageUrl}
+              fallback={<Icon name="music-note" class="text-2xl text-foreground" weight="fill" />}
+            >
+              <img
+                src={props.musicImageUrl}
+                alt={props.musicTitle}
+                class="w-full h-full object-cover"
+              />
+            </Show>
+          </div>
+        </button>
+      </Show>
     </div>
   )
 }

@@ -7,6 +7,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Corvu drawer transitioning variant - applied during open/close/snap animations */
+@custom-variant corvu-transitioning (&[data-transitioning]);
+
 @theme {
   --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
@@ -38,28 +41,28 @@
   --color-ring: var(--ring);
 }
 
-/* Karaoke Theme - Clean dark with vibrant accents */
+/* Karaoke Theme - Clean dark with vibrant accents (neutral gray scale) */
 :root {
-  --vh: 1vh; /* fallback so layout works before JS runs */
+  --vh: 1vh;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.13 0 0);
   --foreground: oklch(0.95 0 0);
-  --card: oklch(0.18 0 0);
+  --card: oklch(0.21 0 0);
   --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.18 0 0);
+  --popover: oklch(0.21 0 0);
   --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.65 0.22 250);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.25 0 0);
+  --secondary: oklch(0.35 0 0);
   --secondary-foreground: oklch(0.90 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.60 0 0);
-  --accent: oklch(0.30 0 0);
+  --muted: oklch(0.21 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.28 0 0);
   --accent-foreground: oklch(0.75 0.18 60);
   --destructive: oklch(0.60 0.22 25);
   --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.28 0 0);
-  --input: oklch(0.22 0 0);
+  --border: oklch(0.30 0 0);
+  --input: oklch(0.21 0 0);
   --ring: oklch(0.65 0.22 250);
   --chart-1: oklch(0.65 0.22 250);
   --chart-2: oklch(0.70 0.18 200);
@@ -67,13 +70,13 @@
   --chart-4: oklch(0.60 0.22 25);
   --chart-5: oklch(0.65 0.25 300);
   --radius: 0.5rem;
-  --sidebar: oklch(0.12 0 0);
+  --sidebar: oklch(0.11 0 0);
   --sidebar-foreground: oklch(0.95 0 0);
   --sidebar-primary: oklch(0.65 0.22 250);
-  --sidebar-primary-foreground: oklch(0.15 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-primary-foreground: oklch(0.13 0 0);
+  --sidebar-accent: oklch(0.24 0 0);
   --sidebar-accent-foreground: oklch(0.75 0.18 60);
-  --sidebar-border: oklch(0.28 0 0);
+  --sidebar-border: oklch(0.30 0 0);
   --sidebar-ring: oklch(0.65 0.22 250);
   --font-sans: 'Geist', -apple-system, system-ui, sans-serif;
   --font-serif: ui-serif, Georgia, serif;
@@ -103,11 +106,8 @@
   --gradient-gold: linear-gradient(135deg, oklch(0.82 0.16 85), oklch(0.72 0.18 60));
   --gradient-purple: linear-gradient(135deg, oklch(0.60 0.25 300), oklch(0.50 0.28 320));
 
-  /* Glow effects */
-  --glow-primary: 0 0 20px oklch(0.65 0.22 250 / 0.5), 0 0 40px oklch(0.65 0.22 250 / 0.25);
-  --glow-success: 0 0 20px oklch(0.70 0.20 145 / 0.5), 0 0 40px oklch(0.70 0.20 145 / 0.25);
-  --glow-fire: 0 0 20px oklch(0.65 0.22 25 / 0.5), 0 0 40px oklch(0.65 0.22 25 / 0.25);
-  --glow-gold: 0 0 20px oklch(0.80 0.16 85 / 0.5), 0 0 40px oklch(0.80 0.16 85 / 0.25);
+  /* Kobalte accordion variables (replacing Radix) */
+  --kb-accordion-content-height: auto;
 }
 
 @layer base {
@@ -124,12 +124,8 @@
 
 /* Custom animations */
 @keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .animate-spin-slow {
@@ -137,21 +133,13 @@
 }
 
 @keyframes accordion-down {
-  from {
-    height: 0;
-  }
-  to {
-    height: var(--radix-accordion-content-height);
-  }
+  from { height: 0; }
+  to { height: var(--kb-accordion-content-height); }
 }
 
 @keyframes accordion-up {
-  from {
-    height: var(--radix-accordion-content-height);
-  }
-  to {
-    height: 0;
-  }
+  from { height: var(--kb-accordion-content-height); }
+  to { height: 0; }
 }
 
 .animate-accordion-down {
@@ -187,20 +175,6 @@
   animation: grade-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-/* Glow pulse for recording state */
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 20px oklch(0.65 0.22 25 / 0.4), 0 0 40px oklch(0.65 0.22 25 / 0.2);
-  }
-  50% {
-    box-shadow: 0 0 30px oklch(0.65 0.22 25 / 0.6), 0 0 60px oklch(0.65 0.22 25 / 0.3);
-  }
-}
-
-.animate-glow-pulse {
-  animation: glow-pulse 1.5s ease-in-out infinite;
-}
-
 /* Text glow for active lyrics */
 @keyframes text-glow {
   0%, 100% {
@@ -217,12 +191,8 @@
 
 /* Shimmer effect for progress bars */
 @keyframes shimmer {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
 
 .animate-shimmer {
@@ -238,20 +208,10 @@
 
 /* Bounce in for success states */
 @keyframes bounce-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
 .animate-bounce-in {
@@ -260,29 +220,101 @@
 
 /* Score count up effect */
 @keyframes score-pop {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.15);
-  }
-  100% {
-    transform: scale(1);
-  }
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
 .animate-score-pop {
   animation: score-pop 0.3s ease-out;
 }
 
+/* Floating hearts animation (Chinese livestream style) */
+@keyframes heart-rise {
+  from {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+}
+
+.animate-heart-rise {
+  animation: heart-rise 4s linear forwards;
+}
+
+/* Grade reveal animation */
+@keyframes grade-reveal {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-grade-reveal {
+  animation: grade-reveal 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Bounce in animation */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* Slot machine landing animation */
+@keyframes slot-land {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-slot-land {
+  animation: slot-land 0.4s ease-out;
+}
+
 /* Hide scrollbars while maintaining scroll functionality */
 @layer utilities {
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+    display: none;
   }
   .vh-screen {
     min-height: calc(var(--vh, 1vh) * 100);
@@ -291,7 +323,7 @@
     height: calc(var(--vh, 1vh) * 100);
   }
   .pb-safe {
-    padding-bottom: var(--safe-area-bottom);
+    padding-bottom: calc(1rem + var(--safe-area-bottom));
   }
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);

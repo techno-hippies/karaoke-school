@@ -1,842 +1,894 @@
-{
-  "abi": [
-    {
-      "type": "constructor",
-      "inputs": [
-        {
-          "name": "_trustedPKP",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "emitClipProcessed",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "instrumentalUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "alignmentUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "translationCount",
-          "type": "uint8",
-          "internalType": "uint8"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "emitClipRegistered",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "iswc",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "title",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "artist",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "artistSlug",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "songSlug",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "coverUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "thumbnailUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "clipStartMs",
-          "type": "uint32",
-          "internalType": "uint32"
-        },
-        {
-          "name": "clipEndMs",
-          "type": "uint32",
-          "internalType": "uint32"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "emitClipToggled",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "enabled",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "emitSongEncrypted",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "encryptedFullUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "encryptedManifestUri",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "endKaraokeSession",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "completed",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "getClipHash",
-      "inputs": [
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "clipStartMs",
-          "type": "uint32",
-          "internalType": "uint32"
-        }
-      ],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
-      "stateMutability": "pure"
-    },
-    {
-      "type": "function",
-      "name": "gradeKaraokeLine",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "lineIndex",
-          "type": "uint16",
-          "internalType": "uint16"
-        },
-        {
-          "name": "score",
-          "type": "uint16",
-          "internalType": "uint16"
-        },
-        {
-          "name": "rating",
-          "type": "uint8",
-          "internalType": "uint8"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "gradeKaraokePerformance",
-      "inputs": [
-        {
-          "name": "performanceId",
-          "type": "uint256",
-          "internalType": "uint256"
-        },
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "performer",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "performanceType",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "similarityScore",
-          "type": "uint16",
-          "internalType": "uint16"
-        },
-        {
-          "name": "lineCount",
-          "type": "uint16",
-          "internalType": "uint16"
-        },
-        {
-          "name": "grade",
-          "type": "string",
-          "internalType": "string"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "owner",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "paused",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "function",
-      "name": "setPaused",
-      "inputs": [
-        {
-          "name": "_paused",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "setTrustedPKP",
-      "inputs": [
-        {
-          "name": "newPKP",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "startKaraokeSession",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "performer",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "expectedLineCount",
-          "type": "uint16",
-          "internalType": "uint16"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "transferOwnership",
-      "inputs": [
-        {
-          "name": "newOwner",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-      "type": "function",
-      "name": "trustedPKP",
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
-      "stateMutability": "view"
-    },
-    {
-      "type": "event",
-      "name": "ClipProcessed",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "instrumentalUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "alignmentUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "translationCount",
-          "type": "uint8",
-          "indexed": false,
-          "internalType": "uint8"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "ClipRegistered",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "iswc",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "title",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "artist",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "artistSlug",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "songSlug",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "coverUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "thumbnailUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "clipStartMs",
-          "type": "uint32",
-          "indexed": false,
-          "internalType": "uint32"
-        },
-        {
-          "name": "clipEndMs",
-          "type": "uint32",
-          "indexed": false,
-          "internalType": "uint32"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "registeredBy",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "ClipToggled",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "enabled",
-          "type": "bool",
-          "indexed": false,
-          "internalType": "bool"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "KaraokeLineGraded",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "lineIndex",
-          "type": "uint16",
-          "indexed": false,
-          "internalType": "uint16"
-        },
-        {
-          "name": "score",
-          "type": "uint16",
-          "indexed": false,
-          "internalType": "uint16"
-        },
-        {
-          "name": "rating",
-          "type": "uint8",
-          "indexed": false,
-          "internalType": "uint8"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "KaraokePerformanceGraded",
-      "inputs": [
-        {
-          "name": "performanceId",
-          "type": "uint256",
-          "indexed": true,
-          "internalType": "uint256"
-        },
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "performer",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        },
-        {
-          "name": "performanceType",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "similarityScore",
-          "type": "uint16",
-          "indexed": false,
-          "internalType": "uint16"
-        },
-        {
-          "name": "lineCount",
-          "type": "uint16",
-          "indexed": false,
-          "internalType": "uint16"
-        },
-        {
-          "name": "grade",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "KaraokeSessionEnded",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "completed",
-          "type": "bool",
-          "indexed": false,
-          "internalType": "bool"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "KaraokeSessionStarted",
-      "inputs": [
-        {
-          "name": "sessionId",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "performer",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        },
-        {
-          "name": "expectedLineCount",
-          "type": "uint16",
-          "indexed": false,
-          "internalType": "uint16"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "PausedUpdated",
-      "inputs": [
-        {
-          "name": "paused",
-          "type": "bool",
-          "indexed": false,
-          "internalType": "bool"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "SongEncrypted",
-      "inputs": [
-        {
-          "name": "clipHash",
-          "type": "bytes32",
-          "indexed": true,
-          "internalType": "bytes32"
-        },
-        {
-          "name": "spotifyTrackId",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "encryptedFullUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "encryptedManifestUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "metadataUri",
-          "type": "string",
-          "indexed": false,
-          "internalType": "string"
-        },
-        {
-          "name": "timestamp",
-          "type": "uint64",
-          "indexed": false,
-          "internalType": "uint64"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "event",
-      "name": "TrustedPKPUpdated",
-      "inputs": [
-        {
-          "name": "oldPKP",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        },
-        {
-          "name": "newPKP",
-          "type": "address",
-          "indexed": true,
-          "internalType": "address"
-        }
-      ],
-      "anonymous": false
-    },
-    {
-      "type": "error",
-      "name": "ContractPaused",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidAddress",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidRating",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidScore",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidSession",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "NotOwner",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "NotTrustedPKP",
-      "inputs": []
-    }
-  ]
-}
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "_trustedPKP",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emitClipLocalizationUpdated",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "localizations",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "genres",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emitClipProcessed",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "instrumentalUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "alignmentUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "translationCount",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emitClipRegistered",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "iswc",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "artist",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "artistSlug",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "songSlug",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "coverUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "thumbnailUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "clipStartMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "clipEndMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emitClipToggled",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emitSongEncrypted",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "encryptedFullUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "encryptedManifestUri",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "endKaraokeSession",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "completed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getClipHash",
+    "inputs": [
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "clipStartMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "gradeKaraokeLine",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lineIndex",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "score",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "rating",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "gradeKaraokePerformance",
+    "inputs": [
+      {
+        "name": "performanceId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "performer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "performanceType",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "similarityScore",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "lineCount",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "grade",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setPaused",
+    "inputs": [
+      {
+        "name": "_paused",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTrustedPKP",
+    "inputs": [
+      {
+        "name": "newPKP",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "startKaraokeSession",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "performer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "expectedLineCount",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "trustedPKP",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ClipLocalizationUpdated",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "localizations",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "genres",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClipProcessed",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "instrumentalUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "alignmentUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "translationCount",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClipRegistered",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "iswc",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "artist",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "artistSlug",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "songSlug",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "coverUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "thumbnailUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "clipStartMs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "clipEndMs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "registeredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ClipToggled",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "enabled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KaraokeLineGraded",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "lineIndex",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "score",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "rating",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KaraokePerformanceGraded",
+    "inputs": [
+      {
+        "name": "performanceId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "performer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "performanceType",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "similarityScore",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "lineCount",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "grade",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KaraokeSessionEnded",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "completed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "KaraokeSessionStarted",
+    "inputs": [
+      {
+        "name": "sessionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "performer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "expectedLineCount",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PausedUpdated",
+    "inputs": [
+      {
+        "name": "paused",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SongEncrypted",
+    "inputs": [
+      {
+        "name": "clipHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "spotifyTrackId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "encryptedFullUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "encryptedManifestUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "metadataUri",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TrustedPKPUpdated",
+    "inputs": [
+      {
+        "name": "oldPKP",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPKP",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ContractPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRating",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidScore",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSession",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotTrustedPKP",
+    "inputs": []
+  }
+]

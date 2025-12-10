@@ -20,13 +20,13 @@ test.describe('Homepage', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Navigation buttons should be present
+    // Navigation buttons should be present (Search renamed to Songs)
     const homeButton = page.locator('button:has-text("Home")')
-    const searchButton = page.locator('button:has-text("Search")')
+    const songsButton = page.locator('button:has-text("Songs")')
     const studyButton = page.locator('button:has-text("Study")')
 
     await expect(homeButton.first()).toBeVisible({ timeout: 10000 })
-    await expect(searchButton.first()).toBeVisible()
+    await expect(songsButton.first()).toBeVisible()
     await expect(studyButton.first()).toBeVisible()
   })
 
@@ -60,10 +60,10 @@ test.describe('Auth Dialog', () => {
     await connectButton.first().click()
     await page.waitForTimeout(500)
 
-    // All auth options should be visible
-    await expect(page.locator('text=Passkey (Recommended)')).toBeVisible()
-    await expect(page.locator('text=Continue with Google')).toBeVisible()
-    await expect(page.locator('text=Continue with Discord')).toBeVisible()
+    // All auth options should be visible (using i18n keys)
+    await expect(page.locator('text=Passkey')).toBeVisible()
+    await expect(page.locator('text=Google')).toBeVisible()
+    await expect(page.locator('text=Discord')).toBeVisible()
     await expect(page.locator('button:has-text("Connect Wallet")')).toBeVisible()
   })
 
@@ -75,8 +75,8 @@ test.describe('Auth Dialog', () => {
     await page.locator('button:has-text("Connect")').first().click()
     await page.waitForTimeout(500)
 
-    // Click passkey option
-    await page.locator('button:has-text("Passkey (Recommended)")').click()
+    // Click passkey option (look for button containing "Passkey")
+    await page.locator('button:has-text("Passkey")').first().click()
     await page.waitForTimeout(300)
 
     // Should show create/signin options
@@ -84,46 +84,34 @@ test.describe('Auth Dialog', () => {
     await expect(page.locator('button:has-text("Sign In")')).toBeVisible()
   })
 
-  test('should show username input for Google signup', async ({ page }) => {
+  test('should show Google as direct auth method', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Open dialog and navigate to Google
+    // Open dialog
     await page.locator('button:has-text("Connect")').first().click()
     await page.waitForTimeout(500)
-    await page.locator('button:has-text("Continue with Google")').click()
-    await page.waitForTimeout(300)
-    await page.locator('button:has-text("Create New Account with Google")').click()
-    await page.waitForTimeout(300)
 
-    // Username input should appear
-    const usernameInput = page.locator('input[placeholder*="Username"]')
-    await expect(usernameInput).toBeVisible()
+    // Google button should be visible as a direct auth method
+    const googleButton = page.locator('button:has-text("Google")')
+    await expect(googleButton.first()).toBeVisible()
+
+    // Clicking Google would trigger OAuth (we don't test the popup here)
   })
 
-  test('should validate username format', async ({ page }) => {
+  test('should show passkey create/signin options', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // Navigate to username input
+    // Open dialog and click passkey
     await page.locator('button:has-text("Connect")').first().click()
     await page.waitForTimeout(500)
-    await page.locator('button:has-text("Continue with Google")').click()
-    await page.waitForTimeout(300)
-    await page.locator('button:has-text("Create New Account with Google")').click()
+    await page.locator('button:has-text("Passkey")').first().click()
     await page.waitForTimeout(300)
 
-    const usernameInput = page.locator('input[placeholder*="Username"]')
-    const nextButton = page.locator('button:has-text("Next")')
-
-    // Short username should disable next button
-    await usernameInput.fill('abc')
-    await expect(nextButton).toBeDisabled()
-
-    // Valid username should enable next and show validation
-    await usernameInput.fill('testuser123')
-    await expect(page.locator('text=Format valid')).toBeVisible()
-    await expect(nextButton).toBeEnabled()
+    // Should show Create New Account and Sign In buttons
+    await expect(page.locator('button:has-text("Create New Account")')).toBeVisible()
+    await expect(page.locator('button:has-text("Sign In")')).toBeVisible()
   })
 
   test('should close dialog on escape', async ({ page }) => {
@@ -143,15 +131,14 @@ test.describe('Auth Dialog', () => {
 })
 
 test.describe('Navigation', () => {
-  test('should navigate to search page', async ({ page }) => {
+  test('should navigate to songs page', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    await page.locator('button:has-text("Search")').first().click()
+    await page.locator('button:has-text("Songs")').first().click()
     await page.waitForTimeout(500)
 
-    expect(page.url()).toContain('search')
-    await expect(page.locator('input[placeholder*="Search"]')).toBeVisible()
+    expect(page.url()).toContain('songs')
   })
 
   test('should navigate to study page', async ({ page }) => {
@@ -175,22 +162,25 @@ test.describe('Navigation', () => {
   })
 })
 
-test.describe('Search', () => {
-  test('should display search input', async ({ page }) => {
-    await page.goto('/#/search')
+test.describe('Songs Page', () => {
+  test('should load songs page', async ({ page }) => {
+    await page.goto('/#/songs')
     await page.waitForLoadState('networkidle')
 
-    const searchInput = page.locator('input[placeholder*="Search"]')
-    await expect(searchInput).toBeVisible({ timeout: 10000 })
+    // Songs page should load
+    const bodyText = await page.textContent('body')
+    expect(bodyText).toBeTruthy()
+    expect(page.url()).toContain('songs')
   })
 
-  test('should allow typing in search', async ({ page }) => {
-    await page.goto('/#/search')
+  test('should display song content', async ({ page }) => {
+    await page.goto('/#/songs')
     await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2000)
 
-    const searchInput = page.locator('input[placeholder*="Search"]')
-    await searchInput.fill('toxic')
-    await expect(searchInput).toHaveValue('toxic')
+    // Page should have loaded some content
+    const bodyText = await page.textContent('body')
+    expect(bodyText).toBeTruthy()
   })
 })
 

@@ -1,5 +1,11 @@
-import { MusicNote, Play, Pause } from '@phosphor-icons/react'
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
+/**
+ * SongItem - Reusable list item for songs
+ * Pure presentational component - no business logic
+ */
+
+import { Show, type Component } from 'solid-js'
+import { Item, ItemMedia, ItemContent, ItemTitle, ItemDescription } from '@/components/ui/item'
+import { Icon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
 export interface SongItemProps {
@@ -9,90 +15,63 @@ export interface SongItemProps {
   artist: string
   /** Optional album art URL */
   artworkUrl?: string
-  /** Show play/pause button overlay */
-  showPlayButton?: boolean
-  /** Is this song currently playing? */
-  isPlaying?: boolean
-  /** Called when play/pause button is clicked */
-  onPlayClick?: () => void
   /** Called when the entire row is clicked */
   onClick?: () => void
   /** Optional rank number to show on the left */
   rank?: number
+  /** Optional badge (e.g., due count) to show on the right */
+  badge?: number
   /** Optional className for additional styling */
-  className?: string
+  class?: string
 }
 
-/**
- * SongItem - List item for songs using Item primitives
- * Features play/pause overlay on artwork
- */
-export function SongItem({
-  title,
-  artist,
-  artworkUrl,
-  showPlayButton = false,
-  isPlaying = false,
-  onPlayClick,
-  onClick,
-  rank,
-  className,
-}: SongItemProps) {
+export const SongItem: Component<SongItemProps> = (props) => {
   return (
-    <Item variant="default" asChild className={cn("gap-3 p-2", className)}>
-      <button onClick={onClick} className="w-full cursor-pointer hover:bg-secondary/50 transition-colors">
-        {/* Rank */}
-        {rank !== undefined && (
-          <div className="flex items-center justify-center w-6 flex-shrink-0">
-            <span className="text-base font-semibold text-muted-foreground">
-              {rank}
-            </span>
-          </div>
-        )}
+    <Item
+      class={cn('gap-3 p-2 cursor-pointer hover:bg-white/5 transition-colors', props.class)}
+      onClick={props.onClick}
+    >
+      {/* Rank */}
+      <Show when={props.rank !== undefined}>
+        <div class="flex items-center justify-center w-6 flex-shrink-0">
+          <span class="text-base font-semibold text-muted-foreground">
+            {props.rank}
+          </span>
+        </div>
+      </Show>
 
-        <ItemMedia variant="image" className="size-12 self-center translate-y-0">
-          <div className="relative w-full h-full group">
-            {/* Artwork or Gradient Fallback */}
-            {artworkUrl ? (
-              <img
-                src={artworkUrl}
-                alt={`${title} artwork`}
-                className="w-full h-full object-cover rounded-lg"
-              />
-            ) : (
-              <div className="w-full h-full rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
-                <MusicNote size={24} weight="duotone" className="text-foreground/80" />
-              </div>
-            )}
+      <ItemMedia variant="image" class="size-12 self-center">
+        <Show
+          when={props.artworkUrl}
+          fallback={
+            <div class="w-full h-full rounded-lg bg-gradient-to-br from-pink-400 to-purple-600 flex items-center justify-center">
+              <Icon name="music-note" class="text-2xl text-foreground/80" weight="fill" />
+            </div>
+          }
+        >
+          <img
+            src={props.artworkUrl}
+            alt={`${props.title} artwork`}
+            class="w-full h-full object-cover rounded-lg"
+          />
+        </Show>
+      </ItemMedia>
 
-            {/* Play/Pause Button Overlay */}
-            {showPlayButton && onPlayClick && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPlayClick()
-                }}
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center transition-opacity rounded-lg cursor-pointer",
-                  "bg-black/40 group-hover:bg-black/50"
-                )}
-                aria-label={isPlaying ? "Pause song" : "Play song"}
-              >
-                {isPlaying ? (
-                  <Pause size={24} weight="fill" className="text-foreground" />
-                ) : (
-                  <Play size={24} weight="fill" className="text-foreground" />
-                )}
-              </button>
-            )}
-          </div>
-        </ItemMedia>
+      <ItemContent class="min-w-0 gap-0.5 flex-1">
+        <ItemTitle class="w-full truncate text-left">{props.title}</ItemTitle>
+        <ItemDescription class="w-full truncate text-left line-clamp-1">
+          {props.artist}
+        </ItemDescription>
+      </ItemContent>
 
-        <ItemContent className="min-w-0 gap-0.5 flex-1">
-          <ItemTitle className="w-full truncate text-left">{title}</ItemTitle>
-          <ItemDescription className="w-full truncate text-left line-clamp-1">{artist}</ItemDescription>
-        </ItemContent>
-      </button>
+      {/* Badge (e.g., due count) */}
+      <Show when={props.badge !== undefined}>
+        <div class="flex items-center justify-center flex-shrink-0 pr-2">
+          <span class="text-lg font-bold text-red-500">
+            {props.badge}
+          </span>
+        </div>
+      </Show>
     </Item>
   )
 }

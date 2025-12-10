@@ -154,12 +154,130 @@ Return ONLY a JSON array of translated strings.`;
 }
 
 /**
- * Language configurations
+ * Language configurations for localization
+ * 12 target languages for global coverage
  */
 export const LANGUAGES = {
   zh: { code: 'zh', name: 'Mandarin Chinese (Simplified)' },
   vi: { code: 'vi', name: 'Vietnamese' },
   id: { code: 'id', name: 'Indonesian' },
+  ja: { code: 'ja', name: 'Japanese' },
+  ko: { code: 'ko', name: 'Korean' },
+  es: { code: 'es', name: 'Spanish' },
+  pt: { code: 'pt', name: 'Portuguese (Brazilian)' },
+  ar: { code: 'ar', name: 'Arabic' },
+  tr: { code: 'tr', name: 'Turkish' },
+  ru: { code: 'ru', name: 'Russian' },
+  hi: { code: 'hi', name: 'Hindi' },
+  th: { code: 'th', name: 'Thai' },
 } as const;
 
 export type LanguageCode = keyof typeof LANGUAGES;
+
+/**
+ * Localized metadata result type
+ */
+export interface LocalizedMetadata {
+  title_zh: string;
+  title_vi: string;
+  title_id: string;
+  title_ja: string;
+  title_ko: string;
+  title_es: string;
+  title_pt: string;
+  title_ar: string;
+  title_tr: string;
+  title_ru: string;
+  title_hi: string;
+  title_th: string;
+  artist_zh: string;
+  artist_vi: string;
+  artist_id: string;
+  artist_ja: string;
+  artist_ko: string;
+  artist_es: string;
+  artist_pt: string;
+  artist_ar: string;
+  artist_tr: string;
+  artist_ru: string;
+  artist_hi: string;
+  artist_th: string;
+}
+
+/**
+ * Translate song title and artist name for localization
+ *
+ * Returns translations for all 12 supported languages at once to minimize API calls.
+ * Artist names get transliterated (phonetic) for Western artists, or use
+ * local names for Asian artists who have established ones.
+ */
+export async function translateSongMetadata(
+  title: string,
+  artistName: string
+): Promise<LocalizedMetadata> {
+  const systemPrompt = `You are a music metadata translator. Translate song titles and artist names for language learners.
+
+SONG TITLES:
+- Translate the meaning to each target language
+- Keep it natural and recognizable
+- If the title is a proper noun or brand name, transliterate it phonetically
+
+ARTIST NAMES:
+- For Western artists: use phonetic transliteration in non-Latin scripts
+  - Chinese: 泰勒·斯威夫特 (Taylor Swift)
+  - Japanese: テイラー・スウィフト
+  - Korean: 테일러 스위프트
+  - Arabic: تايلور سويفت
+  - Russian: Тейлор Свифт
+  - Hindi: टेलर स्विफ्ट
+  - Thai: เทย์เลอร์ สวิฟต์
+- For Latin-script languages (Spanish, Portuguese, Vietnamese, Indonesian, Turkish): keep Western names as-is
+- For Asian artists: use their established local name if known (e.g., "Jay Chou" → "周杰伦")
+- If unsure, use phonetic transliteration
+
+Return ONLY valid JSON with exactly these 24 keys:
+{
+  "title_zh": "...", "title_vi": "...", "title_id": "...", "title_ja": "...", "title_ko": "...",
+  "title_es": "...", "title_pt": "...", "title_ar": "...", "title_tr": "...", "title_ru": "...",
+  "title_hi": "...", "title_th": "...",
+  "artist_zh": "...", "artist_vi": "...", "artist_id": "...", "artist_ja": "...", "artist_ko": "...",
+  "artist_es": "...", "artist_pt": "...", "artist_ar": "...", "artist_tr": "...", "artist_ru": "...",
+  "artist_hi": "...", "artist_th": "..."
+}`;
+
+  const userPrompt = `Translate this song metadata:
+- Song Title: "${title}"
+- Artist Name: "${artistName}"
+
+Translate to: Chinese (Simplified), Vietnamese, Indonesian, Japanese, Korean, Spanish, Portuguese, Arabic, Turkish, Russian, Hindi, Thai`;
+
+  const result = await callOpenRouter([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ]);
+
+  // Extract JSON from response
+  const jsonMatch = result.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error('No JSON object found in translation response');
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  // Validate all required keys exist
+  const requiredKeys = [
+    'title_zh', 'title_vi', 'title_id', 'title_ja', 'title_ko',
+    'title_es', 'title_pt', 'title_ar', 'title_tr', 'title_ru',
+    'title_hi', 'title_th',
+    'artist_zh', 'artist_vi', 'artist_id', 'artist_ja', 'artist_ko',
+    'artist_es', 'artist_pt', 'artist_ar', 'artist_tr', 'artist_ru',
+    'artist_hi', 'artist_th',
+  ];
+  for (const key of requiredKeys) {
+    if (!parsed[key] || typeof parsed[key] !== 'string') {
+      throw new Error(`Missing or invalid key in translation response: ${key}`);
+    }
+  }
+
+  return parsed;
+}

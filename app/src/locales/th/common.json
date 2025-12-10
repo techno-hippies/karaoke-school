@@ -1,0 +1,315 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "หน้าแรก",
+    "songs": "เพลง",
+    "study": "เรียน",
+    "chat": "แชท",
+    "wallet": "กระเป๋าเงิน",
+    "karaoke": "คาราโอเกะ"
+  },
+  "auth": {
+    "signIn": "เข้าสู่ระบบ",
+    "signUp": "สมัครสมาชิก",
+    "connect": "เชื่อมต่อ",
+    "connectWallet": "เชื่อมต่อกระเป๋าเงิน",
+    "usePasskey": "ใช้ Passkey",
+    "chooseUsername": "เลือกชื่อผู้ใช้",
+    "authenticating": "กำลังยืนยันตัวตน...",
+    "success": "สำเร็จ!",
+    "passkeyRecommended": "Passkey - แนะนำ",
+    "noPasswordSecure": "ไม่ต้องใช้รหัสผ่าน ปลอดภัย",
+    "createNewAccount": "สร้างบัญชีใหม่",
+    "or": "หรือ",
+    "back": "กลับ",
+    "next": "ถัดไป",
+    "usernamePlaceholder": "เลือกชื่อผู้ใช้ (6+ ตัวอักษร)",
+    "valid": "ถูกต้อง",
+    "processing": "กำลังดำเนินการ...",
+    "allSet": "พร้อมแล้ว! มาเริ่มเรียนกันเลย",
+    "startLearning": "เริ่มเรียน",
+    "hideDetails": "ซ่อนรายละเอียด",
+    "showDetails": "แสดงรายละเอียด",
+    "settingUp": "กำลังตั้งค่า...",
+    "createPasskey": "สร้าง passkey ของคุณ",
+    "verifyingPasskey": "กำลังยืนยัน passkey...",
+    "almostDone": "เกือบเสร็จแล้ว...",
+    "authenticateDevice": "ยืนยันด้วยอุปกรณ์ของคุณ",
+    "fetchingAccount": "กำลังดึงข้อมูลบัญชี...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "สร้างด้วย Google",
+    "createWithDiscord": "สร้างด้วย Discord",
+    "signInWithGoogle": "เข้าสู่ระบบด้วย Google",
+    "signInWithDiscord": "เข้าสู่ระบบด้วย Discord",
+    "creatingPasskeyWallet": "กำลังสร้าง passkey และกระเป๋าเงิน...",
+    "settingUpWallet": "กำลังตั้งค่ากระเป๋าเงิน...",
+    "settingUpLensProfile": "กำลังตั้งค่าโปรไฟล์ Lens...",
+    "foundExistingLens": "พบบัญชี Lens ที่มีอยู่ กำลังเชื่อมต่อ...",
+    "creatingNewLensAccount": "กำลังสร้างบัญชี Lens ใหม่...",
+    "authenticatingPasskey": "กำลังยืนยันด้วย passkey...",
+    "connectingToLens": "กำลังเชื่อมต่อ Lens...",
+    "lensSessionResumed": "เซสชัน Lens กลับมาทำงานแล้ว!",
+    "checkingExistingAccount": "กำลังตรวจสอบบัญชีที่มีอยู่...",
+    "foundExistingSigningIn": "พบบัญชีที่มีอยู่ กำลังเข้าสู่ระบบ...",
+    "creatingNewWallet": "กำลังสร้างกระเป๋าเงินใหม่...",
+    "settingUpSession": "กำลังตั้งค่าเซสชัน...",
+    "settingUpLens": "กำลังตั้งค่า Lens...",
+    "checkingLensAccount": "กำลังตรวจสอบบัญชี Lens...",
+    "connectingToLensAccount": "กำลังเชื่อมต่อบัญชี Lens...",
+    "connectingWallet": "กำลังเชื่อมต่อกระเป๋าเงิน...",
+    "waitingForWallet": "รอการเชื่อมต่อกระเป๋าเงิน...",
+    "openingGoogle": "กำลังเปิด Google...",
+    "openingDiscord": "กำลังเปิด Discord...",
+    "creatingAccount": "กำลังสร้างบัญชี...",
+    "complete": "เสร็จสิ้น!",
+    "wrongNetwork": "เครือข่ายไม่ถูกต้อง",
+    "wrongNetworkDesc": "กรุณาเปลี่ยนเป็น {{chain}} เพื่อดำเนินการต่อ",
+    "switchNetwork": "เปลี่ยนเป็น {{chain}}",
+    "switchingNetwork": "กำลังเปลี่ยน...",
+    "manualNetworkSwitch": "ถ้าปุ่มไม่ทำงาน ให้เพิ่มเครือข่ายด้วยตนเอง:",
+    "errors": {
+      "googlePopupBlocked": "ป๊อปอัพ Google ถูกบล็อก กรุณาอนุญาตป๊อปอัพและลองอีกครั้ง",
+      "discordPopupBlocked": "ป๊อปอัพ Discord ถูกบล็อก กรุณาอนุญาตป๊อปอัพและลองอีกครั้ง",
+      "googleCancelled": "การเข้าสู่ระบบ Google ถูกยกเลิก",
+      "discordCancelled": "การเข้าสู่ระบบ Discord ถูกยกเลิก",
+      "connectionFailed": "การเชื่อมต่อล้มเหลว ตรวจสอบอินเทอร์เน็ตและลองอีกครั้ง",
+      "cancelled": "การยืนยันตัวตนถูกยกเลิก",
+      "timeout": "หมดเวลา กรุณาลองอีกครั้ง",
+      "accountExists": "บัญชีมีอยู่แล้ว ลองเข้าสู่ระบบ",
+      "accountNotFound": "ไม่พบบัญชี ลองสร้างบัญชีใหม่",
+      "generic": "เกิดข้อผิดพลาด กรุณาลองอีกครั้ง"
+    }
+  },
+  "wallet": {
+    "walletAddress": "ที่อยู่กระเป๋าเงิน",
+    "username": "ชื่อผู้ใช้",
+    "balances": "ยอดคงเหลือ",
+    "balance": "ยอดเงิน",
+    "currency": "สกุลเงิน",
+    "chain": "เครือข่าย",
+    "disconnect": "ยกเลิกการเชื่อมต่อ",
+    "settings": "การตั้งค่า",
+    "points": "คะแนน",
+    "achievements": "ความสำเร็จ",
+    "noAchievements": "ยังไม่มีความสำเร็จ"
+  },
+  "chat": {
+    "title": "แชท",
+    "upgrade": "อัพเกรด",
+    "typePlaceholder": "พิมพ์ข้อความ...",
+    "send": "ส่ง",
+    "play": "เล่น",
+    "stop": "หยุด",
+    "transcribing": "กำลังถอดเสียง...",
+    "translate": "แปล",
+    "translating": "กำลังแปล..."
+  },
+  "exercise": {
+    "translate": "แปล:",
+    "answer": "คำตอบ:",
+    "question": "คำถาม:",
+    "incorrect": "ไม่ถูกต้อง",
+    "correct": "ถูกต้อง!",
+    "next": "ถัดไป",
+    "skip": "ข้าม",
+    "tryAgain": "ลองอีกครั้ง",
+    "sayItBack": "พูดตาม:",
+    "youSaid": "คุณพูดว่า:"
+  },
+  "song": {
+    "unlockSong": "ปลดล็อกเพลง",
+    "unlockSubtitle": "เพลงเต็มพร้อมเนื้อร้องทีละคำ ซื้อครั้งเดียว",
+    "lifetimeAccess": "รับสิทธิ์เข้าถึงเพลงเต็มตลอดชีพ",
+    "whatYouGet": "สิ่งที่คุณจะได้รับ:",
+    "fullKaraoke": "ฝึกคาราโอเกะเต็มรูปแบบ",
+    "wordByWord": "ซิงค์ทีละคำ",
+    "lifetimeAccessShort": "เข้าถึงตลอดชีพ",
+    "oneTimePurchase": "ซื้อครั้งเดียว",
+    "purchase": "ซื้อ",
+    "buy": "ซื้อ",
+    "unlocked": "ปลดล็อกแล้ว! เริ่มฝึกได้เลย",
+    "practice": "ฝึก",
+    "lyrics": "เนื้อร้อง",
+    "exercises": "แบบฝึกหัด",
+    "unlock": "ปลดล็อก",
+    "unlocking": "กำลังปลดล็อก..."
+  },
+  "karaoke": {
+    "start": "เริ่ม",
+    "signInToPractice": "เข้าสู่ระบบเพื่อฝึก",
+    "recording": "กำลังบันทึก...",
+    "gradingNotConfigured": "การให้คะแนนยังไม่ได้กำหนด",
+    "unableToLoad": "ไม่สามารถโหลดคาราโอเกะ",
+    "audioNotAvailable": "ไม่มีเสียง",
+    "lyricsNotAvailable": "ไม่มีเนื้อร้อง",
+    "score": "คะแนน",
+    "linesGraded": "{{completed}}/{{total}} บรรทัดให้คะแนนแล้ว",
+    "linesSkipped": "({{count}} ข้าม)"
+  },
+  "premium": {
+    "upgradeToPremium": "อัพเกรดเป็น Premium",
+    "premiumFeatures": "ฟีเจอร์ Premium",
+    "betterAI": "คำตอบ AI ที่ดีขึ้น",
+    "betterTTS": "เสียงพูดที่เป็นธรรมชาติ",
+    "unlimitedChat": "ประวัติแชทไม่จำกัด",
+    "perMonth": "/เดือน",
+    "subscribe": "สมัครสมาชิก"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "อันดับ",
+    "noStudentsYet": "ยังไม่มีนักเรียน มาเป็นคนแรก!"
+  },
+  "video": {
+    "noVideos": "ไม่มีวิดีโอ",
+    "checkBackLater": "กลับมาดูเนื้อหาใหม่ภายหลัง",
+    "noMedia": "ไม่มีมีเดีย",
+    "playbackError": "เกิดข้อผิดพลาดในการเล่น"
+  },
+  "study": {
+    "signUpToStudy": "สมัครเพื่อเรียน",
+    "signUpDescription": "สร้างบัญชีเพื่อติดตามความก้าวหน้าและฝึกด้วยการทวนซ้ำแบบเว้นระยะ",
+    "noCardsDue": "ไม่มีการ์ดที่ต้องทบทวน",
+    "noCardsDescription": "คุณทำการ์ดที่มีอยู่ทั้งหมดเสร็จแล้ว กลับมาภายหลัง!",
+    "sessionComplete": "เซสชันเสร็จสิ้น!",
+    "comeBackTomorrow": "กลับมาพรุ่งนี้เพื่อเสริมสิ่งที่เรียนรู้",
+    "cardsCompleted": "การ์ดที่ทำเสร็จ",
+    "youFinishedSong": "คุณทำ \"{{title}}\" เสร็จแล้ว!",
+    "youFinishedAll": "คุณทำการ์ดทั้งหมดเสร็จแล้ว!",
+    "new": "ใหม่",
+    "learning": "กำลังเรียน",
+    "due": "ต้องทบทวน",
+    "studyAll": "เรียนทั้งหมด",
+    "signInToStudy": "เข้าสู่ระบบเพื่อเรียน",
+    "allCaughtUp": "ทำครบแล้ว!",
+    "noCardsDueGreat": "ไม่มีการ์ดที่ต้องทบทวน เยี่ยม!",
+    "browseSongs": "ดูเพลง"
+  },
+  "home": {
+    "recentlyAdded": "เพิ่งเพิ่มใหม่",
+    "allSongs": "เพลงทั้งหมด",
+    "trending": "กำลังฮิต"
+  },
+  "walletPage": {
+    "signUpTitle": "สมัครสมาชิก",
+    "signUpDescription": "สร้างบัญชีเพื่อเข้าถึงกระเป๋าเงินและการซื้อของคุณ"
+  },
+  "common": {
+    "loading": "กำลังโหลด...",
+    "error": "ข้อผิดพลาด",
+    "retry": "ลองอีกครั้ง",
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยัน",
+    "save": "บันทึก",
+    "delete": "ลบ",
+    "edit": "แก้ไข",
+    "close": "ปิด",
+    "copy": "คัดลอก",
+    "copied": "คัดลอกแล้ว!",
+    "search": "ค้นหา",
+    "noResults": "ไม่พบผลลัพธ์",
+    "seeAll": "ดูทั้งหมด",
+    "viewMore": "ดูเพิ่มเติม",
+    "goBack": "กลับ",
+    "finish": "เสร็จสิ้น",
+    "playAgain": "เล่นอีกครั้ง",
+    "grading": "กำลังให้คะแนน...",
+    "complete": "เสร็จสิ้น",
+    "reloadPage": "โหลดหน้าใหม่",
+    "exit": "ออก",
+    "done": "เสร็จ",
+    "processing": "กำลังดำเนินการ",
+    "refreshBalance": "รีเฟรชยอดเงิน",
+    "soon": "เร็วๆ นี้",
+    "transactionFailed": "ธุรกรรมล้มเหลว กรุณาลองอีกครั้ง",
+    "exitStudy": {
+      "title": "ออกจากเซสชันการเรียน?",
+      "description": "ความก้าวหน้าของคุณถูกบันทึกแล้ว คุณสามารถเรียนต่อได้ภายหลัง"
+    },
+    "exitKaraoke": {
+      "title": "ออกจากการฝึก?",
+      "description": "เซสชันปัจจุบันของคุณจะสิ้นสุด"
+    }
+  },
+  "language": {
+    "title": "ภาษา",
+    "select": "เลือกภาษา",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "ar": "العربية",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "th": "ไทย"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "สวัสดี! ฉันคือสการ์เล็ต อยากรู้จักคุณมากขึ้น...",
+      "surveyComplete": "ขอบคุณที่แบ่งปัน! ตอนนี้ฉันสามารถปรับการสนทนาให้เหมาะกับความสนใจของคุณได้แล้ว อยากคุยเรื่องอะไร?"
+    },
+    "violet": {
+      "welcomeMessage": "สวัสดี! ฉันคือไวโอเล็ต ฉันชอบอนิเมะ วิดีโอเกม และทำเพลง มาเรียนภาษาอังกฤษด้วยกันโดยพูดคุยเรื่องที่เราชอบ! ก่อนอื่นมีคำถามบางข้อ:",
+      "surveyComplete": "เลือกได้ดี! รู้เลยว่าเราจะเข้ากันได้ มีอะไรในใจ?"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "อื่นๆ"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "ศิลปินคนไหนเป็นคนโปรดของคุณ?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "คุณจะอธิบายระดับภาษาอังกฤษของคุณอย่างไร?",
+        "beginner": "เริ่มต้น",
+        "intermediate": "ปานกลาง",
+        "advanced": "ขั้นสูง"
+      },
+      "learningGoal": {
+        "question": "เป้าหมายหลักในการเรียนภาษาอังกฤษของคุณคืออะไร?",
+        "travel": "ท่องเที่ยวและสำรวจ",
+        "dating": "พบปะผู้คน / ออกเดท",
+        "test": "สอบผ่าน (TOEFL, IELTS)",
+        "job": "ความก้าวหน้าในอาชีพ"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "คุณชอบอนิเมะเรื่องไหน?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "คุณเล่นเกมอะไร?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "เกมจังหวะ (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "คุณสนใจทำเพลงไหม?",
+        "yesDaw": "ใช่! ฉันใช้ DAW",
+        "curious": "อยากรู้แต่ยังไม่เริ่ม",
+        "listener": "ไม่ แค่ฟัง"
+      }
+    }
+  }
+}

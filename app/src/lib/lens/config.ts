@@ -1,9 +1,5 @@
 /**
  * Lens Protocol Configuration
- * Provides social identity layer
- *
- * Note: This file contains constants only. The lensClient is in client.ts
- * to maintain compatibility with React hooks.
  */
 
 import type { EvmAddress } from '@lens-protocol/client'

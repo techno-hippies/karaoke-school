@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { createQuery } from '@tanstack/solid-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
-import { convertGroveUri } from '@/lib/lens/utils'
+import { buildManifest, fetchJson } from '@/lib/storage'
 import { generateSlug } from './useSongSlug'
 
 export interface Clip {
@@ -19,7 +19,6 @@ export interface Clip {
   registeredAt: string
   processedAt?: string
   encryptedFullUri?: string
-  // Access control now read from clip metadata.encryption (SongAccess or Unlock)
   performances: Array<{
     id: string
     score: number
@@ -38,7 +37,31 @@ export interface Clip {
 
 export interface SongMetadata {
   title?: string
+  title_zh?: string  // Chinese
+  title_vi?: string  // Vietnamese
+  title_id?: string  // Indonesian
+  title_ja?: string  // Japanese
+  title_ko?: string  // Korean
+  title_es?: string  // Spanish
+  title_pt?: string  // Portuguese
+  title_ar?: string  // Arabic
+  title_tr?: string  // Turkish
+  title_ru?: string  // Russian
+  title_hi?: string  // Hindi
+  title_th?: string  // Thai
   artist?: string
+  artist_zh?: string  // Chinese
+  artist_vi?: string  // Vietnamese
+  artist_id?: string  // Indonesian
+  artist_ja?: string  // Japanese
+  artist_ko?: string  // Korean
+  artist_es?: string  // Spanish
+  artist_pt?: string  // Portuguese
+  artist_ar?: string  // Arabic
+  artist_tr?: string  // Turkish
+  artist_ru?: string  // Russian
+  artist_hi?: string  // Hindi
+  artist_th?: string  // Thai
   artistSlug?: string
   coverUri?: string
   artistLensHandle?: string
@@ -96,50 +119,61 @@ const CLIPS_QUERY = gql`
 /**
  * Fetch clips for a song by Spotify track ID, with metadata enriched
  */
-export function useSongClips(spotifyTrackId?: string) {
-  const clipsQuery = useQuery({
-    queryKey: ['song-clips', spotifyTrackId],
+export function useSongClips(spotifyTrackId: () => string | undefined) {
+  const clipsQuery = createQuery(() => ({
+    queryKey: ['song-clips', spotifyTrackId()],
     queryFn: async () => {
-      if (!spotifyTrackId) throw new Error('Spotify track ID required')
+      const trackId = spotifyTrackId()
+      if (!trackId) throw new Error('Spotify track ID required')
 
-      const data = await graphClient.request<{ clips: Clip[] }>(CLIPS_QUERY, { spotifyTrackId })
+      const data = await graphClient.request<{ clips: Clip[] }>(CLIPS_QUERY, { spotifyTrackId: trackId })
       if (!data.clips?.length) throw new Error('No clips found')
 
-      return { spotifyTrackId, clips: data.clips } as SongClips
+      return { spotifyTrackId: trackId, clips: data.clips } as SongClips
     },
-    enabled: !!spotifyTrackId,
+    enabled: !!spotifyTrackId(),
     staleTime: 30000,
     refetchOnWindowFocus: false,
-  })
+  }))
 
-  const firstClip = clipsQuery.data?.clips[0]
+  const firstClip = () => clipsQuery.data?.clips[0]
 
-  const metadataQuery = useQuery({
-    queryKey: ['song-metadata', firstClip?.metadataUri],
+  const metadataQuery = createQuery(() => ({
+    queryKey: ['song-metadata', firstClip()?.metadataUri],
     queryFn: async () => {
-      if (!firstClip?.metadataUri) throw new Error('No metadata URI')
-      const url = convertGroveUri(firstClip.metadataUri)
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`Metadata fetch failed: ${response.status}`)
-      const metadata = await response.json() as SongMetadata
+      const clip = firstClip()
+      if (!clip?.metadataUri) throw new Error('No metadata URI')
+      // Use multi-gateway fallback: Cache → Grove → Arweave → Lighthouse
+      const manifest = buildManifest(clip.metadataUri)
+      const metadata = await fetchJson<SongMetadata>(manifest)
       // Derive artistSlug from artist name if not present in metadata
       if (!metadata.artistSlug && metadata.artist) {
         metadata.artistSlug = generateSlug(metadata.artist)
       }
       return metadata
     },
-    enabled: !!firstClip?.metadataUri,
+    enabled: !!firstClip()?.metadataUri,
     staleTime: 300000,
-  })
+  }))
 
-  const enrichedClips = clipsQuery.data?.clips.map((clip, i) => ({
-    ...clip,
-    metadata: i === 0 ? metadataQuery.data : undefined,
-  })) ?? []
-
+  // Return a reactive accessor pattern for SolidJS
   return {
-    data: clipsQuery.data ? { ...clipsQuery.data, clips: enrichedClips } : undefined,
-    isLoading: clipsQuery.isLoading || metadataQuery.isLoading,
-    error: clipsQuery.error,
+    get data() {
+      const clips = clipsQuery.data
+      if (!clips) return undefined
+
+      const enrichedClips = clips.clips.map((clip, i) => ({
+        ...clip,
+        metadata: i === 0 ? metadataQuery.data : undefined,
+      }))
+
+      return { ...clips, clips: enrichedClips }
+    },
+    get isLoading() {
+      return clipsQuery.isLoading || metadataQuery.isLoading
+    },
+    get error() {
+      return clipsQuery.error
+    },
   }
 }

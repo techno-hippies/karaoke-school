@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { createQuery } from '@tanstack/solid-query'
 import { gql } from 'graphql-request'
 import { graphClient } from '@/lib/graphql/client'
 
@@ -54,29 +54,31 @@ interface ClipBySlugResult {
  * Primary hook for slug-based routing
  * Queries subgraph directly by indexed slug fields - O(1) lookup
  */
-export function useSongSlug(artistSlug?: string, songSlug?: string) {
-  return useQuery({
-    queryKey: ['song-slug', artistSlug, songSlug],
+export function useSongSlug(artistSlug: () => string | undefined, songSlug: () => string | undefined) {
+  return createQuery(() => ({
+    queryKey: ['song-slug', artistSlug(), songSlug()],
     queryFn: async () => {
-      if (!artistSlug || !songSlug) {
+      const artist = artistSlug()
+      const song = songSlug()
+      if (!artist || !song) {
         throw new Error('Both artist and song slugs are required')
       }
 
       const data = await graphClient.request<{ clips: ClipBySlugResult[] }>(
         CLIP_BY_SLUG_QUERY,
-        { artistSlug, songSlug }
+        { artistSlug: artist, songSlug: song }
       )
 
       if (!data.clips || data.clips.length === 0) {
-        throw new Error(`No song found for ${artistSlug}/${songSlug}`)
+        throw new Error(`No song found for ${artist}/${song}`)
       }
 
       return { spotifyTrackId: data.clips[0].spotifyTrackId }
     },
-    enabled: !!artistSlug && !!songSlug,
+    enabled: !!artistSlug() && !!songSlug(),
     staleTime: 300000, // 5 minutes
     retry: false,
-  })
+  }))
 }
 
 /**
@@ -92,7 +94,7 @@ const ALL_SLUGS_QUERY = gql`
 `
 
 export function useAllSlugs() {
-  return useQuery({
+  return createQuery(() => ({
     queryKey: ['all-slugs'],
     queryFn: async () => {
       const data = await graphClient.request<{ clips: { artistSlug: string; songSlug: string }[] }>(
@@ -101,5 +103,5 @@ export function useAllSlugs() {
       return data.clips || []
     },
     staleTime: 300000,
-  })
+  }))
 }

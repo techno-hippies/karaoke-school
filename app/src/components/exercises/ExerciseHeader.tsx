@@ -1,7 +1,6 @@
-import React from 'react'
-import { X } from '@phosphor-icons/react'
+import { type Component, createEffect, Show } from 'solid-js'
 import { Progress } from '@/components/ui/progress'
-import { Button } from '@/components/ui/button'
+import { BackButton } from '@/components/ui/back-button'
 import { cn } from '@/lib/utils'
 
 export interface ExerciseHeaderProps {
@@ -10,7 +9,7 @@ export interface ExerciseHeaderProps {
   /** Callback when close button is clicked */
   onClose: () => void
   /** Optional className for the container */
-  className?: string
+  class?: string
   /** Show close button (default: true) */
   showCloseButton?: boolean
   /** Optional stats to display */
@@ -24,49 +23,39 @@ export interface ExerciseHeaderProps {
   }
 }
 
-export function ExerciseHeader({
-  progress,
-  onClose,
-  className,
-  showCloseButton = true,
-  stats,
-}: ExerciseHeaderProps) {
+export const ExerciseHeader: Component<ExerciseHeaderProps> = (props) => {
   // Log stats to console instead of displaying in UI
-  React.useEffect(() => {
-    if (stats) {
+  createEffect(() => {
+    if (props.stats) {
       console.log('[ExerciseHeader]', {
-        today: `${stats.newToday}/15 new`,
-        review: `${stats.reviewCount} review`,
-        learning: stats.learningCount > 0 ? `${stats.learningCount} learning` : undefined,
-        card: `${stats.currentCard}/${stats.totalCards}`,
-        progress: `${progress}%`
+        today: `${props.stats.newToday}/15 new`,
+        review: `${props.stats.reviewCount} review`,
+        learning: props.stats.learningCount > 0 ? `${props.stats.learningCount} learning` : undefined,
+        card: `${props.stats.currentCard}/${props.stats.totalCards}`,
+        progress: `${props.progress}%`
       })
     }
-  }, [stats, progress])
+  })
 
   return (
     <div
-      className={cn(
+      class={cn(
         'flex items-center gap-3 w-full',
-        className
+        props.class
       )}
     >
       {/* Close button */}
-      {showCloseButton && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="text-muted-foreground hover:text-foreground shrink-0"
-          aria-label="Close"
-        >
-          <X size={24} weight="bold" />
-        </Button>
-      )}
+      <Show when={props.showCloseButton ?? true}>
+        <BackButton
+          variant="close"
+          onClick={props.onClose}
+          class="shrink-0"
+        />
+      </Show>
 
       {/* Progress bar */}
-      <div className="flex-1">
-        <Progress value={progress} />
+      <div class="flex-1">
+        <Progress value={props.progress} />
       </div>
     </div>
   )

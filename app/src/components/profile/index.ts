@@ -1,8 +1,6 @@
-// Profile components
-export { AccountPage } from './AccountPage'
-export { ProfileAvatar } from './ProfileAvatar'
-export { ProfileInfo } from './ProfileInfo'
-export { ProfilePage } from './ProfilePage'
-export { ProfilePageSkeleton } from './ProfilePageSkeleton'
-export { ProfileStats } from './ProfileStats'
-export { ProfileWalletPage } from './ProfileWalletPage'
+/**
+ * Profile components
+ */
+
+export { ProfilePageView } from './ProfilePageView'
+export type { ProfilePageViewProps, Achievement } from './ProfilePageView'

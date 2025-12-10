@@ -26,9 +26,9 @@ import { getSongByISWC, getArtistById, updateSongEncryption } from '../db/querie
 import { uploadToGrove } from '../services/grove';
 import { getEnvironment, getLitNetwork, type Environment } from '../config/networks';
 
-// SongAccess contract addresses (per-song USDC purchase)
+// SongAccess contract addresses (per-song ETH purchase)
 const SONG_ACCESS_CONTRACT = {
-  testnet: '0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545', // Base Sepolia
+  testnet: '0x7856C6121b3Fb861C31cb593a65236858d789bDB', // Base Sepolia
   mainnet: '0x0000000000000000000000000000000000000000', // TODO: Deploy to Base
 };
 

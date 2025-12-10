@@ -12,7 +12,31 @@ type Clip @entity(immutable: false) {
 
   # Display metadata (indexed for queries)
   title: String!
+  title_zh: String  # Chinese (Simplified)
+  title_vi: String  # Vietnamese
+  title_id: String  # Indonesian
+  title_ja: String  # Japanese
+  title_ko: String  # Korean
+  title_es: String  # Spanish
+  title_pt: String  # Portuguese
+  title_ar: String  # Arabic
+  title_tr: String  # Turkish
+  title_ru: String  # Russian
+  title_hi: String  # Hindi
+  title_th: String  # Thai
   artist: String!
+  artist_zh: String  # Chinese
+  artist_vi: String  # Vietnamese
+  artist_id: String  # Indonesian
+  artist_ja: String  # Japanese
+  artist_ko: String  # Korean
+  artist_es: String  # Spanish
+  artist_pt: String  # Portuguese
+  artist_ar: String  # Arabic
+  artist_tr: String  # Turkish
+  artist_ru: String  # Russian
+  artist_hi: String  # Hindi
+  artist_th: String  # Thai
   artistSlug: String!
   songSlug: String!
 
@@ -246,7 +270,7 @@ type KaraokeSession @entity(immutable: false) {
 """
 A graded line within a karaoke session
 """
-type KaraokeLineScore @entity(immutable: true) {
+type KaraokeLineScore @entity(immutable: false) {
   id: ID! # sessionId-lineIndex
   session: KaraokeSession!
   sessionId: Bytes!

@@ -1,0 +1,315 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "Inicio",
+    "songs": "Canciones",
+    "study": "Estudiar",
+    "chat": "Chat",
+    "wallet": "Cartera",
+    "karaoke": "Karaoke"
+  },
+  "auth": {
+    "signIn": "Iniciar sesión",
+    "signUp": "Registrarse",
+    "connect": "Conectar",
+    "connectWallet": "Conectar cartera",
+    "usePasskey": "Usar Passkey",
+    "chooseUsername": "Elegir nombre de usuario",
+    "authenticating": "Autenticando...",
+    "success": "¡Éxito!",
+    "passkeyRecommended": "Passkey - Recomendado",
+    "noPasswordSecure": "Sin contraseña, seguro",
+    "createNewAccount": "Crear nueva cuenta",
+    "or": "o",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "usernamePlaceholder": "Elige un nombre de usuario (6+ caracteres)",
+    "valid": "Válido",
+    "processing": "Procesando...",
+    "allSet": "¡Todo listo! Empecemos a aprender.",
+    "startLearning": "Empezar a aprender",
+    "hideDetails": "Ocultar detalles",
+    "showDetails": "Mostrar detalles",
+    "settingUp": "Configurando...",
+    "createPasskey": "Crear tu passkey",
+    "verifyingPasskey": "Verificando passkey...",
+    "almostDone": "Casi listo...",
+    "authenticateDevice": "Autenticar con tu dispositivo",
+    "fetchingAccount": "Obteniendo cuenta...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "Crear con Google",
+    "createWithDiscord": "Crear con Discord",
+    "signInWithGoogle": "Iniciar con Google",
+    "signInWithDiscord": "Iniciar con Discord",
+    "creatingPasskeyWallet": "Creando passkey y cartera...",
+    "settingUpWallet": "Configurando cartera...",
+    "settingUpLensProfile": "Configurando perfil Lens...",
+    "foundExistingLens": "Cuenta Lens existente encontrada, conectando...",
+    "creatingNewLensAccount": "Creando nueva cuenta Lens...",
+    "authenticatingPasskey": "Autenticando con passkey...",
+    "connectingToLens": "Conectando a Lens...",
+    "lensSessionResumed": "¡Sesión Lens reanudada!",
+    "checkingExistingAccount": "Verificando cuenta existente...",
+    "foundExistingSigningIn": "Cuenta existente encontrada, iniciando sesión...",
+    "creatingNewWallet": "Creando nueva cartera...",
+    "settingUpSession": "Configurando sesión...",
+    "settingUpLens": "Configurando Lens...",
+    "checkingLensAccount": "Verificando cuenta Lens...",
+    "connectingToLensAccount": "Conectando a cuenta Lens...",
+    "connectingWallet": "Conectando cartera...",
+    "waitingForWallet": "Esperando conexión de cartera...",
+    "openingGoogle": "Abriendo Google...",
+    "openingDiscord": "Abriendo Discord...",
+    "creatingAccount": "Creando cuenta...",
+    "complete": "¡Completo!",
+    "wrongNetwork": "Red incorrecta",
+    "wrongNetworkDesc": "Por favor cambia a {{chain}} para continuar.",
+    "switchNetwork": "Cambiar a {{chain}}",
+    "switchingNetwork": "Cambiando...",
+    "manualNetworkSwitch": "Si el botón no funciona, agrega la red manualmente:",
+    "errors": {
+      "googlePopupBlocked": "Popup de Google bloqueado. Permite popups e intenta de nuevo.",
+      "discordPopupBlocked": "Popup de Discord bloqueado. Permite popups e intenta de nuevo.",
+      "googleCancelled": "Inicio de sesión con Google cancelado.",
+      "discordCancelled": "Inicio de sesión con Discord cancelado.",
+      "connectionFailed": "Conexión fallida. Verifica tu internet e intenta de nuevo.",
+      "cancelled": "Autenticación cancelada.",
+      "timeout": "Tiempo agotado. Intenta de nuevo.",
+      "accountExists": "La cuenta ya existe. Intenta iniciar sesión.",
+      "accountNotFound": "Cuenta no encontrada. Intenta crear una nueva.",
+      "generic": "Algo salió mal. Intenta de nuevo."
+    }
+  },
+  "wallet": {
+    "walletAddress": "Dirección de cartera",
+    "username": "Nombre de usuario",
+    "balances": "Saldos",
+    "balance": "Saldo",
+    "currency": "Moneda",
+    "chain": "Cadena",
+    "disconnect": "Desconectar",
+    "settings": "Configuración",
+    "points": "Puntos",
+    "achievements": "Logros",
+    "noAchievements": "Sin logros aún"
+  },
+  "chat": {
+    "title": "Chat",
+    "upgrade": "Mejorar",
+    "typePlaceholder": "Escribe un mensaje...",
+    "send": "Enviar",
+    "play": "Reproducir",
+    "stop": "Detener",
+    "transcribing": "Transcribiendo...",
+    "translate": "Traducir",
+    "translating": "Traduciendo..."
+  },
+  "exercise": {
+    "translate": "Traducir:",
+    "answer": "Respuesta:",
+    "question": "Pregunta:",
+    "incorrect": "Incorrecto",
+    "correct": "¡Correcto!",
+    "next": "Siguiente",
+    "skip": "Saltar",
+    "tryAgain": "Intenta de nuevo.",
+    "sayItBack": "Repite:",
+    "youSaid": "Dijiste:"
+  },
+  "song": {
+    "unlockSong": "Desbloquear canción",
+    "unlockSubtitle": "Canción completa con letra palabra por palabra. Compra única.",
+    "lifetimeAccess": "Obtén acceso de por vida a la canción completa.",
+    "whatYouGet": "Lo que obtienes:",
+    "fullKaraoke": "Práctica de karaoke completa",
+    "wordByWord": "Sincronización palabra por palabra",
+    "lifetimeAccessShort": "Acceso de por vida",
+    "oneTimePurchase": "Compra única",
+    "purchase": "Comprar",
+    "buy": "Comprar",
+    "unlocked": "¡Desbloqueado! Empieza a practicar.",
+    "practice": "Practicar",
+    "lyrics": "Letra",
+    "exercises": "Ejercicios",
+    "unlock": "Desbloquear",
+    "unlocking": "Desbloqueando..."
+  },
+  "karaoke": {
+    "start": "Empezar",
+    "signInToPractice": "Inicia sesión para practicar",
+    "recording": "Grabando...",
+    "gradingNotConfigured": "Calificación no configurada",
+    "unableToLoad": "No se puede cargar el karaoke",
+    "audioNotAvailable": "Audio no disponible",
+    "lyricsNotAvailable": "Letra no disponible",
+    "score": "Puntuación",
+    "linesGraded": "{{completed}}/{{total}} líneas calificadas",
+    "linesSkipped": "({{count}} omitidas)"
+  },
+  "premium": {
+    "upgradeToPremium": "Mejorar a Premium",
+    "premiumFeatures": "Funciones Premium",
+    "betterAI": "Mejores respuestas de IA",
+    "betterTTS": "Texto a voz natural",
+    "unlimitedChat": "Historial de chat ilimitado",
+    "perMonth": "/mes",
+    "subscribe": "Suscribirse"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "Clasificación",
+    "noStudentsYet": "Sin estudiantes aún. ¡Sé el primero en practicar!"
+  },
+  "video": {
+    "noVideos": "Sin videos disponibles",
+    "checkBackLater": "Vuelve más tarde para nuevo contenido",
+    "noMedia": "Sin medios",
+    "playbackError": "Error de reproducción"
+  },
+  "study": {
+    "signUpToStudy": "Regístrate para estudiar",
+    "signUpDescription": "Crea una cuenta para seguir tu progreso y practicar con repetición espaciada.",
+    "noCardsDue": "Sin tarjetas pendientes",
+    "noCardsDescription": "Has completado todas las tarjetas disponibles. ¡Vuelve más tarde!",
+    "sessionComplete": "¡Sesión completa!",
+    "comeBackTomorrow": "Vuelve mañana para reforzar lo aprendido.",
+    "cardsCompleted": "Tarjetas completadas",
+    "youFinishedSong": "¡Terminaste \"{{title}}\"!",
+    "youFinishedAll": "¡Terminaste todas las tarjetas!",
+    "new": "Nuevo",
+    "learning": "Aprendiendo",
+    "due": "Pendiente",
+    "studyAll": "Estudiar todo",
+    "signInToStudy": "Inicia sesión para estudiar",
+    "allCaughtUp": "¡Todo al día!",
+    "noCardsDueGreat": "Sin tarjetas pendientes. ¡Excelente!",
+    "browseSongs": "Explorar canciones"
+  },
+  "home": {
+    "recentlyAdded": "Recién agregadas",
+    "allSongs": "Todas las canciones",
+    "trending": "Tendencias"
+  },
+  "walletPage": {
+    "signUpTitle": "Registrarse",
+    "signUpDescription": "Crea una cuenta para acceder a tu cartera y compras"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "retry": "Reintentar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "copy": "Copiar",
+    "copied": "¡Copiado!",
+    "search": "Buscar",
+    "noResults": "Sin resultados",
+    "seeAll": "Ver todo",
+    "viewMore": "Ver más",
+    "goBack": "Volver",
+    "finish": "Terminar",
+    "playAgain": "Reproducir de nuevo",
+    "grading": "Calificando...",
+    "complete": "Completo",
+    "reloadPage": "Recargar página",
+    "exit": "Salir",
+    "done": "Hecho",
+    "processing": "Procesando",
+    "refreshBalance": "Actualizar saldo",
+    "soon": "Pronto",
+    "transactionFailed": "Transacción fallida. Intenta de nuevo.",
+    "exitStudy": {
+      "title": "¿Salir de la sesión de estudio?",
+      "description": "Tu progreso ha sido guardado. Puedes continuar después."
+    },
+    "exitKaraoke": {
+      "title": "¿Salir de la práctica?",
+      "description": "Tu sesión actual terminará."
+    }
+  },
+  "language": {
+    "title": "Idioma",
+    "select": "Seleccionar idioma",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "ar": "العربية",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "th": "ไทย"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "¡Hola! Soy Scarlett, quiero conocerte mejor...",
+      "surveyComplete": "¡Gracias por compartir! Ahora puedo adaptar nuestras conversaciones a tus intereses. ¿De qué quieres hablar?"
+    },
+    "violet": {
+      "welcomeMessage": "¡Hola! Soy Violet. Me gusta el anime, los videojuegos y hacer música. ¡Aprendamos inglés juntos hablando de lo que nos gusta! 🎧🎮 Primero unas preguntas:",
+      "surveyComplete": "¡Buenas elecciones! Ya sé que nos vamos a llevar bien. ¿Qué tienes en mente?"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "Otro"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "¿Cuál de estos artistas es tu favorito?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "¿Cómo describirías tu nivel de inglés?",
+        "beginner": "Principiante",
+        "intermediate": "Intermedio",
+        "advanced": "Avanzado"
+      },
+      "learningGoal": {
+        "question": "¿Cuál es tu objetivo principal para aprender inglés?",
+        "travel": "Viajar y explorar",
+        "dating": "Conocer gente / citas",
+        "test": "Aprobar exámenes (TOEFL, IELTS)",
+        "job": "Avance profesional"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "¿Qué anime te gusta?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "¿Qué juegos juegas?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "Juegos de ritmo (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "¿Te interesa hacer música?",
+        "yesDaw": "¡Sí! Uso un DAW",
+        "curious": "Curioso pero no he empezado",
+        "listener": "No, solo escucho"
+      }
+    }
+  }
+}

@@ -1,120 +1,206 @@
-"use client"
+/**
+ * Drawer Component for SolidJS
+ * Using Corvu Drawer primitive - mobile-friendly bottom sheet with drag-to-dismiss
+ *
+ * Use this for mobile modals, especially those with form inputs (keyboard-safe)
+ */
 
-import * as React from "react"
-import { Drawer as DrawerPrimitive } from "vaul"
+import Drawer from '@corvu/drawer'
+import { splitProps, onMount, onCleanup, createSignal, type ParentComponent, type JSX } from 'solid-js'
+import { Icon } from '@/components/icons'
+import { cn, haptic } from '@/lib/utils'
 
-import { cn } from "@/lib/utils"
+// Re-export primitives for flexibility
+const DrawerRoot = Drawer
+const DrawerTrigger = Drawer.Trigger
+const DrawerPortal = Drawer.Portal
+const DrawerClose = Drawer.Close
+const useDrawerContext = Drawer.useContext
 
-const Drawer = ({
-  shouldScaleBackground = false,
-  modal = true,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    modal={modal}
-    {...props}
-  />
+/** Shared button styles for drawer navigation (back/close) */
+const drawerNavButtonClass = cn(
+  'flex items-center justify-center w-10 h-10 rounded-full',
+  'hover:bg-foreground/10 transition-colors cursor-pointer',
+  'text-foreground'
 )
-Drawer.displayName = "Drawer"
 
-const DrawerTrigger = DrawerPrimitive.Trigger
+const DrawerOverlay = () => {
+  const context = useDrawerContext()
 
-const DrawerPortal = DrawerPrimitive.Portal
+  return (
+    <Drawer.Overlay
+      class="fixed inset-0 z-50 corvu-transitioning:transition-colors corvu-transitioning:duration-300"
+      style={{
+        'background-color': `rgb(0 0 0 / ${0.8 * context.openPercentage()})`,
+      }}
+    />
+  )
+}
 
-const DrawerClose = DrawerPrimitive.Close
+interface DrawerContentProps {
+  class?: string
+  children?: JSX.Element
+  /** Optional back button handler - shows caret-left in top-left */
+  onBack?: () => void
+  /** Show drag handle at top (default: true) */
+  showHandle?: boolean
+  /** Footer content that stays sticky at the bottom (outside scroll area) */
+  footer?: JSX.Element
+}
 
-const DrawerOverlay = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Overlay
-    ref={ref}
-    className={cn("fixed inset-0 z-50 bg-black/80", className)}
-    {...props}
-  />
-))
-DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
+const DrawerContent: ParentComponent<DrawerContentProps> = (props) => {
+  const [local] = splitProps(props, ['class', 'children', 'onBack', 'showHandle', 'footer'])
+  const showHandle = () => local.showHandle !== false
+  const context = useDrawerContext()
 
-const DrawerContent = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-3xl bg-background",
-        "md:inset-x-auto md:left-[calc(50%+160px)] md:-translate-x-1/2 md:w-full md:max-w-6xl",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-))
-DrawerContent.displayName = "DrawerContent"
+  // Visual viewport offset for mobile keyboard handling
+  const [keyboardOffset, setKeyboardOffset] = createSignal(0)
 
-const DrawerHeader = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)}
-    {...props}
-  />
-)
-DrawerHeader.displayName = "DrawerHeader"
+  // Haptic feedback when drawer opens
+  onMount(() => haptic.light())
 
-const DrawerFooter = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn("mt-auto flex flex-col gap-2 p-4", className)}
-    {...props}
-  />
-)
-DrawerFooter.displayName = "DrawerFooter"
+  // Track visual viewport for mobile keyboard
+  onMount(() => {
+    const vv = window.visualViewport
+    if (!vv) return
 
-const DrawerTitle = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
-DrawerTitle.displayName = DrawerPrimitive.Title.displayName
+    const updateViewport = () => {
+      // Calculate how much the viewport has shrunk (keyboard height)
+      const keyboardHeight = window.innerHeight - vv.height
+      // Only apply offset when keyboard is likely open (>100px difference)
+      if (keyboardHeight > 100) {
+        setKeyboardOffset(keyboardHeight)
+      } else {
+        setKeyboardOffset(0)
+      }
+    }
 
-const DrawerDescription = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
-DrawerDescription.displayName = DrawerPrimitive.Description.displayName
+    vv.addEventListener('resize', updateViewport)
+    vv.addEventListener('scroll', updateViewport)
+
+    onCleanup(() => {
+      vv.removeEventListener('resize', updateViewport)
+      vv.removeEventListener('scroll', updateViewport)
+    })
+  })
+
+  // Calculate translateY based on open percentage
+  const translateY = () => 100 - context.openPercentage() * 100
+
+  return (
+    <DrawerPortal>
+      <DrawerOverlay />
+      {/* Wrapper for desktop centering - offset by sidebar width (md:pl-80 = 320px) */}
+      <div class="fixed inset-x-0 bottom-0 z-50 flex justify-center md:pl-80">
+        <Drawer.Content
+          class={cn(
+            // Sizing - full width mobile, constrained desktop
+            'w-full sm:max-w-4xl',
+            'max-h-[94vh]',
+            // Appearance - rounded top corners only, flush to bottom
+            'bg-card shadow-lg',
+            'rounded-t-2xl',
+            // Flex layout for content
+            'flex flex-col',
+            // Safe area for home indicator on iOS
+            'pb-safe',
+            // Transition - corvu adds corvu-transitioning class during animations
+            'corvu-transitioning:transition-transform corvu-transitioning:duration-300 corvu-transitioning:ease-out',
+            // Smooth transition when keyboard opens/closes
+            'transition-[bottom] duration-200 ease-out',
+            local.class
+          )}
+          style={{
+            transform: `translateY(${translateY()}%)`,
+            // Move drawer up when keyboard is open
+            bottom: `${keyboardOffset()}px`,
+          }}
+        >
+        {/* Drag handle */}
+        {showHandle() && (
+          <div class="flex justify-center pt-3 pb-1">
+            <div class="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
+        )}
+
+        {/* Back button - top left (conditionally rendered) */}
+        {local.onBack && (
+          <button
+            type="button"
+            onClick={local.onBack}
+            class={cn(drawerNavButtonClass, 'absolute left-3 top-3')}
+            aria-label="Go back"
+          >
+            <Icon name="caret-left" class="text-2xl" />
+          </button>
+        )}
+
+        {/* Close button - top right */}
+        <DrawerClose
+          class={cn(drawerNavButtonClass, 'absolute right-3 top-3')}
+          aria-label="Close"
+        >
+          <Icon name="x" class="text-2xl" />
+        </DrawerClose>
+
+        {/* Content wrapper with padding - scrollable */}
+        <div class="flex-1 overflow-y-auto px-6 pt-2 pb-2">
+          {local.children}
+        </div>
+
+        {/* Footer - sticky at bottom, outside scroll area */}
+        {local.footer && (
+          <div class="px-6 pb-6 pt-2 flex-shrink-0">
+            {local.footer}
+          </div>
+        )}
+        </Drawer.Content>
+      </div>
+    </DrawerPortal>
+  )
+}
+
+const DrawerHeader: ParentComponent<{ class?: string }> = (props) => {
+  return (
+    <div class={cn('flex flex-col space-y-1.5 text-center', props.class)}>
+      {props.children}
+    </div>
+  )
+}
+
+const DrawerFooter: ParentComponent<{ class?: string }> = (props) => {
+  return (
+    <div class={cn('flex flex-col gap-2 mt-auto pt-4', props.class)}>
+      {props.children}
+    </div>
+  )
+}
+
+const DrawerTitle: ParentComponent<{ class?: string }> = (props) => {
+  return (
+    <Drawer.Label class={cn('text-lg font-semibold leading-none tracking-tight', props.class)}>
+      {props.children}
+    </Drawer.Label>
+  )
+}
+
+const DrawerDescription: ParentComponent<{ class?: string }> = (props) => {
+  return (
+    <Drawer.Description class={cn('text-sm text-muted-foreground', props.class)}>
+      {props.children}
+    </Drawer.Description>
+  )
+}
 
 export {
-  Drawer,
+  DrawerRoot as Drawer,
+  DrawerTrigger,
   DrawerPortal,
   DrawerOverlay,
-  DrawerTrigger,
-  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerFooter,
   DrawerTitle,
   DrawerDescription,
+  DrawerClose,
 }

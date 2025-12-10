@@ -1,46 +1,44 @@
-import { useEffect, useState, useRef } from 'react'
+import { type Component, createSignal, createEffect } from 'solid-js'
 import { cn } from '@/lib/utils'
 
 export interface ComboCounterProps {
   /** Current combo multiplier (1 = no combo, 2+ = active combo) */
   combo: number
-  className?: string
+  class?: string
 }
 
 /**
  * Displays combo multiplier (x1, x2, x3, etc.)
  * Animates when combo increases.
  */
-export function ComboCounter({
-  combo,
-  className,
-}: ComboCounterProps) {
-  const hasCombo = combo >= 2
-  const [isAnimating, setIsAnimating] = useState(false)
-  const prevComboRef = useRef(combo)
+export const ComboCounter: Component<ComboCounterProps> = (props) => {
+  const [isAnimating, setIsAnimating] = createSignal(false)
+  let prevCombo = props.combo
 
-  // Trigger animation when combo increases
-  useEffect(() => {
-    if (combo > prevComboRef.current) {
+  createEffect(() => {
+    if (props.combo > prevCombo) {
       setIsAnimating(true)
       const timer = setTimeout(() => setIsAnimating(false), 300)
+      prevCombo = props.combo
       return () => clearTimeout(timer)
     }
-    prevComboRef.current = combo
-  }, [combo])
+    prevCombo = props.combo
+  })
+
+  const hasCombo = () => props.combo >= 2
 
   return (
     <div
-      className={cn(
+      class={cn(
         'flex items-center gap-1 font-black tabular-nums transition-all duration-200',
-        hasCombo ? 'scale-110' : 'scale-100',
-        hasCombo ? 'text-amber-400' : 'text-white/40',
-        isAnimating && 'animate-score-pop',
-        className
+        hasCombo() ? 'scale-110' : 'scale-100',
+        hasCombo() ? 'text-amber-400' : 'text-white/40',
+        isAnimating() && 'animate-score-pop',
+        props.class
       )}
     >
-      <span className="text-lg">x</span>
-      <span className="text-2xl">{combo}</span>
+      <span class="text-lg">x</span>
+      <span class="text-2xl">{props.combo}</span>
     </div>
   )
 }

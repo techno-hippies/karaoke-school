@@ -103,6 +103,210 @@ export class Clip extends Entity {
     this.set("title", Value.fromString(value));
   }
 
+  get title_zh(): string | null {
+    let value = this.get("title_zh");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_zh(value: string | null) {
+    if (!value) {
+      this.unset("title_zh");
+    } else {
+      this.set("title_zh", Value.fromString(<string>value));
+    }
+  }
+
+  get title_vi(): string | null {
+    let value = this.get("title_vi");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_vi(value: string | null) {
+    if (!value) {
+      this.unset("title_vi");
+    } else {
+      this.set("title_vi", Value.fromString(<string>value));
+    }
+  }
+
+  get title_id(): string | null {
+    let value = this.get("title_id");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_id(value: string | null) {
+    if (!value) {
+      this.unset("title_id");
+    } else {
+      this.set("title_id", Value.fromString(<string>value));
+    }
+  }
+
+  get title_ja(): string | null {
+    let value = this.get("title_ja");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_ja(value: string | null) {
+    if (!value) {
+      this.unset("title_ja");
+    } else {
+      this.set("title_ja", Value.fromString(<string>value));
+    }
+  }
+
+  get title_ko(): string | null {
+    let value = this.get("title_ko");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_ko(value: string | null) {
+    if (!value) {
+      this.unset("title_ko");
+    } else {
+      this.set("title_ko", Value.fromString(<string>value));
+    }
+  }
+
+  get title_es(): string | null {
+    let value = this.get("title_es");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_es(value: string | null) {
+    if (!value) {
+      this.unset("title_es");
+    } else {
+      this.set("title_es", Value.fromString(<string>value));
+    }
+  }
+
+  get title_pt(): string | null {
+    let value = this.get("title_pt");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_pt(value: string | null) {
+    if (!value) {
+      this.unset("title_pt");
+    } else {
+      this.set("title_pt", Value.fromString(<string>value));
+    }
+  }
+
+  get title_ar(): string | null {
+    let value = this.get("title_ar");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_ar(value: string | null) {
+    if (!value) {
+      this.unset("title_ar");
+    } else {
+      this.set("title_ar", Value.fromString(<string>value));
+    }
+  }
+
+  get title_tr(): string | null {
+    let value = this.get("title_tr");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_tr(value: string | null) {
+    if (!value) {
+      this.unset("title_tr");
+    } else {
+      this.set("title_tr", Value.fromString(<string>value));
+    }
+  }
+
+  get title_ru(): string | null {
+    let value = this.get("title_ru");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_ru(value: string | null) {
+    if (!value) {
+      this.unset("title_ru");
+    } else {
+      this.set("title_ru", Value.fromString(<string>value));
+    }
+  }
+
+  get title_hi(): string | null {
+    let value = this.get("title_hi");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_hi(value: string | null) {
+    if (!value) {
+      this.unset("title_hi");
+    } else {
+      this.set("title_hi", Value.fromString(<string>value));
+    }
+  }
+
+  get title_th(): string | null {
+    let value = this.get("title_th");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set title_th(value: string | null) {
+    if (!value) {
+      this.unset("title_th");
+    } else {
+      this.set("title_th", Value.fromString(<string>value));
+    }
+  }
+
   get artist(): string {
     let value = this.get("artist");
     if (!value || value.kind == ValueKind.NULL) {
@@ -114,6 +318,210 @@ export class Clip extends Entity {
 
   set artist(value: string) {
     this.set("artist", Value.fromString(value));
+  }
+
+  get artist_zh(): string | null {
+    let value = this.get("artist_zh");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_zh(value: string | null) {
+    if (!value) {
+      this.unset("artist_zh");
+    } else {
+      this.set("artist_zh", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_vi(): string | null {
+    let value = this.get("artist_vi");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_vi(value: string | null) {
+    if (!value) {
+      this.unset("artist_vi");
+    } else {
+      this.set("artist_vi", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_id(): string | null {
+    let value = this.get("artist_id");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_id(value: string | null) {
+    if (!value) {
+      this.unset("artist_id");
+    } else {
+      this.set("artist_id", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_ja(): string | null {
+    let value = this.get("artist_ja");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_ja(value: string | null) {
+    if (!value) {
+      this.unset("artist_ja");
+    } else {
+      this.set("artist_ja", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_ko(): string | null {
+    let value = this.get("artist_ko");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_ko(value: string | null) {
+    if (!value) {
+      this.unset("artist_ko");
+    } else {
+      this.set("artist_ko", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_es(): string | null {
+    let value = this.get("artist_es");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_es(value: string | null) {
+    if (!value) {
+      this.unset("artist_es");
+    } else {
+      this.set("artist_es", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_pt(): string | null {
+    let value = this.get("artist_pt");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_pt(value: string | null) {
+    if (!value) {
+      this.unset("artist_pt");
+    } else {
+      this.set("artist_pt", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_ar(): string | null {
+    let value = this.get("artist_ar");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_ar(value: string | null) {
+    if (!value) {
+      this.unset("artist_ar");
+    } else {
+      this.set("artist_ar", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_tr(): string | null {
+    let value = this.get("artist_tr");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_tr(value: string | null) {
+    if (!value) {
+      this.unset("artist_tr");
+    } else {
+      this.set("artist_tr", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_ru(): string | null {
+    let value = this.get("artist_ru");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_ru(value: string | null) {
+    if (!value) {
+      this.unset("artist_ru");
+    } else {
+      this.set("artist_ru", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_hi(): string | null {
+    let value = this.get("artist_hi");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_hi(value: string | null) {
+    if (!value) {
+      this.unset("artist_hi");
+    } else {
+      this.set("artist_hi", Value.fromString(<string>value));
+    }
+  }
+
+  get artist_th(): string | null {
+    let value = this.get("artist_th");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set artist_th(value: string | null) {
+    if (!value) {
+      this.unset("artist_th");
+    } else {
+      this.set("artist_th", Value.fromString(<string>value));
+    }
   }
 
   get artistSlug(): string {

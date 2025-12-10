@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Streamer Overlay</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: transparent;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      position: relative;
+    }
+
+    #avatar-container {
+      width: 400px;
+      height: 600px;
+      position: relative;
+    }
+
+    #avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #status {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 100;
+    }
+
+    #status.connected {
+      background: rgba(0, 128, 0, 0.7);
+    }
+
+    #status.speaking {
+      background: rgba(128, 0, 128, 0.7);
+    }
+
+    /* Subtle idle animation */
+    @keyframes idle-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    #avatar-container.idle {
+      animation: idle-bounce 3s ease-in-out infinite;
+    }
+
+    /* Speaking animation */
+    @keyframes speaking-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    #avatar-container.speaking {
+      animation: speaking-pulse 0.3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Connecting...</div>
+
+  <div id="container">
+    <div id="avatar-container" class="idle">
+      <!-- Live2D will be rendered here later. For now, placeholder image -->
+      <img id="avatar" src="placeholder.png" alt="Avatar" />
+    </div>
+  </div>
+
+  <script>
+    const WS_URL = 'ws://localhost:3030/overlay'
+
+    const status = document.getElementById('status')
+    const avatarContainer = document.getElementById('avatar-container')
+
+    let ws = null
+    let audioContext = null
+    let audioQueue = []
+    let isPlaying = false
+
+    // Initialize audio context on first user interaction
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new AudioContext()
+        console.log('[Audio] Context initialized')
+      }
+    }
+
+    // Connect to server
+    function connect() {
+      ws = new WebSocket(WS_URL)
+
+      ws.onopen = () => {
+        console.log('[WS] Connected')
+        status.textContent = 'Connected'
+        status.className = 'connected'
+        initAudio()
+      }
+
+      ws.onmessage = async (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+
+          if (msg.type === 'audio' && msg.audio) {
+            // Decode base64 audio and queue it
+            const audioData = atob(msg.audio)
+            const audioArray = new Uint8Array(audioData.length)
+            for (let i = 0; i < audioData.length; i++) {
+              audioArray[i] = audioData.charCodeAt(i)
+            }
+
+            audioQueue.push(audioArray.buffer)
+
+            if (!isPlaying) {
+              playQueue()
+            }
+
+            // Show speaking state
+            status.textContent = 'Speaking...'
+            status.className = 'speaking'
+            avatarContainer.className = 'speaking'
+          }
+
+          if (msg.type === 'audio' && msg.isFinal) {
+            console.log('[Audio] Speech complete')
+          }
+        } catch (err) {
+          console.error('[WS] Failed to parse message:', err)
+        }
+      }
+
+      ws.onclose = () => {
+        console.log('[WS] Disconnected')
+        status.textContent = 'Disconnected'
+        status.className = ''
+        avatarContainer.className = 'idle'
+
+        // Reconnect after 2s
+        setTimeout(connect, 2000)
+      }
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err)
+      }
+    }
+
+    // Play queued audio chunks
+    async function playQueue() {
+      if (!audioContext || audioQueue.length === 0) {
+        isPlaying = false
+        avatarContainer.className = 'idle'
+        status.textContent = 'Connected'
+        status.className = 'connected'
+        return
+      }
+
+      isPlaying = true
+      const buffer = audioQueue.shift()
+
+      try {
+        const audioBuffer = await audioContext.decodeAudioData(buffer)
+        const source = audioContext.createBufferSource()
+        source.buffer = audioBuffer
+        source.connect(audioContext.destination)
+        source.start()
+
+        source.onended = () => {
+          playQueue()
+        }
+      } catch (err) {
+        console.error('[Audio] Decode error:', err)
+        playQueue() // Try next chunk
+      }
+    }
+
+    // Start connection
+    connect()
+
+    // Initialize audio on click (required by browsers)
+    document.addEventListener('click', initAudio)
+  </script>
+</body>
+</html>

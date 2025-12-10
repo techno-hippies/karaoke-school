@@ -1,52 +1,39 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+/**
+ * Badge component
+ */
 
-import { cn } from "@/lib/utils"
+import { splitProps, type Component, type JSX } from 'solid-js'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all',
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-        // Gradient variants
-        gradient:
-          "border-transparent bg-[image:var(--gradient-primary)] text-white shadow-sm",
-        success:
-          "border-transparent bg-[image:var(--gradient-success)] text-white shadow-sm",
-        fire:
-          "border-transparent bg-[image:var(--gradient-fire)] text-white shadow-sm",
-        gold:
-          "border-transparent bg-[image:var(--gradient-gold)] text-black shadow-sm",
-        purple:
-          "border-transparent bg-[image:var(--gradient-purple)] text-white shadow-sm",
-        // Glowing variants
-        "glow-primary":
-          "border-transparent bg-primary text-primary-foreground shadow-[var(--glow-primary)]",
-        "glow-success":
-          "border-transparent bg-[image:var(--gradient-success)] text-white shadow-[var(--glow-success)]",
+        default: 'border-transparent bg-primary text-primary-foreground',
+        secondary: 'border-transparent bg-secondary text-secondary-foreground',
+        destructive: 'border-transparent bg-destructive text-destructive-foreground',
+        outline: 'text-foreground',
+        gradient: 'border-transparent bg-[image:var(--gradient-primary)] text-white shadow-sm',
+        success: 'border-transparent bg-[image:var(--gradient-success)] text-white shadow-sm',
+        fire: 'border-transparent bg-[image:var(--gradient-fire)] text-white shadow-sm',
+        gold: 'border-transparent bg-[image:var(--gradient-gold)] text-black shadow-sm',
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: 'default',
     },
   }
 )
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+export interface BadgeProps extends JSX.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+export const Badge: Component<BadgeProps> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'variant', 'children'])
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div class={cn(badgeVariants({ variant: local.variant }), local.class)} {...others}>
+      {local.children}
+    </div>
   )
 }
-
-export { Badge }

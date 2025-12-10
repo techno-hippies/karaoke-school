@@ -1,20 +1,56 @@
-import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useParams, useNavigate } from 'react-router-dom'
+import { createMemo, Show, type Component } from 'solid-js'
+import { useParams, useNavigate } from '@solidjs/router'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStudySession } from '@/hooks/useStudySession'
 import { useSongSlug } from '@/hooks/useSongSlug'
+import { useTranslation } from '@/lib/i18n'
 import { SayItBackExercise } from '@/components/exercises/SayItBackExercise'
 import { MultipleChoiceQuiz } from '@/components/exercises/MultipleChoiceQuiz'
 import { ExerciseHeader } from '@/components/exercises/ExerciseHeader'
-import { ExerciseFooter } from '@/components/exercises/ExerciseFooter'
-import { ExerciseSkeleton } from '@/components/study/ExerciseSkeleton'
-import { Spinner } from '@/components/ui/spinner'
+import { ExerciseFooter, type ExerciseFooterControls } from '@/components/exercises/ExerciseFooter'
+import { ExerciseSkeleton } from '@/components/exercises/ExerciseSkeleton'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ExitConfirmation, useExitConfirmation } from '@/components/ui/exit-confirmation'
 
 /**
- * Study Session Page - Refactored with persistent layout
+ * Skeleton layout for study page - shows header/footer structure while loading
+ */
+const StudyPageSkeleton: Component<{ onClose?: () => void }> = (props) => {
+  return (
+    <div class="flex flex-col h-screen">
+      {/* Header skeleton */}
+      <div class="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
+        <div class="max-w-4xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center gap-3">
+          <Show
+            when={props.onClose}
+            fallback={
+              <>
+                <Skeleton class="w-10 h-10 rounded-full" />
+                <Skeleton class="flex-1 h-2 rounded-full" />
+              </>
+            }
+          >
+            <ExerciseHeader progress={0} onClose={props.onClose!} />
+          </Show>
+        </div>
+      </div>
+
+      {/* Content skeleton */}
+      <div class="flex-1 overflow-y-auto">
+        <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
+          <ExerciseSkeleton />
+        </div>
+      </div>
+
+      {/* Footer placeholder - maintains space */}
+      <div class="flex-shrink-0 h-20" />
+    </div>
+  )
+}
+
+/**
+ * Study Session Page - SolidJS port with persistent layout
  *
  * Architecture:
  * - Persistent header/footer (never unmount)
@@ -27,218 +63,275 @@ import { Card } from '@/components/ui/card'
  * - /song/:workId/study (Spotify track ID)
  * - /study/session (global session, all songs)
  */
-export function StudySessionPage({ onConnectWallet }: { onConnectWallet?: () => void }) {
+
+export const StudySessionPage: Component = () => {
   const { t } = useTranslation()
-  const { workId, artistSlug, songSlug } = useParams<{
+  const params = useParams<{
     workId?: string
     artistSlug?: string
     songSlug?: string
   }>()
-  const { isPKPReady, isAuthenticating } = useAuth()
+  const { isPKPReady, isAuthenticating, openAuthDialog } = useAuth()
   const navigate = useNavigate()
 
+  // Create accessors for slug resolution
+  const artistSlug = () => params.artistSlug
+  const songSlug = () => params.songSlug
+
   // Resolve slug to spotifyTrackId (instant from static map, or async from subgraph)
-  const { data: slugData, isLoading: isLoadingSlug } = useSongSlug(artistSlug, songSlug)
+  const slugQuery = useSongSlug(artistSlug, songSlug)
 
   // Determine which identifier to use:
   // - Slug route: use resolved spotifyTrackId
   // - Direct route: use workId (spotifyTrackId)
   // - Global session: undefined (all songs)
-  const songId = slugData?.spotifyTrackId || workId
-  const isSlugRoute = !!artistSlug && !!songSlug
-  const isGlobalSession = !songId && !isSlugRoute
-  const returnPath = isSlugRoute
-    ? `/${artistSlug}/${songSlug}`
-    : workId
-      ? `/song/${workId}`
-      : '/study'
+  const songId = createMemo(() => slugQuery.data?.spotifyTrackId || params.workId)
+  const isSlugRoute = createMemo(() => !!params.artistSlug && !!params.songSlug)
+  const isGlobalSession = createMemo(() => !songId() && !isSlugRoute())
+
+  const returnPath = createMemo(() => {
+    if (isSlugRoute()) {
+      return `/${params.artistSlug}/${params.songSlug}`
+    }
+    if (params.workId) {
+      return `/song/${params.workId}`
+    }
+    return '/study'
+  })
 
   // Main orchestration hook handles all state and logic
   // Pass spotifyTrackId for slug routes, workId for legacy routes
-  const session = useStudySession(songId, { exitPath: returnPath })
+  const session = useStudySession(songId, { exitPath: returnPath() })
 
-  const cardsCompleted = session.initialTotalCards > 0 ? session.initialTotalCards : session.totalCards
-  const completionTitle = session.songTitle
-    ? t('study.youFinished', { title: session.songTitle })
-    : isGlobalSession
-    ? t('study.youFinishedAll')
-    : t('study.youFinishedSession')
+  // Exit confirmation (drawer on mobile, dialog on desktop)
+  const exitConfirmation = useExitConfirmation(session.handleClose)
 
-  // Loading slug resolution for slug-based routes
-  if (isSlugRoute && isLoadingSlug) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Spinner size="lg" />
-      </div>
-    )
+  const cardsCompleted = createMemo(() =>
+    session.initialTotalCards() > 0 ? session.initialTotalCards() : session.totalCards()
+  )
+
+  const completionTitle = createMemo(() => {
+    const title = session.songTitle()
+    if (title) return t('study.youFinishedSong', { title })
+    if (isGlobalSession()) return t('study.youFinishedAll')
+    return t('study.sessionComplete')
+  })
+
+  const handleConnectClick = () => {
+    if (openAuthDialog) {
+      openAuthDialog()
+    } else {
+      navigate(returnPath())
+    }
   }
 
-  // Auth check: Distinguish between loading and not logged in
-  if (!isPKPReady) {
-    // Still loading PKP
-    if (isAuthenticating) {
-      return (
-        <div className="flex items-center justify-center h-screen">
-          <Spinner size="lg" />
-        </div>
-      )
+  // Build footer controls (unwrap accessors to primitives)
+  // Note: Must track isRecording/isProcessing as dependencies for reactivity
+  const footerControls = createMemo((): ExerciseFooterControls => {
+    const feedback = session.feedback()
+    const exerciseType = session.exerciseData().type
+    // Track these so memo re-runs when recording state changes
+    const isRecording = session.isRecording()
+    const isProcessing = session.isProcessing()
+
+    if (feedback) {
+      return {
+        type: 'navigation',
+        onNext: session.handleNext,
+        label: 'Next',
+        exerciseKey: session.currentCard()?.id,
+      }
     }
 
-    // Not logged in - show clear message
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-center">{t('study.signUp')}</h1>
-        <p className="text-muted-foreground text-center max-w-md">
-          {t('study.signUpDescription')}
-        </p>
-        <button
-          onClick={onConnectWallet || (() => navigate(returnPath))}
-          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          {t('study.signUp')}
-        </button>
-      </div>
-    )
-  }
+    if (exerciseType === 'SAY_IT_BACK') {
+      return {
+        type: 'voice',
+        isRecording,
+        isProcessing,
+        onStartRecording: session.handleStartRecording,
+        onStopRecording: session.handleStopRecording,
+        label: 'Record',
+      }
+    }
 
-  // Initial loading state (cards loading)
-  if (session.isInitializing) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
+    return { type: 'hidden' }
+  })
 
-  // No cards available
-  if (session.totalCards === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <h1 className="text-2xl font-bold">{t('study.noCards')}</h1>
-        <button onClick={() => navigate(returnPath)} className="text-primary hover:underline">
-          {t('study.goBack')}
-        </button>
-      </div>
-    )
-  }
+  // Footer visibility
+  const showFooter = createMemo(() =>
+    !!session.feedback() || session.exerciseData().type === 'SAY_IT_BACK'
+  )
 
-  // Session complete
-  if (session.currentCardIndex >= session.totalCards) {
-    return (
-      <>
-        <div className="flex flex-col h-screen bg-background">
-          <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 text-center gap-8">
-            <div className="space-y-3 max-w-xl">
-              <h1 className="text-sm uppercase tracking-wide text-muted-foreground">
-                {t('study.complete')}
+  // Unwrap feedback for footer - don't show text feedback, just use for navigation state
+  // SAY_IT_BACK: grade message shown inline in exercise component
+  // MULTIPLE_CHOICE: feedback shown inline in quiz component
+  const footerFeedback = createMemo(() => {
+    // Don't show feedback text in footer - it's shown inline in exercise components
+    return undefined
+  })
+
+  return (
+    <>
+      {/* Loading slug resolution for slug-based routes */}
+      <Show when={isSlugRoute() && slugQuery.isLoading}>
+        <StudyPageSkeleton onClose={() => navigate(returnPath(), { replace: true })} />
+      </Show>
+
+      {/* Auth check: Still loading PKP */}
+      <Show when={!isPKPReady() && isAuthenticating() && !(isSlugRoute() && slugQuery.isLoading)}>
+        <StudyPageSkeleton onClose={() => navigate(returnPath(), { replace: true })} />
+      </Show>
+
+      {/* Auth check: Not logged in */}
+      <Show when={!isPKPReady() && !isAuthenticating() && !(isSlugRoute() && slugQuery.isLoading)}>
+        <div class="flex flex-col items-center justify-center h-screen gap-4 px-4">
+          <h1 class="text-xl sm:text-2xl font-bold text-center">{t('study.signUpToStudy')}</h1>
+          <p class="text-muted-foreground text-center max-w-md">
+            {t('study.signUpDescription')}
+          </p>
+          <button
+            onClick={handleConnectClick}
+            class="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            {t('auth.signUp')}
+          </button>
+        </div>
+      </Show>
+
+      {/* Initial loading state (cards loading) */}
+      <Show when={isPKPReady() && session.isInitializing()}>
+        <StudyPageSkeleton onClose={exitConfirmation.requestExit} />
+      </Show>
+
+      {/* No cards available */}
+      <Show when={isPKPReady() && !session.isInitializing() && session.totalCards() === 0}>
+        <div class="flex flex-col items-center justify-center h-screen gap-4 px-4">
+          <h1 class="text-2xl font-bold">{t('study.noCardsDue')}</h1>
+          <p class="text-muted-foreground text-center max-w-md">
+            {t('study.noCardsDescription')}
+          </p>
+          <button
+            onClick={() => navigate(returnPath(), { replace: true })}
+            class="text-primary hover:underline"
+          >
+            {t('common.goBack')}
+          </button>
+        </div>
+      </Show>
+
+      {/* Session complete */}
+      <Show when={isPKPReady() && !session.isInitializing() && session.totalCards() > 0 && session.currentCardIndex() >= session.totalCards()}>
+        <div class="flex flex-col h-screen bg-background">
+          <div class="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-10 text-center gap-8">
+            <div class="space-y-3 max-w-xl">
+              <h1 class="text-sm uppercase tracking-wide text-muted-foreground">
+                {t('common.complete')}
               </h1>
-              <p className="text-3xl font-bold">{completionTitle}</p>
-              <p className="text-base text-muted-foreground">
+              <p class="text-3xl font-bold">{completionTitle()}</p>
+              <p class="text-base text-muted-foreground">
                 {t('study.comeBackTomorrow')}
               </p>
             </div>
 
-            <Card className="w-full max-w-sm border border-border/60 bg-muted/30 px-6 py-8 text-center space-y-3">
-              <p className="text-lg text-muted-foreground">{t('study.cardsCompleted')}</p>
-              <p className="text-7xl font-bold tracking-tight">{cardsCompleted}</p>
-            </Card>
+            <div class="w-full max-w-sm bg-muted/30 rounded-2xl px-6 py-8 text-center space-y-3">
+              <p class="text-lg text-muted-foreground">{t('study.cardsCompleted')}</p>
+              <p class="text-7xl font-bold tracking-tight">{cardsCompleted()}</p>
+            </div>
           </div>
 
-          <div className="border-t border-border bg-background/95 backdrop-blur-sm">
-            <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
-              <Button size="lg" className="w-full" onClick={() => navigate(returnPath)}>
-                {t('study.finish')}
+          <div class="border-t border-border bg-background/95 backdrop-blur-sm">
+            <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-6">
+              <Button size="lg" class="w-full" onClick={() => navigate(returnPath(), { replace: true })}>
+                {t('common.finish')}
               </Button>
             </div>
           </div>
         </div>
-      </>
-    )
-  }
+      </Show>
 
-  // Main study session layout - PERSISTENT (never unmounts)
-  return (
-    <div className="flex flex-col h-screen">
-      {/* Header - PERSISTENT */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
-        <div className="max-w-3xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
-          <ExerciseHeader
-            progress={session.progress}
-            onClose={session.handleClose}
-            stats={session.stats}
+      {/* Main study session layout - PERSISTENT (never unmounts) */}
+      <Show when={isPKPReady() && !session.isInitializing() && session.totalCards() > 0 && session.currentCardIndex() < session.totalCards()}>
+        <div class="flex flex-col h-screen">
+          {/* Header - PERSISTENT */}
+          <div class="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border flex-shrink-0 h-16">
+            <div class="max-w-4xl mx-auto w-full h-full px-4 sm:px-6 md:px-8 flex items-center">
+              <ExerciseHeader
+                progress={session.progress()}
+                onClose={exitConfirmation.requestExit}
+                stats={session.stats()}
+              />
+            </div>
+          </div>
+
+          {/* Exercise Content - TRANSITIONS SMOOTHLY */}
+          <div class="flex-1 overflow-y-auto">
+            <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
+              <Show when={session.isLoadingExercise()}>
+                <ExerciseSkeleton />
+              </Show>
+
+              <Show when={!session.isLoadingExercise() && session.exerciseData().type === 'ERROR'}>
+                <div class="space-y-4 text-center">
+                  <p class="text-destructive font-medium">
+                    Failed to load exercise: {(session.exerciseData() as any).message}
+                  </p>
+                  <div class="flex justify-center gap-3">
+                    <Button variant="outline" onClick={session.handleNext}>
+                      Skip
+                    </Button>
+                    <Button onClick={() => window.location.reload()}>
+                      Reload Page
+                    </Button>
+                  </div>
+                </div>
+              </Show>
+
+              <Show when={!session.isLoadingExercise() && session.exerciseData().type === 'SAY_IT_BACK'}>
+                <SayItBackExercise
+                  expectedText={(session.exerciseData() as any).exerciseText ?? ''}
+                  transcript={session.transcript()}
+                  score={session.score()}
+                  gradeMessage={session.feedback()?.message}
+                  isCorrect={session.feedback()?.isCorrect}
+                />
+              </Show>
+
+              <Show when={!session.isLoadingExercise() && session.exerciseData().type === 'MULTIPLE_CHOICE'}>
+                {(() => {
+                  const data = session.exerciseData() as any
+                  return (
+                    <MultipleChoiceQuiz
+                      question={data.question}
+                      options={data.options}
+                      onAnswer={session.handleAnswerSubmit}
+                      isProcessing={session.isProcessing()}
+                      hasAnswered={!!session.feedback()}
+                      selectedAnswerId={session.selectedAnswer() ? String(session.selectedAnswer()) : undefined}
+                      explanation={data.explanation}
+                      exerciseType={data.exerciseType}
+                    />
+                  )
+                })()}
+              </Show>
+            </div>
+          </div>
+
+          {/* Footer - Slides up when visible */}
+          <ExerciseFooter
+            show={showFooter()}
+            feedback={footerFeedback()}
+            controls={footerControls()}
           />
         </div>
-      </div>
+      </Show>
 
-      {/* Exercise Content - TRANSITIONS SMOOTHLY */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 md:px-8 py-8 sm:py-12">
-          {session.isLoadingExercise ? (
-            <ExerciseSkeleton />
-          ) : session.exerciseData.type === 'ERROR' ? (
-            <div className="space-y-4 text-center">
-              <p className="text-destructive font-medium">
-                {t('study.failedToLoad')}: {session.exerciseData.message}
-              </p>
-              <div className="flex justify-center gap-3">
-                <Button variant="outline" onClick={session.handleNext}>
-                  {t('study.skip')}
-                </Button>
-                <Button onClick={() => window.location.reload()}>
-                  {t('study.reloadPage')}
-                </Button>
-              </div>
-            </div>
-          ) : session.exerciseData.type === 'SAY_IT_BACK' ? (
-            <SayItBackExercise
-              expectedText={session.exerciseData.exerciseText}
-              transcript={session.transcript}
-              score={session.score}
-            />
-          ) : session.exerciseData.type === 'MULTIPLE_CHOICE' ? (
-            <MultipleChoiceQuiz
-              question={session.exerciseData.question}
-              options={session.exerciseData.options}
-              onAnswer={session.handleAnswerSubmit}
-              isProcessing={session.isProcessing}
-              hasAnswered={!!session.feedback}
-              selectedAnswerId={session.selectedAnswer ? String(session.selectedAnswer) : null}
-              explanation={session.exerciseData.explanation}
-              exerciseType={session.exerciseData.exerciseType}
-            />
-          ) : null}
-        </div>
-      </div>
-
-      {/* Footer - Slides up when visible */}
-      <ExerciseFooter
-        show={
-          // Show footer when: has feedback OR voice controls (SayItBack)
-          !!session.feedback || session.exerciseData.type === 'SAY_IT_BACK'
-        }
-        feedback={session.feedback}
-        controls={
-          session.feedback
-            ? {
-                type: 'navigation',
-                onNext: session.handleNext,
-                label: t('study.next'),
-                exerciseKey: session.currentCard?.id,
-              }
-            : session.exerciseData.type === 'SAY_IT_BACK'
-            ? {
-                type: 'voice',
-                isRecording: session.isRecording,
-                isProcessing: session.isProcessing,
-                onStartRecording: session.handleStartRecording,
-                onStopRecording: session.handleStopRecording,
-                label: t('study.record'),
-              }
-            : {
-                type: 'hidden', // Quiz handles submission internally via onAnswer
-              }
-        }
+      {/* Exit confirmation modal */}
+      <ExitConfirmation
+        open={exitConfirmation.isOpen()}
+        onCancel={exitConfirmation.cancel}
+        onConfirm={exitConfirmation.confirm}
+        sessionType="study"
       />
-    </div>
+    </>
   )
 }

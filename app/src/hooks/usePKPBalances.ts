@@ -1,182 +1,163 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+/**
+ * usePKPBalances - Fetch PKP wallet balances across EVM networks
+ *
+ * Improvements over React version:
+ * - Uses SolidJS createResource for better data fetching
+ * - Batches RPC calls per network (multicall-style)
+ * - Lazy loads other networks on demand
+ */
+
+const IS_DEV = import.meta.env.DEV
+
+import { createSignal, createEffect, on } from 'solid-js'
 import { createPublicClient, http } from 'viem'
 import { useAuth } from '@/contexts/AuthContext'
-import type { TokenBalance } from '@/components/wallet/WalletPageView'
 
-// Primary tokens - fetched immediately on load
+// Primary network - fetched immediately
 const PRIMARY_NETWORK = 'base'
-const PRIMARY_TOKENS = ['ETH', 'USDC'] as const
 
-// Network configurations for EVM-compatible chains
-const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
-  base: {
+// Network configurations - use testnet in dev, mainnet in prod
+const NETWORK_CONFIGS = {
+  base: IS_DEV ? {
+    name: 'Base Sepolia',
+    chainId: 84532,
+    rpcUrl: 'https://sepolia.base.org',
+    nativeToken: 'ETH',
+    tokens: {
+      // No USDC on Sepolia testnet, use empty config
+      USDC: { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', decimals: 6 }, // Circle's testnet USDC
+    }
+  } : {
     name: 'Base',
     chainId: 8453,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/base/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
+    rpcUrl: 'https://mainnet.base.org',
     nativeToken: 'ETH',
-    icon: 'base-logo.png',
     tokens: {
       USDC: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
-      USDT: { address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', decimals: 6, additional: true },
-      WBTC: { address: '0xCBa20e4bB3D7D8a9f49B6b806c2D9aa870596be5', decimals: 8, additional: true },
-      DAI: { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', decimals: 18, additional: true }
     }
   },
   ethereum: {
     name: 'Ethereum',
     chainId: 1,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/eth/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
+    rpcUrl: 'https://eth.drpc.org',
     nativeToken: 'ETH',
-    icon: 'ethereum-logo.png',
-    additional: true,
     tokens: {
       USDC: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
-      USDT: { address: '0xdac17f958d2ee523a2206206994597c13d831ec7', decimals: 6 },
-      WBTC: { address: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', decimals: 8, additional: true },
-      DAI: { address: '0x6b175474e89094c44da98b954eedeac495271d0f', decimals: 18, additional: true }
     }
   },
   polygon: {
     name: 'Polygon',
     chainId: 137,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/polygon/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
+    rpcUrl: 'https://polygon.drpc.org',
     nativeToken: 'MATIC',
-    icon: 'polygon-logo.png',
-    additional: true,
     tokens: {
       USDC: { address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', decimals: 6 },
-      USDT: { address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 },
-      WBTC: { address: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', decimals: 8, additional: true },
-      DAI: { address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', decimals: 18, additional: true }
     }
   },
   arbitrum: {
     name: 'Arbitrum',
     chainId: 42161,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/arbitrum/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
+    rpcUrl: 'https://arbitrum.drpc.org',
     nativeToken: 'ETH',
-    icon: 'arbitrum-logo.png',
-    additional: true,
     tokens: {
       USDC: { address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', decimals: 6 },
-      USDT: { address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6 },
-      WBTC: { address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5b0f', decimals: 8, additional: true },
-      DAI: { address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', decimals: 18, additional: true }
-    }
-  },
-  optimism: {
-    name: 'Optimism',
-    chainId: 10,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/optm/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
-    nativeToken: 'ETH',
-    icon: 'ethereum-logo.png',
-    additional: true,
-    tokens: {
-      USDC: { address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', decimals: 6 },
-      WBTC: { address: '0x68f180fcCe6836688e9084f035309E29Bf0A2095', decimals: 8, additional: true },
-      DAI: { address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', decimals: 18, additional: true }
-    }
-  },
-  bsc: {
-    name: 'Binance Smart Chain',
-    chainId: 56,
-    rpcUrl: 'https://g.w.lavanet.xyz:443/gateway/bsc/rpc-http/15a52e89f0ceb72b359c3b2f773b78cd',
-    nativeToken: 'BNB',
-    icon: 'bsc-logo.png',
-    additional: true,
-    tokens: {
-      USDC: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18 },
-      USDT: { address: '0x55d398326f99059fF77548524699939b9D89e7c1', decimals: 18 },
-      WBTC: { address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', decimals: 8, additional: true },
-      DAI: { address: '0x1AF3F329e8BE154074D8769D5737D75A2c938A83', decimals: 18, additional: true }
     }
   },
 } as const
 
-interface TokenConfig {
-  address: string
-  decimals: number
-  additional?: boolean
-}
-
-interface NetworkConfig {
+export interface TokenBalance {
+  symbol: string
   name: string
-  chainId: number
-  rpcUrl: string
-  nativeToken: string
-  icon: string
-  tokens: Record<string, TokenConfig>
-  additional?: boolean
+  balance: string
+  network: string
+  /** Raw USD value (number) - use useCurrency().formatLocal() to display */
+  usdValue?: number
+  currencyIcon?: string
+  chainIcon?: string
+  isLoading?: boolean
 }
 
 interface UsePKPBalancesReturn {
-  balances: TokenBalance[]
-  isLoading: boolean
-  error: Error | null
-  refetch: () => void
+  balances: () => TokenBalance[]
+  isLoading: () => boolean
+  error: () => Error | null
+  refetch: () => Promise<void>
   fetchOtherNetworks: () => Promise<void>
-  hasLoadedOtherNetworks: boolean
-  isLoadingOtherNetworks: boolean
+  hasLoadedOtherNetworks: () => boolean
+  isLoadingOtherNetworks: () => boolean
 }
 
-/**
- * Hook to fetch PKP balances across multiple EVM networks
- * Initially only fetches primary tokens (Base ETH, Base USDC)
- * Other networks are loaded on demand via fetchOtherNetworks()
- */
 export function usePKPBalances(): UsePKPBalancesReturn {
-  const { pkpAddress, isPKPReady } = useAuth()
-  const [balances, setBalances] = useState<TokenBalance[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingOtherNetworks, setIsLoadingOtherNetworks] = useState(false)
-  const [hasLoadedOtherNetworks, setHasLoadedOtherNetworks] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
-  const fetchedRef = useRef(false)
+  const auth = useAuth()
 
-  // Fetch only primary tokens (Base ETH + Base USDC)
-  const fetchPrimaryBalances = useCallback(async () => {
-    if (!pkpAddress || !isPKPReady) {
+  const [balances, setBalances] = createSignal<TokenBalance[]>([])
+  const [isLoading, setIsLoading] = createSignal(false)
+  const [isLoadingOtherNetworks, setIsLoadingOtherNetworks] = createSignal(false)
+  const [hasLoadedOtherNetworks, setHasLoadedOtherNetworks] = createSignal(false)
+  const [error, setError] = createSignal<Error | null>(null)
+  const [hasFetched, setHasFetched] = createSignal(false)
+
+  // Fetch primary balances (Base ETH + USDC)
+  const fetchPrimaryBalances = async () => {
+    const pkpAddress = auth.pkpAddress()
+    if (IS_DEV) {
+      console.log('[usePKPBalances] fetchPrimaryBalances called:', { pkpAddress, isPKPReady: auth.isPKPReady() })
+    }
+    if (!pkpAddress || !auth.isPKPReady()) {
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Early return - not ready')
+      }
       setBalances([])
       return
     }
 
     setIsLoading(true)
     setError(null)
+    if (IS_DEV) {
+      console.log('[usePKPBalances] Starting fetch...')
+    }
 
     try {
-      console.log('[usePKPBalances] Fetching primary balances for:', pkpAddress)
-
       const config = NETWORK_CONFIGS[PRIMARY_NETWORK]
-      const publicClient = createPublicClient({
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Creating client for', config.name, config.rpcUrl)
+      }
+      const client = createPublicClient({
         chain: {
           id: config.chainId,
           name: config.name,
           nativeCurrency: { name: config.nativeToken, symbol: config.nativeToken, decimals: 18 },
           rpcUrls: { default: { http: [config.rpcUrl] } },
-        } as const,
+        },
         transport: http(),
       })
 
       const primaryBalances: TokenBalance[] = []
 
       // Fetch ETH balance
-      const nativeBalanceHex = await publicClient.request({
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Fetching ETH balance...')
+      }
+      const nativeBalanceHex = await client.request({
         method: 'eth_getBalance',
         params: [pkpAddress, 'latest'],
-      })
-      // @ts-expect-error - BigInt formatting
+      }) as string
+      if (IS_DEV) {
+        console.log('[usePKPBalances] ETH balance received:', nativeBalanceHex)
+      }
+
       const nativeBalance = BigInt(nativeBalanceHex)
-      const nativeBalanceFormatted = formatBalance(nativeBalance, 18)
-      const nativeUsdValue = await estimateUsdValue(nativeBalanceFormatted, 'ETH')
+      const nativeFormatted = formatBalance(nativeBalance, 18)
+      const nativeUsd = estimateUsdValue(nativeFormatted, 'ETH')
 
       primaryBalances.push({
         symbol: 'ETH',
-        name: 'ETH',
-        balance: nativeBalanceFormatted,
+        name: 'Ethereum',
+        balance: nativeFormatted,
         network: config.name,
-        usdValue: nativeUsdValue,
-        currencyIcon: getNativeTokenIcon(config.name),
-        chainIcon: getNetworkOverlayIcon(config.name),
+        usdValue: nativeUsd,
+        currencyIcon: 'ethereum-logo.png',
+        chainIcon: 'base-chain.svg',
       })
 
       // Fetch USDC balance
@@ -185,149 +166,136 @@ export function usePKPBalances(): UsePKPBalancesReturn {
       const paddedAddress = pkpAddress.slice(2).padStart(64, '0')
       const data = balanceOfSelector + paddedAddress
 
-      const usdcBalanceHex = await publicClient.request({
+      const usdcBalanceHex = await client.request({
         method: 'eth_call',
-        params: [{ to: usdcConfig.address, data }, 'latest']
-      })
+        params: [{ to: usdcConfig.address as `0x${string}`, data: data as `0x${string}` }, 'latest']
+      }) as string
 
       let usdcBalance = 0n
-      if (usdcBalanceHex && usdcBalanceHex !== '0x' && typeof usdcBalanceHex === 'string') {
+      if (usdcBalanceHex && usdcBalanceHex !== '0x') {
         try {
           usdcBalance = BigInt(usdcBalanceHex)
         } catch {
-          // ignore parse errors
+          // ignore
         }
       }
 
       const usdcFormatted = formatBalance(usdcBalance, usdcConfig.decimals)
-      const usdcUsdValue = await estimateUsdValue(usdcFormatted, 'USDC')
+      const usdcUsd = estimateUsdValue(usdcFormatted, 'USDC')
 
       primaryBalances.push({
         symbol: 'USDC',
-        name: 'USDC',
+        name: 'USD Coin',
         balance: usdcFormatted,
         network: config.name,
-        usdValue: usdcUsdValue,
-        currencyIcon: getTokenIcon('USDC'),
-        chainIcon: getNetworkOverlayIcon(config.name),
+        usdValue: usdcUsd,
+        currencyIcon: 'usdc-logo.png',
+        chainIcon: 'base-chain.svg',
       })
 
-      console.log('[usePKPBalances] Primary balances loaded:', primaryBalances)
       setBalances(primaryBalances)
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to fetch balances')
-      setError(error)
-      console.error('[usePKPBalances] Error:', error)
+      const e = err instanceof Error ? err : new Error('Failed to fetch balances')
+      setError(e)
+      console.error('[usePKPBalances] Error:', e)
     } finally {
       setIsLoading(false)
     }
-  }, [pkpAddress, isPKPReady])
+  }
 
   // Fetch other networks on demand
-  const fetchOtherNetworks = useCallback(async () => {
-    if (!pkpAddress || !isPKPReady || hasLoadedOtherNetworks || isLoadingOtherNetworks) {
+  const fetchOtherNetworks = async () => {
+    const pkpAddress = auth.pkpAddress()
+    if (!pkpAddress || !auth.isPKPReady() || hasLoadedOtherNetworks() || isLoadingOtherNetworks()) {
       return
     }
 
     setIsLoadingOtherNetworks(true)
 
     try {
-      console.log('[usePKPBalances] Fetching other networks...')
-
       const otherBalances: TokenBalance[] = []
 
       for (const [networkKey, config] of Object.entries(NETWORK_CONFIGS)) {
-        // Skip primary network (already loaded)
         if (networkKey === PRIMARY_NETWORK) continue
 
         try {
-          console.log(`[usePKPBalances] Querying ${config.name}...`)
-
-          const publicClient = createPublicClient({
+          const client = createPublicClient({
             chain: {
               id: config.chainId,
               name: config.name,
               nativeCurrency: { name: config.nativeToken, symbol: config.nativeToken, decimals: 18 },
               rpcUrls: { default: { http: [config.rpcUrl] } },
-            } as const,
+            },
             transport: http(),
           })
 
-          // Fetch native token balance
-          const nativeBalanceHex = await publicClient.request({
+          // Fetch native token
+          const nativeBalanceHex = await client.request({
             method: 'eth_getBalance',
             params: [pkpAddress, 'latest'],
-          })
-          // @ts-expect-error - BigInt formatting
+          }) as string
+
           const nativeBalance = BigInt(nativeBalanceHex)
 
-          // Only add if balance > 0 (since these are additional networks)
           if (nativeBalance > 0n) {
-            const nativeBalanceFormatted = formatBalance(nativeBalance, 18)
-            const nativeUsdValue = await estimateUsdValue(nativeBalanceFormatted, config.nativeToken)
+            const formatted = formatBalance(nativeBalance, 18)
+            const usdValue = estimateUsdValue(formatted, config.nativeToken)
 
             otherBalances.push({
               symbol: config.nativeToken,
               name: config.nativeToken,
-              balance: nativeBalanceFormatted,
+              balance: formatted,
               network: config.name,
-              usdValue: nativeUsdValue,
+              usdValue,
               currencyIcon: getNativeTokenIcon(config.name),
               chainIcon: getNetworkOverlayIcon(config.name),
             })
           }
 
-          // Fetch ERC-20 token balances
-          const balanceOfSelector = '0x70a08231'
-          const paddedAddress = pkpAddress.slice(2).padStart(64, '0')
-          const data = balanceOfSelector + paddedAddress
+          // Fetch USDC if configured
+          if (config.tokens.USDC) {
+            const balanceOfSelector = '0x70a08231'
+            const paddedAddress = pkpAddress.slice(2).padStart(64, '0')
+            const data = balanceOfSelector + paddedAddress
 
-          for (const [tokenSymbol, tokenConfig] of Object.entries(config.tokens)) {
-            try {
-              const tokenBalanceHex = await publicClient.request({
-                method: 'eth_call',
-                params: [{ to: tokenConfig.address, data }, 'latest']
+            const tokenBalanceHex = await client.request({
+              method: 'eth_call',
+              params: [{ to: config.tokens.USDC.address as `0x${string}`, data: data as `0x${string}` }, 'latest']
+            }) as string
+
+            let tokenBalance = 0n
+            if (tokenBalanceHex && tokenBalanceHex !== '0x') {
+              try {
+                tokenBalance = BigInt(tokenBalanceHex)
+              } catch {
+                // ignore
+              }
+            }
+
+            if (tokenBalance > 0n) {
+              const formatted = formatBalance(tokenBalance, config.tokens.USDC.decimals)
+              const usdValue = estimateUsdValue(formatted, 'USDC')
+
+              otherBalances.push({
+                symbol: 'USDC',
+                name: 'USD Coin',
+                balance: formatted,
+                network: config.name,
+                usdValue,
+                currencyIcon: 'usdc-logo.png',
+                chainIcon: getNetworkOverlayIcon(config.name),
               })
-
-              let tokenBalance = 0n
-              if (tokenBalanceHex && tokenBalanceHex !== '0x' && typeof tokenBalanceHex === 'string') {
-                try {
-                  tokenBalance = BigInt(tokenBalanceHex)
-                } catch {
-                  continue
-                }
-              }
-
-              // Only show tokens with balance > 0
-              if (tokenBalance > 0n) {
-                const formattedBalance = formatBalance(tokenBalance, tokenConfig.decimals)
-                const usdValue = await estimateUsdValue(formattedBalance, tokenSymbol)
-
-                otherBalances.push({
-                  symbol: tokenSymbol,
-                  name: tokenSymbol,
-                  balance: formattedBalance,
-                  network: config.name,
-                  usdValue,
-                  currencyIcon: getTokenIcon(tokenSymbol),
-                  chainIcon: getNetworkOverlayIcon(config.name),
-                })
-              }
-            } catch {
-              // Skip failed token fetches
             }
           }
 
           // Small delay between networks
           await new Promise(resolve => setTimeout(resolve, 100))
-        } catch (networkError) {
-          console.warn(`[usePKPBalances] Failed to fetch ${config.name}:`, networkError)
+        } catch (networkErr) {
+          console.warn(`[usePKPBalances] Failed to fetch ${config.name}:`, networkErr)
         }
       }
 
-      console.log('[usePKPBalances] Other networks loaded:', otherBalances.length, 'tokens with balance')
-
-      // Merge with existing primary balances
+      // Merge with existing
       setBalances(prev => [...prev, ...otherBalances])
       setHasLoadedOtherNetworks(true)
     } catch (err) {
@@ -335,24 +303,37 @@ export function usePKPBalances(): UsePKPBalancesReturn {
     } finally {
       setIsLoadingOtherNetworks(false)
     }
-  }, [pkpAddress, isPKPReady, hasLoadedOtherNetworks, isLoadingOtherNetworks])
+  }
 
-  // Auto-fetch primary balances on mount
-  useEffect(() => {
-    if (!fetchedRef.current && isPKPReady && pkpAddress) {
-      fetchedRef.current = true
-      fetchPrimaryBalances()
-    }
-  }, [fetchPrimaryBalances, isPKPReady, pkpAddress])
+  // Auto-fetch when PKP becomes ready
+  createEffect(on(
+    () => [auth.isPKPReady(), auth.pkpAddress()] as const,
+    ([isReady, address]) => {
+      if (IS_DEV) {
+        console.log('[usePKPBalances] Effect triggered:', { isReady, address, hasFetched: hasFetched() })
+      }
+      if (isReady && address && !hasFetched()) {
+        if (IS_DEV) {
+          console.log('[usePKPBalances] Fetching balances...')
+        }
+        setHasFetched(true)
+        fetchPrimaryBalances()
+      }
+    },
+    { defer: false }
+  ))
 
   // Reset when address changes
-  useEffect(() => {
-    if (!pkpAddress) {
-      fetchedRef.current = false
-      setBalances([])
-      setHasLoadedOtherNetworks(false)
+  createEffect(on(
+    () => auth.pkpAddress(),
+    (address) => {
+      if (!address) {
+        setHasFetched(false)
+        setBalances([])
+        setHasLoadedOtherNetworks(false)
+      }
     }
-  }, [pkpAddress])
+  ))
 
   return {
     balances,
@@ -365,6 +346,7 @@ export function usePKPBalances(): UsePKPBalancesReturn {
   }
 }
 
+// Helpers
 function formatBalance(balance: bigint, decimals: number): string {
   const formatted = Number(balance) / Math.pow(10, decimals)
 
@@ -376,35 +358,18 @@ function formatBalance(balance: bigint, decimals: number): string {
   return formatted.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
-async function estimateUsdValue(amount: string, symbol: string): Promise<string> {
+function estimateUsdValue(amount: string, symbol: string): number {
   const prices: Record<string, number> = {
-    ETH: 3000,
-    MATIC: 0.8,
+    ETH: 3500,
+    MATIC: 0.5,
     BNB: 600,
     USDC: 1,
     USDT: 1,
     DAI: 1,
-    WBTC: 90000,
   }
 
   const price = prices[symbol] || 0
-  const value = parseFloat(amount) * price
-
-  if (value === 0) return '0'
-  if (value < 1) return value.toFixed(6)
-  if (value < 1000) return value.toFixed(2)
-
-  return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-}
-
-function getTokenIcon(symbol: string): string {
-  const iconMap: Record<string, string> = {
-    USDC: 'usdc-logo.png',
-    USDT: 'tether-logo.png',
-    WBTC: 'ethereum-logo.png',
-    DAI: 'ethereum-logo.png',
-  }
-  return iconMap[symbol] || 'ethereum-logo.png'
+  return parseFloat(amount) * price
 }
 
 function getNativeTokenIcon(network: string): string {
@@ -413,8 +378,6 @@ function getNativeTokenIcon(network: string): string {
     Base: 'ethereum-logo.png',
     Polygon: 'polygon-logo.png',
     Arbitrum: 'arbitrum-logo.png',
-    Optimism: 'ethereum-logo.png',
-    'Binance Smart Chain': 'bsc-logo.png',
   }
   return iconMap[network] || 'ethereum-logo.png'
 }
@@ -425,8 +388,6 @@ function getNetworkOverlayIcon(network: string): string {
     Base: 'base-chain.svg',
     Polygon: 'polygon-chain.svg',
     Arbitrum: 'arbitrum-chain.svg',
-    Optimism: 'optimism-chain.svg',
-    'Binance Smart Chain': 'bsc-chain.svg',
   }
   return iconMap[network] || 'ethereum-chain.svg'
 }

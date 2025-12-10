@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type React from 'react'
-import type { LyricLine } from '@/types/karaoke'
-import { keccak256, encodeAbiParameters } from 'viem'
-import { sliceAndEncodeToWav } from '@/lib/audio-converter'
+/**
+ * Karaoke Line Session Hook
+ *
+ * Orchestrates the entire karaoke session:
+ * - MediaRecorder for mic capture
+ * - Audio slicing per line with time windows
+ * - WAV encoding at 16kHz for Voxtral
+ * - Line-by-line grading via Lit Action
+ * - Session lifecycle (start/end blockchain transactions)
+ */
 
-type LineStatus = 'pending' | 'processing' | 'done' | 'error'
+import { createSignal, onCleanup } from 'solid-js'
+import { keccak256, encodeAbiParameters } from 'viem'
+import { sliceAndEncodeToWav } from '@/lib/audio'
+import type { LyricLine } from '@/components/karaoke/types'
+
+export type LineStatus = 'pending' | 'processing' | 'done' | 'error'
 
 export interface LineResult {
   status: LineStatus
@@ -34,6 +44,7 @@ export interface GradeLineParams {
   expectedLineCount: number
   metadataUriOverride?: string
   skipTx?: boolean
+  endOnly?: boolean // Skip line grading, just emit endSession (for background end)
 }
 
 export interface GradeLineResult {
@@ -48,17 +59,17 @@ export interface GradeLineResult {
 }
 
 export interface KaraokeLineSessionOptions {
-  lines: LyricLine[]
-  clipHash: string
-  performer: string
-  metadataUriOverride?: string
+  lines: () => LyricLine[]
+  clipHash: () => string
+  performer: () => string
+  metadataUriOverride?: () => string | undefined
   timesliceMs?: number
   padBeforeMs?: number
   padAfterMs?: number
   maxWindowMs?: number
   skipTx?: boolean
   maxRetries?: number
-  audioRef: React.RefObject<HTMLAudioElement | null>
+  audioRef: () => HTMLAudioElement | null
   gradeLine: (params: GradeLineParams) => Promise<GradeLineResult | null>
   onComplete?: (summary: LineSessionSummary) => void
   onError?: (err: Error) => void
@@ -90,9 +101,8 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     performer,
     metadataUriOverride,
     timesliceMs = 500,
-    padBeforeMs = 250,
-    padAfterMs = 150,
-    maxWindowMs = 15000,
+    padBeforeMs = 500,
+    padAfterMs = 1000,
     skipTx = false,
     maxRetries = 1,
     audioRef,
@@ -101,54 +111,54 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     onError,
   } = options
 
-  const recorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Chunk[]>([])
-  const rafRef = useRef<number | null>(null)
-  const isRunningRef = useRef(false)
-  const chunkIndexRef = useRef(0)
-  const tRecordStartRef = useRef<number>(0)
-  const tPlaybackStartRef = useRef<number>(0)
-  const currentLineRef = useRef(0)
-  const sessionIdRef = useRef<string | null>(null)
-  const sessionNonceRef = useRef<bigint>(BigInt(0))
-  // Offset to convert absolute lyrics times to clip-relative times
-  // e.g., if lyrics start at 10.68s in original song, offset = 10.68s
-  const lyricsOffsetRef = useRef<number>(0)
+  // Refs (not reactive - internal state)
+  let recorderRef: MediaRecorder | null = null
+  let chunksRef: Chunk[] = []
+  let rafRef: number | null = null
+  let isRunningRef = false
+  let chunkIndexRef = 0
+  let tRecordStartRef = 0
+  let tPlaybackStartRef = 0
+  let currentLineRef = 0
+  let sessionIdRef: string | null = null
+  let sessionNonceRef: bigint = BigInt(0)
+  let lyricsOffsetRef = 0
+  let sessionCompletedRef = false
+  let lineResultsRef: LineResult[] = []
 
-  const [lineResults, setLineResults] = useState<LineResult[]>(() =>
-    lines.map(() => ({ status: 'pending' }))
-  )
-  const lineResultsRef = useRef<LineResult[]>(lines.map(() => ({ status: 'pending' })))
-  const [isRunning, setIsRunning] = useState(false)
-  const [summary, setSummary] = useState<LineSessionSummary | null>(null)
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  // Reactive state
+  const [lineResults, setLineResults] = createSignal<LineResult[]>([])
+  const [isRunning, setIsRunning] = createSignal(false)
+  const [summary, setSummary] = createSignal<LineSessionSummary | null>(null)
+  const [sessionId, setSessionId] = createSignal<string | null>(null)
+  const [currentLineIndex, setCurrentLineIndex] = createSignal(0)
 
-  const stopRecorder = useCallback(() => {
+  const stopRecorder = () => {
     try {
-      recorderRef.current?.stop()
+      recorderRef?.stop()
       // Stop all tracks to release microphone
-      recorderRef.current?.stream?.getTracks().forEach(track => track.stop())
-    } catch (err) {
+      recorderRef?.stream?.getTracks().forEach(track => track.stop())
+    } catch {
       // ignore
     }
-    recorderRef.current = null
-  }, [])
+    recorderRef = null
+  }
 
-  const cleanup = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
+  const cleanup = () => {
+    if (rafRef !== null) {
+      cancelAnimationFrame(rafRef)
+      rafRef = null
     }
     stopRecorder()
-    chunksRef.current = []
-    isRunningRef.current = false
+    chunksRef = []
+    isRunningRef = false
     setIsRunning(false)
-  }, [stopRecorder])
+  }
 
   /**
    * Convert audio blob to base64 string.
    */
-  const blobToBase64 = useCallback(async (blob: Blob): Promise<string> => {
+  const blobToBase64 = async (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onerror = () => reject(reader.error || new Error('FileReader error'))
@@ -163,48 +173,68 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       }
       reader.readAsDataURL(blob)
     })
-  }, [])
+  }
 
-  const updateLineResults = useCallback((updater: (prev: LineResult[]) => LineResult[]) => {
+  const updateLineResults = (updater: (prev: LineResult[]) => LineResult[]) => {
     setLineResults((prev) => {
       const next = updater(prev)
-      lineResultsRef.current = next
+      lineResultsRef = next
       return next
     })
-  }, [])
+  }
+
+  /**
+   * Complete the session immediately with current results.
+   * Called when the last line (by index) finishes, even if retries are pending.
+   */
+  const completeSessionNow = () => {
+    if (sessionCompletedRef) return // Already completed
+    sessionCompletedRef = true
+
+    cleanup()
+
+    // Compute summary from available results (pending/processing count as 0)
+    const results = lineResultsRef
+    const completed = results.filter((r) => r.status === 'done').length
+    const scores = results
+      .filter((r) => typeof r.score === 'number')
+      .map((r) => r.score as number)
+    const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+
+    const summaryResult: LineSessionSummary = {
+      averageScore: avg,
+      completedLines: completed,
+      totalLines: lines().length,
+      sessionId: sessionIdRef || '',
+    }
+    console.log(`[useKaraokeLineSession] Session completed: ${completed}/${lines().length} lines, avg ${avg}%`)
+    setSummary(summaryResult)
+    onComplete?.(summaryResult)
+  }
 
   /**
    * Get the full recording as a single blob (all chunks merged).
-   * We decode the full recording and slice by timestamp in PCM space
-   * to avoid WebM container issues with chunk boundaries.
    */
-  const getFullRecordingBlob = useCallback((): Blob | null => {
-    const chunks = chunksRef.current
-    if (!chunks.length) return null
+  const getFullRecordingBlob = (): Blob | null => {
+    if (!chunksRef.length) return null
 
-    const type = chunks[0]?.blob?.type || 'audio/webm'
-    return new Blob(chunks.map((c) => c.blob), { type })
-  }, [])
+    const type = chunksRef[0]?.blob?.type || 'audio/webm'
+    return new Blob(chunksRef.map((c) => c.blob), { type })
+  }
 
-  // Note: With PCM-based slicing, we need ALL chunks to decode the full recording.
-  // Chunk pruning is disabled - memory usage is acceptable for typical karaoke clips (<60s).
-  // If memory becomes an issue for very long recordings, we could implement incremental
-  // decoding or keep a decoded AudioBuffer cache.
-
-  const processLine = useCallback(async (lineIndex: number, attempt = 0) => {
-    const line = lines[lineIndex]
+  const processLine = async (lineIndex: number, attempt = 0) => {
+    const linesData = lines()
+    const line = linesData[lineIndex]
     // Convert absolute lyrics time to clip-relative time using offset
-    const clipRelativeStart = (line.start - lyricsOffsetRef.current) * 1000
-    const clipRelativeEnd = (line.end - lyricsOffsetRef.current) * 1000
+    const clipRelativeStart = (line.start - lyricsOffsetRef) * 1000
+    const clipRelativeEnd = (line.end - lyricsOffsetRef) * 1000
 
     // Calculate time window in recording timebase
-    // playbackStart and recordStart are both in performance.now() timebase
-    // The difference accounts for any delay between recording and playback start
-    const recordingOffset = tPlaybackStartRef.current - tRecordStartRef.current
+    const recordingOffset = tPlaybackStartRef - tRecordStartRef
     const sliceStartMs = recordingOffset + clipRelativeStart - padBeforeMs
     const sliceEndMs = recordingOffset + clipRelativeEnd + padAfterMs
 
-    const currentSessionId = sessionIdRef.current
+    const currentSessionId = sessionIdRef
 
     if (!currentSessionId) {
       updateLineResults((prev) => {
@@ -232,26 +262,59 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     }
 
     const isFirstLine = lineIndex === 0
-    const isLastLine = lineIndex === lines.length - 1
+    const isLastLine = lineIndex === linesData.length - 1
 
     try {
       // Decode full recording, slice by timestamp window, encode to WAV
+      const sliceStart = performance.now()
       const wavBlob = await sliceAndEncodeToWav(fullRecording, sliceStartMs, sliceEndMs, 16000)
-      console.log(`[useKaraokeLineSession] Line ${lineIndex}: ${sliceStartMs.toFixed(0)}-${sliceEndMs.toFixed(0)}ms, ${(wavBlob.size / 1024).toFixed(1)} KB`)
+      const sliceEnd = performance.now()
+      console.log(`[useKaraokeLineSession] Line ${lineIndex}: ${sliceStartMs.toFixed(0)}-${sliceEndMs.toFixed(0)}ms, ${(wavBlob.size / 1024).toFixed(1)} KB, sliced in ${((sliceEnd - sliceStart) / 1000).toFixed(2)}s`)
 
       const base64 = await blobToBase64(wavBlob)
+
+      // For the last line, DON'T include endSession - we'll do that separately
+      const gradeStart = performance.now()
+      console.log(`[useKaraokeLineSession] Line ${lineIndex}: Starting gradeLine() at ${new Date().toISOString()} (isLast=${isLastLine})`)
       const result = await gradeLine({
-        clipHash,
+        clipHash: clipHash(),
         lineIndex,
         audioDataBase64: base64,
         sessionId: currentSessionId,
         startSession: isFirstLine,
-        endSession: isLastLine,
-        sessionCompleted: isLastLine, // True if completing all lines
-        expectedLineCount: lines.length,
-        metadataUriOverride,
+        endSession: false, // Never end in the line call - we'll do it separately
+        sessionCompleted: false,
+        expectedLineCount: linesData.length,
+        metadataUriOverride: metadataUriOverride?.(),
         skipTx,
       })
+      const gradeEnd = performance.now()
+      console.log(`[useKaraokeLineSession] Line ${lineIndex}: gradeLine() returned in ${((gradeEnd - gradeStart) / 1000).toFixed(2)}s`)
+
+      // If this is the last line and grading succeeded, fire off endSession in background
+      if (isLastLine && result && !skipTx) {
+        console.log(`[useKaraokeLineSession] Last line done in ${((gradeEnd - gradeStart) / 1000).toFixed(2)}s, firing endSession in background...`)
+        // Fire and forget - don't await
+        gradeLine({
+          clipHash: clipHash(),
+          lineIndex: 0, // Not used in endOnly mode
+          audioDataBase64: '', // No audio needed in endOnly mode
+          sessionId: currentSessionId,
+          startSession: false,
+          endSession: true,
+          sessionCompleted: true,
+          expectedLineCount: linesData.length,
+          metadataUriOverride: metadataUriOverride?.(),
+          skipTx: false,
+          endOnly: true, // Skip line grading, just emit endSession
+        }).then((endResult) => {
+          if (endResult?.endTxHash) {
+            console.log(`[useKaraokeLineSession] ✅ Session ended: ${endResult.endTxHash}`)
+          }
+        }).catch((err) => {
+          console.warn(`[useKaraokeLineSession] ⚠️ End session failed (non-blocking):`, err?.message)
+        })
+      }
 
       if (!result) {
         // Retry logic
@@ -266,6 +329,12 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
           next[lineIndex] = { status: 'error', error: 'Grading returned null after retries' }
           return next
         })
+
+        // If last line failed after all retries, still complete the session
+        if (isLastLine) {
+          console.log(`[useKaraokeLineSession] Last line ${lineIndex} failed after retries, completing session...`)
+          completeSessionNow()
+        }
         return
       }
 
@@ -281,94 +350,123 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
         }
         return next
       })
-    } catch (err: any) {
+
+      // If this is the LAST line by index, complete session immediately (regardless of attempt number)
+      if (isLastLine) {
+        console.log(`[useKaraokeLineSession] Last line ${lineIndex} completed (attempt ${attempt}), completing session...`)
+        completeSessionNow()
+      }
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err))
+
       // Retry on error
       if (attempt < maxRetries) {
-        console.warn(`[useKaraokeLineSession] Line ${lineIndex} grading failed, retrying (${attempt + 1}/${maxRetries}):`, err?.message)
+        console.warn(`[useKaraokeLineSession] Line ${lineIndex} grading failed, retrying (${attempt + 1}/${maxRetries}):`, error.message)
         await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
         return processLine(lineIndex, attempt + 1)
       }
 
       updateLineResults((prev) => {
         const next = [...prev]
-        next[lineIndex] = { status: 'error', error: err?.message || 'Grading failed' }
+        next[lineIndex] = { status: 'error', error: error.message || 'Grading failed' }
         return next
       })
-      onError?.(err)
+
+      // If last line failed after all retries, still complete the session
+      if (lineIndex === lines().length - 1) {
+        completeSessionNow()
+      }
+      onError?.(error)
     }
-  }, [clipHash, getFullRecordingBlob, gradeLine, lines, metadataUriOverride, onError, padAfterMs, padBeforeMs, blobToBase64, skipTx, updateLineResults, maxRetries])
+  }
 
-  const tick = useCallback(() => {
-    if (!isRunningRef.current) return
+  // Timestamp when all lines were scheduled (for timeout fallback)
+  let allLinesScheduledAt: number | null = null
+
+  const tick = () => {
+    if (!isRunningRef) return
     const now = performance.now()
+    const linesData = lines()
 
-    const idx = currentLineRef.current
-    if (idx >= lines.length) {
-      // All lines scheduled; if all done, finish.
-      const allDone = lineResultsRef.current.every((r) => r.status === 'done' || r.status === 'error')
+    const idx = currentLineRef
+    if (idx >= linesData.length) {
+      // All lines scheduled - check if we should stop the tick loop
+      if (sessionCompletedRef) {
+        return // Session already completed, stop tick loop
+      }
+
+      // Track when all lines were scheduled
+      if (allLinesScheduledAt === null) {
+        allLinesScheduledAt = now
+        console.log(`[useKaraokeLineSession] All ${linesData.length} lines scheduled, waiting for grading to complete...`)
+      }
+
+      // Fallback: if somehow all lines are done/error but session wasn't completed
+      const allDone = lineResultsRef.every((r) => r.status === 'done' || r.status === 'error')
       if (allDone) {
-        cleanup()
-        // Compute summary
-        const completed = lineResultsRef.current.filter((r) => r.status === 'done').length
-        const scores = lineResultsRef.current
-          .filter((r) => typeof r.score === 'number')
-          .map((r) => r.score as number)
-        const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-        const summaryResult: LineSessionSummary = {
-          averageScore: avg,
-          completedLines: completed,
-          totalLines: lines.length,
-          sessionId: sessionIdRef.current || '',
-        }
-        setSummary(summaryResult)
-        onComplete?.(summaryResult)
+        console.log(`[useKaraokeLineSession] All lines done/error, completing session via tick fallback`)
+        completeSessionNow()
+        return
+      }
+
+      // Timeout fallback: if grading is taking too long (45s after all lines scheduled), complete anyway
+      const timeSinceAllScheduled = now - allLinesScheduledAt
+      if (timeSinceAllScheduled > 45000) {
+        console.warn(`[useKaraokeLineSession] Grading timeout (${(timeSinceAllScheduled / 1000).toFixed(1)}s), completing session with partial results`)
+        completeSessionNow()
         return
       }
     } else {
-      const line = lines[idx]
+      const line = linesData[idx]
       // Convert absolute lyrics time to clip-relative time using offset
-      const clipRelativeEndMs = (line.end - lyricsOffsetRef.current) * 1000
-      const endMs = tPlaybackStartRef.current + clipRelativeEndMs + padAfterMs
+      const clipRelativeEndMs = (line.end - lyricsOffsetRef) * 1000
+      const endMs = tPlaybackStartRef + clipRelativeEndMs + padAfterMs
       // Use small tolerance (50ms) to avoid timing edge cases
       if (now >= endMs - 50) {
         // Trigger slice/grading for this line
         processLine(idx)
-        currentLineRef.current = idx + 1
+        currentLineRef = idx + 1
+        setCurrentLineIndex(idx + 1)
       }
     }
 
-    rafRef.current = requestAnimationFrame(tick)
-  }, [cleanup, lines, onComplete, padAfterMs, processLine])
+    rafRef = requestAnimationFrame(tick)
+  }
 
-  const startSession = useCallback(async () => {
-    if (!audioRef.current) {
+  const startSession = async () => {
+    const audio = audioRef()
+    if (!audio) {
       throw new Error('Audio element not ready')
     }
+    const performerAddr = performer()
     // Allow empty performer when skipTx is true (testing mode)
-    if (!performer && !skipTx) {
+    if (!performerAddr && !skipTx) {
       throw new Error('Performer address required')
     }
-    if (isRunningRef.current) return
+    if (isRunningRef) return
 
     try {
       // Generate session ID once at start (use mock address for testing)
-      const effectivePerformer = performer || '0x0000000000000000000000000000000000000001'
-      sessionNonceRef.current = BigInt(Date.now())
-      const newSessionId = generateSessionId(effectivePerformer, clipHash, sessionNonceRef.current)
-      sessionIdRef.current = newSessionId
+      const effectivePerformer = performerAddr || '0x0000000000000000000000000000000000000001'
+      sessionNonceRef = BigInt(Date.now())
+      const newSessionId = generateSessionId(effectivePerformer, clipHash(), sessionNonceRef)
+      sessionIdRef = newSessionId
       setSessionId(newSessionId)
 
       // Reset line results
-      const initialResults = lines.map(() => ({ status: 'pending' as LineStatus }))
+      const linesData = lines()
+      const initialResults: LineResult[] = linesData.map(() => ({ status: 'pending' as LineStatus }))
       setLineResults(initialResults)
-      lineResultsRef.current = initialResults
-      currentLineRef.current = 0
+      lineResultsRef = initialResults
+      currentLineRef = 0
+      setCurrentLineIndex(0)
       setSummary(null)
+      sessionCompletedRef = false // Reset completion flag for new session
+      allLinesScheduledAt = null // Reset timeout tracking for new session
 
       // Clips always start at position 0 of the original song (including intro).
       // Lyrics use absolute timing from the original song, no offset needed.
-      // The create-clip.ts script crops from 0 to clip_end_ms, preserving original timing.
-      lyricsOffsetRef.current = 0
+      lyricsOffsetRef = 0
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -392,58 +490,57 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
 
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
-          const i = chunkIndexRef.current
-          const start = tRecordStartRef.current + i * timesliceMs
+          const i = chunkIndexRef
+          const start = tRecordStartRef + i * timesliceMs
           const end = start + timesliceMs
-          chunksRef.current.push({ blob: event.data, start, end })
-          chunkIndexRef.current += 1
+          chunksRef.push({ blob: event.data, start, end })
+          chunkIndexRef += 1
         }
       }
 
       recorder.onerror = (event) => {
-        onError?.(new Error(`Recorder error: ${(event as any).error?.name || (event as any).error}`))
+        onError?.(new Error(`Recorder error: ${(event as ErrorEvent).error?.name || (event as ErrorEvent).error}`))
       }
 
-      chunkIndexRef.current = 0
-      chunksRef.current = []
-      tRecordStartRef.current = performance.now()
-      recorderRef.current = recorder
+      chunkIndexRef = 0
+      chunksRef = []
+      tRecordStartRef = performance.now()
+      recorderRef = recorder
       recorder.start(timesliceMs)
 
       // Start playback and anchor timeline
-      audioRef.current.currentTime = 0
-      await audioRef.current.play()
-      tPlaybackStartRef.current = performance.now()
+      audio.currentTime = 0
+      await audio.play()
+      tPlaybackStartRef = performance.now()
 
-      isRunningRef.current = true
+      isRunningRef = true
       setIsRunning(true)
-      rafRef.current = requestAnimationFrame(tick)
-    } catch (err: any) {
+      rafRef = requestAnimationFrame(tick)
+    } catch (err: unknown) {
       cleanup()
-      sessionIdRef.current = null
+      sessionIdRef = null
       setSessionId(null)
-      onError?.(err)
-      throw err
+      const error = err instanceof Error ? err : new Error(String(err))
+      onError?.(error)
+      throw error
     }
-  }, [audioRef, cleanup, clipHash, lines, onError, performer, skipTx, tick, timesliceMs])
+  }
 
-  const stopSession = useCallback(() => {
+  const stopSession = () => {
     cleanup()
-  }, [cleanup])
+  }
 
   // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      cleanup()
-    }
-  }, [cleanup])
+  onCleanup(() => {
+    cleanup()
+  })
 
   return {
     startSession,
     stopSession,
     isRunning,
     lineResults,
-    currentLine: currentLineRef.current,
+    currentLineIndex,
     summary,
     sessionId,
   }

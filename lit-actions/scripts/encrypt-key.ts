@@ -54,14 +54,14 @@ const ALL_TASKS: Task[] = [
     action: 'karaoke-line',
     cid: Env.cids['karaoke-line'] || Env.cids.karaoke,
     keys: [
-      { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' }
+      { name: 'deepinfra_api_key', envVar: 'DEEPINFRA_API_KEY' }
     ]
   },
   {
     action: 'exercise',
     cid: Env.cids.exercise,
     keys: [
-      { name: 'voxtral_api_key', envVar: 'VOXTRAL_API_KEY' }
+      { name: 'deepinfra_api_key', envVar: 'DEEPINFRA_API_KEY' }
     ]
   },
   {

@@ -1,0 +1,315 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "songs": "الأغاني",
+    "study": "دراسة",
+    "chat": "محادثة",
+    "wallet": "المحفظة",
+    "karaoke": "كاريوكي"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "signUp": "إنشاء حساب",
+    "connect": "اتصال",
+    "connectWallet": "ربط المحفظة",
+    "usePasskey": "استخدام Passkey",
+    "chooseUsername": "اختر اسم مستخدم",
+    "authenticating": "جاري المصادقة...",
+    "success": "نجاح!",
+    "passkeyRecommended": "Passkey - موصى به",
+    "noPasswordSecure": "بدون كلمة مرور، آمن",
+    "createNewAccount": "إنشاء حساب جديد",
+    "or": "أو",
+    "back": "رجوع",
+    "next": "التالي",
+    "usernamePlaceholder": "اختر اسم مستخدم (6+ أحرف)",
+    "valid": "صالح",
+    "processing": "جاري المعالجة...",
+    "allSet": "كل شيء جاهز! لنبدأ التعلم.",
+    "startLearning": "ابدأ التعلم",
+    "hideDetails": "إخفاء التفاصيل",
+    "showDetails": "عرض التفاصيل",
+    "settingUp": "جاري الإعداد...",
+    "createPasskey": "إنشاء Passkey الخاص بك",
+    "verifyingPasskey": "جاري التحقق من Passkey...",
+    "almostDone": "تقريباً انتهينا...",
+    "authenticateDevice": "المصادقة بجهازك",
+    "fetchingAccount": "جاري جلب الحساب...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "إنشاء بـ Google",
+    "createWithDiscord": "إنشاء بـ Discord",
+    "signInWithGoogle": "دخول بـ Google",
+    "signInWithDiscord": "دخول بـ Discord",
+    "creatingPasskeyWallet": "جاري إنشاء Passkey والمحفظة...",
+    "settingUpWallet": "جاري إعداد المحفظة...",
+    "settingUpLensProfile": "جاري إعداد ملف Lens...",
+    "foundExistingLens": "تم العثور على حساب Lens موجود، جاري الاتصال...",
+    "creatingNewLensAccount": "جاري إنشاء حساب Lens جديد...",
+    "authenticatingPasskey": "جاري المصادقة بـ Passkey...",
+    "connectingToLens": "جاري الاتصال بـ Lens...",
+    "lensSessionResumed": "تم استئناف جلسة Lens!",
+    "checkingExistingAccount": "جاري التحقق من حساب موجود...",
+    "foundExistingSigningIn": "تم العثور على حساب موجود، جاري تسجيل الدخول...",
+    "creatingNewWallet": "جاري إنشاء محفظة جديدة...",
+    "settingUpSession": "جاري إعداد الجلسة...",
+    "settingUpLens": "جاري إعداد Lens...",
+    "checkingLensAccount": "جاري التحقق من حساب Lens...",
+    "connectingToLensAccount": "جاري الاتصال بحساب Lens...",
+    "connectingWallet": "جاري ربط المحفظة...",
+    "waitingForWallet": "في انتظار اتصال المحفظة...",
+    "openingGoogle": "جاري فتح Google...",
+    "openingDiscord": "جاري فتح Discord...",
+    "creatingAccount": "جاري إنشاء الحساب...",
+    "complete": "اكتمل!",
+    "wrongNetwork": "شبكة خاطئة",
+    "wrongNetworkDesc": "يرجى التبديل إلى {{chain}} للمتابعة.",
+    "switchNetwork": "التبديل إلى {{chain}}",
+    "switchingNetwork": "جاري التبديل...",
+    "manualNetworkSwitch": "إذا لم يعمل الزر، أضف الشبكة يدوياً:",
+    "errors": {
+      "googlePopupBlocked": "تم حظر نافذة Google المنبثقة. اسمح بالنوافذ المنبثقة وحاول مرة أخرى.",
+      "discordPopupBlocked": "تم حظر نافذة Discord المنبثقة. اسمح بالنوافذ المنبثقة وحاول مرة أخرى.",
+      "googleCancelled": "تم إلغاء تسجيل الدخول بـ Google.",
+      "discordCancelled": "تم إلغاء تسجيل الدخول بـ Discord.",
+      "connectionFailed": "فشل الاتصال. تحقق من الإنترنت وحاول مرة أخرى.",
+      "cancelled": "تم إلغاء المصادقة.",
+      "timeout": "انتهت المهلة. حاول مرة أخرى.",
+      "accountExists": "الحساب موجود بالفعل. حاول تسجيل الدخول.",
+      "accountNotFound": "الحساب غير موجود. حاول إنشاء حساب جديد.",
+      "generic": "حدث خطأ ما. حاول مرة أخرى."
+    }
+  },
+  "wallet": {
+    "walletAddress": "عنوان المحفظة",
+    "username": "اسم المستخدم",
+    "balances": "الأرصدة",
+    "balance": "الرصيد",
+    "currency": "العملة",
+    "chain": "الشبكة",
+    "disconnect": "قطع الاتصال",
+    "settings": "الإعدادات",
+    "points": "النقاط",
+    "achievements": "الإنجازات",
+    "noAchievements": "لا توجد إنجازات بعد"
+  },
+  "chat": {
+    "title": "محادثة",
+    "upgrade": "ترقية",
+    "typePlaceholder": "اكتب رسالة...",
+    "send": "إرسال",
+    "play": "تشغيل",
+    "stop": "إيقاف",
+    "transcribing": "جاري النسخ...",
+    "translate": "ترجمة",
+    "translating": "جاري الترجمة..."
+  },
+  "exercise": {
+    "translate": "ترجم:",
+    "answer": "الإجابة:",
+    "question": "السؤال:",
+    "incorrect": "خطأ",
+    "correct": "صحيح!",
+    "next": "التالي",
+    "skip": "تخطي",
+    "tryAgain": "حاول مرة أخرى.",
+    "sayItBack": "كرر:",
+    "youSaid": "قلت:"
+  },
+  "song": {
+    "unlockSong": "فتح الأغنية",
+    "unlockSubtitle": "الأغنية كاملة مع كلمات كلمة بكلمة. شراء لمرة واحدة.",
+    "lifetimeAccess": "احصل على وصول مدى الحياة للأغنية كاملة.",
+    "whatYouGet": "ما ستحصل عليه:",
+    "fullKaraoke": "تمرين كاريوكي كامل",
+    "wordByWord": "مزامنة كلمة بكلمة",
+    "lifetimeAccessShort": "وصول مدى الحياة",
+    "oneTimePurchase": "شراء لمرة واحدة",
+    "purchase": "شراء",
+    "buy": "شراء",
+    "unlocked": "تم الفتح! ابدأ التمرين.",
+    "practice": "تمرين",
+    "lyrics": "الكلمات",
+    "exercises": "التمارين",
+    "unlock": "فتح",
+    "unlocking": "جاري الفتح..."
+  },
+  "karaoke": {
+    "start": "ابدأ",
+    "signInToPractice": "سجل الدخول للتمرين",
+    "recording": "جاري التسجيل...",
+    "gradingNotConfigured": "التقييم غير مكون",
+    "unableToLoad": "تعذر تحميل الكاريوكي",
+    "audioNotAvailable": "الصوت غير متاح",
+    "lyricsNotAvailable": "الكلمات غير متاحة",
+    "score": "النتيجة",
+    "linesGraded": "{{completed}}/{{total}} سطر تم تقييمه",
+    "linesSkipped": "({{count}} تم تخطيها)"
+  },
+  "premium": {
+    "upgradeToPremium": "الترقية إلى Premium",
+    "premiumFeatures": "ميزات Premium",
+    "betterAI": "ردود ذكاء اصطناعي أفضل",
+    "betterTTS": "نص إلى كلام طبيعي",
+    "unlimitedChat": "سجل محادثات غير محدود",
+    "perMonth": "/شهر",
+    "subscribe": "اشتراك"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "التصنيفات",
+    "noStudentsYet": "لا يوجد طلاب بعد. كن أول من يتمرن!"
+  },
+  "video": {
+    "noVideos": "لا توجد فيديوهات",
+    "checkBackLater": "عد لاحقاً لمحتوى جديد",
+    "noMedia": "لا توجد وسائط",
+    "playbackError": "خطأ في التشغيل"
+  },
+  "study": {
+    "signUpToStudy": "سجل للدراسة",
+    "signUpDescription": "أنشئ حساباً لتتبع تقدمك والتمرن بالتكرار المتباعد.",
+    "noCardsDue": "لا توجد بطاقات مستحقة",
+    "noCardsDescription": "أكملت جميع البطاقات المتاحة. عد لاحقاً!",
+    "sessionComplete": "اكتملت الجلسة!",
+    "comeBackTomorrow": "عد غداً لتعزيز ما تعلمته.",
+    "cardsCompleted": "البطاقات المكتملة",
+    "youFinishedSong": "أنهيت \"{{title}}\"!",
+    "youFinishedAll": "أنهيت جميع البطاقات!",
+    "new": "جديد",
+    "learning": "قيد التعلم",
+    "due": "مستحق",
+    "studyAll": "دراسة الكل",
+    "signInToStudy": "سجل دخول للدراسة",
+    "allCaughtUp": "أنت محدث!",
+    "noCardsDueGreat": "لا بطاقات مستحقة. ممتاز!",
+    "browseSongs": "تصفح الأغاني"
+  },
+  "home": {
+    "recentlyAdded": "أضيفت مؤخراً",
+    "allSongs": "جميع الأغاني",
+    "trending": "رائج"
+  },
+  "walletPage": {
+    "signUpTitle": "إنشاء حساب",
+    "signUpDescription": "أنشئ حساباً للوصول إلى محفظتك ومشترياتك"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "retry": "إعادة المحاولة",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "search": "بحث",
+    "noResults": "لا توجد نتائج",
+    "seeAll": "عرض الكل",
+    "viewMore": "عرض المزيد",
+    "goBack": "رجوع",
+    "finish": "إنهاء",
+    "playAgain": "تشغيل مرة أخرى",
+    "grading": "جاري التقييم...",
+    "complete": "مكتمل",
+    "reloadPage": "إعادة تحميل الصفحة",
+    "exit": "خروج",
+    "done": "تم",
+    "processing": "جاري المعالجة",
+    "refreshBalance": "تحديث الرصيد",
+    "soon": "قريباً",
+    "transactionFailed": "فشلت المعاملة. حاول مرة أخرى.",
+    "exitStudy": {
+      "title": "الخروج من جلسة الدراسة؟",
+      "description": "تم حفظ تقدمك. يمكنك المتابعة لاحقاً."
+    },
+    "exitKaraoke": {
+      "title": "الخروج من التمرين؟",
+      "description": "ستنتهي جلستك الحالية."
+    }
+  },
+  "language": {
+    "title": "اللغة",
+    "select": "اختر اللغة",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "ar": "العربية",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "th": "ไทย"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "مرحباً! أنا سكارليت، أريد التعرف عليك أكثر...",
+      "surveyComplete": "شكراً للمشاركة! الآن يمكنني تخصيص محادثاتنا حسب اهتماماتك. عن ماذا تريد التحدث؟"
+    },
+    "violet": {
+      "welcomeMessage": "مرحباً! أنا فايوليت. أحب الأنمي وألعاب الفيديو وصنع الموسيقى. لنتعلم الإنجليزية معاً بالتحدث عما نحب! أولاً بعض الأسئلة:",
+      "surveyComplete": "اختيارات رائعة! أعلم أننا سنتفق. ما الذي يدور في ذهنك؟"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "آخر"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "أي من هؤلاء الفنانين المفضل لديك؟",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "كيف تصف مستواك في الإنجليزية؟",
+        "beginner": "مبتدئ",
+        "intermediate": "متوسط",
+        "advanced": "متقدم"
+      },
+      "learningGoal": {
+        "question": "ما هدفك الرئيسي لتعلم الإنجليزية؟",
+        "travel": "السفر والاستكشاف",
+        "dating": "التعرف على أشخاص / المواعدة",
+        "test": "اجتياز الاختبارات (TOEFL, IELTS)",
+        "job": "التقدم المهني"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "أي أنمي تحب؟",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "أي ألعاب تلعب؟",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "ألعاب الإيقاع (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "هل أنت مهتم بصنع الموسيقى؟",
+        "yesDaw": "نعم! أستخدم DAW",
+        "curious": "فضولي لكن لم أبدأ",
+        "listener": "لا، أستمع فقط"
+      }
+    }
+  }
+}

@@ -1,53 +1,64 @@
-import * as React from "react"
-import * as TabsPrimitive from "@radix-ui/react-tabs"
+/**
+ * Tabs component using Kobalte
+ */
 
-import { cn } from "@/lib/utils"
+import { Tabs as KobalteTab } from '@kobalte/core/tabs'
+import { splitProps, type ParentComponent } from 'solid-js'
+import { cn } from '@/lib/utils'
 
-const Tabs = TabsPrimitive.Root
+// Re-export the root
+const Tabs = KobalteTab
 
-const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-10 md:h-12 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground",
-      className
-    )}
-    {...props}
-  />
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+const TabsList: ParentComponent<{ class?: string }> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children'])
+  return (
+    <KobalteTab.List
+      class={cn(
+        'relative inline-flex h-10 md:h-12 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground',
+        local.class
+      )}
+      {...others}
+    >
+      {local.children}
+      <KobalteTab.Indicator class="absolute top-1 bottom-1 rounded-full bg-background shadow-sm transition-all duration-250" />
+    </KobalteTab.List>
+  )
+}
 
-const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 md:py-1.5 text-sm md:text-lg font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-      className
-    )}
-    {...props}
-  />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+const TabsTrigger: ParentComponent<{ class?: string; value: string; disabled?: boolean }> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children', 'value', 'disabled'])
+  return (
+    <KobalteTab.Trigger
+      value={local.value}
+      disabled={local.disabled}
+      class={cn(
+        'inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 md:py-1.5 text-sm md:text-lg font-medium transition-all cursor-pointer z-10',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'disabled:pointer-events-none disabled:opacity-50',
+        'data-[selected]:text-foreground',
+        local.class
+      )}
+      {...others}
+    >
+      {local.children}
+    </KobalteTab.Trigger>
+  )
+}
 
-const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      className
-    )}
-    {...props}
-  />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
+const TabsContent: ParentComponent<{ class?: string; value: string }> = (props) => {
+  const [local, others] = splitProps(props, ['class', 'children', 'value'])
+  return (
+    <KobalteTab.Content
+      value={local.value}
+      class={cn(
+        'mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        local.class
+      )}
+      {...others}
+    >
+      {local.children}
+    </KobalteTab.Content>
+  )
+}
 
 export { Tabs, TabsList, TabsTrigger, TabsContent }

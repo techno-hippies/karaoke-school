@@ -37,7 +37,7 @@ const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
 const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
 const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12";
 
-const VOXTRAL_TIMEOUT_MS = 10000; // Keep short for real-time feedback
+const VOXTRAL_TIMEOUT_MS = 15000; // 24B model needs more time
 const LENS_RPC_TIMEOUT_MS = 10000;
 
 // ============================================================
@@ -83,6 +83,7 @@ const go = async () => {
       testMode = false,    // boolean: skip external calls
       skipTx = false,      // boolean: skip contract submission
       txDebugStage = null, // string: 'simulate' | 'prepare'
+      endOnly = false,     // boolean: skip line grading, just emit endSession
     } = jsParams || {};
 
     markPhase("init");
@@ -91,6 +92,37 @@ const go = async () => {
     if (!sessionId) throw new Error("sessionId is required");
     if (!clipHash) throw new Error("clipHash is required");
     if (!performer) throw new Error("performer is required");
+
+    // Handle end-only mode (skip line grading, just emit end session)
+    if (endOnly) {
+      markPhase("end-only");
+      const sessionIdBytes32 = ethers.utils.hexZeroPad(sessionId, 32);
+      let endTxHash = null;
+
+      if (!testMode && !skipTx && endSession) {
+        markPhase("tx-end-session");
+        endTxHash = await submitEndSessionTx({
+          sessionId: sessionIdBytes32,
+          completed: !!sessionCompleted,
+          txDebugStage,
+        });
+        markPhase("tx-end-session-done");
+      }
+
+      Lit.Actions.setResponse({
+        response: JSON.stringify({
+          success: true,
+          version: "karaoke-line-grader-v1",
+          sessionId: sessionIdBytes32,
+          endOnly: true,
+          endTxHash,
+          executionTime: Date.now() - startTime,
+          metrics,
+        }),
+      });
+      return;
+    }
+
     if (lineIndex === undefined || lineIndex === null) {
       throw new Error("lineIndex is required");
     }
@@ -367,21 +399,23 @@ async function transcribeAudio({
 
   const boundary = "----LitBoundary" + Math.random().toString(36).substring(2, 10);
 
-  const modelPart = `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nvoxtral-mini-latest\r\n`;
-  const filePart = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${audioFilename}"\r\nContent-Type: ${audioContentType}\r\n\r\n`;
-  const footer = `\r\n--${boundary}--\r\n`;
+  // Use DeepInfra's Voxtral Small 24B for better accuracy with sung audio
+  // Set language=en explicitly and use word-level chunks for detailed timing
+  const audioPart = `--${boundary}\r\nContent-Disposition: form-data; name="audio"; filename="${audioFilename}"\r\nContent-Type: ${audioContentType}\r\n\r\n`;
+  const languagePart = `\r\n--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nen\r\n`;
+  const footer = `--${boundary}--\r\n`;
 
   const encoder = new TextEncoder();
   const body = concatUint8Arrays([
-    encoder.encode(modelPart),
-    encoder.encode(filePart),
+    encoder.encode(audioPart),
     audioBytes,
+    encoder.encode(languagePart),
     encoder.encode(footer),
   ]);
 
-  // Make request with timeout
+  // Make request to DeepInfra Voxtral Small 24B with timeout
   const response = await withTimeout(
-    fetch("https://api.mistral.ai/v1/audio/transcriptions", {
+    fetch("https://api.deepinfra.com/v1/inference/mistralai/Voxtral-Small-24B-2507", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${voxtralKey}`,
@@ -464,6 +498,12 @@ function normalizeText(text) {
 
 /**
  * Calculate score in basis points (0-10000)
+ *
+ * Uses a hybrid approach:
+ * 1. If expected text is contained in transcript (with fuzzy matching), give high score
+ * 2. Otherwise fall back to Levenshtein on the best matching substring
+ *
+ * This handles the common case where audio slices capture parts of adjacent lines.
  */
 function calculateLevenshteinScore(transcript, expectedText) {
   const normalizedExpected = normalizeText(expectedText);
@@ -477,6 +517,35 @@ function calculateLevenshteinScore(transcript, expectedText) {
     return 0;
   }
 
+  // Check if expected is contained in transcript (exact substring match = perfect)
+  if (normalizedActual.includes(normalizedExpected)) {
+    return 10000;
+  }
+
+  // Try to find the best matching window in the transcript
+  // This handles cases where we captured extra words before/after
+  const expectedWords = normalizedExpected.split(' ');
+  const actualWords = normalizedActual.split(' ');
+
+  if (actualWords.length >= expectedWords.length) {
+    let bestScore = 0;
+    // Slide a window of expected length across the transcript
+    for (let i = 0; i <= actualWords.length - expectedWords.length; i++) {
+      const window = actualWords.slice(i, i + expectedWords.length).join(' ');
+      const distance = levenshteinDistance(normalizedExpected, window);
+      const similarity = 1 - (distance / Math.max(normalizedExpected.length, window.length));
+      const score = Math.round(similarity * 10000);
+      if (score > bestScore) {
+        bestScore = score;
+      }
+    }
+    // If we found a good window match, use it (but cap at 9500 since it's not exact)
+    if (bestScore > 7000) {
+      return Math.min(bestScore, 9800);
+    }
+  }
+
+  // Fall back to standard Levenshtein
   const distance = levenshteinDistance(normalizedExpected, normalizedActual);
   const maxLength = Math.max(normalizedExpected.length, normalizedActual.length);
   const similarity = 1 - (distance / maxLength);

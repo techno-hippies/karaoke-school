@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import type { StudyCard } from './useStudyCards'
+import { createEffect } from 'solid-js'
+import { useQueryClient } from '@tanstack/solid-query'
 import { fetchQuizMetadata } from './useQuizMetadata'
+import type { StudyCard } from '@/types/study'
+import type { Accessor } from 'solid-js'
 
 /**
  * Hook for prefetching exercise data in the background
@@ -13,18 +14,19 @@ import { fetchQuizMetadata } from './useQuizMetadata'
  * - SAY_IT_BACK: Prefetch segment metadata, alignment, and translation in parallel
  * - MULTIPLE_CHOICE: Prefetch quiz metadata
  */
-export function usePrefetchExercise(card?: StudyCard) {
+export function usePrefetchExercise(card: Accessor<StudyCard | undefined>) {
   const queryClient = useQueryClient()
 
-  useEffect(() => {
-    if (!card) return
+  createEffect(() => {
+    const currentCard = card()
+    if (!currentCard) return
 
-    if (card.exerciseType === 'SAY_IT_BACK') {
+    if (currentCard.exerciseType === 'SAY_IT_BACK') {
       // Prefetch segment metadata
       queryClient.prefetchQuery({
-        queryKey: ['segment-metadata', card.metadataUri],
+        queryKey: ['segment-metadata', currentCard.metadataUri],
         queryFn: async () => {
-          const response = await fetch(card.metadataUri)
+          const response = await fetch(currentCard.metadataUri)
           if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
           return response.json()
         },
@@ -32,11 +34,11 @@ export function usePrefetchExercise(card?: StudyCard) {
       })
 
       // Prefetch alignment data (if available)
-      if (card.alignmentUri) {
+      if (currentCard.alignmentUri) {
         queryClient.prefetchQuery({
-          queryKey: ['alignment', card.alignmentUri],
+          queryKey: ['alignment', currentCard.alignmentUri],
           queryFn: async () => {
-            const response = await fetch(card.alignmentUri)
+            const response = await fetch(currentCard.alignmentUri!)
             if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
             return response.json()
           },
@@ -45,8 +47,8 @@ export function usePrefetchExercise(card?: StudyCard) {
       }
 
       // Prefetch first translation (if available)
-      if (card.translations && card.translations.length > 0) {
-        const firstTranslation = card.translations[0]
+      if (currentCard.translations && currentCard.translations.length > 0) {
+        const firstTranslation = currentCard.translations[0]
         queryClient.prefetchQuery({
           queryKey: ['translation-first', firstTranslation.translationUri],
           queryFn: async () => {
@@ -58,15 +60,15 @@ export function usePrefetchExercise(card?: StudyCard) {
         })
       }
     } else if (
-      card.exerciseType === 'TRANSLATION_MULTIPLE_CHOICE' ||
-      card.exerciseType === 'TRIVIA_MULTIPLE_CHOICE'
+      currentCard.exerciseType === 'TRANSLATION_MULTIPLE_CHOICE' ||
+      currentCard.exerciseType === 'TRIVIA_MULTIPLE_CHOICE'
     ) {
       // Prefetch quiz metadata using the same transformer as the live query
       queryClient.prefetchQuery({
-        queryKey: ['quiz-metadata', card.metadataUri],
-        queryFn: async () => fetchQuizMetadata(card.metadataUri ?? ''),
+        queryKey: ['quiz-metadata', currentCard.metadataUri],
+        queryFn: async () => fetchQuizMetadata(currentCard.metadataUri ?? ''),
         staleTime: 300000, // 5 minutes
       })
     }
-  }, [card, queryClient])
+  })
 }

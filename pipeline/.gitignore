@@ -30,3 +30,4 @@ coverage/
 
 # Song media files (large binaries, generated content)
 songs/
+arweave-wallet.json

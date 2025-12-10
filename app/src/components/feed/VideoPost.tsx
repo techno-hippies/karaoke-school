@@ -1,71 +1,78 @@
-import { useState, useRef, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { Show, createEffect, createMemo, type Component } from 'solid-js'
+import { useNavigate } from '@solidjs/router'
 import { VideoPlayer } from './VideoPlayer'
-import { KaraokeOverlay } from './KaraokeOverlay'
 import { VideoActions } from './VideoActions'
-import { VideoInfo } from './VideoInfo'
-import { ShareSheet } from './ShareSheet'
 import { useVideoPlayback } from '@/hooks/useVideoPlayback'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import type { KaraokeLine, KaraokeWord, VideoPostData } from './types'
+import { toast } from 'solid-sonner'
+import { Icon } from '@/components/icons'
+import { useTranslation } from '@/lib/i18n'
+import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
+import type { VideoPostData } from './types'
 
 export interface VideoPostProps extends VideoPostData {
   onLikeClick?: () => void
   onShareClick?: () => void
-  onFollowClick?: () => void
-  isFollowLoading?: boolean
   onProfileClick?: () => void
   onAudioClick?: () => void
-  onSubscribe?: () => void | Promise<void>
-  autoplay?: boolean // If true, attempt autoplay; if false, show paused
-  priorityLoad?: boolean // If true, load immediately without debounce (for first video)
-  className?: string
-  karaokeClassName?: string // Optional className for karaoke overlay (e.g., to add padding when close button is present)
-  hasMobileFooter?: boolean // If true, add bottom spacing for mobile footer (default: false)
+  autoplay?: boolean
+  priorityLoad?: boolean
+  class?: string
+  hasMobileFooter?: boolean
+  /** Show back button (for single video mode) */
+  showBackButton?: boolean
+  /** Back button click handler */
+  onBack?: () => void
+  /** Called when video has been watched for 3+ seconds */
+  onViewed?: (postId: string) => void
 }
 
 /**
- * VideoPost - TikTok-style video post component
- * Clean architecture with separated concerns
- * Mobile: full-screen with overlays
- * Desktop: centered 9:16 video with actions to the right
+ * VideoPost - TikTok-style video post component (SolidJS)
+ * Mobile: Full-screen with overlays
+ * Desktop: Centered 9:16 card with actions
  */
-function VideoPostComponent({
-  id,
-  videoUrl,
-  thumbnailUrl,
-  username,
-  userAvatar,
-  grade,
-  musicTitle,
-  musicAuthor,
-  musicImageUrl,
-  artistSlug,
-  songSlug,
-  likes,
-  shares,
-  karaokeLines,
-  isLiked = false,
-  isFollowing = false,
-  canInteract = false,
-  onLikeClick,
-  onShareClick,
-  onFollowClick,
-  isFollowLoading = false,
-  onProfileClick,
-  onAudioClick,
-  autoplay = true,
-  priorityLoad = false,
-  className,
-  karaokeClassName,
-  hasMobileFooter = false
-}: VideoPostProps) {
-  const { t } = useTranslation()
+export const VideoPost: Component<VideoPostProps> = (props) => {
   const navigate = useNavigate()
+  const { uiLanguage } = useTranslation()
 
-  // Use shared video playback logic
+  // Localized music title and author (12 languages)
+  const localizedMusicTitle = createMemo(() =>
+    getLocalizedTitle({
+      title: props.musicTitle,
+      title_zh: props.musicTitle_zh,
+      title_vi: props.musicTitle_vi,
+      title_id: props.musicTitle_id,
+      title_ja: props.musicTitle_ja,
+      title_ko: props.musicTitle_ko,
+      title_es: props.musicTitle_es,
+      title_pt: props.musicTitle_pt,
+      title_ar: props.musicTitle_ar,
+      title_tr: props.musicTitle_tr,
+      title_ru: props.musicTitle_ru,
+      title_hi: props.musicTitle_hi,
+      title_th: props.musicTitle_th,
+    }, uiLanguage()) || props.musicTitle
+  )
+
+  const localizedMusicAuthor = createMemo(() =>
+    getLocalizedArtist({
+      artist: props.musicAuthor,
+      artist_zh: props.musicAuthor_zh,
+      artist_vi: props.musicAuthor_vi,
+      artist_id: props.musicAuthor_id,
+      artist_ja: props.musicAuthor_ja,
+      artist_ko: props.musicAuthor_ko,
+      artist_es: props.musicAuthor_es,
+      artist_pt: props.musicAuthor_pt,
+      artist_ar: props.musicAuthor_ar,
+      artist_tr: props.musicAuthor_tr,
+      artist_ru: props.musicAuthor_ru,
+      artist_hi: props.musicAuthor_hi,
+      artist_th: props.musicAuthor_th,
+    }, uiLanguage()) || props.musicAuthor
+  )
+
+  // Pass autoplay as getter for reactivity - critical for scroll behavior
   const {
     isPlaying,
     isMuted,
@@ -74,275 +81,190 @@ function VideoPostComponent({
     handleTogglePlay,
     handlePlayFailed,
     handleTimeUpdate,
-  } = useVideoPlayback({ autoplay })
+  } = useVideoPlayback({
+    autoplay: () => props.autoplay ?? true
+  })
 
-  const [shareSheetOpen, setShareSheetOpen] = useState(false)
-  const videoContainerRef = useRef<HTMLDivElement>(null)
+  // Track view: call onViewed after 3 seconds of watch time
+  let hasMarkedViewed = false
+  let watchTime = 0
+  let lastTime = 0
+  let trackedPostId = ''
 
-  // Study navigation - only available when song data exists
-  const canStudy = !!(artistSlug && songSlug)
+  createEffect(() => {
+    // Reset when post changes
+    if (props.id !== trackedPostId) {
+      hasMarkedViewed = false
+      watchTime = 0
+      lastTime = 0
+      trackedPostId = props.id
+    }
+  })
+
+  createEffect(() => {
+    if (hasMarkedViewed || !isPlaying() || !props.onViewed) return
+
+    const time = currentTime()
+    const delta = time - lastTime
+
+    // Only count small forward progress (normal playback, not seeks)
+    if (delta > 0 && delta < 1) {
+      watchTime += delta
+    }
+    lastTime = time
+
+    if (watchTime >= 3) {
+      hasMarkedViewed = true
+      props.onViewed(props.id)
+    }
+  })
+
+  // Study navigation
+  const canStudy = () => !!(props.artistSlug && props.songSlug)
 
   const handleStudyClick = () => {
-    if (canStudy) {
-      navigate(`/${artistSlug}/${songSlug}/study`)
+    if (canStudy()) {
+      navigate(`/${props.artistSlug}/${props.songSlug}/study`)
     }
   }
 
   const handleShareClick = () => {
-    setShareSheetOpen(true)
-    onShareClick?.()
+    const url = `${window.location.origin}/#/u/${props.username}/video/${props.id}`
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copied!')
+    }).catch(() => {
+      toast.error('Failed to copy link')
+    })
+    props.onShareClick?.()
   }
 
-  const handleCopyLink = () => {
-    toast.success(t('share.linkCopied'))
-  }
-
-  const handleDownloadVideo = async () => {
-    if (!videoUrl) return
-
-    try {
-      // Fetch the video as a blob
-      const response = await fetch(videoUrl)
-      if (!response.ok) throw new Error('Failed to fetch video')
-
-      const blob = await response.blob()
-
-      // Create a download link
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `karaoke-${username}-${id}.mp4`
-
-      // Trigger download
-      document.body.appendChild(link)
-      link.click()
-
-      // Cleanup
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      toast.success(t('share.downloadStarted'))
-    } catch (error) {
-      console.error('Failed to download video:', error)
-      toast.error('Failed to download video')
+  const handleAudioClick = () => {
+    // Navigate to song page if we have the data
+    if (props.artistSlug && props.songSlug) {
+      navigate(`/${props.artistSlug}/${props.songSlug}`)
+    } else if (props.spotifyTrackId) {
+      navigate(`/song/${props.spotifyTrackId}`)
     }
+    props.onAudioClick?.()
   }
 
-  const safeAreaBottom = 'var(--safe-area-bottom)'
-  const gradientBottomOffset = hasMobileFooter
-    ? `calc(${safeAreaBottom} + 4rem)`
-    : safeAreaBottom
-  const gradientPaddingBottom = hasMobileFooter
-    ? `calc(${safeAreaBottom} + 1.5rem)`
-    : `calc(${safeAreaBottom} + 1rem)`
-  const actionsBottomOffset = hasMobileFooter
+  // Safe area calculations for mobile footer
+  const safeAreaBottom = 'var(--safe-area-bottom, 0px)'
+  const actionsBottomOffset = props.hasMobileFooter
     ? `calc(${safeAreaBottom} + 5rem)`
     : `calc(${safeAreaBottom} + 1rem)`
+  const infoBottomOffset = props.hasMobileFooter
+    ? `calc(${safeAreaBottom} + 4rem)`
+    : safeAreaBottom
 
   return (
-    <div className={cn(
-      'relative h-vh-screen md:h-screen w-full bg-background snap-start flex items-center justify-center',
-      className
-    )}>
-      {/* Video Container - mobile: full screen, desktop: 9:16 centered */}
-      <div
-        ref={videoContainerRef}
-        className="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-background md:rounded-lg overflow-hidden"
-      >
+    <div class={`relative h-vh-screen md:h-screen w-full bg-background snap-start flex items-center justify-center ${props.class || ''}`}>
+      {/* Back button - shown in single video mode */}
+      <Show when={props.showBackButton}>
+        <button
+          onClick={() => props.onBack?.()}
+          class="absolute top-4 left-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
+        >
+          <Icon name="caret-left" class="text-2xl text-white" />
+        </button>
+      </Show>
+
+      {/* Video Container - responsive sizing */}
+      <div class="relative w-full h-full md:w-[50.625vh] md:h-[90vh] md:max-w-[450px] md:max-h-[800px] bg-background md:rounded-lg overflow-hidden">
         {/* Video Player */}
         <VideoPlayer
-          key={videoUrl || thumbnailUrl} // Force remount when video changes to prevent thumbnail flash
-          videoUrl={videoUrl}
-          thumbnailUrl={thumbnailUrl}
-          isPlaying={isPlaying}
-          isMuted={isMuted}
+          videoUrl={props.videoUrl}
+          thumbnailUrl={props.thumbnailUrl}
+          isPlaying={isPlaying()}
+          isMuted={isMuted()}
           onTogglePlay={handleTogglePlay}
           onPlayFailed={handlePlayFailed}
           onTimeUpdate={handleTimeUpdate}
-          priorityLoad={priorityLoad}
+          priorityLoad={props.priorityLoad}
         />
 
-        {/* Karaoke Overlay - top-center lyrics */}
-        {karaokeLines && karaokeLines.length > 0 && (
-          <KaraokeOverlay
-            lines={karaokeLines}
-            currentTime={currentTime}
-            className={karaokeClassName}
-          />
-        )}
-
-        {/* Video Info - bottom-left (desktop only, mobile uses gradient overlay below) */}
-        <div className="absolute bottom-4 left-6 right-20 z-20 max-md:hidden">
-          <VideoInfo
-            username={username}
-            musicTitle={musicTitle}
-            musicAuthor={musicAuthor}
-            onUsernameClick={onProfileClick}
-            onMusicClick={onAudioClick}
-          />
+        {/* Desktop: Video Info Overlay - bottom left (inside video container) */}
+        <div class="absolute bottom-4 left-6 right-20 z-20 pointer-events-none max-md:hidden">
+          <button
+            onClick={() => props.onProfileClick?.()}
+            class="text-lg font-semibold text-white drop-shadow-lg hover:underline cursor-pointer pointer-events-auto"
+          >
+            @{props.username}
+          </button>
+          <Show when={localizedMusicTitle()}>
+            <button
+              onClick={handleAudioClick}
+              class="block text-base text-white/80 mt-1 hover:underline cursor-pointer pointer-events-auto"
+            >
+              {localizedMusicTitle()} - {localizedMusicAuthor()}
+            </button>
+          </Show>
         </div>
       </div>
 
-      {/* Mobile: Video Info */}
+      {/* Mobile: Video Info - absolute positioned outside container */}
       <div
-        className="md:hidden absolute left-0 right-0 p-6 pr-20 pointer-events-none z-40"
-        style={{ bottom: gradientBottomOffset, paddingBottom: gradientPaddingBottom }}
+        class="md:hidden absolute left-0 right-0 p-6 pr-20 pointer-events-none z-40"
+        style={{ bottom: infoBottomOffset }}
       >
-        <VideoInfo
-          username={username}
-          musicTitle={musicTitle}
-          musicAuthor={musicAuthor}
-          onUsernameClick={onProfileClick}
-          onMusicClick={onAudioClick}
-          className="pointer-events-auto"
-        />
+        <button
+          onClick={() => props.onProfileClick?.()}
+          class="text-lg font-semibold text-white drop-shadow-lg hover:underline cursor-pointer pointer-events-auto"
+        >
+          @{props.username}
+        </button>
+        <Show when={localizedMusicTitle()}>
+          <button
+            onClick={handleAudioClick}
+            class="block text-base text-white/80 mt-1 hover:underline cursor-pointer pointer-events-auto"
+          >
+            {localizedMusicTitle()} - {localizedMusicAuthor()}
+          </button>
+        </Show>
       </div>
 
       {/* Mobile: Actions overlay on right side */}
       <div
-        className="md:hidden absolute right-4 z-40"
+        class="md:hidden absolute right-4 z-40"
         style={{ bottom: actionsBottomOffset }}
       >
         <VideoActions
-          userAvatar={userAvatar || ''}
-          username={username}
-          isFollowing={isFollowing}
-          canFollow={canInteract}
-          isFollowLoading={isFollowLoading}
-          onFollowClick={onFollowClick || (() => {})}
-          onProfileClick={onProfileClick || (() => {})}
-          isLiked={isLiked}
-          onLikeClick={onLikeClick || (() => {})}
+          username={props.username}
+          userAvatar={props.userAvatar}
+          onProfileClick={() => props.onProfileClick?.()}
+          isLiked={props.isLiked ?? false}
+          onLikeClick={() => props.onLikeClick?.()}
           onShareClick={handleShareClick}
-          canStudy={canStudy}
+          canStudy={canStudy()}
           onStudyClick={handleStudyClick}
-          musicTitle={musicTitle}
-          musicAuthor={musicAuthor}
-          musicImageUrl={musicImageUrl}
-          onAudioClick={onAudioClick}
-          isMuted={isMuted}
-          onToggleMute={() => setIsMuted(!isMuted)}
+          musicTitle={localizedMusicTitle()}
+          musicAuthor={localizedMusicAuthor()}
+          musicImageUrl={props.musicImageUrl}
+          onAudioClick={handleAudioClick}
+          isMuted={isMuted()}
+          onToggleMute={() => setIsMuted(!isMuted())}
         />
       </div>
 
-      {/* Desktop: Actions column to the right */}
-      <div className="max-md:hidden absolute left-[calc(50%+25vh+20px)] top-1/2 transform -translate-y-1/2 z-20">
+      {/* Desktop: Actions column to the right of video */}
+      <div class="max-md:hidden absolute left-[calc(50%+25vh+20px)] top-1/2 transform -translate-y-1/2 z-20">
         <VideoActions
-          userAvatar={userAvatar || ''}
-          username={username}
-          isFollowing={isFollowing}
-          canFollow={canInteract}
-          isFollowLoading={isFollowLoading}
-          onFollowClick={onFollowClick || (() => {})}
-          onProfileClick={onProfileClick || (() => {})}
-          isLiked={isLiked}
-          onLikeClick={onLikeClick || (() => {})}
+          username={props.username}
+          userAvatar={props.userAvatar}
+          onProfileClick={() => props.onProfileClick?.()}
+          isLiked={props.isLiked ?? false}
+          onLikeClick={() => props.onLikeClick?.()}
           onShareClick={handleShareClick}
-          canStudy={canStudy}
+          canStudy={canStudy()}
           onStudyClick={handleStudyClick}
-          musicTitle={musicTitle}
-          musicAuthor={musicAuthor}
-          musicImageUrl={musicImageUrl}
-          onAudioClick={onAudioClick}
-          isMuted={isMuted}
-          onToggleMute={() => setIsMuted(!isMuted)}
+          musicTitle={localizedMusicTitle()}
+          musicAuthor={localizedMusicAuthor()}
+          musicImageUrl={props.musicImageUrl}
+          onAudioClick={handleAudioClick}
+          isMuted={isMuted()}
+          onToggleMute={() => setIsMuted(!isMuted())}
         />
       </div>
-
-      {/* Share Sheet */}
-      <ShareSheet
-        open={shareSheetOpen}
-        onOpenChange={setShareSheetOpen}
-        postUrl={typeof window !== 'undefined' ? `${window.location.origin}/#/u/${username}/video/${id}` : ''}
-        postDescription={`${username} got a ${grade || 'grade'} on ${musicTitle || 'karaoke'}`}
-        onCopyLink={handleCopyLink}
-        onDownload={handleDownloadVideo}
-      />
     </div>
   )
 }
-
-const areWordsEqual = (prevWords?: KaraokeWord[], nextWords?: KaraokeWord[]) => {
-  if (prevWords === nextWords) return true
-  if (!prevWords || !nextWords) return prevWords === nextWords
-  if (prevWords.length !== nextWords.length) return false
-
-  for (let i = 0; i < prevWords.length; i++) {
-    const prevWord = prevWords[i]
-    const nextWord = nextWords[i]
-    if (
-      prevWord.text !== nextWord.text ||
-      prevWord.start !== nextWord.start ||
-      prevWord.end !== nextWord.end ||
-      prevWord.isSung !== nextWord.isSung
-    ) {
-      return false
-    }
-  }
-
-  return true
-}
-
-const areKaraokeLinesEqual = (prevLines?: KaraokeLine[], nextLines?: KaraokeLine[]) => {
-  if (prevLines === nextLines) return true
-  if (!prevLines || !nextLines) return prevLines === nextLines
-  if (prevLines.length !== nextLines.length) return false
-
-  for (let i = 0; i < prevLines.length; i++) {
-    const prevLine = prevLines[i]
-    const nextLine = nextLines[i]
-    if (
-      prevLine.text !== nextLine.text ||
-      prevLine.translation !== nextLine.translation ||
-      prevLine.start !== nextLine.start ||
-      prevLine.end !== nextLine.end
-    ) {
-      return false
-    }
-
-    if (!areWordsEqual(prevLine.words, nextLine.words)) {
-      return false
-    }
-  }
-
-  return true
-}
-
-const areVideoPostPropsEqual = (prev: VideoPostProps, next: VideoPostProps) => {
-  if (prev === next) return true
-
-  return (
-    prev.id === next.id &&
-    prev.videoUrl === next.videoUrl &&
-    prev.thumbnailUrl === next.thumbnailUrl &&
-    prev.username === next.username &&
-    prev.userHandle === next.userHandle &&
-    prev.userAvatar === next.userAvatar &&
-    prev.authorAddress === next.authorAddress &&
-    prev.grade === next.grade &&
-    prev.description === next.description &&
-    prev.musicTitle === next.musicTitle &&
-    prev.musicAuthor === next.musicAuthor &&
-    prev.musicImageUrl === next.musicImageUrl &&
-    prev.artistSlug === next.artistSlug &&
-    prev.songSlug === next.songSlug &&
-    prev.spotifyTrackId === next.spotifyTrackId &&
-    prev.tiktokVideoId === next.tiktokVideoId &&
-    prev.createdAt === next.createdAt &&
-    prev.likes === next.likes &&
-    prev.shares === next.shares &&
-    prev.isLiked === next.isLiked &&
-    prev.isFollowing === next.isFollowing &&
-    prev.isFollowLoading === next.isFollowLoading &&
-    prev.canInteract === next.canInteract &&
-    prev.autoplay === next.autoplay &&
-    prev.priorityLoad === next.priorityLoad &&
-    prev.className === next.className &&
-    prev.karaokeClassName === next.karaokeClassName &&
-    prev.hasMobileFooter === next.hasMobileFooter &&
-    areKaraokeLinesEqual(prev.karaokeLines, next.karaokeLines)
-  )
-}
-
-// Memoized export with granular prop comparison to ignore handler identity changes
-export const VideoPost = memo(VideoPostComponent, areVideoPostPropsEqual)

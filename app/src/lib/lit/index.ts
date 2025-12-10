@@ -1,5 +1,5 @@
 /**
- * Lit WebAuthn Public API
+ * Lit Protocol Public API
  * Centralized exports for all WebAuthn + PKP functionality
  */
 
@@ -39,13 +39,6 @@ export {
   hasExistingCredential,
 } from './auth-webauthn'
 
-// EOA Authentication (Metamask, Rabby, Farcaster wallet)
-export {
-  registerWithEoa,
-  loginWithEoa,
-  hasExistingPkpForEoa,
-} from './auth-eoa'
-
 // PKP Auth Context
 export {
   createPKPAuthContext,
@@ -58,4 +51,26 @@ export {
   createPKPWalletClient,
   getPKPAddress,
   SessionExpiredError,
+  lensTestnet,
 } from './signer-pkp'
+
+// Auth Flows
+export {
+  registerUser,
+  loginUser,
+  type AuthFlowResult,
+} from './auth-flow'
+
+// EOA Auth
+export {
+  registerWithEoa,
+  loginWithEoa,
+  getExistingPkpForEoa,
+} from './auth-eoa'
+
+// Social Auth (Google, Discord)
+export {
+  authGoogle,
+  authDiscord,
+  type SocialAuthResult,
+} from './auth-social'

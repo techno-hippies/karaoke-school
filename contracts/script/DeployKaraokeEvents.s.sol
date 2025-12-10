@@ -12,7 +12,7 @@ import {KaraokeEvents} from "../src/events/KaraokeEvents.sol";
 contract DeployKaraokeEvents is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address trustedPKP = 0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379;
+        address trustedPKP = 0x3345Cb3A0CfEcb47bC3D638e338D26c870FA2b23;
 
         console.log("Deploying KaraokeEvents...");
         console.log("Trusted PKP:", trustedPKP);

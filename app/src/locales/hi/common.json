@@ -1,0 +1,315 @@
+{
+  "app": {
+    "name": "K School"
+  },
+  "nav": {
+    "home": "होम",
+    "songs": "गाने",
+    "study": "अध्ययन",
+    "chat": "चैट",
+    "wallet": "वॉलेट",
+    "karaoke": "कराओके"
+  },
+  "auth": {
+    "signIn": "साइन इन करें",
+    "signUp": "साइन अप करें",
+    "connect": "कनेक्ट करें",
+    "connectWallet": "वॉलेट कनेक्ट करें",
+    "usePasskey": "Passkey उपयोग करें",
+    "chooseUsername": "यूज़रनेम चुनें",
+    "authenticating": "प्रमाणित हो रहा है...",
+    "success": "सफल!",
+    "passkeyRecommended": "Passkey - अनुशंसित",
+    "noPasswordSecure": "बिना पासवर्ड, सुरक्षित",
+    "createNewAccount": "नया अकाउंट बनाएं",
+    "or": "या",
+    "back": "वापस",
+    "next": "अगला",
+    "usernamePlaceholder": "यूज़रनेम चुनें (6+ अक्षर)",
+    "valid": "वैध",
+    "processing": "प्रोसेस हो रहा है...",
+    "allSet": "तैयार! चलो सीखना शुरू करें।",
+    "startLearning": "सीखना शुरू करें",
+    "hideDetails": "विवरण छुपाएं",
+    "showDetails": "विवरण दिखाएं",
+    "settingUp": "सेट अप हो रहा है...",
+    "createPasskey": "अपना passkey बनाएं",
+    "verifyingPasskey": "Passkey सत्यापित हो रहा है...",
+    "almostDone": "लगभग हो गया...",
+    "authenticateDevice": "अपने डिवाइस से प्रमाणित करें",
+    "fetchingAccount": "अकाउंट प्राप्त हो रहा है...",
+    "google": "Google",
+    "discord": "Discord",
+    "continueWithGoogle": "Google",
+    "continueWithDiscord": "Discord",
+    "createWithGoogle": "Google से बनाएं",
+    "createWithDiscord": "Discord से बनाएं",
+    "signInWithGoogle": "Google से साइन इन",
+    "signInWithDiscord": "Discord से साइन इन",
+    "creatingPasskeyWallet": "Passkey और वॉलेट बन रहा है...",
+    "settingUpWallet": "वॉलेट सेट हो रहा है...",
+    "settingUpLensProfile": "Lens प्रोफाइल सेट हो रहा है...",
+    "foundExistingLens": "मौजूदा Lens अकाउंट मिला, कनेक्ट हो रहा है...",
+    "creatingNewLensAccount": "नया Lens अकाउंट बन रहा है...",
+    "authenticatingPasskey": "Passkey से प्रमाणित हो रहा है...",
+    "connectingToLens": "Lens से कनेक्ट हो रहा है...",
+    "lensSessionResumed": "Lens सेशन फिर से शुरू!",
+    "checkingExistingAccount": "मौजूदा अकाउंट चेक हो रहा है...",
+    "foundExistingSigningIn": "मौजूदा अकाउंट मिला, साइन इन हो रहा है...",
+    "creatingNewWallet": "नया वॉलेट बन रहा है...",
+    "settingUpSession": "सेशन सेट हो रहा है...",
+    "settingUpLens": "Lens सेट हो रहा है...",
+    "checkingLensAccount": "Lens अकाउंट चेक हो रहा है...",
+    "connectingToLensAccount": "Lens अकाउंट से कनेक्ट हो रहा है...",
+    "connectingWallet": "वॉलेट कनेक्ट हो रहा है...",
+    "waitingForWallet": "वॉलेट कनेक्शन का इंतज़ार...",
+    "openingGoogle": "Google खुल रहा है...",
+    "openingDiscord": "Discord खुल रहा है...",
+    "creatingAccount": "अकाउंट बन रहा है...",
+    "complete": "पूर्ण!",
+    "wrongNetwork": "गलत नेटवर्क",
+    "wrongNetworkDesc": "जारी रखने के लिए कृपया {{chain}} पर स्विच करें।",
+    "switchNetwork": "{{chain}} पर स्विच करें",
+    "switchingNetwork": "स्विच हो रहा है...",
+    "manualNetworkSwitch": "अगर बटन काम नहीं करता, तो नेटवर्क मैन्युअली जोड़ें:",
+    "errors": {
+      "googlePopupBlocked": "Google पॉपअप ब्लॉक हुआ। पॉपअप की अनुमति दें और फिर से कोशिश करें।",
+      "discordPopupBlocked": "Discord पॉपअप ब्लॉक हुआ। पॉपअप की अनुमति दें और फिर से कोशिश करें।",
+      "googleCancelled": "Google साइन इन रद्द हुआ।",
+      "discordCancelled": "Discord साइन इन रद्द हुआ।",
+      "connectionFailed": "कनेक्शन विफल। इंटरनेट चेक करें और फिर से कोशिश करें।",
+      "cancelled": "प्रमाणीकरण रद्द।",
+      "timeout": "समय समाप्त। फिर से कोशिश करें।",
+      "accountExists": "अकाउंट पहले से मौजूद है। साइन इन करने का प्रयास करें।",
+      "accountNotFound": "अकाउंट नहीं मिला। नया बनाने का प्रयास करें।",
+      "generic": "कुछ गलत हो गया। फिर से कोशिश करें।"
+    }
+  },
+  "wallet": {
+    "walletAddress": "वॉलेट पता",
+    "username": "यूज़रनेम",
+    "balances": "बैलेंस",
+    "balance": "बैलेंस",
+    "currency": "मुद्रा",
+    "chain": "चेन",
+    "disconnect": "डिस्कनेक्ट",
+    "settings": "सेटिंग्स",
+    "points": "अंक",
+    "achievements": "उपलब्धियां",
+    "noAchievements": "अभी कोई उपलब्धि नहीं"
+  },
+  "chat": {
+    "title": "चैट",
+    "upgrade": "अपग्रेड",
+    "typePlaceholder": "एक संदेश लिखें...",
+    "send": "भेजें",
+    "play": "चलाएं",
+    "stop": "रोकें",
+    "transcribing": "ट्रांसक्राइब हो रहा है...",
+    "translate": "अनुवाद करें",
+    "translating": "अनुवाद हो रहा है..."
+  },
+  "exercise": {
+    "translate": "अनुवाद करें:",
+    "answer": "उत्तर:",
+    "question": "प्रश्न:",
+    "incorrect": "गलत",
+    "correct": "सही!",
+    "next": "अगला",
+    "skip": "छोड़ें",
+    "tryAgain": "फिर से कोशिश करें।",
+    "sayItBack": "दोहराएं:",
+    "youSaid": "आपने कहा:"
+  },
+  "song": {
+    "unlockSong": "गाना अनलॉक करें",
+    "unlockSubtitle": "शब्द-दर-शब्द बोल के साथ पूरा गाना। एक बार की खरीदारी।",
+    "lifetimeAccess": "पूरे गाने तक आजीवन पहुंच पाएं।",
+    "whatYouGet": "आपको क्या मिलेगा:",
+    "fullKaraoke": "पूर्ण कराओके अभ्यास",
+    "wordByWord": "शब्द-दर-शब्द सिंक",
+    "lifetimeAccessShort": "आजीवन पहुंच",
+    "oneTimePurchase": "एक बार की खरीदारी",
+    "purchase": "खरीदें",
+    "buy": "खरीदें",
+    "unlocked": "अनलॉक! अभ्यास शुरू करें।",
+    "practice": "अभ्यास",
+    "lyrics": "बोल",
+    "exercises": "अभ्यास",
+    "unlock": "अनलॉक",
+    "unlocking": "अनलॉक हो रहा है..."
+  },
+  "karaoke": {
+    "start": "शुरू करें",
+    "signInToPractice": "अभ्यास के लिए साइन इन करें",
+    "recording": "रिकॉर्डिंग...",
+    "gradingNotConfigured": "ग्रेडिंग कॉन्फ़िगर नहीं है",
+    "unableToLoad": "कराओके लोड नहीं हो सका",
+    "audioNotAvailable": "ऑडियो उपलब्ध नहीं है",
+    "lyricsNotAvailable": "बोल उपलब्ध नहीं हैं",
+    "score": "स्कोर",
+    "linesGraded": "{{completed}}/{{total}} पंक्तियां ग्रेड की गईं",
+    "linesSkipped": "({{count}} छोड़ी गईं)"
+  },
+  "premium": {
+    "upgradeToPremium": "Premium में अपग्रेड करें",
+    "premiumFeatures": "Premium सुविधाएं",
+    "betterAI": "बेहतर AI उत्तर",
+    "betterTTS": "प्राकृतिक टेक्स्ट-टू-स्पीच",
+    "unlimitedChat": "असीमित चैट इतिहास",
+    "perMonth": "/महीना",
+    "subscribe": "सब्सक्राइब करें"
+  },
+  "profile": {},
+  "leaderboard": {
+    "rankings": "रैंकिंग",
+    "noStudentsYet": "अभी कोई छात्र नहीं। पहले बनें!"
+  },
+  "video": {
+    "noVideos": "कोई वीडियो नहीं",
+    "checkBackLater": "नई सामग्री के लिए बाद में देखें",
+    "noMedia": "कोई मीडिया नहीं",
+    "playbackError": "प्लेबैक त्रुटि"
+  },
+  "study": {
+    "signUpToStudy": "अध्ययन के लिए साइन अप करें",
+    "signUpDescription": "अपनी प्रगति ट्रैक करने और स्पेस्ड रिपीटीशन से अभ्यास के लिए अकाउंट बनाएं।",
+    "noCardsDue": "कोई कार्ड बकाया नहीं",
+    "noCardsDescription": "आपने सभी उपलब्ध कार्ड पूरे कर लिए। बाद में आएं!",
+    "sessionComplete": "सेशन पूर्ण!",
+    "comeBackTomorrow": "जो सीखा उसे मजबूत करने के लिए कल आएं।",
+    "cardsCompleted": "कार्ड पूर्ण",
+    "youFinishedSong": "आपने \"{{title}}\" पूरा किया!",
+    "youFinishedAll": "आपने सभी कार्ड पूरे किए!",
+    "new": "नया",
+    "learning": "सीख रहे हैं",
+    "due": "बकाया",
+    "studyAll": "सब अध्ययन करें",
+    "signInToStudy": "अध्ययन के लिए साइन इन करें",
+    "allCaughtUp": "सब पूरा!",
+    "noCardsDueGreat": "कोई कार्ड बकाया नहीं। बहुत अच्छा!",
+    "browseSongs": "गाने ब्राउज़ करें"
+  },
+  "home": {
+    "recentlyAdded": "हाल ही में जोड़े गए",
+    "allSongs": "सभी गाने",
+    "trending": "ट्रेंडिंग"
+  },
+  "walletPage": {
+    "signUpTitle": "साइन अप",
+    "signUpDescription": "अपने वॉलेट और खरीदारी तक पहुंच के लिए अकाउंट बनाएं"
+  },
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "retry": "फिर से कोशिश करें",
+    "cancel": "रद्द करें",
+    "confirm": "पुष्टि करें",
+    "save": "सहेजें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "close": "बंद करें",
+    "copy": "कॉपी करें",
+    "copied": "कॉपी हुआ!",
+    "search": "खोजें",
+    "noResults": "कोई परिणाम नहीं",
+    "seeAll": "सभी देखें",
+    "viewMore": "और देखें",
+    "goBack": "वापस जाएं",
+    "finish": "समाप्त करें",
+    "playAgain": "फिर से चलाएं",
+    "grading": "ग्रेड हो रहा है...",
+    "complete": "पूर्ण",
+    "reloadPage": "पेज रीलोड करें",
+    "exit": "बाहर निकलें",
+    "done": "हो गया",
+    "processing": "प्रोसेस हो रहा है",
+    "refreshBalance": "बैलेंस रिफ्रेश करें",
+    "soon": "जल्द आ रहा है",
+    "transactionFailed": "ट्रांजैक्शन विफल। फिर से कोशिश करें।",
+    "exitStudy": {
+      "title": "अध्ययन सेशन से बाहर निकलें?",
+      "description": "आपकी प्रगति सहेजी गई। आप बाद में जारी रख सकते हैं।"
+    },
+    "exitKaraoke": {
+      "title": "अभ्यास से बाहर निकलें?",
+      "description": "आपका वर्तमान सेशन समाप्त हो जाएगा।"
+    }
+  },
+  "language": {
+    "title": "भाषा",
+    "select": "भाषा चुनें",
+    "en": "English",
+    "zh": "中文",
+    "vi": "Tiếng Việt",
+    "id": "Bahasa Indonesia",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "pt": "Português",
+    "ar": "العربية",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "hi": "हिन्दी",
+    "th": "ไทย"
+  },
+  "personalities": {
+    "scarlett": {
+      "welcomeMessage": "नमस्ते! मैं स्कारलेट हूं, मैं आपको बेहतर जानना चाहती हूं...",
+      "surveyComplete": "शेयर करने के लिए धन्यवाद! अब मैं आपकी रुचियों के अनुसार हमारी बातचीत को अनुकूलित कर सकती हूं। आप किस बारे में बात करना चाहते हैं?"
+    },
+    "violet": {
+      "welcomeMessage": "नमस्ते! मैं वायलेट हूं। मुझे एनीमे, वीडियो गेम और संगीत बनाना पसंद है। चलो जो हमें पसंद है उसके बारे में बात करके साथ में अंग्रेजी सीखें! पहले कुछ सवाल:",
+      "surveyComplete": "अच्छी पसंद! मुझे पता है हम अच्छे दोस्त बनेंगे। आपके दिमाग में क्या है?"
+    }
+  },
+  "surveys": {
+    "common": {
+      "other": "अन्य"
+    },
+    "scarlett": {
+      "favoriteMusician": {
+        "question": "इनमें से कौन सा कलाकार आपका पसंदीदा है?",
+        "beyonce": "Beyoncé",
+        "blackpink": "BLACKPINK",
+        "jaychou": "Jay Chou",
+        "taylor": "Taylor Swift"
+      },
+      "englishLevel": {
+        "question": "आप अपने अंग्रेजी स्तर का वर्णन कैसे करेंगे?",
+        "beginner": "शुरुआती",
+        "intermediate": "मध्यवर्ती",
+        "advanced": "उन्नत"
+      },
+      "learningGoal": {
+        "question": "अंग्रेजी सीखने का आपका मुख्य लक्ष्य क्या है?",
+        "travel": "यात्रा और खोज",
+        "dating": "लोगों से मिलना / डेटिंग",
+        "test": "परीक्षा पास करना (TOEFL, IELTS)",
+        "job": "करियर में आगे बढ़ना"
+      }
+    },
+    "violet": {
+      "favoriteAnime": {
+        "question": "आपको कौन सा एनीमे पसंद है?",
+        "aot": "Attack on Titan",
+        "jjk": "Jujutsu Kaisen",
+        "spyfamily": "Spy x Family",
+        "onepiece": "One Piece"
+      },
+      "favoriteGame": {
+        "question": "आप कौन से गेम खेलते हैं?",
+        "valorant": "Valorant",
+        "genshin": "Genshin Impact",
+        "lol": "League of Legends",
+        "rhythm": "रिदम गेम्स (osu!, Project Sekai)"
+      },
+      "musicProduction": {
+        "question": "क्या आप संगीत बनाने में रुचि रखते हैं?",
+        "yesDaw": "हां! मैं DAW इस्तेमाल करता/करती हूं",
+        "curious": "उत्सुक लेकिन शुरू नहीं किया",
+        "listener": "नहीं, बस सुनता/सुनती हूं"
+      }
+    }
+  }
+}
