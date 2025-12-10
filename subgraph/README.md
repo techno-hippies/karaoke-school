@@ -107,7 +107,7 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 
 ## Deployed Contracts (Lens Testnet)
 
-- **KaraokeEvents:** `0x8f97C17e599bb823e42d936309706628A93B33B8` (clip lifecycle + grading)
+- **KaraokeEvents:** `0xd942eB51C86c46Db82678627d19Aa44630F901aE` (V6 - clip lifecycle + grading)
 - **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
 - **TranslationEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
 - **AccountEvents:** `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)

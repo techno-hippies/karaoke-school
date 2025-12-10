@@ -140,8 +140,8 @@ When you upload a new action version:
 // Exercise grading
 ExerciseEvents: "0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832"
 
-// Karaoke performance grading
-KaraokeEvents: "0x8f97C17e599bb823e42d936309706628A93B33B8"
+// Karaoke performance grading (V6 - JSON localizations)
+KaraokeEvents: "0xd942eB51C86c46Db82678627d19Aa44630F901aE"
 
 // Trusted PKP (naga-dev)
 PKP: "0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379"

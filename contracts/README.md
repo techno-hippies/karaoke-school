@@ -48,7 +48,7 @@ See `DEPLOYMENT.md` for detailed troubleshooting and common errors.
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
-| **KaraokeEvents** | `0x8f97C17e599bb823e42d936309706628A93B33B8` | Clip lifecycle + karaoke grading |
+| **KaraokeEvents** | `0xd942eB51C86c46Db82678627d19Aa44630F901aE` | Clip lifecycle + karaoke grading (V6) |
 | **ExerciseEvents** | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
 | **TranslationEvents** | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Multi-language translations |
 | **AccountEvents** | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User account management |
@@ -60,12 +60,13 @@ The main contract handling clip registration and karaoke grading:
 - `ClipProcessed` - Audio/alignment processed
 - `SongEncrypted` - Full song encrypted for subscribers
 - `ClipToggled` - Enable/disable clip
+- `ClipLocalizationUpdated` - 12-language JSON localizations
 - `KaraokeSessionStarted` - Live karaoke session begins
 - `KaraokeLineGraded` - Line-by-line grading
 - `KaraokeSessionEnded` - Session complete
 - `KaraokePerformanceGraded` - Final performance score
 
-PKP-gated grading functions require trusted PKP: `0x7d8003DFAc78C1775EDD518772162A7766Bd4AC7`
+PKP-gated grading functions require trusted PKP: `0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379`
 
 ### ExerciseEvents
 
