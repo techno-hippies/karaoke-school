@@ -4,7 +4,7 @@
  */
 
 const TTS_HTTP = 'http://localhost:3030'
-const LEAD_TIME_MS = 550
+const LEAD_TIME_MS = 0
 
 interface LyricLine {
   index: number

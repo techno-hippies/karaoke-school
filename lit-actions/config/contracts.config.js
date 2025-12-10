@@ -10,8 +10,8 @@
 // LENS TESTNET CONTRACTS
 // ============================================================
 
-// KaraokeEvents - Clip lifecycle + karaoke grading (V3 - consolidated contract)
-export const KARAOKE_EVENTS_ADDRESS = '0x8f97C17e599bb823e42d936309706628A93B33B8';
+// KaraokeEvents - Clip lifecycle + karaoke grading (V6 - JSON localizations)
+export const KARAOKE_EVENTS_ADDRESS = '0xd942eB51C86c46Db82678627d19Aa44630F901aE';
 
 // ExerciseEvents - FSRS study cards
 export const EXERCISE_EVENTS_ADDRESS = '0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832';

@@ -4,8 +4,8 @@
  * Grades individual karaoke lines within a session for real-time feedback.
  * Uses Levenshtein scoring (no Gemini) for speed and determinism.
  *
- * Contract: KaraokeEvents V3 on Lens Testnet
- * - Address: 0x8f97C17e599bb823e42d936309706628A93B33B8
+ * Contract: KaraokeEvents V6 on Lens Testnet
+ * - Address: 0xd942eB51C86c46Db82678627d19Aa44630F901aE
  * - Trusted PKP: 0x5CF2f231D15F3e71f997AAE0f3037ec3fafa8379
  * - Network: Lens Testnet (Chain ID: 37111)
  *
@@ -31,11 +31,11 @@ const ethers = ethersLib;
 // ============================================================
 // CONTRACT CONFIGURATION
 // ============================================================
-const KARAOKE_EVENTS_ADDRESS = "0x8f97C17e599bb823e42d936309706628A93B33B8";
+const KARAOKE_EVENTS_ADDRESS = "0xd942eB51C86c46Db82678627d19Aa44630F901aE";
 const LENS_TESTNET_CHAIN_ID = 37111;
 const LENS_TESTNET_RPC = "https://rpc.testnet.lens.xyz";
 const PKP_PUBLIC_KEY = '0x047037fa3f1ba0290880f20afb8a88a8af8a125804a9a3f593ff2a63bf7addd3e2d341e8e3d5a0ef02790ab7e92447e59adeef9915ce5d2c0ee90e0e9ed1b0c5f7';
-const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12";
+const DEFAULT_SUBGRAPH_URL = "https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-json-localizations";
 
 const VOXTRAL_TIMEOUT_MS = 15000; // 24B model needs more time
 const LENS_RPC_TIMEOUT_MS = 10000;
@@ -84,6 +84,8 @@ const go = async () => {
       skipTx = false,      // boolean: skip contract submission
       txDebugStage = null, // string: 'simulate' | 'prepare'
       endOnly = false,     // boolean: skip line grading, just emit endSession
+      // Deterministic nonce override (frontend-coordinated)
+      nonceOverride,       // number | string | null
     } = jsParams || {};
 
     markPhase("init");
@@ -92,6 +94,17 @@ const go = async () => {
     if (!sessionId) throw new Error("sessionId is required");
     if (!clipHash) throw new Error("clipHash is required");
     if (!performer) throw new Error("performer is required");
+
+    // Track nonce across all txs in this Lit Action execution
+    // (must be created before any tx submission, including endOnly path)
+    const nonceState = {
+      value:
+        typeof nonceOverride === "number"
+          ? nonceOverride
+          : typeof nonceOverride === "string" && nonceOverride.length
+            ? Number(nonceOverride)
+            : null,
+    };
 
     // Handle end-only mode (skip line grading, just emit end session)
     if (endOnly) {
@@ -105,6 +118,7 @@ const go = async () => {
           sessionId: sessionIdBytes32,
           completed: !!sessionCompleted,
           txDebugStage,
+          nonceState,
         });
         markPhase("tx-end-session-done");
       }
@@ -187,43 +201,46 @@ const go = async () => {
     let lineTxHash = null;
     let endTxHash = null;
 
-    if (!testMode && !skipTx) {
-      // Optionally start session (idempotent in subgraph; contract just emits event)
-      if (startSession) {
-        markPhase("tx-start-session");
-        startTxHash = await submitStartSessionTx({
-          sessionId: sessionIdBytes32,
-          clipHash: clipHashBytes32,
-          performer,
-          expectedLineCount: resolvedExpectedLineCount,
-          txDebugStage,
-        });
-        markPhase("tx-start-session-done");
-      }
+      if (!testMode && !skipTx) {
+        // Optionally start session (idempotent in subgraph; contract just emits event)
+        if (startSession) {
+          markPhase("tx-start-session");
+          startTxHash = await submitStartSessionTx({
+            sessionId: sessionIdBytes32,
+            clipHash: clipHashBytes32,
+            performer,
+            expectedLineCount: resolvedExpectedLineCount,
+            txDebugStage,
+            nonceState,
+          });
+          markPhase("tx-start-session-done");
+        }
 
-      // Grade line
-      markPhase("tx-line-start");
-      lineTxHash = await submitKaraokeLineTx({
-        sessionId: sessionIdBytes32,
-        lineIndex,
-        scoreBp,
-        rating,
-        metadataUri: metadataUri || "",
-        txDebugStage,
-      });
-      markPhase("tx-line-done");
-
-      // Optionally end session (explicit completion/abandon)
-      if (endSession) {
-        markPhase("tx-end-session");
-        endTxHash = await submitEndSessionTx({
+        // Grade line
+        markPhase("tx-line-start");
+        lineTxHash = await submitKaraokeLineTx({
           sessionId: sessionIdBytes32,
-          completed: !!sessionCompleted,
+          lineIndex,
+          scoreBp,
+          rating,
+          metadataUri: metadataUri || "",
           txDebugStage,
+          nonceState,
         });
-        markPhase("tx-end-session-done");
+        markPhase("tx-line-done");
+
+        // Optionally end session (explicit completion/abandon)
+        if (endSession) {
+          markPhase("tx-end-session");
+          endTxHash = await submitEndSessionTx({
+            sessionId: sessionIdBytes32,
+            completed: !!sessionCompleted,
+            txDebugStage,
+            nonceState,
+          });
+          markPhase("tx-end-session-done");
+        }
       }
-    }
 
     // Return result
     Lit.Actions.setResponse({
@@ -587,6 +604,7 @@ async function submitKaraokeLineTx({
   rating,
   metadataUri,
   txDebugStage,
+  nonceState,
 }) {
   const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
 
@@ -606,7 +624,7 @@ async function submitKaraokeLineTx({
   ]);
 
   const dynamicSigName = `karaokeLineGraderTx_${lineIndex}`;
-  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage);
+  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage, nonceState);
 }
 
 /**
@@ -618,6 +636,7 @@ async function submitStartSessionTx({
   performer,
   expectedLineCount,
   txDebugStage,
+  nonceState,
 }) {
   const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
   const abi = [
@@ -634,13 +653,13 @@ async function submitStartSessionTx({
   ]);
 
   const dynamicSigName = `karaokeStartSession_${sessionId.slice(0, 10)}`;
-  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage);
+  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage, nonceState);
 }
 
 /**
  * Submit end session transaction
  */
-async function submitEndSessionTx({ sessionId, completed, txDebugStage }) {
+async function submitEndSessionTx({ sessionId, completed, txDebugStage, nonceState }) {
   const provider = new ethers.providers.JsonRpcProvider(LENS_TESTNET_RPC);
   const abi = [
     "function endKaraokeSession(bytes32 sessionId, bool completed) external"
@@ -654,13 +673,13 @@ async function submitEndSessionTx({ sessionId, completed, txDebugStage }) {
   ]);
 
   const dynamicSigName = `karaokeEndSession_${sessionId.slice(0, 10)}`;
-  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage);
+  return submitZkSyncTransaction(txData, provider, dynamicSigName, txDebugStage, nonceState);
 }
 
 /**
  * Submit zkSync type 0x71 transaction
  */
-async function submitZkSyncTransaction(txData, provider, sigName, txDebugStage) {
+async function submitZkSyncTransaction(txData, provider, sigName, txDebugStage, nonceState) {
   const pkpEthAddress = ethers.utils.computeAddress(PKP_PUBLIC_KEY);
 
   // Simulate first
@@ -680,7 +699,10 @@ async function submitZkSyncTransaction(txData, provider, sigName, txDebugStage) 
     return 'DEBUG_SIMULATION_OK';
   }
 
-  const nonce = await provider.getTransactionCount(pkpEthAddress, 'pending');
+  // Use deterministic nonce if provided; otherwise fetch pending
+  const nonce = (nonceState && nonceState.value !== null)
+    ? ethers.BigNumber.from(nonceState.value++)
+    : await provider.getTransactionCount(pkpEthAddress, 'pending');
   const feeData = await provider.getFeeData();
 
   const gasPrice = feeData.gasPrice || feeData.maxFeePerGas || ethers.BigNumber.from("3705143562");

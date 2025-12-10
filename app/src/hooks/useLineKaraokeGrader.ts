@@ -6,13 +6,86 @@
  */
 
 import { createSignal, createEffect } from 'solid-js'
+import { createPublicClient, http } from 'viem'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   LIT_KARAOKE_LINE_CID,
   LIT_KARAOKE_LINE_DEEPINFRA_KEY,
+  EXERCISE_EVENTS_PKP_ADDRESS,
 } from '@/lib/contracts/addresses'
+import { lensTestnet } from '@/lib/lit/signer-pkp'
 import { SUBGRAPH_URL } from '@/lib/graphql/client'
 import type { GradeLineParams, GradeLineResult } from './useKaraokeLineSession'
+
+// ============================================================
+// NONCE COORDINATION
+// ============================================================
+// Global nonce tracker to prevent race conditions across concurrent grading calls.
+// Each karaoke line grades in parallel, so we must reserve nonces upfront.
+
+let lastKnownNonce: number | null = null
+let lastNonceTimestamp = 0
+const NONCE_CACHE_TTL_MS = 10_000 // 10 seconds - nonce cache expires after this
+
+/**
+ * Reserve nonces for a grading call.
+ * Returns the starting nonce and updates the global tracker.
+ *
+ * @param txCount Number of transactions this call will emit:
+ *   - First line (startSession=true): 2 txs (start + grade)
+ *   - Middle lines: 1 tx (grade)
+ *   - End-only call: 1 tx (end)
+ */
+async function reserveNonces(txCount: number): Promise<number | null> {
+  try {
+    const publicClient = createPublicClient({
+      chain: lensTestnet,
+      transport: http(),
+    })
+
+    // Get pending nonce for the PKP that signs karaoke transactions
+    // (same PKP used by exercise grader)
+    const chainNonce = await publicClient.getTransactionCount({
+      address: EXERCISE_EVENTS_PKP_ADDRESS as `0x${string}`,
+      blockTag: 'pending',
+    })
+
+    // Optimistic nonce: use max of chain nonce or our tracked nonce
+    const now = Date.now()
+    let startNonce = Number(chainNonce)
+
+    if (lastKnownNonce !== null && (now - lastNonceTimestamp) < NONCE_CACHE_TTL_MS) {
+      // Use our tracked nonce if it's higher (we know txs are in flight)
+      if (lastKnownNonce >= startNonce) {
+        startNonce = lastKnownNonce
+      }
+    }
+
+    // Reserve the block of nonces for this call
+    lastKnownNonce = startNonce + txCount
+    lastNonceTimestamp = now
+
+    console.log(`[useLineKaraokeGrader] Reserved nonces ${startNonce}-${startNonce + txCount - 1} (chain=${chainNonce}, txCount=${txCount})`)
+    return startNonce
+  } catch (err) {
+    console.warn('[useLineKaraokeGrader] Failed to reserve nonces:', err)
+    return null // Fallback to Lit Action internal handling
+  }
+}
+
+/**
+ * Update nonce tracker from error message.
+ * Called when we get "nonce too low" errors to recover.
+ */
+function updateNonceFromError(errorMessage: string): void {
+  const nonceMatch = errorMessage.match(/allowed nonce range: (\d+)/)
+  if (nonceMatch) {
+    const correctNonce = parseInt(nonceMatch[1], 10)
+    console.log(`[useLineKaraokeGrader] Updating nonce tracker to ${correctNonce} from error`)
+    lastKnownNonce = correctNonce
+    lastNonceTimestamp = Date.now()
+  }
+}
 
 export interface LineGradeResult extends GradeLineResult {
   // Alias for backwards compatibility
@@ -87,6 +160,15 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
       const { getLitClient } = await import('@/lib/lit')
       const litClient = await getLitClient()
 
+      // Calculate how many txs this call will emit for nonce reservation
+      const isEndOnly = params.endOnly ?? false
+      const txCount = isEndOnly
+        ? 1 // end-only: just endSession tx
+        : (params.startSession ? 2 : 1) // first line: start + grade, others: just grade
+
+      // Reserve nonces before starting Lit Action (prevents race conditions)
+      const nonceOverride = params.skipTx ? null : await reserveNonces(txCount)
+
       // Use the sessionId passed from the session hook - DO NOT generate a new one
       const jsParams: Record<string, unknown> = {
         sessionId: params.sessionId,
@@ -108,7 +190,9 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
         // Encrypted API key
         voxtralEncryptedKey: LIT_KARAOKE_LINE_DEEPINFRA_KEY,
         // End-only mode: skip line grading, just emit endSession
-        endOnly: params.endOnly ?? false,
+        endOnly: isEndOnly,
+        // Deterministic nonce override (prevents race conditions)
+        nonceOverride,
       }
 
       const sessionFlags = [
@@ -179,6 +263,10 @@ export function useLineKaraokeGrader(options: UseLineKaraokeGraderOptions = {}) 
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err))
       console.error(`[useLineKaraokeGrader] Line ${params.lineIndex} failed:`, error.message)
+
+      // Try to recover nonce tracker from error message
+      updateNonceFromError(error.message)
+
       setError(error)
       return null
     } finally {

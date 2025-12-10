@@ -126,6 +126,10 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
   let sessionCompletedRef = false
   let lineResultsRef: LineResult[] = []
 
+  // Grading queue - ensures sequential Lit Action execution to prevent nonce collisions
+  let gradingQueueRef: Array<() => Promise<void>> = []
+  let isProcessingQueueRef = false
+
   // Reactive state
   const [lineResults, setLineResults] = createSignal<LineResult[]>([])
   const [isRunning, setIsRunning] = createSignal(false)
@@ -153,6 +157,37 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     chunksRef = []
     isRunningRef = false
     setIsRunning(false)
+    // Don't clear the queue - let pending grades finish
+  }
+
+  /**
+   * Process the grading queue sequentially.
+   * This prevents nonce collisions by ensuring only one Lit Action runs at a time.
+   */
+  const processGradingQueue = async () => {
+    if (isProcessingQueueRef) return // Already processing
+    isProcessingQueueRef = true
+
+    while (gradingQueueRef.length > 0) {
+      const task = gradingQueueRef.shift()
+      if (task) {
+        try {
+          await task()
+        } catch (err) {
+          console.error('[useKaraokeLineSession] Queue task error:', err)
+        }
+      }
+    }
+
+    isProcessingQueueRef = false
+  }
+
+  /**
+   * Add a grading task to the queue and start processing.
+   */
+  const enqueueGrading = (task: () => Promise<void>) => {
+    gradingQueueRef.push(task)
+    processGradingQueue() // Start processing if not already
   }
 
   /**
@@ -222,7 +257,11 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     return new Blob(chunksRef.map((c) => c.blob), { type })
   }
 
-  const processLine = async (lineIndex: number, attempt = 0) => {
+  /**
+   * Process a line - slice audio immediately (time-sensitive), then queue grading.
+   * This two-phase approach prevents nonce collisions by serializing Lit Action calls.
+   */
+  const processLine = async (lineIndex: number) => {
     const linesData = lines()
     const line = linesData[lineIndex]
     // Convert absolute lyrics time to clip-relative time using offset
@@ -264,18 +303,45 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
     const isFirstLine = lineIndex === 0
     const isLastLine = lineIndex === linesData.length - 1
 
+    // PHASE 1: Slice audio immediately (time-sensitive)
+    let base64: string
     try {
-      // Decode full recording, slice by timestamp window, encode to WAV
       const sliceStart = performance.now()
       const wavBlob = await sliceAndEncodeToWav(fullRecording, sliceStartMs, sliceEndMs, 16000)
       const sliceEnd = performance.now()
       console.log(`[useKaraokeLineSession] Line ${lineIndex}: ${sliceStartMs.toFixed(0)}-${sliceEndMs.toFixed(0)}ms, ${(wavBlob.size / 1024).toFixed(1)} KB, sliced in ${((sliceEnd - sliceStart) / 1000).toFixed(2)}s`)
+      base64 = await blobToBase64(wavBlob)
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+      updateLineResults((prev) => {
+        const next = [...prev]
+        next[lineIndex] = { status: 'error', error: `Audio slice failed: ${error.message}` }
+        return next
+      })
+      return
+    }
 
-      const base64 = await blobToBase64(wavBlob)
+    // PHASE 2: Queue the grading call (runs sequentially to prevent nonce collisions)
+    enqueueGrading(async () => {
+      await executeGrading(lineIndex, base64, currentSessionId, isFirstLine, isLastLine, linesData.length, 0)
+    })
+  }
 
-      // For the last line, DON'T include endSession - we'll do that separately
+  /**
+   * Execute grading for a line (called from queue, runs sequentially).
+   */
+  const executeGrading = async (
+    lineIndex: number,
+    base64: string,
+    currentSessionId: string,
+    isFirstLine: boolean,
+    isLastLine: boolean,
+    totalLines: number,
+    attempt: number
+  ) => {
+    try {
       const gradeStart = performance.now()
-      console.log(`[useKaraokeLineSession] Line ${lineIndex}: Starting gradeLine() at ${new Date().toISOString()} (isLast=${isLastLine})`)
+      console.log(`[useKaraokeLineSession] Line ${lineIndex}: Starting gradeLine() at ${new Date().toISOString()} (isLast=${isLastLine}, queued)`)
       const result = await gradeLine({
         clipHash: clipHash(),
         lineIndex,
@@ -284,35 +350,38 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
         startSession: isFirstLine,
         endSession: false, // Never end in the line call - we'll do it separately
         sessionCompleted: false,
-        expectedLineCount: linesData.length,
+        expectedLineCount: totalLines,
         metadataUriOverride: metadataUriOverride?.(),
         skipTx,
       })
       const gradeEnd = performance.now()
       console.log(`[useKaraokeLineSession] Line ${lineIndex}: gradeLine() returned in ${((gradeEnd - gradeStart) / 1000).toFixed(2)}s`)
 
-      // If this is the last line and grading succeeded, fire off endSession in background
+      // If this is the last line and grading succeeded, queue endSession
       if (isLastLine && result && !skipTx) {
-        console.log(`[useKaraokeLineSession] Last line done in ${((gradeEnd - gradeStart) / 1000).toFixed(2)}s, firing endSession in background...`)
-        // Fire and forget - don't await
-        gradeLine({
-          clipHash: clipHash(),
-          lineIndex: 0, // Not used in endOnly mode
-          audioDataBase64: '', // No audio needed in endOnly mode
-          sessionId: currentSessionId,
-          startSession: false,
-          endSession: true,
-          sessionCompleted: true,
-          expectedLineCount: linesData.length,
-          metadataUriOverride: metadataUriOverride?.(),
-          skipTx: false,
-          endOnly: true, // Skip line grading, just emit endSession
-        }).then((endResult) => {
-          if (endResult?.endTxHash) {
-            console.log(`[useKaraokeLineSession] ✅ Session ended: ${endResult.endTxHash}`)
+        console.log(`[useKaraokeLineSession] Last line done, queueing endSession...`)
+        // Queue it to maintain nonce order
+        enqueueGrading(async () => {
+          try {
+            const endResult = await gradeLine({
+              clipHash: clipHash(),
+              lineIndex: 0, // Not used in endOnly mode
+              audioDataBase64: '', // No audio needed in endOnly mode
+              sessionId: currentSessionId,
+              startSession: false,
+              endSession: true,
+              sessionCompleted: true,
+              expectedLineCount: totalLines,
+              metadataUriOverride: metadataUriOverride?.(),
+              skipTx: false,
+              endOnly: true, // Skip line grading, just emit endSession
+            })
+            if (endResult?.endTxHash) {
+              console.log(`[useKaraokeLineSession] ✅ Session ended: ${endResult.endTxHash}`)
+            }
+          } catch (err) {
+            console.warn(`[useKaraokeLineSession] ⚠️ End session failed (non-blocking):`, (err as Error)?.message)
           }
-        }).catch((err) => {
-          console.warn(`[useKaraokeLineSession] ⚠️ End session failed (non-blocking):`, err?.message)
         })
       }
 
@@ -321,7 +390,7 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
         if (attempt < maxRetries) {
           console.warn(`[useKaraokeLineSession] Line ${lineIndex} grading returned null, retrying (${attempt + 1}/${maxRetries})`)
           await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
-          return processLine(lineIndex, attempt + 1)
+          return executeGrading(lineIndex, base64, currentSessionId, isFirstLine, isLastLine, totalLines, attempt + 1)
         }
 
         updateLineResults((prev) => {
@@ -363,7 +432,7 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       if (attempt < maxRetries) {
         console.warn(`[useKaraokeLineSession] Line ${lineIndex} grading failed, retrying (${attempt + 1}/${maxRetries}):`, error.message)
         await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
-        return processLine(lineIndex, attempt + 1)
+        return executeGrading(lineIndex, base64, currentSessionId, isFirstLine, isLastLine, totalLines, attempt + 1)
       }
 
       updateLineResults((prev) => {
@@ -373,7 +442,7 @@ export function useKaraokeLineSession(options: KaraokeLineSessionOptions) {
       })
 
       // If last line failed after all retries, still complete the session
-      if (lineIndex === lines().length - 1) {
+      if (isLastLine) {
         completeSessionNow()
       }
       onError?.(error)
