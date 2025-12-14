@@ -44,6 +44,16 @@ storybook-static/
 # Test assets
 /public/test_video
 
+# Synpress / Playwright wallet caches
+.cache-synpress/
+app/test-results/
+app/test/.auth/
+app/playwright-report/data/
+
+# Local livestream assets
+livestream-ai/avatars/
+livestream-ai/services/tts/voices/
+
 # Audio/video files (copyrighted content - NEVER commit)
 *.mp3
 *.flac
@@ -57,6 +67,12 @@ storybook-static/
 *.mov
 *.mkv
 *.webm
+
+# ML model files
+*.pt
+*.pth
+*.onnx
+*.bin
 
 # Processed pipeline data
 master-pipeline/data/segments/

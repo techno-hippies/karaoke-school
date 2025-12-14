@@ -161,6 +161,11 @@ export const KaraokePracticePage: Component = () => {
     }
   })
 
+  // Expose phase to window for browser automation (livestream-ai)
+  createEffect(() => {
+    ;(window as any).__KARAOKE_PHASE__ = phase()
+  })
+
   // Track audio time for the vertical timeline
   createEffect(() => {
     if (phase() !== 'recording' || !audioElement) return
@@ -474,7 +479,13 @@ export const KaraokePracticePage: Component = () => {
                     </div>
                   </Show>
                   <Show when={grader.isReady() || !auth.isPKPReady()}>
-                    <Button variant="gradient" size="lg" class="w-full text-lg py-6" onClick={startRecording}>
+                    <Button
+                      variant="gradient"
+                      size="lg"
+                      class="w-full text-lg py-6"
+                      data-testid="start-karaoke"
+                      onClick={startRecording}
+                    >
                       <Icon name="microphone" class="mr-2 text-xl" />
                       {t('karaoke.start')}
                     </Button>

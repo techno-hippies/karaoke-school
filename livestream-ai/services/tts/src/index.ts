@@ -37,8 +37,18 @@ const TTS_ENGINE = process.env.TTS_ENGINE || 'elevenlabs'
 const DEFAULT_LEAD_TIME = TTS_ENGINE === 'vibevoice' ? 400 : 0
 const TTS_LEAD_TIME_MS = parseInt(process.env.TTS_LEAD_TIME_MS || String(DEFAULT_LEAD_TIME))
 
-// Audio clients
+// WS clients (audio vs events)
 const audioClients = new Set<WebSocket>()
+const eventClients = new Set<WebSocket>()
+
+function broadcastSpeechEvent(event: { speaking: boolean; text?: string }) {
+  const msg = JSON.stringify({ type: 'speech', ...event })
+  for (const client of [...eventClients, ...audioClients]) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(msg)
+    }
+  }
+}
 
 function broadcastAudio(audio: string, isFinal = false) {
   const msg = JSON.stringify({ type: 'audio', audio, isFinal })
@@ -87,6 +97,23 @@ engine.setOnChunk((chunk) => {
   if (chunk.isFinal) broadcastAudio('', true)
 })
 
+// Speaking state (for overlay animation, etc.)
+let activeSpeeches = 0
+
+async function speakWithEvents(text: string): Promise<void> {
+  activeSpeeches += 1
+  broadcastSpeechEvent({ speaking: true, text })
+
+  try {
+    await engine.speak(text)
+  } catch (err) {
+    console.error('[TTS] Speak error:', err)
+  } finally {
+    activeSpeeches = Math.max(0, activeSpeeches - 1)
+    if (activeSpeeches === 0) broadcastSpeechEvent({ speaking: false })
+  }
+}
+
 // Scheduling
 let scheduledTimeouts: Timer[] = []
 let scheduleStartTime: number | null = null
@@ -112,7 +139,7 @@ function scheduleLyrics(lines: LyricLine[], startedAt: number) {
     }
 
     const timeout = setTimeout(() => {
-      engine.speak(line.text)
+      void speakWithEvents(line.text)
     }, delay)
     scheduledTimeouts.push(timeout)
   }
@@ -152,7 +179,7 @@ const server = Bun.serve({
     if (url.pathname === '/speak' && req.method === 'POST') {
       const body = await req.json() as TTSSpeakRequest
       // Don't await - return immediately and let speech happen in background
-      engine.speak(body.text).catch(err => console.error('[TTS] Speak error:', err))
+      void speakWithEvents(body.text)
       return Response.json({ ok: true }, { headers: corsHeaders })
     }
 
@@ -174,12 +201,22 @@ const server = Bun.serve({
 // WebSocket for audio streaming
 const wss = new WebSocketServer({ port: PORT + 1 })
 
-wss.on('connection', (ws) => {
-  console.log('[TTS] Audio client connected')
-  audioClients.add(ws)
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url || '/', 'http://localhost')
+  const wantsAudio =
+    url.searchParams.get('mode') === 'audio' ||
+    url.searchParams.get('audio') === '1'
+
+  const bucket = wantsAudio ? audioClients : eventClients
+  bucket.add(ws)
+
+  const userAgent = req.headers['user-agent']
+  const label = wantsAudio ? 'audio' : 'events'
+  console.log(`[TTS] ${label} client connected${userAgent ? ` (${userAgent})` : ''}`)
+
   ws.on('close', () => {
-    audioClients.delete(ws)
-    console.log('[TTS] Audio client disconnected')
+    bucket.delete(ws)
+    console.log(`[TTS] ${label} client disconnected`)
   })
 })
 

@@ -16,7 +16,7 @@ import { browserClient } from '../clients/browser'
 import { ttsClient } from '../clients/tts'
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173'
-const DEFAULT_SONG = '/#/britney-spears/toxic/karaoke'
+const DEFAULT_SONG = '/#/queen/bohemian-rhapsody/karaoke'
 
 // Session data (export once after manual login, then paste here)
 const SAVED_SESSION: Record<string, string> = {}

@@ -67,6 +67,13 @@ export interface Song {
   title_id: string | null; // Indonesian translation
   title_ja: string | null; // Japanese translation
   title_ko: string | null; // Korean translation
+  title_es: string | null; // Spanish translation
+  title_pt: string | null; // Portuguese translation
+  title_ar: string | null; // Arabic translation
+  title_tr: string | null; // Turkish translation
+  title_ru: string | null; // Russian translation
+  title_hi: string | null; // Hindi translation
+  title_th: string | null; // Thai translation
   slug: string | null;
   artist_id: string | null;
   duration_ms: number | null;
@@ -112,7 +119,7 @@ export interface Lyric {
   id: string;
   song_id: string;
   line_index: number;
-  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko';
+  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko' | 'es' | 'pt' | 'ar' | 'tr' | 'ru' | 'hi' | 'th';
   text: string;
   section_marker: string | null;
   start_ms: number | null;

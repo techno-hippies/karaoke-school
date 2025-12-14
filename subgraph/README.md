@@ -7,7 +7,7 @@ The Graph subgraph for Karaoke School V2 on Lens Chain testnet. Indexes contract
 ### Production (The Graph Studio)
 
 **Current Deployment:**
-- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12`
+- **Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-translation-events`
 - **Status**: ✅ Deployed and synced
 - **Network**: Lens Testnet (Chain ID: 37111)
 
@@ -109,7 +109,7 @@ export PATH="/usr/lib/postgresql/16/bin:$PATH"
 
 - **KaraokeEvents:** `0xd942eB51C86c46Db82678627d19Aa44630F901aE` (V6 - clip lifecycle + grading)
 - **ExerciseEvents:** `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` (FSRS study cards)
-- **TranslationEvents:** `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` (translations)
+- **TranslationEvents:** `0xB524A8A996CE416484eB4fd8f18D9c04a147FdeD` (extensible lyric translations)
 - **AccountEvents:** `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` (accounts)
 
 ## Verify Indexing
@@ -150,7 +150,6 @@ query GetClip($clipHash: ID!) {
     translations {
       languageCode
       translationUri
-      confidenceScore
       validated
     }
   }
@@ -160,15 +159,11 @@ query GetClip($clipHash: ID!) {
 ## Clip vs Full-Song Lyrics (Grove Integration)
 
 - `Clip.metadataUri` points to a Grove JSON document produced by the pipeline. That document
-  contains the assets block the frontend uses today (`assets.alignment`, `translations[].grove_url`,
-  `translations[].clip_grove_url`, etc.).
-- `Clip.alignmentUri` is a convenience pointer that already resolves to the full-song alignment
-  JSON with word-level timestamps.
-- Free-tier experiences use the clip-only slices by reading the `clip_grove_url` entries in the
-  metadata; paying users fetch the full `grove_url`. No schema changes are required: clients simply
-  query the subgraph to discover the Grove URLs and fetch the pre-sliced data directly from Grove.
+  contains per-line word timing in `karaoke_lines[].words` (and `full_karaoke_lines[].words` for full song).
+- `Clip.alignmentUri` (from `ClipProcessed`) is optional and only present if you upload a standalone alignment JSON.
+- Free-tier experiences use `karaoke_lines` (clip portion); paying users use `full_karaoke_lines` + decrypted full audio.
 
-This is exactly how the existing `MediaPage` in the React app works, so any Lit Action or backend
+This is exactly how the existing `MediaPage` in the SolidJS app works, so any Lit Action or backend
 service can mirror the same flow once this subgraph is deployed to a public Graph endpoint.
 
 ### Get learner performance history

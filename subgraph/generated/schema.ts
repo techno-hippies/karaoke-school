@@ -965,32 +965,6 @@ export class Translation extends Entity {
     this.set("translationUri", Value.fromString(value));
   }
 
-  get translationSource(): string {
-    let value = this.get("translationSource");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set translationSource(value: string) {
-    this.set("translationSource", Value.fromString(value));
-  }
-
-  get confidenceScore(): i32 {
-    let value = this.get("confidenceScore");
-    if (!value || value.kind == ValueKind.NULL) {
-      return 0;
-    } else {
-      return value.toI32();
-    }
-  }
-
-  set confidenceScore(value: i32) {
-    this.set("confidenceScore", Value.fromI32(value));
-  }
-
   get validated(): boolean {
     let value = this.get("validated");
     if (!value || value.kind == ValueKind.NULL) {
@@ -1058,19 +1032,6 @@ export class Translation extends Entity {
 
   set enabled(value: boolean) {
     this.set("enabled", Value.fromBoolean(value));
-  }
-
-  get confidenceLevel(): string {
-    let value = this.get("confidenceLevel");
-    if (!value || value.kind == ValueKind.NULL) {
-      throw new Error("Cannot return null for a required field.");
-    } else {
-      return value.toString();
-    }
-  }
-
-  set confidenceLevel(value: string) {
-    this.set("confidenceLevel", Value.fromString(value));
   }
 }
 

@@ -1,4 +1,4 @@
-import { type Component, Show, For, createMemo, createSignal, onMount, onCleanup } from 'solid-js'
+import { type Component, Show, For, createMemo, createSignal, createEffect, onMount, onCleanup } from 'solid-js'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Icon } from '@/components/icons'
@@ -100,6 +100,29 @@ export const KaraokeResultsPage: Component<KaraokeResultsPageProps> = (props) =>
     return true
   })
 
+  // Expose results state for browser automation (livestream-ai)
+  createEffect(() => {
+    const s = stats()
+    const finalGrade = !isStillGrading() ? grade() : null
+    ;(window as any).__KARAOKE_RESULTS__ = {
+      stillGrading: isStillGrading(),
+      grade: finalGrade,
+      completed: s.completed,
+      total: s.total,
+      skipped: s.errors + s.processing + s.pending,
+      averageScore: s.averageScore,
+      timedOut: timedOut(),
+    }
+  })
+
+  onCleanup(() => {
+    try {
+      delete (window as any).__KARAOKE_RESULTS__
+    } catch {
+      // ignore
+    }
+  })
+
   // Sort results: pending/processing first, then graded in original order
   const sortedResults = createMemo(() => {
     const results = props.lineResults.map((result, index) => ({
@@ -123,6 +146,19 @@ export const KaraokeResultsPage: Component<KaraokeResultsPageProps> = (props) =>
 
       {/* Grade display - fixed at top */}
       <div class="flex-none text-center py-6 px-4 bg-background relative z-10">
+        {/* Hidden automation hook */}
+        <div
+          data-testid="karaoke-results-state"
+          style={{ display: 'none' }}
+          data-still-grading={isStillGrading() ? 'true' : 'false'}
+          data-grade={!isStillGrading() ? grade() || '' : ''}
+          data-completed={String(stats().completed)}
+          data-total={String(stats().total)}
+          data-skipped={String(stats().errors + stats().processing + stats().pending)}
+          data-average-score={stats().averageScore === null ? '' : String(stats().averageScore)}
+          data-timed-out={timedOut() ? 'true' : 'false'}
+        />
+
         <p class="text-base uppercase tracking-wider text-muted-foreground mb-2">
           {t('karaoke.score')}
         </p>
@@ -186,6 +222,7 @@ export const KaraokeResultsPage: Component<KaraokeResultsPageProps> = (props) =>
             class="flex-1 text-lg py-6"
             onClick={() => props.onPlayAgain?.()}
             disabled={isStillGrading()}
+            data-testid="karaoke-play-again"
           >
             <Icon name="arrow-clockwise" class="mr-2 text-xl" />
             {t('common.playAgain')}

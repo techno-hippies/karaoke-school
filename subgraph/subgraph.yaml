@@ -50,14 +50,14 @@ dataSources:
       file: ./src/mappings.ts
 
   # TranslationEvents - Multi-language translations
-  # Address: 0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6
+  # Address: 0xB524A8A996CE416484eB4fd8f18D9c04a147FdeD
   - kind: ethereum
     name: TranslationEvents
     network: lens-testnet
     source:
-      address: "0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6"
+      address: "0xB524A8A996CE416484eB4fd8f18D9c04a147FdeD"
       abi: TranslationEvents
-      startBlock: 4210000
+      startBlock: 4226590
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -70,7 +70,7 @@ dataSources:
         - name: TranslationEvents
           file: ./abis/TranslationEvents.json
       eventHandlers:
-        - event: TranslationAdded(indexed bytes32,string,string,string,uint16,bool,indexed address,uint64)
+        - event: TranslationAdded(indexed bytes32,string,string,indexed address,uint64)
           handler: handleTranslationAdded
         - event: TranslationUpdated(indexed bytes32,string,string,bool,indexed address,uint64)
           handler: handleTranslationUpdated
@@ -104,7 +104,7 @@ dataSources:
       eventHandlers:
         - event: TranslationQuestionRegistered(indexed bytes32,indexed bytes32,indexed bytes32,string,uint16,string,string,uint16,address,uint64)
           handler: handleTranslationQuestionRegistered
-        - event: TriviaQuestionRegistered(indexed bytes32,indexed string,string,string,uint16,indexed address,uint64)
+        - event: TriviaQuestionRegistered(indexed bytes32,string,string,string,uint16,indexed address,uint64)
           handler: handleTriviaQuestionRegistered
         - event: SayItBackAttemptGraded(indexed uint256,indexed bytes32,indexed bytes32,uint16,address,uint16,uint8,string,uint64)
           handler: handleSayItBackAttemptGraded

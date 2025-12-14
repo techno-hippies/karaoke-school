@@ -27,7 +27,7 @@ Songs (ISWC) → Pipeline → Database → Lens Posts → App
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React + Vite |
+| Frontend | SolidJS + Vite |
 | Database | Neon PostgreSQL |
 | Storage | Grove (IPFS) |
 | Social | Lens Protocol |
@@ -39,16 +39,17 @@ Songs (ISWC) → Pipeline → Database → Lens Posts → App
 | Contract | Purpose |
 |----------|---------|
 | ExerciseEvents | FSRS exercise grading |
-| KaraokeEvents | Session tracking |
-| ClipEvents | Clip lifecycle |
+| KaraokeEvents | Clip lifecycle + session tracking |
 | AccountEvents | User accounts |
+| TranslationEvents | Optional translation tracking |
 
 ## Project Structure
 
 ```
 karaoke-school-v1/
 ├── app/              # React frontend (5173)
-├── pipeline-new/     # Content processing pipeline
+├── pipeline/         # Content processing pipeline
+├── livestream-ai/    # AI livestreaming service
 ├── contracts/        # Solidity smart contracts
 ├── subgraph/         # The Graph indexer
 └── lit-actions/      # AI scoring actions
@@ -61,7 +62,7 @@ karaoke-school-v1/
 cd app && bun install && bun run dev
 
 # Pipeline (process new songs)
-cd pipeline-new && bun install
+cd pipeline && bun install
 bun src/scripts/add-song.ts --help
 ```
 

@@ -2,172 +2,160 @@
 
 Autonomous AI streamer with karaoke TTS. Uses CDP (Chrome DevTools Protocol) for browser control.
 
-## Status
-
-**Working:**
-- TTS sync with karaoke (LEAD_TIME_MS = 0)
-- Browser mic input receives TTS audio
-- Grading system transcribes TTS correctly
-
-**TODO:**
-- OBS not capturing browser audio (needs separate source config)
-- Live2D avatar integration
-
-## Architecture
-
-```
-┌─────────────────┐     ┌──────────────────┐
-│  Chrome :9222   │     │  TTS Service     │
-│  (CDP debug)    │     │  :3030           │
-│                 │     │                  │
-│  window.__      │     │  ElevenLabs      │
-│  KARAOKE_       │◄────┤  Streaming       │
-│  LYRICS__       │     │                  │
-└────────┬────────┘     └────────┬─────────┘
-         │ CDP WebSocket         │ HTTP/WS
-         ▼                       ▼
-┌─────────────────────────────────────────────┐
-│  Audio Player (audio-player-v2.ts)          │
-│  Receives TTS chunks → paplay → TTS_Output  │
-└─────────────────────────────────────────────┘
-         │
-         ├──► TTS_Output.monitor → OBS (stream audio)
-         │
-         └──► TTSMic → TTSMicSource → Chrome mic input
-                                      (for grading)
-```
-
 ## Quick Start
 
 ```bash
 # 1. Start Chrome with remote debugging
 google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-debug-profile"
 
-# 2. Setup audio routing (see Audio Setup below)
+# 2. Navigate to http://localhost:5173 in Chrome (karaoke app)
 
-# 3. Start TTS service
-cd services/tts && ELEVENLABS_API_KEY=sk_... bun src/index.ts
-
-# 4. Start audio player (routes TTS to PipeWire)
-bun audio-player-v2.ts
-
-# 5. Navigate to karaoke page in Chrome, then:
-#    - Save lyrics: window.__KARAOKE_LYRICS__ → /tmp/karaoke-lyrics.json
-#    - Run synchronized karaoke:
-bun start-karaoke.ts /tmp/karaoke-lyrics.json
+# 3. Run everything (sets up audio, starts services, plays karaoke)
+bun run stream
 ```
 
-## Key Scripts
+That's it. The `stream` script handles audio setup automatically.
+
+## What `bun run stream` Does
+
+1. Kills any existing services on ports 3030-3033, 8080
+2. Creates virtual audio devices (TTS_Output, TTS_Mic)
+3. Starts all services concurrently:
+   - TTS service (ElevenLabs) on :3030/:3031
+   - Browser service (CDP) on :3032
+   - Orchestrator on :3033
+   - Web server (pngtuber) on :8080
+   - Audio player (routes TTS → PipeWire)
+4. Runs the karaoke playlist
+5. Resets audio to hardware defaults when done
+
+## Audio Routing
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│  TTS Service ──► Audio Player ──► TTS_Output ──► TTS_Mic ──┬──► Chrome  │
+│  (ElevenLabs)    (paplay)         (virtual      (virtual   │   (mic in) │
+│                                    sink)         source)   │            │
+│                                                            └──► OBS     │
+│                                                                (capture)│
+│                                                                         │
+│  Chrome ──────────────────────────────────────────────────────► OBS     │
+│  (playback)                        (hardware sink)             (capture)│
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### PipeWire Node Names
+
+| Node | Type | Purpose |
+|------|------|---------|
+| `livestream-ai-tts` | Output | Audio player sending TTS audio |
+| `TTS_Output` | Sink | Virtual sink receiving TTS |
+| `TTS_Mic` | Source | Virtual source Chrome uses as mic |
+| `Google Chrome input` | Input | Chrome's mic recording stream |
+| `Google Chrome [Playback]` | Output | Chrome playing karaoke music |
+
+## OBS Setup
+
+Add two audio sources:
+
+1. **Audio Input Capture** → `TTS_Mic` (TTS voice for stream)
+2. **Audio Output Capture** → Default audio (browser music)
+
+Or simpler: just capture Chrome window with "Capture Audio" if your OBS supports it.
+
+## Chrome Microphone Setup
+
+Chrome must use `TTS_Mic` as its microphone for grading to work:
+
+1. Go to `chrome://settings/content/microphone`
+2. Set default to **TTS_Mic**
+3. Or: on the karaoke page, click lock icon → Site settings → Microphone → TTS_Mic
+
+## Manual Audio Setup
+
+If `bun run stream` doesn't set up audio (or you want manual control):
+
+```bash
+# Create virtual devices
+pactl load-module module-null-sink sink_name=TTS_Output sink_properties=device.description=TTS_Output
+pactl load-module module-remap-source source_name=TTS_Mic master=TTS_Output.monitor source_properties=device.description=TTS_Mic
+
+# Set Chrome's default mic
+pactl set-default-source TTS_Mic
+
+# Verify
+pactl list sinks short | grep TTS
+pactl list sources short | grep TTS
+pactl get-default-source  # Should be TTS_Mic
+```
+
+### Reset Audio (After Streaming)
+
+```bash
+bun run audio:reset
+```
+
+Or manually:
+```bash
+pactl set-default-sink alsa_output.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__hw_sofhdadsp__sink
+pactl set-default-source alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__hw_sofhdadsp__source
+pactl unload-module module-remap-source
+pactl unload-module module-null-sink
+```
+
+## npm Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `start-karaoke.ts` | Clicks Start button via CDP + schedules TTS for each line |
-| `audio-player-v2.ts` | Routes TTS audio to PipeWire sink |
-| `services/tts/` | ElevenLabs streaming TTS service |
+| `bun run stream` | Full streaming setup + karaoke playlist |
+| `bun run dev` | Start all services without karaoke |
+| `bun run audio:setup` | Create virtual audio devices |
+| `bun run audio:reset` | Reset audio to hardware defaults |
+| `bun run play` | Run karaoke playlist (services must be running) |
+| `bun run cleanup` | Kill services on ports 3030-3033, 8080 |
 
-## Audio Setup (PipeWire)
+## Services
 
-### Setup Virtual Audio Devices
-
-```bash
-# 1. Create TTS output sink (for audio player to write to)
-pactl load-module module-null-sink sink_name=TTS_Output sink_properties=device.description=TTS_Output
-
-# 2. Create virtual mic with pw-loopback (shows as "TTS Microphone" in Chrome)
-pw-loopback \
-  --capture-props='media.class=Audio/Sink node.name=TTSMic node.description="TTS Microphone"' \
-  --playback-props='media.class=Audio/Source node.name=TTSMicSource node.description="TTS Microphone"' &
-
-# 3. Set TTSMicSource as default (so Chrome "Default" uses it)
-pactl set-default-source TTSMicSource
-
-# 4. Link TTS output to the virtual mic (CRITICAL for grading to work!)
-pw-link TTS_Output:monitor_FL TTSMic:playback_FL
-pw-link TTS_Output:monitor_FR TTSMic:playback_FR
-```
-
-### Verify Setup
-
-```bash
-# List sources (should see TTSMicSource)
-pactl list sources short
-
-# List sinks (should see TTS_Output, TTSMic)
-pactl list sinks short
-
-# Check default source
-pactl get-default-source  # Should be TTSMicSource
-
-# Check links (MUST show TTS_Output → TTSMic)
-pw-link -l | grep -E "TTS"
-```
-
-### Reset to Normal (After Streaming)
-
-```bash
-# 1. Kill pw-loopback (the TTSMic)
-pkill -f pw-loopback
-
-# 2. Unload virtual sinks
-pactl unload-module module-null-sink
-
-# 3. Reset default source to hardware mic
-pactl set-default-source alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__hw_sofhdadsp__source
-
-# 4. Verify defaults are back to normal
-pactl get-default-source
-pactl get-default-sink
-```
-
-### What Each Device Does
-
-| Device | Type | Purpose |
-|--------|------|---------|
-| `TTS_Output` | Sink | Audio player writes TTS audio here |
-| `TTS_Output.monitor` | Source | OBS captures this for stream audio |
-| `TTSMic` | Sink | Intermediate - receives TTS audio via pw-link |
-| `TTSMicSource` | Source | Browser mic input (Chrome uses this for grading) |
-
-### Audio Flow
-
-```
-TTS Service → audio-player-v2 → TTS_Output sink
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    ▼                                   ▼
-            TTS_Output.monitor                 pw-link to TTSMic
-                    │                                   │
-                    ▼                                   ▼
-              OBS capture                        TTSMicSource
-              (stream audio)                          │
-                                                      ▼
-                                              Chrome mic input
-                                              (karaoke grading)
-```
-
-## Timing
-
-- `LEAD_TIME_MS = 0` works well with ElevenLabs streaming
-- TTS starts speaking exactly when the karaoke line begins
-- No lead time needed because ElevenLabs streaming has minimal latency
+| Service | Port | Purpose |
+|---------|------|---------|
+| TTS HTTP | 3030 | `/speak`, `/schedule`, `/status` |
+| TTS WebSocket | 3031 | Audio streaming (`?mode=audio`) |
+| Browser | 3032 | CDP browser control |
+| Orchestrator | 3033 | Coordinates karaoke flow |
+| Web | 8080 | Pngtuber overlay |
 
 ## Environment
 
 ```bash
 # .env.local
 ELEVENLABS_API_KEY=sk_...
+ELEVENLABS_VOICE_ID=USMKuKI6F4jqsrCpgOAE  # optional, has default
 ```
 
 ## Troubleshooting
 
-### Grading shows 0% / transcript is "."
-The TTS audio isn't reaching the browser mic. Check:
-1. `pw-link -l | grep TTS` - must show TTS_Output linked to TTSMic
-2. `pactl get-default-source` - must be TTSMicSource
-3. Run: `pw-link TTS_Output:monitor_FL TTSMic:playback_FL && pw-link TTS_Output:monitor_FR TTSMic:playback_FR`
+### No TTS audio reaching Chrome
 
-### OBS not getting audio
-OBS needs to capture `TTS_Output.monitor` as an audio source, not the default output.
+1. Check audio player shows: `[TTS] audio client connected` (not "events")
+2. Check audio player shows: `[Player] Output Sink: TTS_Output`
+3. Verify routing: `pw-link -l | grep TTS`
 
-### Button click not working
-The script handles both English "Start" and Japanese "スタート" buttons.
+### Grading shows 0%
+
+Chrome mic isn't receiving TTS. Check:
+1. `pactl get-default-source` → should be `TTS_Mic`
+2. Chrome site settings → Microphone → `TTS_Mic`
+
+### OBS has doubled/echo audio
+
+1. OBS Settings → Audio → Disable Desktop Audio and Mic/Aux
+2. Advanced Audio Properties → Monitor Off for capture sources
+3. Only use ONE capture method per audio source
+
+### Services won't start (port in use)
+
+```bash
+bun run cleanup
+```

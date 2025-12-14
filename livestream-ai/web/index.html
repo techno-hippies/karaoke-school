@@ -27,8 +27,8 @@
     }
 
     #avatar-container {
-      width: 400px;
-      height: 600px;
+      width: 350px;
+      height: 450px;
       position: relative;
     }
 
@@ -36,87 +36,193 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      object-position: bottom;
     }
 
-    #status {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      border-radius: 4px;
-      font-size: 12px;
-      z-index: 100;
-    }
-
-    #status.connected {
-      background: rgba(0, 128, 0, 0.7);
-    }
-
-    #status.speaking {
-      background: rgba(128, 0, 128, 0.7);
-    }
-
-    /* Subtle idle animation */
-    @keyframes idle-bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-5px); }
+    /* Subtle idle breathing animation */
+    @keyframes idle-breathe {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-3px) scale(1.005); }
     }
 
     #avatar-container.idle {
-      animation: idle-bounce 3s ease-in-out infinite;
+      animation: idle-breathe 4s ease-in-out infinite;
     }
 
-    /* Speaking animation */
-    @keyframes speaking-pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.02); }
+    /* Speaking has slight bounce */
+    @keyframes speaking-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
     }
 
     #avatar-container.speaking {
-      animation: speaking-pulse 0.3s ease-in-out infinite;
+      animation: speaking-bounce 0.15s ease-in-out infinite;
+    }
+
+    /* Happy celebration */
+    @keyframes happy-bounce {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-8px) rotate(-2deg); }
+      75% { transform: translateY(-8px) rotate(2deg); }
+    }
+
+    #avatar-container.happy {
+      animation: happy-bounce 0.4s ease-in-out infinite;
     }
   </style>
 </head>
 <body>
-  <div id="status">Connecting...</div>
-
   <div id="container">
     <div id="avatar-container" class="idle">
-      <!-- Live2D will be rendered here later. For now, placeholder image -->
-      <img id="avatar" src="placeholder.png" alt="Avatar" />
+      <img id="avatar" src="/avatars/pngtuber/eyes-open-mouth-closed.png" alt="Avatar" />
     </div>
   </div>
 
   <script>
-    const WS_URL = 'ws://localhost:3030/overlay'
+    const WS_URL = 'ws://localhost:3031?mode=audio' // TTS audio WebSocket
+    const params = new URLSearchParams(location.search)
+    const PLAY_AUDIO = params.get('playAudio') === '1' || params.get('audio') === '1'
+    console.log(`[Audio] Playback ${PLAY_AUDIO ? 'enabled' : 'muted'} (add ?playAudio=1 to enable)`)
 
-    const status = document.getElementById('status')
+    // PNGTuber sprite paths
+    const SPRITES = {
+      idle: '/avatars/pngtuber/eyes-open-mouth-closed.png',
+      talk: '/avatars/pngtuber/eyes-open-mouth-open.png',
+      blink: '/avatars/pngtuber/eyes-closed-mouth-closed.png',
+      happy: '/avatars/pngtuber/happy-eyes-open-mouth-open.png',
+    }
+
+    // Preload images
+    Object.values(SPRITES).forEach(src => {
+      const img = new Image()
+      img.src = src
+    })
+
     const avatarContainer = document.getElementById('avatar-container')
+    const avatar = document.getElementById('avatar')
 
     let ws = null
     let audioContext = null
     let audioQueue = []
     let isPlaying = false
+    let isSpeaking = false
+    let mouthOpen = false
+    let mouthInterval = null
+    let blinkTimeout = null
+    let isBlinking = false
+    let currentEmotion = 'neutral' // neutral, happy
+    let stopSpeakingTimeout = null
 
-    // Initialize audio context on first user interaction
+    // ============ PNGTuber State Management ============
+
+    function updateSprite() {
+      // Priority: blink > emotion > speaking > idle
+      if (isBlinking && !isSpeaking) {
+        avatar.src = SPRITES.blink
+      } else if (currentEmotion === 'happy') {
+        avatar.src = SPRITES.happy
+      } else if (isSpeaking && mouthOpen) {
+        avatar.src = SPRITES.talk
+      } else {
+        avatar.src = SPRITES.idle
+      }
+    }
+
+    function startSpeaking() {
+      if (isSpeaking) return
+      isSpeaking = true
+      mouthOpen = true
+      updateSprite()
+      avatarContainer.className = 'speaking'
+
+      // Alternate mouth open/closed for talking effect
+      mouthInterval = setInterval(() => {
+        mouthOpen = !mouthOpen
+        updateSprite()
+      }, 120) // Toggle every 120ms
+    }
+
+    function stopSpeaking() {
+      isSpeaking = false
+      mouthOpen = false
+      if (mouthInterval) {
+        clearInterval(mouthInterval)
+        mouthInterval = null
+      }
+      updateSprite()
+
+      if (currentEmotion === 'happy') {
+        avatarContainer.className = 'happy'
+      } else {
+        avatarContainer.className = 'idle'
+      }
+    }
+
+    function triggerBlink() {
+      if (isSpeaking) return // Don't blink while talking
+
+      isBlinking = true
+      updateSprite()
+
+      setTimeout(() => {
+        isBlinking = false
+        updateSprite()
+      }, 150) // Blink duration
+    }
+
+    function scheduleNextBlink() {
+      // Random blink every 2-5 seconds
+      const delay = 2000 + Math.random() * 3000
+      blinkTimeout = setTimeout(() => {
+        triggerBlink()
+        scheduleNextBlink()
+      }, delay)
+    }
+
+    function setEmotion(emotion, duration = 3000) {
+      currentEmotion = emotion
+      updateSprite()
+
+      if (emotion === 'happy') {
+        avatarContainer.className = 'happy'
+      }
+
+      // Reset to neutral after duration
+      if (duration > 0) {
+        setTimeout(() => {
+          currentEmotion = 'neutral'
+          updateSprite()
+          if (!isSpeaking) {
+            avatarContainer.className = 'idle'
+          }
+        }, duration)
+      }
+    }
+
+    // ============ Audio Handling ============
+
     function initAudio() {
+      if (!PLAY_AUDIO) return
       if (!audioContext) {
         audioContext = new AudioContext()
         console.log('[Audio] Context initialized')
       }
     }
 
-    // Connect to server
+    function scheduleStopSpeaking(delayMs = 800) {
+      if (stopSpeakingTimeout) clearTimeout(stopSpeakingTimeout)
+      stopSpeakingTimeout = setTimeout(() => {
+        stopSpeaking()
+      }, delayMs)
+    }
+
     function connect() {
       ws = new WebSocket(WS_URL)
 
       ws.onopen = () => {
         console.log('[WS] Connected')
-        status.textContent = 'Connected'
-        status.className = 'connected'
-        initAudio()
+        if (PLAY_AUDIO) initAudio()
+        scheduleNextBlink()
       }
 
       ws.onmessage = async (event) => {
@@ -124,27 +230,39 @@
           const msg = JSON.parse(event.data)
 
           if (msg.type === 'audio' && msg.audio) {
-            // Decode base64 audio and queue it
-            const audioData = atob(msg.audio)
-            const audioArray = new Uint8Array(audioData.length)
-            for (let i = 0; i < audioData.length; i++) {
-              audioArray[i] = audioData.charCodeAt(i)
+            startSpeaking()
+            // Reset stop timer on each chunk (keeps animating while audio streams in)
+            scheduleStopSpeaking(1000)
+
+            if (PLAY_AUDIO) {
+              // Decode base64 audio and queue it
+              const audioData = atob(msg.audio)
+              const audioArray = new Uint8Array(audioData.length)
+              for (let i = 0; i < audioData.length; i++) {
+                audioArray[i] = audioData.charCodeAt(i)
+              }
+
+              audioQueue.push(audioArray.buffer)
+
+              if (!isPlaying) {
+                playQueue()
+              }
             }
-
-            audioQueue.push(audioArray.buffer)
-
-            if (!isPlaying) {
-              playQueue()
-            }
-
-            // Show speaking state
-            status.textContent = 'Speaking...'
-            status.className = 'speaking'
-            avatarContainer.className = 'speaking'
           }
 
           if (msg.type === 'audio' && msg.isFinal) {
             console.log('[Audio] Speech complete')
+            scheduleStopSpeaking(300)
+          }
+
+          // Handle emotion events (e.g., from karaoke scoring)
+          if (msg.type === 'emotion') {
+            setEmotion(msg.emotion, msg.duration || 3000)
+          }
+
+          // Handle score events
+          if (msg.type === 'score' && msg.score >= 80) {
+            setEmotion('happy', 3000)
           }
         } catch (err) {
           console.error('[WS] Failed to parse message:', err)
@@ -153,9 +271,11 @@
 
       ws.onclose = () => {
         console.log('[WS] Disconnected')
-        status.textContent = 'Disconnected'
-        status.className = ''
-        avatarContainer.className = 'idle'
+        stopSpeaking()
+        audioQueue = []
+        isPlaying = false
+        if (stopSpeakingTimeout) clearTimeout(stopSpeakingTimeout)
+        if (blinkTimeout) clearTimeout(blinkTimeout)
 
         // Reconnect after 2s
         setTimeout(connect, 2000)
@@ -166,13 +286,10 @@
       }
     }
 
-    // Play queued audio chunks
     async function playQueue() {
       if (!audioContext || audioQueue.length === 0) {
         isPlaying = false
-        avatarContainer.className = 'idle'
-        status.textContent = 'Connected'
-        status.className = 'connected'
+        stopSpeaking()
         return
       }
 
@@ -195,11 +312,36 @@
       }
     }
 
-    // Start connection
-    connect()
+    // ============ Keyboard Controls (for testing) ============
 
-    // Initialize audio on click (required by browsers)
-    document.addEventListener('click', initAudio)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 's') {
+        // Toggle speaking (for testing without audio)
+        if (isSpeaking) {
+          stopSpeaking()
+        } else {
+          startSpeaking()
+        }
+      }
+      if (e.key === 'h') {
+        // Trigger happy emotion
+        setEmotion('happy', 3000)
+      }
+      if (e.key === 'b') {
+        // Manual blink
+        triggerBlink()
+      }
+    })
+
+    // ============ Start ============
+
+    connect()
+    if (PLAY_AUDIO) document.addEventListener('click', initAudio)
+
+    console.log('[PNGTuber] Ready!')
+    console.log('  Press S to toggle speaking')
+    console.log('  Press H for happy emotion')
+    console.log('  Press B to blink')
   </script>
 </body>
 </html>

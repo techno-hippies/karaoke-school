@@ -137,6 +137,11 @@ bun src/scripts/emit-clip-full.ts --iswc=T0112199333
 
 # 10. Emit exercises to chain
 bun src/scripts/emit-exercises.ts --iswc=T0112199333
+
+# 11. (Optional) Emit additional translations via TranslationEvents
+# This allows adding new languages without re-emitting the clip
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --language=ja  # Single language
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --all          # All available
 ```
 
 ## Scripts Reference
@@ -158,6 +163,7 @@ bun src/scripts/emit-exercises.ts --iswc=T0112199333
 | `create-clip.ts` | Crop enhanced instrumental to clip | `--iswc`, `--dry-run` |
 | `emit-clip-full.ts` | Full emit with Zod validation | `--iswc`, `--upload-images`, `--dry-run` |
 | `emit-exercises.ts` | Emit exercises to chain | `--iswc`, `--limit` |
+| `emit-translation.ts` | Emit lyric translations (extensible, no re-emit) | `--iswc`, `--language`, `--all`, `--update`, `--dry-run` |
 
 ### Video Generation & Posting
 
@@ -192,8 +198,8 @@ bun src/scripts/create-lens-account.ts --handle=newaccount
 ### Song Purchase (SongAccess Contract)
 
 Songs are purchased via the **SongAccess** custom ERC-721 contract on Base Sepolia.
-- Price: ~$0.10 USDC (one-time purchase)
-- Contract: `0x8d5C708E4e91d17De2A320238Ca1Ce12FcdFf545`
+- Price: ~0.000033 ETH (~$0.10) one-time purchase
+- Contract: `0x7856C6121b3Fb861C31cb593a65236858d789bDB`
 - Lit Protocol checks `ownsSongByTrackId()` for decryption access
 
 No deployment scripts needed - the contract is already deployed and handles all songs.
@@ -244,12 +250,19 @@ Rules:
 |----------|---------|---------|
 | KaraokeEvents | `0xd942eB51C86c46Db82678627d19Aa44630F901aE` | Clip lifecycle + karaoke grading (V6 - JSON 12-language localizations) |
 | ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | FSRS study cards |
-| TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | Translation additions |
+| TranslationEvents | `0xB524A8A996CE416484eB4fd8f18D9c04a147FdeD` | Translation additions (extensible lyric translations) |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | User accounts |
 
 **Network**: Lens Testnet (Chain ID: 37111)
 **RPC**: `https://rpc.testnet.lens.xyz`
 **Explorer**: `https://block-explorer.testnet.lens.dev`
+
+Notes:
+- **Lyric translations** come from two sources (in priority order):
+  1. `TranslationEvents` via subgraph (`clip.translations[]`) - extensible, no re-emission needed
+  2. Inline `*_text` fields in `metadataUri` (`karaoke_lines[].zh_text`, etc.) - legacy fallback
+- Use `emit-translation.ts` to add new languages without re-emitting clips
+- `ClipToggled` is an optional "hide this clip" switch for moderation; it is not required for the free-preview vs paid-unlock flow.
 
 ## Environment Variables
 
@@ -417,7 +430,7 @@ bun src/scripts/generate-video.ts \
 
 ## Subgraph
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-translation-events`
 
 ```graphql
 query {
@@ -426,15 +439,80 @@ query {
     spotifyTrackId
     clipStartMs
     clipEndMs
+    translations {
+      languageCode
+      translationUri
+    }
   }
-  translationQuestions(first: 10) {
+  exerciseCards(first: 10) {
     id
     spotifyTrackId
+    exerciseType
     languageCode
     metadataUri
   }
 }
 ```
+
+## Extensible Translation System
+
+Lyric translations can be added without re-emitting clips using `TranslationEvents`.
+
+### Why Use TranslationEvents?
+
+| Scenario | Without TranslationEvents | With TranslationEvents |
+|----------|---------------------------|------------------------|
+| Add Japanese to 100 songs | Re-emit 100 `ClipProcessed` events | Emit 100 `TranslationAdded` events |
+| Fix typo in Chinese line | Re-upload metadata, re-emit clip | Emit `TranslationUpdated` |
+| Disable bad translation | Re-upload metadata without it | Emit `TranslationToggled(false)` |
+
+### Translation Priority (App)
+
+The app loads translations in this priority order:
+1. **TranslationEvents** (`clip.translations[]` from subgraph) - highest priority
+2. **Inline `*_text`** fields in `karaoke_lines` - legacy fallback
+
+### Usage
+
+```bash
+# Add a new language translation
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --language=ja
+
+# Emit all available translations for a song
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --all
+
+# Update an existing translation (re-emit with new content)
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --language=ja --update
+
+# Dry run to preview
+bun src/scripts/emit-translation.ts --iswc=T0112199333 --all --dry-run
+```
+
+### Translation Metadata Structure
+
+Stored on Grove, referenced by `TranslationAdded` event:
+
+```typescript
+{
+  version: "1.0.0",
+  clipHash: "0x...",
+  spotifyTrackId: "...",
+  iswc: "T0112199333",
+  languageCode: "ja",
+  languageName: "日本語",
+  generatedAt: "2025-12-12T...",
+  validated: false,
+  lines: [
+    { line_index: 0, text: "日本語の翻訳" },
+    { line_index: 1, text: "..." },
+  ],
+  lineCount: 31
+}
+```
+
+### Supported Languages
+
+`zh`, `vi`, `id`, `ja`, `ko`, `es`, `pt`, `ar`, `tr`, `ru`, `hi`, `th`
 
 ## Clip Metadata Structure (v2.0.0)
 
@@ -459,7 +537,13 @@ Clip metadata is validated with Zod (`pipeline/src/lib/schemas.ts`) before uploa
   // Audio assets
   assets: {
     clipInstrumental: '...',      // Free clip audio (~50s)
-    fullInstrumental: '...',      // Full song audio (subscribers)
+    clipLyrics: '...',            // Optional: clip lyrics JSON
+    alignment: null,              // Optional: alignment JSON (if uploaded)
+  },
+
+  // Premium audio access control + decryption info (required for full song)
+  encryption: {
+    encryptionMetadataUri: '...', // Hybrid AES-GCM + Lit metadata JSON (SongAccess gated)
   },
 
   // Lyrics - FREE users (clip portion only)
@@ -481,11 +565,11 @@ Clip metadata is validated with Zod (`pipeline/src/lib/schemas.ts`) before uploa
 
 | Feature | Free User | Subscriber |
 |---------|-----------|------------|
-| Audio | `clipInstrumental` (~50s) | `fullInstrumental` (full song) |
+| Audio | `clipInstrumental` (~50s) | Full song via `encryption.encryptionMetadataUri` |
 | Lyrics | `karaoke_lines` (clip only) | `full_karaoke_lines` (all lines) |
 | Karaoke Practice | Clip portion only | Full song |
 
-The frontend (`MediaPageContainer.tsx`) automatically selects the right lyrics based on purchase status:
+The frontend automatically selects the right lyrics based on purchase status:
 - Checks ownership via SongAccess contract on Base Sepolia
 - Uses `full_karaoke_lines` if purchased, `karaoke_lines` otherwise
 

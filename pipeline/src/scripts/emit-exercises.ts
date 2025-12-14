@@ -197,15 +197,17 @@ async function main() {
         );
       } else {
         // Translation questions are linked to specific lines
-        const lineId = exercise.lyric_id ? uuidToBytes32(exercise.lyric_id) : ethers.ZeroHash;
+        if (!exercise.lyric_id) {
+          throw new Error('Missing lyric_id for translation exercise');
+        }
+        const lineId = uuidToBytes32(exercise.lyric_id);
 
-        // Calculate segment hash (use clip start if available, otherwise 0)
+        // Calculate segment hash (must match KaraokeEvents.getClipHash / emit-clip-full.ts)
+        // keccak256(abi.encodePacked(spotifyTrackId, clipStartMs))
         const clipStartMs = exercise.clip_start_ms || 0;
-        const segmentHash = ethers.keccak256(
-          ethers.AbiCoder.defaultAbiCoder().encode(
-            ['string', 'uint32'],
-            [exercise.spotify_track_id, clipStartMs]
-          )
+        const segmentHash = ethers.solidityPackedKeccak256(
+          ['string', 'uint32'],
+          [exercise.spotify_track_id, clipStartMs]
         );
 
         const lineIndex = exercise.line_index || 0;

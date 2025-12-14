@@ -69,13 +69,6 @@ function loadOrCreateGlobalStats(): GlobalStats {
   return stats;
 }
 
-// Helper to calculate confidence level from score
-function getConfidenceLevel(score: i32): string {
-  if (score >= 8000) return "HIGH";
-  if (score >= 6000) return "MEDIUM";
-  return "LOW";
-}
-
 // Helper to check if clip has instrumental/alignments
 function updateClipProcessingStatus(clip: Clip): void {
   clip.hasInstrumental = clip.instrumentalUri != null && clip.instrumentalUri != "";
@@ -164,7 +157,9 @@ export function handleClipProcessed(event: ClipProcessed): void {
 
   if (clip != null) {
     clip.instrumentalUri = event.params.instrumentalUri;
-    clip.alignmentUri = event.params.alignmentUri;
+    // Treat empty string as "not provided" to keep entity data clean.
+    let alignmentUri = event.params.alignmentUri;
+    clip.alignmentUri = alignmentUri.length > 0 ? alignmentUri : null;
     clip.translationCount = event.params.translationCount;
     clip.metadataUri = event.params.metadataUri;
     clip.processedAt = event.params.timestamp;
@@ -304,14 +299,11 @@ export function handleTranslationAdded(event: TranslationAdded): void {
   translation.clipHash = event.params.segmentHash;
   translation.languageCode = event.params.languageCode.toString();
   translation.translationUri = event.params.translationUri;
-  translation.translationSource = event.params.translationSource;
-  translation.confidenceScore = event.params.confidenceScore; // Already i32
-  translation.validated = event.params.validated;
+  translation.validated = false;
   translation.addedBy = event.params.addedBy;
   translation.addedAt = event.params.timestamp;
   translation.updatedAt = event.params.timestamp;
   translation.enabled = true;
-  translation.confidenceLevel = getConfidenceLevel(event.params.confidenceScore);
   translation.save();
 
   // Update clip translation count
@@ -408,9 +400,7 @@ export function handleTriviaQuestionRegistered(event: TriviaQuestionRegistered):
   let card = new ExerciseCard(cardId);
   card.questionId = event.params.questionId;
   card.exerciseType = "TRIVIA_MULTIPLE_CHOICE";
-  // spotifyTrackId is indexed (string -> keccak hash), so actual value must be fetched from metadata
-  // We store the hash hex for filtering, app fetches real trackId from metadataUri
-  card.spotifyTrackId = event.params.spotifyTrackId.toHexString();
+  card.spotifyTrackId = event.params.spotifyTrackId;
   card.languageCode = event.params.languageCode;
   card.metadataUri = event.params.metadataUri;
   card.distractorPoolSize = event.params.distractorPoolSize;

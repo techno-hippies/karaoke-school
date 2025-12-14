@@ -24,6 +24,7 @@ import { StorageManifestSchema, formatZodErrors } from '../lib/schemas';
 import type { StorageManifest } from '../types';
 
 const ARWEAVE_WALLET_PATH = './arweave-wallet.json';
+const SUBGRAPH_URL = 'https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-json-localizations';
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -139,7 +140,7 @@ async function backfillMetadata(dryRun: boolean, limit?: number, iswc?: string) 
 
   const spotifyIds = clips.map(c => c.spotify_track_id).filter(Boolean);
 
-  const subgraphResponse = await fetch('https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v0.0.12', {
+  const subgraphResponse = await fetch(SUBGRAPH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -189,7 +190,7 @@ async function backfillMetadata(dryRun: boolean, limit?: number, iswc?: string) 
       const contentHash = createHash('sha256').update(buffer).digest('hex');
 
       // Start building manifest from existing or fresh
-      const existingManifest = clip.storage_manifest || {};
+      const existingManifest: Partial<StorageManifest> = clip.storage_manifest ?? {};
       const manifest: StorageManifest = {
         ...existingManifest,
         contentHash,
@@ -362,7 +363,7 @@ async function backfillAudioToLighthouse(dryRun: boolean, limit?: number, iswc?:
 
       // Update storage manifest
       const contentHash = createHash('sha256').update(audioBuffer).digest('hex');
-      const existingManifest = song.storage_manifest || {};
+      const existingManifest: Partial<StorageManifest> = song.storage_manifest ?? {};
 
       const manifest: StorageManifest = {
         ...existingManifest,

@@ -30,7 +30,6 @@ export interface Clip {
   translations: Array<{
     languageCode: string
     translationUri: string
-    confidenceScore: number
   }>
   metadata?: SongMetadata
 }
@@ -107,10 +106,9 @@ const CLIPS_QUERY = gql`
           lensAccountAddress
         }
       }
-      translations(first: 10, orderBy: confidenceScore, orderDirection: desc) {
+      translations(first: 10, orderBy: addedAt, orderDirection: desc) {
         languageCode
         translationUri
-        confidenceScore
       }
     }
   }

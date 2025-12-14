@@ -111,6 +111,10 @@ export const GradeSlotMachine: Component<GradeSlotMachineProps> = (props) => {
             hasLanded() && props.grade && gradeGlows[props.grade],
             hasLanded() && 'animate-slot-land'
           )}
+          data-testid="karaoke-grade"
+          data-grade={displayGrade()}
+          data-has-landed={hasLanded() ? 'true' : 'false'}
+          data-final-grade={props.grade || ''}
         >
           {displayGrade()}
         </p>

@@ -160,7 +160,7 @@ const encryptionSchema = z.object({
   encryptedFullUri: optionalGroveUrlSchema,
   manifestUri: optionalGroveUrlSchema,
   litNetwork: z.string().min(1),
-  // SongAccess ERC-721: Single contract for all songs (per-song USDC purchase)
+  // SongAccess ERC-721: Single contract for all songs (per-song ETH purchase)
   songAccessAddress: addressSchema,
   songAccessChainId: z.number().int().positive(),
 }).nullable();
@@ -471,3 +471,101 @@ export function validatePostMetadata(data: unknown): PostMetadata {
 export function safeValidatePostMetadata(data: unknown): z.SafeParseReturnType<unknown, PostMetadata> {
   return PostMetadataSchema.safeParse(data);
 }
+
+// ============================================================================
+// TRANSLATION SCHEMAS (for TranslationEvents)
+// ============================================================================
+
+/**
+ * ISO 639-1 language codes supported for translations
+ */
+export const SUPPORTED_LANGUAGES = [
+  'zh', 'vi', 'id', 'ja', 'ko', 'es', 'pt', 'ar', 'tr', 'ru', 'hi', 'th'
+] as const;
+
+export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
+
+const languageCodeSchema = z.enum(SUPPORTED_LANGUAGES);
+
+/**
+ * Translation Line Schema
+ * A single translated line with optional word-level timing
+ */
+const translationLineSchema = z.object({
+  line_index: z.number().int().min(0),
+  text: z.string().min(1),
+  // Optional word-level timing for karaoke highlighting in this language
+  words: z.array(z.object({
+    text: z.string(),
+    start_ms: z.number().int().min(0),
+    end_ms: z.number().int().min(0),
+  })).optional(),
+});
+
+/**
+ * Translation Metadata Schema
+ *
+ * JSON structure uploaded to Grove and referenced by TranslationAdded events.
+ * Each file contains translations for ONE language for ONE clip.
+ *
+ * Usage:
+ *   TranslationAdded(clipHash, "ja", groveUri) → groveUri points to this JSON
+ */
+export const TranslationMetadataSchema = z.object({
+  // Version for future schema evolution
+  version: z.literal('1.0.0'),
+
+  // Identifiers - link back to the clip
+  clipHash: bytes32Schema,
+  spotifyTrackId: spotifyTrackIdSchema,
+  iswc: iswcSchema.optional(), // Optional for backwards compat
+
+  // Language
+  languageCode: languageCodeSchema,
+  languageName: z.string().min(1), // Human-readable, e.g., "Japanese", "日本語"
+
+  // Generation metadata
+  generatedAt: z.string().datetime(),
+  model: z.string().optional(), // AI model used, e.g., "gpt-4o", "gemini-2.5-flash"
+  validated: z.boolean().default(false), // Human-validated flag
+
+  // The actual translations - one per line in the original
+  lines: z.array(translationLineSchema).min(1),
+
+  // Stats
+  lineCount: z.number().int().min(1),
+});
+
+export type TranslationMetadata = z.infer<typeof TranslationMetadataSchema>;
+
+/**
+ * Validate translation metadata before upload
+ */
+export function validateTranslationMetadata(data: unknown): TranslationMetadata {
+  return TranslationMetadataSchema.parse(data);
+}
+
+/**
+ * Safe validation for translation metadata
+ */
+export function safeValidateTranslationMetadata(data: unknown): z.SafeParseReturnType<unknown, TranslationMetadata> {
+  return TranslationMetadataSchema.safeParse(data);
+}
+
+/**
+ * Language display names for UI
+ */
+export const LANGUAGE_NAMES: Record<SupportedLanguage, { english: string; native: string }> = {
+  zh: { english: 'Chinese', native: '中文' },
+  vi: { english: 'Vietnamese', native: 'Tiếng Việt' },
+  id: { english: 'Indonesian', native: 'Bahasa Indonesia' },
+  ja: { english: 'Japanese', native: '日本語' },
+  ko: { english: 'Korean', native: '한국어' },
+  es: { english: 'Spanish', native: 'Español' },
+  pt: { english: 'Portuguese', native: 'Português' },
+  ar: { english: 'Arabic', native: 'العربية' },
+  tr: { english: 'Turkish', native: 'Türkçe' },
+  ru: { english: 'Russian', native: 'Русский' },
+  hi: { english: 'Hindi', native: 'हिन्दी' },
+  th: { english: 'Thai', native: 'ไทย' },
+};

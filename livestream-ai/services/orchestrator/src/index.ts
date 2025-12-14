@@ -58,6 +58,31 @@ const server = Bun.serve({
         }, { headers: cors })
       }
 
+      // Unified state endpoint for agent loop
+      if (url.pathname === '/state') {
+        const [browserStatus, ttsStatus, pageInfo, karaokeStatus, lyrics] = await Promise.allSettled([
+          browserClient.status(),
+          ttsClient.status(),
+          fetch('http://localhost:3032/page').then(r => r.json()).catch(() => null),
+          fetch('http://localhost:3032/karaoke/status').then(r => r.json()).catch(() => null),
+          fetch('http://localhost:3032/lyrics').then(r => r.json()).catch(() => null),
+        ])
+
+        return Response.json({
+          timestamp: Date.now(),
+          browser: {
+            connected: browserStatus.status === 'fulfilled',
+            ...(pageInfo.status === 'fulfilled' ? pageInfo.value : {}),
+          },
+          tts: {
+            connected: ttsStatus.status === 'fulfilled',
+            ...(ttsStatus.status === 'fulfilled' ? ttsStatus.value : {}),
+          },
+          karaoke: karaokeStatus.status === 'fulfilled' ? karaokeStatus.value : null,
+          lyrics: lyrics.status === 'fulfilled' ? lyrics.value?.data : null,
+        }, { headers: cors })
+      }
+
       // Start karaoke flow
       if (url.pathname === '/flow/karaoke' && req.method === 'POST') {
         const body = await req.json() as { songPath?: string }

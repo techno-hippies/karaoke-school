@@ -15,7 +15,7 @@ npm run deploy       # Deploy to Graph Studio
 
 **Purpose**: Index smart contract events for fast GraphQL queries
 
-**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-json-localizations`
+**Endpoint**: `https://api.studio.thegraph.com/query/1715685/kschool-alpha-1/v6-translation-events`
 
 **Network**: Lens Testnet (37111)
 
@@ -23,9 +23,9 @@ npm run deploy       # Deploy to Graph Studio
 
 | Contract | Address | Events |
 |----------|---------|--------|
-| KaraokeEvents | `0xd942eB51C86c46Db82678627d19Aa44630F901aE` | ClipRegistered, ClipProcessed, SongEncrypted, KaraokeSessionStarted, KaraokeLineGraded |
+| KaraokeEvents | `0xd942eB51C86c46Db82678627d19Aa44630F901aE` | ClipRegistered, ClipProcessed, SongEncrypted, ClipLocalizationUpdated, KaraokeSessionStarted, KaraokeLineGraded |
 | TranslationEvents | `0x0A15fFdBD70FC657C3f3E17A7faFEe3cD33DF7B6` | TranslationAdded, TranslationUpdated, TranslationToggled |
-| ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | TranslationQuestionRegistered, SayItBackAttemptGraded, MultipleChoiceAttemptGraded |
+| ExerciseEvents | `0xcB2b397E02b50A0eeCecb922bb76aBE46DFb7832` | TranslationQuestionRegistered, TriviaQuestionRegistered, SayItBackAttemptGraded, MultipleChoiceAttemptGraded, QuestionToggled |
 | AccountEvents | `0x3709f41cdc9E7852140bc23A21adCe600434d4E8` | AccountCreated, AccountMetadataUpdated, AccountVerified |
 
 ## Entity Overview
@@ -57,15 +57,24 @@ Main entity for karaoke content. Created by `ClipRegistered`, enriched by `ClipP
 type Clip @entity {
   id: ID!                    # clipHash hex
   clipHash: Bytes!
-  grc20WorkId: String!       # ISWC
   spotifyTrackId: String!
+  iswc: String!
+  title: String!
+  artist: String!
+  artistSlug: String!
+  songSlug: String!
+  coverUri: String!
+  thumbnailUri: String!
   clipStartMs: Int!
   clipEndMs: Int!
-  metadataUri: String!       # Grove JSON with lyrics
+  metadataUri: String!       # Grove JSON metadata
+  registeredBy: Bytes!
+  registeredAt: BigInt!
 
   # After ClipProcessed
   instrumentalUri: String
   alignmentUri: String
+  processedAt: BigInt
   translationCount: Int!
 
   # After SongEncrypted (premium)

@@ -490,7 +490,7 @@ export async function updateSongEncryption(
 export interface CreateLyricData {
   song_id: string;
   line_index: number;
-  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko';
+  language: 'en' | 'zh' | 'vi' | 'id' | 'ja' | 'ko' | 'es' | 'pt' | 'ar' | 'tr' | 'ru' | 'hi' | 'th';
   text: string;
   section_marker?: string;
   start_ms?: number;

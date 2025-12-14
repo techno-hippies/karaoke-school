@@ -6,6 +6,7 @@ import { useSegmentMetadata } from '@/hooks/useSegmentMetadata'
 import { useSongAccess } from '@/hooks/useSongAccess'
 import { usePaymentWallet } from '@/hooks/usePaymentWallet'
 import { useSongPurchase } from '@/hooks/useSongPurchase'
+import { useTranslations } from '@/hooks/useTranslations'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/lib/i18n'
 import { getLocalizedTitle, getLocalizedArtist } from '@/lib/localize-metadata'
@@ -73,6 +74,19 @@ export const SongPlayPage: Component = () => {
 
   // Fetch clip metadata (includes lyrics and alignment)
   const clipMetadata = useSegmentMetadata(() => firstClip()?.metadataUri)
+
+  // Fetch translations from TranslationEvents (separate from inline *_text)
+  // These take priority over inline translations when available
+  const translationsHook = useTranslations(() => firstClip()?.translations)
+
+  // Sync TranslationEvents data to loadedTranslations signal
+  // This integrates with the existing translation display logic
+  createEffect(() => {
+    const eventTranslations = translationsHook.asLegacyFormat()
+    if (Object.keys(eventTranslations).length > 0) {
+      setLoadedTranslations(prev => ({ ...prev, ...eventTranslations }))
+    }
+  })
 
   // Localized title and artist based on UI language
   const localizedTitle = createMemo(() =>
@@ -275,9 +289,11 @@ export const SongPlayPage: Component = () => {
   })
 
   // Available languages
+  // Priority: TranslationEvents > inline *_text > metadata.lyrics.translations
   const availableLanguages = createMemo(() => {
     const metadata = clipMetadata.data
     const translations = loadedTranslations()
+    const eventLanguages = translationsHook.availableLanguages()
     const inline = metadata?.lyrics?.translations || {}
     const isOwned = songAccess.isOwned()
 
@@ -291,7 +307,12 @@ export const SongPlayPage: Component = () => {
     if (karaokeLinesSample?.vi_text) karaokeInline.push('vi')
     if (karaokeLinesSample?.id_text) karaokeInline.push('id')
 
-    return [...new Set([...Object.keys(inline), ...Object.keys(translations), ...karaokeInline])]
+    return [...new Set([
+      ...eventLanguages,           // TranslationEvents (highest priority)
+      ...Object.keys(translations), // Loaded translations
+      ...karaokeInline,            // Inline *_text fields
+      ...Object.keys(inline),      // Legacy metadata.lyrics.translations
+    ])]
   })
 
   const preferredLanguage = createMemo(() => getPreferredLanguage(availableLanguages()))

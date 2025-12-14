@@ -31,6 +31,16 @@ export interface LineResult {
   rating: string
 }
 
+export interface KaraokeResultsState {
+  stillGrading: boolean
+  grade: string | null
+  completed: number
+  total: number
+  skipped: number
+  averageScore: number | null
+  timedOut?: boolean
+}
+
 // ============ TTS Service ============
 
 export interface TTSSpeakRequest {

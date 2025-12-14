@@ -10,20 +10,11 @@ pragma solidity ^0.8.19;
  * - Track multi-language translations for karaoke segments
  * - Enable queries for available translation languages
  * - Link translations to segments via segmentHash
- * - Store full translation JSON (line-level with word timing) in Grove
+ * - Store translation JSON in Grove (line-level; word timing optional)
  *
- * Translation Pipeline:
- * 1. Segment registered with instrumental + alignment
- * 2. Gemini translates lyrics line-by-line (es, zh, ja, ko)
- * 3. Word timing preserved from ElevenLabs alignment
- * 4. Translation JSON uploaded to Grove
- * 5. Event emitted with Grove URI + metadata
- * 6. Subgraph indexes for language queries
- *
- * Translation Quality:
- * - confidenceScore: 0-10000 (Gemini's confidence × 10000)
- * - validated: Human-verified translations marked true
- * - translationSource: Model used (e.g., "gemini-flash-2.5")
+ * Notes:
+ * - Events are intentionally minimal; any model/source/confidence should be stored in the Grove JSON.
+ * - Human validation status is tracked via TranslationUpdated(validated).
  *
  * Gas Cost: ~25k per event
  */

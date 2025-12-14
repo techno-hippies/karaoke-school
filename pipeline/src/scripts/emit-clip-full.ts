@@ -435,7 +435,7 @@ async function buildClipMetadata(
       encryptedFullUri: encryptedFullUrl || null, // v1 (deprecated): encrypted blob
       manifestUri: null, // Deprecated in v2+
       litNetwork: litNetwork!,
-      // SongAccess ERC-721: Single contract for all songs (per-song USDC purchase)
+      // SongAccess ERC-721: Single contract for all songs (per-song ETH purchase)
       songAccessAddress: SONG_ACCESS_CONTRACT[env].address,
       songAccessChainId: SONG_ACCESS_CONTRACT[env].chainId,
     } : null,
@@ -667,7 +667,7 @@ async function main() {
   const tx2 = await clipContract.emitClipProcessed(
     clipHash,
     song.clip_instrumental_url!,
-    song.clip_lyrics_url || '', // alignment URI
+    '', // alignmentUri (optional; word timings are embedded in metadata.karaoke_lines[].words)
     1, // translation count
     metadataUrl
   );

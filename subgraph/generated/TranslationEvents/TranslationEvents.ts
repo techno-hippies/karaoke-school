@@ -35,24 +35,12 @@ export class TranslationAdded__Params {
     return this._event.parameters[2].value.toString();
   }
 
-  get translationSource(): string {
-    return this._event.parameters[3].value.toString();
-  }
-
-  get confidenceScore(): i32 {
-    return this._event.parameters[4].value.toI32();
-  }
-
-  get validated(): boolean {
-    return this._event.parameters[5].value.toBoolean();
-  }
-
   get addedBy(): Address {
-    return this._event.parameters[6].value.toAddress();
+    return this._event.parameters[3].value.toAddress();
   }
 
   get timestamp(): BigInt {
-    return this._event.parameters[7].value.toBigInt();
+    return this._event.parameters[4].value.toBigInt();
   }
 }
 
@@ -157,18 +145,6 @@ export class EmitTranslationAddedCall__Inputs {
 
   get translationUri(): string {
     return this._call.inputValues[2].value.toString();
-  }
-
-  get translationSource(): string {
-    return this._call.inputValues[3].value.toString();
-  }
-
-  get confidenceScore(): i32 {
-    return this._call.inputValues[4].value.toI32();
-  }
-
-  get validated(): boolean {
-    return this._call.inputValues[5].value.toBoolean();
   }
 }
 

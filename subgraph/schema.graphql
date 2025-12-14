@@ -88,16 +88,11 @@ type Translation @entity(immutable: false) {
   clipHash: Bytes!
   languageCode: String!
   translationUri: String!
-  translationSource: String!
-  confidenceScore: Int!
   validated: Boolean!
   addedBy: Bytes!
   addedAt: BigInt!
   updatedAt: BigInt
   enabled: Boolean!
-
-  # Computed
-  confidenceLevel: String!
 }
 
 """

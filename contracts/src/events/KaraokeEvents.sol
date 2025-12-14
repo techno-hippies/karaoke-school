@@ -88,7 +88,9 @@ contract KaraokeEvents {
      * @notice Emitted when clip processing completes with instrumental/alignment assets
      * @param clipHash Unique clip identifier
      * @param instrumentalUri Grove URI for the karaoke instrumental clip
-     * @param alignmentUri Grove URI for alignment metadata (word timing)
+     * @param alignmentUri Optional Grove URI for standalone alignment metadata.
+     *        Note: word-level timing can also be embedded directly in metadataUri (karaoke_lines[].words),
+     *        so alignmentUri may be empty when not needed.
      * @param translationCount Number of translations published for this clip
      * @param metadataUri Grove URI containing updated metadata with asset references
      * @param timestamp Block timestamp

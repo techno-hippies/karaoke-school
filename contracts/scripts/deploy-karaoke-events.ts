@@ -49,7 +49,7 @@ async function main() {
 
     // Save ABI for subgraph (contracts/scripts -> karaoke-school-v1/subgraph)
     const abiPath = path.join(__dirname, '../../subgraph/abis/KaraokeEvents.json');
-    fs.writeFileSync(abiPath, JSON.stringify({ abi: artifact.abi }, null, 2));
+    fs.writeFileSync(abiPath, JSON.stringify(artifact.abi, null, 2));
     console.log('✅ ABI saved to:', abiPath);
 
     // Test emit functions

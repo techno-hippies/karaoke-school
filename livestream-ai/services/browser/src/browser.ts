@@ -28,9 +28,24 @@ export class BrowserController {
     if (this.config.cdpUrl) {
       // Connect to existing Chrome instance
       console.log(`[Browser] Connecting to ${this.config.cdpUrl}`)
-      this.browser = await chromium.connectOverCDP(this.config.cdpUrl)
-      const contexts = this.browser.contexts()
-      this.context = contexts[0] || await this.browser.newContext()
+      try {
+        this.browser = await chromium.connectOverCDP(this.config.cdpUrl)
+        const contexts = this.browser.contexts()
+        this.context = contexts[0] || await this.browser.newContext()
+      } catch (err) {
+        // Fallback: connect directly to a page's WebSocket
+        console.log(`[Browser] connectOverCDP failed, trying page endpoint...`)
+        const res = await fetch(`${this.config.cdpUrl}/json`)
+        const targets = await res.json() as { webSocketDebuggerUrl: string; type: string }[]
+        const pageTarget = targets.find(t => t.type === 'page')
+        if (!pageTarget) throw new Error('No page target found')
+
+        const wsUrl = pageTarget.webSocketDebuggerUrl
+        console.log(`[Browser] Connecting to page: ${wsUrl}`)
+        this.browser = await chromium.connectOverCDP(wsUrl)
+        const contexts = this.browser.contexts()
+        this.context = contexts[0] || await this.browser.newContext()
+      }
     } else {
       // Launch new browser
       console.log('[Browser] Launching new browser')
